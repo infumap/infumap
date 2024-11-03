@@ -787,7 +787,7 @@ pub fn migrate_record_v12_to_v13(kvs: &Map<String, Value>) -> InfuResult<Map<Str
       let mut result = kvs.clone();
       let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
       if item_type == "page" {
-        let existing = result.insert(String::from("justifiedRowAspect"), Value::Number(Number::from_f64(5.0 as f64).ok_or("invalid justifiedRowAspect")?));
+        let existing = result.insert(String::from("justifiedRowAspect"), Value::Number(Number::from_f64(7.0 as f64).ok_or("invalid justifiedRowAspect")?));
         if existing.is_some() { return Err("justifiedRowAspect field already exists.".into()); }
       }
       if item_type == "page" {

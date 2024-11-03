@@ -121,7 +121,7 @@ export const PageFns = {
       gridNumberOfColumns: 6,
       gridCellAspect: 1.5,
       docWidthBl: 36,
-      justifiedRowAspect: 6.0,
+      justifiedRowAspect: 7.0,
 
       orderChildrenBy: "title[ASC]",
 
