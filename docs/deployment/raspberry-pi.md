@@ -16,7 +16,7 @@ traffic through the public IP of the VPS. This is the approach outlined in this 
 
 In terms of performance / latency, I find it notably better than hosting on a 2 vCPU, 4 GB
 [high performance Vultr VPS instance](https://www.vultr.com/pricing/#cloud-compute) @ $24 / mo, despite the additional network hops.
-This is what I was previously doing.
+This is what I was doing previously.
 
 
 ### Initial Raspberry Pi Setup
@@ -398,17 +398,14 @@ Enable and start the nftables service:
     systemctl start nftables
 
 
-### Network Interruption Test
+### Network Robustness Test
 
-From raspberry pi instance:
+Note the public IP of your home network. From your Raspberry Pi:
 
     curl -4 ifconfig.me
 
-To get public IP of home network.
-Get WLAN IP from router.
+Note your WLAN IP from router the router configuration page.
 
-Remove power from Raspberry Pi and Router for some time.
+Remove power from your router for about 5 minutes. Then turn it back on, and see if everything recovers.
 
-Turn back on, and see if everything recovers.
-
-Will need to manually re-mount secure drive on Raspberry Pi.
+Note the new public and WLAN IPs and whether they changed.
