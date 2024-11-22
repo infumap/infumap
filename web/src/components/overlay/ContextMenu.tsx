@@ -41,9 +41,10 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const newLinkInContext = () => newItemInContext(store, "link", props.hitInfo, props.desktopPosPx);
   const newPasswordInContext = () => newItemInContext(store, "password", props.hitInfo, props.desktopPosPx);
   const newExpressionInContext = () => newItemInContext(store, "expression", props.hitInfo, props.desktopPosPx);
+  const newFlipCardInContext = () => newItemInContext(store, "flipcard", props.hitInfo, props.desktopPosPx);
 
   return (
-    <div class="border rounded w-[115px] h-[242px] bg-slate-50 mb-1 shadow-lg">
+    <div class="border rounded w-[115px] h-[268px] bg-slate-50 mb-1 shadow-lg">
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newNoteInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-sticky-note" /></div> Note
       </div>
@@ -64,6 +65,9 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       </div>
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newPasswordInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-eye-slash" /></div> Password
+      </div>
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newFlipCardInContext}>
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-retweet" /></div> FlipCard
       </div>
       <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
         <div class="inline-block text-center w-[18px]"><i class="fa fa-image" /></div> Image

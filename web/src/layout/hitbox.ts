@@ -37,6 +37,7 @@ export enum HitboxFlags {
   Expand =                  0x02000,
   TableColumnContextMenu =  0x04000,
   VerticalResize =          0x08000,
+  Flip =                    0x10000,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -57,6 +58,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.ContentEditable) { result += "ContentEditable "; }
   if (flags & HitboxFlags.Expand) { result += "Expand "; }
   if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu "; }
+  if (flags & HitboxFlags.Flip) { result += "Flip "; }
   result += "(" + flags + ")";
   return result;
 }

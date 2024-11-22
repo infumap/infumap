@@ -22,6 +22,7 @@ import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { TabularFns } from "../items/base/tabular-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
+import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic } from "../util/lang";
@@ -137,6 +138,15 @@ export const itemState = {
       throw new Error(`Cannot set ${childItems.length} child items of parent '${parentId}' because it is not a container.`);
     }
     const parent = itemState.getAsContainerItem(parentId)!;
+    if (isFlipCard(parent)) {
+      const parentFlipCardItem = asFlipCardItem(parent);
+      childItems.forEach(childItem => {
+        if (!isPage(childItem)) { panic(`flipcard ${parentId} child item ${childItem.id} is not a page.`); }
+        const childPageItem = asPageItem(childItem);
+        childPageItem.innerSpatialWidthGr = parentFlipCardItem.spatialWidthGr;
+        childPageItem.naturalAspect = parentFlipCardItem.naturalAspect;
+      });
+    }
     let children: Array<Uid> = [];
     childItems.forEach(childItem => {
       if (childItem.parentId == EMPTY_UID) { panic("setChildItemsFromServerObjects: parent is empty."); }

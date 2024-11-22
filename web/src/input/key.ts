@@ -257,6 +257,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     newItemInContext(store, "expression", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
+  else if (ev.code == "KeyF") {
+    ev.preventDefault();
+    newItemInContext(store, "flipcard", hitInfo, CursorEventState.getLatestDesktopPx(store));
+  }
+
   else {
     panic(`Unexpected key code: ${ev.code}`);
   }

@@ -38,6 +38,8 @@ import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
+import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
+import { itemState } from "../store/ItemState";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -157,10 +159,17 @@ function changeMouseActionStateMaybe(
           panic("unexpected item type: " + parentVe.displayItem.itemType);
         }
       }
+
       if (isYSizableItem(activeItem)) {
         MouseActionState.get().startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
-      } else if(isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
+      } else if (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
         MouseActionState.get().startHeightBl = asLinkItem(activeItem).spatialHeightGr / GRID_SIZE;
+
+      } else if (isFlipCard(activeItem)) {
+        MouseActionState.get().startHeightBl = asXSizableItem(activeItem).spatialWidthGr / asFlipCardItem(activeItem).naturalAspect / GRID_SIZE;
+      } else if (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem)) {
+        MouseActionState.get().startHeightBl = asXSizableItem(activeVisualElement.displayItem).spatialWidthGr / asFlipCardItem(activeVisualElement.displayItem).naturalAspect / GRID_SIZE;
+
       } else {
         MouseActionState.get().startHeightBl = null;
       }
@@ -211,7 +220,8 @@ function changeMouseActionStateMaybe(
     } else {
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
-  } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags)) {
+  } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags) ||
+             VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.FlipCardPage) {
     MouseActionState.get().action = MouseAction.Selecting;
   } else {
     console.debug(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags);
@@ -271,10 +281,30 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     requireArrange = true;
   }
 
-  if (isYSizableItem(activeItem) || (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem))) {
+  if (isFlipCard(activeItem) || (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem))) {
     let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
     newHeightBl = Math.round(newHeightBl);
     if (newHeightBl < 1) { newHeightBl = 1.0; }
+    const newHeightGr = newHeightBl * GRID_SIZE;
+    const newAspect = newWidthGr / newHeightGr;
+    if (isLink(activeItem)) {
+      // Don't allow y height adjust for linked to flip cards.
+    } else {
+      // TODO (LOW): don't require arrange if there was no change.
+      const flipCardItem = asFlipCardItem(activeItem);
+      flipCardItem.naturalAspect = newAspect;
+      asPageItem(itemState.get(flipCardItem.computed_children[0])!).naturalAspect = newAspect;
+      asPageItem(itemState.get(flipCardItem.computed_children[0])!).spatialWidthGr = newWidthGr;
+      asPageItem(itemState.get(flipCardItem.computed_children[1])!).naturalAspect = newAspect;
+      asPageItem(itemState.get(flipCardItem.computed_children[1])!).spatialWidthGr = newWidthGr;
+    }
+    requireArrange = true;
+  }
+  else if (isYSizableItem(activeItem) || (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem))) {
+    let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
+    newHeightBl = Math.round(newHeightBl);
+    if (newHeightBl < 1) { newHeightBl = 1.0; }
+
     const newHeightGr = newHeightBl * GRID_SIZE;
     if (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
       if (newHeightGr != asLinkItem(activeItem).spatialHeightGr) {
@@ -466,6 +496,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.Move &&
               isComposite(HitInfoFns.getOverContainerVe(hitInfo).displayItem)) {
+      document.body.style.cursor = "pointer";
+    } else if (hitInfo.hitboxType & HitboxFlags.Flip) {
       document.body.style.cursor = "pointer";
     } else {
       document.body.style.cursor = "default";

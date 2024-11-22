@@ -35,6 +35,7 @@ import { Page_EmbeddedInteractive } from "./Page_EmbeddedInteractive";
 import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
+import { Page_FlipCard } from "./Page_FlipCard";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -200,6 +201,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     <Switch>
       <Match when={props.visualElement.flags & VisualElementFlags.UmbrellaPage}>
         <Page_Umbrella visualElement={props.visualElement} pageFns={pageFns} />
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.FlipCardPage}>
+        <Page_FlipCard visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsDock}>
         <Page_Dock visualElement={props.visualElement} pageFns={pageFns} />

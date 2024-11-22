@@ -36,6 +36,9 @@ import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
 import { isExpression } from "../../items/expression-item";
+import { isFlagsItem } from "../../items/base/flags-item";
+import { asFlipCardItem, FlipCardItem, isFlipCard } from "../../items/flipcard-item";
+import { arrangeFlipCard } from "./flipcard";
 
 
 export enum ArrangeItemFlags {
@@ -118,11 +121,16 @@ export const arrangeItem = (
       store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
+  if (isFlipCard(displayItem)) {
+    initiateLoadChildItemsMaybe(store, itemVeid);
+    return arrangeFlipCard(
+      store, parentPath, asFlipCardItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
+  }
+
   const renderAsOutline = !(flags & ArrangeItemFlags.RenderChildrenAsFull);
   flags |= (renderAsOutline ? ArrangeItemFlags.RenderAsOutline : ArrangeItemFlags.None);
   return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
 }
-
 
 export const arrangeItemNoChildren = (
     store: StoreContextModel,

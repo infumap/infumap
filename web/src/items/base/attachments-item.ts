@@ -26,7 +26,7 @@ import { ItemFns } from "./item-polymorphism";
 import { NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 
 
-const ITEM_TYPES = [ItemType.Page, ItemType.Table, ItemType.Note, ItemType.File, ItemType.Image, ItemType.Password, ItemType.Composite];
+const ITEM_TYPES = [ItemType.Page, ItemType.Table, ItemType.Note, ItemType.File, ItemType.Image, ItemType.Password, ItemType.Composite, ItemType.FlipCard];
 
 export interface AttachmentsMixin {
   computed_attachments: Array<Uid>;

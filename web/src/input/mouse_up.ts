@@ -40,6 +40,7 @@ import { panic } from "../util/lang";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
+import { isFlipCard } from "../items/flipcard-item";
 
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
@@ -75,7 +76,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       DoubleClickState.preventDoubleClick();
       if ((MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr) ||
           (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
-          (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem))) {
+          // TODO (LOW): don't update if there are no changes.
+          (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) ||
+          isFlipCard(activeItem) ||
+          (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem))) {
         serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
       }
       // mouseActionState.activeVisualElement.update(ve => {
@@ -136,6 +140,12 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           VeFns.parentPath(MouseActionState.get().activeElementPath)
         );
         store.history.setFocus(focusPath);
+
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Flip) {
+        DoubleClickState.preventDoubleClick();
+        const veid = VeFns.veidFromPath(MouseActionState.get().activeElementPath);
+        store.perItem.setFlipCardVisibleSide(veid, store.perItem.getFlipCardVisibleSide(veid) == 0 ? 1 : 0);
+        fullArrange(store);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
         store.overlay.tableColumnContextMenuInfo.set({
@@ -203,6 +213,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.IsDock) {
         DoubleClickState.preventDoubleClick();
 
+      } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.FlipCardPage) {
+        // nothing.
+
       } else {
         store.history.setFocus(MouseActionState.get().activeElementPath);
 
@@ -258,8 +271,13 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
   }
 
   if (overContainerVe.displayItem.id != activeItem.parentId) {
-    mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
-    return;
+    if (isFlipCard(overContainerVe.displayItem)) {
+      mouseUpHandler_moving_toFlipCard(store, activeItem, overContainerVe);
+      return;
+    } else {
+      mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
+      return;
+    }
   }
 
   // root page
@@ -395,6 +413,19 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   fullArrange(store);
 }
 
+function mouseUpHandler_moving_toFlipCard(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  const containerVeid = VeFns.veidFromVe(overContainerVe);
+  const flipCardItem = asContainerItem(itemState.get(containerVeid.itemId)!);
+  const visibleSide = store.perItem.getFlipCardVisibleSide(containerVeid);
+  const pageItem = asPageItem(itemState.get(flipCardItem.computed_children[visibleSide])!);
+
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  itemState.moveToNewParent(activeItem, pageItem.id, RelationshipToParent.Child);
+  serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+
+  finalizeMouseUp(store);
+  fullArrange(store);
+}
 
 function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   if (isTable(overContainerVe.displayItem)) { panic("mouseUpHandler_moving_toOpaquePage: over container is a table."); }

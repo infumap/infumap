@@ -45,6 +45,7 @@ import { asNoteItem } from "../items/note-item";
 import { asFileItem } from "../items/file-item";
 import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
+import { isFlipCard } from "../items/flipcard-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -322,7 +323,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   longHoldTimeoutId = setTimeout(() => {
     if (MouseActionState.empty()) { return; }
     if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
-    if (isPage(overDisplayItem) && !(veFlagIsRoot(hitVe.flags))) {
+    if (isPage(overDisplayItem) && !veFlagIsRoot(hitVe.flags) && !(hitVe.flags & VisualElementFlags.FlipCardPage)) {
       PageFns.handleEditTitleClick(hitVe, store);
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
@@ -456,6 +457,12 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   if (ves) {
     const ve = ves.get();
     if (ve.flags & VisualElementFlags.EmbededInteractiveRoot) {
+      store.history.setFocus(ve.parentPath!);
+      fullArrange(store);
+      return;
+    }
+
+    if (isFlipCard(ve.displayItem)) {
       store.history.setFocus(ve.parentPath!);
       fullArrange(store);
       return;

@@ -52,6 +52,9 @@ import { Image_LineItem } from "./items/Image_LineItem";
 import { FileLineItem } from "./items/File_LineItem";
 import { Composite_LineItem } from "./items/Composite_LineItem";
 import { Expression_LineItem } from "./items/Expression_LineItem";
+import { isFlipCard } from "../items/flipcard-item";
+import { FlipCard_Desktop } from "./items/FlipCard";
+import { FlipCard_LineItem } from "./items/FlipCard_LineItem";
 
 
 export interface VisualElementProps {
@@ -60,7 +63,7 @@ export interface VisualElementProps {
 
 export const VisualElement_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   return (
-    <Switch fallback={<div>VisualElementOnDesktop: unknown display item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
+    <Switch fallback={<div>VisualElement_Desktop: unknown display item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
@@ -73,13 +76,14 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
       <Match when={isPassword(props.visualElement.displayItem)}><Password {...props} /></Match>
       <Match when={isRating(props.visualElement.displayItem)}><Rating_Desktop {...props} /></Match>
       <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_Desktop {...props} /></Match>
+      <Match when={isFlipCard(props.visualElement.displayItem)}><FlipCard_Desktop {...props} /></Match>
     </Switch>
   );
 }
 
 export const VisualElement_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   return (
-    <Switch fallback={<div>VisualElementInTable: unknown display item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
+    <Switch fallback={<div>VisualElement_LineItem: unknown display item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_LineItem {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_LineItem {...props} /></Match>
@@ -92,6 +96,7 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
       <Match when={isPassword(props.visualElement.displayItem)}><PasswordLineItem {...props} /></Match>
       <Match when={isRating(props.visualElement.displayItem)}><Rating_LineItem {...props} /></Match>
       <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_LineItem {...props} /></Match>
+      <Match when={isFlipCard(props.visualElement.displayItem)}><FlipCard_LineItem {...props} /></Match>
       <Match when={props.visualElement.displayItem == EMPTY_ITEM()}><></></Match> {/* generated only for the hitboxes. */}
     </Switch>
   );

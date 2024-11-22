@@ -202,6 +202,7 @@ pub enum ItemType {
   Link,
   Placeholder,
   Expression,
+  FlipCard,
 }
 
 impl ItemType {
@@ -218,6 +219,7 @@ impl ItemType {
       ItemType::Link => "link",
       ItemType::Placeholder => "placeholder",
       ItemType::Expression => "expression",
+      ItemType::FlipCard => "flipcard",
     }
   }
 
@@ -234,6 +236,7 @@ impl ItemType {
       "link" => Ok(ItemType::Link),
       "placeholder" => Ok(ItemType::Placeholder),
       "expression" => Ok(ItemType::Expression),
+      "flipcard" => Ok(ItemType::FlipCard),
       other => Err(format!("Invalid ItemType value: '{}'.", other).into())
     }
   }
@@ -253,12 +256,12 @@ pub fn is_attachments_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File || item_type == ItemType::Note ||
   item_type == ItemType::Page || item_type == ItemType::Table ||
   item_type == ItemType::Image || item_type == ItemType::Password ||
-  item_type == ItemType::Composite
+  item_type == ItemType::FlipCard
 }
 
 pub fn is_container_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Composite
+  item_type == ItemType::Composite || item_type == ItemType::FlipCard
 }
 
 pub fn is_data_item_type(item_type: ItemType) -> bool {
@@ -269,7 +272,8 @@ pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File || item_type == ItemType::Note ||
   item_type == ItemType::Page || item_type == ItemType::Table ||
   item_type == ItemType::Image || item_type == ItemType::Password ||
-  item_type == ItemType::Composite || item_type == ItemType::Expression
+  item_type == ItemType::Composite || item_type == ItemType::Expression ||
+  item_type == ItemType::FlipCard
 }
 
 pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
@@ -284,6 +288,14 @@ pub fn is_titled_item_type(item_type: ItemType) -> bool {
 
 pub fn is_tabular_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Table || item_type == ItemType::Page
+}
+
+pub fn is_colorable_item_type(item_type: ItemType) -> bool {
+  item_type == ItemType::FlipCard || item_type == ItemType::Page
+}
+
+pub fn is_aspect_item_type(item_type: ItemType) -> bool {
+  item_type == ItemType::FlipCard || item_type == ItemType::Page
 }
 
 pub fn is_image_item(item: &Item) -> bool {
@@ -304,6 +316,10 @@ pub fn is_composite_item(item: &Item) -> bool {
 
 pub fn is_link_item(item: &Item) -> bool {
   item.item_type == ItemType::Link
+}
+
+pub fn is_flipcard_item(item: &Item) -> bool {
+  item.item_type == ItemType::FlipCard
 }
 
 pub fn is_flags_item_type(item_type: ItemType) -> bool {
@@ -387,10 +403,14 @@ pub struct Item {
   // permission flags
   pub permission_flags: Option<i64>,
 
+  // colorable
+  pub background_color_index: Option<i64>,
+
+  // aspect
+  pub natural_aspect: Option<f64>,
+
   // page
   pub inner_spatial_width_gr: Option<i64>,
-  pub natural_aspect: Option<f64>,
-  pub background_color_index: Option<i64>,
   pub arrange_algorithm: Option<ArrangeAlgorithm>,
   pub popup_position_gr: Option<Vector<i64>>,
   pub popup_alignment_point: Option<AlignmentPoint>,
@@ -630,23 +650,27 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
 
+    // colorable
+    if let Some(new_background_color_index) = new.background_color_index {
+      if match old.background_color_index { Some(o) => o != new_background_color_index, None => { true } } {
+        if !is_colorable_item_type(old.item_type) { cannot_modify_err("backgroundColorIndex", &old.id)?; }
+        result.insert(String::from("backgroundColorIndex"), Value::Number(new_background_color_index.into()));
+      }
+    }
+
+    // aspect
+    if let Some(new_natural_aspect) = new.natural_aspect {
+      if match old.natural_aspect { Some(o) => o != new_natural_aspect, None => { true } } {
+        if !is_aspect_item_type(old.item_type) { cannot_modify_err("naturalAspect", &old.id)?; }
+        result.insert(String::from("naturalAspect"), Value::Number(Number::from_f64(new_natural_aspect).ok_or(nan_err("naturalAspect", &old.id))?));
+      }
+    }
+
     // page
     if let Some(new_inner_spatial_width_gr) = new.inner_spatial_width_gr {
       if match old.inner_spatial_width_gr { Some(o) => o != new_inner_spatial_width_gr, None => { true } } {
         if old.item_type != ItemType::Page { cannot_modify_err("innerSpatialWidthGr", &old.id)?; }
         result.insert(String::from("innerSpatialWidthGr"), Value::Number(new_inner_spatial_width_gr.into()));
-      }
-    }
-    if let Some(new_natural_aspect) = new.natural_aspect {
-      if match old.natural_aspect { Some(o) => o != new_natural_aspect, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("naturalAspect", &old.id)?; }
-        result.insert(String::from("naturalAspect"), Value::Number(Number::from_f64(new_natural_aspect).ok_or(nan_err("naturalAspect", &old.id))?));
-      }
-    }
-    if let Some(new_background_color_index) = new.background_color_index {
-      if match old.background_color_index { Some(o) => o != new_background_color_index, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("backgroundColorIndex", &old.id)?; }
-        result.insert(String::from("backgroundColorIndex"), Value::Number(new_background_color_index.into()));
       }
     }
     if let Some(new_arrange_algorithm) = &new.arrange_algorithm {
@@ -859,18 +883,22 @@ impl JsonLogSerializable<Item> for Item {
       self.number_of_visible_columns = Some(v);
     }
 
+    // colorable
+    if let Some(v) = json::get_integer_field(map, "backgroundColorIndex")? {
+      if !is_colorable_item_type(self.item_type) { not_applicable_err("backgroundColorIndex", self.item_type, &self.id)?; }
+      self.background_color_index = Some(v);
+    }
+
+    // aspect
+    if let Some(v) = json::get_float_field(map, "naturalAspect")? {
+      if !is_aspect_item_type(self.item_type) { not_applicable_err("naturalAspect", self.item_type, &self.id)?; }
+      self.natural_aspect = Some(v);
+    }
+
     // page
     if let Some(v) = json::get_integer_field(map, "innerSpatialWidthGr")? {
       if self.item_type != ItemType::Page { not_applicable_err("innerSpatialWidthGr", self.item_type, &self.id)?; }
       self.inner_spatial_width_gr = Some(v);
-    }
-    if let Some(v) = json::get_float_field(map, "naturalAspect")? {
-      if self.item_type != ItemType::Page { not_applicable_err("naturalAspect", self.item_type, &self.id)?; }
-      self.natural_aspect = Some(v);
-    }
-    if let Some(v) = json::get_integer_field(map, "backgroundColorIndex")? {
-      if self.item_type != ItemType::Page { not_applicable_err("backgroundColorIndex", self.item_type, &self.id)?; }
-      self.background_color_index = Some(v);
     }
     if let Some(v) = json::get_string_field(map, "arrangeAlgorithm")? {
       if self.item_type != ItemType::Page { not_applicable_err("arrangeAlgorithm", self.item_type, &self.id)?; }
@@ -1043,20 +1071,24 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(String::from("permissionFlags"), Value::Number(permission_flags.into()));
   }
 
-  // page
-  if let Some(inner_spatial_width_gr) = item.inner_spatial_width_gr {
-    if item.item_type != ItemType::Page { unexpected_field_err("innerSpatialWidthGr", &item.id, item.item_type)? }
-    result.insert(String::from("innerSpatialWidthGr"), Value::Number(inner_spatial_width_gr.into()));
+  // colorable
+  if let Some(background_color_index) = item.background_color_index {
+    if !is_colorable_item_type(item.item_type) { unexpected_field_err("backgroundColorIndex", &item.id, item.item_type)? }
+    result.insert(String::from("backgroundColorIndex"), Value::Number(background_color_index.into()));
   }
+
+  // aspect
   if let Some(natural_aspect) = item.natural_aspect {
-    if item.item_type != ItemType::Page { unexpected_field_err("naturalAspect", &item.id, item.item_type)? }
+    if !is_aspect_item_type(item.item_type){ unexpected_field_err("naturalAspect", &item.id, item.item_type)? }
     result.insert(
       String::from("naturalAspect"),
       Value::Number(Number::from_f64(natural_aspect).ok_or(nan_err("naturalAspect", &item.id))?));
   }
-  if let Some(background_color_index) = item.background_color_index {
-    if item.item_type != ItemType::Page { unexpected_field_err("backgroundColorIndex", &item.id, item.item_type)? }
-    result.insert(String::from("backgroundColorIndex"), Value::Number(background_color_index.into()));
+
+  // page
+  if let Some(inner_spatial_width_gr) = item.inner_spatial_width_gr {
+    if item.item_type != ItemType::Page { unexpected_field_err("innerSpatialWidthGr", &item.id, item.item_type)? }
+    result.insert(String::from("innerSpatialWidthGr"), Value::Number(inner_spatial_width_gr.into()));
   }
   if let Some(arrange_algorithm) = &item.arrange_algorithm {
     if item.item_type != ItemType::Page { unexpected_field_err("arrangeAlgorithm", &item.id, item.item_type)? }
@@ -1261,18 +1293,22 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       None => { if is_permission_flags_item_type(item_type) { Err(expected_for_err("permissionFlags", item_type, &id)) } else { Ok(None) } }
     }?,
 
+    // colorable
+    background_color_index: match json::get_integer_field(map, "backgroundColorIndex")? {
+      Some(v) => { if is_colorable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("backgroundColorIndex", item_type, &id)) } },
+      None => { if is_colorable_item_type(item_type) { Err(expected_for_err("backgroundColorIndex", item_type, &id)) } else { Ok(None) } }
+    }?,
+
+    // aspect
+    natural_aspect: match json::get_float_field(map, "naturalAspect")? {
+      Some(v) => { if is_aspect_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("naturalAspect", item_type, &id)) } },
+      None => { if is_aspect_item_type(item_type) { Err(expected_for_err("naturalAspect", item_type, &id)) } else { Ok(None) } }
+    }?,
+
     // page
     inner_spatial_width_gr: match json::get_integer_field(map, "innerSpatialWidthGr")? {
       Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("innerSpatialWidthGr", item_type, &id)) } },
       None => { if item_type == ItemType::Page { Err(expected_for_err("innerSpatialWidthGr", item_type, &id)) } else { Ok(None) } }
-    }?,
-    natural_aspect: match json::get_float_field(map, "naturalAspect")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("naturalAspect", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("naturalAspect", item_type, &id)) } else { Ok(None) } }
-    }?,
-    background_color_index: match json::get_integer_field(map, "backgroundColorIndex")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("backgroundColorIndex", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("backgroundColorIndex", item_type, &id)) } else { Ok(None) } }
     }?,
     arrange_algorithm: match &json::get_string_field(map, "arrangeAlgorithm")? {
       Some(v) => {

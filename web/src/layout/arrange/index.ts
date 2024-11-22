@@ -113,7 +113,9 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   const parentArrangeAlgorithm = ArrangeAlgorithm.None;
   const flags = ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot;
   const pageVes = arrangeItem(
-    store, umbrellaPath, parentArrangeAlgorithm, actualLinkItemMaybe ? actualLinkItemMaybe : currentPage, actualLinkItemMaybe, itemGeometry, flags);
+    store, umbrellaPath, parentArrangeAlgorithm,
+    actualLinkItemMaybe ? actualLinkItemMaybe : currentPage,
+    actualLinkItemMaybe, itemGeometry, flags);
   childrenVes.push(pageVes);
   umbrellaVeSpec.childrenVes = childrenVes;
 

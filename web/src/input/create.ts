@@ -21,6 +21,7 @@ import { asAttachmentsItem } from "../items/base/attachments-item";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { ExpressionFns } from "../items/expression-item";
+import { FlipCardFns, isFlipCard } from "../items/flipcard-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
@@ -37,7 +38,7 @@ import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Vector, isInside } from "../util/geometry";
 import { panic } from "../util/lang";
-import { EMPTY_UID, Uid } from "../util/uid";
+import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
 
 
@@ -57,10 +58,26 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
     newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "expression") {
     newItem = ExpressionFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
+  } else if (type == "flipcard") {
+    newItem = FlipCardFns.create(store.user.getUser().userId, parentId, relationship, ordering);
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
   }
   return newItem;
+}
+
+function maybeAddNewChildItems(store: StoreContextModel, item: PositionalItem) {
+  if (isFlipCard(item)) {
+    const parentId = item.id;
+
+    const frontSidePageItem = PageFns.create(store.user.getUser().userId, parentId, RelationshipToParent.Child, "", itemState.newOrderingAtEndOfChildren(parentId));
+    itemState.add(frontSidePageItem);
+    server.addItem(frontSidePageItem, null, store.general.networkStatus);
+
+    const backSidePageItem = PageFns.create(store.user.getUser().userId, parentId, RelationshipToParent.Child, "", itemState.newOrderingAtEndOfChildren(parentId));
+    itemState.add(backSidePageItem);
+    server.addItem(backSidePageItem, null, store.general.networkStatus);
+  }
 }
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
@@ -82,6 +99,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     server.deleteItem(overElementVe.displayItem.id, store.general.networkStatus);
     itemState.add(newItem);
     server.addItem(newItem, null, store.general.networkStatus);
+    maybeAddNewChildItems(store, newItem);
 
     store.overlay.contextMenuInfo.set(null);
     fullArrange(store);
@@ -118,8 +136,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       asPageItem(newItem).popupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
     }
 
-    server.addItem(newItem, null, store.general.networkStatus);
     itemState.add(newItem);
+    server.addItem(newItem, null, store.general.networkStatus);
+    maybeAddNewChildItems(store, newItem);
 
     store.overlay.contextMenuInfo.set(null);
     fullArrange(store);
@@ -166,8 +185,10 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           itemState.newOrderingAtEndOfAttachments(childId),
           RelationshipToParent.Attachment);
 
-        server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
+        server.addItem(newItem, null, store.general.networkStatus);
+        maybeAddNewChildItems(store, newItem);
+
         store.overlay.contextMenuInfo.set(null);
         fullArrange(store);
 
@@ -193,8 +214,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
       };
 
-      server.addItem(newItem, null, store.general.networkStatus);
       itemState.add(newItem);
+      server.addItem(newItem, null, store.general.networkStatus);
+      maybeAddNewChildItems(store, newItem);
 
       store.overlay.contextMenuInfo.set(null);
       fullArrange(store);

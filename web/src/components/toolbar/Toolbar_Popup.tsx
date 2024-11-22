@@ -18,7 +18,7 @@
 
 import { Component, Match, Show, Switch, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
-import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { fullArrange } from "../../layout/arrange";
@@ -34,6 +34,7 @@ import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asFormatItem } from "../../items/base/format-item";
 import { asTableItem } from "../../items/table-item";
 import QRCode from "qrcode";
+import { asFlipCardItem, isFlipCard } from "../../items/flipcard-item";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -108,6 +109,7 @@ export const Toolbar_Popup: Component = () => {
   let textElement: HTMLInputElement | undefined;
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
+  const flipCardItem = () => asFlipCardItem(store.history.getFocusItem());
   const noteItem = () => asNoteItem(store.history.getFocusItem());
   const tableItem = () => asTableItem(store.history.getFocusItem());
   const formatItem = () => asFormatItem(store.history.getFocusItem());
@@ -152,7 +154,11 @@ export const Toolbar_Popup: Component = () => {
     if (overlayTypeConst == ToolbarPopupType.PageWidth) {
       pageItem().innerSpatialWidthGr = Math.round(parseFloat(textElement!.value)) * GRID_SIZE;
     } else if (overlayTypeConst == ToolbarPopupType.PageAspect) {
-      pageItem().naturalAspect = parseFloat(textElement!.value);
+      if (isPage(store.history.getFocusItem())) {
+        pageItem().naturalAspect = parseFloat(textElement!.value);
+      } else {
+        flipCardItem().naturalAspect = parseFloat(textElement!.value);
+      }
     } else if (overlayTypeConst == ToolbarPopupType.PageCellAspect) {
       pageItem().gridCellAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {
@@ -201,18 +207,29 @@ export const Toolbar_Popup: Component = () => {
   });
 
   const handleColorClick = (col: number) => {
-    pageItem().backgroundColorIndex = col;
+    if (isPage(store.history.getFocusItem())) {
+      pageItem().backgroundColorIndex = col;
+    } else if (isFlipCard(store.history.getFocusItem())) {
+      flipCardItem().backgroundColorIndex = col;
+    } else {
+      panic(`unexpected item type ${store.history.getFocusItem().itemType} changing color.`);
+    }
     store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
     serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.touchToolbar();
+    fullArrange(store);
   }
 
   const textEntryValue = (): string | null => {
     if (overlayType() == ToolbarPopupType.NoteFormat) { return formatItem().format; }
     if (overlayType() == ToolbarPopupType.NoteUrl) { return noteItem().url; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
-    if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
+    if (overlayType() == ToolbarPopupType.PageAspect) {
+      if (isPage(store.history.getFocusItem())) {
+        return "" + pageItem().naturalAspect;
+      }
+      return "" + flipCardItem().naturalAspect;
+    }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "" + tableItem().numberOfVisibleColumns; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
@@ -267,7 +284,13 @@ export const Toolbar_Popup: Component = () => {
   const handleAutoClick = (): void => {
     const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
     textElement!.value = aspect;
-    pageItem().naturalAspect = parseFloat(textElement!.value);
+    if (isPage(store.history.getFocusItem())) {
+      pageItem().naturalAspect = parseFloat(textElement!.value);
+    } else if (isFlipCard(store.history.getFocusItem())) {
+      flipCardItem().naturalAspect = parseFloat(textElement!.value);
+    } else {
+      panic(`unexpected item type ${store.history.getFocusItem().itemType} changing aspect (auto).`);
+    }
     fullArrange(store);
   }
 

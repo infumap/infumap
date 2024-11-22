@@ -30,7 +30,6 @@ import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { fullArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 

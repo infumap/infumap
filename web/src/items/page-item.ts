@@ -46,6 +46,8 @@ import { newOrdering } from '../util/ordering';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { TabularItem, TabularMixin } from './base/tabular-item';
+import { ColorableMixin } from './base/colorable-item';
+import { AspectItem, AspectMixin } from './base/aspect-item';
 
 
 export const ArrangeAlgorithm = {
@@ -59,10 +61,8 @@ export const ArrangeAlgorithm = {
   Composite: "composite",
 };
 
-export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {
+export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, ColorableMixin, AspectItem, Item {
   innerSpatialWidthGr: number;
-  naturalAspect: number;
-  backgroundColorIndex: number;
   arrangeAlgorithm: string;
   gridNumberOfColumns: number;
   gridCellAspect: number;
@@ -77,16 +77,15 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   pendingPopupAlignmentPoint: string | null;
 }
 
-export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin {
+export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin, AspectMixin {
   innerSpatialWidthGr: number;
-  naturalAspect: number;
   arrangeAlgorithm: string;
   id: Uid;
-  childrenLoaded: boolean;
   gridNumberOfColumns: number;
   gridCellAspect: number;
   docWidthBl: number,
   justifiedRowAspect: number;
+  childrenLoaded: boolean;
   computed_children: Array<Uid>;
 }
 
@@ -111,9 +110,10 @@ export const PageFns = {
 
       spatialWidthGr: 4.0 * GRID_SIZE,
 
-      innerSpatialWidthGr: 60.0 * GRID_SIZE,
       naturalAspect: 2.0,
       backgroundColorIndex: 0,
+
+      innerSpatialWidthGr: 60.0 * GRID_SIZE,
       arrangeAlgorithm: ArrangeAlgorithm.SpatialStretch,
       popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
       popupAlignmentPoint: "center",
@@ -161,9 +161,10 @@ export const PageFns = {
 
       spatialWidthGr: o.spatialWidthGr,
 
-      innerSpatialWidthGr: o.innerSpatialWidthGr,
       naturalAspect: o.naturalAspect,
       backgroundColorIndex: o.backgroundColorIndex,
+
+      innerSpatialWidthGr: o.innerSpatialWidthGr,
       arrangeAlgorithm: o.arrangeAlgorithm,
       popupPositionGr: o.popupPositionGr,
       popupAlignmentPoint: o.popupAlignmentPoint,
@@ -207,9 +208,10 @@ export const PageFns = {
 
       spatialWidthGr: p.spatialWidthGr,
 
-      innerSpatialWidthGr: p.innerSpatialWidthGr,
       naturalAspect: p.naturalAspect,
       backgroundColorIndex: p.backgroundColorIndex,
+
+      innerSpatialWidthGr: p.innerSpatialWidthGr,
       arrangeAlgorithm: p.arrangeAlgorithm,
       popupPositionGr: p.popupPositionGr,
       popupAlignmentPoint: p.popupAlignmentPoint,

@@ -63,27 +63,28 @@ export const EMPTY_VEID: Veid = {
 
 
 export enum VisualElementFlags {
-  None                    = 0x00000,
-  Selected                = 0x00001, // The item is selected.
-  HasToolbarFocus         = 0x00002, // The item has toolbar focus.
-  LineItem                = 0x00004, // Render as a line item (like in a table), not deskop item.
-  Detailed                = 0x00008, // The visual element has detail / can be interacted with.
-  InsideTable             = 0x00010, // The visual element is inside a table.
-  Attachment              = 0x00020, // The visual element is an attachment.
-  ShowChildren            = 0x00040, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
-  Fixed                   = 0x00080, // positioning is fixed, not absolute.
-  InsideCompositeOrDoc    = 0x00100, // The visual element is inside a composite item.
-  ZAbove                  = 0x00200, // Render above everything else (except moving).
-  Moving                  = 0x00400, // Render the visual element partially transparent and on top of everything else.
-  IsDock                  = 0x00800, // render the page as the dock.
-  IsTrash                 = 0x01000, // render the page as the trash icon.
-  UmbrellaPage            = 0x02000, // the very top level page.
-  Popup                   = 0x04000, // Is a popped up something (page or image or anything).
-  TopLevelRoot            = 0x08000, // The top most page root element.
-  ListPageRoot            = 0x10000, // Is the root item in a list page.
-  EmbededInteractiveRoot  = 0x20000, // Is an embedded interactive page.
-  DockItem                = 0x40000, // Is an item inside the dock.
-  FocusPageSelected       = 0x80000, // Line item is in focussed page and selected.
+  None                    = 0x000000,
+  Selected                = 0x000001, // The item is selected.
+  HasToolbarFocus         = 0x000002, // The item has toolbar focus.
+  LineItem                = 0x000004, // Render as a line item (like in a table), not deskop item.
+  Detailed                = 0x000008, // The visual element has detail / can be interacted with.
+  InsideTable             = 0x000010, // The visual element is inside a table.
+  Attachment              = 0x000020, // The visual element is an attachment.
+  ShowChildren            = 0x000040, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
+  Fixed                   = 0x000080, // positioning is fixed, not absolute.
+  InsideCompositeOrDoc    = 0x000100, // The visual element is inside a composite item.
+  ZAbove                  = 0x000200, // Render above everything else (except moving).
+  Moving                  = 0x000400, // Render the visual element partially transparent and on top of everything else.
+  IsDock                  = 0x000800, // render the page as the dock.
+  IsTrash                 = 0x001000, // render the page as the trash icon.
+  UmbrellaPage            = 0x002000, // the very top level page.
+  Popup                   = 0x004000, // Is a popped up something (page or image or anything).
+  TopLevelRoot            = 0x008000, // The top most page root element.
+  ListPageRoot            = 0x010000, // Is the root item in a list page.
+  EmbededInteractiveRoot  = 0x020000, // Is an embedded interactive page.
+  DockItem                = 0x040000, // Is an item inside the dock.
+  FocusPageSelected       = 0x080000, // Line item is in focussed page and selected.
+  FlipCardPage            = 0x100000, // A flipcard page.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {
