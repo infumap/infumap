@@ -60,8 +60,6 @@ export const arrangeFlipCard = (
     childAreaBoundsPx,
     parentPath,
   };
-  
-  // TODO: make page item.
 
   if (displayItem_flipCard.computed_children.length == 2) {
     const side = store.perItem.getFlipCardVisibleSide(flipCardVeid);

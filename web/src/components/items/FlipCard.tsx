@@ -20,7 +20,7 @@ import { Component, For, Show } from "solid-js";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
 import { asFlipCardItem } from "../../items/flipcard-item";
-import { linearGradient } from "../../style";
+import { linearGradient, stripedGradient } from "../../style";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -54,15 +54,16 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
       <div id={VeFns.veToPath(props.visualElement) + ":title"}
           class="absolute font-bold"
           style={`left: 0px; top: 0px; width: ${boundsPx().w / titleScale()}px; height: ${(boundsPx().h - viewportBoundsPx().h) / titleScale()}px; ` +
-                  `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
-                  `overflow-wrap: break-word;` +
-                  `background-image: ${linearGradient(flipCardItem().backgroundColorIndex, 0.636)}; ` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
-                  `outline: 0px solid transparent;`}
+                 `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
+                 `overflow-wrap: break-word;` +
+                 `background-image: ${store.perItem.getFlipCardVisibleSide(VeFns.veidFromVe(props.visualElement)) == 0 ? linearGradient(flipCardItem().backgroundColorIndex, 0.636) : stripedGradient(flipCardItem().backgroundColorIndex, 0.636)}; ` +
+                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+                 `outline: 0px solid transparent;`}
           spellcheck={store.overlay.textEditInfo() != null}
           contentEditable={store.overlay.textEditInfo() != null}>
         <div class="flex flex-row flex-nowrap">
           <div style="flex-grow: 1"></div>
+          <div style="flex-grow: 0; margin-right: 6px;"><i class="fa fa-clock-rotate-left" /></div>
           <div style="flex-grow: 0; margin-right: 3px;"><i class="fa fa-retweet" /></div>
         </div>
       </div>

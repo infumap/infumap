@@ -39,6 +39,16 @@ export function linearGradient(colIndex: number, lightenByAlpha: number): string
   return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`;
 }
 
+export function stripedGradient(colIndex: number, lightenByAlpha: number): string {
+  return `repeating-linear-gradient(
+    135deg,
+    ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)},
+    ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)} 10px,
+    ${hexToRGBA(Colors[colIndex], (0.986-lightenByAlpha) * 0.8)} 10px,
+    ${hexToRGBA(Colors[colIndex], (0.986-lightenByAlpha) * 0.8)} 20px
+  );`;
+}
+
 export function translucent(colIndex: number, lightenByAlpha: number): string {
   return `${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}`;
 }
