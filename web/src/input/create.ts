@@ -21,7 +21,7 @@ import { asAttachmentsItem } from "../items/base/attachments-item";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { ExpressionFns } from "../items/expression-item";
-import { FlipCardFns, isFlipCard } from "../items/flipcard-item";
+import { asFlipCardItem, FlipCardFns, isFlipCard } from "../items/flipcard-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
@@ -68,14 +68,19 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
 
 function maybeAddNewChildItems(store: StoreContextModel, item: PositionalItem) {
   if (isFlipCard(item)) {
+    const fcItem = asFlipCardItem(item);
     const parentId = item.id;
 
     const frontSidePageItem = PageFns.create(store.user.getUser().userId, parentId, RelationshipToParent.Child, "", itemState.newOrderingAtEndOfChildren(parentId));
     itemState.add(frontSidePageItem);
+    frontSidePageItem.innerSpatialWidthGr = fcItem.spatialWidthGr;
+    frontSidePageItem.naturalAspect = fcItem.naturalAspect;
     server.addItem(frontSidePageItem, null, store.general.networkStatus);
 
     const backSidePageItem = PageFns.create(store.user.getUser().userId, parentId, RelationshipToParent.Child, "", itemState.newOrderingAtEndOfChildren(parentId));
     itemState.add(backSidePageItem);
+    backSidePageItem.innerSpatialWidthGr = fcItem.spatialWidthGr;
+    backSidePageItem.naturalAspect = fcItem.naturalAspect;
     server.addItem(backSidePageItem, null, store.general.networkStatus);
   }
 }

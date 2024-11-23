@@ -293,10 +293,12 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
       // TODO (LOW): don't require arrange if there was no change.
       const flipCardItem = asFlipCardItem(activeItem);
       flipCardItem.naturalAspect = newAspect;
-      asPageItem(itemState.get(flipCardItem.computed_children[0])!).naturalAspect = newAspect;
-      asPageItem(itemState.get(flipCardItem.computed_children[0])!).spatialWidthGr = newWidthGr;
-      asPageItem(itemState.get(flipCardItem.computed_children[1])!).naturalAspect = newAspect;
-      asPageItem(itemState.get(flipCardItem.computed_children[1])!).spatialWidthGr = newWidthGr;
+      const frontPage = asPageItem(itemState.get(flipCardItem.computed_children[0])!);
+      frontPage.naturalAspect = newAspect;
+      frontPage.innerSpatialWidthGr = newWidthGr;
+      const backPage = asPageItem(itemState.get(flipCardItem.computed_children[1])!);
+      backPage.naturalAspect = newAspect;
+      backPage.innerSpatialWidthGr = newWidthGr;
     }
     requireArrange = true;
   }
