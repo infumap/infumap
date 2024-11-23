@@ -65,6 +65,7 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     rating: None,
     link_to: None,
     text: None,
+    scale: None,
   }
 }
 
@@ -111,6 +112,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     rating: None,
     link_to: None,
     text: None,
+    scale: None,
   }
 }
 
@@ -157,6 +159,6 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     rating: None,
     link_to: None,
     text: None,
+    scale: None,
   }
 }
-

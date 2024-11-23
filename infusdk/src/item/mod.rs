@@ -336,7 +336,7 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 39] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 40] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -346,7 +346,8 @@ const ALL_JSON_FIELDS: [&'static str; 39] = ["__recordType",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
   "linkTo", "gridNumberOfColumns", "orderChildrenBy", "text",
   "flags", "permissionFlags", "format", "docWidthBl",
-  "gridCellAspect", "justifiedRowAspect", "numberOfVisibleColumns"];
+  "gridCellAspect", "justifiedRowAspect", "numberOfVisibleColumns",
+  "scale"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -443,6 +444,9 @@ pub struct Item {
   // composite
 
   // expression
+
+  // flipcard
+  pub scale: Option<f64>,
 }
 
 impl Clone for Item {
@@ -486,6 +490,7 @@ impl Clone for Item {
       rating: self.rating.clone(),
       link_to: self.link_to.clone(),
       text: self.text.clone(),
+      scale: self.scale.clone(),
     }
   }
 }
@@ -774,6 +779,14 @@ impl JsonLogSerializable<Item> for Item {
 
     // composite
 
+    // flipcard
+    if let Some(new_scale) = new.scale {
+      if match old.scale { Some(o) => o != new_scale, None => { true } } {
+        if old.item_type != ItemType::FlipCard { cannot_modify_err("scale", &old.id)?; }
+        result.insert(String::from("scale"), Value::Number(Number::from_f64(new_scale).ok_or(nan_err("scale", &old.id))?));
+      }
+    }
+
     Ok(result)
   }
 
@@ -973,6 +986,12 @@ impl JsonLogSerializable<Item> for Item {
 
     // composite
 
+    // flipcard
+    if let Some(v) = json::get_float_field(map, "scale")? {
+      if self.item_type != ItemType::FlipCard { not_applicable_err("scale", self.item_type, &self.id)?; }
+      self.scale = Some(v);
+    }
+
     Ok(())
   }
 }
@@ -1166,6 +1185,14 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   }
 
   // composite
+
+  // flipcard
+  if let Some(scale) = item.scale {
+    if item.item_type != ItemType::FlipCard { unexpected_field_err("scale", &item.id, item.item_type)? }
+    result.insert(
+      String::from("scale"),
+      Value::Number(Number::from_f64(scale).ok_or(nan_err("scale", &item.id))?));
+  }
 
   Ok(result)
 }
@@ -1387,6 +1414,11 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
 
     // composite
 
+    // flipcard
+    scale: match json::get_float_field(map, "scale")? {
+      Some(v) => { if item_type == ItemType::FlipCard { Ok(Some(v)) } else { Err(not_applicable_err("scale", item_type, &id)) } },
+      None => { if item_type == ItemType::FlipCard { Err(expected_for_err("scale", item_type, &id)) } else { Ok(None) } }
+    }?,
   };
 
   Ok(r)
@@ -1446,6 +1478,7 @@ impl Item {
       image_size_px: None,
       thumbnail: None,
       rating: None,
+      scale: None,
     }
   }
 
@@ -1497,6 +1530,7 @@ impl Item {
       image_size_px: None,
       thumbnail: None,
       rating: None,
+      scale: None,
     }
   }
 
@@ -1551,6 +1585,7 @@ impl Item {
       image_size_px: None,
       thumbnail: None,
       rating: None,
+      scale: None,
     }
   }
 
@@ -1596,6 +1631,7 @@ impl Item {
       image_size_px: None,
       thumbnail: None,
       rating: None,
+      scale: None,
     }
   }
 }

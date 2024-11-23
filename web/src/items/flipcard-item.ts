@@ -33,7 +33,9 @@ import { PositionalMixin } from "./base/positional-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 
 
-export interface FlipCardItem extends FlipCardMeasurable, XSizableItem, ContainerItem, AttachmentsItem, ColorableItem { }
+export interface FlipCardItem extends FlipCardMeasurable, XSizableItem, ContainerItem, AttachmentsItem, ColorableItem {
+  scale: number;
+}
 
 export interface FlipCardMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, AspectMixin {
   id: Uid;
@@ -64,6 +66,7 @@ export const FlipCardFns = {
 
       orderChildrenBy: "",
 
+      scale: 1.0,
       computed_children: [],
       computed_attachments: [],
       childrenLoaded: false,
@@ -91,6 +94,8 @@ export const FlipCardFns = {
 
       orderChildrenBy: o.orderChildrenBy,
 
+      scale: o.scale,
+
       computed_children: [],
       computed_attachments: [],
       childrenLoaded: false,
@@ -115,6 +120,8 @@ export const FlipCardFns = {
 
       naturalAspect: fc.naturalAspect,
       backgroundColorIndex: fc.backgroundColorIndex,
+
+      scale: fc.scale,
     });
   },
 

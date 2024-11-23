@@ -34,7 +34,7 @@ use std::path::PathBuf;
 use crate::util::fs::{expand_tilde, path_exists};
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 20;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 21;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -1066,6 +1066,39 @@ pub fn migrate_record_v19_to_v20(kvs: &Map<String, Value>) -> InfuResult<Map<Str
         }];
         let existing = result.insert(String::from("tableColumns"), json::table_columns_to_array(&table_columns));
         if existing.is_some() { return Err("tableColumns field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add scale field to flipcard items.
+ */
+pub fn migrate_record_v20_to_v21(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 20);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "flipcard" {
+        let existing = result.insert(String::from("scale"), Value::Number(Number::from_f64(1.0 as f64).ok_or("invalid scale")?));
+        if existing.is_some() { return Err("scale field already exists.".into()); }
       }
       return Ok(result);
     },
