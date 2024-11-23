@@ -31,7 +31,7 @@ export const Toolbar_FlipCard: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
   let divBeforeColorSelect: HTMLDivElement | undefined;
   let colorSelectDiv: HTMLDivElement | undefined;
-  let aspectDiv: HTMLDivElement | undefined;
+  let scaleDiv: HTMLDivElement | undefined;
 
   const flipCardItem = () => asFlipCardItem(store.history.getFocusItem());
 
@@ -58,9 +58,9 @@ export const Toolbar_FlipCard: Component = () => {
     return flipCardItem().backgroundColorIndex;
   }
 
-  const aspectText = () => {
+  const scaleText = () => {
     store.touchToolbarDependency();
-    return Math.round(flipCardItem().naturalAspect * 1000.0) / 1000.0;
+    return Math.round(flipCardItem().scale * 1000.0) / 10.0;
   }
 
   // Color
@@ -76,17 +76,17 @@ export const Toolbar_FlipCard: Component = () => {
     ClickState.setButtonClickBoundsPx(colorSelectDiv!.getBoundingClientRect());
   };
 
-  // Aspect
-  const handleAspectClick = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageAspect) {
+  // Scale
+  const handleScaleClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Scale) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageAspect });
+      { topLeftPx: { x: scaleDiv!.getBoundingClientRect().x, y: scaleDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.Scale });
   };
-  const handleAspectDown = () => {
-    ClickState.setButtonClickBoundsPx(aspectDiv!.getBoundingClientRect());
+  const handleScaleDown = () => {
+    ClickState.setButtonClickBoundsPx(scaleDiv!.getBoundingClientRect());
   };
 
   return (
@@ -94,14 +94,14 @@ export const Toolbar_FlipCard: Component = () => {
          class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
 
-      <div ref={aspectDiv}
+      <div ref={scaleDiv}
            class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
            style={`font-size: 13px;`}
-           onClick={handleAspectClick}
-           onMouseDown={handleAspectDown}>
-        <i class="bi-aspect-ratio ml-[4px]" />
+           onClick={handleScaleClick}
+           onMouseDown={handleScaleDown}>
+        <div class="inline-block ml-[4px] mr-[4px]">%</div>
         <div class="inline-block w-[40px] pl-[6px] text-right">
-          {aspectText()}
+          {scaleText()}
         </div>
       </div>
 

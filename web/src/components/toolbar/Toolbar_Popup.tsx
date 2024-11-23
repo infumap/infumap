@@ -47,6 +47,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
+  if (overlayType == ToolbarPopupType.Scale) { return 92; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
       return 420;
@@ -154,11 +155,9 @@ export const Toolbar_Popup: Component = () => {
     if (overlayTypeConst == ToolbarPopupType.PageWidth) {
       pageItem().innerSpatialWidthGr = Math.round(parseFloat(textElement!.value)) * GRID_SIZE;
     } else if (overlayTypeConst == ToolbarPopupType.PageAspect) {
-      if (isPage(store.history.getFocusItem())) {
-        pageItem().naturalAspect = parseFloat(textElement!.value);
-      } else {
-        flipCardItem().naturalAspect = parseFloat(textElement!.value);
-      }
+      pageItem().naturalAspect = parseFloat(textElement!.value);
+    } else if (overlayTypeConst == ToolbarPopupType.Scale) {
+      flipCardItem().scale = parseFloat(textElement!.value) / 100.0;
     } else if (overlayTypeConst == ToolbarPopupType.PageCellAspect) {
       pageItem().gridCellAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {
@@ -188,6 +187,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return 292; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return 196; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
+    if (overlayType() == ToolbarPopupType.Scale) { return 180; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return 250; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 150; }
@@ -224,12 +224,8 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteFormat) { return formatItem().format; }
     if (overlayType() == ToolbarPopupType.NoteUrl) { return noteItem().url; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
-    if (overlayType() == ToolbarPopupType.PageAspect) {
-      if (isPage(store.history.getFocusItem())) {
-        return "" + pageItem().naturalAspect;
-      }
-      return "" + flipCardItem().naturalAspect;
-    }
+    if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
+    if (overlayType() == ToolbarPopupType.Scale) { return "" + Math.round(flipCardItem().scale * 1000.0) / 10.0; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "" + tableItem().numberOfVisibleColumns; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
@@ -244,6 +240,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return "Url"; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "Inner Block Width"; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
+    if (overlayType() == ToolbarPopupType.Scale) { return "Scale"; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "Num Cols"; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
@@ -257,6 +254,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0 or empty"; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
+    if (overlayType() == ToolbarPopupType.Scale) { return "Inner page scale."; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "The aspect ratio (width / height) of one row of items."; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the hight of one line of normal sized text."; }

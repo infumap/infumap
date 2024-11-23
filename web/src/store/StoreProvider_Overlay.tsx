@@ -37,6 +37,7 @@ export enum ToolbarPopupType {
   PageArrangeAlgorithm = "arrangealgorithm",
   TableNumCols = "tablenumcols",
   QrLink = "qrlink",
+  Scale = "scale",
 }
 
 export interface ToolbarPopupInfo {
