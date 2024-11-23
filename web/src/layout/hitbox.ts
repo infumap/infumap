@@ -20,24 +20,25 @@ import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geome
 
 
 export enum HitboxFlags {
-  None =                    0x00000,
-  Click =                   0x00001,
-  Move =                    0x00002,
-  Resize =                  0x00004,
-  OpenPopup =               0x00008,
-  Attach =                  0x00010,
-  HorizontalResize =        0x00020,
-  OpenAttachment =          0x00040,
-  AttachComposite =         0x00080,
-  Anchor =                  0x00100,
-  ShiftLeft =               0x00200,
-  Settings =                0x00400,
-  TriangleLinkSettings =    0x00800,
-  ContentEditable =         0x01000,
-  Expand =                  0x02000,
-  TableColumnContextMenu =  0x04000,
-  VerticalResize =          0x08000,
-  Flip =                    0x10000,
+  None =                    0x000000,
+  Click =                   0x000001,
+  Move =                    0x000002,
+  Resize =                  0x000004,
+  OpenPopup =               0x000008,
+  Attach =                  0x000010,
+  HorizontalResize =        0x000020,
+  OpenAttachment =          0x000040,
+  AttachComposite =         0x000080,
+  Anchor =                  0x000100,
+  ShiftLeft =               0x000200,
+  Settings =                0x000400,
+  TriangleLinkSettings =    0x000800,
+  ContentEditable =         0x001000,
+  Expand =                  0x002000,
+  TableColumnContextMenu =  0x004000,
+  VerticalResize =          0x008000,
+  Flip =                    0x010000,
+  TimedFlip =               0x020000,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -59,6 +60,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.Expand) { result += "Expand "; }
   if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu "; }
   if (flags & HitboxFlags.Flip) { result += "Flip "; }
+  if (flags & HitboxFlags.TimedFlip) { result += "TimedFlip "; }
   result += "(" + flags + ")";
   return result;
 }

@@ -141,11 +141,18 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         );
         store.history.setFocus(focusPath);
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Flip) {
+      } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Flip) ||
+                 (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TimedFlip)) {
         DoubleClickState.preventDoubleClick();
         const veid = VeFns.veidFromPath(MouseActionState.get().activeElementPath);
         store.perItem.setFlipCardVisibleSide(veid, store.perItem.getFlipCardVisibleSide(veid) == 0 ? 1 : 0);
         fullArrange(store);
+        if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TimedFlip) {
+          setTimeout(() => {
+            store.perItem.setFlipCardVisibleSide(veid, 0);
+            fullArrange(store);
+          }, 1000);
+        }
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
         store.overlay.tableColumnContextMenuInfo.set({

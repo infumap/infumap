@@ -22,7 +22,7 @@ import { useStore } from "../../store/StoreProvider";
 import { asFlipCardItem } from "../../items/flipcard-item";
 import { linearGradient, stripedGradient } from "../../style";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 
@@ -31,7 +31,8 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
   const store = useStore();
   
   const flipCardItem = () => asFlipCardItem(props.visualElement.displayItem);
-  const boundsPx =  () => props.visualElement.boundsPx;
+  const boundsPx = () => props.visualElement.boundsPx;
+  const blockWidthPx = () => boundsPx().w / (flipCardItem().spatialWidthGr / GRID_SIZE);
   const viewportBoundsPx = () => props.visualElement.viewportBoundsPx!;
 
   const titleScale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
@@ -64,7 +65,7 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
         <div class="flex flex-row flex-nowrap">
           <div style="flex-grow: 1"></div>
           <div style="flex-grow: 0; margin-right: 6px;"><i class="fa fa-clock-rotate-left" /></div>
-          <div style="flex-grow: 0; margin-right: 3px;"><i class="fa fa-retweet" /></div>
+          <div style={`flex-grow: 0; margin-right: 3px;`}><i class="fa fa-retweet" /></div>
         </div>
       </div>
       {renderIsLinkMaybe()}
