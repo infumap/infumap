@@ -66,7 +66,7 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
   return newItem;
 }
 
-function maybeAddNewChildItems(store: StoreContextModel, item: PositionalItem) {
+export function maybeAddNewChildItems(store: StoreContextModel, item: PositionalItem) {
   if (isFlipCard(item)) {
     const fcItem = asFlipCardItem(item);
     const parentId = item.id;

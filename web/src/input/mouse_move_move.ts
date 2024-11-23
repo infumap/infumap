@@ -16,10 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { DOCK_GAP_PX, GRID_SIZE } from "../constants";
+import { GRID_SIZE } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemFns } from "../items/base/item-polymorphism";
-import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
+import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
@@ -36,15 +36,22 @@ import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
-import { assert, panic } from "../util/lang";
+import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { dockInsertIndexAndPositionFromDesktopY } from "../layout/arrange/dock";
 import { asContainerItem } from "../items/base/container-item";
+import { newUid } from "../util/uid";
+import { ItemType } from "../items/base/item";
+import { maybeAddNewChildItems } from "./create";
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
-  const shouldCreateLink = CursorEventState.get().shiftDown;
+  const shouldCreateLink = CursorEventState.get().ctrlDown;
+  const shouldClone =
+    CursorEventState.get().shiftDown &&
+    activeVisualElement.displayItem.itemType != ItemType.File && // Don't want to duplicate blob data.
+    activeVisualElement.displayItem.itemType != ItemType.Image;
   const parentItem = itemState.get(activeItem.parentId)!;
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
     moving_activeItemOutOfTable(store, shouldCreateLink);
@@ -65,7 +72,29 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       x: activeItem.spatialPositionGr.x / GRID_SIZE,
       y: activeItem.spatialPositionGr.y / GRID_SIZE
     };
-    if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
+    if (shouldClone) {
+      const toClone = activeVisualElement.displayItem;
+      const cloned = ItemFns.fromObject(ItemFns.toObject(toClone), null);
+      cloned.id = newUid();
+      cloned.creationDate = currentUnixTimeSeconds();
+      cloned.lastModifiedDate = currentUnixTimeSeconds();
+      cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
+      itemState.add(cloned);
+      server.addItem(cloned, null, store.general.networkStatus);
+      if (isPositionalItem(cloned)) {
+        maybeAddNewChildItems(store, asPositionalItem(cloned));
+      }
+
+      store.anItemIsMoving.set(true);
+      const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
+      const newLinkVeid = VeFns.veidFromId(cloned.id);
+      MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
+      MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
+      MouseActionState.get().linkCreatedOnMoveStart = false;
+
+      fullArrange(store);
+    }
+    else if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
       const link = LinkFns.createFromItem(
         activeVisualElement.displayItem,
         RelationshipToParent.Child,

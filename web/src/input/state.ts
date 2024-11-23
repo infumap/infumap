@@ -121,12 +121,14 @@ export interface TouchOrMouseEvent {
   clientX: number,
   clientY: number,
   shiftDown: boolean,
+  ctrlDown: boolean,
 }
 
 let lastMoveEvent: TouchOrMouseEvent = {
   clientX: 0,
   clientY: 0,
   shiftDown: false,
+  ctrlDown: false,
 };
 
 export const CursorEventState = {
@@ -135,6 +137,7 @@ export const CursorEventState = {
       clientX: ev.clientX,
       clientY: ev.clientY,
       shiftDown: ev.shiftKey,
+      ctrlDown: ev.ctrlKey,
     };
   },
 
@@ -143,6 +146,7 @@ export const CursorEventState = {
       clientX: ev.touches[0].clientX,
       clientY: ev.touches[0].clientY,
       shiftDown: false,
+      ctrlDown: false,
     }
   },
 
