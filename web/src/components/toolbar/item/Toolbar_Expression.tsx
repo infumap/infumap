@@ -26,8 +26,8 @@ import { asExpressionItem } from "../../../items/expression-item";
 import { VeFns } from "../../../layout/visual-element";
 import { NoteFns } from "../../../items/note-item";
 import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
-import { rearrangeWithDisplayId } from "../../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
+import { fullArrange } from "../../../layout/arrange";
 
 
 export const Toolbar_Expression: Component = () => {
@@ -72,17 +72,17 @@ export const Toolbar_Expression: Component = () => {
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
-  const selectNormalText = () => { NoteFns.clearTextStyleFlags(expressionItem()); rearrangeWithDisplayId(store, expressionItem().id); };
-  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Heading1; rearrangeWithDisplayId(store, expressionItem().id); };
-  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Heading2; rearrangeWithDisplayId(store, expressionItem().id); };
-  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Heading3; rearrangeWithDisplayId(store, expressionItem().id); };
-  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Bullet1; rearrangeWithDisplayId(store, expressionItem().id); };
-  const selectCode = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Code; rearrangeWithDisplayId(store, expressionItem().id); };
+  const selectNormalText = () => { NoteFns.clearTextStyleFlags(expressionItem()); fullArrange(store); };
+  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Heading1; fullArrange(store); };
+  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Heading2; fullArrange(store); };
+  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Heading3; fullArrange(store); };
+  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Bullet1; fullArrange(store); };
+  const selectCode = () => { NoteFns.clearTextStyleFlags(expressionItem()); expressionItem().flags |= NoteFlags.Code; fullArrange(store); };
 
-  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(expressionItem()); rearrangeWithDisplayId(store, expressionItem().id); };
-  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(expressionItem()); expressionItem().flags |= NoteFlags.AlignCenter; rearrangeWithDisplayId(store, expressionItem().id); };
-  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(expressionItem()); expressionItem().flags |= NoteFlags.AlignRight; rearrangeWithDisplayId(store, expressionItem().id); };
-  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(expressionItem()); expressionItem().flags |= NoteFlags.AlignJustify; rearrangeWithDisplayId(store, expressionItem().id); };
+  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(expressionItem()); fullArrange(store); };
+  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(expressionItem()); expressionItem().flags |= NoteFlags.AlignCenter; fullArrange(store); };
+  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(expressionItem()); expressionItem().flags |= NoteFlags.AlignRight; fullArrange(store); };
+  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(expressionItem()); expressionItem().flags |= NoteFlags.AlignJustify; fullArrange(store); };
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -105,7 +105,7 @@ export const Toolbar_Expression: Component = () => {
         expressionItem().flags |= NoteFlags.HideBorder;
       }
     }
-    rearrangeWithDisplayId(store, expressionItem().id);
+    fullArrange(store);
   };
 
   // Format

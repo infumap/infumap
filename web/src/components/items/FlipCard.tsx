@@ -34,6 +34,7 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
   const boundsPx = () => props.visualElement.boundsPx;
   const blockWidthPx = () => boundsPx().w / (flipCardItem().spatialWidthGr / GRID_SIZE);
   const viewportBoundsPx = () => props.visualElement.viewportBoundsPx!;
+  const vePath= () => VeFns.veToPath(props.visualElement);
 
   const titleScale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
@@ -64,7 +65,7 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
           contentEditable={store.overlay.textEditInfo() != null}>
         <div class="flex flex-row flex-nowrap">
           <div style="flex-grow: 1"></div>
-          <div style="flex-grow: 0; margin-right: 6px;"><i class="fa fa-clock-rotate-left" /></div>
+          <div style="flex-grow: 0; margin-right: 6px;"><i class={`fa fa-${store.perVe.getFlipCardIsEditing(vePath()) ? 'minus' : 'pen'}`} /></div>
           <div style={`flex-grow: 0; margin-right: 3px;`}><i class="fa fa-retweet" /></div>
         </div>
       </div>

@@ -503,7 +503,9 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.TimedFlip) {
       document.body.style.cursor = "pointer";
-    } else {
+    } else if (hitInfo.hitboxType & HitboxFlags.Edit) {
+      document.body.style.cursor = "pointer";
+    }else {
       document.body.style.cursor = "default";
     }
   }

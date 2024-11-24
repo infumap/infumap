@@ -127,7 +127,7 @@ export const FlipCardFns = {
 
   calcGeometry_Spatial: (
       page: FlipCardMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
-      _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+      _parentIsPopup: boolean, emitHitboxes: boolean, editing: boolean): ItemGeometry => {
 
     const sizeBl = FlipCardFns.calcSpatialDimensionsBl(page);
     const blockSizePx = {
@@ -148,17 +148,24 @@ export const FlipCardFns = {
 
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
 
+    const hitboxes = !emitHitboxes ? [] : [
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: blockSizePx.h * headerHeightBl, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxFlags.Flip, { x: innerBoundsPx.w - blockSizePx.w, y: 0.0, h: blockSizePx.h, w: blockSizePx.w }),
+      HitboxFns.create(HitboxFlags.Edit, { x: innerBoundsPx.w - blockSizePx.w * 2, y: 0.0, h: blockSizePx.h, w: blockSizePx.w })
+    ];
+    if (!editing) {
+      hitboxes.push(
+        HitboxFns.create(HitboxFlags.TimedFlip, { x: 0, y: blockSizePx.h, h: innerBoundsPx.h - blockSizePx.h, w: innerBoundsPx.w })
+      )
+    }
+
     return ({
       boundsPx,
       blockSizePx,
       viewportBoundsPx,
-      hitboxes: !emitHitboxes ? [] : [
-        HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: blockSizePx.h * headerHeightBl, w: innerBoundsPx.w }),
-        HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
-        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
-        HitboxFns.create(HitboxFlags.Flip, { x: innerBoundsPx.w - blockSizePx.w, y: 0.0, h: blockSizePx.h, w: blockSizePx.w }),
-        HitboxFns.create(HitboxFlags.TimedFlip, { x: innerBoundsPx.w - blockSizePx.w * 2, y: 0.0, h: blockSizePx.h, w: blockSizePx.w })
-      ],
+      hitboxes,
     });
   },
 

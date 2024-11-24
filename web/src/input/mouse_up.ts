@@ -151,8 +151,15 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           setTimeout(() => {
             store.perItem.setFlipCardVisibleSide(veid, 0);
             fullArrange(store);
-          }, 1000);
+          }, 750);
         }
+
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Edit) {
+        store.perVe.setFlipCardIsEditing(
+          MouseActionState.get().activeElementPath,
+          !store.perVe.getFlipCardIsEditing(MouseActionState.get().activeElementPath)
+        );
+        fullArrange(store);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
         store.overlay.tableColumnContextMenuInfo.set({

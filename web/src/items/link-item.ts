@@ -138,7 +138,7 @@ export const LinkFns = {
     return ItemFns.calcSpatialDimensionsBl(measurableMaybe!, adjustBl);
   },
 
-  calcGeometry_Spatial: (link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean, editing: boolean): ItemGeometry => {
     function noLinkTo(): ItemGeometry {
       const sizeBl = LinkFns.calcSpatialDimensionsBl(link);
       const blockSizePx = {
@@ -168,7 +168,7 @@ export const LinkFns = {
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
 
-    const result = ItemFns.calcGeometry_Spatial(measurableMaybe, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges);
+    const result = ItemFns.calcGeometry_Spatial(measurableMaybe, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges, editing);
 
     let insertPos = result.hitboxes.length;
     if (result.hitboxes.length > 0 && result.hitboxes[result.hitboxes.length-1].type == HitboxFlags.Resize) {

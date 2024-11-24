@@ -23,9 +23,9 @@ import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { asImageItem } from "../../../items/image-item";
 import { VesCache } from "../../../layout/ves-cache";
 import { ImageFlags } from "../../../items/base/flags-item";
-import { rearrangeWithDisplayId } from "../../../layout/arrange";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
+import { fullArrange } from "../../../layout/arrange";
 
 
 export const Toolbar_Image: Component = () => {
@@ -60,7 +60,7 @@ export const Toolbar_Image: Component = () => {
     } else {
       imageItem().flags |= ImageFlags.HideBorder;
     }
-    rearrangeWithDisplayId(store, imageItem().id);
+    fullArrange(store);
     serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
   }
 
@@ -74,7 +74,7 @@ export const Toolbar_Image: Component = () => {
     } else {
       imageItem().flags |= ImageFlags.NoCrop;
     }
-    rearrangeWithDisplayId(store, imageItem().id);
+    fullArrange(store);
     serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
   }
 

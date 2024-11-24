@@ -16,25 +16,20 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { getPanickedMessage } from "../../util/lang";
 import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { ItemGeometry } from "../item-geometry";
 import { NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { asLinkItem } from "../../items/link-item";
-import { VisualElementSignal, createVisualElementSignal } from "../../util/signals";
-import { isComposite } from "../../items/composite-item";
-import { ItemFns } from "../../items/base/item-polymorphism";
-import { zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { Uid } from "../../util/uid";
-import { arrangeCellPopup } from "./popup";
+import { createVisualElementSignal } from "../../util/signals";
 
 /**
  * temporary function used during the arrange -> rearrange refactor, which if called, indicates fullArrange
@@ -136,106 +131,107 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 /**
  * Update the ve specified by vePath for updates to it's display/link item.
  */
-export function rearrangeVisualElement(store: StoreContextModel, vePath: VisualElementPath): void {
-  console.debug("rearrange visual element");
+// export function rearrangeVisualElement(store: StoreContextModel, vePath: VisualElementPath): void {
+//   console.debug("rearrange visual element");
 
-  const ves = VesCache.get(vePath)!;
-  rearrangeVisualElementSignal(store, ves);
-}
+//   const ves = VesCache.get(vePath)!;
+//   rearrangeVisualElementSignal(store, ves);
+// }
 
-function rearrangeVisualElementSignal(store: StoreContextModel, ves: VisualElementSignal): boolean {
-  const ve = ves.get();
-  if (ve.flags & VisualElementFlags.InsideTable) {
-    rearrangeInsideTable(store, ves);
-    return true;
-  }
+// function rearrangeVisualElementSignal(store: StoreContextModel, ves: VisualElementSignal): boolean {
+//   const ve = ves.get();
+//   if (ve.flags & VisualElementFlags.InsideTable) {
+//     rearrangeInsideTable(store, ves);
+//     return true;
+//   }
 
-  const parentPath = ves.get().parentPath!;
-  const parentVes = VesCache.get(parentPath)!;
-  const parentVe = parentVes.get();
-  const parentItem = parentVe.displayItem;
+//   const parentPath = ves.get().parentPath!;
+//   const parentVes = VesCache.get(parentPath)!;
+//   const parentVe = parentVes.get();
+//   const parentItem = parentVe.displayItem;
 
-  if (isPage(parentItem)) {
-    rearrangeInsidePage(store, ves);
-    return true;
-  }
+//   if (isPage(parentItem)) {
+//     rearrangeInsidePage(store, ves);
+//     return true;
+//   }
 
-  if (isComposite(parentItem)) {
-    rearrangeInsideComposite(store, ves);
-    return true;
-  }
+//   if (isComposite(parentItem)) {
+//     rearrangeInsideComposite(store, ves);
+//     return true;
+//   }
 
-  return false;
-}
+//   return false;
+// }
 
 
 /**
  * Update all VisualElements impacted by a change to @argument displayItemId.
  */
-export function rearrangeWithDisplayId(store: StoreContextModel, displayItemId: Uid): void {
-  console.debug("rearrange all with display id");
+// export function rearrangeWithDisplayId(store: StoreContextModel, displayItemId: Uid): void {
+//   console.debug("rearrange all with display id");
 
-  const paths = VesCache.getPathsForDisplayId(displayItemId);
-  let requireFullArrange = false;
-  for (let i=0; i<paths.length; ++i) {
-    const p = paths[i];
-    const ves = VesCache.get(p)!;
-    if (!rearrangeVisualElementSignal(store, ves)) {
-      requireFullArrange = true;
-    }
-  }
+//   const paths = VesCache.getPathsForDisplayId(displayItemId);
+//   let requireFullArrange = false;
+//   for (let i=0; i<paths.length; ++i) {
+//     const p = paths[i];
+//     const ves = VesCache.get(p)!;
+//     if (!rearrangeVisualElementSignal(store, ves)) {
+//       requireFullArrange = true;
+//     }
+//   }
 
-  if (requireFullArrange) {
-    // TODO (MEDIUM): will never be required when implementation complete.
-    console.warn("fell back to full arrange (main)");
-    fullArrange(store);
-  }
-}
+//   if (requireFullArrange) {
+//     // TODO (MEDIUM): will never be required when implementation complete.
+//     console.warn("fell back to full arrange (main)");
+//     fullArrange(store);
+//   }
+// }
 
 
-function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal): void {
-  const ve = ves.get();
-  const parentPath = ve.parentPath!;
-  const parentVes = VesCache.get(parentPath)!;
-  const parentVe = parentVes.get();
-  const parentItem = asPageItem(parentVe.displayItem);
+// function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal): void {
+//   const ve = ves.get();
+//   const parentPath = ve.parentPath!;
+//   const parentVes = VesCache.get(parentPath)!;
+//   const parentVe = parentVes.get();
+//   const parentItem = asPageItem(parentVe.displayItem);
 
-  let itemGeometry = null;
-  if (parentItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    const parentIsPopup = !!(parentVe.flags & VisualElementFlags.Popup);
-    const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentItem);
-    if (ve.flags & VisualElementFlags.Popup && !isPage(ve.displayItem)) {
-      let arrangedVes = arrangeCellPopup(store);
-      ves.set(arrangedVes.get());
-      return;
-    } else {
-      itemGeometry = ItemFns.calcGeometry_Spatial(
-        ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
-        zeroBoundingBoxTopLeft(parentVe.childAreaBoundsPx!),
-        parentPageInnerDimensionsBl,
-        parentIsPopup,
-        true,
-        false,
-        false);
-    }
-  } else {
-    console.error("fell back to full arrange (unsupported arrange algorithm)");
-    fullArrange(store);
-    return;
-  }
-  let arrangedVes = arrangeItem(
-    store, parentPath, parentItem.arrangeAlgorithm,
-    ve.linkItemMaybe ? ve.linkItemMaybe : (ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe : ve.displayItem),
-    ve.actualLinkItemMaybe, itemGeometry, ve._arrangeFlags_useForPartialRearrangeOnly);
-  ves.set(arrangedVes.get());
-}
+//   let itemGeometry = null;
+//   if (parentItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+//     const parentIsPopup = !!(parentVe.flags & VisualElementFlags.Popup);
+//     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentItem);
+//     if (ve.flags & VisualElementFlags.Popup && !isPage(ve.displayItem)) {
+//       let arrangedVes = arrangeCellPopup(store);
+//       ves.set(arrangedVes.get());
+//       return;
+//     } else {
+//       itemGeometry = ItemFns.calcGeometry_Spatial(
+//         ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
+//         zeroBoundingBoxTopLeft(parentVe.childAreaBoundsPx!),
+//         parentPageInnerDimensionsBl,
+//         parentIsPopup,
+//         true,
+//         false,
+//         false,
+//         store.perVe.getFlipCardIsEditing(VeFns.addVeidToPath(VeFns.veidFromItems(childItem, actualLinkItemMaybe), pageWithChildrenVePath)));
+//     }
+//   } else {
+//     console.error("fell back to full arrange (unsupported arrange algorithm)");
+//     fullArrange(store);
+//     return;
+//   }
+//   let arrangedVes = arrangeItem(
+//     store, parentPath, parentItem.arrangeAlgorithm,
+//     ve.linkItemMaybe ? ve.linkItemMaybe : (ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe : ve.displayItem),
+//     ve.actualLinkItemMaybe, itemGeometry, ve._arrangeFlags_useForPartialRearrangeOnly);
+//   ves.set(arrangedVes.get());
+// }
 
-function rearrangeInsideComposite(store: StoreContextModel, _ves: VisualElementSignal): void {
-  console.debug("fell back to full arrange (inside composite)");
-  fullArrange(store);
-}
+// function rearrangeInsideComposite(store: StoreContextModel, _ves: VisualElementSignal): void {
+//   console.debug("fell back to full arrange (inside composite)");
+//   fullArrange(store);
+// }
 
-function rearrangeInsideTable(store: StoreContextModel, _ves: VisualElementSignal): void {
-  console.debug("fell back to full arrange (inside table)");
-  fullArrange(store);
-}
+// function rearrangeInsideTable(store: StoreContextModel, _ves: VisualElementSignal): void {
+//   console.debug("fell back to full arrange (inside table)");
+//   fullArrange(store);
+// }

@@ -39,6 +39,7 @@ export enum HitboxFlags {
   VerticalResize =          0x008000,
   Flip =                    0x010000,
   TimedFlip =               0x020000,
+  Edit =                    0x040000,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -61,6 +62,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu "; }
   if (flags & HitboxFlags.Flip) { result += "Flip "; }
   if (flags & HitboxFlags.TimedFlip) { result += "TimedFlip "; }
+  if (flags & HitboxFlags.Edit) { result += "Edit"; }
   result += "(" + flags + ")";
   return result;
 }

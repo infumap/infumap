@@ -21,11 +21,11 @@ import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { asTableItem } from "../../../items/table-item";
 import { itemState } from "../../../store/ItemState";
-import { rearrangeWithDisplayId } from "../../../layout/arrange";
 import { serverOrRemote } from "../../../server";
 import { TableFlags } from "../../../items/base/flags-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
+import { fullArrange } from "../../../layout/arrange";
 
 
 export const Toolbar_Table: Component = () => {
@@ -49,7 +49,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().orderChildrenBy = "";
     }
     itemState.sortChildren(tableItem().id);
-    rearrangeWithDisplayId(store, tableItem().id);
+    fullArrange(store);
     serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -66,7 +66,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().flags |= TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableItem().id);
-    rearrangeWithDisplayId(store,tableItem().id);
+    fullArrange(store);
   }
 
   const handleQr = () => {

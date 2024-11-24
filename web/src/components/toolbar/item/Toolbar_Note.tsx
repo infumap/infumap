@@ -23,10 +23,10 @@ import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
 import { VesCache } from "../../../layout/ves-cache";
 import { useStore } from "../../../store/StoreProvider";
 import { VeFns } from "../../../layout/visual-element";
-import { rearrangeWithDisplayId } from "../../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
+import { fullArrange } from "../../../layout/arrange";
 
 
 export const Toolbar_Note: Component = () => {
@@ -54,17 +54,17 @@ export const Toolbar_Note: Component = () => {
 
   const isInTable = (): boolean => VeFns.isInTable(noteVisualElement());
 
-  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); rearrangeWithDisplayId(store, noteItem().id); };
-  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; rearrangeWithDisplayId(store, noteItem().id); };
-  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; rearrangeWithDisplayId(store, noteItem().id); };
-  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; rearrangeWithDisplayId(store, noteItem().id); };
-  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; rearrangeWithDisplayId(store, noteItem().id); };
-  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; rearrangeWithDisplayId(store, noteItem().id); };
+  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); fullArrange(store); };
+  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; fullArrange(store); };
+  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; fullArrange(store); };
+  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; fullArrange(store); };
+  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; fullArrange(store); };
+  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; fullArrange(store); };
 
-  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); rearrangeWithDisplayId(store, noteItem().id); };
-  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; rearrangeWithDisplayId(store, noteItem().id); };
-  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; rearrangeWithDisplayId(store, noteItem().id); };
-  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; rearrangeWithDisplayId(store, noteItem().id); };
+  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); fullArrange(store); };
+  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; fullArrange(store); };
+  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; fullArrange(store); };
+  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; fullArrange(store); };
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -79,7 +79,7 @@ export const Toolbar_Note: Component = () => {
     } else {
       noteItem().flags |= NoteFlags.ShowCopyIcon;
     }
-    rearrangeWithDisplayId(store, noteItem().id);
+    fullArrange(store);
   };
 
   const borderButtonHandler = (): void => {
@@ -96,7 +96,7 @@ export const Toolbar_Note: Component = () => {
         noteItem().flags |= NoteFlags.HideBorder;
       }
     }
-    rearrangeWithDisplayId(store, noteItem().id);
+    fullArrange(store);
   };
 
   // QR
