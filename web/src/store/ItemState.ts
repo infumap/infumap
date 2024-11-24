@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { GRID_SIZE } from "../constants";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { Item } from "../items/base/item";
@@ -143,7 +144,7 @@ export const itemState = {
       childItems.forEach(childItem => {
         if (!isPage(childItem)) { panic(`flipcard ${parentId} child item ${childItem.id} is not a page.`); }
         const childPageItem = asPageItem(childItem);
-        childPageItem.innerSpatialWidthGr = parentFlipCardItem.spatialWidthGr;
+        childPageItem.innerSpatialWidthGr = Math.round(parentFlipCardItem.spatialWidthGr / parentFlipCardItem.scale / GRID_SIZE) * GRID_SIZE;
         childPageItem.naturalAspect = parentFlipCardItem.naturalAspect;
       });
     }

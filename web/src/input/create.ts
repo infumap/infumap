@@ -73,13 +73,13 @@ export function maybeAddNewChildItems(store: StoreContextModel, item: Positional
 
     const frontSidePageItem = PageFns.create(store.user.getUser().userId, parentId, RelationshipToParent.Child, "", itemState.newOrderingAtEndOfChildren(parentId));
     itemState.add(frontSidePageItem);
-    frontSidePageItem.innerSpatialWidthGr = fcItem.spatialWidthGr;
+    frontSidePageItem.innerSpatialWidthGr = Math.round(fcItem.spatialWidthGr / fcItem.scale / GRID_SIZE) * GRID_SIZE;
     frontSidePageItem.naturalAspect = fcItem.naturalAspect;
     server.addItem(frontSidePageItem, null, store.general.networkStatus);
 
     const backSidePageItem = PageFns.create(store.user.getUser().userId, parentId, RelationshipToParent.Child, "", itemState.newOrderingAtEndOfChildren(parentId));
     itemState.add(backSidePageItem);
-    backSidePageItem.innerSpatialWidthGr = fcItem.spatialWidthGr;
+    backSidePageItem.innerSpatialWidthGr = Math.round(fcItem.spatialWidthGr / fcItem.scale / GRID_SIZE) * GRID_SIZE;
     backSidePageItem.naturalAspect = fcItem.naturalAspect;
     server.addItem(backSidePageItem, null, store.general.networkStatus);
   }

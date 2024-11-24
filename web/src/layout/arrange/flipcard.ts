@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { GRID_SIZE } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { FlipCardFns, FlipCardItem } from "../../items/flipcard-item";
@@ -94,6 +95,8 @@ export const arrangeFlipCard = (
       const childItemIsEmbededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
       const hasPendingChanges = false; // it may do, but only matters for popups.
       const parentPageInnerDimensionsBl = FlipCardFns.calcInnerSpatialDimensionsBl(displayItem_flipCard);
+      parentPageInnerDimensionsBl.w = Math.round(parentPageInnerDimensionsBl.w / displayItem_flipCard.scale);
+      parentPageInnerDimensionsBl.h = Math.round(parentPageInnerDimensionsBl.h / displayItem_flipCard.scale);
       const itemGeometry = ItemFns.calcGeometry_Spatial(
         childItem,
         zeroBoundingBoxTopLeft(flipCardVisualElementSpec.childAreaBoundsPx!),

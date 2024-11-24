@@ -157,7 +157,12 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.PageAspect) {
       pageItem().naturalAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.Scale) {
-      flipCardItem().scale = parseFloat(textElement!.value) / 100.0;
+      const fcItem = flipCardItem();
+      fcItem.scale = parseFloat(textElement!.value) / 100.0;
+      for (let i=0; i<fcItem.computed_children.length; ++i) {
+        const childPage = asPageItem(itemState.get(fcItem.computed_children[i])!);
+        childPage.innerSpatialWidthGr = Math.round(flipCardItem().spatialWidthGr * flipCardItem().scale / GRID_SIZE) * GRID_SIZE;
+      }
     } else if (overlayTypeConst == ToolbarPopupType.PageCellAspect) {
       pageItem().gridCellAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {

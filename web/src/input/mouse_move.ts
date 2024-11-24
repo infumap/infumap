@@ -295,10 +295,10 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
       flipCardItem.naturalAspect = newAspect;
       const frontPage = asPageItem(itemState.get(flipCardItem.computed_children[0])!);
       frontPage.naturalAspect = newAspect;
-      frontPage.innerSpatialWidthGr = newWidthGr;
+      frontPage.innerSpatialWidthGr = Math.round(newWidthGr / asFlipCardItem(activeItem).scale / GRID_SIZE) * GRID_SIZE;
       const backPage = asPageItem(itemState.get(flipCardItem.computed_children[1])!);
       backPage.naturalAspect = newAspect;
-      backPage.innerSpatialWidthGr = newWidthGr;
+      backPage.innerSpatialWidthGr = Math.round(newWidthGr / asFlipCardItem(activeItem).scale / GRID_SIZE) * GRID_SIZE;
     }
     requireArrange = true;
   }
