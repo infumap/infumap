@@ -22,7 +22,7 @@ import { useStore } from "../../store/StoreProvider";
 import { asFlipCardItem } from "../../items/flipcard-item";
 import { linearGradient, stripedGradient } from "../../style";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_MOVING, Z_INDEX_SHADOW } from "../../constants";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 
@@ -81,13 +81,21 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
                `height: ${viewportBoundsPx().h}px; ` +
                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
       <div class="absolute"
-          style={`left: ${0}px; top: ${0}px; ` +
+           style={`left: ${0}px; top: ${0}px; ` +
                   `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
         <For each={props.visualElement.childrenVes}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
         <InfuResizeTriangle />
       </div>
+      <Show when={store.perVe.getMouseIsOver(vePath()) && !store.perVe.getFlipCardIsEditing(vePath())}>
+          <div class="absolute"
+               style={`left: ${0}px; top: ${0}px; ` +
+                      `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px; ` +
+                      'background-color: #44444411;' +
+                      `z-index: ${Z_INDEX_MOVING};`}>
+          </div>
+        </Show>
     </div>;
 
   return (
