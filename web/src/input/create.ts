@@ -123,10 +123,12 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
     if (hitInfo.overPositionGr != null) {
       newItem.spatialPositionGr = hitInfo.overPositionGr!;
-      let maxWidthBl = Math.floor((asPageItem(overElementVe.displayItem).innerSpatialWidthGr - newItem.spatialPositionGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
-      if (maxWidthBl < 2) { maxWidthBl = 2; }
       if (isXSizableItem(newItem)) {
-        asXSizableItem(newItem).spatialWidthGr = maxWidthBl * GRID_SIZE;
+        let maxWidthBl = Math.floor((asPageItem(overElementVe.displayItem).innerSpatialWidthGr - newItem.spatialPositionGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
+        if (maxWidthBl < 2) { maxWidthBl = 2; }
+        if (maxWidthBl * GRID_SIZE < asXSizableItem(newItem).spatialWidthGr) {
+          asXSizableItem(newItem).spatialWidthGr = maxWidthBl * GRID_SIZE;
+        }
       }
     } else {
       console.warn("hitInfo.overPositionGr is not set");

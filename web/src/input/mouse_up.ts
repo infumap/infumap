@@ -245,7 +245,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           }
         }
 
-        console.log(activeVisualElement.displayItem);
         if (isFlipCard(activeVisualElement.displayItem)) {
           store.perVe.setFlipCardIsEditing(
             MouseActionState.get().activeElementPath,
