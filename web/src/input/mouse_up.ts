@@ -160,6 +160,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           MouseActionState.get().activeElementPath,
           !store.perVe.getFlipCardIsEditing(MouseActionState.get().activeElementPath)
         );
+
         fullArrange(store);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
@@ -242,6 +243,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           if (selectedVeid == EMPTY_VEID) {
             PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
           }
+        }
+
+        console.log(activeVisualElement.displayItem);
+        if (isFlipCard(activeVisualElement.displayItem)) {
+          store.perVe.setFlipCardIsEditing(
+            MouseActionState.get().activeElementPath,
+            !store.perVe.getFlipCardIsEditing(MouseActionState.get().activeElementPath)
+          );
         }
 
         fullArrange(store);
