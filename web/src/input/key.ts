@@ -37,7 +37,7 @@ import { UMBRELLA_PAGE_UID } from "../util/uid";
 
 const recognizedKeys = [
   "Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter",
-  "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE"
+  "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE", "KeyF",
 ];
 
 export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): void {

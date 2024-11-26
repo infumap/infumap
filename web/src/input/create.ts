@@ -20,6 +20,7 @@ import { GRID_SIZE } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
+import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { ExpressionFns } from "../items/expression-item";
 import { asFlipCardItem, FlipCardFns, isFlipCard } from "../items/flipcard-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
@@ -122,6 +123,11 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
     if (hitInfo.overPositionGr != null) {
       newItem.spatialPositionGr = hitInfo.overPositionGr!;
+      let maxWidthBl = Math.floor((asPageItem(overElementVe.displayItem).innerSpatialWidthGr - newItem.spatialPositionGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
+      if (maxWidthBl < 2) { maxWidthBl = 2; }
+      if (isXSizableItem(newItem)) {
+        asXSizableItem(newItem).spatialWidthGr = maxWidthBl * GRID_SIZE;
+      }
     } else {
       console.warn("hitInfo.overPositionGr is not set");
     }

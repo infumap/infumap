@@ -1149,8 +1149,8 @@ function finalize(
     let overPositionableVe = parentVe;
     if (isPage(parentVe.displayItem)) {
       overPositionGr = {
-        x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
-        y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
+        x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / (GRID_SIZE / 2)) * (GRID_SIZE / 2),
+        y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / (GRID_SIZE / 2)) * (GRID_SIZE / 2)
       };
     } else if (isComposite(parentVe.displayItem)) {
       overPositionableVe = VesCache.get(parentVe.parentPath!)!.get();
@@ -1184,8 +1184,8 @@ function finalize(
       }
     }
     const overPositionGr = {
-      x: Math.round(prop.x * asPageItem(overVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
-      y: Math.round(prop.y * asPageItem(overVe.displayItem).innerSpatialWidthGr / asPageItem(overVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
+      x: Math.round(prop.x * asPageItem(overVe.displayItem).innerSpatialWidthGr / (GRID_SIZE / 2)) * (GRID_SIZE / 2),
+      y: Math.round(prop.y * asPageItem(overVe.displayItem).innerSpatialWidthGr / asPageItem(overVe.displayItem).naturalAspect / (GRID_SIZE / 2)) * (GRID_SIZE / 2)
     };
     let overPositionableVe = overVe;
     if (canHitEmbeddedInteractive) {
