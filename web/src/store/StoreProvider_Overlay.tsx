@@ -125,8 +125,11 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   const setTextEditInfo = (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => {
     if (info == null) {
-      // TODO (MEDIUM): inner most list page instead, if there is one.
-      historyStore.setFocus(VeFns.addVeidToPath(historyStore.currentPageVeid()!, UMBRELLA_PAGE_UID));
+      if (historyStore.currentPopupSpec()) {
+        historyStore.setFocus(historyStore.currentPopupSpec()!.vePath!);
+      } else {
+        historyStore.setFocus(historyStore.currentPagePath()!);
+      }
     }
     else { historyStore.setFocus(info.itemPath); }
     textEditInfo_.set(info);

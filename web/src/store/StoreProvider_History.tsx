@@ -41,6 +41,7 @@ export interface HistoryStoreContextModel {
   pushPageVeid: (veid: Veid) => void,
   popPage: () => boolean,
   currentPageVeid: () => Veid | null,
+  currentPagePath: () => string | null,
   parentPageVeid: () => Veid | null,
 
   pushPopup: (popupSpec: PopupSpec) => void,
@@ -209,10 +210,14 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   const getFocusIsCurrentPage = (): boolean => {
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     if (breadcrumb.focusPath != null) {
-      const currentPagePath = VeFns.addVeidToPath(currentPageVeid()!, UMBRELLA_PAGE_UID);
-      return currentPagePath == getFocusPath();
+      return currentPagePath() == getFocusPath();
     }
     return true;
+  };
+
+  const currentPagePath = (): string | null => {
+    if (currentPageVeid() == null) { return null; }
+    return VeFns.addVeidToPath(currentPageVeid()!, UMBRELLA_PAGE_UID);
   };
 
   const clear = (): void => {
@@ -225,6 +230,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     pushPageVeid,
     popPage,
     currentPageVeid,
+    currentPagePath,
     parentPageVeid,
 
     pushPopup,

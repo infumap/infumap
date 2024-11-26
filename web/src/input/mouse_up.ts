@@ -56,6 +56,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
   store.anItemIsMoving.set(false);
   UserSettingsMoveState.set(null);
 
+  // Note: There is no right mouse up handler. Program control flow will exit here in right mouse case.
   if (MouseActionState.empty()) { return MouseEventActionFlags.PreventDefault; }
 
   const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElementPath)!;

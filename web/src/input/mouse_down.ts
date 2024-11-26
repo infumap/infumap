@@ -43,7 +43,6 @@ import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
 import { asNoteItem } from "../items/note-item";
 import { asFileItem } from "../items/file-item";
-import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { isFlipCard } from "../items/flipcard-item";
 
@@ -203,7 +202,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (isLink(store.history.getFocusItem()) ||
       isRating(store.history.getFocusItem())) {
     if (buttonNumber != MOUSE_LEFT || !isInsideItemOptionsToolbarArea()) {
-      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, UMBRELLA_PAGE_UID));
+      store.history.setFocus(store.history.currentPagePath()!);
     }
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
