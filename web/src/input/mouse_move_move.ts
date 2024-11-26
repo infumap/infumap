@@ -85,7 +85,6 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
         maybeAddNewChildItems(store, asPositionalItem(cloned));
       }
 
-      store.anItemIsMoving.set(true);
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
       const newLinkVeid = VeFns.veidFromId(cloned.id);
       MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
@@ -110,7 +109,6 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       itemState.add(link);
       server.addItem(link, null, store.general.networkStatus);
 
-      store.anItemIsMoving.set(true);
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
       const newLinkVeid = VeFns.veidFromId(link.id);
       MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, activeParentPath);

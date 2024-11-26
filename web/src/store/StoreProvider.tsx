@@ -54,6 +54,7 @@ export interface StoreContextModel {
 
   dockVisible: InfuSignal<boolean>,
 
+  anItemIsResizing: InfuSignal<boolean>,
   anItemIsMoving: InfuSignal<boolean>,
   mouseOverTableHeaderColumnNumber: InfuSignal<number | null>,
 
@@ -177,6 +178,7 @@ export function StoreProvider(props: StoreContextProps) {
 
     currentVisiblePassword,
 
+    anItemIsResizing: createInfuSignal<boolean>(false),
     anItemIsMoving: createInfuSignal<boolean>(false),
     mouseOverTableHeaderColumnNumber: createInfuSignal<number | null>(null),
 

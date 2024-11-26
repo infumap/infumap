@@ -173,6 +173,7 @@ function changeMouseActionStateMaybe(
       } else {
         MouseActionState.get().startHeightBl = null;
       }
+      store.anItemIsResizing.set(true);
       MouseActionState.get().action = MouseAction.Resizing;
     }
 

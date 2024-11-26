@@ -52,6 +52,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     }
   }
 
+  store.anItemIsResizing.set(false);
   store.anItemIsMoving.set(false);
   UserSettingsMoveState.set(null);
 

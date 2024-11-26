@@ -31,6 +31,7 @@ import { FEATURE_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { createInfuSignal } from "../../util/signals";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -57,13 +58,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const isDetailed = () => { return (props.visualElement.flags & VisualElementFlags.Detailed) }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
-  const imgSrc = () => { return "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true); }
-  // const imgUrl = () => {
-  //   if (!props.visualElement.isDetailed) {
-  //     return "data:image/png;base64, " + imageItem().thumbnail;
-  //   }
-  //   return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);
-  // };
+  const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true);
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
 
   const moveOutOfCompositeBox = (): BoundingBox => {
@@ -136,14 +131,14 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
 
   let isDetailed_OnLoad = isDetailed();
-  let currentImgSrc = imgSrc();
+  let currentImgSrc = "";
   let imgOriginOnLoad = imgOrigin();
   let isMounting = true;
+  let isShowingThumbnail = createInfuSignal<boolean>(false);
 
   // TODO (LOW): Better behavior when imageWidthToRequestPx <= MIN_IMAGE_WIDTH_PX.
   createEffect(() => {
-    const nextId = props.visualElement.displayItem.id;
-    if (nextId != imgSrc()) { // TODO (MEDIUM): will always be true - unsure what i was thinking here. always evaluates signal.
+    if (currentImgSrc != imgSrc() && !store.anItemIsResizing.get()) {
       if (isDetailed_OnLoad) {
         if (!isMounting) {
           releaseImage(currentImgSrc);
@@ -151,13 +146,15 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         isMounting = false;
         currentImgSrc = imgSrc();
         if (imgElement) {
-          imgElement!.src = "";
+          imgElement!.src = thumbnailSrc();
+          isShowingThumbnail.set(true);
         }
         const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
         getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
           .then((objectUrl) => {
             if (imgElement) {
               imgElement!.src = objectUrl;
+              isShowingThumbnail.set(false);
             }
           });
       }
@@ -209,9 +206,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                    `height: ${quantizedBoundsPx().h}px;` +
                    `${VeFns.zIndexStyle(props.visualElement)}`}>
         <img class="max-w-none absolute pointer-events-none"
-             style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                    `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; ` +
-                    `height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+             style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
              width={imageWidthToRequestPx(false)}
              height={imageWidthToRequestPx(false) / imageAspect()}
              src={thumbnailSrc()} />
@@ -227,12 +222,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const notDetailedFallback = (): JSX.Element =>
     <img class="max-w-none absolute pointer-events-none"
-          style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                 `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; ` +
-                 `height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-          width={imageWidthToRequestPx(false)}
-          height={imageWidthToRequestPx(false) / imageAspect()}
-          src={thumbnailSrc()} />;
+         style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+         width={imageWidthToRequestPx(false)}
+         height={imageWidthToRequestPx(false) / imageAspect()}
+         src={thumbnailSrc()} />;
 
   const renderTitleMaybe = (): JSX.Element =>
     <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
@@ -251,10 +244,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderAttachmentsAndDetailMaybe = (): JSX.Element =>
     <Show when={isDetailed()}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
-          style={`left: ${quantizedBoundsPx().x}px; ` +
-                `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
-                `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
+           style={`left: ${quantizedBoundsPx().x}px; ` +
+                  `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+                  `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
+                  `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
         <For each={props.visualElement.attachmentsVes}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
@@ -280,17 +273,18 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderCroppedImage = (): JSX.Element =>
     <img ref={imgElement}
          class="max-w-none absolute pointer-events-none"
-         style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;` +
+         style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX)}px; ` +
+                `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX)}px;` +
                 `${VeFns.zIndexStyle(props.visualElement)}`}
-         width={imageWidthToRequestPx(false)} />;
+          width={imageWidthToRequestPx(false)}
+          height={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false) / imageAspect()} />;
 
   const renderNoCropImage = (): JSX.Element =>
     <img ref={imgElement}
          class="max-w-none absolute pointer-events-none"
          style={`${VeFns.zIndexStyle(props.visualElement)} ` +
-                `left: ${noCropPaddingLeftPx(false)}px; ` +
-                `top: ${noCropPaddingTopPx(false)}px;`}
+                `left: ${isShowingThumbnail.get() ? 0 : noCropPaddingLeftPx(false)}px; ` +
+                `top: ${isShowingThumbnail.get() ? 0 : noCropPaddingTopPx(false)}px;`}
          width={noCropWidth(false)} />;
 
   return (
