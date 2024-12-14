@@ -39,6 +39,7 @@ use tokio::net::TcpListener;
 use crate::config::*;
 use crate::setup::init_fs_maybe_and_get_config;
 use crate::storage::backup::{self as storage_backup, BackupStore};
+use crate::storage::db::users_extra::BackupStatus;
 use crate::storage::db::Db;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::object::{self as storage_object, ObjectStore};
@@ -181,6 +182,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 
   // *** BACKUP ***
   let backup_store_ref = backup_store.clone();
+
   let _forever = task::spawn(async move {
     loop {
       time::sleep(Duration::from_secs((backup_period_minutes * 60) as u64)).await;
@@ -190,11 +192,21 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 
       for user_id in dirty_user_ids {
 
+        async fn update_backup_status(db: Arc<Mutex<Db>>, user_id: &String, status: BackupStatus, detail: &str) {
+          match db.lock().await.user_extra.update_backup_status(user_id, status).await {
+            Ok(_) => {},
+            Err(e) => {
+              error!("Failed to update backup status for user '{}': {} ({})", user_id, e, detail);
+            }
+          }
+        }
+
         debug!("Getting raw logs for user '{}'", &user_id);
         let raw_backup_bytes = match db.lock().await.create_user_backup_raw(&user_id).await {
           Ok(bytes) => bytes,
           Err(e) => {
             error!("Failed to create database log backup for user '{}': {}", user_id, e);
+            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "1").await;
             continue;
           }
         };
@@ -221,6 +233,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           Ok(r) => r,
           Err(e) => {
             error!("Failed to compress backup database logs for user '{}': {}", user_id, e);
+            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "2").await;
             continue;
           }
         };
@@ -228,6 +241,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           Ok(bytes) => bytes,
           Err(e) => {
             error!("Failed to compress backup database logs for user '{}': {}", user_id, e);
+            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "3").await;
             continue;
           }
         };
@@ -238,6 +252,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           Ok(bytes) => bytes,
           Err(e) => {
             error!("Failed to encrypt database logs for user '{}': {}", user_id, e);
+            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "4").await;
             continue;
           }
         };
@@ -247,9 +262,11 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
         match storage_backup::put(backup_store_ref.clone(), &user_id, encrypted).await {
           Ok(s3_filename) => {
             info!("Backed up database logs for user '{}' to '{}'.", user_id, s3_filename);
+            update_backup_status(db.clone(), &user_id, BackupStatus::Succeeded, "5").await;
           },
           Err(e) => {
             error!("Database log backup failed for user '{}': {}", user_id, e);
+            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "6").await;
           }
         }
       }

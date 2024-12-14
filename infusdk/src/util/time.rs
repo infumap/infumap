@@ -14,8 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod geometry;
-pub mod infu;
-pub mod json;
-pub mod time;
-pub mod uid;
+use std::time::SystemTime;
+
+use super::infu::InfuResult;
+
+
+pub fn unix_now_secs_i64() -> InfuResult<i64> {
+  Ok(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64)
+}
+
+pub fn unix_now_secs_u64() -> InfuResult<u64> {
+  Ok(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs())
+}

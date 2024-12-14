@@ -22,6 +22,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use filetime::{set_file_atime, FileTime};
 use infusdk::util::infu::InfuResult;
+use infusdk::util::time::unix_now_secs_u64;
 use infusdk::util::uid::{uid_chars, Uid};
 use log::{warn, info, debug};
 use tokio::fs::{File, OpenOptions};
@@ -163,7 +164,7 @@ pub async fn get(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, key: ImageC
     if let Some(fi) = image_cache.fileinfo_by_filename.get(&filename) {
       file_info = fi.clone();
       image_cache.fileinfo_by_filename.insert(filename.clone(),
-        FileInfo { size_bytes: file_info.size_bytes, last_accessed: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() });
+        FileInfo { size_bytes: file_info.size_bytes, last_accessed: unix_now_secs_u64().unwrap() });
     } else {
       return Ok(None);
     }
@@ -237,7 +238,7 @@ pub async fn put(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, key: ImageC
 
     let file_info = FileInfo {
       size_bytes: val.len(),
-      last_accessed: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
+      last_accessed: unix_now_secs_u64().unwrap()
     };
     image_cache.current_total_bytes += file_info.size_bytes as u64;
     image_cache.fileinfo_by_filename.insert(filename.clone(), file_info);
@@ -304,7 +305,7 @@ fn score(fi: &FileInfo) -> f64 {
   let size = if fi.size_bytes > 1000 { fi.size_bytes } else { 1000 };
   let size_factor = (size as f64 / 1000.0).powf(1.0/4.0);
 
-  let now_unix = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+  let now_unix = unix_now_secs_u64().unwrap();
   let seconds_ago = if now_unix < fi.last_accessed { 0 } else { now_unix - fi.last_accessed };
   let days_ago = seconds_ago as f64 / (24.0*60.0*60.0);
 

@@ -26,6 +26,7 @@ use infusdk::item::{is_attachments_item_type, is_composite_item, is_container_it
 use infusdk::util::geometry::{Dimensions, Vector};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
+use infusdk::util::time::unix_now_secs_u64;
 use infusdk::util::uid::{is_empty_uid, is_uid, new_uid, Uid, EMPTY_UID};
 use infusdk::web::WebApiJsonSerializable;
 use log::{debug, error, warn};
@@ -37,7 +38,6 @@ use tokio::sync::MutexGuard;
 use std::str;
 use std::io::Cursor;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use async_recursion::async_recursion;
 
 use crate::storage::db::Db;
@@ -509,7 +509,7 @@ async fn handle_add_item(
     item_map.insert("relationshipToParent".to_owned(), Value::String("child".to_owned()));
   }
 
-  let unix_time_now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+  let unix_time_now = unix_now_secs_u64().unwrap();
 
   if !item_map.contains_key("creationDate") {
     item_map.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));

@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::{SystemTime, UNIX_EPOCH};
 use aes_gcm::Aes256Gcm;
 use aes_gcm::aead::{Aead, KeyInit, OsRng, rand_core::RngCore, Payload};
 use infusdk::util::infu::InfuResult;
+use infusdk::util::time::unix_now_secs_u64;
 use std::io::{Read, Write};
 use super::str::{encode_hex, decode_hex};
 
@@ -38,7 +38,7 @@ fn generate_nonce() -> [u8; 12] {
   // birthday paradox, we need to start worrying about collisions at about sqrt(N).
   // Using 64 bits of random, that is 2^32 = 4,294,967,295. This is much bigger
   // than one.
-  let mut time_u64 = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+  let mut time_u64 = unix_now_secs_u64().unwrap();
   let mut cnt = 0;
   let time = loop {
     match u32::try_from(time_u64) {

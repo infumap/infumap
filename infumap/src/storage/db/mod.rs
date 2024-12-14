@@ -18,6 +18,7 @@ use std::io::Cursor;
 use byteorder::{WriteBytesExt, BigEndian};
 use infusdk::util::infu::InfuResult;
 use log::debug;
+use users_extra_db::UsersExtraDb;
 
 use self::item_db::ItemDb;
 use self::session_db::SessionDb;
@@ -26,6 +27,8 @@ use self::pending_user_db::PendingUserDb;
 
 pub mod user;
 pub mod user_db;
+pub mod users_extra;
+pub mod users_extra_db;
 pub mod pending_user_db;
 pub mod session;
 pub mod session_db;
@@ -34,6 +37,7 @@ pub mod item_db;
 
 pub struct Db {
   pub user: UserDb,
+  pub user_extra: UsersExtraDb,
   pub pending_user: PendingUserDb,
   pub item: ItemDb,
   pub session: SessionDb
@@ -46,6 +50,8 @@ impl Db {
         .map_err(|e| format!("Failed to initialize UserDb: {}", e))?,
       pending_user: PendingUserDb::init(data_dir).await
         .map_err(|e| format!("Failed to initialize Pending UserDb: {}", e))?,
+      user_extra: UsersExtraDb::init(data_dir).await
+        .map_err(|e| format!("Failed to initialize UsersExtraDb: {}", e))?,
       session: SessionDb::init(data_dir).await
         .map_err(|e| format!("Failed to initialize SessionDb: {}", e))?,
       item: ItemDb::init(data_dir),

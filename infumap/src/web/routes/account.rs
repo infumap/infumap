@@ -19,10 +19,10 @@ use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Method};
 use infusdk::util::geometry::Dimensions;
 use infusdk::util::infu::InfuResult;
+use infusdk::util::time::unix_now_secs_u64;
 use infusdk::util::uid::{is_uid, new_uid};
 use log::{info, error, debug, warn};
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
 use std::str;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -407,11 +407,7 @@ fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
     None, "infumap".to_string()
   ).map_err(|e| format!("{:?}", e))?;
 
-  let time = SystemTime::now()
-    .duration_since(SystemTime::UNIX_EPOCH)?
-    .as_secs();
-
-  let token = totp.generate(time);
+  let token = totp.generate(unix_now_secs_u64().unwrap());
 
   Ok(token == totp_token)
 }

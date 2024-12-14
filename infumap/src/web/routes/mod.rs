@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::SystemTime;
-use infusdk::{item::{AlignmentPoint, ArrangeAlgorithm, Item, ItemType, RelationshipToParent, TableColumn}, util::{geometry::{Vector, GRID_SIZE}, uid::Uid}};
+use infusdk::{item::{AlignmentPoint, ArrangeAlgorithm, Item, ItemType, RelationshipToParent, TableColumn}, util::{geometry::{Vector, GRID_SIZE}, time::unix_now_secs_i64, uid::Uid}};
 
 pub mod account;
 pub mod admin;
@@ -32,8 +31,8 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     id: home_page_id,
     parent_id: None,
     relationship_to_parent: RelationshipToParent::NoParent,
-    creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
-    last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    creation_date: unix_now_secs_i64().unwrap(),
+    last_modified_date: unix_now_secs_i64().unwrap(),
     ordering: vec![128],
     order_children_by: Some(String::from("")),
     spatial_position_gr: Some(Vector { x: 0, y: 0 }),
@@ -79,8 +78,8 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     id: trash_page_id,
     parent_id: None,
     relationship_to_parent: RelationshipToParent::NoParent,
-    creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
-    last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    creation_date: unix_now_secs_i64().unwrap(),
+    last_modified_date: unix_now_secs_i64().unwrap(),
     ordering: vec![128],
     order_children_by: Some(String::from("")),
     spatial_position_gr: Some(Vector { x: 0, y: 0 }),
@@ -126,8 +125,8 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     id: dock_page_id,
     parent_id: None,
     relationship_to_parent: RelationshipToParent::NoParent,
-    creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
-    last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    creation_date: unix_now_secs_i64().unwrap(),
+    last_modified_date: unix_now_secs_i64().unwrap(),
     ordering: vec![128],
     order_children_by: Some(String::from("")),
     spatial_position_gr: Some(Vector { x: 0, y: 0 }),

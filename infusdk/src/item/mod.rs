@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::SystemTime;
-
 use bitflags::bitflags;
 use crate::util::geometry::{Dimensions, Vector};
 use crate::util::infu::{InfuError, InfuResult};
+use crate::util::time::unix_now_secs_i64;
 use crate::util::uid::{is_uid, new_uid, Uid, EMPTY_UID};
 use crate::util::json;
 use crate::web::WebApiJsonSerializable;
@@ -1445,8 +1444,8 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
-      creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
-      last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+      creation_date: unix_now_secs_i64().unwrap(),
+      last_modified_date: unix_now_secs_i64().unwrap(),
       ordering,
       flags: Some(flags.bits()),
       spatial_position_gr: Some(spatial_position_gr),
@@ -1497,8 +1496,8 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
-      creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
-      last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+      creation_date: unix_now_secs_i64().unwrap(),
+      last_modified_date: unix_now_secs_i64().unwrap(),
       ordering,
       flags: None,
       spatial_position_gr: Some(spatial_position_gr),
