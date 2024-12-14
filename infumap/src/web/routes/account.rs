@@ -30,12 +30,13 @@ use tokio::time::{sleep, Duration};
 use totp_rs::{Algorithm, TOTP, Secret};
 use uuid::Uuid;
 
+use crate::storage::db::users_extra::UserExtra;
 use crate::storage::db::Db;
 use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
 use crate::web::cookie::get_session_cookie_maybe;
 use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
-use crate::web::serve::{json_response, not_found_response, incoming_json};
+use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 
 
@@ -53,6 +54,7 @@ pub async fn serve_account_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::
     (&Method::POST, "/account/create-totp") => create_totp(),
     (&Method::POST, "/account/update-totp") => update_totp(db, req).await,
     (&Method::POST, "/account/validate-session") => validate(db, req).await,
+    (&Method::POST, "/account/extra") => extra(db, req).await,
     _ => not_found_response()
   }
 }
@@ -475,5 +477,29 @@ pub async fn validate(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   match get_and_validate_session(&req, db).await {
     Some(_session) => json_response(&ValidateResponse { success: true }),
     None => { json_response(&ValidateResponse { success: false }) }
+  }
+}
+
+
+pub async fn extra(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let session_maybe = get_and_validate_session(&req, db).await;
+
+  match session_maybe {
+    None => {
+      forbidden_response()
+    },
+    Some(s) => {
+      let user_extra = match db.lock().await.user_extra.get(&s.user_id) {
+        None => {
+          UserExtra {
+            id: s.user_id.clone(),
+            last_backup_time: 0,
+            last_failed_backup_time: 0
+          }
+        },
+        Some(s) => s.clone()
+      };
+      json_response(&user_extra)
+    }
   }
 }

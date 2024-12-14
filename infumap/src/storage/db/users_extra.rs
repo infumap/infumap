@@ -18,6 +18,7 @@ use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::uid::Uid;
+use serde::Serialize;
 use serde_json::{Map, Value};
 
 
@@ -30,9 +31,12 @@ pub enum BackupStatus {
   Succeeded
 }
 
+#[derive(Serialize)]
 pub struct UserExtra {
   pub id: Uid,
+  #[serde(rename="lastBackupTime")]
   pub last_backup_time: i64,
+  #[serde(rename="lastFailedBackupTime")]
   pub last_failed_backup_time: i64,
 }
 

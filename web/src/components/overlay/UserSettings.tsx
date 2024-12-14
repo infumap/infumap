@@ -21,7 +21,7 @@ import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { logout } from "../Main";
 import { InfuButton } from "../library/InfuButton";
-import { createInfuSignal } from "../../util/signals";
+import { createInfuSignal, createNumberSignal } from "../../util/signals";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { post } from "../../server";
 import { Totp, UpdateTotpResponse } from "../../util/accountTypes";
@@ -45,6 +45,8 @@ export const EditUserSettings: Component = () => {
   let editUserSettingsDiv: HTMLDivElement | undefined;
 
   const totpSignal = createInfuSignal<Totp | null>(null);
+  const lastBackupTime = createNumberSignal(-1);
+  const lastFailedBackupTime = createNumberSignal(-1);
 
   let totpToken: string = "";
 
@@ -55,6 +57,9 @@ export const EditUserSettings: Component = () => {
       url: json.url,
       secret: json.secret
     });
+    const extra_json: any = await post(null, "/account/extra", {});
+    lastBackupTime.set(extra_json.lastBackupTime);
+    lastFailedBackupTime.set(extra_json.lastFailedBackupTime);
   });
 
   const addTotpVisibleSignal = createInfuSignal<boolean>(false);
@@ -127,7 +132,6 @@ export const EditUserSettings: Component = () => {
           </div>
 
           <Switch>
-
             <Match when={!addTotpVisibleSignal.get()}>
               <div>
                 2FA: {store.user.getUser().hasTotp ? "ON" : "OFF"}
@@ -140,7 +144,6 @@ export const EditUserSettings: Component = () => {
             </Match>
 
             <Match when={addTotpVisibleSignal.get()}>
-
               <Show when={totpSignal.get() != null}>
                 <div class="absolute">Authenticator setup:</div>
                 <img style="padding-top: 10px; width: 200px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
@@ -153,8 +156,10 @@ export const EditUserSettings: Component = () => {
               <a class="ml-3" style="color: #00a;" href="" onClick={handleAddTotp}>add</a>
               <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelAddTotp}>cancel</a>
             </Match>
-
           </Switch>
+
+          <div>last backup: {lastBackupTime.get()}</div>
+          <div>last failed backup: {lastFailedBackupTime.get()}</div>
 
           <Show when={errorSignal.get() != null}>
             <div>
