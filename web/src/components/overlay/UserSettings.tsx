@@ -27,9 +27,9 @@ import { post } from "../../server";
 import { Totp, UpdateTotpResponse } from "../../util/accountTypes";
 
 
-const DIALOG_WIDTH_PX = 400;
+const DIALOG_WIDTH_PX = 510;
 
-export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 500 };
+export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 600 };
 
 export function initialEditUserSettingsBounds(store: StoreContextModel) {
   let posPx = {
@@ -47,6 +47,21 @@ export const EditUserSettings: Component = () => {
   const totpSignal = createInfuSignal<Totp | null>(null);
   const lastBackupTime = createNumberSignal(-1);
   const lastFailedBackupTime = createNumberSignal(-1);
+
+  function humanReadableTime(unixTimeSeconds: number): string {
+    if (unixTimeSeconds == -1) { return ""; }
+    if (unixTimeSeconds == 0) { return "N/A"; }
+    const date = new Date(unixTimeSeconds * 1000);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    return (
+      year + "-" + String(month).padStart(2, '0') + "-" + String(day).padStart(2, '0') + " " +
+      String(hour).padStart(2, '0') + ":" + String(minute).padStart(2, '0')
+    );
+  }
 
   let totpToken: string = "";
 
@@ -124,42 +139,63 @@ export const EditUserSettings: Component = () => {
            class="fixed bg-white z-20 rounded-md border border-slate-700"
            style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
         <div class="p-3">
-          <div class="font-bold text-lg">User Settings</div>
-          <div class="font-bold">{store.user.getUser().username}</div>
-          <div class="text-slate-800 text-sm">
-            <span class="font-mono text-slate-400">{`${store.user.getUser().userId}`}</span>
-            <i class={`fa fa-copy text-slate-400 cursor-pointer ml-1`} onclick={copyClickHandler} />
+          <div class="font-bold text-lg" style="margin-bottom: 14px;">User Settings</div>
+          <div>
+            <div class="inline-block text-right mr-[6px]" style="width: 150px;">username:</div>
+            <div class="font-bold inline-block">{store.user.getUser().username}</div>
+          </div>
+          <div>
+            <div class="inline-block text-right mr-[6px]" style="width: 150px;">id:</div>
+            <div class="text-slate-800 text-sm inline-block">
+              <span class="font-mono text-slate-400">{`${store.user.getUser().userId}`}</span>
+              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-[8px]`} onclick={copyClickHandler} />
+            </div>
+          </div>
+
+          <div>
+            <div class="inline-block text-right mr-[6px]" style="width: 150px;">last backup:</div>
+            <div class="inline-block">{humanReadableTime(lastBackupTime.get())}</div>
+          </div>
+          <div>
+            <div class="inline-block text-right mr-[6px]" style="width: 150px;">last failed backup:</div>
+            <div class="inline-block">{humanReadableTime(lastFailedBackupTime.get())}</div>
           </div>
 
           <Switch>
             <Match when={!addTotpVisibleSignal.get()}>
               <div>
-                2FA: {store.user.getUser().hasTotp ? "ON" : "OFF"}
-                <Show when={store.user.getUser().hasTotp} fallback={
-                  <a class="ml-3" style="color: #00a;" href="" onClick={handleShowCreateTotp}>add</a>
-                }>
-                  <a class="ml-3" style="color: #00a;" href="" onClick={handleRemoveTotp}>remove</a>
-                </Show>
+                <div class="inline-block text-right mr-[6px]" style="width: 150px;">2FA:</div>
+                <div class="inline-block">
+                  {store.user.getUser().hasTotp ? "ON" : "OFF"}
+                  <Show when={store.user.getUser().hasTotp} fallback={
+                    <a class="ml-3" style="color: #00a;" href="" onClick={handleShowCreateTotp}>add</a>
+                  }>
+                    <a class="ml-3" style="color: #00a;" href="" onClick={handleRemoveTotp}>remove</a>
+                  </Show>
+                </div>
               </div>
             </Match>
 
             <Match when={addTotpVisibleSignal.get()}>
+              <div>
+                <div class="inline-block text-right mr-[6px] align-top" style="width: 150px; z-index: 10">Authenticator setup:</div>
+              </div>
               <Show when={totpSignal.get() != null}>
-                <div class="absolute">Authenticator setup:</div>
-                <img style="padding-top: 10px; width: 200px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
-                <div class="text-sm w-full text-center" style="margin-top: -20px;">
+              <div class="inline-block">
+                <img class="inline-block" style="margin-left: 125px; width: 200px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
+              </div>
+                <div class="text-sm w-full text-center" style="margin-top: -10px;">
                   {totpSignal.get()!.secret}
-                  <i class="ml-1 fa fa-copy cursor-pointer" onclick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }} />
+                  <i class="ml-[8px] fa fa-copy cursor-pointer" onclick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }} />
                 </div>
               </Show>
-              <div>6 Digit Token: <InfuTextInput onInput={(v) => { totpToken = v; }} /></div>
-              <a class="ml-3" style="color: #00a;" href="" onClick={handleAddTotp}>add</a>
-              <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelAddTotp}>cancel</a>
+              <div class="ml-[80px] mt-[10px]">6 Digit Token: <InfuTextInput onInput={(v) => { totpToken = v; }} /></div>
+              <div class="ml-[150px] mt-[8px] mb-[15px]">
+                <a class="ml-6" style="color: #00a;" href="" onClick={handleAddTotp}>add</a>
+                <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelAddTotp}>cancel</a>
+              </div>
             </Match>
           </Switch>
-
-          <div>last backup: {lastBackupTime.get()}</div>
-          <div>last failed backup: {lastFailedBackupTime.get()}</div>
 
           <Show when={errorSignal.get() != null}>
             <div>
@@ -167,7 +203,7 @@ export const EditUserSettings: Component = () => {
             </div>
           </Show>
 
-          <div style="margin-top: 10px;">
+          <div style="margin-top: 20px;">
             <InfuButton text="logout" onClick={logoutHandler} />
           </div>
         </div>
