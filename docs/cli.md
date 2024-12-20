@@ -117,6 +117,19 @@ that you can act quickly if/when the time comes.
 - **--dev (optional):** Enable experimental in-development features.
 
 
+### compact
+
+Compact a user's item database log. Chronological order is not maintained. In the future, this operation will be handled
+automatically, but for now if you want to compact a log, you must do it explicitly. After creating the compacted log,
+you need to delete or move the original and replace it with the compacted version.
+
+Options:
+
+- **-i --id:** The user id.
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment varable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
+
+
+
 ## API Commands
 
 ### login

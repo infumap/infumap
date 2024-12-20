@@ -33,6 +33,8 @@ use std::path::PathBuf;
 
 use crate::util::fs::{expand_tilde, path_exists};
 
+use super::user::User;
+
 
 pub const CURRENT_ITEM_LOG_VERSION: i64 = 21;
 
@@ -65,6 +67,63 @@ impl ItemDb {
       children_of: HashMap::new(),
       attachments_of: HashMap::new()
     }
+  }
+
+  /// Compact a user's item database.
+  ///
+  /// In general it is not possible to maintain chronological ordering because items can be moved between parents
+  /// and deleted arbitrarily, so no attempt is made to do so to any degree at all.
+  ///
+  /// Ordering in the output log is according to the parent/child hierarchy - no item is written in the compacted
+  /// log before it's parent.
+  pub async fn compact(&self, user: &User) -> InfuResult<()> {
+    let store = self.store_by_user_id.get(&user.id).ok_or(format!("no item store for user: {}", &user.id))?;
+    let root_ids = vec![
+      user.trash_page_id.as_str(),
+      user.dock_page_id.as_str(),
+      user.home_page_id.as_str()
+    ];
+
+    let mut all_ids = store.get_iter().map(|e| e.1.id.as_str()).collect::<HashSet<&str>>();
+    let mut ordered_ids = vec![];
+    for root_id in root_ids {
+      let _ = store.get(root_id).ok_or(format!("root item doesn't exist: {}", root_id))?;
+      let mut stack = vec![root_id];
+      loop {
+        let current_id = match stack.pop() {
+          Some(s) => s,
+          None => { break; }
+        };
+        ordered_ids.push(current_id);
+        all_ids.remove(current_id);
+        if let Some(children) = self.children_of.get(current_id) {
+          for c in children { stack.push(c); }
+        }
+        if let Some(attachments) = self.attachments_of.get(current_id) {
+          for a in attachments { stack.push(a); }
+        }
+      }
+    }
+
+    if all_ids.len() > 0 {
+      warn!("There are {} unreachable items that will not be written to the compacted database.", all_ids.len());
+    } else {
+      info!("All items are reachable and will be written to the compacted database.");
+    }
+
+    let mut log_path = expand_tilde(&self.data_dir).ok_or("Could not interpret path.")?;
+    log_path.push(String::from("user_") + &user.id);
+    log_path.push("items.json.compacted");
+    if path_exists(&log_path).await { return Err(format!("Compacted log path already exists: {:?}", log_path).into()); }
+
+    let mut compacted_store: KVStore<Item> = KVStore::init(log_path.to_str().ok_or("unable to interpret path")?, CURRENT_ITEM_LOG_VERSION).await?;
+    let number_written = ordered_ids.len();
+    for item_id in ordered_ids {
+      compacted_store.add(store.get(item_id).unwrap().clone()).await?;
+    }
+    info!("Wrote {} items to the compacted log.", number_written);
+
+    Ok(())
   }
 
   pub async fn load_user_items(&mut self, user_id: &str, creating: bool) -> InfuResult<()> {
