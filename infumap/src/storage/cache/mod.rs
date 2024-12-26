@@ -224,12 +224,15 @@ fn keys_for_item_id_impl(image_cache: &MutexGuard<ImageCache>, user_id: &Uid, it
 ///
 /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
 /// to be extra sure items for one user are not returned to another.
-pub async fn put(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, key: ImageCacheKey, val: Vec<u8>) -> InfuResult<()> {
+pub async fn put_if_not_exist(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, key: ImageCacheKey, val: Vec<u8>) -> InfuResult<()> {
   let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
 
   let cache_dir;
   {
     let mut image_cache = image_cache.lock().unwrap();
+    if image_cache.filenames_by_item_id.contains_key(&filename) {
+      return Ok(());
+    }
     cache_dir = image_cache.cache_dir.clone();
     if !image_cache.filenames_by_item_id.contains_key(&key.item_id) {
       image_cache.filenames_by_item_id.insert(String::from(&key.item_id), vec![]);
@@ -244,11 +247,14 @@ pub async fn put(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, key: ImageC
     image_cache.fileinfo_by_filename.insert(filename.clone(), file_info);
   }
 
+  // TODO (LOW): race condition still exists. to reproduce, repeatedly reload a page with images not yet in cache (use debug build to slow it down).
+  let path = construct_file_subpath(&cache_dir, &filename)?;
   let mut file = OpenOptions::new()
     .create_new(true)
     .write(true)
-    .open(construct_file_subpath(&cache_dir, &filename)?).await?;
-  file.write_all(&val).await?;
+    .open(path.clone()).await
+    .map_err(|e| format!("Error opening file {:?} (create new/write): {}", path, e))?;
+  file.write_all(&val).await.map_err(|e| format!("Error writing to file {:?}: {}", path, e))?;
   file.flush().await?;
 
   purge_maybe(image_cache).await?;

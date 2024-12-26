@@ -221,7 +221,8 @@ async fn get_cached_resized_img(
     let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Original };
     debug!("Caching then returning image '{}' (unmodified original).", cache_key);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
-    storage_cache::put(image_cache, &owner_id, cache_key, original_file_bytes.clone()).await?;
+    // it is possible there was more than one request for this, and another request won inserting into cache.
+    storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, original_file_bytes.clone()).await?;
     return Ok(Response::builder()
       .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
       .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
@@ -243,7 +244,7 @@ async fn get_cached_resized_img(
       img = adjust_image_for_exif_orientation(img, exif_orientation, &uid);
 
       // Calculate the height for passing into the image resize method. The resize method makes the image as large as possible
-      // whilst preseving the image aspect ratio. So calculate the exact height, then bump it up a bit to be 100% sure width
+      // whilst preserving the image aspect ratio. So calculate the exact height, then bump it up a bit to be 100% sure width
       // is the constraining factor in that calc.
       let aspect = original_dimensions_px.w as f64 / original_dimensions_px.h as f64;
       let requested_height = (requested_width as f64 / aspect).ceil() as u32 + 1;
@@ -261,9 +262,11 @@ async fn get_cached_resized_img(
 
       debug!("Inserting image '{}' into cache and using as response.", name);
 
-      let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Width(requested_width) };
+      let cache_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(requested_width) };
       let data = cursor.get_ref().to_vec();
-      storage_cache::put(image_cache, &owner_id, cache_key, data.clone()).await?;
+      // it is possible there was more than one request for this, and another request won inserting into cache..
+      storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, data.clone()).await
+        .map_err(|e| format!("Failed to insert image ({}, {}) into image cache: {}", uid, requested_width, e.message()))?;
 
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
       Ok(Response::builder()
