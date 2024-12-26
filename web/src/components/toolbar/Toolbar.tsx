@@ -96,10 +96,10 @@ export const Toolbar: Component = () => {
     if (store.history.currentPopupSpecVeid() != null && isPage(itemState.get(store.history.currentPopupSpecVeid()!.itemId)!)) {
       aTopPageHasFocus = false;
     }
-    const fves = VesCache.get(store.history.getFocusPath()!);
-    if (fves) {
-      const fve = fves.get();
-      if (fve.flags & VisualElementFlags.EmbededInteractiveRoot) {
+    const fVes = VesCache.get(store.history.getFocusPath()!);
+    if (fVes) {
+      const fVe = fVes.get();
+      if (!(fVe.flags & VisualElementFlags.TopLevelRoot)) {
         aTopPageHasFocus = false;
       }
     }
