@@ -134,7 +134,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let currentImgSrc = "";
   let imgOriginOnLoad = imgOrigin();
   let isMounting = true;
-  let isShowingThumbnail = createInfuSignal<boolean>(false);
+  let isShowingThumbnail = createInfuSignal<boolean>(true);
 
   // TODO (LOW): Better behavior when imageWidthToRequestPx <= MIN_IMAGE_WIDTH_PX.
   createEffect(() => {
@@ -230,11 +230,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderTitleMaybe = (): JSX.Element =>
     <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
-            style={`left: ${boundsPx().x}px; ` +
-                   `top: ${boundsPx().y + boundsPx().h - 50 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                   `width: ${boundsPx().w}px; ` +
-                   `height: ${50}px;` +
-                   `${VeFns.zIndexStyle(props.visualElement)}`}>
+           style={`left: ${boundsPx().x}px; ` +
+                  `top: ${boundsPx().y + boundsPx().h - 50 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+                  `width: ${boundsPx().w}px; ` +
+                  `height: ${50}px;` +
+                  `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
           {imageItem().title}
         </div>
@@ -274,18 +274,19 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <img ref={imgElement}
          class="max-w-none absolute pointer-events-none"
          style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX)}px; ` +
-                `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX)}px;` +
+                `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX)}px; ` +
+                (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
                 `${VeFns.zIndexStyle(props.visualElement)}`}
-          width={imageWidthToRequestPx(false)}
-          height={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false) / imageAspect()} />;
+         width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />;
 
   const renderNoCropImage = (): JSX.Element =>
     <img ref={imgElement}
          class="max-w-none absolute pointer-events-none"
          style={`${VeFns.zIndexStyle(props.visualElement)} ` +
+                (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
                 `left: ${isShowingThumbnail.get() ? 0 : noCropPaddingLeftPx(false)}px; ` +
                 `top: ${isShowingThumbnail.get() ? 0 : noCropPaddingTopPx(false)}px;`}
-         width={noCropWidth(false)} />;
+         width={isShowingThumbnail.get() ? undefined : noCropWidth(false)} />;
 
   return (
     <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX} fallback={tooSmallFallback()}>

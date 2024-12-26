@@ -134,7 +134,7 @@ async fn get_cached_resized_img(
 
     object_encryption_key = db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
     original_dimensions_px = item.image_size_px.as_ref().ok_or("Image item does not have image dimensions set.")?.clone();
-    original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime tyoe set.")?.clone();
+    original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime type set.")?.clone();
   }
 
   // Never want to upscale original image. Instead, want to respond with the original image without modification.
