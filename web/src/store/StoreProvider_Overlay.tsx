@@ -70,7 +70,6 @@ export interface EditUserSettingsInfo {
 
 export interface OverlayStoreContextModel {
   // Desktop overlays. TODO (MEDIUM): move all these to Main.
-  searchOverlayVisible: InfuSignal<boolean>,
   editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
   contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
   tableColumnContextMenuInfo: InfuSignal<TableColumnContextMenuInfo | null>,
@@ -78,6 +77,8 @@ export interface OverlayStoreContextModel {
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
   toolbarTransientMessage: InfuSignal<string | null>,
+  networkOverlayVisible: InfuSignal<boolean>,
+  searchOverlayVisible: InfuSignal<boolean>,
 
   textEditInfo: () => TextEditInfo | null,
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => void,
@@ -93,13 +94,14 @@ export interface OverlayStoreContextModel {
 export function makeOverlayStore(): OverlayStoreContextModel {
   const textEditInfo_ = createInfuSignal<TextEditInfo | null>(null);
 
-  const searchOverlayVisible = createInfuSignal<boolean>(false);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
   const tableColumnContextMenuInfo = createInfuSignal<TableColumnContextMenuInfo | null>(null);
 
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
   const toolbarTransientMessage = createInfuSignal<string | null>(null);
+  const searchOverlayVisible = createInfuSignal<boolean>(false);
+  const networkOverlayVisible = createInfuSignal<boolean>(false);
 
   function clear() {
     textEditInfo_.set(null);
@@ -108,6 +110,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     contextMenuInfo.set(null);
     tableColumnContextMenuInfo.set(null);
     searchOverlayVisible.set(false);
+    networkOverlayVisible.set(false);
   }
 
   function anOverlayIsVisible(): boolean {
@@ -117,7 +120,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
       tableColumnContextMenuInfo.get() != null ||
-      toolbarPopupInfoMaybe.get() != null
+      toolbarPopupInfoMaybe.get() != null ||
+      networkOverlayVisible.get()
     );
   }
 
@@ -139,7 +143,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     textEditInfo,
     setTextEditInfo,
 
-    searchOverlayVisible,
     editUserSettingsInfo,
     contextMenuInfo,
     tableColumnContextMenuInfo,
@@ -148,6 +151,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
     toolbarPopupInfoMaybe,
     toolbarTransientMessage,
+    searchOverlayVisible,
+    networkOverlayVisible,
 
     clear,
     anOverlayIsVisible,

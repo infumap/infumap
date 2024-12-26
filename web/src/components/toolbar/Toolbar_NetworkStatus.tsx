@@ -19,13 +19,11 @@
 import { Component, Show } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
 import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS } from "../../store/StoreProvider_General";
-import { createBooleanSignal } from "../../util/signals";
+import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 
 
 export const Toolbar_NetworkStatus: Component = () => {
   const store = useStore();
-
-  const hoveringOver = createBooleanSignal(false);
 
   const col = () => {
     const status = store.general.networkStatus.get();
@@ -34,19 +32,12 @@ export const Toolbar_NetworkStatus: Component = () => {
     return "#7bbb73";
   };
 
-  const hoverText = () => {
-    const status = store.general.networkStatus.get();
-    if (status == NETWORK_STATUS_ERROR) { return "Network Status: Error"; }
-    if (status == NETWORK_STATUS_IN_PROGRESS) { return "Network Status: In Progress"; }
-    return "Network Status: OK";
-  };
-
   const handleMouseEnter = () => {
-    hoveringOver.set(true);
+    store.overlay.networkOverlayVisible.set(true);
   };
 
   const handleMouseLeave = () => {
-    hoveringOver.set(false);
+    store.overlay.networkOverlayVisible.set(false);
   };
 
   return (
@@ -56,12 +47,29 @@ export const Toolbar_NetworkStatus: Component = () => {
            onMouseEnter={handleMouseEnter}
            onMouseLeave={handleMouseLeave}
            />
-      <Show when={hoveringOver.get()}>
-        <div class={`absolute rounded border-slate-500 border`}
-             style={'top: 40px; right: -25px; width: 200px; padding-left: 8px; padding-top: 4px; padding-bottom: 4px; padding-right: 8px;'}>
-          {hoverText()}
-        </div>
-      </Show>
     </div>
+  );
+}
+
+
+export const Toolbar_NetworkStatus_Overlay: Component = () => {
+  const store = useStore();
+
+  const hoverText = () => {
+    const status = store.general.networkStatus.get();
+    if (status == NETWORK_STATUS_ERROR) { return "Network Status: Error"; }
+    if (status == NETWORK_STATUS_IN_PROGRESS) { return "Network Status: In Progress"; }
+    return "Network Status: OK";
+  };
+
+  return (
+    <Show when={store.overlay.networkOverlayVisible.get()}>
+      <div class={`absolute rounded border-slate-500 border`}
+           style={`top: 45px; right: 5px; width: 200px; ` +
+                  `padding-left: 8px; padding-top: 4px; padding-bottom: 4px; padding-right: 8px; ` +
+                  `z-index: ${Z_INDEX_TOOLBAR_OVERLAY}`}>
+        {hoverText()}
+      </div>
+    </Show>
   );
 }

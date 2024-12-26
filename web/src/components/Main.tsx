@@ -40,6 +40,7 @@ import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 import { composite_selectionChangeListener } from "../input/edit";
 import { Toolbar_TransientMessage } from "./toolbar/Toolbar_TransientMessage";
+import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -231,6 +232,9 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />
+      </Show>
+      <Show when={store.overlay.networkOverlayVisible.get()}>
+        <Toolbar_NetworkStatus_Overlay />
       </Show>
 
     </div>
