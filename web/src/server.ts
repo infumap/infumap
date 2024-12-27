@@ -155,12 +155,63 @@ export const server = {
 }
 
 
+
+const commandQueue_remote: Array<ServerCommand> = [];
+let inProgress_remote: ServerCommand | null = null;
+
+function serveWaiting_remote(networkStatus: NumberSignal) {
+  if (commandQueue_remote.length == 0 || inProgress != null) {
+    networkStatus.set(NETWORK_STATUS_OK);
+    return;
+  }
+  if (networkStatus.get() != NETWORK_STATUS_ERROR) {
+    networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+  }
+  const command = commandQueue_remote.shift() as ServerCommand;
+  inProgress_remote = command;
+  const DEBUG = false;
+  if (DEBUG) { console.debug(command.command, command.payload); }
+  sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+    .then((resp: any) => {
+      inProgress_remote = null;
+      command.resolve(resp);
+    })
+    .catch((error) => {
+      inProgress_remote = null;
+      command.reject(error);
+      networkStatus.set(NETWORK_STATUS_ERROR);
+    })
+    .finally(() => {
+      serveWaiting(networkStatus);
+    });
+}
+
+function constructCommandPromise_remote(
+    host: string | null,
+    command: string,
+    payload: object,
+    base64data: string | null,
+    panicLogoutOnError: boolean,
+    networkStatus: NumberSignal): Promise<any> {
+  return new Promise((resolve, reject) => { // called when the Promise is constructed.
+    const commandObj: ServerCommand = {
+      host, command, payload, base64data, panicLogoutOnError,
+      resolve, reject
+    };
+    commandQueue_remote.push(commandObj);
+    if (networkStatus.get() != NETWORK_STATUS_ERROR) {
+      networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+    }
+    serveWaiting(networkStatus);
+  })
+}
+
 export const remote = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (host: string, id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise(host, "get-items", { id, mode }, null, false, networkStatus)
+    return constructCommandPromise_remote(host, "get-items", { id, mode }, null, false, networkStatus)
       .then((r: any) => {
         // Server side, itemId is an optional and the root page does not have this set (== null in the response).
         // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
@@ -177,7 +228,7 @@ export const remote = {
    * update an item
    */
   updateItem: async (host: string, item: Item, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise(host, "update-item", ItemFns.toObject(item), null, false, networkStatus);
+    return constructCommandPromise_remote(host, "update-item", ItemFns.toObject(item), null, false, networkStatus);
   },
 }
 

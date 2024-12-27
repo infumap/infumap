@@ -22,7 +22,7 @@
 //  2. retry failed fetches.
 
 
-const MAX_CONCURRENT_FETCH_REQUESTS: number = 6;
+const MAX_CONCURRENT_FETCH_REQUESTS: number = 3;
 const CLEANUP_AFTER_MS: number = 30000;
 
 
