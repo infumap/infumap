@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -68,7 +69,8 @@ export const arrangePageWithChildren = (
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   if (!(arrangeFlagIsRoot(flags))) {
-    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry.viewportBoundsPx!, pageWithChildrenVePath);
+    const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_pageWithChildren == null ? displayItem_pageWithChildren : linkItemMaybe_pageWithChildren);
+    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath);
     pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
   }
 

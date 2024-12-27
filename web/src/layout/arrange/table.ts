@@ -86,7 +86,8 @@ export const arrangeTable = (
   childAreaBoundsPx.h = numRows * tableGeometry.blockSizePx.h
   tableVisualElementSpec.childAreaBoundsPx = childAreaBoundsPx;
 
-  const attachments = arrangeItemAttachments(store, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
+  const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Table == null ? displayItem_Table : linkItemMaybe_Table);
+  const attachments = arrangeItemAttachments(store, displayItem_Table.computed_attachments, parentItemSizeBl, tableGeometry.boundsPx, tableVePath);
   tableVisualElementSpec.attachmentsVes = attachments;
 
   const tableVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath);

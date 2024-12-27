@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { FlipCardFns, FlipCardItem } from "../../items/flipcard-item";
@@ -122,7 +121,8 @@ export const arrangeFlipCard = (
     console.warn(`expected flipcard item ${displayItem_flipCard.computed_children.length} to have 2 or 0 children`);
   }
 
-  const attachments = arrangeItemAttachments(store, displayItem_flipCard, linkItemMaybe_flipCard, geometry.viewportBoundsPx!, flipCardVePath);
+  const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_flipCard == null ? displayItem_flipCard : linkItemMaybe_flipCard);
+  const attachments = arrangeItemAttachments(store, displayItem_flipCard.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, flipCardVePath);
   flipCardVisualElementSpec.attachmentsVes = attachments;
 
   const flipCardVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(flipCardVisualElementSpec, flipCardVePath);

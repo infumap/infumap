@@ -16,37 +16,28 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
-import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkItem } from "../../items/link-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
-import { BoundingBox } from "../../util/geometry";
+import { BoundingBox, Dimensions } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { getVePropertiesForItem } from "./util";
 import { ArrangeItemFlags } from "./item";
+import { Uid } from "../../util/uid";
 
 
 export function arrangeItemAttachments(
     store: StoreContextModel,
-    parentDisplayItem: Item,
-    parentLinkItemMaybe: LinkItem | null,
+    attachmentIds: Array<Uid>,
+    parentItemSizeBl: Dimensions,
     parentItemBoundsPx: BoundingBox,
     parentItemVePath: VisualElementPath): Array<VisualElementSignal> {
 
-  if (!isAttachmentsItem(parentDisplayItem)) {
-    return [];
-  }
-  const attachmentsItem = asAttachmentsItem(parentDisplayItem);
-
-  const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(parentLinkItemMaybe == null ? parentDisplayItem : parentLinkItemMaybe);
-
   const attachments: Array<VisualElementSignal> = [];
-  for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
-    const attachmentId = attachmentsItem.computed_attachments[i];
+  for (let i=0; i<attachmentIds.length; ++i) {
+    const attachmentId = attachmentIds[i];
     const attachmentItem = itemState.get(attachmentId)!;
     const { displayItem: attachmentDisplayItem, linkItemMaybe: attachmentLinkItemMaybe } = getVePropertiesForItem(store, attachmentItem);
     const attachmentVeid: Veid = {

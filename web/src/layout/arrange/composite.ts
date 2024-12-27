@@ -17,9 +17,11 @@
 */
 
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE } from "../../constants";
+import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeItem } from "../../items/composite-item";
+import { isImage } from "../../items/image-item";
 import { LinkItem } from "../../items/link-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
@@ -158,8 +160,16 @@ function arrangeCompositeChildItem(
     blockSizePx,
   };
 
-  const attachments = arrangeItemAttachments(store, displayItem_childItem, linkItemMaybe_childItem, geometry.boundsPx, parentPath);
-  compositeChildVeSpec.attachmentsVes = attachments;
+  if (isAttachmentsItem(displayItem_childItem)) {
+    const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
+    if (!isPage(displayItem_childItem) && !isImage(displayItem_childItem)) {
+      parentItemSizeBl.w = compositeWidthBl;
+    }
+    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath);
+    compositeChildVeSpec.attachmentsVes = attachments;
+  } else {
+    compositeChildVeSpec.attachmentsVes = [];
+  }
 
   const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), parentPath);
   const compositeChildVeSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);

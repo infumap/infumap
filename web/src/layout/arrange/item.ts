@@ -36,9 +36,10 @@ import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
 import { isExpression } from "../../items/expression-item";
-import { isFlagsItem } from "../../items/base/flags-item";
-import { asFlipCardItem, FlipCardItem, isFlipCard } from "../../items/flipcard-item";
+import { asFlipCardItem, isFlipCard } from "../../items/flipcard-item";
 import { arrangeFlipCard } from "./flipcard";
+import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
+import { ItemFns } from "../../items/base/item-polymorphism";
 
 
 export enum ArrangeItemFlags {
@@ -161,7 +162,12 @@ export const arrangeItemNoChildren = (
 
   // TODO (MEDIUM): reconcile, don't override.
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
-  itemVisualElement.attachmentsVes = arrangeItemAttachments(store, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
+  if (isAttachmentsItem(displayItem)) {
+    const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe == null ? displayItem : linkItemMaybe);
+    itemVisualElement.attachmentsVes = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath);
+  } else {
+    itemVisualElement.attachmentsVes = [];
+  }
 
   const itemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
 
