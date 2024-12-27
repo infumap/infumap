@@ -76,7 +76,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       <div class={`absolute border ` +
                   `${showBorder() ? "border-slate-700" : "border-transparent"} ` +
                   `rounded-sm ` +
-                  `bg-white overflow-hidden`}
+                  `bg-white`}
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +

@@ -160,7 +160,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return 'absolute rounded-sm bg-white';
+      return 'absolute rounded-sm';
     } else {
       return `absolute border border-slate-700 rounded-sm bg-white`;
     }

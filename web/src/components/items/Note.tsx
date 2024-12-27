@@ -131,7 +131,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return 'absolute rounded-sm bg-white';
+      return 'absolute rounded-sm';
     } else {
       if (noteItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
