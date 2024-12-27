@@ -64,7 +64,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
 
   return (
     <Show when={store.overlay.networkOverlayVisible.get()}>
-      <div class={`absolute rounded border-slate-500 border`}
+      <div class={`absolute rounded border-slate-500 border bg-white`}
            style={`top: 45px; right: 5px; width: 200px; ` +
                   `padding-left: 8px; padding-top: 4px; padding-bottom: 4px; padding-right: 8px; ` +
                   `z-index: ${Z_INDEX_TOOLBAR_OVERLAY}`}>
