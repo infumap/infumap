@@ -921,7 +921,9 @@ function handleInsideTableMaybe(
         }
       }
       if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
-        return finalize(hitboxType, HitboxFlags.None, parentRootVe, rootVes, tableChildVes, meta, posRelativeToRootVePx, false, "handleInsideTableMaybe3");
+        if (!ignoreItems.find(a => a == tableVe.displayItem.id)) {
+          return finalize(hitboxType, HitboxFlags.None, parentRootVe, rootVes, tableChildVes, meta, posRelativeToRootVePx, false, "handleInsideTableMaybe3");
+        }
       }
     }
     if (!ignoreAttachments) {
