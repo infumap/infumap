@@ -47,8 +47,9 @@ export const Login: Component = () => {
       const urlParams = new URLSearchParams(queryString);
       const loginPath = "/login";
       const basePath = location.href.substring(0, location.href.lastIndexOf(loginPath));
-      if (urlParams.get("redirect") == "add") {
-        location.href = basePath + "/add";
+      const redirectPathMaybe = urlParams.get("redirect");
+      if (redirectPathMaybe && redirectPathMaybe.length > 0) {
+        location.href = basePath + decodeURIComponent(redirectPathMaybe);
       } else {
         if (username == ROOT_USERNAME) {
           navigate("/");

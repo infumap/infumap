@@ -38,7 +38,7 @@ const App: Component = () => {
         }
       }
     } catch {}
-    location.href = location.href.substring(0, location.href.length - addPath.length) + "/login?redirect=add";
+    location.href = location.href.substring(0, location.href.length - addPath.length) + "/login?redirect=" +  encodeURIComponent("/add");
   });
 
   return (

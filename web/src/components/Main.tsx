@@ -69,7 +69,7 @@ export const Main: Component = () => {
         result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, store.general.networkStatus);
       } catch (e: any) {
         console.error(`Main.onMount fetchItems failed ${id}`, e);
-        // TODO (HIGH): something better.
+        location.href = window.location.protocol + "//" + window.location.host + "/login" + "?redirect=" + encodeURIComponent(window.location.pathname);
         return;
       }
 
