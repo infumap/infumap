@@ -52,6 +52,7 @@ import { Toolbar_Link } from './item/Toolbar_Link';
 import { VesCache } from '../../layout/ves-cache';
 import { isFlipCard } from '../../items/flipcard-item';
 import { Toolbar_FlipCard } from './item/Toolbar_FlipCard';
+import { logout } from '../Main';
 
 
 export const Toolbar: Component = () => {
@@ -59,7 +60,10 @@ export const Toolbar: Component = () => {
 
   const navigate = useNavigate();
 
-  const handleLogin = () => navigate("/login");
+  const handleLogin = () => {
+    logout!(); // ensures all state is cleared, so old state can never be visible briefly after login.
+    navigate("/login");
+  }
 
   const showUserSettings = () => {
     store.overlay.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) });

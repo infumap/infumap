@@ -171,9 +171,9 @@ export const Main: Component = () => {
     store.clear();
     itemState.clear();
     VesCache.clear();
+    clearLoadState();
     await store.user.logout();
     navigate('/login');
-    clearLoadState();
   };
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
