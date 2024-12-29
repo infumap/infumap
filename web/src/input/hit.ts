@@ -386,6 +386,45 @@ function hitChildMaybe(
 
   // attachments take precedence.
   if (!ignoreAttachments) {
+
+    if (isComposite(childVe.displayItem)) {
+      for (let i=0; i<childVe.childrenVes.length; ++i) {
+        let ve = childVe.childrenVes[i].get();
+        const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x, y: childVe.boundsPx.y + ve.boundsPx.y });
+        // console.log(ve.boundsPx);
+        for (let j=0; j<ve.attachmentsVes.length; ++j) {
+          const attachmentVe = ve.attachmentsVes[j].get();
+          if (!isInside(posRelativeToChildElementPx, attachmentVe.boundsPx)) {
+            continue;
+          }
+          let hitboxType = HitboxFlags.None;
+          let meta = null;
+          for (let j=attachmentVe.hitboxes.length-1; j>=0; --j) {
+            if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[j].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
+              hitboxType |= attachmentVe.hitboxes[j].type;
+              if (attachmentVe.hitboxes[j].meta != null) { meta = attachmentVe.hitboxes[j].meta; }
+            }
+          }
+          if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
+            const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
+            return {
+              overVes: ve.attachmentsVes[j],
+              rootVes,
+              subRootVe: noAttachmentResult.subRootVe,
+              subSubRootVe: noAttachmentResult.subSubRootVe,
+              parentRootVe,
+              hitboxType,
+              compositeHitboxTypeMaybe: HitboxFlags.None,
+              overElementMeta: meta,
+              overPositionableVe: noAttachmentResult.overPositionableVe,
+              overPositionGr: noAttachmentResult.overPositionGr,
+              debugCreatedAt: "hitChildMaybe1",
+            };
+          }
+        }
+      }
+    }
+
     const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x, y: childVe.boundsPx.y });
     for (let j=childVe.attachmentsVes.length-1; j>=0; j--) {
       const attachmentVes = childVe.attachmentsVes[j];

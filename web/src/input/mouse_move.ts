@@ -493,6 +493,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "move";
     } else if (hitInfo.hitboxType & HitboxFlags.ShiftLeft) {
       document.body.style.cursor = "zoom-in";
+    } else if (hitInfo.overVes!.get().flags & VisualElementFlags.Attachment) {
+      document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.Expand) {
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) {
