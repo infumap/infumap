@@ -40,6 +40,11 @@ export function clearLoadState() {
       delete itemLoadInitiatedOrComplete[key];
     }
   }
+  for (let key in itemLoadFromRemoteInitiatedOrComplete) {
+    if (itemLoadFromRemoteInitiatedOrComplete.hasOwnProperty(key)) {
+      delete itemLoadFromRemoteInitiatedOrComplete[key];
+    }
+  }
 }
 
 export function markChildrenLoadAsInitiatedOrComplete(pageId: Uid) {
@@ -87,16 +92,22 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
       }
     })
     .catch((e: any) => {
-      console.error(`Error occurred feching items for '${containerVeid.itemId}': ${e.message}.`);
+      console.error(`Error occurred fetching items for '${containerVeid.itemId}': ${e.message}.`);
     });
 }
 
 
+export enum InitiateLoadResult {
+  InitiatedOrComplete,
+  Failed,
+  Success,
+};
+
 const itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Promise<void> => {
-  if (itemLoadInitiatedOrComplete[id]) { return Promise.resolve(); }
-  if (itemState.get(id) != null) { return Promise.resolve(); }
+export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Promise<InitiateLoadResult> => {
+  if (itemLoadInitiatedOrComplete[id]) { return Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
+  if (itemState.get(id) != null) { return Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
   itemLoadInitiatedOrComplete[id] = true;
 
   return server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
@@ -114,9 +125,11 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Pro
       } else {
         console.error(`Empty result fetching '${id}'.`);
       }
+      return InitiateLoadResult.Success;
     })
     .catch((e: any) => {
-      console.error(`Error occurred feching item '${id}': ${e.message}.`);
+      console.error(`Error occurred fetching item '${id}': ${e.message}.`);
+      return InitiateLoadResult.Failed;
     });
 }
 
@@ -145,6 +158,6 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
       }
     })
     .catch((e: any) => {
-      console.error(`Error occurred feching item '${itemId}' from '${baseUrl}': ${e.message}.`);
+      console.error(`Error occurred fetching item '${itemId}' from '${baseUrl}': ${e.message}.`);
     });
 }

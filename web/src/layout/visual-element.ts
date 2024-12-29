@@ -66,7 +66,7 @@ export enum VisualElementFlags {
   None                    = 0x000000,
   Selected                = 0x000001, // The item is selected.
   HasToolbarFocus         = 0x000002, // The item has toolbar focus.
-  LineItem                = 0x000004, // Render as a line item (like in a table), not deskop item.
+  LineItem                = 0x000004, // Render as a line item (like in a table), not desktop item.
   Detailed                = 0x000008, // The visual element has detail / can be interacted with.
   InsideTable             = 0x000010, // The visual element is inside a table.
   Attachment              = 0x000020, // The visual element is an attachment.
@@ -220,7 +220,7 @@ export interface VisualElement {
 
 
 /**
- * Sentinal value used when there is no top level visual element. This makes typing much easier to deal with
+ * Sentinel value used when there is no top level visual element. This makes typing much easier to deal with
  * than using VisualElement | null
  */
 export const NONE_VISUAL_ELEMENT: VisualElement = {
@@ -500,7 +500,7 @@ export const VeFns = {
     return 0;
   },
 
-  veBoundsRelativeToDestkopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
+  veBoundsRelativeToDesktopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
     let ve: VisualElement | null = visualElement;
     if (ve.parentPath == null) {
       return cloneBoundingBox(ve.boundsPx)!;

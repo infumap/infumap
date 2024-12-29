@@ -266,7 +266,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const startPx = desktopPosPx;
   const hitVe = HitInfoFns.getHitVe(hitInfo);
   const activeItem = VeFns.canonicalItem(hitVe);
-  let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitVe);
+  let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDesktopPx(store, hitVe);
 
   let onePxSizeBl;
 
@@ -281,7 +281,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     if (hitInfo.compositeHitboxTypeMaybe) {
       const compositeVe = HitInfoFns.getCompositeContainerVe(hitInfo)!;
       const activeCompositeItem = VeFns.canonicalItem(compositeVe);
-      const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, HitInfoFns.getCompositeContainerVe(hitInfo)!);
+      const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDesktopPx(store, HitInfoFns.getCompositeContainerVe(hitInfo)!);
       onePxSizeBl = {
         x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnTopLevelPagePx.w,
         y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnTopLevelPagePx.h };

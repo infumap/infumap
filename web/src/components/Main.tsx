@@ -18,7 +18,7 @@
 
 import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onCleanup, onMount, Show } from "solid-js";
-import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
+import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
 import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
@@ -66,7 +66,7 @@ export const Main: Component = () => {
     try {
       let result: ItemsAndTheirAttachments
       try {
-        result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, store.general.networkStatus);
+        result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, store.general.networkStatus);
       } catch (e: any) {
         console.error(`Main.onMount fetchItems failed ${id}`, e);
         if (window.location.pathname == "/") {

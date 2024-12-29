@@ -264,7 +264,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
 
   const moveToPage = asPageItem(moveToVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, moveToVe);
+  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, moveToVe);
 
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
@@ -349,7 +349,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     panic("unexpected table parent type: " + tableParentVe.displayItem.itemType);
   }
 
-  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, moveToPageVe);
+  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, moveToPageVe);
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
   const itemPosInPagePx = CursorEventState.getLatestDesktopPx(store);

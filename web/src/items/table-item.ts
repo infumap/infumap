@@ -344,7 +344,7 @@ export const TableFns = {
       tableDimensionsBl.w = asCompositeItem(tableParentVe.displayItem).spatialWidthGr / GRID_SIZE;
     }
 
-    const tableBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, tableVe);
+    const tableBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
 
     // col
     let colLen = tableItem.tableColumns.length;

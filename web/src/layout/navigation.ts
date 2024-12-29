@@ -23,7 +23,7 @@ import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { EMPTY_UID } from "../util/uid";
 import { fArrange } from "./arrange";
-import { initiateLoadItemMaybe } from "./load";
+import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { Veid } from "./visual-element";
 
 
@@ -103,10 +103,17 @@ export async function navigateUp(store: StoreContextModel) {
   let cnt = 0;
   let parentId = currentPage.parentId;
   while (cnt++ < MAX_LEVELS) {
-    if (parentId == EMPTY_UID || parentId == store.user.getUser().dockPageId) {
-      // already at top.
+    // check if already at top.
+    if (parentId == EMPTY_UID) {
       navigateUpInProgress = false;
       return;
+    }
+    const userMaybe = store.user.getUserMaybe();
+    if (userMaybe) {
+      if (parentId == userMaybe!.dockPageId) {
+        navigateUpInProgress = false;
+        return;
+      }
     }
 
     const parentPageMaybe = itemState.get(parentId);
@@ -121,7 +128,11 @@ export async function navigateUp(store: StoreContextModel) {
       }
     }
 
-    await initiateLoadItemMaybe(store, parentId);
+    if (await initiateLoadItemMaybe(store, parentId) == InitiateLoadResult.Failed ||
+        !itemState.get(parentId)) {
+      navigateUpInProgress = false;
+      return;
+    }
   }
 
   panic(`navigateUp: could not find page after ${MAX_LEVELS} levels.`);

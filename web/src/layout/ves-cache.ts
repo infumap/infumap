@@ -131,12 +131,12 @@ export let VesCache = {
 
   /**
    * Creates or recycles an existing VisualElementSignal, if one exists for the specified path.
-   * In the case of recycling, the overriden values (only) are checked against the existing visual element values.
-   * I.e. a previously overriden value that is not overriden in the new ve spec will not be detected.
+   * In the case of recycling, the overridden values (only) are checked against the existing visual element values.
+   * I.e. a previously overridden value that is not overridden in the new ve spec will not be detected.
    * Note that this check always includes the display item fingerprint, to pick up on any non-geometric changes that still affect the item render.
    * I think the above strategy should always work in practice, but a more comprehensive (and expensive) comparison may be required in some instances.
    * The entire cache should cleared on page change (since there will be little or no overlap anyway).
-   * This is achieved using initFullArrange and finalizeFullArange methods.
+   * This is achieved using initFullArrange and finalizeFullArrange methods.
    */
   full_createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
     return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
