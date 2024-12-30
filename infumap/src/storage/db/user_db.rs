@@ -31,7 +31,7 @@ pub const CURRENT_USER_LOG_VERSION: i64 = 4;
 
 
 /// Db for managing User instances, assuming the mandated data folder hierarchy.
-/// Not threadsafe.
+/// Not thread safe.
 pub struct UserDb {
   data_dir: PathBuf,
   store_by_id: HashMap<Uid, KVStore<User>>,

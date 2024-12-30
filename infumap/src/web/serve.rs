@@ -53,7 +53,7 @@ pub async fn http_serve(
     else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, dev_feature_flag, req).await }
     else if let Some(response) = serve_dist_routes(&req) { response }
     else if req.method() == Method::GET { // &&
-      // TODO (MEDIUM): explicit support omly for /{item_id}, /{username} and /{username}/{label}
+      // TODO (MEDIUM): explicit support only for /{item_id}, /{username} and /{username}/{label}
       //       req.uri().path().len() > 32 &&
       //       is_uid(&req.uri().path()[req.uri().path().len()-32..]) {
       serve_index()

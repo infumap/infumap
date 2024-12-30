@@ -70,7 +70,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   
   const titleScale = () => (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
-  const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot);
+  const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot);
 
   const isDockItem = () => !!(props.visualElement.flags & VisualElementFlags.DockItem);
   const isListPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
@@ -82,14 +82,14 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     return `border-width: 1px; border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
   }
 
-  const renderEmbededInteractiveBackground = () =>
+  const renderEmbeddedInteractiveBackground = () =>
     <div class="absolute w-full"
          style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
                 `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
                 borderStyle()} />;
 
-  const renderEmbededInteractiveForeground = () =>
+  const renderEmbeddedInteractiveForeground = () =>
     <div class="absolute w-full pointer-events-none"
          style={`${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
                 `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
@@ -106,7 +106,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <InfuResizeTriangle />
     </Show>;
 
-  const renderEmbededInteractiveTitleMaybe = () =>
+  const renderEmbeddedInteractiveTitleMaybe = () =>
     <Show when={isEmbeddedInteractive()}>
       <div class={`absolute`}
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px;`}>
@@ -199,7 +199,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <div class={`absolute`}
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
                   `background-color: #ffffff;`}>
-        {renderEmbededInteractiveBackground()}
+        {renderEmbeddedInteractiveBackground()}
         <Switch>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
             {renderListPage()}
@@ -210,9 +210,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         </Switch>
         {renderResizeTriangleMaybe()}
         {renderIsLinkMaybe()}
-        {renderEmbededInteractiveForeground()}
+        {renderEmbeddedInteractiveForeground()}
       </div>
-      {renderEmbededInteractiveTitleMaybe()}
+      {renderEmbeddedInteractiveTitleMaybe()}
     </>
   );
 }

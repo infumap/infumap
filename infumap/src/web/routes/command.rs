@@ -185,7 +185,7 @@ pub struct GetItemsRequest {
  * 1.  the session user owns the item.
  * 2.  the item is a page that is marked as public.
  * 3.  the item is in a page that is marked as public.
- * 4.  the item is in a table or composite or flipcard childpage in a page that is marked as public.
+ * 4.  the item is in a table or composite or flipcard child page in a page that is marked as public.
  * 5.  the item is an attachment of a page that is marked as public.
  * 6.  the item is an attachment of an item in a page that is marked as public.
  * 7.  the item is an attachment of an item in a table or composite in a page that is marked as public.
@@ -396,12 +396,12 @@ async fn handle_get_items(
   }
 
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
-    let item_attachents_result = get_attachments_authorized(db, &item_id, &session_user_id_maybe)?.iter()
+    let item_attachments_result = get_attachments_authorized(db, &item_id, &session_user_id_maybe)?.iter()
       .map(|v| v.to_api_json().ok())
       .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
       .ok_or(format!("Error occurred getting attachments for item {}", item_id))?;
-    if item_attachents_result.len() > 0 {
-      attachments_result.insert(item_id.clone(), Value::from(item_attachents_result));
+    if item_attachments_result.len() > 0 {
+      attachments_result.insert(item_id.clone(), Value::from(item_attachments_result));
     }
   }
 
@@ -636,7 +636,7 @@ async fn handle_add_item(
       let buf = Vec::new();
       let mut cursor = Cursor::new(buf);
       img.write_to(&mut cursor, ImageFormat::Png)
-        .map_err(|e| format!("An error occured creating the thumbnail png for new image '{}': {}.", item.id, e))?;
+        .map_err(|e| format!("An error occurred creating the thumbnail png for new image '{}': {}.", item.id, e))?;
       let thumbnail_data = cursor.get_ref().to_vec();
       let thumbnail_base64 = general_purpose::STANDARD.encode(thumbnail_data);
       if item.thumbnail.unwrap() != "" {

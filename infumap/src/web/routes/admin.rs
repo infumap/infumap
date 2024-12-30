@@ -130,7 +130,7 @@ pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
       match db.pending_user.remove(&pending_user.id).await {
         Ok(_) => {},
         Err(e) => {
-          error!("An error occured removing pending user from pending list: {}", e);
+          error!("An error occurred removing pending user from pending list: {}", e);
           return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
         }
       };
@@ -162,7 +162,7 @@ pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
       }
     },
     Err(e) => {
-      error!("An error occured adding pending user: {}", e);
+      error!("An error occurred adding pending user: {}", e);
       return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
     }
   }

@@ -186,7 +186,7 @@ impl JsonLogSerializable<User> for User {
     if let Some(u) = json::get_integer_field(map, "defaultPageWidthBl")? { self.default_page_width_bl = u; }
     if let Some(u) = json::get_float_field(map, "defaultPageNaturalAspect")? { self.default_page_natural_aspect = u; }
     if let Some(_) = json::get_string_field(map, "objectEncryptionKey")? {
-      return Err(format!("Encounterd an update record for user '{}' with an object encryption key specified, but this is not allowed.", self.id).into());
+      return Err(format!("Encountered an update record for user '{}' with an object encryption key specified, but this is not allowed.", self.id).into());
     }
     Ok(())
   }

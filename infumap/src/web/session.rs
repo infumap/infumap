@@ -38,7 +38,7 @@ pub async fn get_and_validate_session(request: &Request<hyper::body::Incoming>, 
     Ok(session_maybe) => match session_maybe {
       Some(s) => s,
       None => {
-        debug!("Session '{}' for user '{}' is not availble on the server. This can happen if the server is restarted or the session has expired.",
+        debug!("Session '{}' for user '{}' is not available on the server. This can happen if the server is restarted or the session has expired.",
               session_cookie.session_id, session_cookie.user_id);
         return None;
       }
@@ -49,7 +49,7 @@ pub async fn get_and_validate_session(request: &Request<hyper::body::Incoming>, 
     }
   };
 
-  // All data in the session cookie aside from the session id is supurfluous - it is there for client side convenience.
+  // All data in the session cookie aside from the session id is superfluous - it is there for client side convenience.
   // TODO (LOW): just use the session cookie.
 
   if session_cookie.user_id != session.user_id {

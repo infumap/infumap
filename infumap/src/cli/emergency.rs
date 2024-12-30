@@ -149,7 +149,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let last_timestamp = *timestamps_for_user.last().unwrap();
   info!("retrieving latest backup file (timestamp {}) for user {}.", last_timestamp, user_id);
   let backup_bytes = crate::storage::backup::get(bs.clone(), &user_id, last_timestamp).await?;
-  info!("retrived {} bytes.", backup_bytes.len());
+  info!("retrieved {} bytes.", backup_bytes.len());
 
   let mut infumap_dir = temp_dir();
   infumap_dir.push("infumap_emergency");

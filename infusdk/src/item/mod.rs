@@ -350,7 +350,7 @@ const ALL_JSON_FIELDS: [&'static str; 40] = ["__recordType",
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
-/// The implementation is largely hand-rolled - e.g. doesn't leverage the defualt Rust
+/// The implementation is largely hand-rolled - e.g. doesn't leverage the default Rust
 /// serde Serialize/Deserialize attributes or JSON Schema for validation. This is
 /// because the requirements are quite specialized:
 ///  - Different serialized data for web apis vs db log use.

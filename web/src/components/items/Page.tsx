@@ -218,7 +218,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                    props.visualElement.flags & VisualElementFlags.ListPageRoot}>
         <Page_Root visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot}>
+      <Match when={props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot}>
         <Page_EmbeddedInteractive visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||

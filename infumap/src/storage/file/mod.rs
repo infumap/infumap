@@ -48,7 +48,7 @@ impl FileStore {
 /// Create a new FileStore instance.
 /// One instance is designed to manage files on disk for all users.
 /// Assumes the mandated data folder hierarchy.
-/// Not threadsafe, on a per item basis.
+/// Not thread safe, on a per item basis.
 pub fn new(data_dir: &str) -> InfuResult<Arc<Mutex<FileStore>>> {
   Ok(Arc::new(Mutex::new(FileStore::new(data_dir)?)))
 }

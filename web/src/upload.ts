@@ -43,7 +43,7 @@ export async function handleUpload(
     }
     if (item.type == 'text/html') {
       item.getAsString((txt) => {
-        console.debug("TODO: upload clipings", txt, desktopPx);
+        console.debug("TODO: upload clippings", txt, desktopPx);
       });
     }
   }

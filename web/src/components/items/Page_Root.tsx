@@ -66,7 +66,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const desktopSizePx = props.visualElement.boundsPx;
 
     let veid = store.history.currentPageVeid()!;
-    if (props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
+    if (props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
       veid = VeFns.actualVeidFromVe(props.visualElement);
     } else if (props.visualElement.parentPath != UMBRELLA_PAGE_UID) {
       const parentVeid = VeFns.actualVeidFromPath(props.visualElement.parentPath!);
@@ -133,7 +133,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const desktopSizePx = props.visualElement.boundsPx;
 
     let veid = store.history.currentPageVeid()!;
-    if (props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
+    if (props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
       veid = VeFns.actualVeidFromVe(props.visualElement);
     } else if (props.visualElement.parentPath != UMBRELLA_PAGE_UID) {
       const parentVeid = VeFns.actualVeidFromPath(props.visualElement.parentPath!);

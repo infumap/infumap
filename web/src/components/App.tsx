@@ -28,7 +28,6 @@ const App: Component = () => {
   const store = useStore();
 
   onMount(async () => {
-    const user = store.user.getUserMaybe();
     await store.general.retrieveInstallationState();
   });
 

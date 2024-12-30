@@ -81,7 +81,7 @@ export enum VisualElementFlags {
   Popup                   = 0x004000, // Is a popped up something (page or image or anything).
   TopLevelRoot            = 0x008000, // The top most page root element.
   ListPageRoot            = 0x010000, // Is the root item in a list page.
-  EmbededInteractiveRoot  = 0x020000, // Is an embedded interactive page.
+  EmbeddedInteractiveRoot = 0x020000, // Is an embedded interactive page.
   DockItem                = 0x040000, // Is an item inside the dock.
   FocusPageSelected       = 0x080000, // Line item is in focussed page and selected.
   FlipCardPage            = 0x100000, // A flipcard page.
@@ -91,7 +91,7 @@ export function veFlagIsRoot(flags: VisualElementFlags): boolean {
   return !!(flags & VisualElementFlags.TopLevelRoot |
             flags & VisualElementFlags.Popup |
             flags & VisualElementFlags.ListPageRoot |
-            flags & VisualElementFlags.EmbededInteractiveRoot);
+            flags & VisualElementFlags.EmbeddedInteractiveRoot);
 }
 
 /**

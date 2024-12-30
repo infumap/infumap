@@ -44,7 +44,7 @@ pub async fn put(backup_store: Arc<BackupStore>, user_id: &str, backup_bytes: Ve
   let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
   let s3_path = format!("{}_{}", user_id, timestamp);
   let result = backup_store.bucket.put_object(s3_path.clone(), &backup_bytes.as_slice()).await
-    .map_err(|e| format!("Error occured putting backup in S3: {}", e))?;
+    .map_err(|e| format!("Error occurred putting backup in S3: {}", e))?;
   if result.status_code() != 200 {
     return Err(format!("Unexpected status code putting backup in S3: {}", result.status_code()).into());
   }
@@ -54,7 +54,7 @@ pub async fn put(backup_store: Arc<BackupStore>, user_id: &str, backup_bytes: Ve
 pub async fn get(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) -> InfuResult<Vec<u8>> {
   let s3_path = format!("{}_{}", user_id, timestamp);
   let result = backup_store.bucket.get_object(s3_path.clone()).await
-    .map_err(|e| format!("Error occured getting backup from S3: {}", e))?;
+    .map_err(|e| format!("Error occurred getting backup from S3: {}", e))?;
   if result.status_code() != 200 {
     return Err(format!("Unexpected status code getting backup from S3: {}", result.status_code()).into());
   }
@@ -64,7 +64,7 @@ pub async fn get(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) 
 pub async fn delete(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) -> InfuResult<()> {
   let s3_path = format!("{}_{}", user_id, timestamp);
   let result = backup_store.bucket.delete_object(s3_path).await
-    .map_err(|e| format!("Error occured deleting backup S3 object: {}", e))?;
+    .map_err(|e| format!("Error occurred deleting backup S3 object: {}", e))?;
   if result.status_code() != 204 {
     return Err(format!("Unexpected status code deleting backup S3 object: {}.", result.status_code()).into());
   }

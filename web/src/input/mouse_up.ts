@@ -198,7 +198,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         DoubleClickState.preventDoubleClick();
         PageFns.handleShiftLeftClick(activeVisualElement, store);
 
-      } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.EmbededInteractiveRoot) &&
+      } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
                  !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Move)) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
@@ -501,20 +501,20 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
   const childId = tableItem.computed_children[rowNumber];
   const child = itemState.get(childId)!;
 
-  const disaplyedChild = asAttachmentsItem(isLink(child)
+  const displayedChild = asAttachmentsItem(isLink(child)
     ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
     : child);
   const insertPosition = store.perVe.getMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe));
 
-  const numPlaceholdersToCreate = insertPosition > disaplyedChild.computed_attachments.length ? insertPosition - disaplyedChild.computed_attachments.length : 0;
+  const numPlaceholdersToCreate = insertPosition > displayedChild.computed_attachments.length ? insertPosition - displayedChild.computed_attachments.length : 0;
   for (let i=0; i<numPlaceholdersToCreate; ++i) {
-    const placeholderItem = PlaceholderFns.create(activeItem.ownerId, disaplyedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(disaplyedChild.id));
+    const placeholderItem = PlaceholderFns.create(activeItem.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
     itemState.add(placeholderItem);
     server.addItem(placeholderItem, null, store.general.networkStatus);
   }
   let newOrdering: Uint8Array | undefined;
-  if (insertPosition < disaplyedChild.computed_attachments.length) {
-    const overAttachmentId = disaplyedChild.computed_attachments[insertPosition];
+  if (insertPosition < displayedChild.computed_attachments.length) {
+    const overAttachmentId = displayedChild.computed_attachments[insertPosition];
     const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
     if (isPlaceholder(placeholderToReplaceMaybe)) {
       newOrdering = placeholderToReplaceMaybe.ordering;
@@ -522,13 +522,13 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
       server.deleteItem(placeholderToReplaceMaybe.id, store.general.networkStatus);
     } else {
       // TODO (MEDIUM): probably want to forbid rather than insert in this case.
-      newOrdering = itemState.newOrderingAtAttachmentsPosition(disaplyedChild.id, insertPosition);
+      newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedChild.id, insertPosition);
     }
   } else {
-    newOrdering = itemState.newOrderingAtAttachmentsPosition(disaplyedChild.id, insertPosition);
+    newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedChild.id, insertPosition);
   }
 
-  itemState.moveToNewParent(activeItem, disaplyedChild.id, RelationshipToParent.Attachment, newOrdering);
+  itemState.moveToNewParent(activeItem, displayedChild.id, RelationshipToParent.Attachment, newOrdering);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
   finalizeMouseUp(store);

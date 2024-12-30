@@ -27,7 +27,7 @@ pub const CURRENT_USER_LOG_VERSION: i64 = 1;
 
 
 /// Db for UserExtra instances.
-/// Not threadsafe.
+/// Not thread safe.
 pub struct UsersExtraDb {
   store: KVStore<UserExtra>,
 }

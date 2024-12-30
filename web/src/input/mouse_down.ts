@@ -290,7 +290,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         const squareSize = (asPageItem(hitVe.displayItem).tableColumns[0].widthGr / GRID_SIZE) / hitVe.listViewportBoundsPx!.w;
         onePxSizeBl = { x: squareSize, y: squareSize };
       } else {
-        const sizeBl = (hitVe.flags & VisualElementFlags.EmbededInteractiveRoot)
+        const sizeBl = (hitVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)
           ? ItemFns.calcSpatialDimensionsBl(activeItem, { w: 0, h: PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL })
           : ItemFns.calcSpatialDimensionsBl(activeItem);
         onePxSizeBl = {
@@ -307,7 +307,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
 
-  const canHitEmbeddedInteractive = !!(hitVe.flags & VisualElementFlags.EmbededInteractiveRoot);
+  const canHitEmbeddedInteractive = !!(hitVe.flags & VisualElementFlags.EmbeddedInteractiveRoot);
   const ignoreItems = [hitVe.displayItem.id];
   const hitInfoFiltered = HitInfoFns.hit(store, desktopPosPx, ignoreItems, canHitEmbeddedInteractive);
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
@@ -455,7 +455,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   const ves = VesCache.get(focusPath)!;
   if (ves) {
     const ve = ves.get();
-    if (ve.flags & VisualElementFlags.EmbededInteractiveRoot) {
+    if (ve.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
       store.history.setFocus(ve.parentPath!);
       fullArrange(store);
       return;

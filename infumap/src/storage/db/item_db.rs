@@ -917,7 +917,7 @@ pub fn migrate_record_v14_to_v15(kvs: &Map<String, Value>) -> InfuResult<Map<Str
       let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
       if item_type == "link" {
         let existing = result.remove("linkToBaseUrl");
-        // if not specifid, linkToBaseUrl is "".
+        // if not specified, linkToBaseUrl is "".
         if existing.is_none() { return Err("link item entry does not have linkToBaseUrl field.".into()); }
         let existing = existing.unwrap();
         let existing = existing.as_str().unwrap().to_owned();

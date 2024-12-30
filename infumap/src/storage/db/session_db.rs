@@ -29,7 +29,7 @@ pub const CURRENT_SESSIONS_LOG_VERSION: i64 = 1;
 
 
 /// Db for managing Session instances, assuming the mandated data folder hierarchy.
-/// Not threadsafe.
+/// Not thread safe.
 pub struct SessionDb {
   data_dir: PathBuf,
   store_by_user_id: HashMap<Uid, KVStore<Session>>,

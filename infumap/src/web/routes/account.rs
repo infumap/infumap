@@ -124,7 +124,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     if let Some(totp_token) = &payload.totp_token {
       match validate_totp(totp_secret, totp_token) {
         Err(e) => {
-          info!("An eror occured whilst trying to validate a TOTP token for user '{}': {}", payload.username, e);
+          info!("An error occurred whilst trying to validate a TOTP token for user '{}': {}", payload.username, e);
           return failed_response("server error").await;
         },
         Ok(v) => {

@@ -789,7 +789,7 @@ function determineEmbeddedRootMaybe(
     const childVe = childVes.get();
 
     if (ignoreItems.find(a => a == childVe.displayItem.id)) { continue; }
-    if (!(childVe.flags & VisualElementFlags.EmbededInteractiveRoot)) { continue; }
+    if (!(childVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) { continue; }
 
     if (isInside(posRelativeToRootVeViewportPx, childVe.boundsPx!)) {
       const childVeid = VeFns.veidFromVe(childVe);
@@ -1230,7 +1230,7 @@ function finalize(
     };
     let overPositionableVe = overVe;
     if (canHitEmbeddedInteractive) {
-      if (overVe.flags & VisualElementFlags.EmbededInteractiveRoot) {
+      if (overVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
         overPositionableVe = VesCache.get(overVe.parentPath!)!.get();
       }
     }

@@ -249,7 +249,7 @@ async fn get_cached_resized_img(
       let aspect = original_dimensions_px.w as f64 / original_dimensions_px.h as f64;
       let requested_height = (requested_width as f64 / aspect).ceil() as u32 + 1;
 
-      // Using Langczos3 for downscaling, as recommended by: https://crates.io/crates/resize
+      // Using Langczos3 for down scaling, as recommended by: https://crates.io/crates/resize
       img = img.resize(requested_width, requested_height, FilterType::Lanczos3);
       // Throw away alpha channel, if it exists.
       let img = img.to_rgb8();
