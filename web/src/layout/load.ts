@@ -17,7 +17,7 @@
 */
 
 import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, remote, server } from "../server";
-import { Uid } from "../util/uid";
+import { SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { StoreContextModel } from "../store/StoreProvider";
 import { asContainerItem } from "../items/base/container-item";
 import { asLinkItem } from "../items/link-item";
@@ -55,6 +55,8 @@ export function markChildrenLoadAsInitiatedOrComplete(pageId: Uid) {
 const childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
 export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerVeid: Veid) => {
+  if (containerVeid.itemId == SOLO_ITEM_HOLDER_PAGE_UID) { return; }
+
   if (childrenLoadInitiatedOrComplete[containerVeid.itemId]) {
     PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
     return;

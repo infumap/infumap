@@ -20,7 +20,7 @@ import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSI
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
-import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid } from '../util/uid';
+import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
@@ -91,9 +91,20 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 
 export const PageFns = {
-  // The absolute top level page.
+
+  /**
+   * The absolute top level page.
+   */
   umbrellaPage: () => umbrellaPage(),
 
+  /**
+   * A page to hold an item when the user navigates to the URL of a non-page item.
+   */
+  soloItemHolderPage: () => soloItemHolderPage(),
+
+  /**
+   * Create a page item.
+   */
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem => {
     return ({
       origin: null,
@@ -728,5 +739,21 @@ export function asPageItem(item: ItemTypeMixin): PageItem {
 const umbrellaPage = () => {
   const result = PageFns.create(EMPTY_UID, EMPTY_UID, RelationshipToParent.NoParent, "", newOrdering());
   result.id = UMBRELLA_PAGE_UID;
+  return result;
+}
+
+const soloItemHolderPage = () => {
+  const result = PageFns.create(EMPTY_UID, EMPTY_UID, RelationshipToParent.NoParent, "", newOrdering());
+  result.arrangeAlgorithm = ArrangeAlgorithm.Grid;
+  result.gridNumberOfColumns = 1;
+  result.id = SOLO_ITEM_HOLDER_PAGE_UID;
+
+  result.computed_children = [];
+  result.computed_attachments = [];
+  result.childrenLoaded = true;
+  result.pendingPopupPositionGr = null;
+  result.pendingPopupWidthGr = null;
+  result.pendingPopupAlignmentPoint = null;
+
   return result;
 }

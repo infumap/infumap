@@ -20,9 +20,10 @@ import { uuid } from "./uuid";
 
 export type Uid = string;
 
-export const EMPTY_UID: string =           "00000000000000000000000000000000";
-export const UMBRELLA_PAGE_UID: string =   "00000000000000000000000000000001";
-export const POPUP_LINK_UID: string =      "00000000000000000000000000000002";
+export const EMPTY_UID: string =                 "00000000000000000000000000000000";
+export const UMBRELLA_PAGE_UID: string =         "00000000000000000000000000000001";
+export const POPUP_LINK_UID: string =            "00000000000000000000000000000002";
+export const SOLO_ITEM_HOLDER_PAGE_UID: string = "00000000000000000000000000000003";
 
 export function newUid(): Uid {
   return uuid.createV4().split('-').join('');

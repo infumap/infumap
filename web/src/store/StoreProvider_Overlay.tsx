@@ -17,10 +17,9 @@
 */
 
 import { HitInfo } from "../input/hit";
-import { VeFns, VisualElementPath } from "../layout/visual-element";
+import { VisualElementPath } from "../layout/visual-element";
 import { BoundingBox, Vector } from "../util/geometry";
 import { InfuSignal, createInfuSignal } from "../util/signals";
-import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { HistoryStoreContextModel } from "./StoreProvider_History";
 
 

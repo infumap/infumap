@@ -41,6 +41,9 @@ import { pasteHandler } from "../input/paste";
 import { composite_selectionChangeListener } from "../input/edit";
 import { Toolbar_TransientMessage } from "./toolbar/Toolbar_TransientMessage";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
+import { asPageItem, isPage, PageFns } from "../items/page-item";
+import { isContainer } from "../items/base/container-item";
+import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -77,31 +80,45 @@ export const Main: Component = () => {
         return;
       }
 
-      const pageObject = result.item as any;
-      const pageId = pageObject.id;
+      const itemObject = result.item as any;
+      const itemId = itemObject.id;
+
+      if (itemObject.itemType != ItemType.Page) {
+        itemState.addSoloItemHolderPage(itemObject.ownerId!);
+        itemObject.originalParentId = itemObject.parentId;
+        itemObject.parentId = SOLO_ITEM_HOLDER_PAGE_UID;
+      }
+
       try {
-        itemState.setItemFromServerObject(pageObject, null);
+        itemState.setItemFromServerObject(itemObject, null);
       } catch (e: any) {
         console.error(`Main.onMount setItemFromServerObject failed ${id}`, e);
         throw e;
       }
 
+      if (itemObject.itemType != ItemType.Page) {
+        asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [itemId];
+        (asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!) as any).originalParentId = itemObject.originalParentId;
+      }
+
       try {
-        if (result.attachments[pageId]) {
-          itemState.setAttachmentItemsFromServerObjects(pageId, result.attachments[pageId], null);
+        if (result.attachments[itemId]) {
+          itemState.setAttachmentItemsFromServerObjects(itemId, result.attachments[itemId], null);
         }
       } catch (e: any) {
         console.error(`Main.onMount setAttachmentItemsFromServerObjects (1) failed ${id}`, e);
         throw e;
       }
 
-      markChildrenLoadAsInitiatedOrComplete(pageId);
-
-      try {
-        itemState.setChildItemsFromServerObjects(pageId, result.children, null);
-      } catch (e: any) {
-        console.error(`Main.onMount setChildItemsFromServerObjects failed ${id}`, e);
-        throw e;
+      const item = itemState.get(itemId)!;
+      if (isContainer(item)) {
+        markChildrenLoadAsInitiatedOrComplete(itemId);
+        try {
+          itemState.setChildItemsFromServerObjects(itemId, result.children, null);
+        } catch (e: any) {
+          console.error(`Main.onMount setChildItemsFromServerObjects failed ${id}`, e);
+          throw e;
+        }
       }
 
       Object.keys(result.attachments).forEach(id => {
@@ -114,11 +131,12 @@ export const Main: Component = () => {
       });
 
       try {
-        switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false, false);
+        switchToPage(store, isPage(item) ? { itemId, linkIdMaybe: null } : { itemId: SOLO_ITEM_HOLDER_PAGE_UID, linkIdMaybe: null }, false, false, false);
       } catch (e: any) {
-        console.error(`Main.onMount switchToPage ${pageId} failed`, e);
+        console.error(`Main.onMount switchToPage ${itemId} failed`, e);
         throw e;
       }
+
     } catch (e: any) {
       console.error(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       store.general.clearInstallationState();

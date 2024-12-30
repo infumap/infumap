@@ -21,10 +21,11 @@ import { asPageItem, isPage } from "../items/page-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
-import { EMPTY_UID } from "../util/uid";
+import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 import { fArrange } from "./arrange";
 import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { Veid } from "./visual-element";
+import { ItemsAndTheirAttachments, server } from "../server";
 
 
 export function updateHref(store: StoreContextModel) {
@@ -102,6 +103,13 @@ export async function navigateUp(store: StoreContextModel) {
   const MAX_LEVELS = 8;
   let cnt = 0;
   let parentId = currentPage.parentId;
+
+  if (currentPage.id == SOLO_ITEM_HOLDER_PAGE_UID) {
+    const originalParentId = (currentPage as any).originalParentId;
+    currentPage.parentId = originalParentId;
+    parentId = originalParentId;
+  }
+
   while (cnt++ < MAX_LEVELS) {
     // check if already at top.
     if (parentId == EMPTY_UID) {

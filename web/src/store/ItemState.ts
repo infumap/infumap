@@ -24,7 +24,7 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { TabularFns } from "../items/base/tabular-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
@@ -94,6 +94,12 @@ export const itemState = {
     let item = ItemFns.fromObject(itemObject, origin);
     items.set(item.id, item);
     TabularFns.validateNumberOfVisibleColumnsMaybe(item.id);
+  },
+
+  addSoloItemHolderPage: (ownerId: Uid): void => {
+    let holderPage = PageFns.soloItemHolderPage();
+    holderPage.ownerId = ownerId;
+    items.set(holderPage.id, holderPage);
   },
 
   sortChildren: (parentId: Uid): void => {
