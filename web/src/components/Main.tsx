@@ -41,7 +41,7 @@ import { pasteHandler } from "../input/paste";
 import { composite_selectionChangeListener } from "../input/edit";
 import { Toolbar_TransientMessage } from "./toolbar/Toolbar_TransientMessage";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
-import { asPageItem, isPage, PageFns } from "../items/page-item";
+import { asPageItem, isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 
@@ -85,8 +85,6 @@ export const Main: Component = () => {
 
       if (itemObject.itemType != ItemType.Page) {
         itemState.addSoloItemHolderPage(itemObject.ownerId!);
-        itemObject.originalParentId = itemObject.parentId;
-        itemObject.parentId = SOLO_ITEM_HOLDER_PAGE_UID;
       }
 
       try {
@@ -98,7 +96,6 @@ export const Main: Component = () => {
 
       if (itemObject.itemType != ItemType.Page) {
         asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [itemId];
-        (asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!) as any).originalParentId = itemObject.originalParentId;
       }
 
       try {

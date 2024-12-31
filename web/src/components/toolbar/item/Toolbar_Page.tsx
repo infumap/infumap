@@ -74,6 +74,7 @@ export const Toolbar_Page: Component = () => {
     if (aa == ArrangeAlgorithm.Grid) { return "grid"; }
     if (aa == ArrangeAlgorithm.List) { return "list"; }
     if (aa == ArrangeAlgorithm.Justified) { return "justified"; }
+    if (aa == ArrangeAlgorithm.SingleCell) { return "single-cell"; }
     panic("unexpected arrange algorithm " + aa);
   }
 

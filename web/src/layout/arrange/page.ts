@@ -32,7 +32,7 @@ import { arrange_grid_page } from "./page_grid";
 import { arrange_justified_page } from "./page_justified";
 import { arrange_list_page } from "./page_list";
 import { arrange_spatial_page } from "./page_spatial";
-
+import { arrange_single_cell_page } from "./page_singleCell";
 
 export const arrangePageWithChildren = (
     store: StoreContextModel,
@@ -60,6 +60,9 @@ export const arrangePageWithChildren = (
       break;
     case ArrangeAlgorithm.List:
       pageWithChildrenVisualElementSpec = arrange_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      break;
+    case ArrangeAlgorithm.SingleCell:
+      pageWithChildrenVisualElementSpec = arrange_single_cell_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
       break;
     default:
       panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);

@@ -103,6 +103,7 @@ pub enum ArrangeAlgorithm {
   Justified,
   List,
   Document,
+  SingleCell,
   // Gallery,
   // Calendar,
 }
@@ -115,6 +116,7 @@ impl ArrangeAlgorithm {
       ArrangeAlgorithm::Justified => "justified",
       ArrangeAlgorithm::List => "list",
       ArrangeAlgorithm::Document => "document",
+      ArrangeAlgorithm::SingleCell => "single-cell",
       // ArrangeAlgorithm::Gallery => "gallery",
       // ArrangeAlgorithm::Calendar => "calendar",
     }
@@ -127,6 +129,7 @@ impl ArrangeAlgorithm {
       "justified" => Ok(ArrangeAlgorithm::Justified),
       "list" => Ok(ArrangeAlgorithm::List),
       "document" => Ok(ArrangeAlgorithm::Document),
+      "single-cell" => Ok(ArrangeAlgorithm::SingleCell),
       // "gallery" => Ok(ArrangeAlgorithm::Gallery),
       // "calendar" => Ok(ArrangeAlgorithm::Calendar),
       other => Err(format!("Invalid ArrangeAlgorithm value: '{}'.", other).into())

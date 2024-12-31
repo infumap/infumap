@@ -27,7 +27,7 @@ import { Toolbar_NetworkStatus } from "./Toolbar_NetworkStatus";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
 import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
-import { asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
 import { BORDER_COLOR, BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
@@ -237,7 +237,9 @@ export const Toolbar: Component = () => {
       <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
         <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
           <Match when={isPage(store.history.getFocusItem())}>
-            <Toolbar_Page />
+            <Show when={asPageItem(store.history.getFocusItem()).arrangeAlgorithm != ArrangeAlgorithm.SingleCell}>
+              <Toolbar_Page />
+            </Show>
           </Match>
           <Match when={isNote(store.history.getFocusItem())}>
             <Toolbar_Note />

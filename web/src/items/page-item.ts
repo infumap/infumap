@@ -59,6 +59,7 @@ export const ArrangeAlgorithm = {
   Document: "document",
   Dock: "dock",
   Composite: "composite",
+  SingleCell: "single-cell",
 };
 
 export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, ColorableMixin, AspectItem, Item {
@@ -744,7 +745,7 @@ const umbrellaPage = () => {
 
 const soloItemHolderPage = () => {
   const result = PageFns.create(EMPTY_UID, EMPTY_UID, RelationshipToParent.NoParent, "", newOrdering());
-  result.arrangeAlgorithm = ArrangeAlgorithm.Grid;
+  result.arrangeAlgorithm = ArrangeAlgorithm.SingleCell;
   result.gridNumberOfColumns = 1;
   result.id = SOLO_ITEM_HOLDER_PAGE_UID;
 
