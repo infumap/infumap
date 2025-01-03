@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "justified-layout": "^4.1.0",
-    "qrcode": "^1.5.3",
-    "solid-js": "^1.8.17"
+    "qrcode": "^1.5.4",
+    "solid-js": "^1.9.3"
   }
 }
