@@ -45,7 +45,7 @@ pub struct ItemAndUserId {
 }
 
 /// Db for Item instances for all users, assuming the mandated data folder hierarchy.
-/// Not threadsafe.
+/// Not thread safe.
 pub struct ItemDb {
   data_dir: String,
   store_by_user_id: HashMap<Uid, KVStore<Item>>,

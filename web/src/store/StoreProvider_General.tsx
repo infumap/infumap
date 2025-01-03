@@ -49,7 +49,7 @@ export interface GeneralStoreContextModel {
 
 
 export function makeGeneralStore(): GeneralStoreContextModel {
-  const [localStorageDataString, setLacalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
+  const [localStorageDataString, setLocalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
 
   const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, {equals: false });
 
@@ -66,21 +66,21 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   const clearInstallationState = () => { setInstallationState(null); }
 
   const prefer2fa = () => {
-    const lcds = localStorageDataString();
-    let lcd: LocalStorageData | null = lcds == null ? null : JSON.parse(lcds);
+    const lcDs = localStorageDataString();
+    let lcd: LocalStorageData | null = lcDs == null ? null : JSON.parse(lcDs);
     if (lcd == null) { return false; }
     return lcd.prefer2fa;
   }
   const setPrefer2fa = (prefer2fa: boolean) => {
-    let lcds = localStorageDataString();
+    let lcDs = localStorageDataString();
     let r = { prefer2fa };
-    if (lcds != null) {
-      r = JSON.parse(lcds);
+    if (lcDs != null) {
+      r = JSON.parse(lcDs);
       r.prefer2fa = prefer2fa;
     }
-    lcds = JSON.stringify(r);
-    window.localStorage.setItem(LOCALSTORAGE_KEY_NAME, lcds);
-    setLacalStorageDataString(lcds);
+    lcDs = JSON.stringify(r);
+    window.localStorage.setItem(LOCALSTORAGE_KEY_NAME, lcDs);
+    setLocalStorageDataString(lcDs);
   }
 
   return {

@@ -41,7 +41,7 @@ use crate::web::session::get_and_validate_session;
 
 
 const TOTP_ALGORITHM: Algorithm = Algorithm::SHA1; // The most broadly compatible algo & SHA1 is just fine for 2FA.
-const TOTP_NUM_DIGETS: usize = 6; // 6 digit OTP is pretty standard.
+const TOTP_NUM_DIGITS: usize = 6; // 6 digit OTP is pretty standard.
 const TOTP_SKEW: u8 = 1; // OTP is valid for this number of time intervals in the past/future.
 const TOTP_STEP: u64 = 30; // Time step interval of 30 seconds is pretty standard.
 
@@ -404,7 +404,7 @@ pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming
 
 fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
   let totp = TOTP::new(
-    TOTP_ALGORITHM, TOTP_NUM_DIGETS, TOTP_SKEW, TOTP_STEP,
+    TOTP_ALGORITHM, TOTP_NUM_DIGITS, TOTP_SKEW, TOTP_STEP,
     Secret::Encoded(totp_secret.to_string()).to_bytes().map_err(|e| format!("{:?}", e))?,
     None, "infumap".to_string()
   ).map_err(|e| format!("{:?}", e))?;
@@ -454,7 +454,7 @@ pub fn create_totp() -> Response<BoxBody<Bytes, hyper::Error>> {
     v[0], v[1], v[2], v[3], v[4], v[5], v[11], v[12], v[13], v[14]];
 
   let totp = TOTP::new(
-    TOTP_ALGORITHM, TOTP_NUM_DIGETS, TOTP_SKEW, TOTP_STEP,
+    TOTP_ALGORITHM, TOTP_NUM_DIGITS, TOTP_SKEW, TOTP_STEP,
     secret_bytes.clone(),
     None, "infumap".to_string()
   ).unwrap();

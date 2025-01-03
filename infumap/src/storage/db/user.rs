@@ -169,7 +169,7 @@ impl JsonLogSerializable<User> for User {
       result.insert(String::from("defaultPageNaturalAspect"), Value::Number(new.default_page_width_bl.into()));
     }
     if old.object_encryption_key != new.object_encryption_key {
-      return Err(format!("Attempt was made to update ojbect encryption key for item '{}', but this is not allowed.", old.id).into());
+      return Err(format!("Attempt was made to update object encryption key for item '{}', but this is not allowed.", old.id).into());
     }
     Ok(result)
   }

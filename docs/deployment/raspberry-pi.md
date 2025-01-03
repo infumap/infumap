@@ -46,7 +46,7 @@ Setup firewall:
     sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
     sudo ufw enable
 
-Note: This assumes you will be setting up your wiregard network interface on 10.0.0.0/24. If this clashes with your router,
+Note: This assumes you will be setting up your wireguard network interface on 10.0.0.0/24. If this clashes with your router,
 or some other local network configuration, you will need to change it to something that doesn't.
 
 For additional security, you might consider restricting ssh port access to devices on your local router subnet, making
@@ -237,7 +237,7 @@ Reload systemd, start, and enable.
 Create an encrypted volume on your Raspberry Pi to ensure that even if an attacker gains physical access to it,
 they cannot read your Infumap instance data.
 
-On your Rasperry Pi:
+On your Raspberry Pi:
 
     sudo apt-get install cryptsetup
 
@@ -319,7 +319,7 @@ Run Infumap:
 Key tmux commands to be aware of:
 
     Ctrl-b-s (list sessions)
-    Ctrl-b-d (detatch)
+    Ctrl-b-d (detach)
     Ctrl-b-a (attach)
 
 
@@ -330,7 +330,7 @@ or Raspberry Pi. An advantage of running it on the VPS is isolation from the `in
 disabled `ssh` access to your Raspberry Pi over the WireGuard network. It is also easier to set up. However, a significant
 downside is that unencrypted data from your Infumap instance will be exposed to the VPS as requests are served. This data
 is partial and transient, so the security implications are not as big as if the entire data set were available on the
-VPS at rest. Still, it is perferable to avoid this.
+VPS at rest. Still, it is preferable to avoid this.
 
 We will use [Caddy](https://caddyserver.com/) for the reverse proxy because it is very easy to use - automatically provisions
 the TLS certificate and keeps it renewed.

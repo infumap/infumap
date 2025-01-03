@@ -23,7 +23,7 @@ General notes:
   - Select a server type and plan. Infumap will work (and scale) adequately on the lowest tier plans. However usability improves significantly with more resources. I found that Shared CPU / High frequency / 2 VCPU / 4Gb works very well ($24/mo), and I recommend this for optimal experience.
   - Select a location close to you. https://wondernetwork.com/pings is a good resource for checking ping times.
   - Select "Debian 12", or for the extra paranoid "Upload ISO".
-    - Two reasons you may want to use the Debian installation ISO directly from the Debain website rather than an image supplied by Vultr:
+    - Two reasons you may want to use the Debian installation ISO directly from the Debian website rather than an image supplied by Vultr:
       - You can be more sure it is more trustworthy.
       - There won't be any unexpected non-standard configuration.
     - Paste in the URL to the latest debian net install ISO. You can find a link to that on this page: https://www.debian.org/distrib/netinst . At the time of writing, this was: https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.1.0-amd64-netinst.iso
@@ -45,7 +45,7 @@ If installing from the Debian ISO:
     - You will be changing the passwords for both `infumap` and `root` users soon, so strong passwords are not critical at this point.
     - Use manual partitioning to remove the swap partition (potential security hole) and create one EXT4 partition. Note that disk encryption is not set up here, because the encryption key needs to be pasted into the console (both on setup and restart). This could potentially be intercepted by Vultr.
     - Configure package manager: do not scan for additional media.
-    - Software selection: use spacebar to select / unselect. Select only "SSH server" and "standard system utilities". Unselect everything else.
+    - Software selection: use space-bar to select / unselect. Select only "SSH server" and "standard system utilities". Unselect everything else.
     - Install GRUB bootloader (on /dev/vda).
     - Finish the installation: Do not select continue. Instead, go to "Settings / Custom ISO" in your Vultr instance settings and click "Remove ISO" to prevent the ISO from booting up on restart. The instance will automatically restart.
   - Select "Connect" in the Vultr console window - you should see a login prompt.

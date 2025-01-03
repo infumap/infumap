@@ -77,13 +77,13 @@ pub async fn delete(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u6
 /// Returns an ordered list of backup timestamps per user.
 pub async fn list(backup_store: Arc<BackupStore>) -> InfuResult<HashMap<Uid, Vec<u64>>> {
   let mut result = HashMap::new();
-  let mut lbrs = backup_store.bucket.list_page("".to_owned(), None, None, None, None).await
+  let mut lb_rs = backup_store.bucket.list_page("".to_owned(), None, None, None, None).await
     .map_err(|e| format!("Backup S3 list_page server request failed: {}", e))?;
-  if lbrs.1 != 200 { // status code.
-    return Err(format!("Expected backup list_page status code to be 200, not {}.", lbrs.1).into());
+  if lb_rs.1 != 200 { // status code.
+    return Err(format!("Expected backup list_page status code to be 200, not {}.", lb_rs.1).into());
   }
   loop {
-    for c in lbrs.0.contents {
+    for c in lb_rs.0.contents {
       let mut parts = c.key.split("_");
       let user_id = parts.next().ok_or(format!("Unexpected backup object filename {}.", c.key))?;
       let timestamp_str = parts.next().ok_or(format!("Unexpected backup object filename {}.", c.key))?;
@@ -93,11 +93,11 @@ pub async fn list(backup_store: Arc<BackupStore>) -> InfuResult<HashMap<Uid, Vec
       }
       result.get_mut(user_id).unwrap().push(timestamp_str.parse::<u64>()?);
     }
-    if let Some(ct) = lbrs.0.next_continuation_token {
-      lbrs = backup_store.bucket.list_page("".to_owned(), None, Some(ct), None, None).await
+    if let Some(ct) = lb_rs.0.next_continuation_token {
+      lb_rs = backup_store.bucket.list_page("".to_owned(), None, Some(ct), None, None).await
         .map_err(|e| format!("Backup S3 list_page server request (continuation) failed: {}", e))?;
-      if lbrs.1 != 200 { // status code.
-        return Err(format!("Expected backup list_page status code to be 200, not {}", lbrs.1).into());
+      if lb_rs.1 != 200 { // status code.
+        return Err(format!("Expected backup list_page status code to be 200, not {}", lb_rs.1).into());
       }
     } else {
       break;

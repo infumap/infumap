@@ -85,7 +85,7 @@ pub const CONFIG_BACKUP_PERIOD_MINUTES: &'static str = "backup_period_minutes";
 pub const CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT: u32 = 60;
 
 pub const CONFIG_BACKUP_RETENTION_PERIOD_DAYS: &'static str = "backup_retention_period_days";
-pub const CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT: u32 = 30;
+pub const CONFIG_BACKUP_RETENTION_PERIOD_DAYS_DEFAULT: u32 = 30;
 
 pub const CONFIG_BACKUP_ENCRYPTION_KEY: &'static str = "backup_encryption_key";
 

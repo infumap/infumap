@@ -19,7 +19,7 @@ For more information on configuring the Infumap web server, refer to [configurat
 
 
 Options:
-- **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment varable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
 - **--dev (optional):** Enable experimental in-development features.
 
 ### keygen
@@ -126,7 +126,7 @@ you need to delete or move the original and replace it with the compacted versio
 Options:
 
 - **-i --id:** The user id.
-- **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment varable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
 
 
 

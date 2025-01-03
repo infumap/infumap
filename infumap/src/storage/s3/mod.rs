@@ -103,14 +103,14 @@ pub async fn delete(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult
 
 pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
   let mut result = vec![];
-  let mut lbrs = s3_store.bucket.list_page("".to_owned(), None, None, None, None).await
+  let mut lb_rs = s3_store.bucket.list_page("".to_owned(), None, None, None, None).await
     .map_err(|e| format!("S3 list_page server request failed: {}", e))?;
-  if lbrs.1 != 200 { // status code.
-    return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());
+  if lb_rs.1 != 200 { // status code.
+    return Err(format!("Expected list_page status code to be 200, not {}", lb_rs.1).into());
   }
   loop {
-    debug!("Retrieved {} filenames", lbrs.0.contents.len());
-    for c in lbrs.0.contents {
+    debug!("Retrieved {} filenames", lb_rs.0.contents.len());
+    for c in lb_rs.0.contents {
       let mut parts = c.key.split("_");
       let user_id = parts.next().ok_or(format!("Unexpected object filename {}", c.key))?;
       let item_id = parts.next().ok_or(format!("Unexpected object filename {}", c.key))?;
@@ -122,11 +122,11 @@ pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
         }
       );
     }
-    if let Some(ct) = lbrs.0.next_continuation_token {
-      lbrs = s3_store.bucket.list_page("".to_owned(), None, Some(ct), None, None).await
+    if let Some(ct) = lb_rs.0.next_continuation_token {
+      lb_rs = s3_store.bucket.list_page("".to_owned(), None, Some(ct), None, None).await
         .map_err(|e| format!("S3 list_page server request (continuation) failed: {}", e))?;
-      if lbrs.1 != 200 { // status code.
-        return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());
+      if lb_rs.1 != 200 { // status code.
+        return Err(format!("Expected list_page status code to be 200, not {}", lb_rs.1).into());
       }
     } else {
       break;

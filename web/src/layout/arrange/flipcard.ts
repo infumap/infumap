@@ -91,7 +91,7 @@ export const arrangeFlipCard = (
       const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
       const emitHitboxes = true;
       const childItemIsPopup = false; // never the case.
-      const childItemIsEmbededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+      const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
       const hasPendingChanges = false; // it may do, but only matters for popups.
       const parentPageInnerDimensionsBl = FlipCardFns.calcInnerSpatialDimensionsBl(displayItem_flipCard);
       parentPageInnerDimensionsBl.w = Math.round(parentPageInnerDimensionsBl.w / displayItem_flipCard.scale);
@@ -109,7 +109,7 @@ export const arrangeFlipCard = (
       const ves = arrangeItem(
         store, visiblePagePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
         ArrangeItemFlags.RenderChildrenAsFull |
-        (childItemIsEmbededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
+        (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None));
       childrenVes.push(ves);
     }

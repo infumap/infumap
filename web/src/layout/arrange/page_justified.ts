@@ -69,7 +69,7 @@ export function arrange_justified_page(
   }
 
   // if an item is moving out of or into a justified page, then ensure the height of the page doesn't
-  // change until after the move is complete to avoid a very distruptive jump in y scroll px.
+  // change until after the move is complete to avoid a very disruptive jump in y scroll px.
   let nItemAdj = 0;
   if (movingItemInThisPage && !MouseActionState.get().linkCreatedOnMoveStart) {
     const startParentVes = VesCache.get(MouseActionState.get().startActiveElementParent)!;
@@ -139,7 +139,7 @@ export function arrange_justified_page(
       h: layout.boxes[i].height
     };
 
-    const childItemIsEmbeededInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
+    const childItemIsEmbeddedInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
     const renderChildrenAsFull = arrangeFlagIsRoot(flags);
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, true, false);
@@ -147,7 +147,7 @@ export function arrange_justified_page(
     const ves = arrangeItem(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Justified, childItem, actualLinkItemMaybe, cellGeometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
-      (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
+      (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     childrenVes.push(ves);
   }
@@ -176,13 +176,13 @@ export function arrange_justified_page(
     const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
     const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
-    const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
     const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
     // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
     const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
     const cellBoundsPx = {
-      x: mouseDestkopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
-      y: mouseDestkopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
+      x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
+      y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
       w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
       h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
     };

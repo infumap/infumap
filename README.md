@@ -31,5 +31,5 @@ there are some settings which you should tweak for optimal experience:
 
 In System Preferences / Trackpad:
 
-- Turn off "Smart zoom". If enabled, the system needs to wait to know if a two finger tap was a double tap. Since navigation in Infumap makes frequenty use of right clicking (two finger tapping), your experience will be more fluid with this disabled.
+- Turn off "Smart zoom". If enabled, the system needs to wait to know if a two finger tap was a double tap. Since navigation in Infumap makes frequent use of right clicking (two finger tapping), your experience will be more fluid with this disabled.
 - Turn off "Swipe between pages".

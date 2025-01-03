@@ -104,8 +104,8 @@ export const renderDockMaybe = (
   if (movingItemInThisPage) {
     const actualLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
 
-    const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
-    const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDestkopPosPx);
+    const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDesktopPosPx);
     const ves = arrangeItem(
       store, dockPath, ArrangeAlgorithm.Dock, movingItemInThisPage, actualLinkItemMaybe, cellGeometry,
       ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);

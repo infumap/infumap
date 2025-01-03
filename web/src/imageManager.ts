@@ -44,7 +44,7 @@ let objectUrlsRefCount: Map<string, number> = new Map<string, number>(); // file
 const debug = false;
 
 function containerDebugCounts(): string {
-  return `objectUrls.size: ${objectUrls.size}. obejectURlsRefCount.size: ${objectUrlsRefCount.size}. waitingForCleanup.size: ${waitingForCleanup.size}. fetchInProgress.size: ${fetchInProgress.size}. waiting.length: ${waiting.length}. `;
+  return `objectUrls.size: ${objectUrls.size}. objectURlsRefCount.size: ${objectUrlsRefCount.size}. waitingForCleanup.size: ${waitingForCleanup.size}. fetchInProgress.size: ${fetchInProgress.size}. waiting.length: ${waiting.length}. `;
 }
 
 function debugMsg(filename: string): string {
@@ -102,7 +102,7 @@ function serveWaiting() {
     if (objectUrls.has(task.path) && objectUrls.get(task.path) != null) {
       // a waiting task that has now completed might have been for the same filename.
       task.resolve(objectUrls.get(task.path) as string);
-      if (debug) { console.debug(`previus waiting task satisfied a subsequent request: ${task.path}.`) }
+      if (debug) { console.debug(`previous waiting task satisfied a subsequent request: ${task.path}.`) }
       serveWaiting();
       return;
     }

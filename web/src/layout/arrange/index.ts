@@ -57,8 +57,8 @@ export function fArrange(store: StoreContextModel): void {
  * 2. It was effectively impossible to perfectly optimize it in the case of resizing page items (and probably other
  *    scenarios) because the set of children were a function of page size. By comparison, as a general comment, the
  *    stateful approach makes it easy(er) to make precisely the optimal updates at precisely the required times.
- * 3. The functional represenation was not straightforward (compared to the current approach) to reason about -
- *    you need to be very congisant of functional dependencies, what is being captured etc. Even though the direct
+ * 3. The functional representation was not straightforward (compared to the current approach) to reason about -
+ *    you need to be very cognizant of functional dependencies, what is being captured etc. Even though the direct
  *    approach is more ad-hoc / less "automated", the code is simpler to work on due to this.
  *
  * @param virtualPageVeid the page to create the visual element tree for, if not the current page.

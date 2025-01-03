@@ -30,7 +30,7 @@ use super::user_db::CURRENT_USER_LOG_VERSION;
 
 
 /// Db for User instances.
-/// Not threadsafe.
+/// Not thread safe.
 pub struct PendingUserDb {
   store: KVStore<User>,
   id_by_lowercase_username: HashMap<String, String>

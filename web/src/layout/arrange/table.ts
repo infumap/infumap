@@ -157,7 +157,7 @@ export function arrangeTableChildren(
       iterContainers.push(asContainerItem(displayItem_childItem));
     }
     else {
-      // or move through current container childern by one.
+      // or move through current container children by one.
       iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
       while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length-1].computed_children.length) {
         iterIndices.pop();
@@ -278,7 +278,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       iterContainers.push(asContainerItem(displayItem_childItem));
     }
     else {
-      // or move through current container childern by one.
+      // or move through current container children by one.
       iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
       while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length-1].computed_children.length) {
         iterIndices.pop();

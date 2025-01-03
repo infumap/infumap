@@ -107,7 +107,7 @@ export function arrange_spatial_page(
     const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
     const emitHitboxes = true;
     const childItemIsPopup = false; // never the case.
-    const childItemIsEmbededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+    const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
     const hasPendingChanges = false; // it may do, but only matters for popups.
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
     const itemGeometry = ItemFns.calcGeometry_Spatial(
@@ -123,7 +123,7 @@ export function arrange_spatial_page(
       const ves = arrangeItem(
         store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
         ArrangeItemFlags.RenderChildrenAsFull |
-        (childItemIsEmbededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
+        (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
         (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
       childrenVes.push(ves);

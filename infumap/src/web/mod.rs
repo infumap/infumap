@@ -46,7 +46,7 @@ use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::tokiort::TokioIo;
 use crate::util::crypto::encrypt_file_data;
 
-use self::prometheus::spawn_promethues_listener;
+use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
 
 
@@ -161,7 +161,7 @@ pub async fn start_server(config: Config, dev_feature_flag: bool) -> InfuResult<
         return Err(format!("Invalid prometheus socket address: {} ({})", addr_str, e).into());
       }
     };
-    spawn_promethues_listener(prometheus_addr).await?;
+    spawn_prometheus_listener(prometheus_addr).await?;
   }
 
   {

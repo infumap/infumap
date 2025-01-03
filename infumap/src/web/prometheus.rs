@@ -29,7 +29,7 @@ use crate::{tokiort::TokioIo, web::serve::{internal_server_error_response, not_f
 use super::routes::{files::METRIC_CACHED_IMAGE_REQUESTS_TOTAL, command::METRIC_COMMANDS_HANDLED_TOTAL};
 
 
-pub async fn spawn_promethues_listener(prometheus_addr: SocketAddr) -> InfuResult<()> {
+pub async fn spawn_prometheus_listener(prometheus_addr: SocketAddr) -> InfuResult<()> {
   prometheus::register(Box::new(METRIC_CACHED_IMAGE_REQUESTS_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_COMMANDS_HANDLED_TOTAL.clone())).unwrap();
 
