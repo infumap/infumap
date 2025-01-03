@@ -63,7 +63,7 @@ const App: Component = () => {
                 style="padding: 5px;"
                 onclick={handleImageSubmit}>upload</button>
       </div>
-      <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="imagestatus"></div>
+      <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="image_status"></div>
     </>
   );
 }
@@ -85,7 +85,7 @@ async function handleFileInputUpdated() {
     mimeType: file.type,
     fileSizeBytes: file.size,
   });
-  document.getElementById("imagestatus")!.textContent = "adding";
+  document.getElementById("image_status")!.textContent = "adding";
   await fetch("/command", {
     method: 'POST',
     headers: {
@@ -94,9 +94,9 @@ async function handleFileInputUpdated() {
     },
     body: JSON.stringify({ command: "add-item", jsonData, base64Data })
   });
-  document.getElementById("imagestatus")!.textContent = "added";
+  document.getElementById("image_status")!.textContent = "added";
   setTimeout(() => {
-    document.getElementById("imagestatus")!.textContent = "";
+    document.getElementById("image_status")!.textContent = "";
   }, 2000);
 }
 

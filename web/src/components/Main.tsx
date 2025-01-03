@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onCleanup, onMount, Show } from "solid-js";
 import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
 import { useStore } from "../store/StoreProvider";
@@ -24,7 +23,7 @@ import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
 import { clearLoadState, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { switchToPage } from "../layout/navigation";
+import { switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -49,22 +48,26 @@ import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 export let logout: (() => Promise<void>) | null = null;
 
 export const Main: Component = () => {
-  const params = useParams();
   const store = useStore();
-  const navigate = useNavigate();
 
   let mainDiv: HTMLDivElement | undefined;
 
   onMount(async () => {
     if (!store.general.installationState()!.hasRootUser) {
-      navigate('/setup');
+      switchToNonPage(store, '/setup');
     }
 
     let id;
-    if (!params.usernameOrItemId && !params.username && !params.itemLabel) { id = "root"; }
-    else if (params.usernameOrItemId) { id = params.usernameOrItemId; }
-    else if (params.username && params.itemLabel) { id = `${params.username}/${params.itemLabel}`; }
-    else { panic("Main.onMount: unexpected params."); }
+    let parts = store.currentUrlPath.get().split("/");
+    if (parts.length == 1) { id = "root"; }
+    else if (parts.length == 2) {
+      id = parts[1];
+    } else if (parts.length == 3) {
+      id = `${parts[0]}/${parts[1]}}`;
+    } else {
+      panic("Main.onMount: unexpected params.");
+    }
+    console.debug(`Main onMount id: '${id}'`);
 
     try {
       let result: ItemsAndTheirAttachments
@@ -138,13 +141,12 @@ export const Main: Component = () => {
       console.error(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       store.general.clearInstallationState();
       await store.general.retrieveInstallationState();
-      navigate('/login');
+      switchToNonPage(store, '/login');
     }
 
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
     document.addEventListener('keydown', keyDownListener);
     window.addEventListener('resize', windowResizeListener);
-    window.addEventListener('popstate', windowPopStateListener);
     document.addEventListener('selectionchange', selectionChangeListener);
   });
 
@@ -152,7 +154,6 @@ export const Main: Component = () => {
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
     document.removeEventListener('keydown', keyDownListener);
     window.removeEventListener('resize', windowResizeListener);
-    window.removeEventListener('popstate', windowPopStateListener);
     document.removeEventListener('selectionchange', selectionChangeListener)
   });
 
@@ -169,14 +170,6 @@ export const Main: Component = () => {
     fArrange(store);
   };
 
-  const windowPopStateListener = () => {
-    store.overlay.contextMenuInfo.set(null);
-    store.overlay.tableColumnContextMenuInfo.set(null);
-    store.overlay.editUserSettingsInfo.set(null);
-    store.history.popPage();
-    fArrange(store);
-  };
-
   const contextMenuListener = (ev: Event) => {
     ev.stopPropagation();
     ev.preventDefault();
@@ -188,7 +181,7 @@ export const Main: Component = () => {
     VesCache.clear();
     clearLoadState();
     await store.user.logout();
-    navigate('/login');
+    switchToNonPage(store, '/login');
   };
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {

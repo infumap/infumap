@@ -16,8 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { A } from "@solidjs/router";
 import { Component } from "solid-js";
+import { switchToNonPage } from "../../layout/navigation";
+import { useStore } from "../../store/StoreProvider";
 
 
 interface InfuLinkProps {
@@ -26,12 +27,14 @@ interface InfuLinkProps {
 }
 
 export const InfuLink: Component<InfuLinkProps> = (props: InfuLinkProps) => {
+  const store = useStore();
 
   const handleMouseDown = (ev: MouseEvent) => {
+    switchToNonPage(store, props.href);
     ev.stopPropagation();
   }
 
   return (
-    <A class="text-blue-800 hover:text-blue-400" href={props.href} onMouseDown={handleMouseDown}>{props.text}</A>
+    <div class="text-blue-800 hover:text-blue-400 cursor-pointer" onMouseDown={handleMouseDown}>{props.text}</div>
   );
 }

@@ -16,23 +16,91 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onMount, Show } from 'solid-js';
+import { Component, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
 import { SignUp } from './SignUp';
 import { Login } from './Login';
-import { Navigate, Route, Router } from '@solidjs/router';
 import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
+import { switchToNonPage, switchToPage } from '../layout/navigation';
+import { isUid } from '../util/uid';
+import { fArrange } from '../layout/arrange';
+import { itemState } from '../store/ItemState';
 
 
 const App: Component = () => {
   const store = useStore();
 
   onMount(async () => {
+    store.currentUrlPath.set(window.location.pathname);
     await store.general.retrieveInstallationState();
+    window.addEventListener('popstate', windowPopStateListener);
   });
 
+  onCleanup(() => {
+    window.removeEventListener('popstate', windowPopStateListener);
+  });
+
+  const windowPopStateListener = (e: PopStateEvent) => {
+    console.debug("popstate handler called.");
+    store.overlay.clear();
+
+    const p = window.location.pathname;
+    const parts = p.split("/");
+    const currentUrlUidMaybe = parts[parts.length-1];
+    if (isUid(currentUrlUidMaybe) || currentUrlUidMaybe == "") {
+      const prevHistoryVeid = store.history.peekPrevPageVeid();
+      if (!prevHistoryVeid) {
+        e.preventDefault();
+        if (currentUrlUidMaybe == "") {
+          console.debug("no prevHistoryVeid, switching to (root) page.");
+          if (itemState.get(store.user.getUser().homePageId) ) {
+            switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, true, false, false);
+          } else {
+            console.debug("root page not available, doing nothing.");
+          }
+        } else {
+          console.debug("no prevHistoryVeid, switching to page.");
+          if (itemState.get(currentUrlUidMaybe)) {
+            switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, true, false, false);
+          } else {
+            console.debug(`page ${currentUrlUidMaybe} not available, doing nothing.`);
+          }
+        }
+      } else {
+        e.preventDefault();
+        if (prevHistoryVeid.itemId == currentUrlUidMaybe) {
+          console.debug("prevHistoryVeid and currentUrlUid match, moving back in history.");
+          store.history.popPageVeid();
+          fArrange(store);
+        } else {
+          if (currentUrlUidMaybe == "") {
+            if (store.user.getUser().homePageId == prevHistoryVeid.itemId) {
+              console.debug("moving back in history to root.");
+              store.history.popPageVeid();
+              fArrange(store);
+            } else {
+              console.debug("prevHistoryUid and urlUid do not match, switching to urlUid (2).", prevHistoryVeid.itemId, currentUrlUidMaybe);
+              switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, true, false, false);
+            }
+          } else {
+            console.debug("prevHistoryUid and urlUid do not match, switching to urlUid.", prevHistoryVeid.itemId, currentUrlUidMaybe);
+            switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, true, false, false);
+          }
+        }
+      }
+    } else {
+      e.preventDefault();
+      console.debug("url path is not an infumap page, switching to non-page.");
+      switchToNonPage(store, p);
+    }
+  }
+
   const fallback = () => <div>waiting ...</div>;
-  const fallback2 = () => <Navigate href="/setup" />;
+
+  const fallback2 = () => {
+    switchToNonPage(store, "/setup");
+    return <></>;
+  };
 
   const LoginPath: Component = () =>
     <Show when={store.general.installationState() != null} fallback={fallback()}>
@@ -60,20 +128,14 @@ const App: Component = () => {
       <SignUp />
     </Show>;
 
-  const UnknownPath: Component = () =>
-    <div>unknown path</div>;
-
   // Reminder: When adding a route here, also update generate_dist_handlers.py or serve.rs
   return (
-    <Router>
-      <Route path="/login" component={LoginPath} />
-      <Route path="/signup" component={SignUpPath} />
-      <Route path="/setup" component={SetupPath} />
-      <Route path="/:usernameOrItemId" component={MainPath} />
-      <Route path="/:username/:itemLabel" component={MainPath} />
-      <Route path="/" component={MainPath} />
-      <Route path="*" component={UnknownPath} />
-    </Router>
+    <Switch>
+      <Match when={store.currentUrlPath.get() == "/login"}><LoginPath /></Match>
+      <Match when={store.currentUrlPath.get() == "/signup"}><SignUpPath /></Match>
+      <Match when={store.currentUrlPath.get() == "/setup"}><SetupPath /></Match>
+      <Match when={true}><MainPath /></Match>
+    </Switch>
   );
 };
 

@@ -104,7 +104,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   function clear() {
     textEditInfo_.set(null);
-
+    toolbarPopupInfoMaybe.set(null);
+    toolbarTransientMessage.set(null);
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
     tableColumnContextMenuInfo.set(null);

@@ -173,7 +173,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     } else {
 
       if (!store.history.currentPopupSpec()) {
-        const parentVeid = store.history.parentPageVeid()!;
+        const parentVeid = store.history.peekPrevPageVeid()!;
         if (parentVeid) {
           fullArrange(store, parentVeid);
           const direction = findDirectionFromKeyCode(ev.code);

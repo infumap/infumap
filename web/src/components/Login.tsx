@@ -16,18 +16,17 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { useNavigate } from "@solidjs/router";
 import { Component, createSignal, Show } from "solid-js";
 import { InfuButton } from "./library/InfuButton";
 import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
 import { ROOT_USERNAME } from "../constants";
 import { useStore } from "../store/StoreProvider";
+import { switchToNonPage } from "../layout/navigation";
 
 
 export const Login: Component = () => {
   const store = useStore();
-  const navigate = useNavigate();
 
   let username: string = "";
   let password: string = "";
@@ -52,9 +51,9 @@ export const Login: Component = () => {
         location.href = basePath + decodeURIComponent(redirectPathMaybe);
       } else {
         if (username == ROOT_USERNAME) {
-          navigate("/");
+          switchToNonPage(store, "/"); // TODO:
         } else {
-          navigate(`/${username}`);
+          switchToNonPage(store, `/${username}`); // TODO:
         }
       }
     }

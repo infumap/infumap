@@ -22,7 +22,6 @@
     "vite-plugin-solid": "^2.7.2"
   },
   "dependencies": {
-    "@solidjs/router": "^0.13.3",
     "justified-layout": "^4.1.0",
     "qrcode": "^1.5.3",
     "solid-js": "^1.8.17"

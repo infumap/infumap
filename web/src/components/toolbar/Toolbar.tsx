@@ -25,7 +25,6 @@ import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { Toolbar_NetworkStatus } from "./Toolbar_NetworkStatus";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
-import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
@@ -58,11 +57,9 @@ import { logout } from '../Main';
 export const Toolbar: Component = () => {
   const store = useStore();
 
-  const navigate = useNavigate();
-
   const handleLogin = () => {
     logout!(); // ensures all state is cleared, so old state can never be visible briefly after login.
-    navigate("/login");
+    window.location.pathname = "/login";
   }
 
   const showUserSettings = () => {

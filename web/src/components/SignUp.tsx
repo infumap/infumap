@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { useLocation, useNavigate } from "@solidjs/router";
 import { Component, createSignal, onMount, Show } from "solid-js";
 import { post } from "../server";
 import { InfuButton } from "./library/InfuButton";
@@ -25,12 +24,11 @@ import { InfuTextInput } from "./library/InfuTextInput";
 import { ROOT_USERNAME } from "../constants";
 import { useStore } from "../store/StoreProvider";
 import { RegisterResponse, Totp } from "../util/accountTypes";
+import { switchToNonPage } from "../layout/navigation";
 
 
 export const SignUp: Component = () => {
   const store = useStore();
-  const navigate = useNavigate();
-  const location = useLocation();
 
   let username: string = "";
   let password: string = "";
@@ -61,7 +59,8 @@ export const SignUp: Component = () => {
         let r = await store.user.login(username, password, store.general.prefer2fa() ? totpToken : null);
         if (r.success) {
           await store.general.retrieveInstallationState();
-          navigate('/');
+
+          switchToNonPage(store, "/"); // TODO: not quite right.
         } else {
           setError(r.err);
         }
@@ -75,7 +74,7 @@ export const SignUp: Component = () => {
 
   onMount(async () => {
     if (store.general.installationState()!.hasRootUser) {
-      navigate("/signup");
+      switchToNonPage(store, "/signup");
     }
     if (areSettingUp()) { username = ROOT_USERNAME; }
     const json: any = await post(null, "/account/create-totp", {});
@@ -153,7 +152,7 @@ export const SignUp: Component = () => {
           You've been successfully added to the pending users list. You will be able to log in
           after your registration is approved by an administrator.
         </p>
-        <InfuButton text="Login" onClick={() => { navigate("/login"); }} />
+        <InfuButton text="Login" onClick={() => { switchToNonPage(store, "/login"); }} />
       </Show>
 
     </div>

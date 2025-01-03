@@ -27,19 +27,32 @@ import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { Veid } from "./visual-element";
 
 
-export function updateHref(store: StoreContextModel) {
+export function switchToNonPage(store: StoreContextModel, url: string) {
+  window.history.pushState(null, "", url);
+  store.currentUrlPath.set(url);
+}
+
+function updateHrefToReflectCurrentPage(store: StoreContextModel) {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) {
-    window.history.pushState(null, "", `/${store.history.currentPageVeid()!.itemId}`);
+    const url = `/${store.history.currentPageVeid()!.itemId}`;
+    window.history.pushState(null, "", url);
+    store.currentUrlPath.set(url);
   } else {
     const user = userMaybe;
     if (store.history.currentPageVeid()!.itemId != user.homePageId) {
-      window.history.pushState(null, "", `/${store.history.currentPageVeid()!.itemId}`);
+      const url = `/${store.history.currentPageVeid()!.itemId}`;
+      window.history.pushState(null, "", url);
+      store.currentUrlPath.set(url);
     } else {
       if (user.username == ROOT_USERNAME) {
-        window.history.pushState(null, "", "/");
+        const url = "/";
+        window.history.pushState(null, "", url);
+        store.currentUrlPath.set(url);
       } else {
-        window.history.pushState(null, "", `/${user.username}`);
+        const url = `/${user.username}`;
+        window.history.pushState(null, "", url);
+        store.currentUrlPath.set(url);
       }
     }
   }
@@ -51,7 +64,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     store.history.setHistoryToSinglePage(pageVeid);
   } else {
     if (replace) {
-      store.history.popPage();
+      store.history.popPageVeid();
     }
     store.history.pushPageVeid(pageVeid);
   }
@@ -59,7 +72,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   fArrange(store);
 
   if (!replace && updateHistory) {
-    updateHref(store);
+    updateHrefToReflectCurrentPage(store);
   }
 }
 
@@ -75,9 +88,9 @@ export function navigateBack(store: StoreContextModel): boolean {
     return true;
   }
 
-  const changePages = store.history.popPage();
+  const changePages = store.history.popPageVeid();
   if (changePages) {
-    updateHref(store);
+    updateHrefToReflectCurrentPage(store);
     if (!store.history.currentPopupSpec()) {
       store.history.setFocus(store.history.currentPagePath()!);
     }

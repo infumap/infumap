@@ -37,6 +37,8 @@ export interface StoreContextModel {
   desktopMainAreaBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
+  currentUrlPath: InfuSignal<string>,
+
   umbrellaVisualElement: InfuSignal<VisualElement>,
 
   topTitledPages: InfuSignal<Array<VisualElementPath>>,
@@ -80,6 +82,8 @@ const INITIAL_DOCK_WIDTH_BL = 7;
 
 export function StoreProvider(props: StoreContextProps) {
   const userStore = makeUserStore();
+
+  const currentUrlPath = createInfuSignal<string>('');
 
   const topToolbarVisible = createInfuSignal<boolean>(true);
   const topToolbarHeightPx = () => topToolbarVisible.get() ? TOP_TOOLBAR_HEIGHT_PX : 0;
@@ -167,6 +171,8 @@ export function StoreProvider(props: StoreContextProps) {
     dockVisible,
     topToolbarVisible,
     topToolbarHeightPx,
+
+    currentUrlPath,
 
     umbrellaVisualElement,
     topTitledPages,

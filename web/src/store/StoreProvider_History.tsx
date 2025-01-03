@@ -39,10 +39,10 @@ interface PageBreadcrumb {
 export interface HistoryStoreContextModel {
   setHistoryToSinglePage: (currentPage: Veid) => void,
   pushPageVeid: (veid: Veid) => void,
-  popPage: () => boolean,
+  popPageVeid: () => boolean,
   currentPageVeid: () => Veid | null,
   currentPagePath: () => string | null,
-  parentPageVeid: () => Veid | null,
+  peekPrevPageVeid: () => Veid | null,
 
   pushPopup: (popupSpec: PopupSpec) => void,
   replacePopup: (popupSpec: PopupSpec) => void,
@@ -60,6 +60,8 @@ export interface HistoryStoreContextModel {
   changeParentPageFocusPath: (path: VisualElementPath) => void,
 
   clear: () => void,
+
+  debugLog: () => void,
 }
 
 
@@ -84,7 +86,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     setBreadcrumbs(breadcrumbs());
   };
 
-  const popPage = (): boolean => {
+  const popPageVeid = (): boolean => {
     if (breadcrumbs().length <= 1) { return false; }
     breadcrumbs().pop();
     setBreadcrumbs(breadcrumbs());
@@ -101,7 +103,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     return breadcrumbs()[breadcrumbs().length-2];
   };
 
-  const parentPageVeid = (): Veid | null => {
+  const peekPrevPageVeid = (): Veid | null => {
     const parentBc = parentPageBreadcrumb();
     if (parentBc) { return parentBc.pageVeid; }
     return null;
@@ -224,14 +226,18 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     setBreadcrumbs([]);
   };
 
+  const debugLog = (): void => {
+    console.log(breadcrumbs());
+  }
+
 
   return ({
     setHistoryToSinglePage,
     pushPageVeid,
-    popPage,
+    popPageVeid,
     currentPageVeid,
     currentPagePath,
-    parentPageVeid,
+    peekPrevPageVeid,
 
     pushPopup,
     replacePopup,
@@ -249,5 +255,6 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     changeParentPageFocusPath,
 
     clear,
+    debugLog,
   });
 }
