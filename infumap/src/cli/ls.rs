@@ -76,7 +76,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
   let get_children_request = serde_json::to_string(&request_data)?;
-  let send_reqest = CommandRequest {
+  let send_request = CommandRequest {
     command: "get-items".to_owned(),
     json_data: get_children_request,
     base64_data: None,
@@ -85,7 +85,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let get_children_response: CommandResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
     .post(named_session.command_url()?.clone())
-    .json(&send_reqest)
+    .json(&send_request)
     .send()
     .await.map_err(|e| format!("{}", e))?
     .json()
@@ -107,7 +107,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let children_array = children_value.as_array().ok_or("get-items response has a 'children' field that is not an array.")?;
 
   let get_attachments_request = serde_json::to_string(&request_data)?;
-  let send_reqest = CommandRequest {
+  let send_request = CommandRequest {
     command: "get-attachments".to_owned(),
     json_data: get_attachments_request,
     base64_data: None,
@@ -116,7 +116,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let get_attachments_response: CommandResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
     .post(named_session.command_url()?.clone())
-    .json(&send_reqest)
+    .json(&send_request)
     .send()
     .await.map_err(|e| format!("{}", e))?
     .json()

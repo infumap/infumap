@@ -148,7 +148,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     id: container_id.clone(),
     mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str())
   }).unwrap();
-  let send_reqest = CommandRequest {
+  let send_request = CommandRequest {
     command: "get-items".to_owned(),
     json_data: get_children_request,
     base64_data: None,
@@ -156,7 +156,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let container_children_response: CommandResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
     .post(named_session.command_url()?.clone())
-    .json(&send_reqest)
+    .json(&send_request)
     .send()
     .await.map_err(|e| e.to_string())?
     .json()
@@ -262,7 +262,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
 
     let add_item_request = serde_json::to_string(&item)?;
-    let send_reqest = CommandRequest {
+    let send_request = CommandRequest {
       command: "add-item".to_owned(),
       json_data: add_item_request,
       base64_data: Some(base_64_encoded),
@@ -272,7 +272,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       let add_item_response = reqwest::ClientBuilder::new()
         .default_headers(request_headers.clone()).build().unwrap()
         .post(named_session.command_url()?.clone())
-        .json(&send_reqest)
+        .json(&send_request)
         .send()
         .await;
       match add_item_response {

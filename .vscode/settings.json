@@ -1,11 +1,21 @@
 {
   "cSpell.words": [
+    "byteorder",
+    "exif",
+    "filetime",
     "flipcard",
     "Hitbox",
     "hitboxes",
     "Infu",
     "infumap",
+    "infusession",
+    "infusdk",
+    "keygen",
+    "pathbuf",
     "qrcode",
+    "reqwest",
+    "rpassword",
+    "subdirs",
     "totp",
     "Veid",
     "Veids"
