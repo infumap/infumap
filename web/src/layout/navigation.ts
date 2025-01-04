@@ -65,11 +65,11 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
 
   fArrange(store);
 
+  const url = currentUrl(store);
   if (!replace && updateHistory) {
-    const url = currentUrl(store);
     window.history.pushState(null, "", url);
-    store.currentUrlPath.set(url);
   }
+  store.currentUrlPath.set(url);
 }
 
 

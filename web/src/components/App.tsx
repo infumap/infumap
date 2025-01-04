@@ -54,14 +54,14 @@ const App: Component = () => {
         if (currentUrlUidMaybe == "") {
           console.debug("window popstate handler: no prevHistoryVeid, switching to (root) page.");
           if (store.user.getUserMaybe() && itemState.get(store.user.getUser().homePageId) ) {
-            switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, true, false, false);
+            switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, false, false, false);
           } else {
             console.debug("window popstate handler: root page not available, doing nothing.");
           }
         } else {
           console.debug("window popstate handler: no prevHistoryVeid, switching to page.");
           if (itemState.get(currentUrlUidMaybe)) {
-            switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, true, false, false);
+            switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);
           } else {
             console.debug(`window popstate handler: page ${currentUrlUidMaybe} not available, doing nothing.`);
           }
@@ -82,11 +82,11 @@ const App: Component = () => {
               fArrange(store);
             } else {
               console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid (2).", prevHistoryVeid.itemId, currentUrlUidMaybe);
-              switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, true, false, false);
+              switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);
             }
           } else {
             console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid.", prevHistoryVeid.itemId, currentUrlUidMaybe);
-            switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, true, false, false);
+            switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);
           }
         }
       }
