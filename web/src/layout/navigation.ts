@@ -32,30 +32,24 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
   store.currentUrlPath.set(url);
 }
 
-function updateHrefToReflectCurrentPage(store: StoreContextModel) {
+function currentUrl(store: StoreContextModel): string {
   const userMaybe = store.user.getUserMaybe();
+  let url = null;
   if (!userMaybe) {
-    const url = `/${store.history.currentPageVeid()!.itemId}`;
-    window.history.pushState(null, "", url);
-    store.currentUrlPath.set(url);
+    url = `/${store.history.currentPageVeid()!.itemId}`;
   } else {
     const user = userMaybe;
     if (store.history.currentPageVeid()!.itemId != user.homePageId) {
-      const url = `/${store.history.currentPageVeid()!.itemId}`;
-      window.history.pushState(null, "", url);
-      store.currentUrlPath.set(url);
+      url = `/${store.history.currentPageVeid()!.itemId}`;
     } else {
       if (user.username == ROOT_USERNAME) {
-        const url = "/";
-        window.history.pushState(null, "", url);
-        store.currentUrlPath.set(url);
+        url = "/";
       } else {
-        const url = `/${user.username}`;
-        window.history.pushState(null, "", url);
-        store.currentUrlPath.set(url);
+        url = `/${user.username}`;
       }
     }
   }
+  return url;
 }
 
 
@@ -72,7 +66,9 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   fArrange(store);
 
   if (!replace && updateHistory) {
-    updateHrefToReflectCurrentPage(store);
+    const url = currentUrl(store);
+    window.history.pushState(null, "", url);
+    store.currentUrlPath.set(url);
   }
 }
 
@@ -88,12 +84,10 @@ export function navigateBack(store: StoreContextModel): boolean {
     return true;
   }
 
-  const changePages = store.history.popPageVeid();
-  if (changePages) {
-    updateHrefToReflectCurrentPage(store);
-    if (!store.history.currentPopupSpec()) {
-      store.history.setFocus(store.history.currentPagePath()!);
-    }
+  if (store.history.peekPrevPageVeid() != null) {
+    console.debug("navigateBack: calling back from current url page", currentUrl(store));
+    window.history.back();
+    store.history.setFocus(store.history.currentPagePath()!);
     fArrange(store);
     return true;
   }
