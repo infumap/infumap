@@ -71,12 +71,14 @@ const App: Component = () => {
         if (prevHistoryVeid.itemId == currentUrlUidMaybe) {
           console.debug("window popstate handler: prevHistoryVeid and currentUrlUid match, moving back in history.");
           store.history.popPageVeid();
+          store.history.setFocus(store.history.currentPagePath()!);
           fArrange(store);
         } else {
           if (currentUrlUidMaybe == "") {
             if (store.user.getUser().homePageId == prevHistoryVeid.itemId) {
               console.debug("window popstate handler: moving back in history to root.");
               store.history.popPageVeid();
+              store.history.setFocus(store.history.currentPagePath()!);
               fArrange(store);
             } else {
               console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid (2).", prevHistoryVeid.itemId, currentUrlUidMaybe);
