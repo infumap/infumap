@@ -28,6 +28,7 @@ import { RelationshipToParent } from "../relationship-to-parent";
 import { VeFns, VisualElementFlags } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
+import { asXSizableItem } from "../../items/base/x-sizeable-item";
 
 
 export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
@@ -40,11 +41,11 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
 
   const popupVeid = currentPopupSpec.actualVeid;
   const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
-  const popupLinkToImageId = popupVeid.itemId;
-  const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, popupLinkToImageId!, newOrdering());
+  const popupLinkToId = popupVeid.itemId;
+  const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, popupLinkToId!, newOrdering());
   li.id = POPUP_LINK_UID;
-  li.spatialWidthGr = 1000;
-  li.spatialPositionGr = { x: 0, y: 0, };
+  li.spatialWidthGr = asXSizableItem(itemState.get(popupLinkToId)!).spatialWidthGr;
+  li.spatialPositionGr = { x: 0, y: 0 };
   const desktopBoundsPx = store.desktopMainAreaBoundsPx();
   const cellBoundsPx = {
     x: desktopBoundsPx.w * 0.1,
@@ -59,7 +60,7 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
       geometry.viewportBoundsPx!.x += store.getCurrentDockWidthPx();
     }
   }
-  const item = itemState.get(popupLinkToImageId)!;
+  const item = itemState.get(popupLinkToId)!;
 
   let ves: VisualElementSignal;
   batch(() => {
