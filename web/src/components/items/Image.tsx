@@ -160,7 +160,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   imgElement!.src = objectUrl;
                   isShowingThumbnail.set(false);
                 } else {
-                  console.debug(`getImage response '${imageIdOnRequest}' does not match current popup visual element id '${props.visualElement.displayItem.id}'.`);
+                  const prevObjectUrl = imgElement!.src;
+                  // temporarily set the image src to the out-of-date fetched image to force the browser to cache the image.
+                  // if this is not done, the image will need to be re-fetched if the user re-selects the image (which they will often do).
+                  imgElement!.src = objectUrl;
+                  setTimeout(() => { imgElement!.src = prevObjectUrl }, 0);
                 }
               } else {
                 imgElement!.src = objectUrl;
