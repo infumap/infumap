@@ -18,7 +18,7 @@
 
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { fullArrange } from "../layout/arrange";
-import { findClosest, findDirectionFromKeyCode } from "../layout/find";
+import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
 import { EMPTY_VEID, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -27,12 +27,13 @@ import { panic } from "../util/lang";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState } from "./state";
 import { newItemInContext } from "./create";
-import { isLink } from "../items/link-item";
+import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
 import { ItemType } from "../items/base/item";
 import { HitInfoFns } from "./hit";
 import { UMBRELLA_PAGE_UID } from "../util/uid";
+import { asContainerItem } from "../items/base/container-item";
 
 
 /**
@@ -206,6 +207,38 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       actualVeid: closestVeid,
     });
     fullArrange(store);
+  } else {
+    // for grid and justified pages, use ordering to wrap around to next or prev line.
+    if (direction == FindDirection.Left || direction == FindDirection.Right) {
+      const parentPath = VeFns.parentPath(path);
+      const parentVes = VesCache.get(parentPath)!;
+      const parentItem = parentVes.get().displayItem;
+      if (isPage(parentItem)) {
+        const arrangeAlgorithm = asPageItem(parentItem).arrangeAlgorithm;
+        if (arrangeAlgorithm == ArrangeAlgorithm.Grid || arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+          const itemVeid = VeFns.veidFromPath(path);
+          const childId = itemVeid.linkIdMaybe ? itemVeid.linkIdMaybe : itemVeid.itemId;
+          const pageChildren = asContainerItem(parentItem).computed_children;
+          let idx = pageChildren.indexOf(childId);
+          if (direction == FindDirection.Left) {
+            if (idx <= 0) { return; }
+            idx = idx - 1;
+          }
+          if (direction == FindDirection.Right) {
+            if (idx >= pageChildren.length-1) { return; }
+            idx = idx + 1;
+          }
+          const newChildId = pageChildren[idx];
+          let newChildVeid = VeFns.veidFromId(newChildId);
+          const newPath = VeFns.addVeidToPath(newChildVeid, parentPath);
+          store.history.replacePopup({
+            vePath: newPath,
+            actualVeid: newChildVeid,
+          });
+          fullArrange(store);
+        }
+      }
+    }
   }
 }
 
