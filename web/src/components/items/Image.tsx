@@ -55,7 +55,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
-  const isDetailed = () => { return (props.visualElement.flags & VisualElementFlags.Detailed) }
+  const isDetailed = () => { return (props.visualElement.flags & VisualElementFlags.Detailed) != 0; }
+  const isPopup = () => { return (props.visualElement.flags & VisualElementFlags.Popup) != 0; }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
   const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true);
@@ -145,16 +146,26 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         }
         isMounting = false;
         currentImgSrc = imgSrc();
+        const imageIdOnRequest = props.visualElement.displayItem.id;
         if (imgElement) {
           imgElement!.src = thumbnailSrc();
           isShowingThumbnail.set(true);
         }
-        const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
+        const isHighPriority = isPopup();
         getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
           .then((objectUrl) => {
             if (imgElement) {
-              imgElement!.src = objectUrl;
-              isShowingThumbnail.set(false);
+              if (isPopup()) {
+                if (imageIdOnRequest == props.visualElement.displayItem.id) {
+                  imgElement!.src = objectUrl;
+                  isShowingThumbnail.set(false);
+                } else {
+                  console.debug(`getImage response '${imageIdOnRequest}' does not match current popup visual element id '${props.visualElement.displayItem.id}'.`);
+                }
+              } else {
+                imgElement!.src = objectUrl;
+                isShowingThumbnail.set(false);
+              }
             }
           });
       }
