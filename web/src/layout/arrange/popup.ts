@@ -44,7 +44,11 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   const popupLinkToId = popupVeid.itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, popupLinkToId!, newOrdering());
   li.id = POPUP_LINK_UID;
-  li.spatialWidthGr = asXSizableItem(itemState.get(popupLinkToId)!).spatialWidthGr;
+  if (popupVeid.linkIdMaybe) {
+    li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.linkIdMaybe)!).spatialWidthGr;
+  } else {
+    li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.itemId)!).spatialWidthGr;
+  }
   li.spatialPositionGr = { x: 0, y: 0 };
   const desktopBoundsPx = store.desktopMainAreaBoundsPx();
   const cellBoundsPx = {
@@ -60,7 +64,6 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
       geometry.viewportBoundsPx!.x += store.getCurrentDockWidthPx();
     }
   }
-  const item = itemState.get(popupLinkToId)!;
 
   let ves: VisualElementSignal;
   batch(() => {

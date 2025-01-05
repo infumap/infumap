@@ -18,7 +18,7 @@
 
 import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
 import { HitboxFlags } from "../layout/hitbox";
-import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
+import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, isPage, PageFns } from "../items/page-item";
 import { asTableItem } from "../items/table-item";
@@ -339,10 +339,28 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   if (newWidthBl < 5) { newWidthBl = 5.0; }
   const newWidthGr = newWidthBl * GRID_SIZE;
 
-  const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
-  if (newWidthGr != asPageItem(activeRoot.displayItem).pendingPopupWidthGr) {
-    asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthGr;
+  const activeVe = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+  if (isPage(activeVe.displayItem)) {
+    const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
+    if (newWidthGr != asPageItem(activeRoot.displayItem).pendingPopupWidthGr) {
+      asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthGr;
+      fullArrange(store);
+    }
+    return;
+  }
+
+  const activeVeid = VeFns.veidFromItems(activeVe.displayItem, activeVe.actualLinkItemMaybe);
+  if (isXSizableItem(itemState.get(activeVeid.itemId)!)) {
+    if (activeVeid.linkIdMaybe) {
+      asXSizableItem(itemState.get(activeVeid.linkIdMaybe)!).spatialWidthGr = newWidthGr;
+    } else {
+      asXSizableItem(itemState.get(activeVeid.itemId)!).spatialWidthGr = newWidthGr;
+    }
     fullArrange(store);
+  }
+
+  if (isYSizableItem(itemState.get(activeVeid.itemId)!)) {
+    console.log("TODO: y resize popups");
   }
 }
 
