@@ -25,6 +25,7 @@ import { EMPTY_UID } from "../util/uid";
 import { fArrange } from "./arrange";
 import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { Veid } from "./visual-element";
+import { RelationshipToParent } from "./relationship-to-parent";
 
 
 export function switchToNonPage(store: StoreContextModel, url: string) {
@@ -113,6 +114,8 @@ export async function navigateUp(store: StoreContextModel) {
   if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.SingleCell) {
     parentId = currentPage.computed_children[0]
   }
+  let currentItem = itemState.get(currentPage.computed_children[0])!;
+  let relationshipToParent = currentItem.relationshipToParent;
 
   while (cnt++ < MAX_LEVELS) {
     // check if already at top.
@@ -130,12 +133,13 @@ export async function navigateUp(store: StoreContextModel) {
 
     const parentPageMaybe = itemState.get(parentId);
     if (parentPageMaybe != null) {
-      if (isPage(parentPageMaybe)) {
+      if (isPage(parentPageMaybe) && relationshipToParent == RelationshipToParent.Child) {
         switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true, false);
         navigateUpInProgress = false;
         return;
       } else {
         parentId = parentPageMaybe!.parentId;
+        relationshipToParent = parentPageMaybe.relationshipToParent;
         continue;
       }
     }
