@@ -156,6 +156,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           }, 750);
         }
 
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
+        DoubleClickState.preventDoubleClick();
+        PageFns.handleAnchorClick(activeVisualElement, store);
+
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Edit) {
         store.perVe.setFlipCardIsEditing(
           MouseActionState.get().activeElementPath,
@@ -189,10 +193,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
-
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
-        DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorClick(activeVisualElement, store);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ShiftLeft) {
         DoubleClickState.preventDoubleClick();

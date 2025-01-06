@@ -180,14 +180,13 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
   const renderAnchorMaybe = () =>
     <Show when={PageFns.popupPositioningHasChanged(pageFns().parentPage())}>
-      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-900`}
            style={`left: ${pageFns().boundsPx().x + pageFns().boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; ` +
-                  `top: ${pageFns().boundsPx().y + pageFns().boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+                  `top: ${pageFns().boundsPx().y + RESIZE_BOX_SIZE_PX / 3 * 2 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                   `width: ${ANCHOR_BOX_SIZE_PX}px; ` +
                   `height: ${ANCHOR_BOX_SIZE_PX}px; ` +
-                  `background-color: #ff0000;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div class={`absolute`} style={"cursor: pointer;"}>
+        <div class={`absolute`}>
           <i class={`fa fa-anchor`} />
         </div>
       </div>
@@ -213,8 +212,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           {renderPage()}
         </Match>
       </Switch>
-      {renderAnchorMaybe()}
       {renderPopupTitle()}
+      {renderAnchorMaybe()}
       {renderBorder()}
     </>
   );
