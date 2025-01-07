@@ -189,7 +189,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
             <div class="absolute" style={`left: ${(asPageItem(VeFns.canonicalItem(props.visualElement)).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
           </>
         </Show>
-        {pageFns().renderGridlinesMaybe()}
+        {pageFns().renderGridLinesMaybe()}
         {pageFns().renderMoveOverIndexMaybe()}
       </div>
     </div>;

@@ -32,6 +32,7 @@ import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemCli
 import { ItemFns } from './base/item-polymorphism';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
+import { fullArrange } from '../layout/arrange';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
@@ -251,6 +252,7 @@ export const PasswordFns = {
     const el = document.getElementById(editingDomId)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    fullArrange(store);
     setCaretPosition(el, closestIdx);
   },
 

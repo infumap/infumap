@@ -271,6 +271,7 @@ export const NoteFns = {
     const el = document.getElementById(editingDomId)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    fullArrange(store);
     setCaretPosition(el, closestIdx);
   },
 

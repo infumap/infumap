@@ -182,7 +182,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             <div class="absolute" style={`left: ${(asPageItem(props.visualElement.displayItem).docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + 0.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
           </>
         </Show>
-        {pageFns().renderGridlinesMaybe()}
+        {pageFns().renderGridLinesMaybe()}
         {pageFns().renderMoveOverIndexMaybe()}
       </div>
     </div>;

@@ -273,6 +273,7 @@ export const TableFns = {
     const el = document.getElementById(editingPath)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    fullArrange(store);
     setCaretPosition(el, closestIdx);
   },
 

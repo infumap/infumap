@@ -135,7 +135,9 @@ export function makeOverlayStore(): OverlayStoreContextModel {
         historyStore.setFocus(historyStore.currentPagePath()!);
       }
     }
-    else { historyStore.setFocus(info.itemPath); }
+    else {
+      historyStore.setFocus(info.itemPath);
+    }
     textEditInfo_.set(info);
   }
 

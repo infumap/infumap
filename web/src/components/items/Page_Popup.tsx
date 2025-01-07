@@ -173,7 +173,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         <For each={props.visualElement.childrenVes}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        {pageFns().renderGridlinesMaybe()}
+        {pageFns().renderGridLinesMaybe()}
         {pageFns().renderMoveOverIndexMaybe()}
       </div>
     </div>;

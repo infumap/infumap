@@ -100,7 +100,7 @@ export const Toolbar: Component = () => {
     const fVes = VesCache.get(store.history.getFocusPath()!);
     if (fVes) {
       const fVe = fVes.get();
-      if (!(fVe.flags & VisualElementFlags.TopLevelRoot)) {
+      if (!(fVe.flags & VisualElementFlags.ListPageRoot) && !(fVe.flags & VisualElementFlags.TopLevelRoot)) {
         aTopPageHasFocus = false;
       }
     }

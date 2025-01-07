@@ -18,6 +18,7 @@
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { CursorEventState } from "../input/state";
+import { fullArrange } from "../layout/arrange";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { ItemGeometry } from "../layout/item-geometry";
 import { measureLineCount } from "../layout/text";
@@ -250,6 +251,7 @@ export const ExpressionFns = {
     const el = document.getElementById(editingDomId)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    fullArrange(store);
     setCaretPosition(el, closestIdx);
   },
 
