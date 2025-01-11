@@ -143,9 +143,10 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (breadcrumbs().length == 0) { panic("popPopup: no breadcrumbs."); }
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     if (breadcrumb.popupBreadcrumbs.length == 0) { return; }
-    breadcrumb.popupBreadcrumbs.pop();
+    const popupSpec = breadcrumb.popupBreadcrumbs.pop();
     if (breadcrumb.popupBreadcrumbs.length == 0) {
-      breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
+      const popupParentPath = VeFns.parentPath(popupSpec!.vePath!);
+      breadcrumb.focusPath = popupParentPath;
     } else {
       breadcrumb.focusPath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length-1].vePath;
     }
