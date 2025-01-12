@@ -521,7 +521,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.Move &&
               isComposite(HitInfoFns.getOverContainerVe(hitInfo).displayItem)) {
-      document.body.style.cursor = "pointer";
+      document.body.style.cursor = "default";
     } else if (hitInfo.hitboxType & HitboxFlags.Flip ||
                hitInfo.hitboxType & HitboxFlags.TimedFlip ||
                hitInfo.hitboxType & HitboxFlags.Edit) {

@@ -234,28 +234,32 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         // nothing.
 
       } else {
-        store.history.setFocus(MouseActionState.get().activeElementPath);
+        if (isComposite(activeVisualElement.displayItem)) {
+          // noop.
 
-        {
-          const focusPagePath = store.history.getFocusPath();
-          const focusPageVe = VesCache.get(focusPagePath)!.get();
-          const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
-          const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-          if (selectedVeid == EMPTY_VEID) {
-            PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+        } else {
+          store.history.setFocus(MouseActionState.get().activeElementPath);
+
+          {
+            const focusPagePath = store.history.getFocusPath();
+            const focusPageVe = VesCache.get(focusPagePath)!.get();
+            const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+            const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+            if (selectedVeid == EMPTY_VEID) {
+              PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+            }
           }
+
+          if (isFlipCard(activeVisualElement.displayItem)) {
+            store.perVe.setFlipCardIsEditing(
+              MouseActionState.get().activeElementPath,
+              !store.perVe.getFlipCardIsEditing(MouseActionState.get().activeElementPath)
+            );
+          }
+
+          fullArrange(store);
+          // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
         }
-
-        if (isFlipCard(activeVisualElement.displayItem)) {
-          store.perVe.setFlipCardIsEditing(
-            MouseActionState.get().activeElementPath,
-            !store.perVe.getFlipCardIsEditing(MouseActionState.get().activeElementPath)
-          );
-        }
-
-        fullArrange(store);
-        // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
-
       }
 
       break;
