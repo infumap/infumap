@@ -38,6 +38,7 @@ import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
+import { asPageItem } from "../items/page-item";
 
 
 let arrowKeyDown_caretPosition = null;
@@ -237,6 +238,9 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
           let item = asPasswordItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
           item.text = trimNewline(newText);
+        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
+          let item = asPageItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+          item.title = trimNewline(newText);
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
           let item = asTableItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
           if (colNum == null) {
