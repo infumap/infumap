@@ -169,7 +169,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
   }
   const command = commandQueue_remote.shift() as ServerCommand;
   inProgress_remote = command;
-  const DEBUG = false;
+  const DEBUG = true;
   if (DEBUG) { console.debug(command.command, command.payload); }
   sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
     .then((resp: any) => {
@@ -182,7 +182,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
       networkStatus.set(NETWORK_STATUS_ERROR);
     })
     .finally(() => {
-      serveWaiting(networkStatus);
+      serveWaiting_remote(networkStatus);
     });
 }
 

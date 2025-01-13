@@ -41,7 +41,7 @@ const App: Component = () => {
   });
 
   const windowPopStateListener = (e: PopStateEvent) => {
-    console.debug("window popstate handler: called.");
+    // console.debug("window popstate handler: called.");
     store.overlay.clear();
 
     const p = window.location.pathname;
@@ -52,47 +52,47 @@ const App: Component = () => {
       if (!prevHistoryVeid) {
         e.preventDefault();
         if (currentUrlUidMaybe == "") {
-          console.debug("window popstate handler: no prevHistoryVeid, switching to (root) page.");
+          // console.debug("window popstate handler: no prevHistoryVeid, switching to (root) page.");
           if (store.user.getUserMaybe() && itemState.get(store.user.getUser().homePageId) ) {
             switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, false, false, false);
           } else {
-            console.debug("window popstate handler: root page not available, doing nothing.");
+            // console.debug("window popstate handler: root page not available, doing nothing.");
           }
         } else {
-          console.debug("window popstate handler: no prevHistoryVeid, switching to page.");
+          // console.debug("window popstate handler: no prevHistoryVeid, switching to page.");
           if (itemState.get(currentUrlUidMaybe)) {
             switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);
           } else {
-            console.debug(`window popstate handler: page ${currentUrlUidMaybe} not available, doing nothing.`);
+            // console.debug(`window popstate handler: page ${currentUrlUidMaybe} not available, doing nothing.`);
           }
         }
       } else {
         e.preventDefault();
         if (prevHistoryVeid.itemId == currentUrlUidMaybe) {
-          console.debug("window popstate handler: prevHistoryVeid and currentUrlUid match, moving back in history.");
+          // console.debug("window popstate handler: prevHistoryVeid and currentUrlUid match, moving back in history.");
           store.history.popPageVeid();
           store.history.setFocus(store.history.currentPagePath()!);
           fArrange(store);
         } else {
           if (currentUrlUidMaybe == "") {
             if (store.user.getUser().homePageId == prevHistoryVeid.itemId) {
-              console.debug("window popstate handler: moving back in history to root.");
+              // console.debug("window popstate handler: moving back in history to root.");
               store.history.popPageVeid();
               store.history.setFocus(store.history.currentPagePath()!);
               fArrange(store);
             } else {
-              console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid (2).", prevHistoryVeid.itemId, currentUrlUidMaybe);
+              // console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid (2).", prevHistoryVeid.itemId, currentUrlUidMaybe);
               switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);
             }
           } else {
-            console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid.", prevHistoryVeid.itemId, currentUrlUidMaybe);
+            // console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid.", prevHistoryVeid.itemId, currentUrlUidMaybe);
             switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);
           }
         }
       }
     } else {
       e.preventDefault();
-      console.debug("window popstate handler: url path is not an infumap page, switching to non-page.");
+      // console.debug("window popstate handler: url path is not an infumap page, switching to non-page.");
       switchToNonPage(store, p);
     }
   }

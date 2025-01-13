@@ -67,7 +67,7 @@ export const Main: Component = () => {
     } else {
       panic("Main.onMount: unexpected params.");
     }
-    console.debug(`Main onMount id: '${id}'`);
+    // console.debug(`Main onMount id: '${id}'`);
 
     try {
       let result: ItemsAndTheirAttachments

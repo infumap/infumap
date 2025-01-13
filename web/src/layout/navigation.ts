@@ -86,7 +86,7 @@ export function navigateBack(store: StoreContextModel): boolean {
   }
 
   if (store.history.peekPrevPageVeid() != null) {
-    console.debug("navigateBack: calling back from current url page", currentUrl(store));
+    // console.debug("navigateBack: calling back from current url page", currentUrl(store));
     window.history.back();
     store.history.setFocus(store.history.currentPagePath()!);
     fArrange(store);
