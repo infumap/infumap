@@ -202,7 +202,7 @@ function constructCommandPromise_remote(
     if (networkStatus.get() != NETWORK_STATUS_ERROR) {
       networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
     }
-    serveWaiting(networkStatus);
+    serveWaiting_remote(networkStatus);
   })
 }
 
