@@ -160,7 +160,7 @@ const commandQueue_remote: Array<ServerCommand> = [];
 let inProgress_remote: ServerCommand | null = null;
 
 function serveWaiting_remote(networkStatus: NumberSignal) {
-  if (commandQueue_remote.length == 0 || inProgress != null) {
+  if (commandQueue_remote.length == 0 || inProgress_remote != null) {
     networkStatus.set(NETWORK_STATUS_OK);
     return;
   }
@@ -169,7 +169,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
   }
   const command = commandQueue_remote.shift() as ServerCommand;
   inProgress_remote = command;
-  const DEBUG = true;
+  const DEBUG = false;
   if (DEBUG) { console.debug(command.command, command.payload); }
   sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
     .then((resp: any) => {
