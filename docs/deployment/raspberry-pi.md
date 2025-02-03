@@ -31,6 +31,17 @@ To figure out the IP address of your Raspberry Pi you can typically log into you
 
     ssh pi@<ip address>
 
+(optional) Disable some irrelevant services to conserve resources:
+
+    sudo systemctl disable --global pipewire
+    sudo systemctl disable --global pulseaudio
+    sudo systemctl disable --global pipewire-pulse
+
+(optional) Disable bluetooth and wifi (only if you are using `eth0` for networking obviously) by adding the following to `/boot/firmware/config.txt`:
+
+    dtoverlay=disable-bt
+    dtoverlay=disable-wifi
+
 Install prerequisites:
 
     sudo apt update

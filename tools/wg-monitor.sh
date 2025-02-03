@@ -41,6 +41,8 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') - Command executed: $0 $*" | sudo tee -a "$lo
 
 while true; do
     sleep 60
+    # I encountered a high CPU issue that was bad enough to prevent ssh access. I used the commented out command here to help debug that.
+    # top -b -c -n 1 -d 1 -w 160 | head -n 18 > /home/pi/top-log/top-$(date "+%Y-%m-%d_%H-%M-%S")
     if ! ping_server "$server"; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping to $server failed. Restarting WireGuard service." | sudo tee -a "$log_file" > /dev/null
         restart_wireguard_service
