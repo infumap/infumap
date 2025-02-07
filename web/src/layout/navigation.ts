@@ -111,11 +111,15 @@ export async function navigateUp(store: StoreContextModel) {
   let cnt = 0;
   let parentId = currentPage.parentId;
 
+  let relationshipToParent = currentPage.relationshipToParent;
+
+  // single cell pages are used to house non-page items at the top level.
   if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.SingleCell) {
-    parentId = currentPage.computed_children[0]
+    const itemId = currentPage.computed_children[0];
+    const item = itemState.get(itemId)!;
+    parentId = item.parentId;
+    relationshipToParent = item.relationshipToParent;
   }
-  let currentItem = itemState.get(currentPage.computed_children[0])!;
-  let relationshipToParent = currentItem.relationshipToParent;
 
   while (cnt++ < MAX_LEVELS) {
     // check if already at top.
