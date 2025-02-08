@@ -81,6 +81,7 @@ export function navigateBack(store: StoreContextModel): boolean {
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
+    store.history.setFocus(store.history.currentPagePath()!);
     fArrange(store);
     return true;
   }
