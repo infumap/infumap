@@ -68,7 +68,6 @@ for originals_path in $1/originals/*.HEIC; do
     cp $processed_path $1/_photos
 done
 
-for originals_file in $(ls $1/originals | grep -v HEIC$); do
-    originals_path=$1/originals/$originals_file
-    cp $originals_path $1/_other
+find "$1/originals" -type f -not -name "*HEIC" -print0 | while IFS= read -r -d $'\0' originals_file; do
+  cp "$originals_file" "$1/_other"
 done
