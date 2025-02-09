@@ -267,7 +267,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
                       `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
-               href={""}
+               href={noteItem().url}
                class={`text-blue-800`}
                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
                onClick={aHrefClickListener}

@@ -148,7 +148,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         <Match when={NoteFns.hasUrl(noteItem()) &&
                      (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <a id={VeFns.veToPath(props.visualElement) + ":title"}
-             href={""}
+             href={noteItem().url}
              class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
              style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
                     `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
