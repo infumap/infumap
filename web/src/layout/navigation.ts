@@ -20,11 +20,11 @@ import { ROOT_USERNAME } from "../constants";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
-import { panic } from "../util/lang";
-import { EMPTY_UID } from "../util/uid";
+import { assert, panic } from "../util/lang";
+import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { fArrange } from "./arrange";
 import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
-import { Veid } from "./visual-element";
+import { VeFns, Veid } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
 
 
@@ -33,26 +33,46 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
   store.currentUrlPath.set(url);
 }
 
-function currentUrl(store: StoreContextModel): string {
+function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): string {
   const userMaybe = store.user.getUserMaybe();
   let url = null;
   if (!userMaybe) {
-    url = `/${store.history.currentPageVeid()!.itemId}`;
+    if (overrideItemId != null) {
+      url = `/${overrideItemId}`;
+    } else {
+      url = `/${store.history.currentPageVeid()!.itemId}`;
+    }
   } else {
     const user = userMaybe;
-    if (store.history.currentPageVeid()!.itemId != user.homePageId) {
-      url = `/${store.history.currentPageVeid()!.itemId}`;
+    if (overrideItemId != null) {
+      url = `/${overrideItemId}`;
     } else {
-      if (user.username == ROOT_USERNAME) {
-        url = "/";
+      if (store.history.currentPageVeid()!.itemId != user.homePageId) {
+        url = `/${store.history.currentPageVeid()!.itemId}`;
       } else {
-        url = `/${user.username}`;
+        if (user.username == ROOT_USERNAME) {
+          url = "/";
+        } else {
+          url = `/${user.username}`;
+        }
       }
     }
   }
   return url;
 }
 
+export function switchToItem(store: StoreContextModel, itemId: Uid) {
+  const selectedItem = itemState.get(itemId)!;
+  assert(!isPage(selectedItem), "cannot call switchToItem on page item");
+  itemState.addSoloItemHolderPage(selectedItem!.ownerId);
+  asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [itemId];
+  store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
+  fArrange(store);
+
+  const url = currentUrl(store, itemId);
+  window.history.pushState(null, "", url);
+  store.currentUrlPath.set(url);
+}
 
 export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, replace: boolean) {
   if (clearHistory) {
@@ -66,7 +86,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
 
   fArrange(store);
 
-  const url = currentUrl(store);
+  const url = currentUrl(store, null);
   if (!replace && updateHistory) {
     window.history.pushState(null, "", url);
   }

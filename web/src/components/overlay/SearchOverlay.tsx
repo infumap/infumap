@@ -22,16 +22,32 @@ import { CursorEventState } from "../../input/state";
 import { SearchResult, server } from "../../server";
 import { ItemType } from "../../items/base/item";
 import { Uid } from "../../util/uid";
-import { switchToPage } from "../../layout/navigation";
+import { switchToItem, switchToPage } from "../../layout/navigation";
 import { VeFns } from "../../layout/visual-element";
 import { createBooleanSignal, createNumberSignal } from "../../util/signals";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { initiateLoadItemMaybe } from "../../layout/load";
 import { isInside } from "../../util/geometry";
+import { itemState } from "../../store/ItemState";
+import { isPage } from "../../items/page-item";
 
 
 export const SearchOverlay: Component = () => {
   const store = useStore();
+
+  let textElement: HTMLInputElement | undefined;
+
+  interface SearchResultSignal {
+    get: Accessor<Array<SearchResult> | null>,
+    set: Setter<Array<SearchResult> | null>,
+  }
+
+  function createResultSignal(): SearchResultSignal {
+    let [uidAccessor, uidSetter] = createSignal<Array<SearchResult> | null>(null, { equals: false });
+    return { get: uidAccessor, set: uidSetter };
+  }
+
+  const resultsSignal = createResultSignal();
 
   const boxBoundsPx = () => {
     return ({
@@ -76,14 +92,23 @@ export const SearchOverlay: Component = () => {
     resultsSignal.set(result);
   };
 
+  const switchToItm = async (selectedId: Uid) => {
+    const selectedItem = itemState.get(selectedId)!;
+    if (!isPage(selectedItem)) {
+      switchToItem(store, selectedId);
+      return;
+    }
+    switchToPage(store, VeFns.veidFromId(selectedId), true, false, false);
+  }
+
   const handleInputKeyDown = async (ev: KeyboardEvent) => {
     ev.stopPropagation();
     if (ev.code == "Enter") {
       if (currentSelectedResult.get() != -1) {
-        const selectedPageId = currentSelectedPageId()!;
+        const selectedId = currentSelectedId()!;
         store.overlay.searchOverlayVisible.set(false);
-        await initiateLoadItemMaybe(store, selectedPageId);
-        switchToPage(store, VeFns.veidFromId(selectedPageId), true, false, false);
+        await initiateLoadItemMaybe(store, selectedId);
+        switchToItm(selectedId);
       } else {
         await handleSearchClick();
       }
@@ -112,20 +137,6 @@ export const SearchOverlay: Component = () => {
     currentSelectedResult.set(-1);
   }
 
-  let textElement: HTMLInputElement | undefined;
-
-  interface SearchResultSignal {
-    get: Accessor<Array<SearchResult> | null>,
-    set: Setter<Array<SearchResult> | null>,
-  }
-
-  function createResultSignal(): SearchResultSignal {
-    let [uidAccessor, uidSetter] = createSignal<Array<SearchResult> | null>(null, { equals: false });
-    return { get: uidAccessor, set: uidSetter };
-  }
-
-  const resultsSignal = createResultSignal();
-
   const itemTypeIcon = (itemType: string) => {
     return (
       <Switch>
@@ -141,7 +152,7 @@ export const SearchOverlay: Component = () => {
     );
   };
 
-  const containingPageId = (result: SearchResult) => {
+  const _containingPageId = (result: SearchResult) => {
     for (let i=result.path.length-2; i>=0; --i) {
       if (result.path[i].itemType == ItemType.Page) {
         return result.path[i].id;
@@ -150,11 +161,11 @@ export const SearchOverlay: Component = () => {
     return result.path[0].id;
   };
 
-  const resultClickHandler = (resultPageId: Uid) => {
+  const resultClickHandler = (resultItemId: Uid) => {
     return async (_ev: MouseEvent) => {
-      await initiateLoadItemMaybe(store, resultPageId);
+      await initiateLoadItemMaybe(store, resultItemId);
       store.overlay.searchOverlayVisible.set(false);
-      switchToPage(store, VeFns.veidFromId(resultPageId), true, false, false);
+      switchToItm(resultItemId);
     }
   };
 
@@ -167,13 +178,15 @@ export const SearchOverlay: Component = () => {
     const result = resultsSignal.get()![currentSelectedResult.get()]!;
     return result.path[result.path.length-1].id;
   };
-  const currentSelectedPageId = () => {
+  const _currentSelectedPageId = () => {
     if (currentSelectedResult.get() == -1) { return null; }
     const result =  resultsSignal.get()![currentSelectedResult.get()]!;
-    return containingPageId(result);
+    return _containingPageId(result);
   };
 
+
   const shortenTextMaybe = (text: string): string => {
+    if (text == null) { return ''; }
     if (text.length <= 60) {
       return text;
     }
@@ -188,6 +201,14 @@ export const SearchOverlay: Component = () => {
     else { postfix = "..."; }
     return prefix + text.substring(startIdx, endIdx) + postfix;
   };
+
+  const handleCopyId = (resultItemId: Uid) => {
+    return async (_ev: MouseEvent) => {
+      navigator.clipboard.writeText(resultItemId);
+      store.overlay.toolbarTransientMessage.set("file id → clipboard");
+      setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
+    }
+  }
 
   return (
     <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -227,15 +248,21 @@ export const SearchOverlay: Component = () => {
              style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y + 72}px; width: ${boxBoundsPx().w}px;`}>
           <Show when={resultsSignal.get()!.length > 0}>
             <For each={resultsSignal.get()}>{result =>
-              <div class={`mb-[8px] cursor-pointer hover:bg-slate-200 ` +
-                          `${currentSelectedId() == null ? "" : (currentSelectedId() == result.path[result.path.length-1].id ? "bg-slate-100" : "")}`}
-                   onclick={resultClickHandler(containingPageId(result))}>
-                <For each={result.path}>{pathElement =>
-                  <Show when={pathElement.itemType != "composite"}>
-                    <span class="ml-[12px]">{itemTypeIcon(pathElement.itemType)}</span>
-                    <span class="ml-[4px]">{shortenTextMaybe(pathElement.title!)}</span>
-                  </Show>
-                }</For>
+              <div>
+                <div class="inline-block text-center align-top hover:bg-slate-400 cursor-pointer ml-[2px]" style="width: 23px;">
+                  <i class={"fa fa-hashtag"} onMouseDown={handleCopyId(result.path[result.path.length-1].id)} />
+                </div>
+                <div class={`mb-[8px] pl-[3px] pr-[3px] cursor-pointer hover:bg-slate-200 inline-block ` +
+                            `${currentSelectedId() == null ? "" : (currentSelectedId() == result.path[result.path.length-1].id ? "bg-slate-100" : "")}`}
+                     style={`width: ${boxBoundsPx().w - 30}px`}
+                     onclick={resultClickHandler(result.path[result.path.length-1].id)}>
+                  <For each={result.path}>{pathElement =>
+                    <Show when={pathElement.itemType != "composite"}>
+                      <span>{itemTypeIcon(pathElement.itemType)}</span>
+                      <span class="ml-[4px] mr-[12px]">{shortenTextMaybe(pathElement.title!)}</span>
+                    </Show>
+                  }</For>
+                </div>
               </div>
             }</For>
           </Show>
