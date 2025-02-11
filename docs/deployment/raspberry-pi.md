@@ -141,6 +141,18 @@ Lock down the permissions of the server private key and config:
 
     sudo chmod 600 /etc/wireguard/wg0.conf /etc/wireguard/keys/server.key
 
+Disable ssh password based login:
+    
+    sudo vi /etc/ssh/sshd_config
+  
+and set:
+
+    PasswordAuthentication no
+    UsePAM no
+
+Restart SSH server
+
+    sudo systemctl reload ssh
 
 ### Raspberry Pi Wireguard Setup
 
