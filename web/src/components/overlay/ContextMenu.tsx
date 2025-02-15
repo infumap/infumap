@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Vector } from "../../util/geometry";
 import { HitInfo } from "../../input/hit";
@@ -25,13 +25,13 @@ import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { newItemInContext } from "../../input/create";
 
 
-type ContexMenuProps = {
+type ContextMenuProps = {
   desktopPosPx: Vector,
   hitInfo: HitInfo
 };
 
 
-export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
+export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) => {
   const store = useStore();
 
   const newPageInContext = () => newItemInContext(store, "page", props.hitInfo, props.desktopPosPx);
@@ -43,8 +43,12 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const newExpressionInContext = () => newItemInContext(store, "expression", props.hitInfo, props.desktopPosPx);
   const newFlipCardInContext = () => newItemInContext(store, "flipcard", props.hitInfo, props.desktopPosPx);
 
+  const heightPx = () => store.general.installationState()!.devFeatureFlag
+    ? 272
+    : 242;
+
   return (
-    <div class="border rounded w-[115px] h-[268px] bg-slate-50 mb-1 shadow-lg">
+    <div class={`border rounded w-[115px] h-[${heightPx()}px] bg-slate-50 mb-1 shadow-lg`}>
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newNoteInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-sticky-note" /></div> Note
       </div>
@@ -66,9 +70,11 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newPasswordInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-eye-slash" /></div> Password
       </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newFlipCardInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-retweet" /></div> FlipCard
-      </div>
+      <Show when={store.general.installationState()?.devFeatureFlag}>
+        <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newFlipCardInContext}>
+          <div class="inline-block text-center w-[18px]"><i class="fa fa-retweet" /></div> FlipCard
+        </div>
+      </Show>
       <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
         <div class="inline-block text-center w-[18px]"><i class="fa fa-image" /></div> Image
       </div>
