@@ -91,6 +91,7 @@ export function veFlagIsRoot(flags: VisualElementFlags): boolean {
   return !!(flags & VisualElementFlags.TopLevelRoot |
             flags & VisualElementFlags.Popup |
             flags & VisualElementFlags.ListPageRoot |
+            flags & VisualElementFlags.IsDock |
             flags & VisualElementFlags.EmbeddedInteractiveRoot);
 }
 

@@ -205,6 +205,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
 
       } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags) &&
+                 !(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.IsDock) &&
                  ((VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).itemId != store.history.currentPageVeid()!.itemId) ||
                   (VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
                  (CursorEventState.getLatestDesktopPx(store).y > 0)) {
