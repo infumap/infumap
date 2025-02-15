@@ -101,7 +101,11 @@ export function navigateBack(store: StoreContextModel): boolean {
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
-    store.history.setFocus(store.history.currentPagePath()!);
+    if (store.history.currentPopupSpec() == null) {
+      store.history.setFocus(store.history.currentPagePath()!);
+    } else {
+      store.history.setFocus(store.history.currentPopupSpec()!.vePath!);
+    }
     fArrange(store);
     return true;
   }
