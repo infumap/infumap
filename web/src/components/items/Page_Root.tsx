@@ -96,9 +96,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
            onscroll={listRootScrollHandler}>
         <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
              style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
-                    `border-right-width: ${props.visualElement.focusedChildItemMaybe == null ? 4 : 2}px;` +
-                    `${props.visualElement.focusedChildItemMaybe == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';' }`
-                   }>
+                    `border-right-width: ${props.visualElement.focusedChildItemMaybe == null ? 1 : 2}px;` +
+                    `${props.visualElement.focusedChildItemMaybe == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';' }`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
