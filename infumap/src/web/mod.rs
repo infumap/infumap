@@ -66,18 +66,19 @@ pub static METRIC_BACKUPS_FAILED_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
       .expect("Could not create METRIC_BACKUPS_FAILED_TOTAL")
 });
 
-pub static METRIC_BACKUP_CLEANUPS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+
+pub static METRIC_BACKUP_CLEANUP_DELETE_REQUESTS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
   IntCounter::new(
-    "backup_cleanups_total",
-    "Total number of times a cleanup of superfluous backups has been initiated.")
-      .expect("Could not create METRIC_BACKUP_CLEANUPS_TOTAL")
+    "backup_cleanup_delete_requests_total",
+    "Total number of outdated backup file delete requests made.")
+      .expect("Could not create METRIC_BACKUP_CLEANUP_DELETE_REQUESTS_TOTAL")
 });
 
-pub static METRIC_BACKUP_CLEANUP_ERRORS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+pub static METRIC_BACKUP_CLEANUP_DELETE_FAILURES_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
   IntCounter::new(
-    "backup_cleanup_errors_total",
-    "Total number of errors encountered during a cleanup of superfluous backups. More than one error may occur per backup cleanup cycle.")
-      .expect("Could not create METRIC_BACKUP_CLEANUP_ERRORS_TOTAL")
+    "backup_cleanup_delete_failures_total",
+    "Total number of outdated backup file delete requests that failed.")
+      .expect("Could not create METRIC_BACKUP_CLEANUP_DELETE_FAILURES_TOTAL")
 });
 
 
@@ -318,14 +319,12 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
     let backup_retention_period_s = (backup_retention_period_days * 24 * 60 * 60) as u64;
     loop {
       time::sleep(Duration::from_secs((backup_period_minutes * 60 * CLEANUP_PERIOD) as u64)).await;
-      info!("Cleaning up superfluous db backups.");
-      METRIC_BACKUP_CLEANUPS_TOTAL.inc();
+      info!("Cleaning up unneeded db backups.");
   
       let backups = match storage_backup::list(backup_store_ref.clone()).await {
         Ok(r) => r,
         Err(e) => {
           error!("Could not list db backups: {}", e);
-          METRIC_BACKUP_CLEANUP_ERRORS_TOTAL.inc();
           continue;
         }
       };
@@ -336,13 +335,14 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
         for i in 1..timestamps.len()-1 { // Do not consider (always keep) last backup.
           let timestamp = timestamps[i];
           if timestamp - last_kept < backup_retention_period_s {
+            METRIC_BACKUP_CLEANUP_DELETE_REQUESTS_TOTAL.inc();
             match storage_backup::delete(backup_store_ref.clone(), user_id, timestamp).await {
               Ok(_) => {
                 info!("Deleted db backup for user '{}' at timestamp {}.", user_id, timestamp);
               },
               Err(e) => {
                 error!("Failed to delete db backup for user '{}' at timestamp {}: {}", user_id, timestamp, e);
-                METRIC_BACKUP_CLEANUP_ERRORS_TOTAL.inc();
+                METRIC_BACKUP_CLEANUP_DELETE_FAILURES_TOTAL.inc();
               }
             };
           } else {

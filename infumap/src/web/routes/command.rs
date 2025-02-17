@@ -104,6 +104,8 @@ pub async fn serve_command_route(
     Ok(r) => r,
     Err(e) => {
       error!("An error occurred parsing command payload for user: {}", e);
+      METRIC_COMMAND_REQUESTS_TOTAL.with_label_values(&["unknown"]).inc();
+      METRIC_COMMAND_FAILURES_TOTAL.with_label_values(&["unknown"]).inc();
       return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
     }
   };
@@ -128,6 +130,8 @@ pub async fn serve_command_route(
       } else {
         warn!("Unknown command '{}' issued by anonymous user", request.command);
       }
+      METRIC_COMMAND_REQUESTS_TOTAL.with_label_values(&["invalid"]).inc();
+      METRIC_COMMAND_FAILURES_TOTAL.with_label_values(&["invalid"]).inc();
       return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
     }
   };
