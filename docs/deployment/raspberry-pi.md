@@ -37,6 +37,13 @@ To figure out the IP address of your Raspberry Pi you can typically log into you
     sudo systemctl disable --global pulseaudio
     sudo systemctl disable --global pipewire-pulse
 
+(optional) Update `/etc/systemd/journald.conf` to limit the disk space used by `journalctl`:
+
+    SystemMaxUse=500M          # Maximum disk space for persistent logs
+    SystemKeepFree=10%         # Minimum free disk space to maintain
+    SystemMaxFileSize=100M     # Maximum size of individual journal files
+    Compress=yes               # Enable compression
+
 (optional) Disable bluetooth and wifi (only if you are using `eth0` for networking obviously) by adding the following to `/boot/firmware/config.txt`:
 
     dtoverlay=disable-bt
@@ -149,6 +156,8 @@ and set:
 
     PasswordAuthentication no
     UsePAM no
+
+Also check for config files in `/etc/ssh/sshd_config.d` that may override `/etc/ssh/sshd_config` and update if required.
 
 Restart SSH server
 
