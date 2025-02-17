@@ -9,8 +9,8 @@ Work in progress!
 - [Developer](developer.md)
 - [Integrations](integrations.md)
 - Deployment
-  - [VPS - Secure](deployment/secure.md)
   - [Raspberry Pi](deployment/raspberry-pi.md)
+  - [VPS - Secure](deployment/secure.md) (work in progress)
 - [Security](security.md)
 - [Data](data.md)
 - [Roadmap](roadmap.md)
