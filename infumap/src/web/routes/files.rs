@@ -53,6 +53,8 @@ const LABEL_HIT_EXACT: &'static str = "hit_exact";
 const LABEL_HIT_ORIG: &'static str = "hit_orig";
 const LABEL_MISS_ORIG: &'static str = "miss_orig";
 const LABEL_MISS_CREATE: &'static str = "miss";
+const LABEL_FULL: &'static str = "full";
+const LABEL_FAILED: &'static str = "failed";
 
 // 90 => very high-quality with significant reduction in file size.
 // 80 => almost no loss of quality.
@@ -83,12 +85,18 @@ pub async fn serve_files_route(
   if name.contains("_") {
     match get_cached_resized_img(config, db, object_store, image_cache, &session_user_id_maybe, name).await {
       Ok(img_response) => img_response,
-      Err(e) => internal_server_error_response(&format!("get_cached_resized_img failed: {}", e))
+      Err(e) => {
+        METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
+        internal_server_error_response(&format!("get_cached_resized_img failed: {}", e))
+      }
     }
   } else {
     match get_file(config, db, object_store, &session_user_id_maybe, name).await {
       Ok(file_response) => file_response,
-      Err(e) => internal_server_error_response(&format!("get_file failed: {}", e))
+      Err(e) => {
+        METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
+        internal_server_error_response(&format!("get_file failed: {}", e))
+      }
     }
   }
 }
@@ -311,6 +319,8 @@ async fn get_file(
   let data = object::get(object_store, item.owner_id, String::from(uid), &object_encryption_key).await?;
 
   let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;
+
+  METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FULL]).inc();
 
   Ok(Response::builder()
     .header(hyper::header::CONTENT_TYPE, mime_type_string)
