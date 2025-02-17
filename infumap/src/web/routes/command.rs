@@ -51,11 +51,18 @@ use crate::web::serve::{json_response, incoming_json, cors_response};
 use crate::web::session::get_and_validate_session;
 
 
-pub static METRIC_COMMANDS_HANDLED_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
+pub static METRIC_COMMAND_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(opts!(
-    "commands_handled_total",
-    "Total number of times a command type has been called."), &["name", "success"])
-      .expect("Could not create METRIC_COMMANDS_HANDLED_TOTAL")
+    "command_requests_total",
+    "Total number of times a command has been called (by command name)."), &["name"])
+      .expect("Could not create METRIC_COMMAND_REQUESTS_TOTAL")
+});
+
+pub static METRIC_COMMAND_FAILURES_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
+  IntCounterVec::new(opts!(
+    "command_failures_total",
+    "Total number of times a command has been called and failed (by command name)."), &["name"])
+      .expect("Could not create METRIC_COMMAND_FAILURES_TOTAL")
 });
 
 #[derive(Deserialize, Serialize)]
@@ -133,12 +140,13 @@ pub async fn serve_command_route(
       } else {
         warn!("An error occurred servicing a '{}' command for sessionless user: {}.", request.command, e);
       }
-      METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "false"]).inc();
+      METRIC_COMMAND_REQUESTS_TOTAL.with_label_values(&[&request.command]).inc();
+      METRIC_COMMAND_FAILURES_TOTAL.with_label_values(&[&request.command]).inc();
       return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
     }
   };
 
-  METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "true"]).inc();
+  METRIC_COMMAND_REQUESTS_TOTAL.with_label_values(&[&request.command]).inc();
   let r = CommandResponse { success: true, fail_reason: None, json_data: response_data };
 
   debug!("Successfully processed a '{}' command.", request.command);

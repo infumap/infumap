@@ -28,6 +28,8 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use infusdk::util::infu::InfuResult;
 use log::{info, error, debug};
+use once_cell::sync::Lazy;
+use ::prometheus::IntCounter;
 use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tokio::{task, time};
@@ -48,6 +50,35 @@ use crate::util::crypto::encrypt_file_data;
 
 use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
+
+
+pub static METRIC_BACKUPS_INITIATED_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+  IntCounter::new(
+    "backups_total",
+    "Total number of times a user database backup has been initiated.")
+      .expect("Could not create METRIC_BACKUPS_TOTAL")
+});
+
+pub static METRIC_BACKUPS_FAILED_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+  IntCounter::new(
+    "backups_failed_total",
+    "Total number of times a user database backup has failed.")
+      .expect("Could not create METRIC_BACKUPS_FAILED_TOTAL")
+});
+
+pub static METRIC_BACKUP_CLEANUPS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+  IntCounter::new(
+    "backup_cleanups_total",
+    "Total number of times a cleanup of superfluous backups has been initiated.")
+      .expect("Could not create METRIC_BACKUP_CLEANUPS_TOTAL")
+});
+
+pub static METRIC_BACKUP_CLEANUP_ERRORS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+  IntCounter::new(
+    "backup_cleanup_errors_total",
+    "Total number of errors encountered during a cleanup of superfluous backups. More than one error may occur per backup cleanup cycle.")
+      .expect("Could not create METRIC_BACKUP_CLEANUP_ERRORS_TOTAL")
+});
 
 
 pub fn make_clap_subcommand() -> Command {
@@ -191,6 +222,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
       debug!("Backing up database logs for {} users.", dirty_user_ids.len());
 
       for user_id in dirty_user_ids {
+        METRIC_BACKUPS_INITIATED_TOTAL.inc();
 
         async fn update_backup_status(db: Arc<Mutex<Db>>, user_id: &String, status: BackupStatus, detail: &str) {
           match db.lock().await.user_extra.update_backup_status(user_id, status).await {
@@ -207,6 +239,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           Err(e) => {
             error!("Failed to create database log backup for user '{}': {}", user_id, e);
             update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "1").await;
+            METRIC_BACKUPS_FAILED_TOTAL.inc();
             continue;
           }
         };
@@ -234,6 +267,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           Err(e) => {
             error!("Failed to compress backup database logs for user '{}': {}", user_id, e);
             update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "2").await;
+            METRIC_BACKUPS_FAILED_TOTAL.inc();
             continue;
           }
         };
@@ -242,6 +276,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           Err(e) => {
             error!("Failed to compress backup database logs for user '{}': {}", user_id, e);
             update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "3").await;
+            METRIC_BACKUPS_FAILED_TOTAL.inc();
             continue;
           }
         };
@@ -253,6 +288,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           Err(e) => {
             error!("Failed to encrypt database logs for user '{}': {}", user_id, e);
             update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "4").await;
+            METRIC_BACKUPS_FAILED_TOTAL.inc();
             continue;
           }
         };
@@ -267,6 +303,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           Err(e) => {
             error!("Database log backup failed for user '{}': {}", user_id, e);
             update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "6").await;
+            METRIC_BACKUPS_FAILED_TOTAL.inc();
           }
         }
       }
@@ -282,11 +319,13 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
     loop {
       time::sleep(Duration::from_secs((backup_period_minutes * 60 * CLEANUP_PERIOD) as u64)).await;
       info!("Cleaning up superfluous db backups.");
-
+      METRIC_BACKUP_CLEANUPS_TOTAL.inc();
+  
       let backups = match storage_backup::list(backup_store_ref.clone()).await {
         Ok(r) => r,
         Err(e) => {
           error!("Could not list db backups: {}", e);
+          METRIC_BACKUP_CLEANUP_ERRORS_TOTAL.inc();
           continue;
         }
       };
@@ -303,6 +342,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
               },
               Err(e) => {
                 error!("Failed to delete db backup for user '{}' at timestamp {}: {}", user_id, timestamp, e);
+                METRIC_BACKUP_CLEANUP_ERRORS_TOTAL.inc();
               }
             };
           } else {

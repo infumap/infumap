@@ -26,12 +26,19 @@ use tokio::{net::TcpListener, task};
 
 use crate::{tokiort::TokioIo, web::serve::{internal_server_error_response, not_found_response, text_response}};
 
-use super::routes::{files::METRIC_CACHED_IMAGE_REQUESTS_TOTAL, command::METRIC_COMMANDS_HANDLED_TOTAL};
+use super::{METRIC_BACKUPS_FAILED_TOTAL, METRIC_BACKUPS_INITIATED_TOTAL, METRIC_BACKUP_CLEANUPS_TOTAL, METRIC_BACKUP_CLEANUP_ERRORS_TOTAL};
+use super::routes::command::{METRIC_COMMAND_FAILURES_TOTAL, METRIC_COMMAND_REQUESTS_TOTAL};
+use super::routes::files::METRIC_CACHED_IMAGE_REQUESTS_TOTAL;
 
 
 pub async fn spawn_prometheus_listener(prometheus_addr: SocketAddr) -> InfuResult<()> {
+  prometheus::register(Box::new(METRIC_COMMAND_REQUESTS_TOTAL.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_COMMAND_FAILURES_TOTAL.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_BACKUPS_INITIATED_TOTAL.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_BACKUPS_FAILED_TOTAL.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_BACKUP_CLEANUPS_TOTAL.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_BACKUP_CLEANUP_ERRORS_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_CACHED_IMAGE_REQUESTS_TOTAL.clone())).unwrap();
-  prometheus::register(Box::new(METRIC_COMMANDS_HANDLED_TOTAL.clone())).unwrap();
 
   let _forever = task::spawn(async move {
     let listener = match TcpListener::bind(prometheus_addr).await {
