@@ -88,7 +88,7 @@ pub async fn list_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incomin
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ApprovePendingUserRequest {
-    pub username: String,
+  pub username: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
