@@ -139,7 +139,7 @@ Create the wireguard config file:
     nano /etc/wireguard/wg0.conf
 
     [Interface]
-    Address = 10.0.0.1/24
+    Address = 10.0.0.1/32
     ListenPort = 51820
     PrivateKey = {YOUR_SERVER_PRIVATE_KEY}
     SaveConfig = false
@@ -209,14 +209,14 @@ Now, on the VPS, add your Raspberry Pi as a peer:
     nano /etc/wireguard/wg0.conf
 
     [Interface]
-    Address = 10.0.0.1/24
+    Address = 10.0.0.1/32
     ListenPort = 51820
     PrivateKey = {YOUR_SERVER_PRIVATE_KEY}
     SaveConfig = false
 
     [Peer]
     PublicKey = {YOUR_CLIENT_PUBLIC_KEY}
-    AllowedIPs = 10.0.0.2/24
+    AllowedIPs = 10.0.0.2/32
 
 Automatically bring up the `wg0` VPN interface on boot:
 
