@@ -107,6 +107,10 @@ impl ItemDb {
 
     if all_ids.len() > 0 {
       warn!("There are {} unreachable items that will not be written to the compacted database.", all_ids.len());
+      for id in all_ids {
+        let item = store.get(id).ok_or(format!("Orphaned item {} was not present in the store", id))?;
+        println!("Orphaned item: {:?}", item);
+      }
     } else {
       info!("All items are reachable and will be written to the compacted database.");
     }
