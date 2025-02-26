@@ -104,10 +104,11 @@ impl ItemDb {
         }
       }
     }
+    let orphaned_ids = all_ids;
 
-    if all_ids.len() > 0 {
-      warn!("There are {} unreachable items that will not be written to the compacted database.", all_ids.len());
-      for id in all_ids {
+    if orphaned_ids.len() > 0 {
+      warn!("There are {} unreachable items that will not be written to the compacted database.", orphaned_ids.len());
+      for id in &orphaned_ids {
         let item = store.get(id).ok_or(format!("Orphaned item {} was not present in the store", id))?;
         println!("Orphaned item: {:?}", item);
       }
@@ -121,10 +122,15 @@ impl ItemDb {
     if path_exists(&log_path).await { return Err(format!("Compacted log path already exists: {:?}", log_path).into()); }
 
     let mut compacted_store: KVStore<Item> = KVStore::init(log_path.to_str().ok_or("unable to interpret path")?, CURRENT_ITEM_LOG_VERSION).await?;
-    let number_written = ordered_ids.len();
-    for item_id in ordered_ids {
+    for item_id in &ordered_ids {
       compacted_store.add(store.get(item_id).unwrap().clone()).await?;
     }
+    for item_id in &orphaned_ids {
+      let mut item = store.get(item_id).unwrap().clone();
+      item.parent_id = Some(user.home_page_id.clone());
+      compacted_store.add(item).await?;
+    }
+    let number_written = ordered_ids.len() + orphaned_ids.len();
     info!("Wrote {} items to the compacted log.", number_written);
 
     Ok(())
