@@ -57,7 +57,7 @@
 
 # Maximum length of time the browser may cache images and files. The maximum
 # supported value is one year (31536000 seconds). Set to 0 to specify that
-# the browser should not chache Infumap content.
+# the browser should not cache Infumap content.
 #browser_cache_max_age_seconds = 31536000
 
 
@@ -100,7 +100,7 @@
 #s3_1_secret = 
 
 # Secondary external object store configuration. Objects will be read from the
-# pimary object store by default - the secondary is only used as a backup in case
+# primary object store by default - the secondary is only used as a backup in case
 # of error. For this reason, you should use the vendor with the lowest egress
 # cost for the primary store.
 #enable_s3_2_object_storage = false
