@@ -20,6 +20,7 @@ use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
 use infusdk::item::TableColumn;
 use infusdk::item::{Item, RelationshipToParent};
+use infusdk::util::geometry::Vector;
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::json;
@@ -125,9 +126,11 @@ impl ItemDb {
     for item_id in &ordered_ids {
       compacted_store.add(store.get(item_id).unwrap().clone()).await?;
     }
+    // TODO (MEDIUM): make a new "orphaned" folder under home_page for these and put them in that, not directly on the home page.
     for item_id in &orphaned_ids {
       let mut item = store.get(item_id).unwrap().clone();
       item.parent_id = Some(user.home_page_id.clone());
+      item.spatial_position_gr = Some(Vector { x: 0, y: 0 });
       compacted_store.add(item).await?;
     }
     let number_written = ordered_ids.len() + orphaned_ids.len();
