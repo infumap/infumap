@@ -2,18 +2,18 @@
 
 The traditional computer desktop is very transient — launch an app, open a file manager, do some work, then close everything. There is no lasting visual structure. What if your desktop could be more like a giant workspace that persists over time?
 
-I have wondered this for as long as I can remember, and finally built Infumap as a way of exploring the idea. It's still a bit rough around the edges, but it's clear that the concept works - Infumap has become the platform I run my life off of and I wouldn't have it any other way.
+I have wondered this for as long as I can remember, and finally built Infumap as a way of exploring the idea. It's still pretty rough around the edges, but it's clear that the concept works - Infumap has become the platform I run my life off of and I wouldn't have it any other way.
 
-The high level concept is not novel, for example [Muse](https://museapp.com/) and [Kosmik](https://www.kosmik.app/) are two relatively recent projects with similar goals. Infumap differs in that it is "less spatial" and (amenable to be) "more computational". Its design aligns much more closely with my own requirements. It is also open source - something I consider table stakes for the system I'm trusting to store all of my personal information.
+The high level concept is not novel, for example [Muse](https://museapp.com/) and [Kosmik](https://www.kosmik.app/) are two relatively recent projects with similar goals. Infumap differs in that it is "less spatial" and (amenable to be) "more computational". Its design aligns much more closely with my own requirements than any other project. It is also open source - something I consider table stakes for the system I'm trusting to store all of my personal information.
 
-![alt screenshot](screenshot.png "Screen shot")
+<kbd>
+  <img src="screenshot.png" />
+</kbd>
 
-
-**Status:** Now useful in a very basic way, if you know what you're doing ([docs](/docs) are a work-in-progress), and if you avoid the quirks and bugs. No release yet.
 
 ## Running
 
-Everything is provided in a self contained executable. To start Infumap, simply download the latest release and run it from the command line:
+For detailed information on deploying Infumap, refer to the [docs](/docs). Currently you need to build Infumap from source. Having done this, everything is provided in a self contained executable. To start Infumap, simple run it from the command line:
 
 ```
 ./infumap web
@@ -36,4 +36,4 @@ there are some settings which you should tweak for optimal experience:
 In System Preferences / Trackpad:
 
 - Turn off "Smart zoom". If enabled, the system needs to wait to know if a two finger tap was a double tap. Since navigation in Infumap makes frequent use of right clicking (two finger tapping), your experience will be more fluid with this disabled.
-- Turn off "Swipe between pages".
+- Consider turning off "Swipe between pages".
