@@ -4,11 +4,23 @@ The traditional computer desktop is very transient — launch an app, open a fil
 
 I have wondered this for as long as I can remember, and finally built Infumap as a way of exploring the idea. It's still pretty rough around the edges, but it's clear that the concept works - Infumap has become the platform I run my life off of and I wouldn't have it any other way.
 
-The high level concept is not novel, for example [Muse](https://museapp.com/) and [Kosmik](https://www.kosmik.app/) are two relatively recent projects with similar goals. Infumap differs in that it is "less spatial" and (amenable to be) "more computational". Its design aligns much more closely with my own requirements than any other project. It is also open source - something I consider table stakes for the system I'm trusting to store all of my personal information.
+The high level concept is not novel, for example [Muse](https://museapp.com/) and [Kosmik](https://www.kosmik.app/) are two relatively recent projects with similar goals. Infumap is quite different though and feels quite different to use - more closely aligns with my own preferences and requirements. It is also open source - something I consider table stakes for the system I'm trusting to store all of my personal information.
 
 <kbd>
   <img src="screenshot.png" />
 </kbd>
+
+## Development Status
+
+My goals in developing Infumap, in order, are:
+
+1. Make something I want to use.
+2. Explore new ideas that I think are valuable.
+3. Hopefully end up with something that other people want to use as well.
+
+The first two goals mean that I've often been more inclined to add features than completely polish existing ones. As a result, there are many features that are currently a bit broken or not completely implemented. But nothing you can't work around. Also, I haven't cut corners in places where corners cannot be cut (in particular security) - the current implementation is more than just a demo.
+
+Going forward, the project is unlikely to get abandoned because I use it every day and that is not likely to change. If I start to see other people finding value here (the simplest way you can demonstrate your interest is give the project a github star!), I'll be motivated to give the project a lot more time.
 
 
 ## Running

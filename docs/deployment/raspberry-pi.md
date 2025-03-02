@@ -119,7 +119,7 @@ Create a VPS running Debian 12 x64 using your vendor of choice. Select a region 
 Pi device as possible.
 
 A cheap/small instance size will suffice since we will not use the VPS instance for anything other than forwarding
-through HTTPS web requests to the Raspberry Pi device.
+through HTTPS web traffic to/from the Raspberry Pi device.
 
 Use public-key authentication, with a different key to your Raspberry Pi.
 
