@@ -111,13 +111,21 @@ export const Login: Component = () => {
           "/" → create a new item at current location using context menu.
         </div>
         <div class="mb-3">
-          "n", "p", "t", "r", "w", "l", "e", "f" → create a specific item (note, page, table, rating, password, link, expression, flip card) at the current location.
+          <Show when={store.general.installationState()?.devFeatureFlag}>
+            "n", "p", "t", "r", "w", "l", "e", "f" → create a specific item (note, page, table, rating, password, link, expression, flip card) at the current location.
+          </Show>
+          <Show when={!store.general.installationState()?.devFeatureFlag}>
+            "n", "p", "t", "r", "w", "l", "e" → create a specific item (note, page, table, rating, password, link, expression) at the current location.
+          </Show>
         </div>
         <div class="mb-3">
           right mouse button → navigate back in history one step.
         </div>
         <div class="mb-3">
-          shift drag → create a link.
+          ctrl drag → create a link to an item.
+        </div>
+        <div class="mb-3">
+          shift drag → clone an item (does not clone children).
         </div>
         <div class="mb-3">
           long left click on page → edit page title.

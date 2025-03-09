@@ -70,7 +70,7 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newPasswordInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-eye-slash" /></div> Password
       </div>
-      <Show when={store.general.installationState()?.devFeatureFlag}>
+      <Show when={store.general.installationState()!.devFeatureFlag}>
         <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newFlipCardInContext}>
           <div class="inline-block text-center w-[18px]"><i class="fa fa-retweet" /></div> FlipCard
         </div>
