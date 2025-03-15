@@ -11,7 +11,7 @@
 - `mkdir git; cd git`
 - Clone the infumap project: `git clone https://github.com/infumap/infumap.git`
 - `cd infumap`
-- TODO: when there is a release, checkout the latest tag.
+- `git checkout v0.1.0`
 - `./build.sh`
 - `ufw allow https`
 - Edit the contents of `/etc/caddy/Caddyfile`:

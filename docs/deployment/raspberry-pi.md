@@ -95,9 +95,8 @@ Now clone the infumap repo:
     mkdir git
     cd git
     git clone https://github.com/infumap/infumap.git
-
-TODO: At the time of writing, there are no releases. When there are, check out the latest release before building. Do not use a
-master branch build in production as it will be much less well tested.
+    cd infumap
+    git checkout v0.1.0
 
 Determine the latest version of `nvm` here https://github.com/nvm-sh/nvm (at the time of writing 0.40.1) and install similar to:
 

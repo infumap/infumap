@@ -4,7 +4,7 @@ The traditional computer desktop is very transient — launch an app, open a fil
 
 I have wondered this for as long as I can remember, and finally built Infumap as a way of exploring the idea. It's still pretty rough around the edges, but it's clear that the concept works - Infumap has become the platform I run my life off of and I wouldn't have it any other way.
 
-The high level concept is not novel, for example [Muse](https://museapp.com/) and [Kosmik](https://www.kosmik.app/) are two relatively recent projects with similar goals. Infumap is quite different though and feels quite different to use - more closely aligns with my own preferences and requirements. It is also open source - something I consider table stakes for the system I'm trusting to store all of my personal information.
+The high level concept is not novel, for example [Muse](https://museapp.com/) and [Kosmik](https://www.kosmik.app/) are two relatively recent projects with similar goals. Infumap is quite different though and feels different to use - more closely aligns with my own preferences and requirements. It is also open source - something I think is table stakes for the system I'm trusting to store all of my personal information.
 
 <kbd>
   <img src="screenshot.png" />
