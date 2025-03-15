@@ -246,23 +246,34 @@ impl ItemDb {
   pub async fn remove(&mut self, id: &Uid) -> InfuResult<Item> {
     let owner_id = self.owner_id_by_item_id.get(id)
       .ok_or(format!("Unknown item '{}' - corresponding user item store may not be loaded.", id))?;
-    self.dirty_user_ids.insert(owner_id.clone());
-    let store = self.store_by_user_id.get_mut(owner_id)
-      .ok_or(format!("Item store is not loaded for user '{}'.", owner_id))?;
-    let item = store.remove(id).await?;
-    if item.relationship_to_parent == RelationshipToParent::NoParent {
-      return Err(format!("Cannot remove item '{}' because it is a root page for user '{}'.", id, owner_id).into());
-    }
+
     if let Some(children) = self.children_of.get(id) {
       if children.len() > 0 {
         return Err(format!("Cannot remove item '{}' because it has child items. {} of them.", id, children.len()).into());
       }
     }
+
     if let Some(attachments) = self.attachments_of.get(id) {
       if attachments.len() > 0 {
         return Err(format!("Cannot remove item '{}' because it has attachment items. {} of them.", id, attachments.len()).into());
       }
     }
+
+    let store = self.store_by_user_id.get(owner_id)
+      .ok_or(format!("Item store is not loaded for user '{}'.", owner_id))?;
+    let item_to_check = store.get(id)
+      .ok_or(format!("Item with id '{}' is missing.", id))?;
+
+    if item_to_check.relationship_to_parent == RelationshipToParent::NoParent {
+      return Err(format!("Cannot remove item '{}' because it is a root page for user '{}'.", id, owner_id).into());
+    }
+
+    // Now that all validations have passed, mark as dirty and remove the item
+    self.dirty_user_ids.insert(owner_id.clone());
+    let store = self.store_by_user_id.get_mut(owner_id)
+      .ok_or(format!("Item store is not loaded for user '{}'.", owner_id))?;
+    let item = store.remove(id).await?;
+
     self.remove_from_indexes(&item)?;
     Ok(item)
   }
