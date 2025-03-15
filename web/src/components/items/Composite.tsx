@@ -77,11 +77,11 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                   `${showBorder() ? "border-slate-700" : "border-transparent"} ` +
                   `rounded-sm ` +
                   `bg-white`}
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
-                 `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
-                 `outline: 0px solid transparent; ` +
-                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
+                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
+                  `outline: 0px solid transparent; ` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
           contentEditable={store.overlay.textEditInfo() != null}
           onKeyUp={keyUpHandler}
           onKeyDown={keyDownHandler}
@@ -98,14 +98,20 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                     showTriangleDetail()}>
           <InfuLinkTriangle />
         </Show>
-        <Show when={showTriangleDetail()}>
+      </div>
+      <Show when={showTriangleDetail()}>
+        <div class={`absolute border border-transparent`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
+                    `outline: 0px solid transparent; ` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="absolute"
-               style={"width: 0px; height: 0px; bottom: 2px; right: 2px;" +
-               `${VeFns.zIndexStyle(props.visualElement)}`}>
+               style={"width: 0px; height: 0px; bottom: 0px; right: 0px;" +
+                      `${VeFns.zIndexStyle(props.visualElement)}`}>
             <InfuResizeTriangle />
           </div>
-        </Show>
-      </div>
+        </div>
+      </Show>
     </>
   );
 };
