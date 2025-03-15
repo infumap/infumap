@@ -20,9 +20,7 @@ use std::sync::{Mutex, Arc};
 use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{uid_chars, Uid};
-use tokio::fs::{File, OpenOptions, self};
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
+use tokio::fs;
 
 use log::{info, warn};
 
@@ -58,9 +56,7 @@ pub fn new(data_dir: &str) -> InfuResult<Arc<Mutex<FileStore>>> {
 pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid) -> InfuResult<Vec<u8>> {
   let files_dir = ensure_files_dir(file_store, &user_id).await?;
   let path = construct_file_subpath(&files_dir, &item_id)?;
-  let mut f = File::open(&path).await?;
-  let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
-  f.read_exact(&mut buffer).await?;
+  let buffer = tokio::fs::read(&path).await?;
   Ok(buffer)
 }
 
@@ -68,12 +64,9 @@ pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid) 
 /// Set data for the specified item for the specified user.
 pub async fn put(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
   let files_dir = ensure_files_dir(file_store, &user_id).await?;
-  let mut file = OpenOptions::new()
-    .create_new(true)
-    .write(true)
-    .open(construct_file_subpath(&files_dir, &item_id)?).await?;
-  file.write_all(&val).await?;
-  file.flush().await?;
+  let path = construct_file_subpath(&files_dir, &item_id)?;
+  let contents = &*val;
+  tokio::fs::write(&path, contents).await?;
   Ok(())
 }
 
