@@ -95,7 +95,7 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
     <>
       <div class={'absolute'}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `width: ${boundsPx().w-2}px; height: ${boundsPx().h}px; ` +
                   'background-color: #fff1e4;'} />
       <div class={`absolute overflow-hidden whitespace-nowrap ` +
                   ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +

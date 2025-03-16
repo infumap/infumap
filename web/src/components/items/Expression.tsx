@@ -111,12 +111,12 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   const shadowOuterClass = () => {
     if (expressionItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
-        return `absolute border border-slate-700 rounded-sm shadow-lg`;
+        return `absolute border border-transparent rounded-sm shadow-lg`;
       } else {
         return 'absolute border border-transparent rounded-sm';
       }
     }
-    return `absolute border border-slate-700 rounded-sm shadow-lg bg-white`;
+    return `absolute border border-transparent rounded-sm shadow-lg bg-white`;
   };
 
   const outerClass = () => {
@@ -246,7 +246,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     <>
       {renderShadowMaybe()}
       <div class={`${outerClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w-(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc ? 2 : 0)}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
                   `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : 'background-color: #fff1e4;'}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
