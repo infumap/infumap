@@ -21,6 +21,7 @@ import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachmen
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeItem } from "../../items/composite-item";
+import { isExpression } from "../../items/expression-item";
 import { isImage } from "../../items/image-item";
 import { LinkItem } from "../../items/link-item";
 import { asPageItem, isPage } from "../../items/page-item";
@@ -173,6 +174,10 @@ function arrangeCompositeChildItem(
 
   const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), parentPath);
   const compositeChildVeSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
+
+  if (isExpression(displayItem_childItem)) {
+    VesCache.markEvaluationRequired(compositeChildVePath);
+  }
 
   return compositeChildVeSignal;
 }

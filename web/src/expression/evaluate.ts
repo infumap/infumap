@@ -92,9 +92,18 @@ function evaluate(expr: Expression, context: Context, virtual: boolean): number 
       if (pathMaybe == null) { return 0; }
       path = pathMaybe;
     }
-    const ve = VesCache.get(path)!.get();
-    if (!isNote(ve.displayItem)) { return 0; }
-    return parseFloat(asNoteItem(ve.displayItem).title);
+
+    let ve = virtual ? VesCache.getVirtual(path)!.get() : VesCache.get(path)!.get();
+
+    if (isNote(ve.displayItem)) {
+      try {
+        return parseFloat(asNoteItem(ve.displayItem).title);
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    return 0;
   }
   throw new Error("unexpected expression type: " + exprType);
 };
