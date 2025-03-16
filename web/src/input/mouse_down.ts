@@ -45,6 +45,7 @@ import { asNoteItem } from "../items/note-item";
 import { asFileItem } from "../items/file-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { isFlipCard } from "../items/flipcard-item";
+import { asPasswordItem } from "../items/password-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -176,6 +177,10 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
         editingDomEl!.parentElement!.scrollLeft = 0;
         asFileItem(item).title = trimNewline(newText);
+      }
+      else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
+        editingDomEl!.parentElement!.scrollLeft = 0;
+        asPasswordItem(item).text = trimNewline(newText);
       }
 
       serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);

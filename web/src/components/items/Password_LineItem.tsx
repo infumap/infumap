@@ -93,16 +93,48 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       </div>
     </Show>;
 
+  const inputListener = (_ev: InputEvent) => {
+    // fullArrange is not required in the line item case, because the ve geometry does not change.
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
   const renderText = () =>
     <div class="absolute overflow-hidden whitespace-nowrap"
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
-      <Show when={isVisible()} fallback={
-        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>••••••••••••</span>
-      }>
-        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>{passwordItem().text}<span></span></span>
-      </Show>
+      <Switch>
+        <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class="text-slate-800"
+                style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px; outline: 0px solid transparent;`}
+                contentEditable={true}
+                spellcheck={false}
+                onKeyDown={keyDownHandler}
+                onInput={inputListener}>
+            {passwordItem().text}<span></span>
+          </span>
+        </Match>
+        <Match when={!store.overlay.textEditInfo() || store.overlay.textEditInfo()?.itemPath != vePath()}>
+          <Show when={isVisible()} fallback={
+            <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                  class="text-slate-800"
+                  style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>••••••••••••</span>
+          }>
+            <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                  class="text-slate-800"
+                  style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>{passwordItem().text}<span></span></span>
+          </Show>
+        </Match>
+      </Switch>
     </div>;
 
   const renderCopyIcon = () =>
