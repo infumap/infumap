@@ -18,7 +18,7 @@
 
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, LINE_HEIGHT_PX } from "../constants";
 import { HitboxFlags, HitboxFns, HitboxMeta } from "../layout/hitbox";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector } from "../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector, isInside } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, asAttachmentsItem, calcGeometryOfAttachmentItemImpl, isAttachmentsItem } from "./base/attachments-item";
@@ -328,6 +328,18 @@ export const TableFns = {
       return result;
     }
     return tableItem.tableColumns[index].widthGr / GRID_SIZE;
+  },
+
+  /**
+   * Determine if the desktopPx position is inside the table visual element's viewport.
+   */
+  isInsideViewport(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): boolean {
+    const tableDesktopBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
+    const viewportDesktopPx = cloneBoundingBox(tableVe.viewportBoundsPx)!;
+    const headerHeightPx = tableVe.boundsPx.h - tableVe.viewportBoundsPx!.h;
+    viewportDesktopPx.x = tableDesktopBoundsPx.x;
+    viewportDesktopPx.y = tableDesktopBoundsPx.y + headerHeightPx;
+    return isInside(desktopPx, viewportDesktopPx!);
   },
 
   /**

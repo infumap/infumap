@@ -27,7 +27,7 @@ import { panic } from "../util/lang";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState } from "./state";
 import { newItemInContext } from "./create";
-import { asLinkItem, isLink } from "../items/link-item";
+import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
 import { ItemType } from "../items/base/item";

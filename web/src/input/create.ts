@@ -37,7 +37,7 @@ import { VeFns, VisualElementFlags } from "../layout/visual-element";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Vector, isInside } from "../util/geometry";
+import { Vector, cloneBoundingBox, isInside } from "../util/geometry";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
@@ -160,7 +160,8 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   else if (isTable(overElementVe.displayItem)) {
-    if (isInside(desktopPosPx, overElementVe.viewportBoundsPx!)) {
+
+    if (TableFns.isInsideViewport(store, overElementVe, desktopPosPx)) {
       const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overElementVe, desktopPosPx);
       const tableItem = asTableItem(overElementVe.displayItem);
 
