@@ -84,10 +84,10 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
     <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
       <div class="absolute text-center"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left; ` +
-                  'background-color: #fff1e4;'}>
-        <span class="w-[16px] h-[16px] inline-block text-center relative">∑</span>
+                  `background-color: #fff1e4; font-weight: bold; margin-top: ${-2}px;`}>
+        ∑
       </div>
     </Show>;
 
@@ -142,8 +142,8 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
   return (
     <>
       {renderHighlightsMaybe()}
-      {renderIconMaybe()}
       {renderText()}
+      {renderIconMaybe()}
       {renderLinkMarkingMaybe()}
     </>
   );
