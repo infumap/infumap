@@ -1,6 +1,6 @@
 # Infumap
 
-The traditional computer desktop is very transient — launch an app, open a file manager, do some work, then close everything. There is no lasting visual structure. What if your desktop was more like a giant workspace that persists over time?
+The traditional computer desktop is very transient — launch an app, open a file manager, do some work, then close everything. There is no lasting visual structure. What if your desktop was more like a giant workspace that persists over time? And what if your desktop provided a collection of flexible building blocks that were powerful enough to facilitate many of the tasks you would traditionally need dedicated applications for?
 
 I have wondered this for as long as I can remember, and finally built Infumap as a way of exploring the idea. It's still pretty rough around the edges, but it's clear that the concept works - Infumap has become the platform I run my life off of and I wouldn't have it any other way.
 
