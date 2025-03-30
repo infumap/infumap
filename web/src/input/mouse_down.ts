@@ -273,10 +273,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const activeItem = VeFns.canonicalItem(hitVe);
   let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDesktopPx(store, hitVe);
 
-  let onePxSizeBl;
-
+  let onePxSizeBl = { x: 0.0, y: 0.0 };
   if (hitVe.flags & VisualElementFlags.Popup) {
-    hitVe.parentPath;
     let parent = VesCache.get(hitVe.parentPath!)!.get();
     let parentPage = asPageItem(parent.displayItem);
     const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
@@ -287,22 +285,29 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
       const compositeVe = HitInfoFns.getCompositeContainerVe(hitInfo)!;
-      const activeCompositeItem = VeFns.canonicalItem(compositeVe);
-      const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDesktopPx(store, HitInfoFns.getCompositeContainerVe(hitInfo)!);
-      onePxSizeBl = {
-        x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnTopLevelPagePx.w,
-        y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnTopLevelPagePx.h };
+      const parentVe = VesCache.get(compositeVe.parentPath!)!.get();
+      if (isPage(parentVe.displayItem)) {
+        let parentPage = asPageItem(parentVe.displayItem);
+        const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
+        onePxSizeBl = {
+          x: containerInnerDimBl.w / parentVe.childAreaBoundsPx!.w,
+          y: containerInnerDimBl.h / parentVe.childAreaBoundsPx!.h
+        };
+      }
     } else {
       if (hitInfo.hitboxType & HitboxFlags.HorizontalResize && isPage(hitVe.displayItem) && asPageItem(hitVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
         const squareSize = (asPageItem(hitVe.displayItem).tableColumns[0].widthGr / GRID_SIZE) / hitVe.listViewportBoundsPx!.w;
         onePxSizeBl = { x: squareSize, y: squareSize };
       } else {
-        const sizeBl = (hitVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)
-          ? ItemFns.calcSpatialDimensionsBl(activeItem, { w: 0, h: PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL })
-          : ItemFns.calcSpatialDimensionsBl(activeItem);
-        onePxSizeBl = {
-          x: sizeBl.w / boundsOnTopLevelPagePx.w,
-          y: sizeBl.h / boundsOnTopLevelPagePx.h };
+        let parent = VesCache.get(hitVe.parentPath!)!.get();
+        if (isPage(parent.displayItem)) {
+          let parentPage = asPageItem(parent.displayItem);
+          const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
+          onePxSizeBl = {
+            x: containerInnerDimBl.w / parent.childAreaBoundsPx!.w,
+            y: containerInnerDimBl.h / parent.childAreaBoundsPx!.h
+          };
+        }
       }
     }
   }
