@@ -276,12 +276,14 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   let onePxSizeBl;
 
   if (hitVe.flags & VisualElementFlags.Popup) {
-    const sizeBl = isPage(hitVe.displayItem)
-      ? ItemFns.calcSpatialDimensionsBl(hitVe.linkItemMaybe!, { w: 0, h: PAGE_POPUP_TITLE_HEIGHT_BL })
-      : ItemFns.calcSpatialDimensionsBl(hitVe.linkItemMaybe!);
+    hitVe.parentPath;
+    let parent = VesCache.get(hitVe.parentPath!)!.get();
+    let parentPage = asPageItem(parent.displayItem);
+    const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
     onePxSizeBl = {
-      x: sizeBl.w / boundsOnTopLevelPagePx.w,
-      y: sizeBl.h / boundsOnTopLevelPagePx.h };
+      x: containerInnerDimBl.w / parent.childAreaBoundsPx!.w,
+      y: containerInnerDimBl.h / parent.childAreaBoundsPx!.h
+    };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
       const compositeVe = HitInfoFns.getCompositeContainerVe(hitInfo)!;
