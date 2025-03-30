@@ -589,7 +589,7 @@ export const VeFns = {
       return ` z-index: ${Z_INDEX_MOVING};`;
     }
 
-    if (visualElement.flags & VisualElementFlags.ZAbove) {
+    if (visualElement.flags & VisualElementFlags.ZAbove || visualElement.flags & VisualElementFlags.Popup) {
       return ` z-index: ${Z_INDEX_POPUP};`;
     }
 
