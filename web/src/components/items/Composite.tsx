@@ -100,7 +100,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         </Show>
       </div>
       <Show when={showTriangleDetail()}>
-        <div class={`absolute border border-transparent`}
+        <div class={`absolute border border-transparent pointer-events-none`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
                     `outline: 0px solid transparent; ` +
