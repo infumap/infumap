@@ -135,7 +135,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     case MouseAction.Ambiguous:
 
       if (ClickState.getLinkWasClicked()) {
-        ItemFns.handleLinkClick(activeVisualElement);
+        ItemFns.handleLinkClick(activeVisualElement, store);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) {
         const focusPath = VeFns.addVeidToPath(

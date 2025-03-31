@@ -337,7 +337,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     if (isPage(overDisplayItem) && !veFlagIsRoot(hitVe.flags) && !(hitVe.flags & VisualElementFlags.FlipCardPage)) {
       PageFns.handleEditTitleClick(hitVe, store);
       MouseActionState.set(null);
-      // TODO: case where page is in table.
     } else if (isRating(overDisplayItem)) {
       store.history.setFocus(activeElementPath);
       MouseActionState.set(null);

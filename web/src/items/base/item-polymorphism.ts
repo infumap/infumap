@@ -240,9 +240,9 @@ export const ItemFns = {
     else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
-  handleLinkClick: (visualElement: VisualElement): void => {
+  handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const item = visualElement.displayItem;
-    if (isPage(item)) { panic("handleLinkClick: page"); }
+    if (isPage(item)) { PageFns.handleLinkClick(visualElement, store); }
     else if (isTable(item)) { panic("handleLinkClick: table"); }
     else if (isComposite(item)) { panic("handleLinkClick: composite"); }
     else if (isNote(item)) { NoteFns.handleLinkClick(visualElement); }

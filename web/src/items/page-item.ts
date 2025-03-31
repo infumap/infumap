@@ -579,11 +579,30 @@ export const PageFns = {
     if ((asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) && (hitboxFlags & HitboxFlags.ContentEditable)) {
       PageFns.handleEditTitleClick(visualElement, store);
     } else {
-      const focusPath = VeFns.veToPath(visualElement);
-      store.history.setFocus(focusPath);
-      const actualVeid = VeFns.actualVeidFromVe(visualElement);
-      switchToPage(store, actualVeid, true, false, false);
+      if (visualElement.flags & VisualElementFlags.LineItem) {
+        if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+        const itemPath = VeFns.veToPath(visualElement);
+        store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page });
+        const editingDomId = itemPath + ":title";
+        const el = document.getElementById(editingDomId)!;
+        el.focus();
+        const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+        fullArrange(store);
+        setCaretPosition(el, closestIdx);
+      } else {
+        const focusPath = VeFns.veToPath(visualElement);
+        store.history.setFocus(focusPath);
+        const actualVeid = VeFns.actualVeidFromVe(visualElement);
+        switchToPage(store, actualVeid, true, false, false);
+      }
     }
+  },
+
+  handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    const focusPath = VeFns.veToPath(visualElement);
+    store.history.setFocus(focusPath);
+    const actualVeid = VeFns.actualVeidFromVe(visualElement);
+    switchToPage(store, actualVeid, true, false, false);
   },
 
   handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel): void => {

@@ -30,6 +30,9 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { cloneBoundingBox } from "../../util/geometry";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { MOUSE_LEFT } from "../../input/mouse_down";
+import { ClickState } from "../../input/state";
+import { appendNewlineIfEmpty } from "../../util/string";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -137,6 +140,28 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       </div>
     </Show>;
 
+  // Link click events are handled in the global mouse up handler. However, calculating the text
+  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
+  const aHrefMouseDown = (ev: MouseEvent) => {
+    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(true); }
+    ev.preventDefault();
+  };
+  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
+  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
+
+  const inputListener = (_ev: InputEvent) => {
+    // fullArrange is not required in the line item case, because the ve geometry does not change.
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
   const renderText = () =>
     <div class="absolute overflow-hidden"
          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; ` +
@@ -144,7 +169,29 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
                 `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; ` +
                 `height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
-      {pageItem().title}<span></span>
+      <Switch>
+        <Match when={(store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
+          <a id={VeFns.veToPath(props.visualElement) + ":title"}
+            href={""}
+            class={`text-black`}
+            style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+            onClick={aHrefClick}
+            onMouseDown={aHrefMouseDown}
+            onMouseUp={aHrefMouseUp}>
+            {pageItem().title}
+          </a>
+        </Match>
+        <Match when={store.overlay.textEditInfo() != null}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                style={"outline: 0px solid transparent;"}
+                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
+                onKeyDown={keyDownHandler}
+                onInput={inputListener}>
+            {appendNewlineIfEmpty(pageItem().title)}<span></span>
+          </span>
+        </Match>
+      </Switch>
     </div>;
 
   const renderLinkMarkingMaybe = () =>
