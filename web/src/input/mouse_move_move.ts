@@ -267,6 +267,30 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, moveToVe);
 
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
+
+  // // Calculate relative position within the viewport
+  // const relX = (pagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToVe.viewportBoundsPx!.w;
+  // const relY = (pagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToVe.viewportBoundsPx!.h;
+
+  // // Scale to child area if scrolling is involved
+  // let scrollOffsetX = 0;
+  // let scrollOffsetY = 0;
+
+  // if (moveToVe.childAreaBoundsPx && moveToVe.viewportBoundsPx &&
+  //     (moveToVe.childAreaBoundsPx.w > moveToVe.viewportBoundsPx.w ||
+  //      moveToVe.childAreaBoundsPx.h > moveToVe.viewportBoundsPx.h)) {
+  //   scrollOffsetX = store.perItem.getPageScrollXProp(VeFns.veidFromVe(moveToVe)) *
+  //                  (moveToVe.childAreaBoundsPx.w - moveToVe.viewportBoundsPx.w);
+  //   scrollOffsetY = store.perItem.getPageScrollYProp(VeFns.veidFromVe(moveToVe)) *
+  //                  (moveToVe.childAreaBoundsPx.h - moveToVe.viewportBoundsPx.h);
+  // }
+
+  // // Calculate position in bl units, accounting for scrolling
+  // const mousePointBl = {
+  //   x: Math.round(((relX * moveToVe.viewportBoundsPx!.w) + scrollOffsetX) / moveToVe.childAreaBoundsPx!.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
+  //   y: Math.round(((relY * moveToVe.viewportBoundsPx!.h) + scrollOffsetY) / moveToVe.childAreaBoundsPx!.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
+  // };
+
   const mousePointBl = {
     x: Math.round((pagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
     y: Math.round((pagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
@@ -318,9 +342,10 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   }
 
   MouseActionState.get().onePxSizeBl = {
-    x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
-    y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
+    x: moveToPageInnerSizeBl.w / moveToVe.childAreaBoundsPx!.w,
+    y: moveToPageInnerSizeBl.h / moveToVe.childAreaBoundsPx!.h
   };
+
   MouseActionState.get().moveOver_scaleDefiningElement = moveToPath;
 }
 
@@ -355,10 +380,34 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   const itemPosInPagePx = CursorEventState.getLatestDesktopPx(store);
   itemPosInPagePx.x -= store.getCurrentDockWidthPx();
 
+  // // Calculate relative position within the viewport
+  // const relX = (itemPosInPagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageVe.viewportBoundsPx!.w;
+  // const relY = (itemPosInPagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageVe.viewportBoundsPx!.h;
+
+  // // Scale to child area if scrolling is involved
+  // let scrollOffsetX = 0;
+  // let scrollOffsetY = 0;
+
+  // if (moveToPageVe.childAreaBoundsPx && moveToPageVe.viewportBoundsPx &&
+  //     (moveToPageVe.childAreaBoundsPx.w > moveToPageVe.viewportBoundsPx.w ||
+  //      moveToPageVe.childAreaBoundsPx.h > moveToPageVe.viewportBoundsPx.h)) {
+  //   scrollOffsetX = store.perItem.getPageScrollXProp(VeFns.veidFromVe(moveToPageVe)) *
+  //                   (moveToPageVe.childAreaBoundsPx.w - moveToPageVe.viewportBoundsPx.w);
+  //   scrollOffsetY = store.perItem.getPageScrollYProp(VeFns.veidFromVe(moveToPageVe)) *
+  //                   (moveToPageVe.childAreaBoundsPx.h - moveToPageVe.viewportBoundsPx.h);
+  // }
+
+  // // Use the correct child area width/height and account for scrolling
+  // const itemPosInPageGr = {
+  //   x: ((relX * moveToPageVe.viewportBoundsPx!.w) + scrollOffsetX) / moveToPageVe.childAreaBoundsPx!.w * moveToPage.innerSpatialWidthGr,
+  //   y: ((relY * moveToPageVe.viewportBoundsPx!.h) + scrollOffsetY) / moveToPageVe.childAreaBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
+  // };
+
   const itemPosInPageGr = {
     x: itemPosInPagePx.x / moveToPageAbsoluteBoundsPx.w * moveToPage.innerSpatialWidthGr,
     y: itemPosInPagePx.y / moveToPageAbsoluteBoundsPx.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
   };
+
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
     y: Math.round(itemPosInPageGr.y / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE
@@ -375,8 +424,8 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
     MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
     MouseActionState.get().onePxSizeBl = {
-      x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
-      y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
+      x: moveToPageInnerSizeBl.w / moveToPageVe.childAreaBoundsPx!.w,
+      y: moveToPageInnerSizeBl.h / moveToPageVe.childAreaBoundsPx!.h
     };
     MouseActionState.get().linkCreatedOnMoveStart = true;
   } else {
@@ -384,8 +433,8 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
     MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe));
     MouseActionState.get().onePxSizeBl = {
-      x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
-      y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
+      x: moveToPageInnerSizeBl.w / moveToPageVe.childAreaBoundsPx!.w,
+      y: moveToPageInnerSizeBl.h / moveToPageVe.childAreaBoundsPx!.h
     };
   }
 
