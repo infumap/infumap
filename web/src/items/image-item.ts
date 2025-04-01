@@ -34,6 +34,8 @@ import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-
 import { fullArrange } from "../layout/arrange";
 import { ItemFns } from "./base/item-polymorphism";
 import { FlagsMixin } from "./base/flags-item";
+import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
+import { CursorEventState } from "../input/state";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -239,9 +241,27 @@ export const ImageFns = {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     } else {
-      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
+      if (visualElement.flags & VisualElementFlags.LineItem) {
+        if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+        const itemPath = VeFns.veToPath(visualElement);
+        store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Image });
+        const editingDomId = itemPath + ":title";
+        const el = document.getElementById(editingDomId)!;
+        el.focus();
+        const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+        fullArrange(store);
+        setCaretPosition(el, closestIdx);
+      } else {
+        store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+        fullArrange(store);
+      }
     }
+  },
+
+  handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    console.log("link click");
+    store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    fullArrange(store);
   },
 
   cloneMeasurableFields: (image: ImageMeasurable): ImageMeasurable => {

@@ -247,7 +247,7 @@ export const ItemFns = {
     else if (isComposite(item)) { panic("handleLinkClick: composite"); }
     else if (isNote(item)) { NoteFns.handleLinkClick(visualElement); }
     else if (isExpression(item)) { ExpressionFns.handleLinkClick(visualElement); }
-    else if (isImage(item)) { panic("handleLinkClick: image"); }
+    else if (isImage(item)) { ImageFns.handleLinkClick(visualElement, store); }
     else if (isFile(item)) { FileFns.handleLinkClick(visualElement); }
     else if (isPassword(item)) { panic("handleLinkClick: password"); }
     else if (isRating(item)) { panic("handleLinkClick: rating"); }

@@ -46,6 +46,7 @@ import { asFileItem, FileFns, isFile } from "../items/file-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { isFlipCard } from "../items/flipcard-item";
 import { asPasswordItem } from "../items/password-item";
+import { ImageFns, isImage } from "../items/image-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -347,6 +348,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     } else if (isFile(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
       FileFns.handleClick(hitVe, store);
+      MouseActionState.set(null);
+    } else if (isImage(overDisplayItem)) {
+      ClickState.setLinkWasClicked(false);
+      ImageFns.handleClick(hitVe, store);
       MouseActionState.set(null);
     }
   }, 750);
