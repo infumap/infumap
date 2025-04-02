@@ -554,8 +554,15 @@ export const VeFns = {
     }
 
     if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx) {
+      const adjY = (visualElement.childAreaBoundsPx!.h - visualElement.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromVe(visualElement));
+      const adjX = (visualElement.childAreaBoundsPx!.w - visualElement.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(VeFns.veidFromVe(visualElement));
       const popupTitleHeightMaybePx = visualElement.boundsPx.h - visualElement.viewportBoundsPx!.h;
-      return { x: r.x, y: r.y + popupTitleHeightMaybePx, w: visualElement.viewportBoundsPx.w, h: visualElement.viewportBoundsPx.h };
+      return {
+        x: r.x + adjX,
+        y: r.y + popupTitleHeightMaybePx + adjY,
+        w: visualElement.childAreaBoundsPx!.w,
+        h: visualElement.childAreaBoundsPx!.h
+      };
     }
 
     return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };

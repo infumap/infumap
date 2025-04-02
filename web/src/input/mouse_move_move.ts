@@ -268,29 +268,6 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
-  // // Calculate relative position within the viewport
-  // const relX = (pagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToVe.viewportBoundsPx!.w;
-  // const relY = (pagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToVe.viewportBoundsPx!.h;
-
-  // // Scale to child area if scrolling is involved
-  // let scrollOffsetX = 0;
-  // let scrollOffsetY = 0;
-
-  // if (moveToVe.childAreaBoundsPx && moveToVe.viewportBoundsPx &&
-  //     (moveToVe.childAreaBoundsPx.w > moveToVe.viewportBoundsPx.w ||
-  //      moveToVe.childAreaBoundsPx.h > moveToVe.viewportBoundsPx.h)) {
-  //   scrollOffsetX = store.perItem.getPageScrollXProp(VeFns.veidFromVe(moveToVe)) *
-  //                  (moveToVe.childAreaBoundsPx.w - moveToVe.viewportBoundsPx.w);
-  //   scrollOffsetY = store.perItem.getPageScrollYProp(VeFns.veidFromVe(moveToVe)) *
-  //                  (moveToVe.childAreaBoundsPx.h - moveToVe.viewportBoundsPx.h);
-  // }
-
-  // // Calculate position in bl units, accounting for scrolling
-  // const mousePointBl = {
-  //   x: Math.round(((relX * moveToVe.viewportBoundsPx!.w) + scrollOffsetX) / moveToVe.childAreaBoundsPx!.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
-  //   y: Math.round(((relY * moveToVe.viewportBoundsPx!.h) + scrollOffsetY) / moveToVe.childAreaBoundsPx!.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
-  // };
-
   const mousePointBl = {
     x: Math.round((pagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
     y: Math.round((pagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
@@ -379,29 +356,8 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
 
   const itemPosInPagePx = CursorEventState.getLatestDesktopPx(store);
   itemPosInPagePx.x -= store.getCurrentDockWidthPx();
-
-  // // Calculate relative position within the viewport
-  // const relX = (itemPosInPagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageVe.viewportBoundsPx!.w;
-  // const relY = (itemPosInPagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageVe.viewportBoundsPx!.h;
-
-  // // Scale to child area if scrolling is involved
-  // let scrollOffsetX = 0;
-  // let scrollOffsetY = 0;
-
-  // if (moveToPageVe.childAreaBoundsPx && moveToPageVe.viewportBoundsPx &&
-  //     (moveToPageVe.childAreaBoundsPx.w > moveToPageVe.viewportBoundsPx.w ||
-  //      moveToPageVe.childAreaBoundsPx.h > moveToPageVe.viewportBoundsPx.h)) {
-  //   scrollOffsetX = store.perItem.getPageScrollXProp(VeFns.veidFromVe(moveToPageVe)) *
-  //                   (moveToPageVe.childAreaBoundsPx.w - moveToPageVe.viewportBoundsPx.w);
-  //   scrollOffsetY = store.perItem.getPageScrollYProp(VeFns.veidFromVe(moveToPageVe)) *
-  //                   (moveToPageVe.childAreaBoundsPx.h - moveToPageVe.viewportBoundsPx.h);
-  // }
-
-  // // Use the correct child area width/height and account for scrolling
-  // const itemPosInPageGr = {
-  //   x: ((relX * moveToPageVe.viewportBoundsPx!.w) + scrollOffsetX) / moveToPageVe.childAreaBoundsPx!.w * moveToPage.innerSpatialWidthGr,
-  //   y: ((relY * moveToPageVe.viewportBoundsPx!.h) + scrollOffsetY) / moveToPageVe.childAreaBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
-  // };
+  itemPosInPagePx.y += moveToPageAbsoluteBoundsPx.y;
+  itemPosInPagePx.x += moveToPageAbsoluteBoundsPx.x - store.getCurrentDockWidthPx();
 
   const itemPosInPageGr = {
     x: itemPosInPagePx.x / moveToPageAbsoluteBoundsPx.w * moveToPage.innerSpatialWidthGr,
