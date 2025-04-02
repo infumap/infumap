@@ -359,10 +359,20 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   itemPosInPagePx.y += moveToPageAbsoluteBoundsPx.y;
   itemPosInPagePx.x += moveToPageAbsoluteBoundsPx.x - store.getCurrentDockWidthPx();
 
-  const itemPosInPageGr = {
-    x: itemPosInPagePx.x / moveToPageAbsoluteBoundsPx.w * moveToPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / moveToPageAbsoluteBoundsPx.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
-  };
+  let itemPosInPageGr;
+  if (moveToPageVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
+    itemPosInPagePx.x -= moveToPageVe.viewportBoundsPx!.x * 2;
+    itemPosInPagePx.y -= moveToPageVe.viewportBoundsPx!.y * 2; // TODO (low): * 2 gives correct behavior, but i didn't reason through why.
+    itemPosInPageGr = {
+      x: itemPosInPagePx.x / moveToPageVe.viewportBoundsPx!.w * moveToPage.innerSpatialWidthGr,
+      y: itemPosInPagePx.y / moveToPageVe.viewportBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
+    };
+  } else {
+    itemPosInPageGr = {
+      x: itemPosInPagePx.x / moveToPageAbsoluteBoundsPx.w * moveToPage.innerSpatialWidthGr,
+      y: itemPosInPagePx.y / moveToPageAbsoluteBoundsPx.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
+    };
+  }
 
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
