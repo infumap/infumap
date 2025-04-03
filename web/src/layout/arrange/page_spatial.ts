@@ -118,7 +118,8 @@ export function arrange_spatial_page(
       emitHitboxes,
       childItemIsPopup,
       hasPendingChanges,
-      store.perVe.getFlipCardIsEditing(VeFns.addVeidToPath(VeFns.veidFromItems(childItem, actualLinkItemMaybe), pageWithChildrenVePath)));
+      store.perVe.getFlipCardIsEditing(VeFns.addVeidToPath(VeFns.veidFromItems(childItem, actualLinkItemMaybe), pageWithChildrenVePath)),
+      store.smallScreenMode());
     if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
       const ves = arrangeItem(
         store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
@@ -163,7 +164,8 @@ export function arrange_spatial_page(
           PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren),
           false, true, true,
           PageFns.popupPositioningHasChanged(displayItem_pageWithChildren),
-          false);
+          false,
+          store.smallScreenMode());
 
         pageWithChildrenVisualElementSpec.popupVes = arrangeItem(
           store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, li, actualLinkItemMaybe, itemGeometry,

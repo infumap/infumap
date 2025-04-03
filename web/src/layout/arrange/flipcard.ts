@@ -105,6 +105,7 @@ export const arrangeFlipCard = (
         childItemIsPopup,
         hasPendingChanges,
         store.perVe.getFlipCardIsEditing(VeFns.addVeidToPath(VeFns.veidFromItems(childItem, actualLinkItemMaybe), visiblePagePath)),
+        store.smallScreenMode(),
       );
       const ves = arrangeItem(
         store, visiblePagePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,

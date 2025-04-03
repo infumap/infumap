@@ -279,7 +279,7 @@ export const PageFns = {
   calcGeometry_Spatial: (
       page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
       parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean,
-      hasPendingChanges: boolean): ItemGeometry => {
+      hasPendingChanges: boolean, smallScreenMode: boolean): ItemGeometry => {
 
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const blockSizePx = {
@@ -299,7 +299,7 @@ export const PageFns = {
         ? cloneBoundingBox(innerBoundsPx)!
         : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
             w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
-      return ({
+      const result = ({
         boundsPx,
         blockSizePx,
         viewportBoundsPx: boundsPx,
@@ -307,11 +307,14 @@ export const PageFns = {
           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
           HitboxFns.create(HitboxFlags.ContentEditable, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
-          HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
-          HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
         ],
       });
+      if (!smallScreenMode) {
+        result.hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx));
+      }
+      result.hitboxes.push(HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }));
+      result.hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
+      return result;
     }
 
     let headerHeightBl = isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
