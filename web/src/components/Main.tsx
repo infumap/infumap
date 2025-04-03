@@ -188,7 +188,12 @@ export const Main: Component = () => {
     // More trouble than value.
   };
 
+  let ignoreMouseDown = false;
   const mouseDownListener = async (ev: MouseEvent) => {
+    if (ignoreMouseDown) {
+      ignoreMouseDown = false;
+      return;
+    }
     let flags = await mouseDownHandler(store, ev.button);
     if (flags & MouseEventActionFlags.PreventDefault) {
       ev.preventDefault();
@@ -197,6 +202,7 @@ export const Main: Component = () => {
 
   const touchListener = async (ev: TouchEvent) => {
     if (ev.touches.length > 1) {
+      ignoreMouseDown = true;
       CursorEventState.setFromTouchEvent(ev);
       ev.preventDefault();
       await mouseDownHandler(store, MOUSE_RIGHT);

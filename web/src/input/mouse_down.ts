@@ -18,7 +18,6 @@
 
 import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-item";
 import { Item, ItemType } from "../items/base/item";
-import { ItemFns } from "../items/base/item-polymorphism";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
@@ -34,7 +33,7 @@ import { HitInfoFns } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { GRID_SIZE, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
+import { GRID_SIZE } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
 import { isUrl, trimNewline } from "../util/string";
