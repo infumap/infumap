@@ -343,10 +343,10 @@ export const Toolbar: Component = () => {
 
   return (
     <>
-      <Show when={store.topToolbarVisible.get()}>
+      <Show when={store.topToolbarVisible.get() && !store.smallScreenMode()}>
         {toolbar()}
       </Show>
-      <Show when={!store.topToolbarVisible.get()}>
+      <Show when={!store.topToolbarVisible.get() && !store.smallScreenMode()}>
         {showToolbarButton()}
       </Show>
     </>

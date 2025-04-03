@@ -46,7 +46,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
 
   return (
     <>
-      <Show when={store.dockVisible.get()}>
+      <Show when={store.dockVisible.get() && !store.smallScreenMode()}>
         <div class={`absolute border-r`}
              style={`left: ${props.pageFns.boundsPx().x}px; ` +
                     `top: ${props.pageFns.boundsPx().y}px; ` +
@@ -61,7 +61,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
           {renderDockMoveOverIndexMaybe()}
         </div>
       </Show>
-      <Show when={!store.dockVisible.get()}>
+      <Show when={!store.dockVisible.get() && !store.smallScreenMode()}>
         <div class={`absolute`}
              style={`left: ${5}px; ` +
                     `top: ${props.pageFns.boundsPx().h - 30}px; ` +

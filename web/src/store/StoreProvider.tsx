@@ -36,6 +36,7 @@ export interface StoreContextModel {
   desktopBoundsPx: () => BoundingBox,
   desktopMainAreaBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
+  smallScreenMode: () => boolean,
 
   currentUrlPath: InfuSignal<string>,
 
@@ -86,17 +87,9 @@ export function StoreProvider(props: StoreContextProps) {
   const currentUrlPath = createInfuSignal<string>('');
 
   const topToolbarVisible = createInfuSignal<boolean>(true);
-  const topToolbarHeightPx = () => topToolbarVisible.get() ? TOP_TOOLBAR_HEIGHT_PX : 0;
+  const topToolbarHeightPx = () => topToolbarVisible.get() && !smallScreenMode() ? TOP_TOOLBAR_HEIGHT_PX : 0;
 
-  function currentDesktopSize(): Dimensions {
-    let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
-    return {
-      w: rootElement.clientWidth,
-      h: rootElement.clientHeight - topToolbarHeightPx(),
-    };
-  }
-
-  const desktopSizePx = createInfuSignal<Dimensions>(currentDesktopSize());
+  const browserClientSizePx = createInfuSignal<Dimensions>({ w: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientWidth, h: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientHeight });
 
   const umbrellaVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
 
@@ -106,9 +99,13 @@ export function StoreProvider(props: StoreContextProps) {
 
   const dockWidthPx = createInfuSignal<number>(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
 
+  const smallScreenMode = (): boolean =>
+    browserClientSizePx.get().w < 500 || browserClientSizePx.get().h < 350;
+
   const getCurrentDockWidthPx = (): number => {
     const wPx = getRememberedDockWidthPx();
     if (!dockVisible.get()) { return 0; }
+    if (smallScreenMode()) { return 0; }
     return wPx;
   }
 
@@ -116,6 +113,7 @@ export function StoreProvider(props: StoreContextProps) {
     if (userStore.getUserMaybe() == null) { return 0; }
     return dockWidthPx.get();
   }
+
   const setDockWidthPx = (widthPx: number) => {
     dockWidthPx.set(widthPx);
   }
@@ -123,17 +121,22 @@ export function StoreProvider(props: StoreContextProps) {
   const dockVisible = createInfuSignal<boolean>(true);
 
   const resetDesktopSizePx = () => {
-    desktopSizePx.set(currentDesktopSize());
+    browserClientSizePx.set({ w: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientWidth, h: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientHeight });
   }
 
   const desktopBoundsPx = () => {
-    const dimensionsPx = desktopSizePx.get();
-    return { x: 0.0, y: 0.0, w: dimensionsPx.w, h: dimensionsPx.h }
+    let r = browserClientSizePx.get();
+    return ({
+      x: 0,
+      y: 0,
+      w: r.w,
+      h: r.h - topToolbarHeightPx()
+    });
   }
 
   const desktopMainAreaBoundsPx = () => {
     const result = desktopBoundsPx();
-    if (dockVisible.get()) {
+    if (dockVisible.get() && !smallScreenMode()) {
       result.x = getRememberedDockWidthPx();
       result.w = result.w - getRememberedDockWidthPx();
     }
@@ -163,6 +166,7 @@ export function StoreProvider(props: StoreContextProps) {
 
   const value: StoreContextModel = {
     desktopBoundsPx,
+    smallScreenMode,
     resetDesktopSizePx,
     desktopMainAreaBoundsPx,
     getRememberedDockWidthPx,
