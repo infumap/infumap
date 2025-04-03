@@ -100,7 +100,7 @@ export function StoreProvider(props: StoreContextProps) {
   const dockWidthPx = createInfuSignal<number>(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
 
   const smallScreenMode = (): boolean =>
-    browserClientSizePx.get().w < 500 || browserClientSizePx.get().h < 350;
+    browserClientSizePx.get().w < 765 || browserClientSizePx.get().h < 420;
 
   const getCurrentDockWidthPx = (): number => {
     const wPx = getRememberedDockWidthPx();
