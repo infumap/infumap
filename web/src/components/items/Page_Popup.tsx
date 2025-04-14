@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
-import { ANCHOR_BOX_SIZE_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
@@ -181,12 +181,15 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const renderAnchorMaybe = () =>
     <Show when={PageFns.popupPositioningHasChanged(pageFns().parentPage())}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-900`}
-           style={`left: ${pageFns().boundsPx().x + pageFns().boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; ` +
-                  `top: ${pageFns().boundsPx().y + RESIZE_BOX_SIZE_PX / 3 * 2 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                  `width: ${ANCHOR_BOX_SIZE_PX}px; ` +
-                  `height: ${ANCHOR_BOX_SIZE_PX}px; ` +
-                  `${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div class={`absolute`}>
+            style={`left: ${1 + pageFns().boundsPx().x + pageFns().boundsPx().w - ANCHOR_BOX_SIZE_PX * titleScale() - ANCHOR_OFFSET_PX * titleScale()}px; ` +
+                   `top: ${1 + pageFns().boundsPx().y + ANCHOR_OFFSET_PX * titleScale() / 3 * 2 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+                   `width: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
+                   `height: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
+                   // `border-width: 1px; border-color: #ccc;` +
+                   `${VeFns.zIndexStyle(props.visualElement)}`}>
+        <div class={`absolute text-gray-600 rounded-sm`}
+              style={`transform: scale(${titleScale() * 0.9}) translate(${2}px, ${-1}px); ` +
+                     `transform-origin: top left; `}>
           <i class={`fa fa-anchor`} />
         </div>
       </div>
