@@ -294,7 +294,7 @@ export const ItemFns = {
     else if (isTable(item)) { TableFns.handlePopupClick(visualElement, store); }
     else if (isComposite(item)) { CompositeFns.handlePopupClick(visualElement, store); }
     else if (isNote(item)) { NoteFns.handlePopupClick(visualElement, store); }
-    else if (isExpression(item)) { }
+    else if (isExpression(item)) { ExpressionFns.handlePopupClick(visualElement, store); }
     else if (isImage(item)) { ImageFns.handleClick(visualElement, store); }
     else if (isFile(item)) { FileFns.handlePopupClick(visualElement, store); }
     else if (isPassword(item)) { }

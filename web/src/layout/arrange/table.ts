@@ -67,6 +67,7 @@ export const arrangeTable = (
     actualLinkItemMaybe: actualLinkItemMaybe_Table,
     flags: VisualElementFlags.Detailed |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,

@@ -224,7 +224,10 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) && showTriangleDetail()}>
+      <Show when={props.visualElement.linkItemMaybe != null &&
+                  (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                  !(props.visualElement.flags & VisualElementFlags.Popup) &&
+                  showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
       <Show when={!isInCompositeOrDocument() && showTriangleDetail()}>

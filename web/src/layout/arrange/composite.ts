@@ -63,6 +63,7 @@ export const arrangeComposite = (
     linkItemMaybe: linkItemMaybe_Composite,
     actualLinkItemMaybe: actualLinkItemMaybe_Composite,
     flags: VisualElementFlags.Detailed |
+          (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,

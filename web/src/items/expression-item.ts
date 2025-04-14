@@ -22,7 +22,8 @@ import { fullArrange } from "../layout/arrange";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { ItemGeometry } from "../layout/item-geometry";
 import { measureLineCount } from "../layout/text";
-import { VeFns, VisualElement } from "../layout/visual-element";
+import { VesCache } from "../layout/ves-cache";
+import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
@@ -253,6 +254,17 @@ export const ExpressionFns = {
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     fullArrange(store);
     setCaretPosition(el, closestIdx);
+  },
+
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    } else {
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    }
   },
 
   cloneMeasurableFields: (expression: ExpressionMeasurable): ExpressionMeasurable => {
