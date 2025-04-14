@@ -81,13 +81,18 @@ export const ItemFns = {
     if (isFile(measurable)) { return FileFns.calcGeometry_Spatial(FileFns.asFileMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Spatial(PasswordFns.asPasswordMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_Spatial(RatingFns.asRatingMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
-    if (isLink(measurable)) { return LinkFns.calcGeometry_Spatial(asLinkItem(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges, editing); }
+    if (isLink(measurable)) { return LinkFns.calcGeometry_Spatial(asLinkItem(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges, editing, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Spatial(PlaceholderFns.asPlaceholderMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_Spatial(FlipCardFns.asFlipCardMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, editing); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
-  calcGeometry_Attachment: (measurable: Measurable, parentBoundsPx: BoundingBox, parentSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
+  calcGeometry_Attachment: (
+      measurable: Measurable,
+      parentBoundsPx: BoundingBox,
+      parentSizeBl: Dimensions,
+      index: number,
+      isSelected: boolean): ItemGeometry => {
     if (isPage(measurable)) { return PageFns.calcGeometry_Attachment(PageFns.asPageMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isTable(measurable)) { return TableFns.calcGeometry_Attachment(TableFns.asTableMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isComposite(measurable)) { return CompositeFns.calcGeometry_Attachment(CompositeFns.asCompositeMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
@@ -103,7 +108,15 @@ export const ItemFns = {
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
-  calcGeometry_ListItem: (measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean, padTop: boolean, expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (
+      measurable: Measurable,
+      blockSizePx: Dimensions,
+      row: number,
+      col: number,
+      widthBl: number,
+      parentIsPopup: boolean,
+      padTop: boolean,
+      expandable: boolean): ItemGeometry => {
     if (measurable == EMPTY_ITEM()) { return calcGeometryOfEmptyItem_ListItem(measurable, blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isPage(measurable)) { return PageFns.calcGeometry_ListItem(PageFns.asPageMeasurable(measurable), blockSizePx, row, col, widthBl, parentIsPopup, padTop, expandable); }
     if (isTable(measurable)) { return TableFns.calcGeometry_ListItem(TableFns.asTableMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
@@ -120,8 +133,18 @@ export const ItemFns = {
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
-  calcGeometry_InCell: (measurable: Measurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, parentIsDock: boolean, isPopup: boolean, hasPendingChanges: boolean, maximize: boolean, ignoreCellHeight: boolean): ItemGeometry => {
-    if (isPage(measurable)) { return PageFns.calcGeometry_InCell(PageFns.asPageMeasurable(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasPendingChanges, ignoreCellHeight); }
+  calcGeometry_InCell: (
+      measurable: Measurable,
+      cellBoundsPx: BoundingBox,
+      expandable: boolean,
+      parentIsPopup: boolean,
+      parentIsDock: boolean,
+      isPopup: boolean,
+      hasPendingChanges: boolean,
+      maximize: boolean,
+      ignoreCellHeight: boolean,
+      smallScreenMode: boolean): ItemGeometry => {
+    if (isPage(measurable)) { return PageFns.calcGeometry_InCell(PageFns.asPageMeasurable(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasPendingChanges, ignoreCellHeight, smallScreenMode); }
     if (isTable(measurable)) { return TableFns.calcGeometry_InCell(TableFns.asTableMeasurable(measurable), cellBoundsPx, maximize); }
     if (isComposite(measurable)) { return CompositeFns.calcGeometry_InCell(CompositeFns.asCompositeMeasurable(measurable), cellBoundsPx, maximize); }
     if (isNote(measurable)) { return NoteFns.calcGeometry_InCell(NoteFns.asNoteMeasurable(measurable), cellBoundsPx, maximize); }
@@ -130,7 +153,7 @@ export const ItemFns = {
     if (isFile(measurable)) { return FileFns.calcGeometry_InCell(FileFns.asFileMeasurable(measurable), cellBoundsPx, maximize); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InCell(PasswordFns.asPasswordMeasurable(measurable), cellBoundsPx, maximize); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InCell(RatingFns.asRatingMeasurable(measurable), cellBoundsPx, maximize); }
-    if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasPendingChanges, maximize, ignoreCellHeight); }
+    if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasPendingChanges, maximize, ignoreCellHeight, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InCell(PlaceholderFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
     if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_InCell(FlipCardFns.asFlipCardMeasurable(measurable), cellBoundsPx, maximize); }
     panic(`Unknown item type: ${measurable.itemType}`);
@@ -156,8 +179,14 @@ export const ItemFns = {
     })
   },
 
-  calcGeometry_InComposite: (measurable: Measurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
-    if (isPage(measurable)) { return PageFns.calcGeometry_InComposite(PageFns.asPageMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
+  calcGeometry_InComposite: (
+      measurable: Measurable,
+      blockSizePx: Dimensions,
+      compositeWidthBl: number,
+      leftMarginBl: number,
+      topPx: number,
+      smallScreenMode: boolean): ItemGeometry => {
+    if (isPage(measurable)) { return PageFns.calcGeometry_InComposite(PageFns.asPageMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode); }
     if (isTable(measurable)) { return TableFns.calcGeometry_InComposite(TableFns.asTableMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isComposite(measurable)) { return CompositeFns.calcGeometry_InComposite(CompositeFns.asCompositeMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isNote(measurable)) { return NoteFns.calcGeometry_InComposite(NoteFns.asNoteMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
@@ -166,7 +195,7 @@ export const ItemFns = {
     if (isFile(measurable)) { return FileFns.calcGeometry_InComposite(FileFns.asFileMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InComposite(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InComposite(RatingFns.asRatingMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
-    if (isLink(measurable)) { return LinkFns.calcGeometry_InComposite(asLinkItem(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
+    if (isLink(measurable)) { return LinkFns.calcGeometry_InComposite(asLinkItem(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InComposite(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx);}
     if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_InComposite(FlipCardFns.asFlipCardMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     panic(`Unknown item type: ${measurable.itemType}`);

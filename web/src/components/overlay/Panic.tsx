@@ -24,7 +24,7 @@ import { getPanickedMessage } from "../../util/lang";
 export const Panic: Component = () => {
   const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
   const eatTouchEvent = (ev: TouchEvent) => { ev.stopPropagation(); }
-  const reload = (ev: MouseEvent) => { ev.preventDefault(); window.location = window.location; }
+  const reload = (ev: MouseEvent) => { ev.preventDefault(); window.location.reload(); }
 
   return (
     <div id="panicOverlay"

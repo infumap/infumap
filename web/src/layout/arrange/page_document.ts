@@ -74,7 +74,8 @@ export function arrange_document_page(
       blockSizePx,
       totalWidthBl - totalMarginBl,
       PAGE_DOCUMENT_LEFT_MARGIN_BL,
-      topPx);
+      topPx,
+      store.smallScreenMode());
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
     const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);

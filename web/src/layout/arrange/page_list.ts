@@ -269,7 +269,7 @@ export function arrangeSelectedListItem(
       blockSizePx: NATURAL_BLOCK_SIZE_PX,
     };
   } else {
-    cellGeometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, canShiftLeft, false, false, false, false, false, false);
+    cellGeometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, canShiftLeft, false, false, false, false, false, false, store.smallScreenMode());
   }
 
   const result = arrangeItem(

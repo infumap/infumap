@@ -310,6 +310,7 @@ export const PageFns = {
         ],
       });
       if (!smallScreenMode) {
+        result.hitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, popupClickBoundsPx));
         result.hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx));
       }
       result.hitboxes.push(HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }));
@@ -347,7 +348,13 @@ export const PageFns = {
     return result;
   },
 
-  calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, parentIsDock: boolean, isPopup: boolean, hasPendingChanges: boolean, ignoreCellHeight: boolean): ItemGeometry => {
+  calcGeometry_InCell: (
+      page: PageMeasurable, cellBoundsPx: BoundingBox,
+      expandable: boolean, parentIsPopup: boolean,
+      parentIsDock: boolean, isPopup: boolean,
+      hasPendingChanges: boolean, ignoreCellHeight: boolean,
+      smallScreenMode: boolean): ItemGeometry => {
+
     if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
       const sizeBl = PageFns.calcSpatialDimensionsBl(page);
       let boundsPx;
@@ -387,8 +394,12 @@ export const PageFns = {
       const hitboxes = [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
       ];
+
+      if (!smallScreenMode) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, popupClickBoundsPx));
+        hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx));
+      }
 
       return ({
         boundsPx: cloneBoundingBox(boundsPx)!,
@@ -457,7 +468,11 @@ export const PageFns = {
     return result;
   },
 
-  calcGeometry_InComposite: (measurable: PageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (
+      measurable: PageMeasurable, blockSizePx: Dimensions,
+      compositeWidthBl: number, leftMarginBl: number,
+      topPx: number, smallScreenMode: boolean): ItemGeometry => {
+
     let cloned = PageFns.asPageMeasurable(ItemFns.cloneMeasurableFields(measurable));
     if (cloned.spatialWidthGr > compositeWidthBl * GRID_SIZE) {
       cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
@@ -480,14 +495,13 @@ export const PageFns = {
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
     };
     if (!(measurable.flags & PageFlags.EmbeddedInteractive)) {
-      return {
+      const result = ({
         boundsPx,
         blockSizePx,
         viewportBoundsPx: boundsPx,
         hitboxes: [
           HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
-          HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
           HitboxFns.create(HitboxFlags.AttachComposite, {
             x: innerBoundsPx.w / 4,
             y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
@@ -496,7 +510,14 @@ export const PageFns = {
           }),
           HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
         ]
-      };
+      });
+
+      if (!smallScreenMode) {
+        result.hitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, popupClickBoundsPx));
+        result.hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx));
+      }
+
+      return result;
     }
 
     let headerHeightBl = PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
@@ -558,6 +579,7 @@ export const PageFns = {
     };
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.ShowPointer, clickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
     ];
@@ -582,22 +604,10 @@ export const PageFns = {
     if ((asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) && (hitboxFlags & HitboxFlags.ContentEditable)) {
       PageFns.handleEditTitleClick(visualElement, store);
     } else {
-      if (visualElement.flags & VisualElementFlags.LineItem) {
-        if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-        const itemPath = VeFns.veToPath(visualElement);
-        store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page });
-        const editingDomId = itemPath + ":title";
-        const el = document.getElementById(editingDomId)!;
-        el.focus();
-        const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
-        fullArrange(store);
-        setCaretPosition(el, closestIdx);
-      } else {
-        const focusPath = VeFns.veToPath(visualElement);
-        store.history.setFocus(focusPath);
-        const actualVeid = VeFns.actualVeidFromVe(visualElement);
-        switchToPage(store, actualVeid, true, false, false);
-      }
+      const focusPath = VeFns.veToPath(visualElement);
+      store.history.setFocus(focusPath);
+      const actualVeid = VeFns.actualVeidFromVe(visualElement);
+      switchToPage(store, actualVeid, true, false, false);
     }
   },
 

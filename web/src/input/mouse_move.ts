@@ -506,6 +506,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "ew-resize";
     } else if (hitInfo.hitboxType & HitboxFlags.VerticalResize) {
       document.body.style.cursor = "ns-resize";
+    } else if (hitInfo.hitboxType & HitboxFlags.ShowPointer) {
+      document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.Anchor) {
       document.body.style.cursor = "pointer";
     } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(HitInfoFns.getHitVe(hitInfo).displayItem)) &&

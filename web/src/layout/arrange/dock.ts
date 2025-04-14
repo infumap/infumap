@@ -53,11 +53,9 @@ export const renderDockMaybe = (
   const dockPage = asPageItem(itemState.get(store.user.getUser().dockPageId)!);
   const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
 
-  let movingItem = null;
   let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
     movingItemInThisPage = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
-    movingItem = movingItemInThisPage;
     if (movingItemInThisPage!.parentId != dockPage.id) {
       movingItemInThisPage = null;
     }
@@ -79,7 +77,7 @@ export const renderDockMaybe = (
     let wPx = dockWidthPx - DOCK_GAP_PX * 2;
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: DOCK_GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
-    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true);
+    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true, store.smallScreenMode());
 
     let viewportOffsetPx = 0;
     if (geometry.viewportBoundsPx) {
@@ -176,7 +174,7 @@ export const renderDockMaybe = (
   return VesCache.full_createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath);
 }
 
-export function dockInsertIndexAndPositionFromDesktopY(dockItem: PageItem, movingItem: Item, dockWidthPx: number, desktopYPx: number): IndexAndPosition {
+export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel, dockItem: PageItem, movingItem: Item, dockWidthPx: number, desktopYPx: number): IndexAndPosition {
   let positionIndex = 0;
   let yCurrentPx = 0;
   for (let i=0; i<dockItem.computed_children.length; ++i) {
@@ -191,7 +189,7 @@ export function dockInsertIndexAndPositionFromDesktopY(dockItem: PageItem, movin
     let wPx = dockWidthPx - DOCK_GAP_PX * 2;
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: DOCK_GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
-    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true);
+    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true, store.smallScreenMode());
 
     let viewportOffsetPx = 0;
     if (geometry.viewportBoundsPx) {

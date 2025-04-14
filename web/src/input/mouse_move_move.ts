@@ -231,7 +231,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const dockWidthPx = store.getCurrentDockWidthPx();
 
   if (inElementVe.flags & VisualElementFlags.IsDock) {
-    const indexAndPosition = dockInsertIndexAndPositionFromDesktopY(asPageItem(inElement), activeItem, dockWidthPx, desktopPosPx.y);
+    const indexAndPosition = dockInsertIndexAndPositionFromDesktopY(store, asPageItem(inElement), activeItem, dockWidthPx, desktopPosPx.y);
     store.perVe.setMoveOverIndexAndPosition(VeFns.veToPath(inElementVe), indexAndPosition);
   }
 

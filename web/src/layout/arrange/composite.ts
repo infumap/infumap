@@ -89,7 +89,8 @@ export const arrangeComposite = (
       blockSizePx,
       compositeSizeBl.w,
       0,
-      topPx);
+      topPx,
+      store.smallScreenMode());
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
 
