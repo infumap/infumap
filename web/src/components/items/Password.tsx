@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -41,6 +41,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const store = useStore();
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
+  const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
@@ -116,6 +117,9 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
   const shadowOuterClass = () => {
+    if (isPopup()) {
+      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700`;
+    }
     return `absolute border border-slate-700 rounded-sm shadow-lg bg-white`;
   };
 
@@ -132,7 +136,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
                 !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+                  `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const inputListener = (_ev: InputEvent) => {
@@ -226,7 +230,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
                   (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                  !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
+                  !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
                   showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>

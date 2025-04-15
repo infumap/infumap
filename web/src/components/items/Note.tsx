@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
-import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW, Z_INDEX_POPUP } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -56,6 +56,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const vePath = () => VeFns.veToPath(props.visualElement);
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
+  const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
@@ -119,6 +120,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
 
   const shadowOuterClass = () => {
+    if (isPopup()) {
+      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700`;
+    }
     if (noteItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
         return `absolute border border-slate-700 rounded-sm shadow-lg`;
@@ -248,7 +252,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+                  `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const renderDetailed = () =>
@@ -310,7 +314,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={props.visualElement.linkItemMaybe != null &&
                   (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
                   (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath())) &&
-                  !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
+                  !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
                   showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>

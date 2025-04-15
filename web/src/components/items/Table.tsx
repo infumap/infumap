@@ -17,7 +17,7 @@
 */
 
 import { Component, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
@@ -39,6 +39,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const store = useStore();
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const vePath = () => VeFns.veToPath(props.visualElement);
   const showColHeader = () => tableItem().flags & TableFlags.ShowColHeader;
   const boundsPx = () => props.visualElement.boundsPx;
@@ -144,12 +145,26 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
+  const shadowClass = () => {
+    if (isPopup()) {
+      return `absolute border border-transparent rounded-sm shadow-lg blur-md bg-slate-700`;
+    }
+    return `absolute border border-transparent rounded-sm shadow-lg`;
+  };
+
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
                 !(props.visualElement.flags & VisualElementFlags.DockItem)}>
-      <div class={`absolute border border-transparent rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+      <>
+        <div class={`${shadowClass()}`}
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
+                   `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        <Show when={isPopup() || true}>
+          <div class={`absolute bg-white`}
+               style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
+                      `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW};`} />
+        </Show>
+      </>
     </Show>;
 
   const renderNotDetailed = () =>
@@ -199,7 +214,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null &&
                     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                    !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
+                    !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
                     showTriangleDetail()}>
           <InfuLinkTriangle />
         </Show>

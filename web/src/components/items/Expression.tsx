@@ -24,7 +24,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { BoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -44,6 +44,7 @@ import { fullArrange } from "../../layout/arrange";
 export const Expression_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
+  const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const expressionItem = () => asExpressionItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -109,6 +110,9 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   };
 
   const shadowOuterClass = () => {
+    if (isPopup()) {
+      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700`;
+    }
     if (expressionItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
         return `absolute border border-transparent rounded-sm shadow-lg`;
@@ -177,7 +181,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
                 !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+                  `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const renderDetailed = () =>
@@ -226,7 +230,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
                   (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                  !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
+                  !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
                   showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>

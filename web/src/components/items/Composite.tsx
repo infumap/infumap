@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
@@ -35,6 +35,7 @@ import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../.
 export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
+  const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
 
@@ -51,11 +52,18 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
 
+    const shadowClass = () => {
+      if (isPopup()) {
+        return `absolute border border-transparent rounded-sm overflow-hidden blur-md bg-slate-700`;
+      }
+      return `absolute border border-transparent rounded-sm shadow-lg overflow-hidden`;
+    };
+
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
-      <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
+      <div class={shadowClass()}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+                  `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const keyUpHandler = (ev: KeyboardEvent) => {
@@ -95,7 +103,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                       `background-color: #ff0000;`} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                    !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
+                    !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
                     showTriangleDetail()}>
           <InfuLinkTriangle />
         </Show>
