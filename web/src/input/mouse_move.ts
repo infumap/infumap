@@ -138,7 +138,11 @@ function changeMouseActionStateMaybe(
     MouseActionState.get().startPosBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       MouseActionState.get().startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
-      MouseActionState.get().startHeightBl = null;
+      if (activeVisualElement.linkItemMaybe!.spatialHeightGr) {
+        MouseActionState.get().startHeightBl = activeVisualElement.linkItemMaybe!.spatialHeightGr / GRID_SIZE;
+      } else {
+        MouseActionState.get().startHeightBl = null;
+      }
       MouseActionState.get().action = MouseAction.ResizingPopup;
     } else {
       MouseActionState.get().startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
@@ -336,7 +340,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
   newWidthBl = Math.round(newWidthBl * 2.0) / 2.0;
-  if (newWidthBl < 5) { newWidthBl = 5.0; }
+  if (newWidthBl < 3.0) { newWidthBl = 3.0; }
   const newWidthGr = newWidthBl * GRID_SIZE;
 
   const activeVe = VesCache.get(MouseActionState.get().activeElementPath)!.get();
@@ -350,17 +354,33 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   }
 
   const activeVeid = VeFns.veidFromItems(activeVe.displayItem, activeVe.actualLinkItemMaybe);
+
+  let requireArrange = false;
+
   if (isXSizableItem(itemState.get(activeVeid.itemId)!)) {
     if (activeVeid.linkIdMaybe) {
       asXSizableItem(itemState.get(activeVeid.linkIdMaybe)!).spatialWidthGr = newWidthGr;
     } else {
       asXSizableItem(itemState.get(activeVeid.itemId)!).spatialWidthGr = newWidthGr;
     }
-    fullArrange(store);
+    requireArrange = true;
   }
 
   if (isYSizableItem(itemState.get(activeVeid.itemId)!)) {
-    console.log("TODO: y resize popups");
+    let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
+    newHeightBl = Math.round(newHeightBl * 2.0) / 2.0;
+    if (newHeightBl < 3) { newHeightBl = 3.0; }
+    const newHeightGr = newHeightBl * GRID_SIZE;
+    if (activeVeid.linkIdMaybe) {
+      asYSizableItem(itemState.get(activeVeid.linkIdMaybe)!).spatialHeightGr = newHeightGr;
+    } else {
+      asYSizableItem(itemState.get(activeVeid.itemId)!).spatialHeightGr = newHeightGr;
+    }
+    requireArrange = true;
+  }
+
+  if (requireArrange) {
+    fullArrange(store);
   }
 }
 

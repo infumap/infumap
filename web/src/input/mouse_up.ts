@@ -91,6 +91,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
 
     case MouseAction.ResizingPopup: {
+      if (activeVisualElement.actualLinkItemMaybe) {
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.actualLinkItemMaybe.id)!, store.general.networkStatus);
+      } else {
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
+      }
       DoubleClickState.preventDoubleClick();
       break;
     }
