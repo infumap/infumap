@@ -39,7 +39,9 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
   const titleScale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
   const renderIsLinkMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null}>
+    <Show when={props.visualElement.linkItemMaybe != null &&
+                !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null))
+    }>
       <InfuLinkTriangle />
     </Show>;
 

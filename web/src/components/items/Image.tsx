@@ -272,9 +272,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                       `background-color: ${FEATURE_COLOR};`} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null &&
-                    !(props.visualElement.flags & VisualElementFlags.Popup) &&
                     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
                     showTriangleDetail() &&
+                    !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
                     (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
           <InfuLinkTriangle />
         </Show>

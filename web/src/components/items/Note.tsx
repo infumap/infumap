@@ -310,7 +310,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={props.visualElement.linkItemMaybe != null &&
                   (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
                   (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath())) &&
-                  !(props.visualElement.flags & VisualElementFlags.Popup) &&
+                  !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
                   showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>

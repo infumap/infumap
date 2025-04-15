@@ -95,7 +95,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                       `background-color: #ff0000;`} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                    !(props.visualElement.flags & VisualElementFlags.Popup) &&
+                    !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
                     showTriangleDetail()}>
           <InfuLinkTriangle />
         </Show>

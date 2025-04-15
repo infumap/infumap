@@ -84,7 +84,9 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.flags & VisualElementFlags.Detailed  && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)) &&
+      <Show when={props.visualElement.linkItemMaybe != null &&
+                  (props.visualElement.flags & VisualElementFlags.Detailed &&
+                  (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)) &&
                   showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
