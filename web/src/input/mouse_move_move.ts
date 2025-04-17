@@ -137,7 +137,13 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   let ignoreIds = [activeVisualElement.displayItem.id];
   if (isComposite(activeVisualElement.displayItem)) {
     const compositeItem = asCompositeItem(activeVisualElement.displayItem);
-    for (let childId of compositeItem.computed_children) { ignoreIds.push(childId); }
+    for (let childId of compositeItem.computed_children) {
+      ignoreIds.push(childId);
+      const item = itemState.get(childId);
+      if (isLink(item)) {
+        ignoreIds.push(LinkFns.getLinkToId(asLinkItem(item!)));
+      }
+    }
   }
 
   const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, MouseActionState.get().hitEmbeddedInteractive);
