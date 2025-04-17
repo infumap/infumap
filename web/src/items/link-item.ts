@@ -213,7 +213,11 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcGeometry_InComposite(measurableMaybe!, blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode);
+
+    const result = ItemFns.calcGeometry_InComposite(measurableMaybe!, blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode);
+    let insertPos = result.hitboxes.length;
+    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }))
+    return result;
   },
 
   calcGeometry_Attachment: (link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
