@@ -317,7 +317,7 @@ function getHitInfo(
     }
   }
 
-  rootInfo = determinePagePopupOrSelectedRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
+  rootInfo = determineContainerPopupOrSelectedRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
   if (rootInfo.hitMaybe) {
     if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
       return rootInfo.hitMaybe!; // hit a root hitbox, done already.
@@ -565,7 +565,7 @@ function determineTopLevelRoot(
 /**
  * @param posOnDesktopPx does not incorporate page scroll.
  */
-function determinePagePopupOrSelectedRootMaybe(
+function determineContainerPopupOrSelectedRootMaybe(
     store: StoreContextModel,
     parentRootInfo: RootInfo,
     posOnDesktopPx: Vector,
@@ -577,7 +577,7 @@ function determinePagePopupOrSelectedRootMaybe(
 
   let changedRoot = false;
 
-  if (rootVe.popupVes && isPage(rootVe.popupVes.get().displayItem)) {
+  if (rootVe.popupVes && isContainer(rootVe.popupVes.get().displayItem)) {
     posOnDesktopPx = cloneVector(posOnDesktopPx)!;
     posOnDesktopPx.x = posOnDesktopPx.x + store.getCurrentDockWidthPx();
 
@@ -713,7 +713,7 @@ function determinePagePopupOrSelectedRootMaybe(
   };
 
   if (changedRoot && rootVe.selectedVes) {
-    return determinePagePopupOrSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive);
+    return determineContainerPopupOrSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive);
   }
 
   return result;
