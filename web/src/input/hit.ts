@@ -138,8 +138,12 @@ export const HitInfoFns = {
         return hitInfo.overVes.get();
       }
     }
-    if (hitInfo.subSubRootVe) { return hitInfo.subSubRootVe; }
-    if (hitInfo.subRootVe) { return hitInfo.subRootVe; }
+    if (hitInfo.subSubRootVe) {
+      return hitInfo.subSubRootVe;
+    }
+    if (hitInfo.subRootVe) {
+      return hitInfo.subRootVe;
+    }
     return hitInfo.rootVes.get();
   },
 
@@ -299,7 +303,7 @@ function getHitInfo(
 
   // Root is either:
   //  - The top level page, or
-  //  - The popup if open and the mouse is over it, or
+  //  - The (page) popup if open and the mouse is over it, or
   //  - The selected page in a list page, or
   //  - The dock page, or
   //  - An embedded root.
@@ -313,7 +317,7 @@ function getHitInfo(
     }
   }
 
-  rootInfo = determinePopupOrSelectedRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
+  rootInfo = determinePagePopupOrSelectedRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
   if (rootInfo.hitMaybe) {
     if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
       return rootInfo.hitMaybe!; // hit a root hitbox, done already.
@@ -561,7 +565,7 @@ function determineTopLevelRoot(
 /**
  * @param posOnDesktopPx does not incorporate page scroll.
  */
-function determinePopupOrSelectedRootMaybe(
+function determinePagePopupOrSelectedRootMaybe(
     store: StoreContextModel,
     parentRootInfo: RootInfo,
     posOnDesktopPx: Vector,
@@ -573,7 +577,7 @@ function determinePopupOrSelectedRootMaybe(
 
   let changedRoot = false;
 
-  if (rootVe.popupVes) {
+  if (rootVe.popupVes && isPage(rootVe.popupVes.get().displayItem)) {
     posOnDesktopPx = cloneVector(posOnDesktopPx)!;
     posOnDesktopPx.x = posOnDesktopPx.x + store.getCurrentDockWidthPx();
 
@@ -709,7 +713,7 @@ function determinePopupOrSelectedRootMaybe(
   };
 
   if (changedRoot && rootVe.selectedVes) {
-    return determinePopupOrSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive);
+    return determinePagePopupOrSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive);
   }
 
   return result;
