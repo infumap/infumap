@@ -36,11 +36,12 @@ import { itemState } from "../store/ItemState";
 // The XSizableItem and YSizableItem may not apply, depending on the item linked to.
 
 export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
+}
+
+export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
   linkTo: string,
   linkToResolvedId: Uid | null,
 }
-
-export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin { }
 
 
 export const LinkFns = {
@@ -294,6 +295,8 @@ export const LinkFns = {
       spatialPositionGr: link.spatialPositionGr,
       spatialWidthGr: link.spatialWidthGr,
       spatialHeightGr: link.spatialHeightGr,
+      linkTo: link.linkTo,
+      linkToResolvedId: link.linkToResolvedId,
     });
   },
 
@@ -301,7 +304,7 @@ export const LinkFns = {
     return "[link] " + linkItem.linkTo;
   },
 
-  getLinkToId: (linkItem: LinkItem): Uid => {
+  getLinkToId: (linkItem: LinkMeasurable): Uid => {
     return linkItem.linkToResolvedId == null
       ? linkItem.linkTo
       : linkItem.linkToResolvedId;
