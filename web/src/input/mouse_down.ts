@@ -295,12 +295,13 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         };
       }
     } else {
-      if (hitInfo.hitboxType & HitboxFlags.HorizontalResize && isPage(hitVe.displayItem) && asPageItem(hitVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+      if ((hitInfo.hitboxType & HitboxFlags.HorizontalResize) &&
+          isPage(hitVe.displayItem) && asPageItem(hitVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
         const squareSize = (asPageItem(hitVe.displayItem).tableColumns[0].widthGr / GRID_SIZE) / hitVe.listViewportBoundsPx!.w;
         onePxSizeBl = { x: squareSize, y: squareSize };
       } else {
         let parent = VesCache.get(hitVe.parentPath!)!.get();
-        if (isPage(parent.displayItem)) {
+        if (isPage(parent.displayItem) && VeFns.canonicalItem(hitVe).relationshipToParent == RelationshipToParent.Child) {
           let parentPage = asPageItem(parent.displayItem);
           const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
           onePxSizeBl = {
