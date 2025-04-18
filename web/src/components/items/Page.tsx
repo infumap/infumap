@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { HitboxFlags } from "../../layout/hitbox";
@@ -187,6 +187,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const heightPx = props.visualElement.cellSizePx!.h;
         return (
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />
+        );
+      } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
+        const topPx = store.perVe.getMoveOverIndex(pageFns.vePath()) * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX;
+        const leftPx = 0;
+        const widthPx = LINE_HEIGHT_PX * pageFns.listColumnWidthBl();
+        return (
+          <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: 1px; width: ${widthPx}px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
         return <></>;

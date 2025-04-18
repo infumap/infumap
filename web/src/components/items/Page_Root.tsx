@@ -101,6 +101,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
+          {pageFns().renderMoveOverIndexMaybe()}
         </div>
       </div>
       <For each={pageFns().desktopChildren()}>{childVe =>

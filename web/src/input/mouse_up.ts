@@ -324,15 +324,15 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
     itemState.sortChildren(pageItem.id);
     serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
   }
-  else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+  else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+           pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
     const path = VeFns.veToPath(overContainerVe);
     const idx = store.perVe.getMoveOverIndex(path);
     const insertIndex = pageItem.orderChildrenBy != "" ? 0 : idx;
     activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
     itemState.sortChildren(pageItem.id);
     serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-  }
-  else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+  } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
         MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
       serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);

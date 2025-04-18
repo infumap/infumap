@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
@@ -230,7 +230,17 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const cellY = Math.floor((yOffsetPx + scrollYPx) / inElementVe.cellSizePx!.h);
     let index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
     const numChildren = asContainerItem(inElement).computed_children.length;
-    if (index >= numChildren) { index = numChildren-1; } // numChildren is inclusive of the moving item.
+    if (index >= numChildren) { index = numChildren - 1; } // numChildren is inclusive of the moving item so -1.
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
+  }
+
+  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    // TODO (HIGH): consider list scroll position.
+    const numChildren = asContainerItem(inElement).computed_children.length;
+    const yOffsetPx = desktopPosPx.y - inElementVe.viewportBoundsPx!.y - LIST_PAGE_TOP_PADDING_PX;
+    let index = Math.round(yOffsetPx / LINE_HEIGHT_PX);
+    if (index < 0) { index = 0; }
+    if (index >= numChildren) { index = numChildren - 1; } // numChildren is inclusive of the moving item, so -1.
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 
