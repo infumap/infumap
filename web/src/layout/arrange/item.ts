@@ -94,6 +94,7 @@ export const arrangeItem = (
     if (arrangeFlagIsRoot(flags)) { return true; }
     if (flags & ArrangeItemFlags.IsPopupRoot) { return true; }
     if (flags & ArrangeItemFlags.IsTopRoot) { return true; }
+    if (parentArrangeAlgorithm == ArrangeAlgorithm.List) { return true; }
     if (!(flags & ArrangeItemFlags.RenderChildrenAsFull)) { return false; }
     if (parentArrangeAlgorithm == ArrangeAlgorithm.Dock) { return true; }
     if (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
