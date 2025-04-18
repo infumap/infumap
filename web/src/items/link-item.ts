@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, isUid, newUid, Uid } from "../util/uid";
@@ -189,23 +189,29 @@ export const LinkFns = {
         h: blockSizePx.h
       };
       const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-      let moveWidthPx = 10;
-      if (innerBoundsPx.w < 10) {
-        // TODO (MEDIUM): something sensible.
-        moveWidthPx = 1;
-      }
       const moveBoundsPx = {
-        x: innerBoundsPx.w - moveWidthPx,
-        y: innerBoundsPx.y,
-        w: moveWidthPx,
-        h: innerBoundsPx.h
+        x: innerBoundsPx.w
+            - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+            - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+            - CONTAINER_IN_COMPOSITE_PADDING_PX
+            - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
+        y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+        w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+        h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
       };
       return {
         boundsPx,
         blockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+          HitboxFns.create(HitboxFlags.AttachComposite, {
+            x: innerBoundsPx.w / 4,
+            y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+            w: innerBoundsPx.w / 2,
+            h: ATTACH_AREA_SIZE_PX,
+          }),
         ]
       };
     }
@@ -247,7 +253,7 @@ export const LinkFns = {
         viewportBoundsPx: null,
         hitboxes: [
           HitboxFns.create(HitboxFlags.TriangleLinkSettings, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(boundsPx))
+          HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(boundsPx)),
         ]
       };
     }
