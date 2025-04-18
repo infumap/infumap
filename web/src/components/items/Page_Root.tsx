@@ -54,11 +54,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     rootDiv.scrollLeft = scrollXPx;
   });
 
-  const renderIsPublicBorder = () =>
-    <Show when={pageFns().isPublic() && store.user.getUserMaybe() != null}>
-      <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
-    </Show>;
-
   const listRootScrollHandler = (_ev: Event) => {
     if (!rootDiv) { return; }
 
@@ -85,14 +80,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; left: 0px; ` +
                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
                 `background-color: #ffffff;` +
-                `${VeFns.zIndexStyle(props.visualElement)}`}>
+                `${VeFns.zIndexStyle(props.visualElement)}` +
+                `${pageFns().isPublic() && store.user.getUserMaybe() != null ? "border-width: 3px; border-color: #ff0000;" : ""}`}>
       <div ref={rootDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} `}
-           style={`overflow-y: auto; ` +
-                  `width: ${pageFns().viewportBoundsPx().w}px; ` +
-                  `height: ${pageFns().viewportBoundsPx().h}px; ` +
-                  `background-color: #ffffff;` +
-                  `${VeFns.zIndexStyle(props.visualElement)}`}
+           style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
+                  `height: ${pageFns().viewportBoundsPx().h}px; `}
            onscroll={listRootScrollHandler}>
         <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
              style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
@@ -160,7 +153,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
                 `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                 `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
-                `${VeFns.zIndexStyle(props.visualElement)}`}
+                `${VeFns.zIndexStyle(props.visualElement)} ` +
+                `${pageFns().isPublic() && store.user.getUserMaybe() != null ? "border-width: 3px; border-color: #ff0000;" : ""}`}
          onscroll={rootScrollHandler}>
       <div class="absolute"
            style={`left: 0px; top: 0px; ` +
@@ -201,7 +195,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             {renderPage()}
           </Match>
         </Switch>
-        {renderIsPublicBorder()}
       </div>
     </>
   );
