@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch, onMount } from "solid-js";
+import { Component, Match, Show, Switch, createSignal, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { BoundingBox } from "../../util/geometry";
@@ -32,7 +32,7 @@ import { panic } from "../../util/lang";
 import { itemState } from "../../store/ItemState";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asFormatItem } from "../../items/base/format-item";
-import { asTableItem } from "../../items/table-item";
+import { asTableItem, isTable } from "../../items/table-item";
 import QRCode from "qrcode";
 import { asFlipCardItem, isFlipCard } from "../../items/flipcard-item";
 
@@ -76,13 +76,14 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
 
   if (popupType != ToolbarPopupType.PageColor &&
       popupType != ToolbarPopupType.PageArrangeAlgorithm) {
-    const maxX = store.desktopBoundsPx().w - 335;
+    const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : 330;
+    const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
     if (x > maxX) { x = maxX; }
     return {
       x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
-      w: 330,
+      w: popupWidth,
       h: toolbarPopupHeight(popupType, compositeItemMaybe() != null)
     }
   } else if (popupType == ToolbarPopupType.PageColor) {
@@ -132,6 +133,11 @@ export const Toolbar_Popup: Component = () => {
 
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()!.type;
+  const [sliderValue, setSliderValue] = createSignal(
+    isTable(store.history.getFocusItem())
+      ? asTableItem(store.history.getFocusItem()).numberOfVisibleColumns.toString()
+      : 1
+  );
 
   const handleKeyDown = (ev: KeyboardEvent) => {
     if (ev.code == "Enter") {
@@ -176,13 +182,14 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
       pageItem().docWidthBl = Math.round(parseFloat(textElement!.value));
     } else if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
-      let newNumCols = Math.round(parseFloat(textElement!.value));
-      if (newNumCols > 9) { newNumCols = 9; }
+      let newNumCols = parseInt(textElement!.value);
+      if (newNumCols > 20) { newNumCols = 20; }
       if (newNumCols < 1) { newNumCols = 1; }
       while (tableItem().tableColumns.length < newNumCols) {
         tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
       }
       tableItem().numberOfVisibleColumns = newNumCols;
+      setSliderValue(newNumCols.toString());
     }
     fullArrange(store);
   };
@@ -195,15 +202,19 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.Scale) { return 180; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return 250; }
-    if (overlayType() == ToolbarPopupType.TableNumCols) { return 150; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
+    if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
     return 200;
   }
 
   const boxBoundsPx = () => toolbarPopupBoxBoundsPx(store);
 
   onMount(() => {
+    if (overlayType() == ToolbarPopupType.TableNumCols) {
+      setSliderValue(asTableItem(store.history.getFocusItem()).numberOfVisibleColumns.toString());
+    }
+
     if (overlayType() != ToolbarPopupType.PageColor &&
         overlayType() != ToolbarPopupType.QrLink &&
         overlayType() != ToolbarPopupType.PageArrangeAlgorithm) {
@@ -232,7 +243,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
     if (overlayType() == ToolbarPopupType.Scale) { return "" + Math.round(flipCardItem().scale * 1000.0) / 10.0; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
-    if (overlayType() == ToolbarPopupType.TableNumCols) { return "" + tableItem().numberOfVisibleColumns; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
@@ -393,17 +403,37 @@ export const Toolbar_Popup: Component = () => {
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
                onMouseDown={handleMouseDown}>
             <Show when={label() != null}>
-              <div class="text-sm ml-1 mr-2 inline-block">{label()}</div>
-              <input ref={textElement}
-                     class="border border-slate-300 rounded mt-[3px] p-[2px]"
-                     style={`width: ${inputWidthPx()}px`}
-                     autocomplete="on"
-                     value={textEntryValue()!}
-                     type="text"
-                     onChange={handleTextChange}
-                     onKeyDown={handleKeyDown}
-                     onKeyUp={handleKeyUp}
-                     onKeyPress={handleKeyPress}/>
+              {overlayType() == ToolbarPopupType.TableNumCols
+                ? <div class="flex items-center mt-[7px]">
+                    <div class="text-sm ml-2 mr-2">{label()}</div>
+                    <input ref={textElement}
+                          class="p-[2px] focus:outline-none"
+                          style={`width: ${inputWidthPx() - 50}px`}
+                          type="range"
+                          min="1"
+                          max="20"
+                          value={sliderValue()}
+                          onChange={handleTextChange}
+                          onInput={(e) => { setSliderValue(e.currentTarget.value); tableItem().numberOfVisibleColumns = parseInt(e.currentTarget.value); fullArrange(store); }}
+                          onKeyDown={handleKeyDown}
+                          onKeyUp={handleKeyUp}
+                          onKeyPress={handleKeyPress}/>
+                    <span class="ml-1 text-sm font-mono w-6 text-center">{sliderValue()}</span>
+                  </div>
+                : <div class="inline-block">
+                    <div class="text-sm ml-1 mr-2 inline-block">{label()}</div>
+                    <input ref={textElement}
+                          class="border border-slate-300 rounded mt-[3px] p-[2px]"
+                          style={`width: ${inputWidthPx()}px`}
+                          autocomplete="on"
+                          value={textEntryValue()!}
+                          type="text"
+                          onChange={handleTextChange}
+                          onKeyDown={handleKeyDown}
+                          onKeyUp={handleKeyUp}
+                          onKeyPress={handleKeyPress}/>
+                  </div>
+              }
             </Show>
             <Show when={showAutoButton()}>
               <button class="border border-slate-300 rounded mt-[3px] p-[2px] ml-[4px] hover:bg-slate-300"
