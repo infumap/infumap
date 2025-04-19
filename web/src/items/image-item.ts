@@ -35,7 +35,7 @@ import { fullArrange } from "../layout/arrange";
 import { ItemFns } from "./base/item-polymorphism";
 import { FlagsMixin } from "./base/flags-item";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
-import { CursorEventState } from "../input/state";
+import { ClickState, CursorEventState } from "../input/state";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -181,7 +181,7 @@ export const ImageFns = {
     return calcGeometryOfAttachmentItemImpl(image, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean, inTable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
     const innerBoundsPx = {
       x: 0.0,
@@ -202,16 +202,20 @@ export const ImageFns = {
       h: blockSizePx.h
     };
     const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
-    return {
+    const result = {
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
+        HitboxFns.create(HitboxFlags.Click, inTable ? innerBoundsPx : clickAreaBoundsPx),
+        HitboxFns.create(HitboxFlags.ShowPointer, inTable ? innerBoundsPx : clickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
       ]
     };
+    if (!inTable) {
+      result.hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx));
+    }
+    return result;
   },
 
   calcGeometry_InCell: (image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
@@ -234,7 +238,6 @@ export const ImageFns = {
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (visualElement.flags & VisualElementFlags.Popup) {
       window.open('/files/' + visualElement.displayItem.id, '_blank');
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
@@ -243,14 +246,8 @@ export const ImageFns = {
     } else {
       if (visualElement.flags & VisualElementFlags.LineItem) {
         if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-        const itemPath = VeFns.veToPath(visualElement);
-        store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Image });
-        const editingDomId = itemPath + ":title";
-        const el = document.getElementById(editingDomId)!;
-        el.focus();
-        const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+        store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
         fullArrange(store);
-        setCaretPosition(el, closestIdx);
       } else {
         store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
         fullArrange(store);
@@ -258,8 +255,24 @@ export const ImageFns = {
     }
   },
 
+  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    fullArrange(store);
+  },
+
+  handleEditClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    const itemPath = VeFns.veToPath(visualElement);
+    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Image });
+    const editingDomId = itemPath + ":title";
+    const el = document.getElementById(editingDomId)!;
+    el.focus();
+    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    fullArrange(store);
+    setCaretPosition(el, closestIdx);
+  },
+
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    console.log("link click");
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
     fullArrange(store);
   },

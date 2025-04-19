@@ -351,7 +351,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       MouseActionState.set(null);
     } else if (isImage(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
-      ImageFns.handleClick(hitVe, store);
+      ImageFns.handleEditClick(hitVe, store);
       MouseActionState.set(null);
     }
   }, 750);

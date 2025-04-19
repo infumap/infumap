@@ -531,7 +531,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     } else if (hitInfo.hitboxType & HitboxFlags.Anchor) {
       document.body.style.cursor = "pointer";
     } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(HitInfoFns.getHitVe(hitInfo).displayItem)) &&
-               ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) || ((asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem).flags & PageFlags.EmbeddedInteractive) && !(hitInfo.hitboxType & HitboxFlags.ContentEditable)))) {
+               ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) ||
+                ((asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem).flags & PageFlags.EmbeddedInteractive) && !(hitInfo.hitboxType & HitboxFlags.ContentEditable)))) {
       document.body.style.cursor = "move";
     } else if (hitInfo.hitboxType & HitboxFlags.ShiftLeft) {
       document.body.style.cursor = "zoom-in";

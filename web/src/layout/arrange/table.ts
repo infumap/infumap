@@ -325,7 +325,7 @@ function createRow(
     ? sizeBl.w
     : Math.min(di_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
 
-  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, true);
+  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, true, true);
 
   const tableChildVeSpec: VisualElementSpec = {
     displayItem: displayItem_childItem,
@@ -366,7 +366,7 @@ function createRow(
         initiateLoadChildItemsMaybe(store, attachment_veid);
       }
 
-      const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, rowIdx, leftBl, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false);
+      const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, rowIdx, leftBl, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true);
 
       const tableChildAttachmentVeSpec: VisualElementSpec = {
         displayItem: displayItem_attachment,
