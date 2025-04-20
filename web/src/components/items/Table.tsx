@@ -112,6 +112,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
     });
   };
+  const isSortedByTitle = () => {
+    store.touchToolbarDependency();
+    return tableItem().orderChildrenBy == "title[ASC]";
+  }
 
   const columnSpecs = createMemo(() => {
     // TODO (LOW): I believe this would be more optimized if this calc was done at arrange time.
@@ -258,15 +262,29 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </Show>
         }</For>
       </div>
-      <Show when={store.perVe.getMovingItemIsOver(vePath()) && store.perVe.getMoveOverRowNumber(vePath()) > -1 && store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0}>
+      <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
+                  store.perVe.getMoveOverRowNumber(vePath()) > -1 &&
+                  store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
+                  !isSortedByTitle()}>
         <div class={`absolute border border-black`}
              style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
-      <Show when={store.perVe.getMovingItemIsOver(vePath()) && store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0}>
+      <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
+                  store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0}>
         <div class={`absolute border border-black bg-black`}
              style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+      </Show>
+      <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
+                  store.perVe.getMoveOverRowNumber(vePath()) > -2 && // always true, create dependency.
+                  store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
+                  isSortedByTitle()}>
+        <div class="absolute pointer-events-none"
+             style={`background-color: #0044ff0a; ` +
+                    `left: ${viewportBoundsPx()!.x + 1}px; top: ${viewportBoundsPx()!.y + 1}px; ` +
+                    `width: ${viewportBoundsPx()!.w - 2}px; height: ${viewportBoundsPx()!.h - 2}px; ` +
+                    `${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
     </>;
 
