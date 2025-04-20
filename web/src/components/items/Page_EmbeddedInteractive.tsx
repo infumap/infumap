@@ -190,7 +190,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           </>
         </Show>
         {pageFns().renderGridLinesMaybe()}
-        {pageFns().renderMoveOverIndexMaybe()}
+        {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
     </div>;
 

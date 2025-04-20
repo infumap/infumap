@@ -174,7 +174,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
-        {pageFns().renderMoveOverIndexMaybe()}
+        {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
     </div>;
 

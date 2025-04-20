@@ -176,11 +176,36 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         }</For>
       </Show>,
 
-    renderMoveOverIndexMaybe: () => {
-      if (!store.perVe.getMovingItemIsOver(pageFns.vePath()) || pageFns.pageItem().orderChildrenBy != "") {
+    renderMoveOverAnnotationMaybe: () => {
+      if (!store.perVe.getMovingItemIsOver(pageFns.vePath())) {
         return <></>;
       }
+      if (store.perVe.getMovingItemIsOver(pageFns.vePath()) && pageFns.pageItem().orderChildrenBy != "") {
+        return pageFns.renderMoveOverSortedMaybe();
+      }
+      if (store.perVe.getMovingItemIsOver(pageFns.vePath())) {
+        return pageFns.renderMoveOverIndexMaybe();
+      }
+    },
 
+    renderMoveOverSortedMaybe: () => {
+      if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
+        const topPx = 0;
+        const leftPx = 0;
+        const widthPx = LINE_HEIGHT_PX * pageFns.listColumnWidthBl();
+        const heightPx = props.visualElement.viewportBoundsPx!.h;
+        return (
+          <div class="absolute pointer-events-none"
+               style={`background-color: #0044ff0a; ` +
+                    `left: ${leftPx}px; top: ${topPx}px; ` +
+                    `width: ${widthPx}px; height: ${heightPx}px; ` +
+                    `${VeFns.zIndexStyle(props.visualElement)}`} />
+        );
+      }
+      return <></>;
+    },
+
+    renderMoveOverIndexMaybe: () => {
       if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) {
         const topPx = props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
         const leftPx = props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns) + 1;
@@ -202,7 +227,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       }
     },
   };
-
 
   return (
     <Switch>

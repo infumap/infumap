@@ -94,7 +94,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
-          {pageFns().renderMoveOverIndexMaybe()}
+          {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>
       <For each={pageFns().desktopChildren()}>{childVe =>
@@ -178,7 +178,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           </>
         </Show>
         {pageFns().renderGridLinesMaybe()}
-        {pageFns().renderMoveOverIndexMaybe()}
+        {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
     </div>;
 

@@ -135,7 +135,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         <For each={props.visualElement.childrenVes}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
-        {pageFns().renderMoveOverIndexMaybe()}
+        {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
     </div>;
 
