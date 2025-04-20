@@ -109,10 +109,16 @@ export const closestCaretPositionToClientPx = (el: HTMLElement, clientPx: Vector
       (clientPx.x - centerPx.x) * (clientPx.x - centerPx.x) +
       (clientPx.y - centerPx.y) * (clientPx.y - centerPx.y);
     const isSameLine = clientPx.y > bounds.top && clientPx.y < bounds.bottom;
-    if (distSq < closestDistSq && (isSameLine || !foundSameLine)) {
+    if (distSq < closestDistSq && isSameLine && !foundSameLine) {
       closestDistSq = distSq;
       closestPos = i;
-      foundSameLine = isSameLine;
+      foundSameLine = true;
+    } else if (isSameLine) {
+      if (!foundSameLine || distSq < closestDistSq) {
+        closestDistSq = distSq;
+        closestPos = i;
+      }
+      foundSameLine = true;
     }
   }
   return closestPos;
