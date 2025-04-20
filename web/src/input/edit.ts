@@ -144,7 +144,8 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
 
   const upVeid = VeFns.veidFromPath(closestPathUp);
   const upFocusItem = asTitledItem(itemState.get(upVeid.itemId)!);
-  if (!isNote(upFocusItem)) { return; }
+
+  if (!isNote(upFocusItem) && !isFile(upFocusItem)) { return; }
   const upTextLength = upFocusItem.title.length;
   upFocusItem.title = upFocusItem.title + asTitledItem(editingVe.displayItem).title;
   fullArrange(store);
@@ -165,7 +166,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
     server.deleteItem(compositeItem.id, store.general.networkStatus);
     fullArrange(store);
     const itemPath = VeFns.addVeidToPath(upVeid, compositeParentPath);
-    store.overlay.setTextEditInfo(store.history, { itemPath: itemPath, itemType: ItemType.Note });
+    store.overlay.setTextEditInfo(store.history, { itemPath: itemPath, itemType: upFocusItem.itemType });
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     setCaretPosition(textElement!, upTextLength);
@@ -173,7 +174,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
   }
   else {
     fullArrange(store);
-    store.overlay.setTextEditInfo(store.history, { itemPath: closestPathUp, itemType: ItemType.Note });
+    store.overlay.setTextEditInfo(store.history, { itemPath: closestPathUp, itemType: upFocusItem.itemType });
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     setCaretPosition(textElement!, upTextLength);
@@ -185,8 +186,8 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
   const itemPath = store.overlay.textEditInfo()!.itemPath;
   const noteVeid = VeFns.veidFromPath(itemPath);
   const item = itemState.get(noteVeid.itemId)!;
-  if (!isNote(item)) { return; }
-  const noteItem = asNoteItem(item);
+  if (!isNote(item) && !asFileItem(item)) { return; }
+  const titledItem = asTitledItem(item);
 
   const editingDomId = itemPath + ":title";
   const textElement = document.getElementById(editingDomId);
@@ -195,12 +196,12 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
   const beforeText = textElement!.innerText.substring(0, caretPosition);
   const afterText = textElement!.innerText.substring(caretPosition);
 
-  noteItem.title = beforeText;
+  titledItem.title = beforeText;
 
-  serverOrRemote.updateItem(noteItem, store.general.networkStatus);
+  serverOrRemote.updateItem(titledItem, store.general.networkStatus);
 
   const ordering = itemState.newOrderingDirectlyAfterChild(visualElement.displayItem.id, VeFns.canonicalItemFromVeid(noteVeid)!.id);
-  const note = NoteFns.create(noteItem.ownerId, visualElement.displayItem.id, RelationshipToParent.Child, "", ordering);
+  const note = NoteFns.create(titledItem.ownerId, visualElement.displayItem.id, RelationshipToParent.Child, "", ordering);
   note.title = afterText;
   itemState.add(note);
   server.addItem(note, null, store.general.networkStatus);
