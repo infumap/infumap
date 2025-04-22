@@ -42,29 +42,26 @@ import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { dockInsertIndexAndPositionFromDesktopY } from "../layout/arrange/dock";
 import { asContainerItem } from "../items/base/container-item";
 import { newUid } from "../util/uid";
-import { ItemType } from "../items/base/item";
 import { maybeAddNewChildItems } from "./create";
+import { isDataItem } from "../items/base/data-item";
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
   const shouldCreateLink = CursorEventState.get().ctrlDown;
-  const shouldClone =
-    CursorEventState.get().shiftDown &&
-    activeVisualElement.displayItem.itemType != ItemType.File && // Don't want to duplicate blob data.
-    activeVisualElement.displayItem.itemType != ItemType.Image;
+  const shouldClone = CursorEventState.get().shiftDown && !isDataItem(activeVisualElement.displayItem); // Don't want to duplicate blob data.
   const parentItem = itemState.get(activeItem.parentId)!;
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
-    moving_activeItemOutOfTable(store, shouldCreateLink);
+    moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
     fullArrange(store);
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
     const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
-    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
+    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone);
     fullArrange(store);
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
     const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false);
-    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
+    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
     fullArrange(store);
   }
   else {
@@ -187,7 +184,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   if (VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
-    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false);
+    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false, false);
     fullArrange(store);
     return;
   }
@@ -273,7 +270,7 @@ function moving_handleOverTable(store: StoreContextModel, overContainerVe: Visua
 }
 
 
-function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
+function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean, shouldClone: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
   const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 
@@ -304,7 +301,26 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   MouseActionState.get().startPosBl = startPosBl;
   const moveToPath = VeFns.veToPath(moveToVe);
 
-  if (shouldCreateLink && !isLink(activeElement.displayItem)) {
+  if (shouldClone && isPositionalItem(activeElement.displayItem)) {
+    const toClone = activeElement.displayItem;
+    const cloned = asPositionalItem(ItemFns.fromObject(ItemFns.toObject(toClone), null));
+    cloned.id = newUid();
+    cloned.creationDate = currentUnixTimeSeconds();
+    cloned.lastModifiedDate = currentUnixTimeSeconds();
+    cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
+    cloned.spatialPositionGr = newItemPosGr;
+    cloned.parentId = moveToPage.id;
+    itemState.add(cloned);
+    server.addItem(cloned, null, store.general.networkStatus);
+    maybeAddNewChildItems(store, asPositionalItem(cloned));
+
+    fullArrange(store);
+    let ve = VesCache.findSingle({ itemId: cloned.id, linkIdMaybe: null });
+    MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
+    MouseActionState.get().linkCreatedOnMoveStart = false;
+
+
+  } else if (shouldCreateLink && !isLink(activeElement.displayItem)) {
     const link = LinkFns.createFromItem(activeElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
     link.parentId = moveToPage.id;
     link.spatialPositionGr = newItemPosGr;
@@ -343,7 +359,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 }
 
 
-function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink: boolean) {
+function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink: boolean, shouldClone: boolean) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
@@ -395,7 +411,27 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     y: Math.round(itemPosInPageGr.y / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE
   };
 
-  if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
+  if (shouldClone && isPositionalItem(activeVisualElement.displayItem)) {
+    const toClone = activeVisualElement.displayItem;
+    const cloned = asPositionalItem(ItemFns.fromObject(ItemFns.toObject(toClone), null));
+    cloned.id = newUid();
+    cloned.creationDate = currentUnixTimeSeconds();
+    cloned.lastModifiedDate = currentUnixTimeSeconds();
+    cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
+    cloned.spatialPositionGr = itemPosInPageQuantizedGr;
+    cloned.parentId = moveToPage.id;
+    itemState.add(cloned);
+    server.addItem(cloned, null, store.general.networkStatus);
+    maybeAddNewChildItems(store, asPositionalItem(cloned));
+
+    fullArrange(store);
+    let ve = VesCache.findSingle({ itemId: cloned.id, linkIdMaybe: null });
+    MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
+    MouseActionState.get().linkCreatedOnMoveStart = false;
+
+    fullArrange(store);
+
+  } else if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
     const link = LinkFns.createFromItem(activeVisualElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
     link.parentId = moveToPage.id;
     link.spatialPositionGr = itemPosInPageQuantizedGr;
@@ -405,20 +441,18 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     let ve = VesCache.findSingle({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id });
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
     MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
-    MouseActionState.get().onePxSizeBl = {
-      x: moveToPageInnerSizeBl.w / moveToPageVe.childAreaBoundsPx!.w,
-      y: moveToPageInnerSizeBl.h / moveToPageVe.childAreaBoundsPx!.h
-    };
     MouseActionState.get().linkCreatedOnMoveStart = true;
+
   } else {
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
     MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe));
-    MouseActionState.get().onePxSizeBl = {
-      x: moveToPageInnerSizeBl.w / moveToPageVe.childAreaBoundsPx!.w,
-      y: moveToPageInnerSizeBl.h / moveToPageVe.childAreaBoundsPx!.h
-    };
   }
+
+  MouseActionState.get().onePxSizeBl = {
+    x: moveToPageInnerSizeBl.w / moveToPageVe.childAreaBoundsPx!.w,
+    y: moveToPageInnerSizeBl.h / moveToPageVe.childAreaBoundsPx!.h
+  };
 
   MouseActionState.get().startPosBl = { x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE };
 }
