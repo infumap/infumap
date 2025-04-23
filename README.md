@@ -1,6 +1,6 @@
 # Infumap
 
-What if the computer desktop was more like a giant workspace that persists over time, providing a collection of flexible building blocks powerful enough to facilitate many of the tasks you would traditionally need dedicated applications for?
+What if the computer desktop was a giant work space that provided a collection of interoperable building blocks powerful enough to facilitate many of the tasks you would traditionally need dedicated applications for?
 
 I have wondered this for as long as I can remember, and finally built Infumap as a way of exploring the idea. It's still pretty rough around the edges, but it's clear that the concept works - Infumap has become the platform I run my life off of and I wouldn't have it any other way.
 
