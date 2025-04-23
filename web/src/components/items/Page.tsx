@@ -201,6 +201,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `width: ${widthPx}px; height: ${heightPx}px; ` +
                     `${VeFns.zIndexStyle(props.visualElement)}`} />
         );
+      } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+                 pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+        const heightPx = Math.max(pageFns.childAreaBoundsPx().h, pageFns.boundsPx().h);
+        return (
+          <div class="absolute pointer-events-none"
+               style={`background-color: #0044ff0a; ` +
+                      `left: ${0}px; top: ${0}px; ` +
+                      `width: ${pageFns.childAreaBoundsPx().w}px; height: ${heightPx}px; ` +
+                      `${VeFns.zIndexStyle(props.visualElement)}`} />
+        );
       }
       return <></>;
     },
@@ -221,6 +231,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: 1px; width: ${widthPx}px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+        console.debug(store.perVe.getMoveOverIndex(pageFns.vePath()));
         return <></>;
       } else {
         return <></>;

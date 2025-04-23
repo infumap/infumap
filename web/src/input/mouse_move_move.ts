@@ -281,6 +281,11 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 
+  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+    // TODO (MEDIUM).
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), 0);
+  }
+
   else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
     // TODO (HIGH): consider list scroll position.
     const numChildren = asContainerItem(inElement).computed_children.length;
