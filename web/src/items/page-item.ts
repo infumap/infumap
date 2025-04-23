@@ -619,6 +619,7 @@ export const PageFns = {
   },
 
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const focusPath = VeFns.veToPath(visualElement);
     store.history.setFocus(focusPath);
     const actualVeid = VeFns.actualVeidFromVe(visualElement);
@@ -645,8 +646,7 @@ export const PageFns = {
     if ((visualElement.flags & VisualElementFlags.LineItem) &&
         !(parentVe.flags & VisualElementFlags.DockItem) &&
         isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-      const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
-      store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
       return;
     }
