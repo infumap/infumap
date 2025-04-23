@@ -31,7 +31,7 @@ import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -69,6 +69,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       x: activeItem.spatialPositionGr.x / GRID_SIZE,
       y: activeItem.spatialPositionGr.y / GRID_SIZE
     };
+
     if (shouldClone) {
       const toClone = activeVisualElement.displayItem;
       const cloned = ItemFns.fromObject(ItemFns.toObject(toClone), null);
@@ -114,10 +115,59 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
       fullArrange(store);
     }
+
     if (MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.ContentEditable) {
       let selection = window.getSelection();
       if (selection != null) { selection.removeAllRanges(); }
       (document.activeElement! as HTMLElement).blur();
+    }
+  }
+
+  // if it is a selected list page that is moving, change the selected item.
+  if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    const parentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
+    const selected = store.perItem.getSelectedListPageItem(VeFns.veidFromPath(parentPath));
+
+    if (selected && VeFns.compareVeids(selected, VeFns.veidFromPath(MouseActionState.get().activeElementPath) ) === 0) {
+      const children = asPageItem(parentItem).computed_children;
+      let foundIdx = -1;
+      for (let i=0; i<children.length; i++) {
+        const child = itemState.get(children[i])!;
+        if (isLink(child)) {
+          const link = asLinkItem(child);
+          const linkToId = LinkFns.getLinkToId(link);
+          const linkVeid = VeFns.veidFromItems(itemState.get(linkToId)!, link);
+          if (VeFns.compareVeids(linkVeid, selected) === 0) {
+            foundIdx = i;
+            break;
+          }
+        } else {
+          const veid = { itemId: children[i], linkIdMaybe: null };
+          if (VeFns.compareVeids(veid, selected) === 0) {
+            foundIdx = i;
+            break;
+          }
+        }
+      }
+
+      if (foundIdx != -1) {
+        let newSelectedIdx = foundIdx;
+        if (foundIdx > 0) {
+          newSelectedIdx = foundIdx - 1;
+        }
+        if (newSelectedIdx >= children.length - 1) {
+          newSelectedIdx = -1;
+        }
+
+        const child = itemState.get(children[newSelectedIdx])!;
+        let veid: Veid = { itemId: children[newSelectedIdx]!, linkIdMaybe: null };
+        if (isLink(child)) {
+          const link = asLinkItem(child);
+          const linkToId = LinkFns.getLinkToId(link);
+          veid = VeFns.veidFromItems(itemState.get(linkToId)!, link);
+        }
+        store.perItem.setSelectedListPageItem(VeFns.veidFromPath(parentPath), veid);
+      }
     }
   }
 
