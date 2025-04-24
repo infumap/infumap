@@ -96,7 +96,7 @@ Now clone the infumap repo:
     cd git
     git clone https://github.com/infumap/infumap.git
     cd infumap
-    git checkout v0.1.0
+    git checkout v0.2.0
 
 Determine the latest version of `nvm` here https://github.com/nvm-sh/nvm (at the time of writing 0.40.1) and install similar to:
 
