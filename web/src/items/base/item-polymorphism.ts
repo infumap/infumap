@@ -298,7 +298,7 @@ export const ItemFns = {
     else if (isExpression(item)) { ExpressionFns.handlePopupClick(visualElement, store); }
     else if (isImage(item)) { ImageFns.handleOpenPopupClick(visualElement, store); }
     else if (isFile(item)) { FileFns.handlePopupClick(visualElement, store); }
-    else if (isPassword(item)) { }
+    else if (isPassword(item)) { PasswordFns.handlePopupClick(visualElement, store); }
     else if (isRating(item)) { }
     else if (isLink(item)) { }
     else if (isPlaceholder(item)) { panic("handleOpenPopupClick: placeholder"); }

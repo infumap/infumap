@@ -26,13 +26,14 @@ import { ItemType, ItemTypeMixin } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { VeFns, VisualElement } from '../layout/visual-element';
+import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { fullArrange } from '../layout/arrange';
+import { VesCache } from '../layout/ves-cache';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
@@ -179,25 +180,33 @@ export const PasswordFns = {
 
   calcGeometry_ListItem: (_password: PasswordMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
-    const innerBoundsPx = {
-      x: 0.0,
-      y: 0.0,
-      w: blockSizePx.w * widthBl,
-      h: blockSizePx.h
-    };
     const boundsPx = {
       x: blockSizePx.w * col,
       y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX * scale : 0),
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
+    const innerBoundsPx = {
+      x: 0.0,
+      y: 0.0,
+      w: blockSizePx.w * widthBl,
+      h: blockSizePx.h
+    };
+    const clickAreaBoundsPx = {
+      x: blockSizePx.w,
+      y: 0.0,
+      w: blockSizePx.w * (widthBl - 1),
+      h: blockSizePx.h
+    };
+    const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     return {
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+        HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
       ]
     };
   },
@@ -254,6 +263,17 @@ export const PasswordFns = {
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     fullArrange(store);
     setCaretPosition(el, closestIdx);
+  },
+
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    } else {
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    }
   },
 
 };
