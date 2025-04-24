@@ -101,7 +101,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
       <Show when={props.visualElement.selectedVes != null && props.visualElement.selectedVes.get() != null}>
-        <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
+        <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()!} />
       </Show>
       <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
         <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
@@ -169,7 +169,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
         <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
-          <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
+          <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
         </Show>
         <Show when={pageFns().isDocumentPage()}>
           <>

@@ -56,7 +56,14 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const isDetailed = () => { return (props.visualElement.flags & VisualElementFlags.Detailed) != 0; }
-  const isPopup = () => { return (props.visualElement.flags & VisualElementFlags.Popup) != 0; }
+  const isPopup = () => {
+    try {
+      return (props.visualElement.flags & VisualElementFlags.Popup) != 0;
+    } catch (e) {
+      console.warn("Error in isPopup:", e, "props:", props, "visualElement:", props?.visualElement);
+      return false;
+    }
+  }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
   const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true);
@@ -120,9 +127,17 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return result;
   }
 
-  const isMainPoppedUp = () =>
-    store.history.currentPopupSpecVeid() != null &&
-    VeFns.compareVeids(VeFns.actualVeidFromVe(props.visualElement), store.history.currentPopupSpecVeid()!) == 0;
+  const isMainPoppedUp = () => {
+    try {
+      if (store.history.currentPopupSpecVeid() == null) {
+        return false;
+      }
+      return VeFns.compareVeids(VeFns.actualVeidFromVe(props.visualElement), store.history.currentPopupSpecVeid()!) == 0;
+    } catch (e) {
+      console.warn("Error in isMainPoppedUp:", e, "props:", props, "visualElement:", props?.visualElement);
+      return false;
+    }
+  };
 
   // Note: The image requested has the same size as the div. Since the div has a border of
   // width 1px, the image is 2px wider or higher than necessary (assuming there are no
@@ -155,6 +170,17 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
           .then((objectUrl) => {
             if (imgElement) {
+              try {
+                // props.visualElement is actually a function call, which will fail if the component is unmounted.
+                if (props.visualElement == null) {
+                  // dummy statement to ensure the check is not optimized away.
+                  return;
+                }
+              }
+              catch (e) {
+                // expected behavior when the component is unmounted.
+                return;
+              }
               if (isPopup()) {
                 if (imageIdOnRequest == props.visualElement.displayItem.id) {
                   imgElement!.src = objectUrl;
