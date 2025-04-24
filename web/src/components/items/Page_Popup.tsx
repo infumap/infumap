@@ -149,7 +149,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       <For each={pageFns().desktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
-      <Show when={props.visualElement.selectedVes != null}>
+      <Show when={props.visualElement.selectedVes != null && props.visualElement.selectedVes.get() != null}>
         <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
       </Show>
     </div>;

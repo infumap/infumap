@@ -151,10 +151,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <For each={pageFns().desktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
-      <Show when={props.visualElement.selectedVes != null}>
+      <Show when={props.visualElement.selectedVes != null && props.visualElement.selectedVes.get() != null}>
         <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
       </Show>
-      <Show when={props.visualElement.popupVes != null}>
+      <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
         <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
       </Show>
     </div>;
@@ -180,7 +180,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <For each={props.visualElement.childrenVes}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
-        <Show when={props.visualElement.popupVes != null}>
+        <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
           <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
         </Show>
         <Show when={isPage(VeFns.canonicalItem(props.visualElement)) && asPageItem(VeFns.canonicalItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>

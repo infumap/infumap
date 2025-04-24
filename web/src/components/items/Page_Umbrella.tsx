@@ -31,7 +31,7 @@ export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisu
       <For each={props.visualElement.childrenVes}>{childVes =>
         <VisualElement_Desktop visualElement={childVes.get()} />
       }</For>
-      <Show when={props.visualElement.dockVes != null}>
+      <Show when={props.visualElement.dockVes != null && props.visualElement.dockVes.get() != null}>
         <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
       </Show>
     </div>
