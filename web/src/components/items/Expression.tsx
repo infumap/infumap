@@ -111,7 +111,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700`;
+      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700 pointer-events-none`;
     }
     if (expressionItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {

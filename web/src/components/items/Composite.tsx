@@ -54,7 +54,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
     const shadowClass = () => {
       if (isPopup()) {
-        return `absolute border border-transparent rounded-sm overflow-hidden blur-md bg-slate-700`;
+        return `absolute border border-transparent rounded-sm overflow-hidden blur-md bg-slate-700 pointer-events-none`;
       }
       return `absolute border border-transparent rounded-sm shadow-lg overflow-hidden`;
     };

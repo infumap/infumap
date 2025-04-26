@@ -118,7 +118,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700`;
+      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700 pointer-events-none`;
     }
     return `absolute border border-slate-700 rounded-sm shadow-lg bg-white`;
   };

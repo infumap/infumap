@@ -164,7 +164,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
                    `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
         <Show when={isPopup() || true}>
-          <div class={`absolute bg-white`}
+          <div class={`absolute bg-white pointer-events-none`}
                style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
                       `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW};`} />
         </Show>
