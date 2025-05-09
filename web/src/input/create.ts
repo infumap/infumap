@@ -34,7 +34,7 @@ import { fullArrange } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VeFns, VisualElementFlags } from "../layout/visual-element";
-import { server } from "../server";
+import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Vector, cloneBoundingBox, isInside } from "../util/geometry";
@@ -237,6 +237,31 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
       newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
     }
+  }
+
+  else if (isLink(overElementVe.displayItem)) {
+    const link = asLinkItem(overElementVe.displayItem);
+
+    const currentPageId = store.history.currentPageVeid()!.itemId;
+    newItem = createNewItem(
+      store,
+      type,
+      currentPageId,
+      itemState.newOrderingAtEndOfChildren(currentPageId),
+      RelationshipToParent.Child);
+    newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+
+    itemState.add(newItem);
+    server.addItem(newItem, null, store.general.networkStatus);
+    maybeAddNewChildItems(store, newItem);
+
+    link.linkTo = newItem.id;
+    serverOrRemote.updateItem(link, store.general.networkStatus);
+
+    store.overlay.contextMenuInfo.set(null);
+    fullArrange(store);
+
+    newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: overElementVe.linkItemMaybe!.id}, overElementVe.parentPath!);
   }
 
   else {
