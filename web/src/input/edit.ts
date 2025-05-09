@@ -137,7 +137,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
 
   const compositeVe = visualElement;
   const compositeParentPath = VeFns.parentPath(VeFns.veToPath(compositeVe));
-  if (!isComposite(compositeVe.displayItem)) { panic("composite item is not a composite!") }
+  if (!isComposite(compositeVe.displayItem)) { return; }
   const compositeItem = asCompositeItem(compositeVe.displayItem);
   const closestPathUp = findClosest(VeFns.veToPath(editingVe), FindDirection.Up, true, false);
   if (closestPathUp == null) { return; }
