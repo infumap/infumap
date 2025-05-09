@@ -165,7 +165,7 @@ export const itemState = {
       }
       children.push(childItem.id);
     });
-    parent.computed_children = children;
+    parent.computed_children = [...parent.computed_children, ...children];
     itemState.sortChildren(parentId);
   },
 
@@ -186,7 +186,7 @@ export const itemState = {
       }
       attachments.push(attachmentItem.id);
     });
-    parent.computed_attachments = attachments;
+    parent.computed_attachments = [...parent.computed_attachments, ...attachments];
     itemState.sortAttachments(parentId);
   },
 
