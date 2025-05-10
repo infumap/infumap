@@ -37,6 +37,7 @@ import { VesCache } from '../layout/ves-cache';
 import { fullArrange } from '../layout/arrange';
 import { asPageItem, isPage } from './page-item';
 import { asImageItem, isImage } from './image-item';
+import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
@@ -50,11 +51,13 @@ export interface CompositeMeasurable extends ItemTypeMixin, PositionalMixin, XSi
 
 export const CompositeFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): CompositeItem => {
+    let id = newUid();
+    markChildrenLoadAsInitiatedOrComplete(id);
     return ({
       origin: null,
       itemType: ItemType.Composite,
       ownerId,
-      id: newUid(),
+      id,
       parentId,
       relationshipToParent,
       creationDate: currentUnixTimeSeconds(),

@@ -45,6 +45,7 @@ import { CursorEventState } from "../input/state";
 import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
+import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 
 
 export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -56,11 +57,13 @@ export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizabl
 export const TableFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TableItem => {
     if (parentId == EMPTY_UID) { panic("TableFns.create: parent is empty."); }
+    let id = newUid();
+    markChildrenLoadAsInitiatedOrComplete(id);
     return {
       origin: null,
       itemType: ItemType.Table,
       ownerId,
-      id: newUid(),
+      id,
       parentId,
       relationshipToParent,
       creationDate: currentUnixTimeSeconds(),

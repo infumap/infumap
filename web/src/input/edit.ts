@@ -186,7 +186,7 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
   const itemPath = store.overlay.textEditInfo()!.itemPath;
   const noteVeid = VeFns.veidFromPath(itemPath);
   const item = itemState.get(noteVeid.itemId)!;
-  if (!isNote(item) && !asFileItem(item)) { return; }
+  if (!isNote(item) && !isFile(item)) { return; }
   const titledItem = asTitledItem(item);
 
   const editingDomId = itemPath + ":title";

@@ -47,8 +47,8 @@ export function clearLoadState() {
   }
 }
 
-export function markChildrenLoadAsInitiatedOrComplete(pageId: Uid) {
-  childrenLoadInitiatedOrComplete[pageId] = true;
+export function markChildrenLoadAsInitiatedOrComplete(containerId: Uid) {
+  childrenLoadInitiatedOrComplete[containerId] = true;
 }
 
 

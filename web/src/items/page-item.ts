@@ -48,6 +48,7 @@ import { CursorEventState } from '../input/state';
 import { TabularItem, TabularMixin } from './base/tabular-item';
 import { ColorableMixin } from './base/colorable-item';
 import { AspectItem, AspectMixin } from './base/aspect-item';
+import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 
 
 export const ArrangeAlgorithm = {
@@ -107,11 +108,13 @@ export const PageFns = {
    * Create a page item.
    */
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem => {
+    let id = newUid();
+    markChildrenLoadAsInitiatedOrComplete(id);
     return ({
       origin: null,
       itemType: ItemType.Page,
       ownerId,
-      id: newUid(),
+      id,
       parentId,
       relationshipToParent,
       creationDate: currentUnixTimeSeconds(),
