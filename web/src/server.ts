@@ -145,8 +145,8 @@ export const server = {
     return constructCommandPromise(null, "delete-item", { id }, null, true, networkStatus);
   },
 
-  search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal): Promise<Array<SearchResult>> => {
-    return constructCommandPromise(null, "search", { pageId: pageIdMaybe, text, numResults: 15 }, null, true, networkStatus);
+  search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal, pageNumMaybe?: number): Promise<Array<SearchResult>> => {
+    return constructCommandPromise(null, "search", { pageId: pageIdMaybe, text, numResults: 10, pageNum: pageNumMaybe }, null, true, networkStatus);
   },
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {

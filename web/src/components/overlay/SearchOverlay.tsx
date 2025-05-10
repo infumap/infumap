@@ -48,6 +48,8 @@ export const SearchOverlay: Component = () => {
   }
 
   const resultsSignal = createResultSignal();
+  const [currentPage, setCurrentPage] = createSignal(1);
+  const [hasMorePages, setHasMorePages] = createSignal(false);
 
   const boxBoundsPx = () => {
     return ({
@@ -87,9 +89,22 @@ export const SearchOverlay: Component = () => {
 
   const handleSearchClick = async () => {
     const pageIdMaybe = isGlobalSearchSignal.get() ? null : store.history.currentPageVeid()!.itemId;
-    const result = await server.search(pageIdMaybe, textElement!.value, store.general.networkStatus);
+    const result = await server.search(pageIdMaybe, textElement!.value, store.general.networkStatus, currentPage());
     searchedFor = textElement!.value;
     resultsSignal.set(result);
+    setHasMorePages(result.length === 10);
+  };
+
+  const handleNextPage = async () => {
+    setCurrentPage(p => p + 1);
+    await handleSearchClick();
+  };
+
+  const handlePrevPage = async () => {
+    if (currentPage() > 1) {
+      setCurrentPage(p => p - 1);
+      await handleSearchClick();
+    }
   };
 
   const switchToItm = async (selectedId: Uid) => {
@@ -265,6 +280,21 @@ export const SearchOverlay: Component = () => {
                 </div>
               </div>
             }</For>
+            <div class="flex justify-between items-center p-2 border-t">
+              <button
+                class="px-2 py-1 rounded hover:bg-slate-200 disabled:opacity-50"
+                disabled={currentPage() === 1}
+                onClick={handlePrevPage}>
+                Previous
+              </button>
+              <span class="text-sm">Page {currentPage()}</span>
+              <button
+                class="px-2 py-1 rounded hover:bg-slate-200 disabled:opacity-50"
+                disabled={!hasMorePages()}
+                onClick={handleNextPage}>
+                Next
+              </button>
+            </div>
           </Show>
           <Show when={resultsSignal.get()!.length == 0}>
             <div>[no results found]</div>
