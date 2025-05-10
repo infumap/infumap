@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch, createSignal, onMount } from "solid-js";
+import { Component, Match, Show, Switch, createSignal, on, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { BoundingBox } from "../../util/geometry";
@@ -182,14 +182,7 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
       pageItem().docWidthBl = Math.round(parseFloat(textElement!.value));
     } else if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
-      let newNumCols = parseInt(textElement!.value);
-      if (newNumCols > 20) { newNumCols = 20; }
-      if (newNumCols < 1) { newNumCols = 1; }
-      while (tableItem().tableColumns.length < newNumCols) {
-        tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
-      }
-      tableItem().numberOfVisibleColumns = newNumCols;
-      setSliderValue(newNumCols.toString());
+      panic("unexpected overlay type in handleTextChange: " + overlayTypeConst);
     }
     fullArrange(store);
   };
@@ -329,6 +322,18 @@ export const Toolbar_Popup: Component = () => {
     QRCode.toCanvas(canvas, url, { scale: 7 });
   });
 
+  const handleSliderInput = (e: Event & { currentTarget: HTMLInputElement }) => {
+    setSliderValue(e.currentTarget.value);
+    let newNumCols = parseInt(e.currentTarget.value);
+    if (newNumCols > 20) { newNumCols = 20; }
+    if (newNumCols < 1) { newNumCols = 1; }
+    tableItem().numberOfVisibleColumns = newNumCols;
+    while (tableItem().tableColumns.length < newNumCols) {
+      tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
+    }
+    fullArrange(store);
+  };
+
   return (
     <>
       <Switch>
@@ -413,8 +418,7 @@ export const Toolbar_Popup: Component = () => {
                           min="1"
                           max="20"
                           value={sliderValue()}
-                          onChange={handleTextChange}
-                          onInput={(e) => { setSliderValue(e.currentTarget.value); tableItem().numberOfVisibleColumns = parseInt(e.currentTarget.value); fullArrange(store); }}
+                          onInput={handleSliderInput}
                           onKeyDown={handleKeyDown}
                           onKeyUp={handleKeyUp}
                           onKeyPress={handleKeyPress}/>
