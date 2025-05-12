@@ -28,6 +28,7 @@ import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
 import { SearchOverlay } from "./overlay/SearchOverlay";
+import { FindOverlay } from "./overlay/FindOverlay";
 import { Toolbar_Popup } from "./toolbar/Toolbar_Popup";
 import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler } from "../input/mouse_move";
@@ -250,6 +251,9 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />
+      </Show>
+      <Show when={store.overlay.findOverlayVisible.get()}>
+        <FindOverlay />
       </Show>
       <Show when={store.overlay.networkOverlayVisible.get()}>
         <Toolbar_NetworkStatus_Overlay />

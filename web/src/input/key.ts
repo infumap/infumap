@@ -160,11 +160,10 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     newItemInContext(store, "expression", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
-  else if (ev.code == "KeyF") {
-    if (store.general.installationState()!.devFeatureFlag) {
-      ev.preventDefault();
-      newItemInContext(store, "flipcard", hitInfo, CursorEventState.getLatestDesktopPx(store));
-    }
+  else if (ev.code == "KeyF" && (ev.ctrlKey || ev.metaKey)) {
+    ev.preventDefault();
+    store.overlay.findOverlayVisible.set(true);
+    return;
   }
 
   else {

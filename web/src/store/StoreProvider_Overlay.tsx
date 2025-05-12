@@ -78,6 +78,7 @@ export interface OverlayStoreContextModel {
   toolbarTransientMessage: InfuSignal<string | null>,
   networkOverlayVisible: InfuSignal<boolean>,
   searchOverlayVisible: InfuSignal<boolean>,
+  findOverlayVisible: InfuSignal<boolean>,
 
   textEditInfo: () => TextEditInfo | null,
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => void,
@@ -101,6 +102,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const toolbarTransientMessage = createInfuSignal<string | null>(null);
   const searchOverlayVisible = createInfuSignal<boolean>(false);
   const networkOverlayVisible = createInfuSignal<boolean>(false);
+  const findOverlayVisible = createInfuSignal<boolean>(false);
 
   function clear() {
     textEditInfo_.set(null);
@@ -111,12 +113,14 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     tableColumnContextMenuInfo.set(null);
     searchOverlayVisible.set(false);
     networkOverlayVisible.set(false);
+    findOverlayVisible.set(false);
   }
 
   function anOverlayIsVisible(): boolean {
     return (
       textEditInfo_.get() != null ||
       searchOverlayVisible.get() ||
+      findOverlayVisible.get() ||
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
       tableColumnContextMenuInfo.get() != null ||
@@ -155,6 +159,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     toolbarTransientMessage,
     searchOverlayVisible,
     networkOverlayVisible,
+    findOverlayVisible,
 
     clear,
     anOverlayIsVisible,
