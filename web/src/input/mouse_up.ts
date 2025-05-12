@@ -241,7 +241,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         // nothing.
 
       } else {
-        if (isComposite(activeVisualElement.displayItem)) {
+        if (isComposite(activeVisualElement.displayItem) || isPlaceholder(activeVisualElement.displayItem)) {
           // noop.
 
         } else {
