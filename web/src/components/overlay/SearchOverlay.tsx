@@ -60,6 +60,12 @@ export const SearchOverlay: Component = () => {
     });
   }
 
+  const boxBoundsRelativeToDesktopPx = () => {
+    const r = boxBoundsPx();
+    r.y -= store.topToolbarHeightPx();
+    return r;
+  }
+
   let overResultsDiv = false;
   const resultsDivMouseDownListener = () => { overResultsDiv = true; }
   const resultsDivMouseUpListener = () => { overResultsDiv = false; }
@@ -67,7 +73,7 @@ export const SearchOverlay: Component = () => {
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    if (isInside(CursorEventState.getLatestDesktopPx(store), boxBoundsPx())) { return; }
+    if (isInside(CursorEventState.getLatestDesktopPx(store), boxBoundsRelativeToDesktopPx())) { return; }
     if (overResultsDiv) { return; }
     store.overlay.searchOverlayVisible.set(false);
   };
