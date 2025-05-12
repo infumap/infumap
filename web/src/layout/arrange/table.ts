@@ -197,6 +197,8 @@ function createFillerRow(
 
 
 export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: VisualElementPath, tableVeid: Veid, prevScrollYPos: number) {
+  if (VesCache.isCurrentlyInFullArrange()) { return; }
+
   let needToRearrange = () => {
     const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
     if (Math.round(prevScrollYPos) != Math.round(scrollYPos)) { return true; }
@@ -384,19 +386,19 @@ function createRow(
         blockSizePx
       };
       const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
-      let tableChildAttachmentVeSignal;
+      let tableChildAttachmentVes;
       if (vesToOverwrite != null) {
         // TODO (MEDIUM): re-use these.
-        tableChildAttachmentVeSignal = VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
+        tableChildAttachmentVes = VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
       } else {
-        tableChildAttachmentVeSignal = VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
+        tableChildAttachmentVes = VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
       }
 
       if (isExpression(tableChildAttachmentVeSpec.displayItem)) {
-        VesCache.markEvaluationRequired(VeFns.veToPath(tableChildAttachmentVeSignal.get()));
+        VesCache.markEvaluationRequired(VeFns.veToPath(tableChildAttachmentVes.get()));
       }
 
-      tableItemVeAttachments.push(tableChildAttachmentVeSignal);
+      tableItemVeAttachments.push(tableChildAttachmentVes);
 
       leftBl += di_Table.tableColumns[i+1].widthGr / GRID_SIZE;
     }

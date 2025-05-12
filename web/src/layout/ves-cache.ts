@@ -52,6 +52,7 @@ let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>
 let underConstructionTopTitledPages = new Array<VisualElementPath>();
 
 let evaluationRequired = new Set<VisualElementPath>();
+let currentlyInFullArrange = false;
 
 export let VesCache = {
 
@@ -106,6 +107,7 @@ export let VesCache = {
 
   full_initArrange: (): void => {
     evaluationRequired = new Set<VisualElementPath>();
+    currentlyInFullArrange = true;
   },
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaVeSpec: VisualElementSpec, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
@@ -127,6 +129,11 @@ export let VesCache = {
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     underConstructionTopTitledPages = [];
+    currentlyInFullArrange = false;
+  },
+
+  isCurrentlyInFullArrange: (): boolean => {
+    return currentlyInFullArrange;
   },
 
   /**
