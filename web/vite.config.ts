@@ -43,6 +43,7 @@ export default defineConfig(({ command, mode }) => {
     build: {
       target: 'esnext',
       outDir: './dist',
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         input: {
           // @ts-ignore
