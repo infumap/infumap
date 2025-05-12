@@ -31,7 +31,7 @@ import { CompositeFns, isComposite } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { isNumeric } from "../../util/math";
-import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
+import { appendNewlineIfEmpty, isUrl, trimNewline } from "../../util/string";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { itemState } from "../../store/ItemState";
@@ -185,6 +185,13 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const enterKeyHandler = () => {
     if (store.user.getUserMaybe() == null || noteItem().ownerId != store.user.getUser().userId) { return; }
+
+    if (isUrl(noteItem().title)) {
+      if (noteItem().url == "") {
+        noteItem().url = noteItem().title;
+      }
+    }
+
     const ve = props.visualElement;
     const parentVe = VesCache.get(ve.parentPath!)!.get();
 
