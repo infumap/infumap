@@ -30,7 +30,7 @@ import { initiateLoadItemMaybe } from "../../layout/load";
 import { isInside } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { isPage } from "../../items/page-item";
-
+import { MOUSE_RIGHT} from "../../input/mouse_down";
 
 export const SearchOverlay: Component = () => {
   const store = useStore();
@@ -73,6 +73,10 @@ export const SearchOverlay: Component = () => {
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
+    if (ev.button === MOUSE_RIGHT) {
+      store.overlay.searchOverlayVisible.set(false);
+      return;
+    }
     if (isInside(CursorEventState.getLatestDesktopPx(store), boxBoundsRelativeToDesktopPx())) { return; }
     if (overResultsDiv) { return; }
     store.overlay.searchOverlayVisible.set(false);
