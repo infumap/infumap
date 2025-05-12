@@ -61,12 +61,17 @@ function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): strin
   return url;
 }
 
-export function switchToItem(store: StoreContextModel, itemId: Uid) {
+export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory: boolean) {
   const selectedItem = itemState.get(itemId)!;
   assert(!isPage(selectedItem), "cannot call switchToItem on page item");
+
   itemState.addSoloItemHolderPage(selectedItem!.ownerId);
   asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [itemId];
-  store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
+  if (clearHistory) {
+    store.history.setHistoryToSinglePage(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
+  } else {
+    store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
+  }
   fArrange(store);
 
   const url = currentUrl(store, itemId);
@@ -87,7 +92,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   fArrange(store);
 
   const url = currentUrl(store, null);
-  if (!replace && updateHistory) {
+  if ((!replace && updateHistory) || clearHistory) {
     window.history.pushState(null, "", url);
   }
   store.currentUrlPath.set(url);

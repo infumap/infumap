@@ -110,10 +110,10 @@ export const SearchOverlay: Component = () => {
   const switchToItm = async (selectedId: Uid) => {
     const selectedItem = itemState.get(selectedId)!;
     if (!isPage(selectedItem)) {
-      switchToItem(store, selectedId);
+      switchToItem(store, selectedId, true);
       return;
     }
-    switchToPage(store, VeFns.veidFromId(selectedId), true, false, false);
+    switchToPage(store, VeFns.veidFromId(selectedId), true, true, false);
   }
 
   const handleInputKeyDown = async (ev: KeyboardEvent) => {
