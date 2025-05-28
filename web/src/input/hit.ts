@@ -304,6 +304,7 @@ function getHitInfo(
   // Root is either:
   //  - The top level page, or
   //  - The (page) popup if open and the mouse is over it, or
+  //    - Note: non-page popup are handled explicitly immediately here.
   //  - The selected page in a list page, or
   //  - The dock page, or
   //  - An embedded root.
@@ -325,10 +326,9 @@ function getHitInfo(
     }
   }
 
-  rootInfo = hitNonPagePopupMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems);
-  // TODO (HIGH): case where a non-page container popup is hit.
+  rootInfo = hitNonPagePopupMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, ignoreAttachments);
   if (rootInfo.hitMaybe) {
-    return rootInfo.hitMaybe!; // hit a root hitbox, done already.
+    return rootInfo.hitMaybe!;
   }
 
   rootInfo = hitPageSelectedRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
@@ -377,13 +377,6 @@ function getHitInfoUnderRoot(
       return hitMaybe;
     }
   }
-
-  // if (rootVe.popupVes) {
-  //   const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVe.popup, ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
-  //   if (hitMaybe) {
-  //     return hitMaybe;
-  //   }
-  // }
 
   if (rootVe.selectedVes) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVe.selectedVes, ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
@@ -592,7 +585,8 @@ function hitNonPagePopupMaybe(
     parentRootInfo: RootInfo,
     posOnDesktopPx: Vector,
     canHitEmbeddedInteractive: boolean,
-    ignoreItems: Array<Uid>): RootInfo {
+    ignoreItems: Array<Uid>,
+    ignoreAttachments: boolean): RootInfo {
 
   let rootVe = parentRootInfo.rootVe;
 
@@ -647,6 +641,14 @@ function hitNonPagePopupMaybe(
       posRelativeToRootVeViewportPx,
       hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe1")
     });
+  }
+
+  for (let i=rootVe.childrenVes.length-1; i>=0; --i) {
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVe.childrenVes[i], ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
+    if (hitMaybe) {
+      parentRootInfo.hitMaybe = hitMaybe;
+      return parentRootInfo;
+    }
   }
 
   console.debug("TODO: understand and handle this case better.");
