@@ -31,10 +31,10 @@ export const FindOverlay: Component = () => {
   const [totalMatches, setTotalMatches] = createSignal(0);
 
   const boxBoundsPx = () => ({
-    x: 5,
+    x: window.innerWidth - 435,
     y: 5 + store.topToolbarHeightPx(),
-    w: 405,
-    h: 64
+    w: 420,
+    h: 56
   });
 
   const boxBoundsRelativeToDesktopPx = () => {
@@ -114,11 +114,11 @@ export const FindOverlay: Component = () => {
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>
-      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-           style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px`}>
-        <div class="flex items-center mt-[5px]">
+      <div class="absolute border border-gray-400 rounded-lg bg-white shadow-lg"
+           style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);`}>
+        <div class="flex items-center justify-between px-3 py-2 h-full">
           <input ref={textElement}
-                 class="border border-slate-300 rounded w-[300px] pl-1 ml-[5px] mr-[5px]"
+                 class="border border-gray-300 rounded-md flex-1 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                  placeholder="Find in page..."
                  type="text"
                  onKeyDown={handleInputKeyDown}
@@ -126,19 +126,19 @@ export const FindOverlay: Component = () => {
                    setSearchText(e.currentTarget.value);
                    handleFind();
                  }} />
-          <div class="flex items-center">
-            <button class="px-2 py-1 rounded hover:bg-slate-200 disabled:opacity-50"
+          <div class="flex items-center ml-3 space-x-1">
+            <button class="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     disabled={currentMatch() <= 1}
                     onClick={handlePrev}>
-              <i class="fa fa-chevron-up" />
+              <i class="fa fa-chevron-up text-xs text-gray-600" />
             </button>
-            <span class="mx-2 text-sm">
+            <span class="text-xs text-gray-600 min-w-[40px] text-center">
               {totalMatches() > 0 ? `${currentMatch()}/${totalMatches()}` : '0/0'}
             </span>
-            <button class="px-2 py-1 rounded hover:bg-slate-200 disabled:opacity-50"
+            <button class="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     disabled={currentMatch() >= totalMatches()}
                     onClick={handleNext}>
-              <i class="fa fa-chevron-down" />
+              <i class="fa fa-chevron-down text-xs text-gray-600" />
             </button>
           </div>
         </div>

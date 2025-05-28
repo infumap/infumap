@@ -53,10 +53,10 @@ export const SearchOverlay: Component = () => {
 
   const boxBoundsPx = () => {
     return ({
-      x: 5,
+      x: 15,
       y: 5 + store.topToolbarHeightPx(),
-      w: 405,
-      h: 64
+      w: 420,
+      h: 80
     });
   }
 
@@ -241,65 +241,77 @@ export const SearchOverlay: Component = () => {
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>
-      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-           style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px`}>
-        <div class="mt-[5px]" style="transform: scale(0.8); transform-origin: top left;">
-          <div class="inline-block ml-[10px]">
-            Search scope
+      <div class="absolute border border-gray-400 rounded-lg bg-white shadow-lg"
+           style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);`}>
+        <div class="px-3 py-2">
+          <div class="flex items-center justify-between mb-2 text-xs text-gray-600">
+            <span class="font-medium">Search scope</span>
+            <div class="flex items-center space-x-3">
+              <label class="flex items-center cursor-pointer">
+                <input type="radio" name="scope" checked={isGlobalSearchSignal.get()} onClick={toggleScope} class="mr-1.5" />
+                Global
+              </label>
+              <label class="flex items-center cursor-pointer">
+                <input type="radio" name="scope" checked={!isGlobalSearchSignal.get()} onClick={toggleScope} class="mr-1.5" />
+                Below current page
+              </label>
+            </div>
           </div>
-          <div class="inline-block ml-[14px]">
-            <input type="radio" name="scope" id="global" checked={isGlobalSearchSignal.get()} onClick={toggleScope} />
-            <label for="global" class="ml-[4px]">Global</label>
+          <div class="flex items-center space-x-2">
+            <input ref={textElement}
+                   class="border border-gray-300 rounded-md flex-1 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   autocomplete="on"
+                   placeholder="Search..."
+                   value={""}
+                   type="text"
+                   onKeyDown={handleInputKeyDown} />
+            <button class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
+                    onclick={handleSearchClick}>
+              <i class="fa fa-search text-gray-600" />
+            </button>
           </div>
-          <div class="inline-block ml-[14px]">
-            <input type="radio" name="scope" id="page" checked={!isGlobalSearchSignal.get()} onClick={toggleScope} />
-            <label for="page" class="ml-[4px]">Below current page</label>
-          </div>
-        </div>
-        <input ref={textElement}
-               class="border border-slate-300 rounded w-[370px] pl-1 ml-[5px] mr-[5px]"
-               autocomplete="on"
-               value={""}
-               type="text"
-               onKeyDown={handleInputKeyDown} />
-        <div class="inline-block">
-          <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
         </div>
       </div>
       <Show when={resultsSignal.get() != null}>
         <div onmousedown={resultsDivMouseDownListener}
              onmouseup={resultsDivMouseUpListener}
-             class="absolute border rounded bg-white mb-1 shadow-md border-black text-sm pt-[5px]"
-             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y + 72}px; width: ${boxBoundsPx().w}px;`}>
+             class="absolute border border-gray-400 rounded-lg bg-white shadow-lg text-sm"
+             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y + 88}px; width: ${boxBoundsPx().w}px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);`}>
           <Show when={resultsSignal.get()!.length > 0}>
-            <For each={resultsSignal.get()}>{result =>
-              <div>
-                <div class="inline-block text-center align-top hover:bg-slate-400 cursor-pointer ml-[2px]" style="width: 23px;">
-                  <i class={"fa fa-hashtag"} onMouseDown={handleCopyId(result.path[result.path.length-1].id)} />
+            <div class="max-h-80 overflow-y-auto">
+              <For each={resultsSignal.get()}>{result =>
+                <div class="flex items-start border-b border-gray-100 last:border-b-0">
+                  <div class="flex-shrink-0 w-8 flex justify-center pt-3">
+                    <i class="fa fa-hashtag text-gray-400 hover:text-blue-500 cursor-pointer text-xs" 
+                       onMouseDown={handleCopyId(result.path[result.path.length-1].id)} />
+                  </div>
+                  <div class={`flex-1 p-3 cursor-pointer hover:bg-gray-50 transition-colors ` +
+                              `${currentSelectedId() == null ? "" : (currentSelectedId() == result.path[result.path.length-1].id ? "bg-blue-50" : "")}`}
+                       onclick={resultClickHandler(result.path[result.path.length-1].id)}>
+                    <div class="flex items-center flex-wrap gap-2">
+                      <For each={result.path}>{pathElement =>
+                        <Show when={pathElement.itemType != "composite"}>
+                          <div class="flex items-center text-gray-600">
+                            <span class="text-xs">{itemTypeIcon(pathElement.itemType)}</span>
+                            <span class="ml-1 text-sm">{shortenTextMaybe(pathElement.title!)}</span>
+                          </div>
+                        </Show>
+                      }</For>
+                    </div>
+                  </div>
                 </div>
-                <div class={`mb-[8px] pl-[3px] pr-[3px] cursor-pointer hover:bg-slate-200 inline-block ` +
-                            `${currentSelectedId() == null ? "" : (currentSelectedId() == result.path[result.path.length-1].id ? "bg-slate-100" : "")}`}
-                     style={`width: ${boxBoundsPx().w - 30}px`}
-                     onclick={resultClickHandler(result.path[result.path.length-1].id)}>
-                  <For each={result.path}>{pathElement =>
-                    <Show when={pathElement.itemType != "composite"}>
-                      <span>{itemTypeIcon(pathElement.itemType)}</span>
-                      <span class="ml-[4px] mr-[12px]">{shortenTextMaybe(pathElement.title!)}</span>
-                    </Show>
-                  }</For>
-                </div>
-              </div>
-            }</For>
-            <div class="flex justify-between items-center p-2 border-t">
+              }</For>
+            </div>
+            <div class="flex justify-between items-center p-3 border-t border-gray-200 bg-gray-50">
               <button
-                class="px-2 py-1 rounded hover:bg-slate-200 disabled:opacity-50"
+                class="px-3 py-1.5 rounded-md hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
                 disabled={currentPage() === 1}
                 onClick={handlePrevPage}>
                 Previous
               </button>
-              <span class="text-sm">Page {currentPage()}</span>
+              <span class="text-sm text-gray-600">Page {currentPage()}</span>
               <button
-                class="px-2 py-1 rounded hover:bg-slate-200 disabled:opacity-50"
+                class="px-3 py-1.5 rounded-md hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
                 disabled={!hasMorePages()}
                 onClick={handleNextPage}>
                 Next
@@ -307,7 +319,7 @@ export const SearchOverlay: Component = () => {
             </div>
           </Show>
           <Show when={resultsSignal.get()!.length == 0}>
-            <div>[no results found]</div>
+            <div class="p-4 text-center text-gray-500 text-sm">[no results found]</div>
           </Show>
         </div>
       </Show>
