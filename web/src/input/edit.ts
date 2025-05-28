@@ -18,7 +18,7 @@
 
 import { server, serverOrRemote } from "../server";
 import { NoteFns, asNoteItem, isNote } from "../items/note-item";
-import { trimNewline } from "../util/string";
+import { trimNewline, isUrl } from "../util/string";
 import { fullArrange } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -195,6 +195,16 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
 
   const beforeText = textElement!.innerText.substring(0, caretPosition);
   const afterText = textElement!.innerText.substring(caretPosition);
+
+  // Set URL if the title is a URL (for notes)
+  if (isNote(item)) {
+    const noteItem = asNoteItem(item);
+    if (isUrl(beforeText)) {
+      if (noteItem.url == "") {
+        noteItem.url = beforeText;
+      }
+    }
+  }
 
   titledItem.title = beforeText;
 
