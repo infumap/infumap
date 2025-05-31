@@ -240,7 +240,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   `background-color: #303030d0;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`} />
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
-                  `border border-[#999] rounded-sm overflow-hidden pointer-events-none`}
+                  `border border-[#555] rounded-sm overflow-hidden pointer-events-none`}
             style={`left: ${quantizedBoundsPx().x}px; ` +
                    `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                    `width: ${quantizedBoundsPx().w}px; ` +
@@ -256,7 +256,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const tooSmallFallback = (): JSX.Element =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-                `border border-[#999] overflow-hidden pointer-events-none`}
+                `border border-[#555] overflow-hidden pointer-events-none`}
           style={`left: ${quantizedBoundsPx().x}px; ` +
                  `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                  `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`} />;
@@ -334,8 +334,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       {renderPopupBaseMaybe()}
       {renderShadowMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-                  `overflow-hidden border rounded-sm hover:shadow-md ` +
-                  (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#999] `)}
+                  `overflow-hidden border pointer-events-none rounded-sm ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : '' } ` +
+                  (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
            style={`left: ${quantizedBoundsPx().x}px; ` +
                   `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                   `width: ${quantizedBoundsPx().w}px; ` +
