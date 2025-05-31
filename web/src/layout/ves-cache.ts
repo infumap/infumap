@@ -177,7 +177,9 @@ export let VesCache = {
     for (let i=0; i<veToOverwrite.attachmentsVes.length; ++i) {
       const attachmentVe = veToOverwrite.attachmentsVes[i].get();
       const attachmentVePath = VeFns.veToPath(attachmentVe);
-      VesCache.removeByPath(attachmentVePath);
+      if (currentVesCache.has(attachmentVePath)) {
+        VesCache.removeByPath(attachmentVePath);
+      }
     }
 
     if (!currentVesCache.delete(existingPath)) { throw "vesToOverwrite did not exist"; }
