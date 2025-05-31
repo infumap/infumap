@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { DOCK_GAP_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { DOCK_GAP_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -74,9 +74,9 @@ export const renderDockMaybe = (
       continue;
     }
 
-    let wPx = dockWidthPx - DOCK_GAP_PX * 2;
+    let wPx = dockWidthPx - DOCK_GAP_PX * 3;
     if (wPx < 0) { wPx = 0; }
-    const cellBoundsPx = { x: DOCK_GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
+    const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockWidthPx * 10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true, store.smallScreenMode());
 
     let viewportOffsetPx = 0;
@@ -186,9 +186,9 @@ export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel,
       continue;
     }
 
-    let wPx = dockWidthPx - DOCK_GAP_PX * 2;
+    let wPx = dockWidthPx - DOCK_GAP_PX * 3;
     if (wPx < 0) { wPx = 0; }
-    const cellBoundsPx = { x: DOCK_GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
+    const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockWidthPx * 10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true, store.smallScreenMode());
 
     let viewportOffsetPx = 0;
@@ -206,5 +206,5 @@ export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel,
     yCurrentPx = newYPx;
   }
 
-  return { index: positionIndex, position: yCurrentPx };
+  return { index: positionIndex, position: yCurrentPx + 1 };
 }
