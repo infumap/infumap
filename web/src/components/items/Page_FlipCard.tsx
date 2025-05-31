@@ -26,7 +26,10 @@ import { VisualElement_Desktop } from "../VisualElement";
 export const Page_FlipCard: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   return (
     <div class={`absolute`}
-          style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; `}>
+          style={`​left: ${props.pageFns.boundsPx().x}px; ` +
+                 `top: ${props.pageFns.boundsPx().y}px; ` +
+                 `width: ${props.pageFns.boundsPx().w}px; ` +
+                 `height: ${props.pageFns.boundsPx().h}px; `}>
       <For each={props.visualElement.childrenVes}>{childVes =>
         <VisualElement_Desktop visualElement={childVes.get()} />
       }</For>

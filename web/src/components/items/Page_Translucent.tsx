@@ -213,11 +213,11 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const borderClass = () => pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List
       ? ''
-      : 'border border-slate-700';
+      : 'border border-[#777] hover:shadow-md';
 
   const shadowClass = () => pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List
       ? ''
-      : 'shadow-lg';
+      : 'shadow-xl';
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>

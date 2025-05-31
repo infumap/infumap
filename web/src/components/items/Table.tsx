@@ -151,9 +151,9 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const shadowClass = () => {
     if (isPopup()) {
-      return `absolute border border-transparent rounded-sm shadow-lg blur-md bg-slate-700`;
+      return `absolute border border-transparent rounded-sm shadow-xl blur-md bg-slate-700`;
     }
-    return `absolute border border-transparent rounded-sm shadow-lg`;
+    return `absolute border border-transparent rounded-sm shadow-xl`;
   };
 
   const renderShadowMaybe = () =>
@@ -172,7 +172,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderNotDetailed = () =>
-    <div class={`absolute border border-slate-700 rounded-sm bg-white`}
+    <div class={`absolute border border-[#999] rounded-sm bg-white hover:shadow-md`}
          style={`left: ${boundsPx().x}px; ` +
                 `top: ${boundsPx().y + blockSizePx().h}px; ` +
                 `width: ${boundsPx().w}px; ` +
@@ -182,7 +182,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderDetailed = () =>
     <>
       <TableChildArea visualElement={props.visualElement} />
-      <div class='absolute pointer-events-none'
+      <div class={`absolute pointer-events-none ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -197,10 +197,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               spellcheck={store.overlay.textEditInfo() != null}>
           {tableItem().title}
         </div>
-        <div class={`absolute border border-slate-700 rounded-sm pointer-events-none`}
+        <div class={`absolute border border-[#999] rounded-sm pointer-events-none`}
              style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
         <Show when={showColHeader()}>
-          <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
+          <div class={`absolute border border-[#999] bg-slate-300 rounded-sm`}
                style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
         </Show>
         <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
@@ -257,8 +257,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <For each={columnSpecs()}>{spec =>
           <Show when={!spec.isLast}>
-            <div class="absolute bg-slate-700"
-                 style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
+            <div class="absolute"
+                 style={`background-color: #999; left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
           </Show>
         }</For>
       </div>

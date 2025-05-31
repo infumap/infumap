@@ -47,7 +47,7 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
+      <div class={`absolute border border-transparent rounded-sm shadow-xl overflow-hidden`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
@@ -76,7 +76,7 @@ export const FlipCard_Desktop: Component<VisualElementProps> = (props: VisualEle
 
   const renderPage = () =>
     <div 
-        class={`absolute border border-slate-700 rounded-sm`}
+        class={`absolute border border-[#999] rounded-sm hover:shadow-md`}
         style={`left: ${viewportBoundsPx().x}px; ` +
                `top: ${viewportBoundsPx().y}px; ` +
                `width: ${viewportBoundsPx().w}px; ` +

@@ -224,7 +224,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
                 !(props.visualElement.flags & VisualElementFlags.DockItem) &&
                 (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
-      <div class={`absolute border border-transparent rounded-sm shadow-lg bg-white`}
+      <div class={`absolute border border-transparent rounded-sm shadow-xl bg-white`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
@@ -240,7 +240,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   `background-color: #303030d0;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`} />
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
-                  `border border-slate-700 rounded-sm overflow-hidden pointer-events-none`}
+                  `border border-[#999] rounded-sm overflow-hidden pointer-events-none`}
             style={`left: ${quantizedBoundsPx().x}px; ` +
                    `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                    `width: ${quantizedBoundsPx().w}px; ` +
@@ -256,7 +256,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const tooSmallFallback = (): JSX.Element =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-                `border border-slate-700 overflow-hidden pointer-events-none`}
+                `border border-[#999] overflow-hidden pointer-events-none`}
           style={`left: ${quantizedBoundsPx().x}px; ` +
                  `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                  `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`} />;
@@ -334,8 +334,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       {renderPopupBaseMaybe()}
       {renderShadowMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-                  `overflow-hidden pointer-events-none border rounded-sm ` +
-                  (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-slate-700 `)}
+                  `overflow-hidden border rounded-sm hover:shadow-md ` +
+                  (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#999] `)}
            style={`left: ${quantizedBoundsPx().x}px; ` +
                   `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                   `width: ${quantizedBoundsPx().w}px; ` +

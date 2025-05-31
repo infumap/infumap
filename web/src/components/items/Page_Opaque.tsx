@@ -103,7 +103,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
+      <div class={`absolute border border-transparent rounded-sm shadow-xl overflow-hidden`}
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
@@ -111,7 +111,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   return (
     <>
       {renderShadowMaybe()}
-      <div class={`absolute border border-slate-700 rounded-sm`}
+      <div class={`absolute border border-[#555] rounded-sm hover:shadow-md`}
            style={`left: ${pageFns().boundsPx().x}px; ` +
                   `top: ${pageFns().boundsPx().y}px; ` +
                   `width: ${pageFns().boundsPx().w}px; ` +

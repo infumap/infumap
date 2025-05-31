@@ -62,7 +62,7 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
     if (InsideCompositeOrDoc()) {
       return 'absolute rounded-sm';
     } else {
-      return 'absolute rounded-sm border border-slate-700';
+      return 'absolute rounded-sm border border-[#999]';
     }
   };
 

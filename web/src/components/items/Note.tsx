@@ -121,16 +121,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (noteItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
-        return `absolute border border-slate-700 rounded-sm shadow-lg`;
+        return `absolute border border-[#999] rounded-sm shadow-xl`;
       } else {
         return 'absolute border border-transparent rounded-sm';
       }
     }
-    return `absolute border border-slate-700 rounded-sm shadow-lg bg-white`;
+    return `absolute border border-[#999] rounded-sm shadow-xl bg-white`;
   };
 
   const outerClass = () => {
@@ -139,12 +139,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     } else {
       if (noteItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `absolute border border-slate-700 rounded-sm`;
+          return `absolute border border-[#999] rounded-sm`;
         } else {
           return 'absolute border border-transparent rounded-sm';
         }
       }
-      return `absolute border border-slate-700 rounded-sm bg-white`;
+      return `absolute border border-[#999] rounded-sm bg-white hover:shadow-md`;
     }
   };
 
@@ -279,7 +279,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                       `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
                href={noteItem().url}
-               class={`text-blue-800`}
+               class={`text-blue-800 hover:text-blue-600`}
                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
                onClick={aHrefClickListener}
                onMouseDown={aHrefMouseDownListener}

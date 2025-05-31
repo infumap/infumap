@@ -216,16 +216,16 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
-    return `absolute border border-slate-700 rounded-sm shadow-lg bg-white`;
+    return `absolute border border-[#999] rounded-sm shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return 'absolute rounded-sm';
     } else {
-      return `absolute border border-slate-700 rounded-sm bg-white`;
+      return `absolute border border-[#999] rounded-sm bg-white hover:shadow-md`;
     }
   };
 
@@ -251,7 +251,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
                       `overflow-wrap: break-word; white-space: pre-wrap; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
                 href={""}
-                class={`text-green-800`}
+                class={`text-green-800 hover:text-green-700`}
                 style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
                 onClick={aHrefClick}
                 onMouseDown={aHrefMouseDown}

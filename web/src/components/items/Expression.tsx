@@ -111,16 +111,16 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-slate-900 rounded-sm shadow-lg blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (expressionItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
-        return `absolute border border-transparent rounded-sm shadow-lg`;
+        return `absolute border border-transparent rounded-sm shadow-xl`;
       } else {
         return 'absolute border border-transparent rounded-sm';
       }
     }
-    return `absolute border border-transparent rounded-sm shadow-lg bg-white`;
+    return `absolute border border-transparent rounded-sm shadow-xl bg-white`;
   };
 
   const outerClass = () => {
@@ -129,12 +129,12 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     } else {
       if (expressionItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `absolute border border-slate-700 rounded-sm`;
+          return `absolute border border-[#999] rounded-sm hover:shadow-md`;
         } else {
           return 'absolute border border-transparent rounded-sm';
         }
       }
-      return `absolute border border-slate-700 rounded-sm bg-white`;
+      return `absolute border border-[#999] rounded-sm bg-white hover:shadow-md`;
     }
   };
 

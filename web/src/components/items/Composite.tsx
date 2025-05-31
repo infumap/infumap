@@ -56,7 +56,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       if (isPopup()) {
         return `absolute border border-transparent rounded-sm overflow-hidden blur-md bg-slate-700 pointer-events-none`;
       }
-      return `absolute border border-transparent rounded-sm shadow-lg overflow-hidden`;
+      return `absolute border border-transparent rounded-sm shadow-xl overflow-hidden`;
     };
 
   const renderShadowMaybe = () =>
@@ -82,9 +82,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     <>
       {renderShadowMaybe()}
       <div class={`absolute border ` +
-                  `${showBorder() ? "border-slate-700" : "border-transparent"} ` +
+                  `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
                   `rounded-sm ` +
-                  `bg-white`}
+                  `bg-white  hover:shadow-md`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
                   `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
