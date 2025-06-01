@@ -17,10 +17,11 @@
 */
 
 import { LINK_TRIANGLE_SIZE_PX } from "../../constants";
+import { LINK_TRIANGLE_COLOR } from "../../style";
 
 
 export const InfuLinkTriangle = () =>
   <div class="absolute"
        style={"width: 0px; height: 0px; top: 0px; left: 0px; " +
               `border-bottom-width: ${LINK_TRIANGLE_SIZE_PX}px; border-bottom-style: solid; border-bottom-color: transparent; ` +
-              `border-left-width: ${LINK_TRIANGLE_SIZE_PX}px; border-left-style: solid; border-left-color: #5005;`} />;
+              `border-left-width: ${LINK_TRIANGLE_SIZE_PX}px; border-left-style: solid; border-left-color: ${LINK_TRIANGLE_COLOR};`} />;
