@@ -26,6 +26,11 @@ import { Uid } from "../util/uid";
 import { fullArrange } from "./arrange";
 import { VesCache } from "./ves-cache";
 import { VeFns, VisualElementPath } from "./visual-element";
+import { asContainerItem, isContainer } from "../items/base/container-item";
+import { asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
+import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../constants";
+import { isPositionalItem, asPositionalItem } from "../items/base/positional-item";
+import { isXSizableItem, asXSizableItem } from "../items/base/x-sizeable-item";
 
 export function findInVisualElements(store: StoreContextModel, findText: string): Array<VisualElementPath> {
   if (!findText || findText.trim() === "") {
@@ -117,12 +122,170 @@ export function clearAllHighlights(store: StoreContextModel) {
 
 export function navigateToMatch(store: StoreContextModel, matchPath: VisualElementPath, matchIndex: number) {
   store.find.highlightedPath.set(matchPath);
-
   store.find.currentMatchIndex.set(matchIndex);
 
   const ves = VesCache.get(matchPath);
   if (!ves) {
-    console.warn("Match path not found in VesCache:", matchPath);
+    const veid = VeFns.veidFromPath(matchPath);
+    const item = itemState.get(veid.itemId);
+    if (!item) {
+      console.warn("Match item not found in itemState:", veid.itemId);
+      fullArrange(store);
+      return;
+    }
+
+    const parentItem = itemState.get(item.parentId);
+    if (!parentItem) {
+      console.warn("Parent item not found:", item.parentId);
+      fullArrange(store);
+      return;
+    }
+
+    let parentPath = VeFns.parentPath(matchPath);
+    let parentVes = null;
+    while (parentPath && !parentVes) {
+      parentVes = VesCache.get(parentPath);
+      if (!parentVes) {
+        parentPath = VeFns.parentPath(parentPath);
+      }
+    }
+
+    if (!parentVes) {
+      console.warn("No parent VES found in path");
+      fullArrange(store);
+      return;
+    }
+
+    const parentVe = parentVes.get();
+
+    if (isTable(parentVe.displayItem)) {
+      const tableItem = asTableItem(parentVe.displayItem);
+      const tableVeid = VeFns.veidFromVe(parentVe);
+
+      let rowIndex = -1;
+      const children = tableItem.computed_children;
+      for (let i = 0; i < children.length; i++) {
+        if (children[i] === item.id) {
+          rowIndex = i;
+          break;
+        }
+      }
+
+      if (rowIndex === -1) {
+        console.warn("Item not found in table children");
+        fullArrange(store);
+        return;
+      }
+
+      const sizeBl = parentVe.linkItemMaybe
+        ? { h: parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE }
+        : { h: tableItem.spatialHeightGr / GRID_SIZE };
+      const showColHeader = !!(tableItem.flags & TableFlags.ShowColHeader);
+      const numVisibleRows = sizeBl.h - 1 - (showColHeader ? 1 : 0);
+
+      const newScrollPos = Math.max(0, rowIndex - Math.floor(numVisibleRows / 2));
+      store.perItem.setTableScrollYPos(tableVeid, newScrollPos);
+    }
+    else if (isPage(parentVe.displayItem)) {
+      const pageItem = asPageItem(parentVe.displayItem);
+      const pageVeid = VeFns.veidFromVe(parentVe);
+
+      if (isContainer(parentItem)) {
+        const containerItem = asContainerItem(parentItem);
+
+        let itemIndex = -1;
+        for (let i = 0; i < containerItem.computed_children.length; i++) {
+          if (containerItem.computed_children[i] === item.id) {
+            itemIndex = i;
+            break;
+          }
+        }
+
+        if (itemIndex === -1) {
+          console.warn("Item not found in parent children");
+          fullArrange(store);
+          return;
+        }
+
+        if (pageItem.arrangeAlgorithm === ArrangeAlgorithm.List) {
+          const itemYPx = itemIndex * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX;
+          const viewportHeight = parentVe.viewportBoundsPx?.h || parentVe.boundsPx.h;
+          const childAreaHeight = parentVe.childAreaBoundsPx?.h || viewportHeight;
+
+          if (childAreaHeight > viewportHeight) {
+            const centerOffset = viewportHeight / 2 - LINE_HEIGHT_PX / 2;
+            const targetScrollY = Math.max(0, itemYPx - centerOffset);
+            const scrollProp = targetScrollY / (childAreaHeight - viewportHeight);
+            store.perItem.setPageScrollYProp(pageVeid, Math.min(1, scrollProp));
+          }
+        }
+        else if (pageItem.arrangeAlgorithm === ArrangeAlgorithm.Grid) {
+          const cols = pageItem.gridNumberOfColumns;
+          const row = Math.floor(itemIndex / cols);
+          const col = itemIndex % cols;
+
+          const cellHeight = parentVe.cellSizePx?.h || LINE_HEIGHT_PX;
+          const cellWidth = parentVe.cellSizePx?.w || LINE_HEIGHT_PX;
+
+          const itemYPx = row * cellHeight;
+          const itemXPx = col * cellWidth;
+
+          const viewportHeight = parentVe.viewportBoundsPx?.h || parentVe.boundsPx.h;
+          const viewportWidth = parentVe.viewportBoundsPx?.w || parentVe.boundsPx.w;
+          const childAreaHeight = parentVe.childAreaBoundsPx?.h || viewportHeight;
+          const childAreaWidth = parentVe.childAreaBoundsPx?.w || viewportWidth;
+
+          if (childAreaHeight > viewportHeight) {
+            const centerOffsetY = viewportHeight / 2 - cellHeight / 2;
+            const targetScrollY = Math.max(0, itemYPx - centerOffsetY);
+            const scrollPropY = targetScrollY / (childAreaHeight - viewportHeight);
+            store.perItem.setPageScrollYProp(pageVeid, Math.min(1, scrollPropY));
+          }
+
+          if (childAreaWidth > viewportWidth) {
+            const centerOffsetX = viewportWidth / 2 - cellWidth / 2;
+            const targetScrollX = Math.max(0, itemXPx - centerOffsetX);
+            const scrollPropX = targetScrollX / (childAreaWidth - viewportWidth);
+            store.perItem.setPageScrollXProp(pageVeid, Math.min(1, scrollPropX));
+          }
+        }
+        else if (isPositionalItem(item)) {
+          const positionalItem = asPositionalItem(item);
+          const itemX = positionalItem.spatialPositionGr.x / GRID_SIZE;
+          const itemY = positionalItem.spatialPositionGr.y / GRID_SIZE;
+          const itemWidth = isXSizableItem(item) ? asXSizableItem(item).spatialWidthGr / GRID_SIZE : 1;
+          const itemHeight = itemWidth; // Approximate height
+
+          const viewportHeight = parentVe.viewportBoundsPx?.h || parentVe.boundsPx.h;
+          const viewportWidth = parentVe.viewportBoundsPx?.w || parentVe.boundsPx.w;
+          const childAreaHeight = parentVe.childAreaBoundsPx?.h || viewportHeight;
+          const childAreaWidth = parentVe.childAreaBoundsPx?.w || viewportWidth;
+
+          const blockSizePx = {
+            w: childAreaWidth / (pageItem.innerSpatialWidthGr / GRID_SIZE),
+            h: childAreaHeight / (pageItem.innerSpatialWidthGr / GRID_SIZE * (childAreaHeight / childAreaWidth))
+          };
+
+          const itemYPx = itemY * blockSizePx.h;
+          const itemXPx = itemX * blockSizePx.w;
+
+          if (childAreaHeight > viewportHeight) {
+            const centerOffsetY = viewportHeight / 2 - itemHeight * blockSizePx.h / 2;
+            const targetScrollY = Math.max(0, itemYPx - centerOffsetY);
+            const scrollPropY = targetScrollY / (childAreaHeight - viewportHeight);
+            store.perItem.setPageScrollYProp(pageVeid, Math.min(1, scrollPropY));
+          }
+
+          if (childAreaWidth > viewportWidth) {
+            const centerOffsetX = viewportWidth / 2 - itemWidth * blockSizePx.w / 2;
+            const targetScrollX = Math.max(0, itemXPx - centerOffsetX);
+            const scrollPropX = targetScrollX / (childAreaWidth - viewportWidth);
+            store.perItem.setPageScrollXProp(pageVeid, Math.min(1, scrollPropX));
+          }
+        }
+      }
+    }
+
     fullArrange(store);
     return;
   }
