@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch, createEffect, createMemo, onMount 
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
-import { LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { FEATURE_COLOR, linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -256,6 +256,12 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         {renderMovingOverAttachMaybe()}
         {renderMovingOverAttachCompositeMaybe()}
         {renderPopupSelectedOverlayMaybe()}
+        <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+          <div class="absolute pointer-events-none rounded-sm"
+               style={`left: 0px; top: 0px; ` +
+                      `width: 100%; height: 100%; ` +
+                      `background-color: rgba(255, 255, 0, 0.4);`} />
+        </Show>
         <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>

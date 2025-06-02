@@ -191,6 +191,11 @@ export function arrange_list_page(
 
     const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, parentIsPopup, true, false, false);
 
+    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
+
+    const highlightedPath = store.find.highlightedPath.get();
+    const isHighlighted = highlightedPath !== null && highlightedPath === childPath;
+
     const listItemVeSpec: VisualElementSpec = {
       displayItem,
       linkItemMaybe,
@@ -198,7 +203,8 @@ export function arrange_list_page(
       flags: VisualElementFlags.LineItem |
              (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
                 ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
-                : VisualElementFlags.None),
+                : VisualElementFlags.None) |
+             (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,
@@ -207,7 +213,6 @@ export function arrange_list_page(
       row: idx - skippedCount,
       blockSizePx,
     };
-    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
     const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
     listVeChildren.push(listItemVisualElementSignal);
 
@@ -393,11 +398,17 @@ export function arrange_dock_list_page(
     const widthBl = geometry.boundsPx.w / blockSizePx.w;
     const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, false, false, false, false);
 
+    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
+
+    const highlightedPath = store.find.highlightedPath.get();
+    const isHighlighted = highlightedPath !== null && highlightedPath === childPath;
+
     const listItemVeSpec: VisualElementSpec = {
       displayItem,
       linkItemMaybe,
       actualLinkItemMaybe: linkItemMaybe,
-      flags: VisualElementFlags.LineItem,
+      flags: VisualElementFlags.LineItem |
+             (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,
@@ -406,7 +417,6 @@ export function arrange_dock_list_page(
       row: idx,
       blockSizePx,
     };
-    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
     const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
     listVeChildren.push(listItemVisualElementSignal);
   }

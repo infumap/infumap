@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asFileItem } from "../../items/file-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { LINE_HEIGHT_PX, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
@@ -62,6 +62,13 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
 
   const renderHighlightsMaybe = () =>
     <Switch>
+      <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+        <div class="absolute pointer-events-none"
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `background-color: rgba(255, 255, 0, 0.4); ` +
+                    `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+      </Match>
       <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm pointer-events-none"
              style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; ` +

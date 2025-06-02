@@ -348,6 +348,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
                         `background-color: #dddddd88; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
+          <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+            <div class="absolute"
+                 style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
+                        `background-color: rgba(255, 255, 0, 0.4); ${VeFns.zIndexStyle(props.visualElement)}`} />
+          </Show>
           <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
             <div class="absolute rounded-sm"
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +

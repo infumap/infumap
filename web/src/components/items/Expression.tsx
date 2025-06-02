@@ -24,7 +24,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { BoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -186,6 +186,13 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const renderDetailed = () =>
     <>
+      <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+        <div class="absolute pointer-events-none rounded-sm"
+             style={`left: 0px; top: 0px; ` +
+                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `background-color: rgba(255, 255, 0, 0.4); ` +
+                    `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+      </Show>
       <Switch>
         <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}

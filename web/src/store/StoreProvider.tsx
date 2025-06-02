@@ -30,6 +30,7 @@ import { makeHistoryStore, HistoryStoreContextModel } from "./StoreProvider_Hist
 import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Overlay";
 import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
 import { PerVeStoreContextModel, makePerVeStore } from "./StoreProvider_PerVe";
+import { FindStoreContextModel, makeFindStore } from "./StoreProvider_Find";
 
 
 export interface StoreContextModel {
@@ -70,6 +71,7 @@ export interface StoreContextModel {
   history: HistoryStoreContextModel,
   general: GeneralStoreContextModel,
   user: UserStoreContextModel,
+  find: FindStoreContextModel,
 }
 
 
@@ -147,6 +149,7 @@ export function StoreProvider(props: StoreContextProps) {
   const perItem = makePerItemStore();
   const overlay = makeOverlayStore();
   const history = makeHistoryStore();
+  const find = makeFindStore();
 
   const clear = (): void => {
     currentVisiblePassword.set(null);
@@ -155,6 +158,7 @@ export function StoreProvider(props: StoreContextProps) {
     overlay.clear();
     perItem.clear();
     perVe.clear();
+    find.clear();
     dockWidthPx.set(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
   };
 
@@ -198,6 +202,7 @@ export function StoreProvider(props: StoreContextProps) {
     history,
     general: makeGeneralStore(),
     user: userStore,
+    find,
   };
 
   return (

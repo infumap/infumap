@@ -80,6 +80,11 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-3}px; height: ${boundsPx().h}px; ` +
                     `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
       </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `background-color: rgba(255, 255, 0, 0.4); z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+      </Match>
     </Switch>;
 
   const renderIcon = () =>

@@ -85,6 +85,7 @@ export enum VisualElementFlags {
   DockItem                = 0x040000, // Is an item inside the dock.
   FocusPageSelected       = 0x080000, // Line item is in focussed page and selected.
   FlipCardPage            = 0x100000, // A flipcard page.
+  FindHighlighted         = 0x200000, // The item is highlighted by find-on-page.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {

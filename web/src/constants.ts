@@ -59,6 +59,7 @@ export const ANCHOR_OFFSET_PX = 3;
 export const Z_INDEX_SHADOW = 0;
 export const Z_INDEX_ITEMS = 2;
 export const Z_INDEX_ITEMS_OVERLAY = 3;
+export const Z_INDEX_HIGHLIGHT = 4;
 export const Z_INDEX_ABOVE_TRANSLUCENT = 15;
 export const Z_INDEX_POPUP = 18;
 export const Z_INDEX_MOVING = 20;

@@ -19,7 +19,7 @@
 import { Component, For, Show, createMemo } from "solid-js";
 import { FEATURE_COLOR_DARK, linearGradient } from "../../style";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { Z_INDEX_SHADOW } from "../../constants";
+import { Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { VisualElement_Desktop } from "../VisualElement";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -108,9 +108,19 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
+  const renderHighlightMaybe = () =>
+    <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+      <div class="absolute pointer-events-none rounded-sm"
+           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
+                  `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+                  `background-color: rgba(255, 255, 0, 0.4); ` +
+                  `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+    </Show>;
+
   return (
     <>
       {renderShadowMaybe()}
+      {renderHighlightMaybe()}
       <div class={`absolute border border-[#555] rounded-sm hover:shadow-md`}
            style={`left: ${pageFns().boundsPx().x}px; ` +
                   `top: ${pageFns().boundsPx().y}px; ` +

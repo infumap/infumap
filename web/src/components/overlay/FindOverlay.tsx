@@ -16,19 +16,18 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createSignal, onMount } from "solid-js";
+import { Component, createEffect, onCleanup, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { CursorEventState } from "../../input/state";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { isInside } from "../../util/geometry";
+import { performFind, navigateToNextMatch, navigateToPreviousMatch, closeFindOverlay } from "../../layout/find-on-page";
 
 export const FindOverlay: Component = () => {
   const store = useStore();
   let textElement: HTMLInputElement | undefined;
-  const [searchText, setSearchText] = createSignal("");
-  const [currentMatch, setCurrentMatch] = createSignal(0);
-  const [totalMatches, setTotalMatches] = createSignal(0);
+  let debounceTimer: number | undefined;
 
   const boxBoundsPx = () => ({
     x: window.innerWidth - 435,
@@ -51,12 +50,12 @@ export const FindOverlay: Component = () => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (ev.button === MOUSE_RIGHT) {
-      store.overlay.findOverlayVisible.set(false);
+      closeFindOverlay(store);
       return;
     }
     if (isInside(CursorEventState.getLatestDesktopPx(store), boxBoundsRelativeToDesktopPx())) { return; }
     if (overResultsDiv) { return; }
-    store.overlay.findOverlayVisible.set(false);
+    closeFindOverlay(store);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -70,43 +69,62 @@ export const FindOverlay: Component = () => {
 
   onMount(() => {
     textElement?.focus();
+    // If there's already text from a previous find, select it all
+    if (store.find.currentFindText.get()) {
+      textElement!.value = store.find.currentFindText.get();
+      textElement!.select();
+    }
   });
 
-  const handleFind = () => {
-    const text = textElement!.value;
-    setSearchText(text);
-    // TODO: Implement actual text search functionality
-    // This would need to be integrated with the text rendering system
-    setTotalMatches(0); // Placeholder
-    setCurrentMatch(0);
-  };
-
-  const handleNext = () => {
-    if (currentMatch() < totalMatches()) {
-      setCurrentMatch(c => c + 1);
-      // TODO: Navigate to next match
+  onCleanup(() => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
     }
-  };
+  });
 
-  const handlePrev = () => {
-    if (currentMatch() > 1) {
-      setCurrentMatch(c => c - 1);
-      // TODO: Navigate to previous match
+  const handleFindDebounced = (text: string) => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
     }
+    debounceTimer = setTimeout(() => {
+      performFind(store, text);
+    }, 300) as unknown as number;
   };
 
   const handleInputKeyDown = (ev: KeyboardEvent) => {
     ev.stopPropagation();
     if (ev.code === "Enter") {
       if (ev.shiftKey) {
-        handlePrev();
+        navigateToPreviousMatch(store);
       } else {
-        handleNext();
+        navigateToNextMatch(store);
       }
     } else if (ev.code === "Escape") {
-      store.overlay.findOverlayVisible.set(false);
+      closeFindOverlay(store);
     }
   };
+
+  // Create reactive effects for match display
+  createEffect(() => {
+    const matches = store.find.findMatches.get();
+    const currentIndex = store.find.currentMatchIndex.get();
+    if (matches.length === 0 && store.find.currentFindText.get()) {
+      // No matches found
+    }
+  });
+
+  const currentMatchDisplay = () => {
+    const matches = store.find.findMatches.get();
+    const currentIndex = store.find.currentMatchIndex.get();
+    if (matches.length === 0) {
+      return store.find.currentFindText.get() ? '0/0' : '';
+    }
+    return `${currentIndex + 1}/${matches.length}`;
+  };
+
+  const hasMatches = () => store.find.findMatches.get().length > 0;
+  const canGoPrev = () => hasMatches();
+  const canGoNext = () => hasMatches();
 
   return (
     <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -123,21 +141,20 @@ export const FindOverlay: Component = () => {
                  type="text"
                  onKeyDown={handleInputKeyDown}
                  onInput={(e) => {
-                   setSearchText(e.currentTarget.value);
-                   handleFind();
+                   handleFindDebounced(e.currentTarget.value);
                  }} />
           <div class="flex items-center ml-3 space-x-1">
             <button class="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    disabled={currentMatch() <= 1}
-                    onClick={handlePrev}>
+                    disabled={!canGoPrev()}
+                    onClick={() => navigateToPreviousMatch(store)}>
               <i class="fa fa-chevron-up text-xs text-gray-600" />
             </button>
             <span class="text-xs text-gray-600 min-w-[40px] text-center">
-              {totalMatches() > 0 ? `${currentMatch()}/${totalMatches()}` : '0/0'}
+              {currentMatchDisplay()}
             </span>
             <button class="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    disabled={currentMatch() >= totalMatches()}
-                    onClick={handleNext}>
+                    disabled={!canGoNext()}
+                    onClick={() => navigateToNextMatch(store)}>
               <i class="fa fa-chevron-down text-xs text-gray-600" />
             </button>
           </div>

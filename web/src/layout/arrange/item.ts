@@ -146,6 +146,9 @@ export const arrangeItemNoChildren = (
 
   if (displayItem == null) { panic("displayItem == null is unexpected"); }
 
+  const highlightedPath = store.find.highlightedPath.get();
+  const isHighlighted = highlightedPath !== null && highlightedPath === currentVePath;
+
   const itemVisualElement: VisualElementSpec = {
     displayItem,
     linkItemMaybe,
@@ -154,7 +157,8 @@ export const arrangeItemNoChildren = (
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
+           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: itemGeometry.boundsPx,
     hitboxes: itemGeometry.hitboxes,

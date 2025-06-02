@@ -79,6 +79,9 @@ export function arrange_spatial_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
+  const highlightedPath = store.find.highlightedPath.get();
+  const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
+
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
@@ -91,7 +94,8 @@ export function arrange_spatial_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,

@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, onMount } from "solid-js";
-import { LINE_HEIGHT_PX } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { BorderType, Colors, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
@@ -124,6 +124,15 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       </div>
     </Show>;
 
+  const renderFindHighlightedMaybe = () =>
+    <Show when={isEmbeddedInteractive() && (props.visualElement.flags & VisualElementFlags.FindHighlighted)}>
+      <div class="absolute pointer-events-none rounded-sm"
+           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
+                  `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
+                  `background-color: rgba(255, 255, 0, 0.4); ` +
+                  `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+    </Show>;
+
   const renderListPage = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
          style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
@@ -213,6 +222,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         {renderEmbeddedInteractiveForeground()}
       </div>
       {renderEmbeddedInteractiveTitleMaybe()}
+      {renderFindHighlightedMaybe()}
     </>
   );
 }

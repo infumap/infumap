@@ -61,6 +61,9 @@ export const arrangeTable = (
 
   const tableVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table), parentPath);
 
+  const highlightedPath = store.find.highlightedPath.get();
+  const isTableHighlighted = highlightedPath !== null && highlightedPath === tableVePath;
+
   const tableVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Table,
     linkItemMaybe: linkItemMaybe_Table,
@@ -69,7 +72,8 @@ export const arrangeTable = (
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+          (isTableHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: tableGeometry.boundsPx,
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,
@@ -329,11 +333,17 @@ function createRow(
 
   const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, true, true);
 
+  const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
+
+  const highlightedPath = store.find.highlightedPath.get();
+  const isHighlighted = highlightedPath !== null && highlightedPath === tableChildVePath;
+
   const tableChildVeSpec: VisualElementSpec = {
     displayItem: displayItem_childItem,
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
-    flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
+    flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable |
+           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: geometry.boundsPx,
     tableDimensionsPx,
@@ -344,7 +354,6 @@ function createRow(
     row: rowIdx,
     blockSizePx,
   };
-  const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
 
   if (isAttachmentsItem(displayItem_childItem)) {
     let tableItemVeAttachments: Array<VisualElementSignal> = [];
@@ -370,11 +379,16 @@ function createRow(
 
       const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, rowIdx, leftBl, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true);
 
+      const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
+
+      const attachmentIsHighlighted = highlightedPath !== null && highlightedPath === tableChildAttachmentVePath;
+
       const tableChildAttachmentVeSpec: VisualElementSpec = {
         displayItem: displayItem_attachment,
         linkItemMaybe: linkItemMaybe_attachment,
         actualLinkItemMaybe: linkItemMaybe_attachment,
-        flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
+        flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment |
+               (attachmentIsHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: geometry.boundsPx,
         tableDimensionsPx,
@@ -385,7 +399,6 @@ function createRow(
         parentPath: tableChildVePath,
         blockSizePx
       };
-      const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
       let tableChildAttachmentVes;
       if (vesToOverwrite != null) {
         // TODO (MEDIUM): re-use these.
