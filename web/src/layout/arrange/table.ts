@@ -30,6 +30,7 @@ import { TableItem, asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -233,10 +234,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
   if (childrenVes.length != outCount) {
-    // TODO (LOW): should really implement logic such that this never happens. This is lazy.
-    console.debug("rearrangeTableAfterScroll: unexpected number of child ves rows.");
-    fullArrange(store);
-    return;
+    panic("rearrangeTableAfterScroll: unexpected number of child ves rows. can occur if table has fractional height.");
   }
 
   let tableVeChildren: Array<VisualElementSignal> = [];
