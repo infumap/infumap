@@ -144,52 +144,62 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         ? editingItemPath + ":col" + store.overlay.textEditInfo()!.colNum
         : editingItemPath + ":title";
       const editingDomEl = document.getElementById(editingDomId);
-      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
+      if (editingDomEl && isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl.getBoundingClientRect())!) &&
           buttonNumber == MOUSE_LEFT) {
         const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
         if (!(hitInfo.hitboxType & HitboxFlags.Resize)) {
           return MouseEventActionFlags.None;
         }
       }
-      const newText = editingDomEl!.innerText;
-      const item = itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!;
 
-      if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
-        if (store.overlay.textEditInfo()!.colNum == null) {
-          asTableItem(item).title = trimNewline(newText);
-        } else {
-          asTableItem(item).tableColumns[store.overlay.textEditInfo()!.colNum!].name = trimNewline(newText);
-        }
-      }
-      else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
-        asPageItem(item).title = trimNewline(newText);
-      }
-      else if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
-        editingDomEl!.parentElement!.scrollLeft = 0;
-        const noteItem = asNoteItem(item);
-        noteItem.title = trimNewline(newText);
-        if (isUrl(noteItem.title)) {
-          if (noteItem.url == "") {
-            noteItem.url = noteItem.title;
+      if (!editingDomEl) {
+        // Element was removed during rearrangement, clear text edit state
+        store.overlay.toolbarPopupInfoMaybe.set(null);
+        store.overlay.setTextEditInfo(store.history, null);
+        fullArrange(store);
+        if (buttonNumber != MOUSE_LEFT) { return defaultResult; }
+        defaultResult = MouseEventActionFlags.None;
+      } else {
+        const newText = editingDomEl.innerText;
+        const item = itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!;
+
+        if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
+          if (store.overlay.textEditInfo()!.colNum == null) {
+            asTableItem(item).title = trimNewline(newText);
+          } else {
+            asTableItem(item).tableColumns[store.overlay.textEditInfo()!.colNum!].name = trimNewline(newText);
           }
         }
-      }
-      else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
-        editingDomEl!.parentElement!.scrollLeft = 0;
-        asFileItem(item).title = trimNewline(newText);
-      }
-      else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
-        editingDomEl!.parentElement!.scrollLeft = 0;
-        asPasswordItem(item).text = trimNewline(newText);
-      }
+        else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
+          asPageItem(item).title = trimNewline(newText);
+        }
+        else if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
+          editingDomEl.parentElement!.scrollLeft = 0;
+          const noteItem = asNoteItem(item);
+          noteItem.title = trimNewline(newText);
+          if (isUrl(noteItem.title)) {
+            if (noteItem.url == "") {
+              noteItem.url = noteItem.title;
+            }
+          }
+        }
+        else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
+          editingDomEl.parentElement!.scrollLeft = 0;
+          asFileItem(item).title = trimNewline(newText);
+        }
+        else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
+          editingDomEl.parentElement!.scrollLeft = 0;
+          asPasswordItem(item).text = trimNewline(newText);
+        }
 
-      serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+        serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
 
-      store.overlay.toolbarPopupInfoMaybe.set(null);
-      store.overlay.setTextEditInfo(store.history, null);
-      fullArrange(store);
-      if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-      defaultResult = MouseEventActionFlags.None;
+        store.overlay.toolbarPopupInfoMaybe.set(null);
+        store.overlay.setTextEditInfo(store.history, null);
+        fullArrange(store);
+        if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+        defaultResult = MouseEventActionFlags.None;
+      }
     }
   }
 

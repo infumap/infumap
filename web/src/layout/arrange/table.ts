@@ -219,6 +219,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   if (tableVesRows == null || tableVesRows!.length != childrenVes.length) {
     // TODO (LOW): should really implement logic such that this never happens. This is lazy.
     console.debug("rearrangeTableAfterScroll: invalid tableVesRows, resorting to fullArrange.");
+    // Clear text editing state to prevent race conditions with DOM elements
+    store.overlay.setTextEditInfo(store.history, null);
     fullArrange(store);
     return;
   }
@@ -262,6 +264,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
         } catch (e: any) {
           // TODO (LOW): should really implement logic such that this never happens. This clumsy catch-all is lazy.
           console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
+          // Clear text editing state to prevent race conditions with DOM elements
+          store.overlay.setTextEditInfo(store.history, null);
           fullArrange(store);
           return;
         }
