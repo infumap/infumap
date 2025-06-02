@@ -39,8 +39,6 @@ import { createInfuSignal } from "../../util/signals";
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
-  let imgElement: HTMLImageElement | undefined;
-
   const imageItem = () => asImageItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -68,6 +66,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
   const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true);
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
+
+  const imgSrcSignal = createInfuSignal<string | undefined>(undefined);
 
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
@@ -162,40 +162,36 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         isMounting = false;
         currentImgSrc = imgSrc();
         const imageIdOnRequest = props.visualElement.displayItem.id;
-        if (imgElement) {
-          imgElement!.src = thumbnailSrc();
-          isShowingThumbnail.set(true);
-        }
+        imgSrcSignal.set(thumbnailSrc());
+        isShowingThumbnail.set(true);
         const isHighPriority = isPopup();
         getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
           .then((objectUrl) => {
-            if (imgElement) {
-              try {
-                // props.visualElement is actually a function call, which will fail if the component is unmounted.
-                if (props.visualElement == null) {
-                  // dummy statement to ensure the check is not optimized away.
-                  return;
-                }
-              }
-              catch (e) {
-                // expected behavior when the component is unmounted.
+            try {
+              // props.visualElement is actually a function call, which will fail if the component is unmounted.
+              if (props.visualElement == null) {
+                // dummy statement to ensure the check is not optimized away.
                 return;
               }
-              if (isPopup()) {
-                if (imageIdOnRequest == props.visualElement.displayItem.id) {
-                  imgElement!.src = objectUrl;
-                  isShowingThumbnail.set(false);
-                } else {
-                  const prevObjectUrl = imgElement!.src;
-                  // temporarily set the image src to the out-of-date fetched image to force the browser to cache the image.
-                  // if this is not done, the image will need to be re-fetched if the user re-selects the image (which they will often do).
-                  imgElement!.src = objectUrl;
-                  setTimeout(() => { imgElement!.src = prevObjectUrl }, 0);
-                }
-              } else {
-                imgElement!.src = objectUrl;
+            }
+            catch (e) {
+              // expected behavior when the component is unmounted.
+              return;
+            }
+            if (isPopup()) {
+              if (imageIdOnRequest == props.visualElement.displayItem.id) {
+                imgSrcSignal.set(objectUrl);
                 isShowingThumbnail.set(false);
+              } else {
+                const prevObjectUrl = imgSrcSignal.get();
+                // temporarily set the image src to the out-of-date fetched image to force the browser to cache the image.
+                // if this is not done, the image will need to be re-fetched if the user re-selects the image (which they will often do).
+                imgSrcSignal.set(objectUrl);
+                setTimeout(() => { imgSrcSignal.set(prevObjectUrl) }, 0);
               }
+            } else {
+              imgSrcSignal.set(objectUrl);
+              isShowingThumbnail.set(false);
             }
           });
       }
@@ -312,7 +308,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderCroppedImage = (): JSX.Element =>
-    <img ref={imgElement}
+    <img src={imgSrcSignal.get()}
          class="max-w-none absolute pointer-events-none"
          style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX)}px; ` +
                 `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX)}px; ` +
@@ -321,7 +317,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
          width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />;
 
   const renderNoCropImage = (): JSX.Element =>
-    <img ref={imgElement}
+    <img src={imgSrcSignal.get()}
          class="max-w-none absolute pointer-events-none"
          style={`${VeFns.zIndexStyle(props.visualElement)} ` +
                 (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
