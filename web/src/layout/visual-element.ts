@@ -623,6 +623,22 @@ export const VeFns = {
     result += ` parent: ${ve.parentPath}`;
     return result;
   },
+
+  validatePath: (path: VisualElementPath): void => {
+    if (!path || path === "") { return; }
+
+    try {
+      const parts = path.split("-");
+      for (const part of parts) {
+        if (part.length !== 32 && part.length !== 66) {
+          panic(`validatePath: Invalid path segment length ${part.length} in path "${path}"`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      panic(`validatePath: Error validating path "${path}"`);
+    }
+  },
 }
 
 
@@ -633,7 +649,7 @@ function getIdsFromPathPart(part: string): Veid {
     itemId = part.substring(0, EMPTY_UID.length);
     linkIdMaybe = part.substring(EMPTY_UID.length+1, part.length-1);
   } else if (part.length != EMPTY_UID.length) {
-    panic("getIdsFromPathPart: wrong uid length.");
+    panic(`getIdsFromPathPart: wrong uid length. Expected ${EMPTY_UID.length} or ${EMPTY_UID.length * 2 + 2}, got ${part.length} for part: "${part}"`);
   }
   return { itemId, linkIdMaybe };
 }

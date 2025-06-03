@@ -179,6 +179,8 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const setFocus = (focusPath: VisualElementPath): void => {
     if (breadcrumbs().length < 1) { panic("cannot set focus item when there is no current page."); }
+    VeFns.validatePath(focusPath);
+
     breadcrumbs()[breadcrumbs().length-1].focusPath = focusPath;
     setBreadcrumbs(breadcrumbs());
   };
@@ -187,7 +189,15 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     if (!breadcrumb) { return ((EMPTY_ITEM as any) as Item); } // happens on initialization. This is a bit of a hack, it would be better if the logic was tighter.
     if (breadcrumb.focusPath != null) {
-      return itemState.get(VeFns.veidFromPath(breadcrumb.focusPath!).itemId)!;
+      try {
+        const veid = VeFns.veidFromPath(breadcrumb.focusPath!);
+        const item = itemState.get(veid.itemId);
+        if (item) { return item; }
+        panic(`getFocusItem: item not found for path: ${breadcrumb.focusPath}.`);
+      } catch (e) {
+        console.error(e);
+        panic(`getFocusItem: error parsing focus path: ${breadcrumb.focusPath}.`);
+      }
     }
     if (currentPopupSpec() != null) {
       if (itemState.get(currentPopupSpec()!.actualVeid.itemId)!.itemType == ItemType.Page) {
