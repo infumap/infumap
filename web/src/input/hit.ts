@@ -626,23 +626,92 @@ function hitNonPagePopupMaybe(
         : getBoundingBoxTopLeft(rootVe.boundsPx));
 
   let hitboxType = HitboxFlags.None;
+  let hitboxMeta = null;
   for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
     if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
       hitboxType |= rootVe.hitboxes[j].type;
+      if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
     }
   }
 
-  if (hitboxType != HitboxFlags.None && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+  if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move) { //} && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
     return ({
       parentRootVe: parentRootInfo.parentRootVe,
       rootVes,
       rootVe,
       posRelativeToRootVeBoundsPx,
       posRelativeToRootVeViewportPx,
-      hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe1")
+      hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe1")
     });
   }
 
+  if (isTable(rootVe.displayItem)) {
+
+    for (let j=0; j<rootVe.childrenVes.length; ++j) {
+      // TODO (low): should be able to move this up a level.
+      const tableChildVes = rootVe.childrenVes[j];
+      const tableChildVe = tableChildVes.get();
+      const tableBlockHeightPx = tableChildVe.boundsPx.h;
+      const posRelativeToTableChildAreaPx = vectorSubtract(
+        posRelativeToRootVeBoundsPx,
+        { x: 0.0,
+          y: (rootVe.viewportBoundsPx!.y - rootVe.boundsPx.y) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(rootVe)) * tableBlockHeightPx }
+      );
+
+      if (!ignoreAttachments) {
+        for (let k=0; k<tableChildVe.attachmentsVes.length; ++k) {
+          const attachmentVes = tableChildVe.attachmentsVes[k];
+          const attachmentVe = attachmentVes.get();
+          if (isInside(posRelativeToTableChildAreaPx, attachmentVe.boundsPx)) {
+            let hitboxType = HitboxFlags.None;
+            let meta = null;
+            for (let l=attachmentVe.hitboxes.length-1; l>=0; --l) {
+              if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[l].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
+                hitboxType |= attachmentVe.hitboxes[l].type;
+                if (attachmentVe.hitboxes[l].meta != null) { meta = attachmentVe.hitboxes[l].meta; }
+              }
+            }
+            if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
+              const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
+              parentRootInfo.hitMaybe = {
+                overVes: attachmentVes,
+                rootVes,
+                subRootVe: rootVe,
+                subSubRootVe: null,
+                parentRootVe: parentRootInfo.parentRootVe,
+                hitboxType,
+                compositeHitboxTypeMaybe: HitboxFlags.None,
+                overElementMeta: meta,
+                overPositionableVe: parentRootInfo.rootVe,
+                overPositionGr: null,
+                debugCreatedAt: "hitNonPagePopupMaybe-table-attachment",
+              };
+              return parentRootInfo;
+            }
+          }
+        }
+      }
+
+      if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
+        let hitboxType = HitboxFlags.None;
+        let meta = null;
+        for (let k=tableChildVe.hitboxes.length-1; k>=0; --k) {
+          if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(tableChildVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(tableChildVe.boundsPx)))) {
+            hitboxType |= tableChildVe.hitboxes[k].type;
+            if (tableChildVe.hitboxes[k].meta != null) { meta = tableChildVe.hitboxes[k].meta; }
+          }
+        }
+        if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
+          parentRootInfo.hitMaybe = finalize(hitboxType, HitboxFlags.None, parentRootInfo.parentRootVe, rootVes, tableChildVes, meta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe-table-child");
+          return parentRootInfo;
+        }
+      }
+    }
+
+    return parentRootInfo;
+  }
+
+  // For non-table popups, continue with the existing logic
   for (let i=rootVe.childrenVes.length-1; i>=0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVe.childrenVes[i], ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
     if (hitMaybe) {
