@@ -25,12 +25,25 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { Uid } from "../util/uid";
 import { fullArrange } from "./arrange";
 import { VesCache } from "./ves-cache";
-import { VeFns, VisualElementPath } from "./visual-element";
+import { VeFns, VisualElementPath, isVeTranslucentPage } from "./visual-element";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
 import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../constants";
 import { isPositionalItem, asPositionalItem } from "../items/base/positional-item";
 import { isXSizableItem, asXSizableItem } from "../items/base/x-sizeable-item";
+
+function isVeInsideTranslucentPage(currentVePath: VisualElementPath): boolean {
+  let path = currentVePath;
+  path = VeFns.parentPath(currentVePath);
+  if (!path) { return false; }
+  const ves = VesCache.get(path);
+  if (!ves) { return false; }
+  const ve = ves.get();
+  if (isPage(ve.displayItem) && isVeTranslucentPage(ve)) {
+    return true;
+  }
+  return false;
+}
 
 export function findInVisualElements(store: StoreContextModel, findText: string): Array<VisualElementPath> {
   if (!findText || findText.trim() === "") {
@@ -43,6 +56,7 @@ export function findInVisualElements(store: StoreContextModel, findText: string)
   const addMatchIfFound = (path: VisualElementPath) => {
     const ves = VesCache.get(path);
     if (!ves) return;
+    if (isVeInsideTranslucentPage(path)) { return; }
 
     const ve = ves.get();
 

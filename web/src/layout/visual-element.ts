@@ -97,6 +97,42 @@ export function veFlagIsRoot(flags: VisualElementFlags): boolean {
 }
 
 /**
+ * Returns true if the visual element is a translucent page.
+ * TODO (low): this is overly complex. should review VisualElementFlags, can surely be simplified.
+ */
+export function isVeTranslucentPage(ve: VisualElement): boolean {
+  if (!isPage(ve.displayItem)) {
+    return false;
+  }
+
+  const flags = ve.flags;
+  // Check if it's any of the specific page types that are NOT translucent
+  if (
+    flags & VisualElementFlags.UmbrellaPage ||
+    flags & VisualElementFlags.FlipCardPage ||
+    flags & VisualElementFlags.IsDock ||
+    flags & VisualElementFlags.IsTrash ||
+    flags & VisualElementFlags.Popup ||
+    flags & VisualElementFlags.TopLevelRoot ||
+    flags & VisualElementFlags.ListPageRoot ||
+    flags & VisualElementFlags.EmbeddedInteractiveRoot
+  ) {
+    return false;
+  }
+
+  // Check the condition for Page_Opaque: if this is true, it's Opaque, otherwise potentially Translucent
+  // Page_Opaque is rendered if: !(flags & VisualElementFlags.Detailed) || !(flags & VisualElementFlags.ShowChildren)
+  // So, for it to be translucent, the opposite (Detailed AND ShowChildren) must be true.
+  const isOpaqueCondition = !(flags & VisualElementFlags.Detailed) || !(flags & VisualElementFlags.ShowChildren);
+  if (isOpaqueCondition) {
+    return false;
+  }
+
+  // If none of the above specific types and not opaque, it's considered translucent by default in Page.tsx
+  return true;
+}
+
+/**
  * Specifies a visual element, corresponding to a rendered item in the visual tree.
  */
 export interface VisualElement {
