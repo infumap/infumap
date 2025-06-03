@@ -146,11 +146,15 @@ function arrangeCompositeChildItem(
 
   const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), parentPath);
 
+  const highlightedPath = store.find.highlightedPath.get();
+  const isHighlighted = highlightedPath !== null && highlightedPath === compositeChildVePath;
+
   const compositeChildVeSpec: VisualElementSpec = {
     displayItem: displayItem_childItem,
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
-    flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
+    flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed |
+           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: {
       x: geometry.boundsPx.x,
