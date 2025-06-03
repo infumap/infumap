@@ -328,6 +328,7 @@ export function performFind(store: StoreContextModel, findText: string) {
     clearAllHighlights(store);
     store.find.findMatches.set([]);
     store.find.currentMatchIndex.set(-1);
+    fullArrange(store);
     return;
   }
 
@@ -375,7 +376,9 @@ export function performFind(store: StoreContextModel, findText: string) {
     store.find.currentMatchIndex.set(0);
     navigateToMatch(store, allMatches[0], 0);
   } else {
+    clearAllHighlights(store);
     store.find.currentMatchIndex.set(-1);
+    fullArrange(store);
   }
 }
 
