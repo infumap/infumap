@@ -21,7 +21,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, isPage, PageFns } from "../items/page-item";
-import { asTableItem } from "../items/table-item";
+import { asTableItem, isTable } from "../items/table-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
@@ -368,7 +368,13 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
   if (isYSizableItem(itemState.get(activeVeid.itemId)!)) {
     let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
-    newHeightBl = Math.round(newHeightBl * 2.0) / 2.0;
+
+    if (isTable(itemState.get(activeVeid.itemId)!)) {
+      newHeightBl = Math.round(newHeightBl);
+    } else {
+      newHeightBl = Math.round(newHeightBl * 2.0) / 2.0;
+    }
+
     if (newHeightBl < 3) { newHeightBl = 3.0; }
     const newHeightGr = newHeightBl * GRID_SIZE;
     if (activeVeid.linkIdMaybe) {
