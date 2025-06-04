@@ -634,18 +634,19 @@ function hitNonPagePopupMaybe(
     }
   }
 
-  if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move) { //} && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
-    return ({
-      parentRootVe: parentRootInfo.parentRootVe,
-      rootVes,
-      rootVe,
-      posRelativeToRootVeBoundsPx,
-      posRelativeToRootVeViewportPx,
-      hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe1")
-    });
-  }
 
   if (isTable(rootVe.displayItem)) {
+
+    if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move) { //} && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+      return ({
+        parentRootVe: parentRootInfo.parentRootVe,
+        rootVes,
+        rootVe,
+        posRelativeToRootVeBoundsPx,
+        posRelativeToRootVeViewportPx,
+        hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe1")
+      });
+    }
 
     for (let j=0; j<rootVe.childrenVes.length; ++j) {
       // TODO (low): should be able to move this up a level.
@@ -708,16 +709,37 @@ function hitNonPagePopupMaybe(
       }
     }
 
+    if (hitboxType != HitboxFlags.None) { //} && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+      return ({
+        parentRootVe: parentRootInfo.parentRootVe,
+        rootVes,
+        rootVe,
+        posRelativeToRootVeBoundsPx,
+        posRelativeToRootVeViewportPx,
+        hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe1")
+      });
+    }
+
     return parentRootInfo;
   }
 
-  // For non-table popups, continue with the existing logic
   for (let i=rootVe.childrenVes.length-1; i>=0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVe.childrenVes[i], ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
     if (hitMaybe) {
       parentRootInfo.hitMaybe = hitMaybe;
       return parentRootInfo;
     }
+  }
+
+  if (hitboxType != HitboxFlags.None) { // && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+    return ({
+      parentRootVe: parentRootInfo.parentRootVe,
+      rootVes,
+      rootVe,
+      posRelativeToRootVeBoundsPx,
+      posRelativeToRootVeViewportPx,
+      hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe1")
+    });
   }
 
   console.debug("TODO: understand and handle this case better.");
