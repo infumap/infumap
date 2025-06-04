@@ -229,14 +229,39 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       server.addItem(note, null, store.general.networkStatus);
 
       fullArrange(store);
-      const veid = { itemId: note.id, linkIdMaybe: null };
-      const newVes = VesCache.findSingle(veid);
-      store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), itemType: ItemType.Note });
 
-      let editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
-      let textElement = document.getElementById(editingDomId);
-      setCaretPosition(textElement!, 0);
-      textElement!.focus();
+      // If in a popup context, redirect the popup to show the composite
+      if (isPopup()) {
+        const compositeVeid = { itemId: composite.id, linkIdMaybe: null };
+        store.history.replacePopup({
+          actualVeid: compositeVeid,
+          vePath: VeFns.addVeidToPath(compositeVeid, ve.parentPath!)
+        });
+        fullArrange(store);
+      }
+
+      const veid = { itemId: note.id, linkIdMaybe: null };
+
+      const attemptToSetEditFocus = (attempt: number = 0) => {
+        const foundVes = VesCache.find(veid);
+        if (foundVes.length > 0) {
+          store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(foundVes[0].get()), itemType: ItemType.Note });
+          let editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
+          let textElement = document.getElementById(editingDomId);
+          if (textElement) {
+            setCaretPosition(textElement, 0);
+            textElement.focus();
+          }
+        } else if (attempt < 3) {
+          // Retry with another arrange - needed for popups
+          setTimeout(() => {
+            fullArrange(store);
+            attemptToSetEditFocus(attempt + 1);
+          }, 10);
+        }
+      };
+
+      attemptToSetEditFocus();
     }
   }
 
