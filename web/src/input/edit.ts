@@ -148,6 +148,8 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
   if (!isNote(upFocusItem) && !isFile(upFocusItem)) { return; }
   const upTextLength = upFocusItem.title.length;
   upFocusItem.title = upFocusItem.title + asTitledItem(editingVe.displayItem).title;
+
+  store.history.setFocus(closestPathUp);
   fullArrange(store);
 
   server.updateItem(upFocusItem, store.general.networkStatus);
@@ -166,6 +168,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
     server.deleteItem(compositeItem.id, store.general.networkStatus);
     fullArrange(store);
     const itemPath = VeFns.addVeidToPath(upVeid, compositeParentPath);
+    store.history.setFocus(itemPath);
     store.overlay.setTextEditInfo(store.history, { itemPath: itemPath, itemType: upFocusItem.itemType });
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
@@ -174,7 +177,9 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
   }
   else {
     fullArrange(store);
-    store.overlay.setTextEditInfo(store.history, { itemPath: closestPathUp, itemType: upFocusItem.itemType });
+    const upVes = VesCache.findSingle(upVeid);
+    const currentUpPath = VeFns.veToPath(upVes.get());
+    store.overlay.setTextEditInfo(store.history, { itemPath: currentUpPath, itemType: upFocusItem.itemType });
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     setCaretPosition(textElement!, upTextLength);
