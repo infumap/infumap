@@ -193,11 +193,11 @@ export function makeHistoryStore(): HistoryStoreContextModel {
         const veid = VeFns.veidFromPath(breadcrumb.focusPath!);
         const item = itemState.get(veid.itemId);
         if (item) { return item; }
-        panic(`getFocusItem: item not found for path: ${breadcrumb.focusPath}.`);
       } catch (e) {
         console.error(e);
-        panic(`getFocusItem: error parsing focus path: ${breadcrumb.focusPath}.`);
+        panic(`getFocusItem: error parsing focus path: ${breadcrumb.focusPath}`);
       }
+      panic(`getFocusItem: item not found for path: ${breadcrumb.focusPath}`);
     }
     if (currentPopupSpec() != null) {
       if (itemState.get(currentPopupSpec()!.actualVeid.itemId)!.itemType == ItemType.Page) {
