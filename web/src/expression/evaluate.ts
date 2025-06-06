@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { asExpressionItem } from "../items/expression-item";
+import { asExpressionItem, isExpression } from "../items/expression-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asRatingItem, isRating } from "../items/rating-item";
 import { findClosest } from "../layout/find";
@@ -41,17 +41,38 @@ export function evaluateExpressions(virtual: boolean) {
 
 interface Context {
   path: string,
+  evaluationStack: Set<string>,
 }
 
 function evaluateExpression(path: VisualElementPath, text: string, virtual: boolean): string {
   if (text.trim() == "") { return ""; }
   try {
     const expr = Parser.parse(text);
-    const context = { path };
+    const context = { path, evaluationStack: new Set<string>() };
     const r = evaluate(expr, context, virtual);
     return "" + r;
   } catch (e: any) {
     return "#VALUE!";
+  }
+}
+
+function evaluateExpressionItem(item: any, path: VisualElementPath, context: Context, virtual: boolean): number {
+  const expressionItem = asExpressionItem(item);
+  const itemId = expressionItem.id;
+  if (context.evaluationStack.has(itemId)) {
+    return NaN;
+  }
+  context.evaluationStack.add(itemId);
+  try {
+    const equation = expressionItem.title;
+    const expr = Parser.parse(equation);
+    const newContext = { ...context, path };
+    const result = evaluate(expr, newContext, virtual);
+    return result;
+  } catch (e: any) {
+    return NaN;
+  } finally {
+    context.evaluationStack.delete(itemId);
   }
 }
 
@@ -82,15 +103,27 @@ function evaluate(expr: Expression, context: Context, virtual: boolean): number 
     const e = expr as AbsoluteReferenceExpression;
     const item = itemState.get(e.uid)!;
     if (item == null) { throw new Error("item doesn't exist"); }
-    if (!isNote(item)) { throw new Error("referenced item is not note."); }
-    return parseFloat(asNoteItem(item).title);
+    if (isNote(item)) {
+      return parseFloat(asNoteItem(item).title);
+    } else if (isRating(item)) {
+      return asRatingItem(item).rating;
+    } else if (isExpression(item)) {
+      const pathsForItem = VesCache.getPathsForDisplayId(e.uid);
+      if (pathsForItem && pathsForItem.length > 0) {
+        return evaluateExpressionItem(item, pathsForItem[0], context, virtual);
+      } else {
+        throw new Error("no path found for expression item");
+      }
+    } else {
+      return NaN;
+    }
   }
   if (exprType == ExpressionType.RelativeReference) {
     const e = expr as RelativeReferenceExpression;
     let path = context.path;
     for (let i=0; i<e.findOffset; ++i) {
       const pathMaybe = findClosest(path, e.findDirection, true, virtual);
-      if (pathMaybe == null) { return 0; }
+      if (pathMaybe == null) { return NaN; }
       path = pathMaybe;
     }
 
@@ -104,6 +137,8 @@ function evaluate(expr: Expression, context: Context, virtual: boolean): number 
       }
     } else if (isRating(ve.displayItem)) {
       return asRatingItem(ve.displayItem).rating;
+    } else if (isExpression(ve.displayItem)) {
+      return evaluateExpressionItem(ve.displayItem, path, context, virtual);
     }
 
     return NaN;
