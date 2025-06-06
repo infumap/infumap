@@ -18,6 +18,7 @@
 
 import { asExpressionItem } from "../items/expression-item";
 import { asNoteItem, isNote } from "../items/note-item";
+import { asRatingItem, isRating } from "../items/rating-item";
 import { findClosest } from "../layout/find";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElementPath } from "../layout/visual-element";
@@ -99,11 +100,13 @@ function evaluate(expr: Expression, context: Context, virtual: boolean): number 
       try {
         return parseFloat(asNoteItem(ve.displayItem).title);
       } catch (e) {
-        return 0;
+        return NaN;
       }
+    } else if (isRating(ve.displayItem)) {
+      return asRatingItem(ve.displayItem).rating;
     }
 
-    return 0;
+    return NaN;
   }
   throw new Error("unexpected expression type: " + exprType);
 };
