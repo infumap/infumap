@@ -19,12 +19,11 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
-import { asExpressionItem } from "../../items/expression-item";
+import { asExpressionItem, ExpressionFns } from "../../items/expression-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { getTextStyleForNote } from "../../layout/text";
-import { expressionFormatMaybe } from "./Expression";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
@@ -115,7 +114,7 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
                   class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
                   style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-              {expressionFormatMaybe(props.visualElement.evaluatedTitle != null
+              {ExpressionFns.expressionFormatMaybe(props.visualElement.evaluatedTitle != null
                 ? props.visualElement.evaluatedTitle
                 : expressionItem().title, expressionItem().format)}<span></span>
             </span>
@@ -128,7 +127,7 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
                   contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
                   spellcheck={store.overlay.textEditInfo() != null}
                   onKeyDown={keyDownHandler}>
-              {expressionFormatMaybe(expressionItem().title, expressionItem().format)}<span></span>
+              {ExpressionFns.expressionFormatMaybe(expressionItem().title, expressionItem().format)}<span></span>
             </span>
           </Match>
         </Switch>

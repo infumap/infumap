@@ -31,7 +31,6 @@ import { ClickState } from "../../input/state";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { noteFormatMaybe } from "./Note";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 
 
@@ -162,7 +161,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
              onClick={aHrefClick}
              onMouseDown={aHrefMouseDown}
              onMouseUp={aHrefMouseUp}>
-            {noteFormatMaybe(noteItem().title, noteItem().format)}
+            {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
           </a>
         </Match>
         <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
@@ -174,7 +173,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
-            {appendNewlineIfEmpty(noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
+            {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
           </span>
         </Match>
       </Switch>

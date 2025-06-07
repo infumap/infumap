@@ -30,7 +30,6 @@ import { useStore } from "../../store/StoreProvider";
 import { CompositeFns, isComposite } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
-import { isNumeric } from "../../util/math";
 import { appendNewlineIfEmpty, isUrl, trimNewline } from "../../util/string";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -316,7 +315,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                onClick={aHrefClickListener}
                onMouseDown={aHrefMouseDownListener}
                onMouseUp={aHrefMouseUpListener}>
-              {noteFormatMaybe(noteItem().title, noteItem().format)}
+              {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
             </a>
           </div>
         </Match>
@@ -338,7 +337,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
-            {appendNewlineIfEmpty(noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
+            {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
           </span>
         </Match>
       </Switch>
@@ -387,16 +386,4 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>
     </>
   );
-}
-
-// TODO (HIGH): something not naive.
-export function noteFormatMaybe(text: string, format: string): string {
-  if (format == "") { return text; }
-  if (!isNumeric(text)) { return text; }
-  if (format == "0") { return parseFloat(text).toFixed(0); }
-  if (format == "0.0") { return parseFloat(text).toFixed(1); }
-  if (format == "0.00") { return parseFloat(text).toFixed(2); }
-  if (format == "0.000") { return parseFloat(text).toFixed(3); }
-  if (format == "0.0000") { return parseFloat(text).toFixed(4); }
-  return text;
 }

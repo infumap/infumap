@@ -29,7 +29,6 @@ import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { BoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { isNumeric } from "../../util/math";
 import { FEATURE_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { NoteFlags } from "../../items/base/flags-item";
@@ -205,7 +204,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
                        `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                        `overflow-wrap: break-word; white-space: pre-wrap; ` +
                        `outline: 0px solid transparent;`}>
-            {appendNewlineIfEmpty(expressionFormatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format))}
+            {appendNewlineIfEmpty(ExpressionFns.expressionFormatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format))}
           </span>
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
@@ -269,16 +268,4 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
       </div>
     </>
   );
-}
-
-
-// TODO (HIGH): something not naive.
-export function expressionFormatMaybe(text: string, format: string): string {
-  if (format == "") { return text; }
-  if (!isNumeric(text)) { return text; }
-  if (format == "0.0") { return parseFloat(text).toFixed(1); }
-  if (format == "0.00") { return parseFloat(text).toFixed(2); }
-  if (format == "0.000") { return parseFloat(text).toFixed(3); }
-  if (format == "0.0000") { return parseFloat(text).toFixed(4); }
-  return text;
 }

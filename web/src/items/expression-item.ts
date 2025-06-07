@@ -28,6 +28,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
+import { isNumeric } from "../util/math";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { FlagsMixin, NoteFlags } from "./base/flags-item";
@@ -117,7 +118,8 @@ export const ExpressionFns = {
   },
 
   calcSpatialDimensionsBl: (expression: ExpressionMeasurable): Dimensions => {
-    let lineCount = measureLineCount(expression.title, expression.spatialWidthGr / GRID_SIZE, NoteFlags.None);
+    const formattedTitle = ExpressionFns.expressionFormatMaybe(expression.title, expression.format);
+    let lineCount = measureLineCount(formattedTitle, expression.spatialWidthGr / GRID_SIZE, NoteFlags.None);
     if (lineCount < 1) { lineCount = 1; }
     return { w: expression.spatialWidthGr / GRID_SIZE, h: lineCount };
   },
@@ -294,6 +296,17 @@ export const ExpressionFns = {
   getFingerprint: (expressionItem: ExpressionItem): string => {
     return expressionItem.title + "~~~!@#~~~" + expressionItem.flags + "~~~!@#~~~" + expressionItem.format;
   },
+
+  // TODO (HIGH): something not naive.
+  expressionFormatMaybe: (text: string, format: string): string => {
+    if (format == "") { return text; }
+    if (!isNumeric(text)) { return text; }
+    if (format == "0.0") { return parseFloat(text).toFixed(1); }
+    if (format == "0.00") { return parseFloat(text).toFixed(2); }
+    if (format == "0.000") { return parseFloat(text).toFixed(3); }
+    if (format == "0.0000") { return parseFloat(text).toFixed(4); }
+    return text;
+  }
 }
 
 export function isExpression(item: ItemTypeMixin | null): boolean {

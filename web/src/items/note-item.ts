@@ -38,6 +38,7 @@ import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
+import { isNumeric } from '../util/math';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
@@ -126,7 +127,8 @@ export const NoteFns = {
   },
 
   calcSpatialDimensionsBl: (note: NoteMeasurable): Dimensions => {
-    let lineCount = measureLineCount(note.title, note.spatialWidthGr / GRID_SIZE, note.flags);
+    const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
+    let lineCount = measureLineCount(formattedTitle, note.spatialWidthGr / GRID_SIZE, note.flags);
     if (lineCount < 1) { lineCount = 1; }
     return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
   },
@@ -339,6 +341,18 @@ export const NoteFns = {
 
   hasUrl: (noteItem: NoteItem) => {
     return noteItem.url != null && noteItem.url != "" && noteItem.title != "";
+  },
+
+  // TODO (HIGH): something not naive.
+  noteFormatMaybe: (text: string, format: string): string => {
+    if (format == "") { return text; }
+    if (!isNumeric(text)) { return text; }
+    if (format == "0") { return parseFloat(text).toFixed(0); }
+    if (format == "0.0") { return parseFloat(text).toFixed(1); }
+    if (format == "0.00") { return parseFloat(text).toFixed(2); }
+    if (format == "0.000") { return parseFloat(text).toFixed(3); }
+    if (format == "0.0000") { return parseFloat(text).toFixed(4); }
+    return text;
   }
 };
 
