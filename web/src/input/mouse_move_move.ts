@@ -44,6 +44,8 @@ import { asContainerItem } from "../items/base/container-item";
 import { newUid } from "../util/uid";
 import { maybeAddNewChildItems } from "./create";
 import { isDataItem } from "../items/base/data-item";
+import createJustifiedLayout from "justified-layout";
+import { createJustifyOptions } from "../layout/arrange/page_justified";
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
@@ -282,8 +284,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-    // TODO (MEDIUM).
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), 0);
+    const moveOverIndex = calculateJustifiedMoveOverIndex(store, inElementVe, activeItem, desktopPosPx);
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
   }
 
   else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
@@ -510,4 +512,73 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   };
 
   MouseActionState.get().startPosBl = { x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE };
+}
+
+
+function calculateJustifiedMoveOverIndex(store: StoreContextModel, inElementVe: VisualElement, activeItem: PositionalItem, desktopPosPx: Vector): number {
+  const pageItem = asPageItem(inElementVe.displayItem);
+  const containerItem = asContainerItem(inElementVe.displayItem);
+
+  const xAdj = (inElementVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) ||
+               (inElementVe.flags & VisualElementFlags.Popup)
+    ? store.getCurrentDockWidthPx()
+    : 0.0;
+  const xOffsetPx = desktopPosPx.x - (inElementVe.viewportBoundsPx!.x + xAdj);
+  const yOffsetPx = desktopPosPx.y - inElementVe.viewportBoundsPx!.y;
+
+  // Account for scroll position
+  const veid = VeFns.veidFromVe(inElementVe);
+  const scrollYPx = store.perItem.getPageScrollYProp(veid)
+    * (inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
+  const scrollXPx = store.perItem.getPageScrollXProp(veid)
+    * (inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
+
+  const mousePagePosPx = {
+    x: xOffsetPx + scrollXPx,
+    y: yOffsetPx + scrollYPx
+  };
+
+  const dims = [];
+  const items = [];
+  for (let i = 0; i < containerItem.computed_children.length; ++i) {
+    const item = itemState.get(containerItem.computed_children[i])!;
+    if (item.id === activeItem.id) {
+      continue;
+    }
+    const dimensions = ItemFns.calcSpatialDimensionsBl(item);
+    dims.push({ width: dimensions.w, height: dimensions.h });
+    items.push(item);
+  }
+
+  const movingItemDimensions = ItemFns.calcSpatialDimensionsBl(activeItem);
+  const movingItemDim = { width: movingItemDimensions.w, height: movingItemDimensions.h };
+
+  let bestIndex = 0;
+  let bestDistance = Infinity;
+
+  for (let insertIdx = 0; insertIdx <= dims.length; insertIdx++) {
+    const testDims = [...dims];
+    testDims.splice(insertIdx, 0, movingItemDim);
+
+    const layout = createJustifiedLayout(testDims, createJustifyOptions(inElementVe.boundsPx.w, pageItem.justifiedRowAspect));
+
+    if (layout.boxes.length > insertIdx) {
+      const box = layout.boxes[insertIdx];
+      const itemCenterPx = {
+        x: box.left + box.width / 2,
+        y: box.top + box.height / 2
+      };
+
+      const dx = mousePagePosPx.x - itemCenterPx.x;
+      const dy = mousePagePosPx.y - itemCenterPx.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = insertIdx;
+      }
+    }
+  }
+
+  return bestIndex;
 }

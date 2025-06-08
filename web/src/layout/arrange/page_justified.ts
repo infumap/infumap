@@ -211,7 +211,7 @@ export function arrange_justified_page(
   return pageWithChildrenVisualElementSpec;
 }
 
-function createJustifyOptions(widthPx: number, rowAspect: number) {
+export function createJustifyOptions(widthPx: number, rowAspect: number) {
   const NORMAL_ROW_HEIGHT = 200;
   const targetRowHeight = widthPx / rowAspect;
   const options: JustifiedLayoutOptions = {

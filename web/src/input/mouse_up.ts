@@ -325,7 +325,8 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
     serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
   }
   else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-           pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
+           pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
+           pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
     const path = VeFns.veToPath(overContainerVe);
     const idx = store.perVe.getMoveOverIndex(path);
     const insertIndex = pageItem.orderChildrenBy != "" ? 0 : idx;

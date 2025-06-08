@@ -36,6 +36,10 @@ import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
 import { Page_FlipCard } from "./Page_FlipCard";
+import { ItemFns } from "../../items/base/item-polymorphism";
+import { asContainerItem } from "../../items/base/container-item";
+import createJustifiedLayout from "justified-layout";
+import { createJustifyOptions } from "../../layout/arrange/page_justified";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -231,11 +235,61 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: 1px; width: ${widthPx}px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-        console.debug(store.perVe.getMoveOverIndex(pageFns.vePath()));
-        return <></>;
+        return pageFns.renderJustifiedMoveOverHighlight();
       } else {
         return <></>;
       }
+    },
+
+    renderJustifiedMoveOverHighlight: () => {
+      const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
+
+      // Filter out moving items to get the non-moving visual elements
+      const nonMovingChildrenVes = props.visualElement.childrenVes.filter(childVe =>
+        !(childVe.get().flags & VisualElementFlags.Moving)
+      );
+
+      if (moveOverIndex >= 0 && moveOverIndex <= nonMovingChildrenVes.length) {
+        let leftPx: number;
+        let topPx: number;
+        let heightPx: number;
+
+        if (moveOverIndex === 0) {
+          // Inserting at the beginning
+          const firstVe = nonMovingChildrenVes[0]?.get();
+          if (firstVe) {
+            leftPx = firstVe.boundsPx.x - 2;
+            topPx = firstVe.boundsPx.y;
+            heightPx = firstVe.boundsPx.h;
+          } else {
+            return <></>;
+          }
+        } else if (moveOverIndex >= nonMovingChildrenVes.length) {
+          // Inserting at the end
+          const lastVe = nonMovingChildrenVes[nonMovingChildrenVes.length - 1]?.get();
+          if (lastVe) {
+            leftPx = lastVe.boundsPx.x + lastVe.boundsPx.w + 2;
+            topPx = lastVe.boundsPx.y;
+            heightPx = lastVe.boundsPx.h;
+          } else {
+            return <></>;
+          }
+        } else {
+          // Inserting between elements
+          const prevVe = nonMovingChildrenVes[moveOverIndex - 1].get();
+          const nextVe = nonMovingChildrenVes[moveOverIndex].get();
+          leftPx = (prevVe.boundsPx.x + prevVe.boundsPx.w + nextVe.boundsPx.x) / 2;
+          topPx = Math.min(prevVe.boundsPx.y, nextVe.boundsPx.y);
+          heightPx = Math.max(prevVe.boundsPx.h, nextVe.boundsPx.h);
+        }
+
+        return (
+          <div class="absolute border border-black"
+               style={`left: ${leftPx}px; top: ${topPx}px; width: 1px; height: ${heightPx}px; ${VeFns.zIndexStyle(props.visualElement)}`} />
+        );
+      }
+
+      return <></>;
     },
   };
 
