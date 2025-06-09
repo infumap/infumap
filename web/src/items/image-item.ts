@@ -35,7 +35,7 @@ import { fullArrange } from "../layout/arrange";
 import { ItemFns } from "./base/item-polymorphism";
 import { FlagsMixin } from "./base/flags-item";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
-import { ClickState, CursorEventState } from "../input/state";
+import { CursorEventState } from "../input/state";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -220,7 +220,7 @@ export const ImageFns = {
 
   calcGeometry_InCell: (image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
     const sizeBl = ImageFns.calcSpatialDimensionsBl(image); // TODO (MEDIUM): inappropriate quantization.
-    const boundsPx = calcBoundsInCell(image.imageSizePx, cellBoundsPx);
+    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const blockSizePx = {
       w: boundsPx.w / sizeBl.w,
