@@ -435,6 +435,8 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   const attachToVisualElement = VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get();
   if (asAttachmentsItem(attachToVisualElement.displayItem).id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
+    console.error("activeItem", activeItem);
+    console.error("attachToVisualElement", attachToVisualElement);
     panic("mouseUpHandler_moving_hitboxAttachTo: Attempt was made to attach an item to itself.");
   }
 
@@ -470,6 +472,8 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
   if (moveOverContainerId == activeItem.id) {
     // TODO (HIGH): more rigorous check of entire hierarchy.
     // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
+    console.error("activeItem", activeItem);
+    console.error("overContainerVe", overContainerVe);
     panic("mouseUpHandler_moving_toOpaquePage: Attempt was made to move an item into itself.");
   }
 
@@ -487,6 +491,8 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
   if (moveOverContainerId == activeItem.id) {
     // TODO (HIGH): more rigorous check of entire hierarchy.
     // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
+    console.error("activeItem", activeItem);
+    console.error("overContainerVe", overContainerVe);
     panic("mouseUpHandler_moving_toTable: Attempt was made to move an item into itself.");
   }
 
