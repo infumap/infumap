@@ -164,6 +164,19 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
           </a>
         </Match>
+        <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
+          {/* when editing, don't apply text formatting. */}
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                       `outline: 0px solid transparent;`}
+                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
+                onKeyDown={keyDownHandler}
+                onInput={inputListener}>
+            {appendNewlineIfEmpty(noteItem().title)}<span></span>
+          </span>
+        </Match>
         <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
                 class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}

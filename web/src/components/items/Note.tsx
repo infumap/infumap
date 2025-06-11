@@ -319,6 +319,28 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             </a>
           </div>
         </Match>
+        <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
+          {/* when editing, don't apply text formatting. */}
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
+                       `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
+                style={`position: absolute; ` +
+                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                       `width: ${naturalWidthPx()}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
+                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                       `font-size: ${infuTextStyle().fontSize}px; ` +
+                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                       `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                       `outline: 0px solid transparent;`}
+                contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
+                onKeyDown={keyDownHandler}
+                onInput={inputListener}>
+            {appendNewlineIfEmpty(noteItem().title)}<span></span>
+          </span>
+        </Match>
         <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
                 class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
