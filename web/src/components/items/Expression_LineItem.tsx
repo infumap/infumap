@@ -108,7 +108,7 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
                   `${infuTextStyle().alignClass} `}
           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                  `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                 `transform: scale(${scale()}); transform-origin: top left; `}>
+                 `transform: scale(${scale()}); transform-origin: top left; padding-right: 2px;`}>
         <Switch>
           <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
