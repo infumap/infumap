@@ -127,23 +127,31 @@ export const HitInfoFns = {
   /**
    * The top most container element (including if this was the hit element)
    */
-  getOverContainerVe: (hitInfo: HitInfo): VisualElement => {
+  getOverContainerVe: (hitInfo: HitInfo, ignoreItems: Array<Uid> = []): VisualElement => {
     if (hitInfo.overVes) {
       if (isContainer(hitInfo.overVes.get().displayItem)) {
         if (hitInfo.subRootVe && isTable(hitInfo.subRootVe!.displayItem)) {
           if (hitInfo.hitboxType & HitboxFlags.Click) {
-            return hitInfo.subRootVe;
+            if (!ignoreItems.find(a => a == hitInfo.subRootVe!.displayItem.id)) {
+              return hitInfo.subRootVe;
+            }
           }
         }
-        return hitInfo.overVes.get();
+        if (!ignoreItems.find(a => a == hitInfo.overVes!.get().displayItem.id)) {
+          return hitInfo.overVes.get();
+        }
       }
     }
-    if (hitInfo.subSubRootVe) {
+    if (hitInfo.subSubRootVe && !ignoreItems.find(a => a == hitInfo.subSubRootVe!.displayItem.id)) {
       return hitInfo.subSubRootVe;
     }
-    if (hitInfo.subRootVe) {
+    if (hitInfo.subRootVe && !ignoreItems.find(a => a == hitInfo.subRootVe!.displayItem.id)) {
       return hitInfo.subRootVe;
     }
+    if (!ignoreItems.find(a => a == hitInfo.rootVes.get().displayItem.id)) {
+      return hitInfo.rootVes.get();
+    }
+    // Fallback: if everything is ignored, return rootVes anyway to avoid null
     return hitInfo.rootVes.get();
   },
 
@@ -637,7 +645,7 @@ function hitNonPagePopupMaybe(
 
   if (isTable(rootVe.displayItem)) {
 
-    if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move) { //} && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+    if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
       return ({
         parentRootVe: parentRootInfo.parentRootVe,
         rootVes,
@@ -709,7 +717,7 @@ function hitNonPagePopupMaybe(
       }
     }
 
-    if (hitboxType != HitboxFlags.None) { //} && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+    if (hitboxType != HitboxFlags.None && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
       return ({
         parentRootVe: parentRootInfo.parentRootVe,
         rootVes,
@@ -731,7 +739,7 @@ function hitNonPagePopupMaybe(
     }
   }
 
-  if (hitboxType != HitboxFlags.None) { // && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+  if (hitboxType != HitboxFlags.None && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
     return ({
       parentRootVe: parentRootInfo.parentRootVe,
       rootVes,

@@ -199,7 +199,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||
-      MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo))) {
+      MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds))) {
     if (MouseActionState.get().moveOver_containerElement != null) {
       const veMaybe = VesCache.get(MouseActionState.get().moveOver_containerElement!);
       if (veMaybe) {
@@ -207,8 +207,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       }
     }
 
-    store.perVe.setMovingItemIsOver(VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo)), true);
-    MouseActionState.get().moveOver_containerElement = VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo));
+    store.perVe.setMovingItemIsOver(VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds)), true);
+    MouseActionState.get().moveOver_containerElement = VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds));
   }
 
   // update move over attach state.
