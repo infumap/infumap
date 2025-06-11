@@ -465,6 +465,16 @@ export const VeFns = {
   },
 
   addVeidToPath: (veid: Veid, path: VisualElementPath): VisualElementPath => {
+
+    if (!veid.itemId || veid.itemId === "") {
+      console.error("MALFORMED PATH CREATION: addVeidToPath called with empty itemId");
+      console.error("  veid:", veid);
+      console.error("  path:", path);
+      console.error("  Stack trace:");
+      console.trace();
+      panic(`addVeidToPath: veid.itemId is empty or null. This will create a malformed path.`);
+    }
+
     let current = veid.itemId;
     if (veid.linkIdMaybe != null) {
       current += "[" + veid.linkIdMaybe! + "]";
@@ -487,6 +497,15 @@ export const VeFns = {
    */
   veToPath: (visualElement: VisualElement): VisualElementPath => {
     let current = visualElement.displayItem.id;
+
+    if (!current || current === "") {
+      console.error("MALFORMED PATH CREATION: veToPath called with empty displayItem.id");
+      console.error("  visualElement:", visualElement);
+      console.error("  Stack trace:");
+      console.trace();
+      panic(`veToPath: visualElement.displayItem.id is empty. This will create a malformed path.`);
+    }
+
     if (visualElement.linkItemMaybe != null) {
       current += "[" + visualElement.linkItemMaybe!.id + "]";
     }
@@ -495,13 +514,36 @@ export const VeFns = {
       return current;
     }
 
-    return current + "-" + visualElement.parentPath!;
+    const result = current + "-" + visualElement.parentPath!;
+
+    if (result.startsWith("-") || result.includes("--") || result.includes("-[")) {
+      console.error("MALFORMED PATH CREATION: veToPath created malformed path");
+      console.error("  result:", result);
+      console.error("  from visualElement:", visualElement);
+      console.error("  Stack trace:");
+      console.trace();
+    }
+
+    return result;
   },
 
   parentPath: (path: VisualElementPath): VisualElementPath => {
     const pos = path.indexOf("-");
-    if (pos == -1) { return ""; }
-    return path.substring(pos + 1);
+    if (pos == -1) {
+      return "";
+    }
+
+    const result = path.substring(pos + 1);
+
+    if (result.startsWith("-") || result.includes("--")) {
+      console.error("MALFORMED PATH CREATION: parentPath returning malformed path");
+      console.error("  result:", result);
+      console.error("  from input:", path);
+      console.error("  Stack trace:");
+      console.trace();
+    }
+
+    return result;
   },
 
   veidFromId: (id: Uid): Veid => {

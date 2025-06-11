@@ -69,19 +69,23 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
   const setHistoryToSinglePage = (pageVeid: Veid): void => {
+    const focusPath = VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
+
     setBreadcrumbs([{
       pageVeid,
       parentPageChanged: true,
       popupBreadcrumbs: [],
-      focusPath: VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID)
+      focusPath
     }]);
   };
 
   const pushPageVeid = (pageVeid: Veid): void => {
+    const focusPath = VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
+
     breadcrumbs().push({
       pageVeid,
       popupBreadcrumbs: [],
-      focusPath: VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID)
+      focusPath
     });
     setBreadcrumbs(breadcrumbs());
   };
@@ -116,6 +120,14 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
   const changeParentPageFocusPath = (path: VisualElementPath) => {
+    if (path && (path.startsWith("-") || path.includes("--"))) {
+      console.error("MALFORMED PATH DETECTION: changeParentPageFocusPath received malformed path");
+      console.error("  path:", path);
+      console.error("  Stack trace:");
+      console.trace();
+      panic(`changeParentPageFocusPath: malformed path received: "${path}"`);
+    }
+
     const parentBc = parentPageBreadcrumb();
     parentBc!.focusPath = path;
     setBreadcrumbs(breadcrumbs());
@@ -125,6 +137,15 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const pushPopup = (popupSpec: PopupSpec): void => {
     if (breadcrumbs().length == 0) { panic("pushPopup: no breadcrumbs."); }
+
+    if (popupSpec.vePath && (popupSpec.vePath.startsWith("-") || popupSpec.vePath.includes("--"))) {
+      console.error("MALFORMED PATH DETECTION: pushPopup received malformed vePath");
+      console.error("  popupSpec:", popupSpec);
+      console.error("  Stack trace:");
+      console.trace();
+      panic(`pushPopup: malformed vePath received: "${popupSpec.vePath}"`);
+    }
+
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     breadcrumb.popupBreadcrumbs.push(popupSpec);
     breadcrumb.focusPath = popupSpec.vePath;
@@ -133,6 +154,15 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const replacePopup = (popupSpec: PopupSpec): void => {
     if (breadcrumbs().length == 0) { panic("replacePopup: no breadcrumbs."); }
+
+    if (popupSpec.vePath && (popupSpec.vePath.startsWith("-") || popupSpec.vePath.includes("--"))) {
+      console.error("MALFORMED PATH DETECTION: replacePopup received malformed vePath");
+      console.error("  popupSpec:", popupSpec);
+      console.error("  Stack trace:");
+      console.trace();
+      panic(`replacePopup: malformed vePath received: "${popupSpec.vePath}"`);
+    }
+
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     breadcrumb.popupBreadcrumbs = [popupSpec];
     breadcrumb.focusPath = popupSpec.vePath;
@@ -144,20 +174,53 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     if (breadcrumb.popupBreadcrumbs.length == 0) { return; }
     const popupSpec = breadcrumb.popupBreadcrumbs.pop();
+
     if (breadcrumb.popupBreadcrumbs.length == 0) {
+      if (!popupSpec!.vePath) {
+        console.error("MALFORMED PATH DETECTION: popPopup vePath is null/undefined");
+        console.error("  popupSpec:", popupSpec);
+        console.error("  Stack trace:");
+        console.trace();
+        panic("popPopup: vePath is null");
+      }
+
       const popupParentPath = VeFns.parentPath(popupSpec!.vePath!);
+
+      if (popupParentPath.startsWith("-") || popupParentPath.includes("--")) {
+        console.error("MALFORMED PATH DETECTION: popPopup calculated malformed parent path");
+        console.error("  popupParentPath:", popupParentPath);
+        console.error("  from vePath:", popupSpec!.vePath);
+        console.error("  popupSpec:", popupSpec);
+        console.error("  breadcrumb:", breadcrumb);
+        console.error("  Stack trace:");
+        console.trace();
+      }
+
       breadcrumb.focusPath = popupParentPath;
     } else {
-      breadcrumb.focusPath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length-1].vePath;
+      const nextVePath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length-1].vePath;
+
+      if (nextVePath && (nextVePath.startsWith("-") || nextVePath.includes("--"))) {
+        console.error("MALFORMED PATH DETECTION: popPopup next popup vePath is malformed");
+        console.error("  nextVePath:", nextVePath);
+        console.error("  breadcrumb:", breadcrumb);
+        console.error("  Stack trace:");
+        console.trace();
+      }
+
+      breadcrumb.focusPath = nextVePath;
     }
     setBreadcrumbs(breadcrumbs());
   };
 
   const popAllPopups = (): void => {
     if (breadcrumbs().length == 0) { panic("popAllPopups: no breadcrumbs."); }
+
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
+
     breadcrumb.popupBreadcrumbs = [];
-    breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
+    breadcrumb.focusPath = focusPath;
     setBreadcrumbs(breadcrumbs());
   };
 
@@ -179,6 +242,15 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const setFocus = (focusPath: VisualElementPath): void => {
     if (breadcrumbs().length < 1) { panic("cannot set focus item when there is no current page."); }
+
+    if (focusPath.startsWith("-") || focusPath === "" || focusPath.includes("--")) {
+      console.error("MALFORMED PATH DETECTION: setFocus called with malformed path");
+      console.error("  focusPath:", focusPath);
+      console.error("  Stack trace:");
+      console.trace();
+      panic(`setFocus: Attempting to set malformed focus path: "${focusPath}"`);
+    }
+
     VeFns.validatePath(focusPath);
 
     breadcrumbs()[breadcrumbs().length-1].focusPath = focusPath;
