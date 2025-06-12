@@ -125,7 +125,7 @@ export const Toolbar_Table: Component = () => {
       <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
       <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
-        <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
+        <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
       </div>
       <div class="inline-block">
         <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />

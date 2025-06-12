@@ -35,6 +35,8 @@ import { asFormatItem } from "../../items/base/format-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import QRCode from "qrcode";
 import { asFlipCardItem, isFlipCard } from "../../items/flipcard-item";
+import { isImage, asImageItem } from "../../items/image-item";
+import { isFile, asFileItem } from "../../items/file-item";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -50,11 +52,41 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.Scale) { return 92; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
-      return 420;
+      return 500;
     }
-    return 370;
+    return 450;
   }
   return 30;
+}
+
+function calculateChildrenStats(containerItem: any): { totalChildren: number, imageFileChildren: number, totalBytes: number } {
+  const children = containerItem.computed_children || [];
+  let totalChildren = children.length;
+  let imageFileChildren = 0;
+  let totalBytes = 0;
+
+  children.forEach((childId: string) => {
+    const child = itemState.get(childId);
+    if (child) {
+      if (isImage(child)) {
+        imageFileChildren++;
+        totalBytes += asImageItem(child).fileSizeBytes || 0;
+      } else if (isFile(child)) {
+        imageFileChildren++;
+        totalBytes += asFileItem(child).fileSizeBytes || 0;
+      }
+    }
+  });
+
+  return { totalChildren, imageFileChildren, totalBytes };
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
@@ -403,6 +435,21 @@ export const Toolbar_Popup: Component = () => {
                 <span class="font-mono text-slate-400">Composite Id:</span><br />
                 <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
                 <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyCompositeIdClickHandler} />
+              </div>
+            </Show>
+            <Show when={isPage(store.history.getFocusItem()) || isTable(store.history.getFocusItem())}>
+              <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
+                {(() => {
+                  const currentItem = store.history.getFocusItem();
+                  const stats = calculateChildrenStats(currentItem);
+                  return (
+                    <>
+                      <span class="font-mono text-slate-400">Children: {stats.totalChildren}</span><br />
+                      <span class="font-mono text-slate-400">Images & Files: {stats.imageFileChildren}</span><br />
+                      <span class="font-mono text-slate-400">Total Size: {formatBytes(stats.totalBytes)}</span>
+                    </>
+                  );
+                })()}
               </div>
             </Show>
           </div>

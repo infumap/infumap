@@ -55,7 +55,7 @@ export const Toolbar_Rating: Component = () => {
       <div class="inline-block">
 
         <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
-          <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
+          <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
         </div>
         <div class="inline-block">
           <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
