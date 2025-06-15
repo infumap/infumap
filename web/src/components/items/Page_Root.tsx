@@ -85,7 +85,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       <div ref={rootDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} `}
            style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
-                  `height: ${pageFns().viewportBoundsPx().h}px; `}
+                  `height: ${pageFns().viewportBoundsPx().h}px; ` +
+                  `overflow-y: auto; `}
            onscroll={listRootScrollHandler}>
         <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
              style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
