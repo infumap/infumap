@@ -306,11 +306,17 @@ export const ExpressionFns = {
     if (format == "0.00") { return parseFloat(text).toFixed(2); }
     if (format == "0.000") { return parseFloat(text).toFixed(3); }
     if (format == "0.0000") { return parseFloat(text).toFixed(4); }
-    if (format == "1,000.00") { 
-      return parseFloat(text).toLocaleString('en-US', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
-      }); 
+    if (format == "1,000") {
+      return parseFloat(text).toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+    if (format == "1,000.00") {
+      return parseFloat(text).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
     }
     return text;
   }

@@ -291,7 +291,7 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const tooltip = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0 or empty"; }
+    if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0, 1,000, 1,000.00 or empty"; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
     if (overlayType() == ToolbarPopupType.Scale) { return "Inner page scale."; }
