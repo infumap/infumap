@@ -100,17 +100,17 @@ export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
     alignClass = "text-justify";
   }
 
+  const isCode = (flags & NoteFlags.Code) != 0;
+
   if (flags & NoteFlags.Heading3) {
-    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true, isCode: false, alignClass };
+    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true, isCode, alignClass };
   }
   if (flags & NoteFlags.Heading2) {
-    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true, isCode: false, alignClass };
+    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true, isCode, alignClass };
   }
   if (flags & NoteFlags.Heading1) {
-    return { fontSize: 48, lineHeightMultiplier: 2.0, isBold: true, isCode: false, alignClass };
+    return { fontSize: 48, lineHeightMultiplier: 2.0, isBold: true, isCode, alignClass };
   }
-  if (flags & NoteFlags.Code) {
-    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode: true, alignClass }
-  }
-  return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode: false, alignClass };
+
+  return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode, alignClass };
 }
