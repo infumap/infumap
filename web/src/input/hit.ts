@@ -533,22 +533,9 @@ function determineTopLevelRoot(
     return dockRootMaybe;
   }
 
-  let rootVe = umbrellaVe.childrenVes[0].get();
-  let rootVes = umbrellaVe.childrenVes[0];
-
-  if (rootVe.childrenVes.length == 0) {
-    return ({
-      parentRootVe: null,
-      rootVes,
-      rootVe,
-      posRelativeToRootVeBoundsPx: posOnDesktopPx,
-      posRelativeToRootVeViewportPx: posOnDesktopPx,
-      hitMaybe: null
-    });
-  }
-
+  let currentPageVe = umbrellaVe.childrenVes[0].get();
+  let currentPageVes = umbrellaVe.childrenVes[0];
   const currentPageVeid = store.history.currentPageVeid()!;
-  const currentPageVe = umbrellaVe.childrenVes[0].get();
 
   let posRelativeToTopLevelVePx = null;
   if (asPageItem(currentPageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
@@ -576,8 +563,8 @@ function determineTopLevelRoot(
 
   return ({
     parentRootVe: null,
-    rootVes,
-    rootVe,
+    rootVes: currentPageVes,
+    rootVe: currentPageVe,
     posRelativeToRootVeBoundsPx,
     posRelativeToRootVeViewportPx,
     hitMaybe: null
