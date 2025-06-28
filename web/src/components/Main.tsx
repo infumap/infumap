@@ -29,6 +29,7 @@ import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
 import { SearchOverlay } from "./overlay/SearchOverlay";
 import { FindOverlay } from "./overlay/FindOverlay";
+import { UploadOverlay } from "./overlay/UploadOverlay";
 import { Toolbar_Popup } from "./toolbar/Toolbar_Popup";
 import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler } from "../input/mouse_move";
@@ -257,6 +258,9 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.networkOverlayVisible.get()}>
         <Toolbar_NetworkStatus_Overlay />
+      </Show>
+      <Show when={store.overlay.uploadOverlayInfo.get() != null}>
+        <UploadOverlay />
       </Show>
 
     </div>

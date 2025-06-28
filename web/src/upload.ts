@@ -66,13 +66,27 @@ export async function handleUpload(
 
   // handle files.
   const files = dataTransfer.files;
+
+  if (files.length > 0) {
+    store.overlay.uploadOverlayInfo.set({
+      currentFile: 0,
+      totalFiles: files.length,
+      currentFileName: files[0].name
+    });
+  }
+
   for (let i=0; i<files.length; ++i) {
     const file = files[i];
+
+    store.overlay.uploadOverlayInfo.set({
+      currentFile: i + 1,
+      totalFiles: files.length,
+      currentFileName: file.name
+    });
+
     const base64Data = base64ArrayBuffer(await file.arrayBuffer());
 
     if (file.type == "image/jpeg" || file.type == "image/png") {
-      console.log(`uploading ${i+1}/${files.length}... [image] '${file.name}'`);
-
       let spatialWidthGr = 4.0 * GRID_SIZE;
 
       if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
@@ -100,8 +114,6 @@ export async function handleUpload(
       fullArrange(store);
 
     } else {
-      console.log(`uploading ${i+1}/${files.length}... [file] '${file.name}'`);
-
       let spatialWidthGr = 8.0 * GRID_SIZE;
 
       if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
@@ -130,4 +142,8 @@ export async function handleUpload(
       fullArrange(store);
     }
   }
+
+  setTimeout(() => {
+    store.overlay.uploadOverlayInfo.set(null);
+  }, 1000);
 }

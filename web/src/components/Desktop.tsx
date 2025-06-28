@@ -43,12 +43,18 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     if (ev.dataTransfer) {
       let hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
       if (hitInfo.hitboxType != HitboxFlags.None) {
-        console.log("must upload on background.");
+        store.overlay.toolbarTransientMessage.set("Must upload on background");
+        setTimeout(() => {
+          store.overlay.toolbarTransientMessage.set(null);
+        }, 3000);
         return;
       }
       let item = HitInfoFns.getHitVe(hitInfo).displayItem;
       if (!isPage(item)) {
-        console.log("must upload on page.");
+        store.overlay.toolbarTransientMessage.set("Must upload on page");
+        setTimeout(() => {
+          store.overlay.toolbarTransientMessage.set(null);
+        }, 3000);
         return;
       }
       await handleUpload(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store), asPageItem(item));

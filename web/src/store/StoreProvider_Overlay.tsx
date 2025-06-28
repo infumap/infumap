@@ -67,6 +67,12 @@ export interface EditUserSettingsInfo {
   desktopBoundsPx: BoundingBox,
 }
 
+export interface UploadOverlayInfo {
+  currentFile: number,
+  totalFiles: number,
+  currentFileName: string,
+}
+
 export interface OverlayStoreContextModel {
   // Desktop overlays. TODO (MEDIUM): move all these to Main.
   editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
@@ -79,6 +85,7 @@ export interface OverlayStoreContextModel {
   networkOverlayVisible: InfuSignal<boolean>,
   searchOverlayVisible: InfuSignal<boolean>,
   findOverlayVisible: InfuSignal<boolean>,
+  uploadOverlayInfo: InfuSignal<UploadOverlayInfo | null>,
 
   textEditInfo: () => TextEditInfo | null,
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => void,
@@ -103,6 +110,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const searchOverlayVisible = createInfuSignal<boolean>(false);
   const networkOverlayVisible = createInfuSignal<boolean>(false);
   const findOverlayVisible = createInfuSignal<boolean>(false);
+  const uploadOverlayInfo = createInfuSignal<UploadOverlayInfo | null>(null);
 
   function clear() {
     textEditInfo_.set(null);
@@ -114,6 +122,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     searchOverlayVisible.set(false);
     networkOverlayVisible.set(false);
     findOverlayVisible.set(false);
+    uploadOverlayInfo.set(null);
   }
 
   function anOverlayIsVisible(): boolean {
@@ -125,7 +134,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       contextMenuInfo.get() != null ||
       tableColumnContextMenuInfo.get() != null ||
       toolbarPopupInfoMaybe.get() != null ||
-      networkOverlayVisible.get()
+      networkOverlayVisible.get() ||
+      uploadOverlayInfo.get() != null
     );
   }
 
@@ -160,6 +170,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     searchOverlayVisible,
     networkOverlayVisible,
     findOverlayVisible,
+    uploadOverlayInfo,
 
     clear,
     anOverlayIsVisible,

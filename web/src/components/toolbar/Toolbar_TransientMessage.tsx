@@ -25,8 +25,8 @@ export const Toolbar_TransientMessage: Component = () => {
   const store = useStore();
 
   return (
-    <div class="absolute border rounded bg-white mb-1 shadow-md border-black pl-[8px] pr-[8px] pt-[3px] pb-[3px]"
-         style={`right: ${5}px; top: ${47}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
+    <div class="absolute border rounded-lg mb-1 shadow-lg pl-[12px] pr-[12px] pt-[6px] pb-[6px] text-white font-semibold text-sm"
+         style={`right: ${5}px; top: ${47}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; background-color: #dc2626; border-color: #b91c1c; border-width: 2px;`}>
       {store.overlay.toolbarTransientMessage.get()}
     </div>
   );
