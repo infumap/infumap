@@ -51,12 +51,17 @@ export async function handleUpload(
   let posPx = { x: 0.0, y: 0.0 };
   if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     const hitInfo = HitInfoFns.hit(store, desktopPx, [], false);
-    const propX = (desktopPx.x - HitInfoFns.getHitVe(hitInfo).boundsPx.x) / HitInfoFns.getHitVe(hitInfo).boundsPx.w;
-    const propY = (desktopPx.y - HitInfoFns.getHitVe(hitInfo).boundsPx.y) / HitInfoFns.getHitVe(hitInfo).boundsPx.h;
-    posPx = {
-      x: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-      y: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE / parent.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-    };
+
+    if (hitInfo.overPositionGr != null) {
+      posPx = hitInfo.overPositionGr;
+    } else {
+      const propX = (desktopPx.x - HitInfoFns.getHitVe(hitInfo).boundsPx.x) / HitInfoFns.getHitVe(hitInfo).boundsPx.w;
+      const propY = (desktopPx.y - HitInfoFns.getHitVe(hitInfo).boundsPx.y) / HitInfoFns.getHitVe(hitInfo).boundsPx.h;
+      posPx = {
+        x: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+        y: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE / parent.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
+      };
+    }
   }
 
   // handle files.
@@ -68,12 +73,22 @@ export async function handleUpload(
     if (file.type == "image/jpeg" || file.type == "image/png") {
       console.log(`uploading ${i+1}/${files.length}... [image] '${file.name}'`);
 
+      let spatialWidthGr = 4.0 * GRID_SIZE;
+
+      if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+        let maxWidthBl = Math.floor((parent.innerSpatialWidthGr - posPx.x - GRID_SIZE / 2.0) / GRID_SIZE);
+        if (maxWidthBl < 2) { maxWidthBl = 2; }
+        if (maxWidthBl * GRID_SIZE < spatialWidthGr) {
+          spatialWidthGr = maxWidthBl * GRID_SIZE;
+        }
+      }
+
       let imageItem: object = {
         itemType: ItemType.Image,
         parentId: parent.id,
         title: file.name,
         spatialPositionGr: posPx,
-        spatialWidthGr: 4.0 * GRID_SIZE,
+        spatialWidthGr: spatialWidthGr,
         originalCreationDate: Math.round(file.lastModified/1000.0),
         mimeType: file.type,
         fileSizeBytes: file.size,
@@ -87,13 +102,23 @@ export async function handleUpload(
     } else {
       console.log(`uploading ${i+1}/${files.length}... [file] '${file.name}'`);
 
+      let spatialWidthGr = 8.0 * GRID_SIZE;
+
+      if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+        let maxWidthBl = Math.floor((parent.innerSpatialWidthGr - posPx.x - GRID_SIZE / 2.0) / GRID_SIZE);
+        if (maxWidthBl < 2) { maxWidthBl = 2; }
+        if (maxWidthBl * GRID_SIZE < spatialWidthGr) {
+          spatialWidthGr = maxWidthBl * GRID_SIZE;
+        }
+      }
+
       let fileItem: object = {
         itemType: ItemType.File,
         id: newUid(),
         parentId: parent.id,
         title: file.name,
         spatialPositionGr: posPx,
-        spatialWidthGr: 8.0 * GRID_SIZE,
+        spatialWidthGr: spatialWidthGr,
         originalCreationDate: Math.round(file.lastModified/1000.0),
         mimeType: file.type,
         fileSizeBytes: file.size,
