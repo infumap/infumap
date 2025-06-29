@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod geometry;
+pub mod hash;
 pub mod infu;
 pub mod json;
 pub mod time;

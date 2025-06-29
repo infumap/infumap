@@ -13,6 +13,7 @@
   "devDependencies": {
     "@types/justified-layout": "^4.1.4",
     "@types/qrcode": "^1.5.5",
+    "@types/xxhashjs": "^0.2.4",
     "autoprefixer": "^10.4.20",
     "path": "^0.12.7",
     "postcss": "^8.5.1",
@@ -24,6 +25,7 @@
   "dependencies": {
     "justified-layout": "^4.1.0",
     "qrcode": "^1.5.4",
-    "solid-js": "^1.9.4"
+    "solid-js": "^1.9.4",
+    "xxhashjs": "^0.2.2"
   }
 }
