@@ -1659,7 +1659,9 @@ impl Item {
     // Container properties
     if is_container_item_type(self.item_type) {
       if let Some(order_children_by) = &self.order_children_by {
-        hashes.push(hash_string_to_uid(order_children_by));
+        if !order_children_by.is_empty() {
+          hashes.push(hash_string_to_uid(order_children_by));
+        }
       }
     }
 
@@ -1688,7 +1690,9 @@ impl Item {
     // Titled properties
     if is_titled_item_type(self.item_type) {
       if let Some(title) = &self.title {
-        hashes.push(hash_string_to_uid(title));
+        if !title.is_empty() {
+          hashes.push(hash_string_to_uid(title));
+        }
       }
     }
 
@@ -1698,7 +1702,9 @@ impl Item {
         hashes.push(hash_i64_to_uid(original_creation_date));
       }
       if let Some(mime_type) = &self.mime_type {
-        hashes.push(hash_string_to_uid(mime_type));
+        if !mime_type.is_empty() {
+          hashes.push(hash_string_to_uid(mime_type));
+        }
       }
       if let Some(file_size_bytes) = self.file_size_bytes {
         hashes.push(hash_i64_to_uid(file_size_bytes));
@@ -1729,7 +1735,9 @@ impl Item {
     // Format properties
     if is_format_item_type(self.item_type) {
       if let Some(format) = &self.format {
-        hashes.push(hash_string_to_uid(format));
+        if !format.is_empty() {
+          hashes.push(hash_string_to_uid(format));
+        }
       }
     }
 
@@ -1760,6 +1768,7 @@ impl Item {
         hashes.push(hash_i64_to_uid(inner_spatial_width_gr));
       }
       if let Some(arrange_algorithm) = &self.arrange_algorithm {
+        // Note: arrange_algorithm is an enum, not a string, so no empty check needed
         hashes.push(hash_string_to_uid(arrange_algorithm.as_str()));
       }
       if let Some(popup_position_gr) = &self.popup_position_gr {
@@ -1767,6 +1776,7 @@ impl Item {
         hashes.push(hash_string_to_uid(&pos_str));
       }
       if let Some(popup_alignment_point) = &self.popup_alignment_point {
+        // Note: popup_alignment_point is an enum, not a string, so no empty check needed
         hashes.push(hash_string_to_uid(popup_alignment_point.as_str()));
       }
       if let Some(popup_width_gr) = self.popup_width_gr {
@@ -1789,14 +1799,18 @@ impl Item {
     // Note-specific properties
     if self.item_type == ItemType::Note {
       if let Some(url) = &self.url {
-        hashes.push(hash_string_to_uid(url));
+        if !url.is_empty() {
+          hashes.push(hash_string_to_uid(url));
+        }
       }
     }
 
     // Password-specific properties
     if self.item_type == ItemType::Password {
       if let Some(text) = &self.text {
-        hashes.push(hash_string_to_uid(text));
+        if !text.is_empty() {
+          hashes.push(hash_string_to_uid(text));
+        }
       }
     }
 
@@ -1807,7 +1821,9 @@ impl Item {
         hashes.push(hash_string_to_uid(&size_str));
       }
       if let Some(thumbnail) = &self.thumbnail {
-        hashes.push(hash_string_to_uid(thumbnail));
+        if !thumbnail.is_empty() {
+          hashes.push(hash_string_to_uid(thumbnail));
+        }
       }
     }
 
@@ -1821,7 +1837,9 @@ impl Item {
     // Link-specific properties
     if self.item_type == ItemType::Link {
       if let Some(link_to) = &self.link_to {
-        hashes.push(hash_string_to_uid(link_to));
+        if !link_to.is_empty() {
+          hashes.push(hash_string_to_uid(link_to));
+        }
       }
     }
 

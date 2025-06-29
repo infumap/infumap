@@ -45,6 +45,7 @@ import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { asPageItem, isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
+import { hashItemAttachmentsChildrenAndTheirAttachments } from "../items/item";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -87,6 +88,7 @@ export const Main: Component = () => {
 
       const itemObject = result.item as any;
       const itemId = itemObject.id;
+      console.log("main itemId", itemId);
 
       if (itemObject.itemType != ItemType.Page) {
         itemState.addSoloItemHolderPage(itemObject.ownerId!);
@@ -131,6 +133,8 @@ export const Main: Component = () => {
           throw e;
         }
       });
+
+      console.log("main hash", hashItemAttachmentsChildrenAndTheirAttachments(itemId));
 
       try {
         switchToPage(store, isPage(item) ? { itemId, linkIdMaybe: null } : { itemId: SOLO_ITEM_HOLDER_PAGE_UID, linkIdMaybe: null }, false, false, false);
