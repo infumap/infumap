@@ -20,7 +20,7 @@ import { panic } from "../../util/lang";
 import { Item, ItemTypeMixin, ItemType} from "./item";
 
 
-const ITEM_TYPES = [ItemType.Page, ItemType.Note, ItemType.Table, ItemType.File, ItemType.Image];
+const ITEM_TYPES = [ItemType.Page, ItemType.Note, ItemType.Table, ItemType.File, ItemType.Image, ItemType.Expression];
 
 export interface TitledMixin {
   title: string

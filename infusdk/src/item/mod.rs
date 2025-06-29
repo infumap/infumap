@@ -20,6 +20,7 @@ use crate::util::infu::{InfuError, InfuResult};
 use crate::util::time::unix_now_secs_i64;
 use crate::util::uid::{is_uid, new_uid, Uid, EMPTY_UID};
 use crate::util::json;
+use crate::util::hash::{hash_string_to_uid, hash_i64_to_uid, hash_f64_to_uid, hash_u8_vec_to_uid, combine_hashes};
 use crate::web::WebApiJsonSerializable;
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, Map, Number};
@@ -1635,5 +1636,204 @@ impl Item {
       rating: None,
       scale: None,
     }
+  }
+
+  /// Computes a hash of the item including only properties relevant for the item type
+  pub fn hash(&self) -> Uid {
+    let mut hashes = Vec::new();
+
+    // Base properties (always included)
+    hashes.push(hash_string_to_uid(self.item_type.as_str()));
+    hashes.push(hash_string_to_uid(&self.id));
+    hashes.push(hash_string_to_uid(&self.owner_id));
+    if let Some(parent_id) = &self.parent_id {
+      hashes.push(hash_string_to_uid(parent_id));
+    } else {
+      hashes.push(hash_string_to_uid("null"));
+    }
+    hashes.push(hash_string_to_uid(self.relationship_to_parent.as_str()));
+    hashes.push(hash_i64_to_uid(self.creation_date));
+    hashes.push(hash_i64_to_uid(self.last_modified_date));
+    hashes.push(hash_u8_vec_to_uid(&self.ordering));
+
+    // Container properties
+    if is_container_item_type(self.item_type) {
+      if let Some(order_children_by) = &self.order_children_by {
+        hashes.push(hash_string_to_uid(order_children_by));
+      }
+    }
+
+    // Positionable properties
+    if is_positionable_type(self.item_type) {
+      if let Some(spatial_position_gr) = &self.spatial_position_gr {
+        let pos_str = format!("{},{}", spatial_position_gr.x, spatial_position_gr.y);
+        hashes.push(hash_string_to_uid(&pos_str));
+      }
+    }
+
+    // X-sizeable properties
+    if is_x_sizeable_item_type(self.item_type) || is_link_item(self) {
+      if let Some(spatial_width_gr) = self.spatial_width_gr {
+        hashes.push(hash_i64_to_uid(spatial_width_gr));
+      }
+    }
+
+    // Y-sizeable properties
+    if is_y_sizeable_item_type(self.item_type) || is_link_item(self) {
+      if let Some(spatial_height_gr) = self.spatial_height_gr {
+        hashes.push(hash_i64_to_uid(spatial_height_gr));
+      }
+    }
+
+    // Titled properties
+    if is_titled_item_type(self.item_type) {
+      if let Some(title) = &self.title {
+        hashes.push(hash_string_to_uid(title));
+      }
+    }
+
+    // Data properties
+    if is_data_item_type(self.item_type) {
+      if let Some(original_creation_date) = self.original_creation_date {
+        hashes.push(hash_i64_to_uid(original_creation_date));
+      }
+      if let Some(mime_type) = &self.mime_type {
+        hashes.push(hash_string_to_uid(mime_type));
+      }
+      if let Some(file_size_bytes) = self.file_size_bytes {
+        hashes.push(hash_i64_to_uid(file_size_bytes));
+      }
+    }
+
+    // Tabular properties
+    if is_tabular_item_type(self.item_type) {
+      if let Some(table_columns) = &self.table_columns {
+        let columns_str = table_columns.iter()
+          .map(|col| format!("{}:{}", col.width_gr, col.name))
+          .collect::<Vec<_>>()
+          .join(";");
+        hashes.push(hash_string_to_uid(&columns_str));
+      }
+      if let Some(number_of_visible_columns) = self.number_of_visible_columns {
+        hashes.push(hash_i64_to_uid(number_of_visible_columns));
+      }
+    }
+
+    // Flags properties
+    if is_flags_item_type(self.item_type) {
+      if let Some(flags) = self.flags {
+        hashes.push(hash_i64_to_uid(flags));
+      }
+    }
+
+    // Format properties
+    if is_format_item_type(self.item_type) {
+      if let Some(format) = &self.format {
+        hashes.push(hash_string_to_uid(format));
+      }
+    }
+
+    // Permission flags properties
+    if is_permission_flags_item_type(self.item_type) {
+      if let Some(permission_flags) = self.permission_flags {
+        hashes.push(hash_i64_to_uid(permission_flags));
+      }
+    }
+
+    // Colorable properties
+    if is_colorable_item_type(self.item_type) {
+      if let Some(background_color_index) = self.background_color_index {
+        hashes.push(hash_i64_to_uid(background_color_index));
+      }
+    }
+
+    // Aspect properties
+    if is_aspect_item_type(self.item_type) {
+      if let Some(natural_aspect) = self.natural_aspect {
+        hashes.push(hash_f64_to_uid(natural_aspect));
+      }
+    }
+
+    // Page-specific properties
+    if self.item_type == ItemType::Page {
+      if let Some(inner_spatial_width_gr) = self.inner_spatial_width_gr {
+        hashes.push(hash_i64_to_uid(inner_spatial_width_gr));
+      }
+      if let Some(arrange_algorithm) = &self.arrange_algorithm {
+        hashes.push(hash_string_to_uid(arrange_algorithm.as_str()));
+      }
+      if let Some(popup_position_gr) = &self.popup_position_gr {
+        let pos_str = format!("{},{}", popup_position_gr.x, popup_position_gr.y);
+        hashes.push(hash_string_to_uid(&pos_str));
+      }
+      if let Some(popup_alignment_point) = &self.popup_alignment_point {
+        hashes.push(hash_string_to_uid(popup_alignment_point.as_str()));
+      }
+      if let Some(popup_width_gr) = self.popup_width_gr {
+        hashes.push(hash_i64_to_uid(popup_width_gr));
+      }
+      if let Some(grid_number_of_columns) = self.grid_number_of_columns {
+        hashes.push(hash_i64_to_uid(grid_number_of_columns));
+      }
+      if let Some(grid_cell_aspect) = self.grid_cell_aspect {
+        hashes.push(hash_f64_to_uid(grid_cell_aspect));
+      }
+      if let Some(doc_width_bl) = self.doc_width_bl {
+        hashes.push(hash_i64_to_uid(doc_width_bl));
+      }
+      if let Some(justified_row_aspect) = self.justified_row_aspect {
+        hashes.push(hash_f64_to_uid(justified_row_aspect));
+      }
+    }
+
+    // Note-specific properties
+    if self.item_type == ItemType::Note {
+      if let Some(url) = &self.url {
+        hashes.push(hash_string_to_uid(url));
+      }
+    }
+
+    // Password-specific properties
+    if self.item_type == ItemType::Password {
+      if let Some(text) = &self.text {
+        hashes.push(hash_string_to_uid(text));
+      }
+    }
+
+    // Image-specific properties
+    if self.item_type == ItemType::Image {
+      if let Some(image_size_px) = &self.image_size_px {
+        let size_str = format!("{},{}", image_size_px.w, image_size_px.h);
+        hashes.push(hash_string_to_uid(&size_str));
+      }
+      if let Some(thumbnail) = &self.thumbnail {
+        hashes.push(hash_string_to_uid(thumbnail));
+      }
+    }
+
+    // Rating-specific properties
+    if self.item_type == ItemType::Rating {
+      if let Some(rating) = self.rating {
+        hashes.push(hash_i64_to_uid(rating));
+      }
+    }
+
+    // Link-specific properties
+    if self.item_type == ItemType::Link {
+      if let Some(link_to) = &self.link_to {
+        hashes.push(hash_string_to_uid(link_to));
+      }
+    }
+
+    // FlipCard-specific properties
+    if self.item_type == ItemType::FlipCard {
+      if let Some(scale) = self.scale {
+        hashes.push(hash_f64_to_uid(scale));
+      }
+    }
+
+    // Combine all hashes
+    let hash_refs: Vec<&Uid> = hashes.iter().collect();
+    combine_hashes(&hash_refs)
   }
 }

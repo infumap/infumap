@@ -17,7 +17,7 @@
 */
 
 import { Vector } from "../../util/geometry";
-import { Item, ItemTypeMixin } from "./item";
+import { Item, ItemTypeMixin, ItemType } from "./item";
 
 
 export interface PositionalMixin {
@@ -29,7 +29,7 @@ export interface PositionalItem extends PositionalMixin, Item { }
 
 export function isPositionalItem(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return true;
+  return item.itemType !== ItemType.Placeholder;
 }
 
 export function asPositionalItem(item: ItemTypeMixin): PositionalItem {

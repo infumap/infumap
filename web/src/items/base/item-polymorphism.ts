@@ -38,6 +38,20 @@ import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
 import { ExpressionFns, asExpressionItem, isExpression } from '../expression-item';
 import { LINE_HEIGHT_PX } from '../../constants';
 import { asFlipCardItem, FlipCardFns, isFlipCard } from '../flipcard-item';
+import { hashStringToUid, hashI64ToUid, hashF64ToUid, hashU8VecToUid, combineHashes } from '../../util/hash';
+import { Uid } from '../../util/uid';
+import { isContainer } from './container-item';
+import { isPositionalItem } from './positional-item';
+import { isXSizableItem } from './x-sizeable-item';
+import { isYSizableItem } from './y-sizeable-item';
+import { isTitledItem } from './titled-item';
+import { isDataItem } from './data-item';
+import { isTabularItem } from './tabular-item';
+import { isFlagsItem } from './flags-item';
+import { isFormatItem } from './format-item';
+import { isPermissionFlagsItem } from './permission-flags-item';
+import { isColorableItem } from './colorable-item';
+import { isAspectItem } from './aspect-item';
 
 
 // Poor man's polymorphism
@@ -338,5 +352,219 @@ export const ItemFns = {
     if (isLink(item)) { return LinkFns.debugSummary(asLinkItem(item)); }
     if (isFlipCard(item)) { return FlipCardFns.debugSummary(asFlipCardItem(item)); }
     return "[unknown]";
+  },
+
+  /**
+   * Computes a hash of the item including only properties relevant for the item type
+   */
+  hash: (item: Item): Uid => {
+    const hashes: Uid[] = [];
+
+    // Base properties (always included)
+    hashes.push(hashStringToUid(item.itemType));
+    hashes.push(hashStringToUid(item.id));
+    hashes.push(hashStringToUid(item.ownerId));
+    hashes.push(hashStringToUid(item.parentId || "null"));
+    hashes.push(hashStringToUid(item.relationshipToParent));
+    hashes.push(hashI64ToUid(item.creationDate));
+    hashes.push(hashI64ToUid(item.lastModifiedDate));
+    hashes.push(hashU8VecToUid(item.ordering));
+
+    // Container properties
+    if (isContainer(item)) {
+      const containerItem = item as any;
+      if (containerItem.orderChildrenBy) {
+        hashes.push(hashStringToUid(containerItem.orderChildrenBy));
+      }
+    }
+
+    // Positional properties
+    if (isPositionalItem(item)) {
+      const positionalItem = item as any;
+      if (positionalItem.spatialPositionGr) {
+        const posStr = `${positionalItem.spatialPositionGr.x},${positionalItem.spatialPositionGr.y}`;
+        hashes.push(hashStringToUid(posStr));
+      }
+    }
+
+    // X-sizeable properties
+    if (isXSizableItem(item) || isLink(item)) {
+      const xSizableItem = item as any;
+      if (xSizableItem.spatialWidthGr !== undefined) {
+        hashes.push(hashI64ToUid(xSizableItem.spatialWidthGr));
+      }
+    }
+
+    // Y-sizeable properties
+    if (isYSizableItem(item) || isLink(item)) {
+      const ySizableItem = item as any;
+      if (ySizableItem.spatialHeightGr !== undefined) {
+        hashes.push(hashI64ToUid(ySizableItem.spatialHeightGr));
+      }
+    }
+
+    // Titled properties
+    if (isTitledItem(item)) {
+      const titledItem = item as any;
+      if (titledItem.title) {
+        hashes.push(hashStringToUid(titledItem.title));
+      }
+    }
+
+    // Data properties
+    if (isDataItem(item)) {
+      const dataItem = item as any;
+      if (dataItem.originalCreationDate !== undefined) {
+        hashes.push(hashI64ToUid(dataItem.originalCreationDate));
+      }
+      if (dataItem.mimeType) {
+        hashes.push(hashStringToUid(dataItem.mimeType));
+      }
+      if (dataItem.fileSizeBytes !== undefined) {
+        hashes.push(hashI64ToUid(dataItem.fileSizeBytes));
+      }
+    }
+
+    // Tabular properties
+    if (isTabularItem(item)) {
+      const tabularItem = item as any;
+      if (tabularItem.tableColumns) {
+        const columnsStr = tabularItem.tableColumns
+          .map((col: any) => `${col.widthGr}:${col.name}`)
+          .join(';');
+        hashes.push(hashStringToUid(columnsStr));
+      }
+      if (tabularItem.numberOfVisibleColumns !== undefined) {
+        hashes.push(hashI64ToUid(tabularItem.numberOfVisibleColumns));
+      }
+    }
+
+    // Flags properties
+    if (isFlagsItem(item)) {
+      const flagsItem = item as any;
+      if (flagsItem.flags !== undefined) {
+        hashes.push(hashI64ToUid(flagsItem.flags));
+      }
+    }
+
+    // Format properties
+    if (isFormatItem(item)) {
+      const formatItem = item as any;
+      if (formatItem.format) {
+        hashes.push(hashStringToUid(formatItem.format));
+      }
+    }
+
+    // Permission flags properties
+    if (isPermissionFlagsItem(item)) {
+      const permissionFlagsItem = item as any;
+      if (permissionFlagsItem.permissionFlags !== undefined) {
+        hashes.push(hashI64ToUid(permissionFlagsItem.permissionFlags));
+      }
+    }
+
+    // Colorable properties
+    if (isColorableItem(item)) {
+      const colorableItem = item as any;
+      if (colorableItem.backgroundColorIndex !== undefined) {
+        hashes.push(hashI64ToUid(colorableItem.backgroundColorIndex));
+      }
+    }
+
+    // Aspect properties
+    if (isAspectItem(item)) {
+      const aspectItem = item as any;
+      if (aspectItem.naturalAspect !== undefined) {
+        hashes.push(hashF64ToUid(aspectItem.naturalAspect));
+      }
+    }
+
+    // Page-specific properties
+    if (isPage(item)) {
+      const pageItem = item as any;
+      if (pageItem.innerSpatialWidthGr !== undefined) {
+        hashes.push(hashI64ToUid(pageItem.innerSpatialWidthGr));
+      }
+      if (pageItem.arrangeAlgorithm) {
+        hashes.push(hashStringToUid(pageItem.arrangeAlgorithm));
+      }
+      if (pageItem.popupPositionGr) {
+        const posStr = `${pageItem.popupPositionGr.x},${pageItem.popupPositionGr.y}`;
+        hashes.push(hashStringToUid(posStr));
+      }
+      if (pageItem.popupAlignmentPoint) {
+        hashes.push(hashStringToUid(pageItem.popupAlignmentPoint));
+      }
+      if (pageItem.popupWidthGr !== undefined) {
+        hashes.push(hashI64ToUid(pageItem.popupWidthGr));
+      }
+      if (pageItem.gridNumberOfColumns !== undefined) {
+        hashes.push(hashI64ToUid(pageItem.gridNumberOfColumns));
+      }
+      if (pageItem.gridCellAspect !== undefined) {
+        hashes.push(hashF64ToUid(pageItem.gridCellAspect));
+      }
+      if (pageItem.docWidthBl !== undefined) {
+        hashes.push(hashI64ToUid(pageItem.docWidthBl));
+      }
+      if (pageItem.justifiedRowAspect !== undefined) {
+        hashes.push(hashF64ToUid(pageItem.justifiedRowAspect));
+      }
+    }
+
+    // Note-specific properties
+    if (isNote(item)) {
+      const noteItem = item as any;
+      if (noteItem.url) {
+        hashes.push(hashStringToUid(noteItem.url));
+      }
+    }
+
+    // Password-specific properties
+    if (isPassword(item)) {
+      const passwordItem = item as any;
+      if (passwordItem.text) {
+        hashes.push(hashStringToUid(passwordItem.text));
+      }
+    }
+
+    // Image-specific properties
+    if (isImage(item)) {
+      const imageItem = item as any;
+      if (imageItem.imageSizePx) {
+        const sizeStr = `${imageItem.imageSizePx.w},${imageItem.imageSizePx.h}`;
+        hashes.push(hashStringToUid(sizeStr));
+      }
+      if (imageItem.thumbnail) {
+        hashes.push(hashStringToUid(imageItem.thumbnail));
+      }
+    }
+
+    // Rating-specific properties
+    if (isRating(item)) {
+      const ratingItem = item as any;
+      if (ratingItem.rating !== undefined) {
+        hashes.push(hashI64ToUid(ratingItem.rating));
+      }
+    }
+
+    // Link-specific properties
+    if (isLink(item)) {
+      const linkItem = item as any;
+      if (linkItem.linkTo) {
+        hashes.push(hashStringToUid(linkItem.linkTo));
+      }
+    }
+
+    // FlipCard-specific properties
+    if (isFlipCard(item)) {
+      const flipCardItem = item as any;
+      if (flipCardItem.scale !== undefined) {
+        hashes.push(hashF64ToUid(flipCardItem.scale));
+      }
+    }
+
+    // Combine all hashes
+    return combineHashes(hashes);
   }
 };
