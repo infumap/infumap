@@ -28,7 +28,7 @@ import { RelationshipToParent } from "../relationship-to-parent";
 import { VeFns, VisualElementFlags } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
-import { asXSizableItem } from "../../items/base/x-sizeable-item";
+import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 
 
@@ -46,7 +46,9 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, popupLinkToId!, newOrdering());
   li.id = POPUP_LINK_UID;
   if (popupVeid.linkIdMaybe) {
-    li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.linkIdMaybe)!).spatialWidthGr;
+    if (isXSizableItem(itemState.get(popupVeid.linkIdMaybe)!)) {
+      li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.linkIdMaybe)!).spatialWidthGr;
+    }
     if (isYSizableItem(itemState.get(popupVeid.linkIdMaybe)!)) {
       li.spatialHeightGr = asYSizableItem(itemState.get(popupVeid.linkIdMaybe)!).spatialHeightGr;
     }
