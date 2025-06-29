@@ -145,7 +145,7 @@ function changeMouseActionStateMaybe(
       }
       MouseActionState.get().action = MouseAction.ResizingPopup;
     } else {
-      MouseActionState.get().startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
+      MouseActionState.get().startWidthBl = isLink(activeItem) ? asLinkItem(activeItem).spatialWidthGr / GRID_SIZE : asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
       if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
         const parentPath = activeVisualElement.parentPath!;
         const parentVe = VesCache.get(parentPath)!.get();
@@ -257,7 +257,11 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   };
 
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
-  newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+  if (isLink(activeItem)) {
+    newWidthBl = allowHalfBlockWidth(asXSizableItem(activeVisualElement.displayItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+  } else {
+    newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+  }
   if (newWidthBl < 1) { newWidthBl = 1.0; }
 
   if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
@@ -281,9 +285,16 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
 
   const newWidthGr = newWidthBl * GRID_SIZE;
 
-  if (newWidthGr != asXSizableItem(activeItem).spatialWidthGr) {
-    asXSizableItem(activeItem).spatialWidthGr = newWidthGr;
-    requireArrange = true;
+  if (isLink(activeItem)) {
+    if (newWidthGr != asLinkItem(activeItem).spatialWidthGr) {
+      asLinkItem(activeItem).spatialWidthGr = newWidthGr;
+      requireArrange = true;
+    }
+  } else {
+    if (newWidthGr != asXSizableItem(activeItem).spatialWidthGr) {
+      asXSizableItem(activeItem).spatialWidthGr = newWidthGr;
+      requireArrange = true;
+    }
   }
 
   if (isFlipCard(activeItem) || (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem))) {

@@ -31,7 +31,6 @@ import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { itemState } from "../store/ItemState";
 
 
-// Links have their own unique set of attachments (do not take those from the linked to item).
 // If the linked-to item can not have attachments, then neither can the link item.
 // The XSizableItem and YSizableItem may not apply, depending on the item linked to.
 

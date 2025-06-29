@@ -77,7 +77,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
     case MouseAction.Resizing:
       DoubleClickState.preventDoubleClick();
-      if ((MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr) ||
+      const xsized = isLink(activeItem)
+        ? MouseActionState.get().startWidthBl! * GRID_SIZE != asLinkItem(activeItem).spatialWidthGr
+        : MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr;
+      if (xsized ||
           (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
           // TODO (LOW): don't update if there are no changes.
           (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) ||
