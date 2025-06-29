@@ -132,6 +132,7 @@ fn init_logger(level: Option<String>) -> InfuResult<()> {
   pretty_env_logger::formatted_timed_builder()
     .format_timestamp_secs()
     .filter_module("infumap", level)
+    .filter_module("infusdk", level)
     .init();
   Ok(())
 }
