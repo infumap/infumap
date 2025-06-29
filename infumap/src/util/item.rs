@@ -17,6 +17,7 @@
 use infusdk::util::hash::combine_hashes;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
+use infusdk::item::{is_attachments_item_type, is_container_item_type};
 use crate::storage::db::Db;
 use tokio::sync::MutexGuard;
 
@@ -32,9 +33,12 @@ pub fn hash_item_and_attachments_only(
   let item = db.item.get(item_id)?;
   hashes.push(item.hash());
 
-  let attachments = db.item.get_attachments(item_id)?;
-  for attachment in attachments {
-    hashes.push(attachment.hash());
+  // Only check attachments if item type supports them
+  if is_attachments_item_type(item.item_type) {
+    let attachments = db.item.get_attachments(item_id)?;
+    for attachment in attachments {
+      hashes.push(attachment.hash());
+    }
   }
 
   let hash_refs: Vec<&Uid> = hashes.iter().collect();
@@ -50,13 +54,21 @@ pub fn hash_children_and_their_attachments_only(
 ) -> InfuResult<Uid> {
   let mut hashes = Vec::new();
 
-  let children = db.item.get_children(item_id)?;
-  for child in children {
-    hashes.push(child.hash());
+  let item = db.item.get(item_id)?;
 
-    let child_attachments = db.item.get_attachments(&child.id)?;
-    for attachment in child_attachments {
-      hashes.push(attachment.hash());
+  // Only check children if item type is a container
+  if is_container_item_type(item.item_type) {
+    let children = db.item.get_children(item_id)?;
+    for child in children {
+      hashes.push(child.hash());
+
+      // Only check child attachments if child type supports them
+      if is_attachments_item_type(child.item_type) {
+        let child_attachments = db.item.get_attachments(&child.id)?;
+        for attachment in child_attachments {
+          hashes.push(attachment.hash());
+        }
+      }
     }
   }
 
@@ -75,18 +87,27 @@ pub fn hash_item_attachments_children_and_their_attachments(
   let item = db.item.get(item_id)?;
   hashes.push(item.hash());
 
-  let attachments = db.item.get_attachments(item_id)?;
-  for attachment in attachments {
-    hashes.push(attachment.hash());
+  // Only check attachments if item type supports them
+  if is_attachments_item_type(item.item_type) {
+    let attachments = db.item.get_attachments(item_id)?;
+    for attachment in attachments {
+      hashes.push(attachment.hash());
+    }
   }
 
-  let children = db.item.get_children(item_id)?;
-  for child in children {
-    hashes.push(child.hash());
+  // Only check children if item type is a container
+  if is_container_item_type(item.item_type) {
+    let children = db.item.get_children(item_id)?;
+    for child in children {
+      hashes.push(child.hash());
 
-    let child_attachments = db.item.get_attachments(&child.id)?;
-    for attachment in child_attachments {
-      hashes.push(attachment.hash());
+      // Only check child attachments if child type supports them
+      if is_attachments_item_type(child.item_type) {
+        let child_attachments = db.item.get_attachments(&child.id)?;
+        for attachment in child_attachments {
+          hashes.push(attachment.hash());
+        }
+      }
     }
   }
 
