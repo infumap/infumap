@@ -19,6 +19,7 @@
 import { Component, onMount } from 'solid-js';
 import { render } from 'solid-js/web';
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
+import { sanitizeOriginalCreationDate } from "./util/time";
 import "tailwindcss/tailwind.css";
 import './index.css';
 
@@ -81,7 +82,7 @@ async function handleFileInputUpdated() {
     itemType: "image",
     title: file.name,
     spatialWidthGr: 4.0 * 60,
-    originalCreationDate: Math.round(file.lastModified/1000.0),
+    originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified/1000.0), `adding image ${file.name}`),
     mimeType: file.type,
     fileSizeBytes: file.size,
   });

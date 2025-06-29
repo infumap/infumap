@@ -227,8 +227,9 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     item.insert("parentId".to_owned(), Value::String(container_id.clone()));
     item.insert("title".to_owned(), Value::String(filename.clone()));
     item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 6).into()));
-    item.insert("originalCreationDate".to_owned(),
-      Value::Number(metadata.created().map_err(|e| e.to_string())?.duration_since(UNIX_EPOCH)?.as_secs().into()));
+    let raw_creation_time = metadata.created().map_err(|e| e.to_string())?.duration_since(UNIX_EPOCH)?.as_secs() as i64;
+    let sanitized_creation_time = infusdk::util::time::sanitize_original_creation_date(raw_creation_time, &format!("uploading file {}", filename));
+    item.insert("originalCreationDate".to_owned(), Value::Number(sanitized_creation_time.into()));
     item.insert("mimeType".to_owned(), Value::String(mime_type.to_owned()));
     item.insert("fileSizeBytes".to_owned(), Value::Number(metadata.len().into()));
 

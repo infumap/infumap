@@ -28,6 +28,7 @@ import { ItemFns } from "./items/base/item-polymorphism";
 import { itemState } from "./store/ItemState";
 import { fullArrange } from "./layout/arrange";
 import { HitInfoFns } from "./input/hit";
+import { sanitizeOriginalCreationDate } from "./util/time";
 
 
 export async function handleUpload(
@@ -103,7 +104,7 @@ export async function handleUpload(
         title: file.name,
         spatialPositionGr: posPx,
         spatialWidthGr: spatialWidthGr,
-        originalCreationDate: Math.round(file.lastModified/1000.0),
+        originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified/1000.0), `uploading image ${file.name}`),
         mimeType: file.type,
         fileSizeBytes: file.size,
       };
@@ -131,7 +132,7 @@ export async function handleUpload(
         title: file.name,
         spatialPositionGr: posPx,
         spatialWidthGr: spatialWidthGr,
-        originalCreationDate: Math.round(file.lastModified/1000.0),
+        originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified/1000.0), `uploading file ${file.name}`),
         mimeType: file.type,
         fileSizeBytes: file.size,
       };

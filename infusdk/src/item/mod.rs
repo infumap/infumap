@@ -1283,7 +1283,13 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
 
     // data
     original_creation_date: match json::get_integer_field(map, "originalCreationDate")? {
-      Some(v) => { if is_data_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("originalCreationDate", item_type, &id)) } },
+      Some(v) => {
+        if is_data_item_type(item_type) {
+          Ok(Some(crate::util::time::sanitize_original_creation_date(v, &format!("loading item {}", id))))
+        } else {
+          Err(not_applicable_err("originalCreationDate", item_type, &id))
+        }
+      },
       None => { if is_data_item_type(item_type) { Err(expected_for_err("originalCreationDate", item_type, &id)) } else { Ok(None) } }
     }?,
     mime_type: match json::get_string_field(map, "mimeType")? {
