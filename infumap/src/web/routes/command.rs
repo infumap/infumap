@@ -46,6 +46,9 @@ use crate::storage::db::session::Session;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
 use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
+use crate::util::item::hash_children_and_their_attachments_only;
+use crate::util::item::hash_item_and_attachments_only;
+use crate::util::item::hash_item_attachments_children_and_their_attachments;
 use crate::util::ordering::new_ordering_at_end;
 use crate::web::serve::{json_response, incoming_json, cors_response};
 use crate::web::session::get_and_validate_session;
@@ -428,7 +431,13 @@ async fn handle_get_items(
   result.insert(String::from("children"), Value::from(children_result));
   result.insert(String::from("attachments"), Value::from(attachments_result));
 
-  debug!("Executed 'get-items' command for item '{}'.", item_id);
+  let hash_str = match mode {
+    GetItemsMode::ItemAndAttachmentsOnly => hash_item_and_attachments_only(db, &item_id)?,
+    GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => hash_item_attachments_children_and_their_attachments(db, &item_id)?,
+    GetItemsMode::ChildrenAndTheirAttachmentsOnly => hash_children_and_their_attachments_only(db, &item_id)?,
+  };
+
+  debug!("Executed 'get-items' command for item '{}' (mode {:?}, hash: {}).", item_id, mode, hash_str);
 
   Ok(Some(serde_json::to_string(&result)?))
 }
