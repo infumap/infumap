@@ -1649,7 +1649,7 @@ impl Item {
     if let Some(parent_id) = &self.parent_id {
       hashes.push(hash_string_to_uid(parent_id));
     } else {
-      hashes.push(hash_string_to_uid("null"));
+      hashes.push(hash_string_to_uid("00000000000000000000000000000000"));
     }
     hashes.push(hash_string_to_uid(self.relationship_to_parent.as_str()));
     hashes.push(hash_i64_to_uid(self.creation_date));
