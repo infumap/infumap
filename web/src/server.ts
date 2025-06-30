@@ -46,6 +46,18 @@ export interface EmptyTrashResult {
   objectCount: number,
 }
 
+export interface ModifiedCheck {
+  id: string,
+  mode: string,
+  hash: string,
+}
+
+export interface ModifiedCheckResult {
+  id: string,
+  mode: string,
+  modified: boolean,
+}
+
 export const GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY = "children-and-their-attachments-only";
 export const GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS = "item-attachments-children-and-their-attachments";
 export const GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY = "item-and-attachments-only";
@@ -151,6 +163,10 @@ export const server = {
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
     return constructCommandPromise(null, "empty-trash", { }, null, true, networkStatus);
+  },
+
+  modifiedCheck: async (requests: ModifiedCheck[], networkStatus: NumberSignal): Promise<ModifiedCheckResult[]> => {
+    return constructCommandPromise(null, "modified-check", requests, null, true, networkStatus);
   }
 }
 
@@ -229,6 +245,13 @@ export const remote = {
    */
   updateItem: async (host: string, item: Item, networkStatus: NumberSignal): Promise<void> => {
     return constructCommandPromise_remote(host, "update-item", ItemFns.toObject(item), null, false, networkStatus);
+  },
+
+  /**
+   * check if items have been modified
+   */
+  modifiedCheck: async (host: string, requests: ModifiedCheck[], networkStatus: NumberSignal): Promise<ModifiedCheckResult[]> => {
+    return constructCommandPromise_remote(host, "modified-check", requests, null, false, networkStatus);
   },
 }
 

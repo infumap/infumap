@@ -125,6 +125,7 @@ pub async fn serve_command_route(
     "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session_maybe).await,
     "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await.map(|_| None),
     "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await.map(|_| None),
+    "modified-check" => handle_modified_check(db, &request.json_data, &session_maybe).await,
     "search" => handle_search(db, &request.json_data, &session_maybe).await,
     "empty-trash" => handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     _ => {
@@ -347,6 +348,74 @@ fn get_attachments_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_
       .map_err(|_| format!("Not authorized to access item '{}'.", id))?;
   }
   Ok(attachments)
+}
+
+
+#[derive(Deserialize, Serialize)]
+pub struct ModifiedCheck {
+  pub id: String,
+  pub mode: String,
+  pub hash: String,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ModifiedCheckResult {
+  pub id: String,
+  pub mode: String,
+  pub modified: bool,
+}
+
+// An alternative implementation would be to keep epoch numbers associated with every item
+// for each GetItemsMode. This would trade space for computation, which if backed by disk
+// would be the better tradeoff. It would also be more robust to bugs I think. Additionally,
+// the last N updates for a user could be maintained, and it would be relatively easy to
+// figure out which updates need to be applied to bring a particular item up to the latest
+// epoch, if the complete set of updates is in the last N. Only the updates need be
+// returned to the client. If they aren't cached, return the full state. For multi-player
+// functionality, this is how it would need to work. Multi-player is not possible yet though
+// - a better authorization model is needed first.
+
+async fn handle_modified_check(
+    db: &Arc<tokio::sync::Mutex<Db>>,
+    json_data: &str,
+    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
+
+  let requests: Vec<ModifiedCheck> = serde_json::from_str(json_data)
+    .map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+
+  let session_user_id_maybe = match &session_maybe {
+    Some(session) => Some(session.user_id.clone()),
+    None => None,
+  };
+
+  let db = &db.lock().await;
+
+  for request in &requests {
+    get_item_authorized(db, &request.id, &session_user_id_maybe)
+      .map_err(|_| format!("Not authorized to access item '{}'.", request.id))?;
+  }
+
+  let mut responses = Vec::new();
+  for request in requests {
+    let mode = GetItemsMode::from_str(&request.mode)?;
+
+    let current_hash = match mode {
+      GetItemsMode::ItemAndAttachmentsOnly => hash_item_and_attachments_only(db, &request.id)?,
+      GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => hash_item_attachments_children_and_their_attachments(db, &request.id)?,
+      GetItemsMode::ChildrenAndTheirAttachmentsOnly => hash_children_and_their_attachments_only(db, &request.id)?,
+    };
+
+    let modified = current_hash != request.hash;
+
+    responses.push(ModifiedCheckResult {
+      id: request.id,
+      mode: request.mode,
+      modified,
+    });
+  }
+
+  debug!("Executed 'modified-check' command for {} items.", responses.len());
+  Ok(Some(serde_json::to_string(&responses)?))
 }
 
 async fn handle_get_items(
