@@ -72,6 +72,8 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
 
   fetchPromise
     .then(result => {
+      if (!childrenLoadInitiatedOrComplete[containerVeid.itemId]) { return; };
+
       if (result != null) {
         try {
           itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children, origin);
@@ -114,6 +116,8 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Pro
 
   return server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
     .then(result => {
+      if (!itemLoadInitiatedOrComplete[id]) { return InitiateLoadResult.Failed; };
+
       if (result != null) {
         itemState.setItemFromServerObject(result.item, null);
         Object.keys(result.attachments).forEach(id => {
@@ -144,6 +148,8 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
 
   remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
     .then(result => {
+      if (!itemLoadFromRemoteInitiatedOrComplete[itemId]) { return; };
+
       if (result != null) {
         itemState.setItemFromServerObject(result.item, baseUrl);
         asLinkItem(itemState.get(resolveId)!).linkToResolvedId = ItemFns.fromObject(result.item, baseUrl).id;
