@@ -39,6 +39,7 @@ export interface FlipCardItem extends FlipCardMeasurable, XSizableItem, Containe
 
 export interface FlipCardMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, AspectMixin {
   id: Uid;
+
   childrenLoaded: boolean;
   computed_children: Array<Uid>;
 }

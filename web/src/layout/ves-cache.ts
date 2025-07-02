@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { asContainerItem, isContainer } from "../items/base/container-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
 import { compareBoundingBox, compareDimensions } from "../util/geometry";
@@ -23,7 +24,7 @@ import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
 import { HitboxFns } from "./hitbox";
-import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-element";
+import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "./visual-element";
 
 /*
   Explanation:
@@ -46,10 +47,12 @@ import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-elem
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 let currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
 let currentTopTitledPages = new Array<VisualElementPath>();
+let currentWatchContainerUids = new Set<Uid>();
 let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
 let underConstructionTopTitledPages = new Array<VisualElementPath>();
+let underConstructionWatchContainerUids = new Set<Uid>();
 
 let evaluationRequired = new Set<VisualElementPath>();
 let currentlyInFullArrange = false;
@@ -63,10 +66,12 @@ export let VesCache = {
     currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
     currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
     currentTopTitledPages = [];
+    currentWatchContainerUids = new Set<Uid>();
     virtualCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     underConstructionTopTitledPages = [];
+    underConstructionWatchContainerUids = new Set<Uid>();
 
     evaluationRequired = new Set<VisualElementPath>();
   },
@@ -105,6 +110,14 @@ export let VesCache = {
     return currentVessVsDisplayId.get(displayId)!;
   },
 
+  addWatchContainerUid: (uid: Uid): void => {
+    currentWatchContainerUids.add(uid);
+  },
+
+  getCurrentWatchContainerUids: (): Set<Uid> => {
+    return currentWatchContainerUids;
+  },
+
   full_initArrange: (): void => {
     evaluationRequired = new Set<VisualElementPath>();
     currentlyInFullArrange = true;
@@ -123,12 +136,14 @@ export let VesCache = {
       currentVesCache = underConstructionCache;
       currentVessVsDisplayId = underConstructionVesVsDisplayItemId;
       currentTopTitledPages = underConstructionTopTitledPages;
+      currentWatchContainerUids = underConstructionWatchContainerUids;
       store.topTitledPages.set(currentTopTitledPages);
     }
 
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     underConstructionTopTitledPages = [];
+    underConstructionWatchContainerUids = new Set<Uid>();
     currentlyInFullArrange = false;
   },
 
@@ -155,6 +170,11 @@ export let VesCache = {
   partial_create: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
     currentVesCache.set(path, newElement);
+    if (isContainer(visualElementOverride.displayItem) &&
+        (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
+        asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
+      underConstructionWatchContainerUids.add(visualElementOverride.displayItem.id);
+    }
     const displayItemId = newElement.get().displayItem.id;
 
     const existing = currentVessVsDisplayId.get(displayItemId);
@@ -187,6 +207,11 @@ export let VesCache = {
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
     currentVesCache.set(newPath, vesToOverwrite);
+    if (isContainer(visualElementOverride.displayItem) &&
+        (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
+        asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
+      underConstructionWatchContainerUids.add(visualElementOverride.displayItem.id);
+    }
 
     const displayItemId = VeFns.itemIdFromPath(newPath);
     const existing = currentVessVsDisplayId.get(displayItemId);
@@ -251,6 +276,10 @@ export let VesCache = {
   },
 
   removeByPath: (path: VisualElementPath): void => {
+    const ve = currentVesCache.get(path); // TODO (LOW): displayItem.id can be determined from the path.
+    if (ve && isContainer(ve.get().displayItem) && asContainerItem(ve.get().displayItem).childrenLoaded) {
+      underConstructionWatchContainerUids.delete(ve.get().displayItem.id);
+    }
     if (!currentVesCache.delete(path)) { panic(`item ${path} is not in ves cache.`); }
     deleteFromVessVsDisplayIdLookup(path);
   },
@@ -283,6 +312,12 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
 
   if (visualElementOverride.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
   visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem); // TODO (LOW): Modifying the input object is a bit dirty.
+
+  if (isContainer(visualElementOverride.displayItem) &&
+      (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
+      asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
+    underConstructionWatchContainerUids.add(visualElementOverride.displayItem.id);
+  }
 
   function compareArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
     if (oldArray.length != newArray.length) { return 1; }

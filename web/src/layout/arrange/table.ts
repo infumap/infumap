@@ -70,11 +70,12 @@ export const arrangeTable = (
     linkItemMaybe: linkItemMaybe_Table,
     actualLinkItemMaybe: actualLinkItemMaybe_Table,
     flags: VisualElementFlags.Detailed |
-          (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
-          (isTableHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+           VisualElementFlags.ShowChildren |
+           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+           (isTableHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: tableGeometry.boundsPx,
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,

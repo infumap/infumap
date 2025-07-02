@@ -87,6 +87,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   gridCellAspect: number;
   docWidthBl: number,
   justifiedRowAspect: number;
+
   childrenLoaded: boolean;
   computed_children: Array<Uid>;
 }

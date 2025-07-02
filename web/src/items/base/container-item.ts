@@ -27,7 +27,6 @@ export interface ContainerMixin {
   orderChildrenBy: string | null;
 
   computed_children: Array<Uid>;
-
   childrenLoaded: boolean;
 }
 

@@ -44,6 +44,7 @@ export interface CompositeItem extends CompositeMeasurable, XSizableItem, Contai
 
 export interface CompositeMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
   id: Uid;
+
   childrenLoaded: boolean;
   computed_children: Array<Uid>;
 }
