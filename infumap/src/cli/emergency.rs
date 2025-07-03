@@ -29,7 +29,7 @@ use crate::web::start_server;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("emergency")
-    .about("Automates pulling the latest backup file for a specific Infumap user and bringing up a temporary local infumap instance based on this.")
+    .about("Automates pulling the latest backup file for a specific Infumap user and bringing up a temporary local infumap instance based on this. Optionally enables S3 backup writing during the emergency session.")
 
     .arg(Arg::new("s3_backup_endpoint")
       .long("s3-backup-endpoint")
@@ -100,6 +100,18 @@ pub fn make_clap_subcommand() -> Command {
       .action(ArgAction::SetTrue)
       .required(false))
 
+    .arg(Arg::new("enable_backup")
+      .long("enable-backup")
+      .help("Enable S3 backup writing during the emergency session.")
+      .num_args(0)
+      .action(ArgAction::SetTrue)
+      .required(false))
+    .arg(Arg::new("backup_period_minutes")
+      .long("backup-period-minutes")
+      .help("Backup period in minutes (default: 1).")
+      .num_args(1)
+      .required(false))
+
     .arg(Arg::new("dev_feature_flag")
       .long("dev")
       .help("Enable experimental in-development features.")
@@ -126,6 +138,12 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let encryption_key = sub_matches.get_one::<String>("encryption_key").unwrap();
   let keep_files = sub_matches.get_flag("keep");
   
+  let enable_backup = sub_matches.get_flag("enable_backup");
+  let backup_period_minutes = sub_matches.get_one::<String>("backup_period_minutes")
+    .map(|s| s.parse::<u32>().unwrap_or(1))
+    .unwrap_or(1);
+  let backup_retention_period_days = 49000; // Very high value (~134 years) to effectively disable backup cleanup during emergency
+
   let dev_feature_flag = sub_matches.get_flag("dev_feature_flag");
 
   info!("fetching list of backup files.");
@@ -210,6 +228,25 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
   if let Some(s3_secret) = s3_secret {
     config_builder = config_builder.set_override("s3_1_secret", s3_secret.clone()).map_err(|_| "failed to override s3_1_secret config")?;
+  }
+
+  if enable_backup {
+    info!("enabling S3 backup writing with period {} minutes (backup cleanup disabled for emergency session).", backup_period_minutes);
+    config_builder = config_builder
+      .set_override("enable_s3_backup", "true").map_err(|_| "failed to override enable_s3_backup config")?
+      .set_override("backup_period_minutes", backup_period_minutes as i64).map_err(|_| "failed to override backup_period_minutes config")?
+      .set_override("backup_retention_period_days", backup_retention_period_days as i64).map_err(|_| "failed to override backup_retention_period_days config")?
+      .set_override("backup_encryption_key", encryption_key.clone()).map_err(|_| "failed to override backup_encryption_key config")?
+      .set_override("s3_backup_bucket", s3_backup_bucket.clone()).map_err(|_| "failed to override s3_backup_bucket config")?
+      .set_override("s3_backup_key", s3_backup_key.clone()).map_err(|_| "failed to override s3_backup_key config")?
+      .set_override("s3_backup_secret", s3_backup_secret.clone()).map_err(|_| "failed to override s3_backup_secret config")?;
+
+    if let Some(s3_backup_region) = s3_backup_region {
+      config_builder = config_builder.set_override("s3_backup_region", s3_backup_region.clone()).map_err(|_| "failed to override s3_backup_region config")?;
+    }
+    if let Some(s3_backup_endpoint) = s3_backup_endpoint {
+      config_builder = config_builder.set_override("s3_backup_endpoint", s3_backup_endpoint.clone()).map_err(|_| "failed to override s3_backup_endpoint config")?;
+    }
   }
 
   let config = match config_builder.build() {

@@ -114,6 +114,8 @@ that you can act quickly if/when the time comes.
 - **--user-id:** The user id to retrieve the backup file for.
 - **--encryption-key:** As per your Infumap settings.
 - **--keep:** If specified, the data files are not deleted on exit.
+- **--enable-backup (optional):** Enable S3 backup writing during the emergency session. Note that backup cleanup is disabled during emergency sessions.
+- **--backup-period-minutes (optional):** Backup period in minutes (default: 1). Only used when --enable-backup is specified. Be sure to wait for the backup to complete before exiting the emergency session.
 - **--dev (optional):** Enable experimental in-development features.
 
 
