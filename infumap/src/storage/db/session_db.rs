@@ -26,6 +26,7 @@ use crate::util::fs::{expand_tilde, path_exists};
 use super::session::Session;
 
 pub const CURRENT_SESSIONS_LOG_VERSION: i64 = 1;
+const SESSION_LOG_FILENAME: &str = "sessions.json";
 
 
 /// Db for managing Session instances, assuming the mandated data folder hierarchy.
@@ -64,7 +65,7 @@ impl SessionDb {
 
         let mut log_path = expanded_data_path.clone();
         log_path.push(dirname);
-        log_path.push("sessions.json");
+        log_path.push(SESSION_LOG_FILENAME);
         let log_path_str = log_path.as_path().to_str().unwrap();
         let store: KVStore<Session> = KVStore::init(&log_path_str, CURRENT_SESSIONS_LOG_VERSION).await?;
 
@@ -140,7 +141,7 @@ impl SessionDb {
   fn log_path(&self, user_id: &str) -> InfuResult<PathBuf> {
     let mut log_path = expand_tilde(&self.data_dir).ok_or("Could not interpret path.")?;
     log_path.push(String::from("user_") + user_id);
-    log_path.push("session.json");
+    log_path.push(SESSION_LOG_FILENAME);
     Ok(log_path)
   }
 }
