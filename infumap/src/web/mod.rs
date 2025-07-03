@@ -247,20 +247,17 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 
         // This is very CPU intensive, so spawn a blocking task to avoid the potential for
         // HTTP requests to get backed up (which they do otherwise).
-        debug!("Compressing backup data for user '{}'.", user_id);
+        debug!("Compressing backup data for user '{}' .", user_id);
         let compress_result = spawn_blocking(move || {
           let mut compressed = Vec::with_capacity(raw_backup_bytes.len() + 8);
-          match brotli::BrotliCompress(&mut &raw_backup_bytes[..], &mut compressed, &Default::default()) {
-            Ok(l) => {
-              if l != compressed.len() {
-                Err("Compressed sizes do not match".to_owned())
-              } else {
-                Ok(compressed)
-              }
+          // Write 4-byte magic header for zstd
+          compressed.extend_from_slice(b"IMZ1");
+          match zstd::stream::encode_all(&raw_backup_bytes[..], 3) {
+            Ok(zstd_bytes) => {
+              compressed.extend_from_slice(&zstd_bytes);
+              Ok(compressed)
             },
-            Err(e) => {
-              Err(format!("{}", e))
-            }
+            Err(e) => Err(format!("{}", e))
           }
         }).await;
         let compress_result = match compress_result {

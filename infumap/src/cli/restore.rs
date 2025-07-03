@@ -65,10 +65,26 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 pub async fn process_backup(buffer: &Vec<u8>, items_path: &str, user_path: &str, encryption_key: &str, user_id: &str) -> InfuResult<()> {
   let unencrypted = decrypt_file_data(&encryption_key, &buffer, user_id)?;
 
-  let mut u_cursor = Cursor::new(unencrypted);
+  let (compression_type, compressed_data) = if unencrypted.len() > 4 && &unencrypted[0..4] == b"IMZ1" {
+    (1u8, &unencrypted[4..])
+  } else if unencrypted.len() > 4 && &unencrypted[0..4] == b"IMB0" {
+    (0u8, &unencrypted[4..])
+  } else {
+    (0u8, &unencrypted[..]) // legacy: no header, brotli
+  };
+
   let mut uncompressed = vec![];
-  brotli::BrotliDecompress(&mut u_cursor, &mut uncompressed)
-    .map_err(|e| format!("Failed to decompress backup data for user {}: {}", user_id, e))?;
+  match compression_type {
+    1 => {
+      let mut zstd_decoder = zstd::stream::Decoder::new(compressed_data)?;
+      std::io::copy(&mut zstd_decoder, &mut uncompressed)?;
+    },
+    _ => {
+      let mut u_cursor = std::io::Cursor::new(compressed_data);
+      brotli::BrotliDecompress(&mut u_cursor, &mut uncompressed)
+        .map_err(|e| format!("Failed to decompress backup data for user {}: {}", user_id, e))?;
+    }
+  }
 
   let mut rdr = Cursor::new(&mut uncompressed[0..8]);
   let isize = rdr.read_u64::<BigEndian>()? as usize;

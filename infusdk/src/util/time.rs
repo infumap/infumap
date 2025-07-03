@@ -38,10 +38,10 @@ pub fn unix_now_secs_u64() -> InfuResult<u64> {
 /// returns 0 and logs a warning.
 pub fn sanitize_original_creation_date(value: i64, context: &str) -> i64 {
   if value < MIN_REASONABLE_UNIX_TIMESTAMP || value > MAX_REASONABLE_UNIX_TIMESTAMP {
-    warn!(
-      "originalCreationDate value {} is outside reasonable range (0 to {}), setting to 0. Context: {}",
-      value, MAX_REASONABLE_UNIX_TIMESTAMP, context
-    );
+    // warn!(
+    //   "originalCreationDate value {} is outside reasonable range (0 to {}), setting to 0. Context: {}",
+    //   value, MAX_REASONABLE_UNIX_TIMESTAMP, context
+    // );
     0
   } else {
     value
