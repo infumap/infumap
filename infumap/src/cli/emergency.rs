@@ -24,7 +24,7 @@ use log::{error, info, warn};
 use crate::cli::restore::process_backup;
 use crate::setup::add_config_defaults;
 use crate::util::fs::ensure_256_subdirs;
-use crate::web::start_server;
+use crate::web::start_server_with_options;
 
 
 pub fn make_clap_subcommand() -> Command {
@@ -268,7 +268,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   };
 
   info!("starting webserver on localhost:{}", port.unwrap_or(8042));
-  start_server(config, dev_feature_flag).await?;
+  start_server_with_options(config, dev_feature_flag, true).await?;
 
   if !keep_files {
     info!("removing the infumap emergency directory.");

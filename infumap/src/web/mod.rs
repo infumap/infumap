@@ -110,6 +110,10 @@ pub async fn execute(arg_matches: &ArgMatches) -> InfuResult<()> {
 
 
 pub async fn start_server(config: Config, dev_feature_flag: bool) -> InfuResult<()> {
+  start_server_with_options(config, dev_feature_flag, false).await
+}
+
+pub async fn start_server_with_options(config: Config, dev_feature_flag: bool, skip_backup_validation: bool) -> InfuResult<()> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let db = Arc::new(tokio::sync::Mutex::new(
     match Db::new(&data_dir).await {
@@ -206,7 +210,7 @@ pub async fn start_server(config: Config, dev_feature_flag: bool) -> InfuResult<
     info!("Done loading all items for all users.");
   }
 
-  if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
+  if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {
     let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
     let s3_endpoint = config.get_string(CONFIG_S3_BACKUP_ENDPOINT).ok();
     let s3_bucket = config.get_string(CONFIG_S3_BACKUP_BUCKET).map_err(|e| e.to_string())?;
