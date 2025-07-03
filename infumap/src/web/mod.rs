@@ -162,7 +162,7 @@ pub async fn start_server(config: Config, dev_feature_flag: bool) -> InfuResult<
       config.get_int(CONFIG_BACKUP_PERIOD_MINUTES).map_err(|e| e.to_string())? as u32,
       config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS).map_err(|e| e.to_string())? as u32,
       config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY).map_err(|e| e.to_string())?.clone(),
-      db.clone(), backup_store.clone());
+      data_dir.clone(), db.clone(), backup_store.clone());
   }
 
   let cache_dir = config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?;
@@ -206,11 +206,30 @@ pub async fn start_server(config: Config, dev_feature_flag: bool) -> InfuResult<
     info!("Done loading all items for all users.");
   }
 
+  if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
+    let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
+    let s3_endpoint = config.get_string(CONFIG_S3_BACKUP_ENDPOINT).ok();
+    let s3_bucket = config.get_string(CONFIG_S3_BACKUP_BUCKET).map_err(|e| e.to_string())?;
+    let s3_key = config.get_string(CONFIG_S3_BACKUP_KEY).map_err(|e| e.to_string())?;
+    let s3_secret = config.get_string(CONFIG_S3_BACKUP_SECRET).map_err(|e| e.to_string())?;
+    let backup_store =
+      match storage_backup::new(s3_region.as_ref(), s3_endpoint.as_ref(), &s3_bucket, &s3_key, &s3_secret) {
+        Ok(backup_store) => backup_store,
+        Err(e) => {
+          return Err(format!("Failed to initialize backup store for validation: {}", e).into());
+        }
+      };
+
+    info!("Validating local backup tracking against S3...");
+    validate_backup_tracking(&data_dir, backup_store).await?;
+    info!("Backup tracking validation completed successfully.");
+  }
+
   listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone(), dev_feature_flag).await
 }
 
 
-fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, encryption_key: String, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
+fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, encryption_key: String, data_dir: String, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
 
   // *** BACKUP ***
   let backup_store_ref = backup_store.clone();
@@ -296,6 +315,16 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
         match storage_backup::put(backup_store_ref.clone(), &user_id, encrypted).await {
           Ok(s3_filename) => {
             info!("Backed up database logs for user '{}' to '{}'.", user_id, s3_filename);
+
+            match crate::util::fs::write_last_backup_filename(&data_dir, &user_id, &s3_filename).await {
+              Ok(_) => {
+                info!("Updated last backup tracking file for user '{}'.", user_id);
+              },
+              Err(e) => {
+                error!("Failed to update last backup tracking file for user '{}': {}", user_id, e);
+              }
+            }
+
             update_backup_status(db.clone(), &user_id, BackupStatus::Succeeded, "5").await;
           },
           Err(e) => {
@@ -351,6 +380,47 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
       info!("Done cleaning up database log backups.");
     }
   });
+}
+
+
+async fn validate_backup_tracking(data_dir: &str, backup_store: Arc<BackupStore>) -> InfuResult<()> {
+  use crate::util::fs::{read_last_backup_filename};
+  use crate::storage::backup::get_latest_backup_filename_for_user;
+
+  let db = crate::storage::db::Db::new(data_dir).await?;
+  let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
+
+  for user_id in all_user_ids {
+    let local_last_backup = read_last_backup_filename(data_dir, &user_id).await?;
+    let s3_latest_backup = get_latest_backup_filename_for_user(backup_store.clone(), &user_id).await?;
+
+    match (local_last_backup, s3_latest_backup) {
+      (Some(local), Some(s3)) => {
+        if local != s3 {
+          return Err(format!(
+            "Backup validation failed for user '{}': local last backup '{}' does not match S3 latest backup '{}'",
+            user_id, local, s3
+          ).into());
+        }
+      },
+      (Some(local), None) => {
+        return Err(format!(
+          "Backup validation failed for user '{}': local last backup '{}' exists but no backups found in S3",
+          user_id, local
+        ).into());
+      },
+      (None, Some(s3)) => {
+        return Err(format!(
+          "Backup validation failed for user '{}': S3 has latest backup '{}' but no local tracking file found",
+          user_id, s3
+        ).into());
+      },
+      (None, None) => {
+      }
+    }
+  }
+
+  Ok(())
 }
 
 

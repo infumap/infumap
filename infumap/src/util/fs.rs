@@ -114,3 +114,29 @@ pub fn construct_file_subpath(store_dir: &PathBuf, filename: &str) -> InfuResult
   path.push(&filename);
   Ok(path)
 }
+
+pub async fn write_last_backup_filename(data_dir: &str, user_id: &str, filename: &str) -> InfuResult<()> {
+  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  path.push(format!("user_{}", user_id));
+  path.push("last_backup.txt");
+
+  fs::write(&path, filename).await
+    .map_err(|e| format!("Failed to write last backup filename for user '{}': {}", user_id, e))?;
+
+  Ok(())
+}
+
+pub async fn read_last_backup_filename(data_dir: &str, user_id: &str) -> InfuResult<Option<String>> {
+  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  path.push(format!("user_{}", user_id));
+  path.push("last_backup.txt");
+
+  if !path_exists(&path).await {
+    return Ok(None);
+  }
+
+  let content = fs::read_to_string(&path).await
+    .map_err(|e| format!("Failed to read last backup filename for user '{}': {}", user_id, e))?;
+
+  Ok(Some(content.trim().to_string()))
+}

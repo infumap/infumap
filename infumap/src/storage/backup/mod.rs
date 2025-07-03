@@ -108,3 +108,13 @@ pub async fn list(backup_store: Arc<BackupStore>) -> InfuResult<HashMap<Uid, Vec
   }
   Ok(result)
 }
+
+pub async fn get_latest_backup_filename_for_user(backup_store: Arc<BackupStore>, user_id: &str) -> InfuResult<Option<String>> {
+  let backups = list(backup_store).await?;
+  if let Some(timestamps) = backups.get(user_id) {
+    if let Some(latest_timestamp) = timestamps.last() {
+      return Ok(Some(format!("{}_{}", user_id, latest_timestamp)));
+    }
+  }
+  Ok(None)
+}
