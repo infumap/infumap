@@ -148,11 +148,12 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let backup_period_minutes = sub_matches.get_one::<String>("backup_period_minutes")
     .map(|s| s.parse::<u32>().unwrap_or(1))
     .unwrap_or(1);
-  let backup_retention_period_days = 49000; // Very high value (~134 years) to effectively disable backup cleanup during emergency
 
   let dev_feature_flag = sub_matches.get_flag("dev_feature_flag");
 
-  let port = sub_matches.get_one::<String>("port").map(|s| s.parse::<u16>().unwrap_or(8042));
+  let port = sub_matches.get_one::<String>("port")
+    .map(|s| s.parse::<u16>().unwrap_or(8042))
+    .unwrap_or(8042);
 
   info!("fetching list of backup files.");
   let bs = crate::storage::backup::new(s3_backup_region, s3_backup_endpoint, s3_backup_bucket, s3_backup_key, s3_backup_secret)?;
@@ -219,9 +220,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     .set_override("data_dir", infumap_data_dir.to_str().ok_or("can't interpret data dir pathbuf")?).map_err(|_| "failed to override data_dir config")?
     .set_override("cache_dir", infumap_cache_dir.to_str().ok_or("can't interpret cache dir pathbuf")?).map_err(|_| "failed to override cache_dir config")?
     .set_override("enable_local_object_storage", "false").map_err(|_| "failed to override enable_local_object_storage config")?;
-  if let Some(port) = port {
-    config_builder = config_builder.set_override("port", port as i64).map_err(|_| "failed to override port config")?;
-  }
+  config_builder = config_builder.set_override("port", port as i64).map_err(|_| "failed to override port config")?;
   if s3_region.is_some() || s3_endpoint.is_some() {
     config_builder = config_builder.set_override("enable_s3_1_object_storage", "true").map_err(|_| "failed to override enable_s1_1_object_storage config")?;
   }
@@ -246,7 +245,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     config_builder = config_builder
       .set_override("enable_s3_backup", "true").map_err(|_| "failed to override enable_s3_backup config")?
       .set_override("backup_period_minutes", backup_period_minutes as i64).map_err(|_| "failed to override backup_period_minutes config")?
-      .set_override("backup_retention_period_days", backup_retention_period_days as i64).map_err(|_| "failed to override backup_retention_period_days config")?
+      .set_override("disable_backup_cleanup", "true").map_err(|_| "failed to override disable_backup_cleanup config")?
       .set_override("backup_encryption_key", encryption_key.clone()).map_err(|_| "failed to override backup_encryption_key config")?
       .set_override("s3_backup_bucket", s3_backup_bucket.clone()).map_err(|_| "failed to override s3_backup_bucket config")?
       .set_override("s3_backup_key", s3_backup_key.clone()).map_err(|_| "failed to override s3_backup_key config")?
@@ -267,7 +266,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
   };
 
-  info!("starting webserver on localhost:{}", port.unwrap_or(8042));
+  info!("starting webserver on localhost:{}", port);
   start_server_with_options(config, dev_feature_flag, true).await?;
 
   if !keep_files {

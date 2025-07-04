@@ -165,6 +165,7 @@ pub async fn start_server_with_options(config: Config, dev_feature_flag: bool, s
     init_db_backup(
       config.get_int(CONFIG_BACKUP_PERIOD_MINUTES).map_err(|e| e.to_string())? as u32,
       config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS).map_err(|e| e.to_string())? as u32,
+      config.get_bool(CONFIG_DISABLE_BACKUP_CLEANUP).map_err(|e| e.to_string())?,
       config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY).map_err(|e| e.to_string())?.clone(),
       data_dir.clone(), db.clone(), backup_store.clone());
   }
@@ -233,7 +234,7 @@ pub async fn start_server_with_options(config: Config, dev_feature_flag: bool, s
 }
 
 
-fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, encryption_key: String, data_dir: String, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
+fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, disable_backup_cleanup: bool, encryption_key: String, data_dir: String, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
 
   // *** BACKUP ***
   let backup_store_ref = backup_store.clone();
@@ -349,6 +350,12 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
     let backup_retention_period_s = (backup_retention_period_days * 24 * 60 * 60) as u64;
     loop {
       time::sleep(Duration::from_secs((backup_period_minutes * 60 * CLEANUP_PERIOD) as u64)).await;
+
+      if disable_backup_cleanup {
+        info!("Backup cleanup is disabled, skipping cleanup cycle.");
+        continue;
+      }
+
       info!("Cleaning up unneeded db backups.");
   
       let backups = match storage_backup::list(backup_store_ref.clone()).await {

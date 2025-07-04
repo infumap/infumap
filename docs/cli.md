@@ -114,8 +114,9 @@ that you can act quickly if/when the time comes.
 - **--user-id:** The user id to retrieve the backup file for.
 - **--encryption-key:** As per your Infumap settings.
 - **--keep:** If specified, the data files are not deleted on exit.
-- **--enable-backup (optional):** Enable S3 backup writing during the emergency session. Note that backup cleanup is disabled during emergency sessions.
-- **--backup-period-minutes (optional):** Backup period in minutes (default: 1). Only used when --enable-backup is specified. Be sure to wait for the backup to complete before exiting the emergency session.
+- **--port (optional):** Port to bind the web server to (default: 8042).
+- **--enable-backup (optional):** Enable backup to S3 during the emergency session. You will need to manually restore the backup using the `restore` command to use it with your main instance.
+- **--backup-period-minutes (optional):** Backup period in minutes (default: 1). Be sure to wait for the backup to complete before exiting the emergency session.
 - **--dev (optional):** Enable experimental in-development features.
 
 

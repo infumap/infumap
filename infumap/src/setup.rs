@@ -307,6 +307,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
     info!("  {} = {}", CONFIG_BACKUP_PERIOD_MINUTES, config.get_int(CONFIG_BACKUP_PERIOD_MINUTES).map_err(|e| e.to_string())?);
     info!("  {} = {}", CONFIG_BACKUP_RETENTION_PERIOD_DAYS, config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS).map_err(|e| e.to_string())?);
+    info!("  {} = {}", CONFIG_DISABLE_BACKUP_CLEANUP, config.get_bool(CONFIG_DISABLE_BACKUP_CLEANUP).map_err(|e| e.to_string())?);
     info!("  {} = {}", CONFIG_BACKUP_ENCRYPTION_KEY, "<redacted>");
     match config.get_string(CONFIG_S3_BACKUP_REGION) {
       Ok(v) => { info!("  {} = {}", CONFIG_S3_BACKUP_REGION, v); },
@@ -381,5 +382,6 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
     .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT).map_err(|e| e.to_string())?
     .set_default(CONFIG_ENABLE_S3_BACKUP, CONFIG_ENABLE_S3_BACKUP_DEFAULT).map_err(|e| e.to_string())?
     .set_default(CONFIG_BACKUP_PERIOD_MINUTES, CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT).map_err(|e| e.to_string())?
-    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERIOD_DAYS_DEFAULT).map_err(|e| e.to_string())?)
+    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERIOD_DAYS_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_DISABLE_BACKUP_CLEANUP, CONFIG_DISABLE_BACKUP_CLEANUP_DEFAULT).map_err(|e| e.to_string())?)
 }
