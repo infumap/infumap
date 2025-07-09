@@ -37,6 +37,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
+use std::io::Cursor;
+use byteorder::{ReadBytesExt, BigEndian};
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
 
 use crate::config::*;
 use crate::setup::init_fs_maybe_and_get_config;
@@ -46,7 +50,8 @@ use crate::storage::db::Db;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::tokiort::TokioIo;
-use crate::util::crypto::encrypt_file_data;
+use crate::util::crypto::{encrypt_file_data, decrypt_file_data};
+use crate::util::fs::expand_tilde;
 
 use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
@@ -226,7 +231,7 @@ pub async fn start_server_with_options(config: Config, dev_feature_flag: bool, s
       };
 
     info!("Validating local backup tracking against S3...");
-    validate_backup_tracking(&data_dir, backup_store).await?;
+    validate_backup_tracking(&data_dir, backup_store, config.clone()).await?;
     info!("Backup tracking validation completed successfully.");
   }
 
@@ -394,7 +399,100 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 }
 
 
-async fn validate_backup_tracking(data_dir: &str, backup_store: Arc<BackupStore>) -> InfuResult<()> {
+fn extract_timestamp_from_backup_filename(filename: &str) -> Option<u64> {
+  let parts: Vec<&str> = filename.split('_').collect();
+  if parts.len() == 2 {
+    parts[1].parse::<u64>().ok()
+  } else {
+    None
+  }
+}
+
+async fn find_next_backup_number(data_dir: &str, user_id: &str, base_filename: &str) -> InfuResult<u32> {
+  let mut user_dir = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  user_dir.push(format!("user_{}", user_id));
+
+  let mut n = 1u32;
+  loop {
+    let backup_filename = format!("{}.bk.{}", base_filename, n);
+    let mut backup_path = user_dir.clone();
+    backup_path.push(&backup_filename);
+
+    if !backup_path.exists() {
+      return Ok(n);
+    }
+    n += 1;
+  }
+}
+
+async fn process_and_restore_backup(
+  backup_bytes: &[u8],
+  data_dir: &str,
+  user_id: &str,
+  encryption_key: &str
+) -> InfuResult<()> {
+  let unencrypted = decrypt_file_data(encryption_key, backup_bytes, user_id)?;
+
+  let (compression_type, compressed_data) = if unencrypted.len() > 4 && &unencrypted[0..4] == b"IMZ1" {
+    (1u8, &unencrypted[4..])
+  } else if unencrypted.len() > 4 && &unencrypted[0..4] == b"IMB0" {
+    (0u8, &unencrypted[4..])
+  } else {
+    (0u8, &unencrypted[..])
+  };
+
+  let mut uncompressed = vec![];
+  match compression_type {
+    1 => {
+      let mut zstd_decoder = zstd::stream::Decoder::new(compressed_data)?;
+      std::io::copy(&mut zstd_decoder, &mut uncompressed)?;
+    },
+    _ => {
+      let mut u_cursor = std::io::Cursor::new(compressed_data);
+      brotli::BrotliDecompress(&mut u_cursor, &mut uncompressed)
+        .map_err(|e| format!("Failed to decompress backup data for user {}: {}", user_id, e))?;
+    }
+  }
+
+  let mut rdr = Cursor::new(&mut uncompressed[0..8]);
+  let isize = rdr.read_u64::<BigEndian>()? as usize;
+  let mut rdr = Cursor::new(&mut uncompressed[(8+isize)..(16+isize)]);
+  let usize = rdr.read_u64::<BigEndian>()? as usize;
+
+  let mut user_dir = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  user_dir.push(format!("user_{}", user_id));
+
+  let items_path = user_dir.join("items.json");
+  let user_path = user_dir.join("user.json");
+
+  if items_path.exists() {
+    let backup_num = find_next_backup_number(data_dir, user_id, "items.json").await?;
+    let backup_items_path = user_dir.join(format!("items.json.bk.{}", backup_num));
+    fs::rename(&items_path, &backup_items_path).await?;
+    info!("Renamed existing items.json to items.json.bk.{} for user '{}'", backup_num, user_id);
+  }
+
+  if user_path.exists() {
+    let backup_num = find_next_backup_number(data_dir, user_id, "user.json").await?;
+    let backup_user_path = user_dir.join(format!("user.json.bk.{}", backup_num));
+    fs::rename(&user_path, &backup_user_path).await?;
+    info!("Renamed existing user.json to user.json.bk.{} for user '{}'", backup_num, user_id);
+  }
+
+  let mut file = fs::File::create(&items_path).await?;
+  file.write_all(&uncompressed[8..(8+isize)]).await?;
+  file.flush().await?;
+  info!("Restored items.json from S3 backup for user '{}'", user_id);
+
+  let mut file = fs::File::create(&user_path).await?;
+  file.write_all(&uncompressed[(16+isize)..(16+isize+usize)]).await?;
+  file.flush().await?;
+  info!("Restored user.json from S3 backup for user '{}'", user_id);
+
+  Ok(())
+}
+
+async fn validate_backup_tracking(data_dir: &str, backup_store: Arc<BackupStore>, config: Arc<config::Config>) -> InfuResult<()> {
   use crate::util::fs::{read_last_backup_filename};
   use crate::storage::backup::get_latest_backup_filename_for_user;
 
@@ -408,10 +506,41 @@ async fn validate_backup_tracking(data_dir: &str, backup_store: Arc<BackupStore>
     match (local_last_backup, s3_latest_backup) {
       (Some(local), Some(s3)) => {
         if local != s3 {
-          return Err(format!(
-            "Backup validation failed for user '{}': local last backup '{}' does not match S3 latest backup '{}'",
-            user_id, local, s3
-          ).into());
+          let local_timestamp = extract_timestamp_from_backup_filename(&local);
+          let s3_timestamp = extract_timestamp_from_backup_filename(&s3);
+
+          match (local_timestamp, s3_timestamp) {
+            (Some(local_ts), Some(s3_ts)) => {
+              if s3_ts > local_ts {
+                info!("S3 backup for user '{}' is newer ({}) than local tracking ({}). Attempting recovery.",
+                      user_id, s3, local);
+
+                let backup_bytes = storage_backup::get(backup_store.clone(), &user_id, s3_ts).await
+                  .map_err(|e| format!("Failed to retrieve backup '{}' for user '{}': {}", s3, user_id, e))?;
+
+                let encryption_key = config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY).map_err(|e| e.to_string())?;
+                process_and_restore_backup(&backup_bytes, data_dir, &user_id, &encryption_key).await
+                  .map_err(|e| format!("Failed to restore backup for user '{}': {}", user_id, e))?;
+
+                crate::util::fs::write_last_backup_filename(data_dir, &user_id, &s3).await
+                  .map_err(|e| format!("Failed to update last backup tracking file for user '{}': {}", user_id, e))?;
+
+                info!("Successfully restored user '{}' from S3 backup '{}'. The process is terminating as requested.", user_id, s3);
+                std::process::exit(0);
+              } else {
+                return Err(format!(
+                  "Backup validation failed for user '{}': S3 backup '{}' (timestamp {}) is older than or equal to local backup '{}' (timestamp {})",
+                  user_id, s3, s3_ts, local, local_ts
+                ).into());
+              }
+            },
+            _ => {
+              return Err(format!(
+                "Backup validation failed for user '{}': could not parse timestamps from local backup '{}' or S3 backup '{}'",
+                user_id, local, s3
+              ).into());
+            }
+          }
         }
       },
       (Some(local), None) => {
