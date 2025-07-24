@@ -17,7 +17,7 @@
 */
 
 import { Component, onCleanup, onMount, Show } from "solid-js";
-import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
+import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server, startServerLoadTest, stopServerLoadTest } from "../server";
 import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
@@ -146,6 +146,9 @@ export const Main: Component = () => {
       switchToNonPage(store, '/login');
     }
 
+    // Start server load test
+    startServerLoadTest(store);
+
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
     document.addEventListener('keydown', keyDownListener);
     window.addEventListener('resize', windowResizeListener);
@@ -153,6 +156,9 @@ export const Main: Component = () => {
   });
 
   onCleanup(() => {
+    // Stop server load test
+    stopServerLoadTest();
+    
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
     document.removeEventListener('keydown', keyDownListener);
     window.removeEventListener('resize', windowResizeListener);

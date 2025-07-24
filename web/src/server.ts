@@ -22,6 +22,8 @@ import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, Uid } from "./util/uid";
+import { hashChildrenAndTheirAttachmentsOnly } from "./items/item";
+import { StoreContextModel } from "./store/StoreProvider";
 
 
 export interface ItemsAndTheirAttachments {
@@ -266,6 +268,54 @@ export const serverOrRemote = {
   }
 }
 
+let loadTestInterval: number | null = null;
+
+/**
+ * Start a loop that sends modifiedCheck calls to server every 2 seconds for load testing
+ */
+export function startServerLoadTest(store: StoreContextModel): void {
+  if (loadTestInterval) {
+    window.clearInterval(loadTestInterval);
+  }
+  
+  loadTestInterval = window.setInterval(() => {
+    const currentPageVeid = store.history.currentPageVeid();
+    if (!currentPageVeid) {
+      console.log("Load test: no current page, skipping");
+      return;
+    }
+    
+    const currentPageId = currentPageVeid.itemId;
+    const calculatedHash = hashChildrenAndTheirAttachmentsOnly(currentPageId);
+    
+    const testRequest: ModifiedCheck = {
+      id: currentPageId,
+      mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
+      hash: calculatedHash
+    };
+    
+    server.modifiedCheck([testRequest], store.general.networkStatus)
+      .then((result) => {
+        console.log("Load test modifiedCheck result:", result);
+      })
+      .catch((error) => {
+        console.log("Load test modifiedCheck failed:", error);
+      });
+  }, 2000);
+  
+  console.log("Started server load test - sending modifiedCheck every 2 seconds");
+}
+
+/**
+ * Stop the server load test loop
+ */
+export function stopServerLoadTest(): void {
+  if (loadTestInterval) {
+    window.clearInterval(loadTestInterval);
+    loadTestInterval = null;
+    console.log("Stopped server load test");
+  }
+}
 
 /**
  * TODO (HIGH): panic logout on error is to ensure consistent state, but is highly disruptive. do something better.
