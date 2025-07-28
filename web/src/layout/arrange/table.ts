@@ -220,6 +220,16 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   if (tableVesRows == null || tableVesRows!.length != childrenVes.length) {
     // TODO (LOW): should really implement logic such that this never happens. This is lazy.
     console.debug("rearrangeTableAfterScroll: invalid tableVesRows, resorting to fullArrange.");
+    console.error("[TABLE_DEBUG] Invalid state detected:", {
+      tableVePath: tableVePath,
+      tableVesRows: tableVesRows,
+      tableVesRowsLength: tableVesRows?.length,
+      childrenVesLength: childrenVes.length,
+      prevScrollYPos: prevScrollYPos,
+      currentScrollYPos: store.perItem.getTableScrollYPos(tableVeid),
+      tableId: displayItem_table.id,
+      timestamp: new Date().toISOString()
+    });
     // Clear text editing state to prevent race conditions with DOM elements
     store.overlay.setTextEditInfo(store.history, null);
     fullArrange(store);
@@ -237,6 +247,19 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
   if (childrenVes.length != outCount) {
+    console.error("[TABLE_DEBUG] Unexpected child ves count:", {
+      tableVePath: tableVePath,
+      childrenVesLength: childrenVes.length,
+      expectedOutCount: outCount,
+      firstItemIdx: firstItemIdx,
+      lastItemIdx: lastItemIdx,
+      numVisibleRows: numVisibleRows,
+      sizeBl: sizeBl,
+      scrollYPos: scrollYPos,
+      prevScrollYPos: prevScrollYPos,
+      tableId: displayItem_table.id,
+      timestamp: new Date().toISOString()
+    });
     panic("rearrangeTableAfterScroll: unexpected number of child ves rows. can occur if table has fractional height.");
   }
 
@@ -246,6 +269,9 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   let rowIdx = 0;
   let finished = displayItem_table.computed_children.length == 0;
   let currentParentPath = tableVePath;
+  
+  // Debug tracking for visual element position mapping
+  const debugRowMapping = new Map<number, {rowIdx: number, itemId: string, outIdx: number}>();
 
   while (!finished) {
     let itemId = iterContainers[iterContainers.length-1].computed_children[iterIndices[iterIndices.length-1]];
@@ -259,11 +285,53 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       if (tableVesRows[outIdx] != rowIdx) {
         const indentBl = iterIndices.length - 1;
         const vesToOverwrite = childrenVes[outIdx];
+        
+        // Debug logging for problematic cases
+        const existingVe = vesToOverwrite?.get();
+        const existingPath = existingVe ? VeFns.veToPath(existingVe) : null;
+        const newPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
+        
+        console.debug("[TABLE_DEBUG] Rearranging row:", {
+          tableVePath: tableVePath,
+          rowIdx: rowIdx,
+          outIdx: outIdx,
+          expectedRowForOutIdx: tableVesRows[outIdx],
+          actualRowIdx: rowIdx,
+          itemId: item.id,
+          existingPath: existingPath,
+          newPath: newPath,
+          vesToOverwriteExists: !!vesToOverwrite,
+          existingVeExists: !!existingVe,
+          itemType: displayItem_childItem.itemType,
+          iterIndicesDepth: iterIndices.length,
+          timestamp: new Date().toISOString()
+        });
+        
         try {
           tableVeChildren[outIdx] = createRow(
             store, item, displayItem_table, tableVePath, tableVe._arrangeFlags_useForPartialRearrangeOnly, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
+          
+          // Track the mapping for debugging
+          debugRowMapping.set(outIdx, {rowIdx: rowIdx, itemId: item.id, outIdx: outIdx});
+          
         } catch (e: any) {
           // TODO (LOW): should really implement logic such that this never happens. This clumsy catch-all is lazy.
+          console.error("[TABLE_DEBUG] createRow failed:", {
+            tableVePath: tableVePath,
+            rowIdx: rowIdx,
+            outIdx: outIdx,
+            itemId: item.id,
+            error: e.message,
+            errorStack: e.stack,
+            existingPath: existingPath,
+            newPath: newPath,
+            vesToOverwriteExists: !!vesToOverwrite,
+            existingVeExists: !!existingVe,
+            tableVesRows: [...tableVesRows],
+            childrenVesLength: childrenVes.length,
+            debugRowMapping: Array.from(debugRowMapping.entries()),
+            timestamp: new Date().toISOString()
+          });
           console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
           // Clear text editing state to prevent race conditions with DOM elements
           store.overlay.setTextEditInfo(store.history, null);
@@ -271,6 +339,9 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
           return;
         }
         tableVesRows[outIdx] = rowIdx;
+      } else {
+        // Track non-rearranged rows too for complete picture
+        debugRowMapping.set(outIdx, {rowIdx: rowIdx, itemId: item.id, outIdx: outIdx});
       }
     }
     rowIdx = rowIdx + 1;
@@ -306,6 +377,64 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
         break;
       }
     }
+  }
+  
+  // Final validation and comprehensive debug logging
+  let hasInconsistency = false;
+  const finalDebugInfo = {
+    tableVePath: tableVePath,
+    tableId: displayItem_table.id,
+    scrollYPos: scrollYPos,
+    prevScrollYPos: prevScrollYPos,
+    firstItemIdx: firstItemIdx,
+    lastItemIdx: lastItemIdx,
+    outCount: outCount,
+    childrenVesLength: childrenVes.length,
+    tableVesRowsSnapshot: [...tableVesRows],
+    debugRowMapping: Array.from(debugRowMapping.entries()),
+    inconsistencies: [] as any[],
+    timestamp: new Date().toISOString()
+  };
+  
+  // Check for inconsistencies in the final mapping
+  for (let i = 0; i < outCount; i++) {
+    const mappingInfo = debugRowMapping.get(i);
+    const vesRowValue = tableVesRows[i];
+    
+    if (mappingInfo && mappingInfo.rowIdx !== vesRowValue) {
+      hasInconsistency = true;
+      finalDebugInfo.inconsistencies.push({
+        outIdx: i,
+        mappedRowIdx: mappingInfo.rowIdx,
+        vesRowValue: vesRowValue,
+        itemId: mappingInfo.itemId
+      });
+    }
+    
+    // Also check if childrenVes exists and has the right structure
+    const childVe = childrenVes[i]?.get();
+    if (childVe && childVe.row !== vesRowValue) {
+      hasInconsistency = true;
+      finalDebugInfo.inconsistencies.push({
+        outIdx: i,
+        expectedRow: vesRowValue,
+        actualVeRow: childVe.row,
+        veItemId: childVe.displayItem.id,
+        type: 've_row_mismatch'
+      });
+    }
+  }
+  
+  if (hasInconsistency) {
+    console.error("[TABLE_DEBUG] Inconsistencies detected in final table arrangement:", finalDebugInfo);
+  } else if (debugRowMapping.size > 0) {
+    // Only log when we actually rearranged something
+    console.debug("[TABLE_DEBUG] Table rearrangement completed successfully:", {
+      tableId: displayItem_table.id,
+      rearrangedCount: debugRowMapping.size,
+      scrollChange: `${prevScrollYPos} -> ${scrollYPos}`,
+      timestamp: new Date().toISOString()
+    });
   }
 }
 
@@ -405,6 +534,15 @@ function createRow(
       let tableChildAttachmentVes;
       if (vesToOverwrite != null) {
         // TODO (MEDIUM): re-use these.
+        console.debug("[TABLE_DEBUG] Creating new attachment VE (not reusing):", {
+          tableVePath: tableVePath,
+          attachmentIndex: i,
+          attachmentId: attachmentId,
+          parentRowIdx: rowIdx,
+          parentItemId: displayItem_childItem.id,
+          existingAttachmentsCount: vesToOverwrite.get()?.attachmentsVes?.length || 0,
+          timestamp: new Date().toISOString()
+        });
         tableChildAttachmentVes = VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
       } else {
         tableChildAttachmentVes = VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);

@@ -193,6 +193,26 @@ export let VesCache = {
   partial_overwriteVisualElementSignal: (visualElementOverride: VisualElementSpec, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
+    
+    // Debug logging for potential path conflicts
+    if (existingPath === newPath) {
+      console.debug("[VES_CACHE_DEBUG] Overwriting visual element with same path:", {
+        path: existingPath,
+        displayItemId: veToOverwrite.displayItem.id,
+        itemType: veToOverwrite.displayItem.itemType,
+        timestamp: new Date().toISOString()
+      });
+    } else if (currentVesCache.has(newPath)) {
+      console.error("[VES_CACHE_DEBUG] Path conflict detected - newPath already exists:", {
+        existingPath: existingPath,
+        newPath: newPath,
+        existingDisplayItemId: veToOverwrite.displayItem.id,
+        newDisplayItemId: visualElementOverride.displayItem.id,
+        existingItemType: veToOverwrite.displayItem.itemType,
+        newItemType: visualElementOverride.displayItem.itemType,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     for (let i=0; i<veToOverwrite.attachmentsVes.length; ++i) {
       const attachmentVe = veToOverwrite.attachmentsVes[i].get();
@@ -202,7 +222,16 @@ export let VesCache = {
       }
     }
 
-    if (!currentVesCache.delete(existingPath)) { throw "vesToOverwrite did not exist"; }
+    if (!currentVesCache.delete(existingPath)) { 
+      console.error("[VES_CACHE_DEBUG] Failed to delete existing path:", {
+        existingPath: existingPath,
+        newPath: newPath,
+        displayItemId: veToOverwrite.displayItem.id,
+        cacheSize: currentVesCache.size,
+        timestamp: new Date().toISOString()
+      });
+      throw "vesToOverwrite did not exist"; 
+    }
     deleteFromVessVsDisplayIdLookup(existingPath);
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
