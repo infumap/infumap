@@ -16,7 +16,24 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+WEB_BUILD_ARGS=""
+INFUMAP_BUILD_ARGS=""
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --no-minify)
+      WEB_BUILD_ARGS="--no-minify"
+      shift
+      ;;
+    *)
+      INFUMAP_BUILD_ARGS="$INFUMAP_BUILD_ARGS $1"
+      shift
+      ;;
+  esac
+done
+
 pushd "$(dirname "$0")"
-./web/build.sh
-./infumap/build.sh $1
+./web/build.sh $WEB_BUILD_ARGS
+./infumap/build.sh $INFUMAP_BUILD_ARGS
 popd

@@ -16,10 +16,32 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+# Parse command line arguments
+NO_MINIFY=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --no-minify)
+      NO_MINIFY=true
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
 pushd "$(dirname "$0")"
 rm -rf ./dist
 npm install
-npm run build
+
+# Set NODE_ENV to development if --no-minify is specified
+if [ "$NO_MINIFY" = true ]; then
+  NODE_ENV=development npm run build
+else
+  npm run build
+fi
+
 python3 generate_dist_handlers.py
 rm -rf ../infumap/dist
 mv dist ../infumap
