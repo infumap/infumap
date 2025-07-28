@@ -35,6 +35,9 @@ for filename in os.listdir(directory):
         png_files.append(filename)
     elif filename.endswith(".ico"):
         ico_files.append(filename)
+    elif filename.endswith(".map"):
+        # Skip source map files
+        continue
     else:
         raise Exception("unknown filetype: " + filename)
 
