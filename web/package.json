@@ -2,6 +2,7 @@
   "name": "infumap",
   "version": "0.3.0",
   "description": "Infumap",
+  "type": "module",
   "scripts": {
     "start": "vite",
     "host": "vite --host",
