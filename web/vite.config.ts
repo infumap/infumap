@@ -9,6 +9,10 @@ export default defineConfig(({ command, mode }) => {
   if (env["INFUMAP_DEV_HOST"]) {
     host = env["INFUMAP_DEV_HOST"];
   }
+
+  // Check if we should disable minification
+  const noMinify = process.env.NO_MINIFY === 'true' || process.env.NODE_ENV === 'development';
+
   return {
     plugins: [solidPlugin()],
     server: {
@@ -44,6 +48,8 @@ export default defineConfig(({ command, mode }) => {
       target: 'esnext',
       outDir: './dist',
       chunkSizeWarningLimit: 1000,
+      minify: noMinify ? false : 'esbuild',
+      sourcemap: noMinify ? true : false,
       rollupOptions: {
         input: {
           // @ts-ignore

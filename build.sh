@@ -23,6 +23,7 @@ INFUMAP_BUILD_ARGS=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --no-minify)
+      echo "🔧 Development build requested: disabling web minification for better debugging"
       WEB_BUILD_ARGS="--no-minify"
       shift
       ;;

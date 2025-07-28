@@ -35,10 +35,18 @@ pushd "$(dirname "$0")"
 rm -rf ./dist
 npm install
 
-# Set NODE_ENV to development if --no-minify is specified
+# Build with appropriate settings
 if [ "$NO_MINIFY" = true ]; then
-  NODE_ENV=development npm run build
+  echo "Building web assets in development mode:"
+  echo "  - Minification: DISABLED"
+  echo "  - Source maps: ENABLED"
+  echo "  - Better stack traces and debugging"
+  NO_MINIFY=true NODE_ENV=development npm run build
 else
+  echo "Building web assets in production mode:"
+  echo "  - Minification: ENABLED"
+  echo "  - Source maps: DISABLED"
+  echo "  - Optimized for deployment"
   npm run build
 fi
 
