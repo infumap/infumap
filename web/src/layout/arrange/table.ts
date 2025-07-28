@@ -18,6 +18,7 @@
 
 import { fullArrange } from ".";
 import { GRID_SIZE } from "../../constants";
+import { evaluateExpressions } from "../../expression/evaluate";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../../items/base/container-item";
 import { TableFlags } from "../../items/base/flags-item";
@@ -204,6 +205,8 @@ function createFillerRow(
 
 export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: VisualElementPath, tableVeid: Veid, prevScrollYPos: number) {
   if (VesCache.isCurrentlyInFullArrange()) { return; }
+
+  const existingEvaluationQueue = VesCache.getEvaluationRequired();
 
   let needToRearrange = () => {
     const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
@@ -425,7 +428,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     }
   }
   
-  if (hasInconsistency) {
+    if (hasInconsistency) {
     console.error("[TABLE_DEBUG] Inconsistencies detected in final table arrangement:", finalDebugInfo);
   } else if (debugRowMapping.size > 0) {
     // Only log when we actually rearranged something
@@ -436,6 +439,12 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       timestamp: new Date().toISOString()
     });
   }
+
+  for (const path of existingEvaluationQueue) {
+    VesCache.markEvaluationRequired(path);
+  }
+
+  evaluateExpressions(false);
 }
 
 
