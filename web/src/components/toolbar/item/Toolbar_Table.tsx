@@ -26,6 +26,8 @@ import { TableFlags } from "../../../items/base/flags-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { fullArrange } from "../../../layout/arrange";
+import { InfuButton } from "../../library/InfuButton";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Table: Component = () => {
@@ -101,7 +103,7 @@ export const Toolbar_Table: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(tableItem().id);
-    store.overlay.toolbarTransientMessage.set("table id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "table id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

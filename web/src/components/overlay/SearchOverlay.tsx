@@ -31,6 +31,7 @@ import { isInside } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { isPage } from "../../items/page-item";
 import { MOUSE_RIGHT} from "../../input/mouse_down";
+import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 
 export const SearchOverlay: Component = () => {
   const store = useStore();
@@ -230,7 +231,7 @@ export const SearchOverlay: Component = () => {
   const handleCopyId = (resultItemId: Uid) => {
     return async (_ev: MouseEvent) => {
       navigator.clipboard.writeText(resultItemId);
-      store.overlay.toolbarTransientMessage.set("file id → clipboard");
+      store.overlay.toolbarTransientMessage.set({ text: "file id → clipboard", type: TransientMessageType.Info });
       setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
     }
   }

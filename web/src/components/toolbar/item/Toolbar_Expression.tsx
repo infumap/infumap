@@ -28,6 +28,7 @@ import { NoteFns } from "../../../items/note-item";
 import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { fullArrange } from "../../../layout/arrange";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Expression: Component = () => {
@@ -68,7 +69,7 @@ export const Toolbar_Expression: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(expressionItem().id);
-    store.overlay.toolbarTransientMessage.set("expression id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "expression id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

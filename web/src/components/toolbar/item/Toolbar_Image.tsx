@@ -26,6 +26,8 @@ import { ImageFlags } from "../../../items/base/flags-item";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
 import { fullArrange } from "../../../layout/arrange";
+import { InfuButton } from "../../library/InfuButton";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Image: Component = () => {
@@ -50,7 +52,7 @@ export const Toolbar_Image: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(imageItem().id);
-    store.overlay.toolbarTransientMessage.set("image id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "image id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

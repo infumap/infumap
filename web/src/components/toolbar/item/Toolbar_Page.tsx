@@ -30,6 +30,7 @@ import { PermissionFlags } from "../../../items/base/permission-flags-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { PageFlags } from "../../../items/base/flags-item";
 import { ClickState } from "../../../input/state";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Page: Component = () => {
@@ -315,7 +316,7 @@ export const Toolbar_Page: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(pageItem().id);
-    store.overlay.toolbarTransientMessage.set("page id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "page id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

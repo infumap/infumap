@@ -73,6 +73,16 @@ export interface UploadOverlayInfo {
   currentFileName: string,
 }
 
+export enum TransientMessageType {
+  Error = "error",
+  Info = "info"
+}
+
+export interface TransientMessage {
+  text: string;
+  type: TransientMessageType;
+}
+
 export interface OverlayStoreContextModel {
   // Desktop overlays. TODO (MEDIUM): move all these to Main.
   editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
@@ -81,7 +91,7 @@ export interface OverlayStoreContextModel {
 
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
-  toolbarTransientMessage: InfuSignal<string | null>,
+  toolbarTransientMessage: InfuSignal<TransientMessage | null>,
   networkOverlayVisible: InfuSignal<boolean>,
   searchOverlayVisible: InfuSignal<boolean>,
   findOverlayVisible: InfuSignal<boolean>,
@@ -106,7 +116,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const tableColumnContextMenuInfo = createInfuSignal<TableColumnContextMenuInfo | null>(null);
 
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
-  const toolbarTransientMessage = createInfuSignal<string | null>(null);
+  const toolbarTransientMessage = createInfuSignal<TransientMessage | null>(null);
   const searchOverlayVisible = createInfuSignal<boolean>(false);
   const networkOverlayVisible = createInfuSignal<boolean>(false);
   const findOverlayVisible = createInfuSignal<boolean>(false);

@@ -253,7 +253,7 @@ export const Main: Component = () => {
       <Show when={store.overlay.toolbarPopupInfoMaybe.get() != null}>
         <Toolbar_Popup />
       </Show>
-      <Show when={store.overlay.toolbarTransientMessage.get()}>
+      <Show when={store.overlay.toolbarTransientMessage.get() != null}>
         <Toolbar_TransientMessage />
       </Show>
       <Show when={store.overlay.searchOverlayVisible.get()}>

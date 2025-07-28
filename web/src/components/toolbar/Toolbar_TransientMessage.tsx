@@ -19,15 +19,23 @@
 import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
+import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_TransientMessage: Component = () => {
   const store = useStore();
 
+  const message = () => store.overlay.toolbarTransientMessage.get();
+  const isError = () => message()?.type === TransientMessageType.Error;
+
   return (
-    <div class="absolute border rounded-lg mb-1 shadow-lg pl-[12px] pr-[12px] pt-[6px] pb-[6px] text-white font-semibold text-sm"
-         style={`right: ${5}px; top: ${47}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; background-color: #dc2626; border-color: #b91c1c; border-width: 2px;`}>
-      {store.overlay.toolbarTransientMessage.get()}
+    <div class="absolute border rounded mb-1 shadow-md pl-[12px] pr-[12px] pt-[6px] pb-[6px] text-sm"
+         classList={{
+           "bg-white border-black text-slate-800": !isError(),
+           "border-black text-white font-semibold": isError()
+         }}
+         style={`right: ${5}px; top: ${47}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; ${isError() ? 'background-color: #dc2626;' : ''}`}>
+      {message()?.text}
     </div>
   );
 }

@@ -22,7 +22,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { fullArrange } from "../../layout/arrange";
-import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
+import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { VesCache } from "../../layout/ves-cache";
@@ -307,7 +307,7 @@ export const Toolbar_Popup: Component = () => {
   const linkItemIdClickHandler = (): void => {
     navigator.clipboard.writeText(window.location.origin + "/" + store.history.getFocusItem()!.id);
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.toolbarTransientMessage.set(store.history.getFocusItem().itemType + " id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: store.history.getFocusItem().itemType + " id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
@@ -315,7 +315,7 @@ export const Toolbar_Popup: Component = () => {
   const linkCompositeIdClickHandler = (): void => {
     navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id);
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.toolbarTransientMessage.set("composite id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "composite id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

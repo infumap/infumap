@@ -22,6 +22,7 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { asPasswordItem } from "../../../items/password-item";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Password: Component = () => {
@@ -45,7 +46,7 @@ export const Toolbar_Password: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(passwordItem().id);
-    store.overlay.toolbarTransientMessage.set("password id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "password id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

@@ -22,6 +22,7 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { asRatingItem } from "../../../items/rating-item";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Rating: Component = () => {
@@ -45,7 +46,7 @@ export const Toolbar_Rating: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(ratingItem().id);
-    store.overlay.toolbarTransientMessage.set("rating id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "rating id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

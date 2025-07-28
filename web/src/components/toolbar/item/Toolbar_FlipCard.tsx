@@ -23,6 +23,7 @@ import { asFlipCardItem } from "../../../items/flipcard-item";
 import { ClickState } from "../../../input/state";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { InfuColorButton } from "../../library/InfuColorButton";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_FlipCard: Component = () => {
@@ -49,7 +50,7 @@ export const Toolbar_FlipCard: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(flipCardItem().id);
-    store.overlay.toolbarTransientMessage.set("flip card id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "flip card id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

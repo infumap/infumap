@@ -24,6 +24,7 @@ import { asLinkItem } from "../../../items/link-item";
 import { fullArrange } from "../../../layout/arrange";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Link: Component = () => {
@@ -49,7 +50,7 @@ export const Toolbar_Link: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(linkItem().id);
-    store.overlay.toolbarTransientMessage.set("link id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "link id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

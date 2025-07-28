@@ -27,6 +27,7 @@ import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { fullArrange } from "../../../layout/arrange";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Note: Component = () => {
@@ -114,7 +115,7 @@ export const Toolbar_Note: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(noteItem().id);
-    store.overlay.toolbarTransientMessage.set("note id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "note id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

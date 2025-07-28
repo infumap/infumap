@@ -22,6 +22,7 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { asFileItem } from "../../../items/file-item";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_File: Component = () => {
@@ -45,7 +46,7 @@ export const Toolbar_File: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(fileItem().id);
-    store.overlay.toolbarTransientMessage.set("file id → clipboard");
+    store.overlay.toolbarTransientMessage.set({ text: "file id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

@@ -29,6 +29,7 @@ import { CursorEventState } from "../input/state";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
 import { TableColumnContextMenu } from "./overlay/TableColumnContextMenu";
+import { TransientMessageType } from "../store/StoreProvider_Overlay";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -43,7 +44,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     if (ev.dataTransfer) {
       let hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
       if (hitInfo.hitboxType != HitboxFlags.None) {
-        store.overlay.toolbarTransientMessage.set("Must upload on background");
+        store.overlay.toolbarTransientMessage.set({ text: "Must upload on background", type: TransientMessageType.Error });
         setTimeout(() => {
           store.overlay.toolbarTransientMessage.set(null);
         }, 3000);
@@ -51,7 +52,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       }
       let item = HitInfoFns.getHitVe(hitInfo).displayItem;
       if (!isPage(item)) {
-        store.overlay.toolbarTransientMessage.set("Must upload on page");
+        store.overlay.toolbarTransientMessage.set({ text: "Must upload on page", type: TransientMessageType.Error });
         setTimeout(() => {
           store.overlay.toolbarTransientMessage.set(null);
         }, 3000);
