@@ -177,7 +177,19 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
   }
   else {
     fullArrange(store);
-    const upVes = VesCache.findSingle(upVeid);
+    const allUpVes = VesCache.find(upVeid);
+    const currentCompositeVePath = VeFns.veToPath(compositeVe);
+    const upVes = allUpVes.find(ves => {
+      const vesPath = VeFns.veToPath(ves.get());
+      const vesParentPath = VeFns.parentPath(vesPath);
+      return vesParentPath === currentCompositeVePath;
+    });
+
+    if (!upVes) {
+      console.error("Could not find up item visual element in the current composite context");
+      return;
+    }
+
     const currentUpPath = VeFns.veToPath(upVes.get());
     store.overlay.setTextEditInfo(store.history, { itemPath: currentUpPath, itemType: upFocusItem.itemType });
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
@@ -223,7 +235,18 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
   fullArrange(store);
 
   const veid = { itemId: note.id, linkIdMaybe: null };
-  const newVes = VesCache.findSingle(veid);
+  const allNewVes = VesCache.find(veid);
+  const currentCompositeVePath = VeFns.veToPath(visualElement);
+  const newVes = allNewVes.find(ves => {
+    const vesPath = VeFns.veToPath(ves.get());
+    const vesParentPath = VeFns.parentPath(vesPath);
+    return vesParentPath === currentCompositeVePath;
+  });
+
+  if (!newVes) {
+    console.error("Could not find new note visual element in the current composite context");
+    return;
+  }
   store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), itemType: ItemType.Note });
 
   const newEditingPath = store.overlay.textEditInfo()!.itemPath + ":title";
