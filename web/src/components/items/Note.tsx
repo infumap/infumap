@@ -46,6 +46,8 @@ import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
+import { isXSizableItem } from "../../items/base/x-sizeable-item";
+import { asLinkItem, isLink } from "../../items/link-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -72,7 +74,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
-        cloned.spatialWidthGr = asXSizableItem(parentTreeItem).spatialWidthGr;
+        cloned.spatialWidthGr = isXSizableItem(parentTreeItem)
+          ? asXSizableItem(parentTreeItem).spatialWidthGr
+          : isLink(parentTreeItem)
+            ? asLinkItem(parentTreeItem).spatialWidthGr
+            : panic(`Note sizeBl: parentTreeItem has unexpected type: ${parentTreeItem.itemType}`);
       }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }

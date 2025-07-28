@@ -23,7 +23,7 @@ import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { asXSizableItem } from "../../items/base/x-sizeable-item";
+import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
@@ -45,6 +45,7 @@ import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
+import { asLinkItem, isLink } from "../../items/link-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -99,7 +100,11 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
-        cloned.spatialWidthGr = asXSizableItem(parentTreeItem).spatialWidthGr;
+        cloned.spatialWidthGr = isXSizableItem(parentTreeItem)
+          ? asXSizableItem(parentTreeItem).spatialWidthGr
+          : isLink(parentTreeItem)
+            ? asLinkItem(parentTreeItem).spatialWidthGr
+            : panic(`File sizeBl: parentTreeItem has unexpected type: ${parentTreeItem.itemType}`);
       }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }

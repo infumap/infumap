@@ -25,7 +25,7 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
-import { asXSizableItem } from "../../items/base/x-sizeable-item";
+import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { BoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -36,6 +36,8 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { fullArrange } from "../../layout/arrange";
+import { asLinkItem, isLink } from "../../items/link-item";
+import { panic } from "../../util/lang";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -62,7 +64,11 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
-        cloned.spatialWidthGr = asXSizableItem(parentTreeItem).spatialWidthGr;
+        cloned.spatialWidthGr = isXSizableItem(parentTreeItem)
+          ? asXSizableItem(parentTreeItem).spatialWidthGr
+          : isLink(parentTreeItem)
+            ? asLinkItem(parentTreeItem).spatialWidthGr
+            : panic(`Expression sizeBl: parentTreeItem has unexpected type: ${parentTreeItem.itemType}`);
       }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
