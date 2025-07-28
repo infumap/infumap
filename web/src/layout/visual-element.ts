@@ -437,13 +437,23 @@ export const VeFns = {
     });
   },
 
-  canonicalItem: (visualElement: VisualElement): Item => {
+  /**
+   * Tree item is the link item if it exists, otherwise the item itself.
+   * @param visualElement - the visual element to get the tree item from.
+   * @returns the tree item.
+   */
+  treeItem: (visualElement: VisualElement): Item => {
     return visualElement.linkItemMaybe != null
       ? visualElement.linkItemMaybe!
       : visualElement.displayItem;
   },
 
-  canonicalItemFromPath: (visualElementPath: VisualElementPath): Item | null => {
+  /**
+   * Tree item is the link item if it exists, otherwise the item itself.
+   * @param visualElementPath - the path to get the tree item from.
+   * @returns the tree item.
+   */
+  treeItemFromPath: (visualElementPath: VisualElementPath): Item | null => {
     const veid = VeFns.veidFromPath(visualElementPath);
     let item;
     if (veid.linkIdMaybe) {
@@ -454,7 +464,12 @@ export const VeFns = {
     return item;
   },
 
-  canonicalItemFromVeid: (veid: Veid): Item | null => {
+  /**
+   * Tree item is the link item if it exists, otherwise the item itself.
+   * @param veid - the veid to get the tree item from.
+   * @returns the tree item.
+   */
+  treeItemFromVeid: (veid: Veid): Item | null => {
     let item;
     if (veid.linkIdMaybe) {
       item = itemState.get(veid.linkIdMaybe);
@@ -589,8 +604,8 @@ export const VeFns = {
     let r = getBoundingBoxTopLeft(ve.boundsPx);
 
     // handle case of attachment in a table.
-    const canonicalItem = VeFns.canonicalItem(ve);
-    if (canonicalItem.relationshipToParent == RelationshipToParent.Attachment) {
+    const treeItem = VeFns.treeItem(ve);
+    if (treeItem.relationshipToParent == RelationshipToParent.Attachment) {
       const veParent = VesCache.get(ve.parentPath!)!.get();
       const veParentParent = VesCache.get(veParent.parentPath!)!.get();
       if (isTable(veParentParent.displayItem)) {
@@ -664,8 +679,8 @@ export const VeFns = {
   isInTable: (visualElement: VisualElement): boolean => {
     if (visualElement.parentPath == null) { return false; }
     const parent = VesCache.get(visualElement.parentPath)!.get();
-    if (VeFns.canonicalItem(visualElement).relationshipToParent == RelationshipToParent.Child && isTable(parent.displayItem)) { return true; }
-    if (VeFns.canonicalItem(visualElement).relationshipToParent != RelationshipToParent.Attachment) { return false; }
+    if (VeFns.treeItem(visualElement).relationshipToParent == RelationshipToParent.Child && isTable(parent.displayItem)) { return true; }
+    if (VeFns.treeItem(visualElement).relationshipToParent != RelationshipToParent.Attachment) { return false; }
     const parentParent = VesCache.get(parent.parentPath!)!.get();
     return isTable(parentParent.displayItem);
   },

@@ -24,6 +24,7 @@ import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { hashChildrenAndTheirAttachmentsOnly } from "./items/item";
 import { StoreContextModel } from "./store/StoreProvider";
+import { VesCache } from "./layout/ves-cache";
 
 
 export interface ItemsAndTheirAttachments {
@@ -277,23 +278,23 @@ export function startServerLoadTest(store: StoreContextModel): void {
   if (loadTestInterval) {
     window.clearInterval(loadTestInterval);
   }
-  
+
   loadTestInterval = window.setInterval(() => {
     const currentPageVeid = store.history.currentPageVeid();
     if (!currentPageVeid) {
       console.log("Load test: no current page, skipping");
       return;
     }
-    
+
     const currentPageId = currentPageVeid.itemId;
     const calculatedHash = hashChildrenAndTheirAttachmentsOnly(currentPageId);
-    
+
     const testRequest: ModifiedCheck = {
       id: currentPageId,
       mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
       hash: calculatedHash
     };
-    
+
     server.modifiedCheck([testRequest], store.general.networkStatus)
       .then((result) => {
         console.log("Load test modifiedCheck result:", result);
@@ -302,7 +303,7 @@ export function startServerLoadTest(store: StoreContextModel): void {
         console.log("Load test modifiedCheck failed:", error);
       });
   }, 2000);
-  
+
   console.log("Started server load test - sending modifiedCheck every 2 seconds");
 }
 

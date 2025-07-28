@@ -57,7 +57,7 @@ export function arrange_single_cell_page(
   let movingItem = null;
   let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
+    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.get().activeElementPath);
     movingItem = movingItemInThisPage;
     if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
       movingItemInThisPage = null;

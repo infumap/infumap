@@ -213,7 +213,7 @@ pub struct GetItemsRequest {
  *
  * Note that whether or not a link item is authorized has no bearing on whether the
  * corresponding linked-to item is authorized - the authorization is based on the linked
- * to item, and it's canonical parent(s) as above.
+ * to item, and it's tree parent(s) as above.
  */
 pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_maybe: &Option<String>, recursion_level: i32) -> InfuResult<()> {
   if recursion_level > 1 {

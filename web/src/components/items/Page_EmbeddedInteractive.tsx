@@ -192,10 +192,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
           <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
         </Show>
-        <Show when={isPage(VeFns.canonicalItem(props.visualElement)) && asPageItem(VeFns.canonicalItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
+        <Show when={isPage(VeFns.treeItem(props.visualElement)) && asPageItem(VeFns.treeItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
           <>
             <div class="absolute" style={`left: ${2.5 * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
-            <div class="absolute" style={`left: ${(asPageItem(VeFns.canonicalItem(props.visualElement)).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
+            <div class="absolute" style={`left: ${(asPageItem(VeFns.treeItem(props.visualElement)).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
           </>
         </Show>
         {pageFns().renderGridLinesMaybe()}

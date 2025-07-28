@@ -62,7 +62,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
   const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElementPath)!;
   const activeVisualElement = activeVisualElementSignal.get();
-  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   switch (MouseActionState.get().action) {
     case MouseAction.Moving:
@@ -361,7 +361,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
   store.perVe.setMovingItemIsOverAttachComposite(attachToVisualElementPath, false);
   MouseActionState.get()!.moveOver_attachCompositeHitboxElement = null;
 
-  const attachToItem = asPositionalItem(VeFns.canonicalItem(attachToVisualElement));
+  const attachToItem = asPositionalItem(VeFns.treeItem(attachToVisualElement));
 
   if (attachToVisualElement.displayItem.id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.

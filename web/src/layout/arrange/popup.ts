@@ -53,7 +53,9 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
       li.spatialHeightGr = asYSizableItem(itemState.get(popupVeid.linkIdMaybe)!).spatialHeightGr;
     }
   } else {
-    li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.itemId)!).spatialWidthGr;
+    if (isXSizableItem(itemState.get(popupVeid.itemId)!)) {
+      li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.itemId)!).spatialWidthGr;
+    }
     if (isYSizableItem(itemState.get(popupVeid.itemId)!)) {
       li.spatialHeightGr = asYSizableItem(itemState.get(popupVeid.itemId)!).spatialHeightGr;
     }

@@ -55,7 +55,7 @@ export const renderDockMaybe = (
 
   let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
+    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.get().activeElementPath);
     if (movingItemInThisPage!.parentId != dockPage.id) {
       movingItemInThisPage = null;
     }

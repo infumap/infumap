@@ -37,11 +37,11 @@ export function isXSizableItem(item: ItemTypeMixin | null): boolean {
 
 export function asXSizableItem(item: ItemTypeMixin): XSizableItem {
   if (isXSizableItem(item)) { return item as XSizableItem; }
-  console.error("asXSizableItem failed:", { 
-    itemType: item?.itemType, 
+  console.error("asXSizableItem failed:", {
+    itemType: item?.itemType,
     itemId: (item as any)?.id,
     item: item,
-    expectedTypes: ITEM_TYPES 
+    expectedTypes: ITEM_TYPES
   });
   panic("not x-sizable item.");
 }

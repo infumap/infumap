@@ -132,7 +132,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
 
 const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualElement) => {
   const editingVe = VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
-  const initialEditingItem = VeFns.canonicalItem(editingVe);
+  const initialEditingItem = VeFns.treeItem(editingVe);
   if (!isNote(initialEditingItem)) { return; }
 
   const compositeVe = visualElement;
@@ -215,7 +215,7 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
 
   serverOrRemote.updateItem(titledItem, store.general.networkStatus);
 
-  const ordering = itemState.newOrderingDirectlyAfterChild(visualElement.displayItem.id, VeFns.canonicalItemFromVeid(noteVeid)!.id);
+  const ordering = itemState.newOrderingDirectlyAfterChild(visualElement.displayItem.id, VeFns.treeItemFromVeid(noteVeid)!.id);
   const note = NoteFns.create(titledItem.ownerId, visualElement.displayItem.id, RelationshipToParent.Child, "", ordering);
   note.title = afterText;
   itemState.add(note);

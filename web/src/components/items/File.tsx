@@ -90,16 +90,16 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
       const parentDisplayItem = itemState.get(parentVeid.itemId)!;
 
-      let parentCanonicalItem = VeFns.canonicalItemFromVeid(parentVeid);
-      if (parentCanonicalItem == null) {
+      let parentTreeItem = VeFns.treeItemFromVeid(parentVeid);
+      if (parentTreeItem == null) {
         // case where link is virtual (not in itemState). happens in list selected page case.
-        parentCanonicalItem = itemState.get(parentVeid.itemId)!;
+        parentTreeItem = itemState.get(parentVeid.itemId)!;
       }
 
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
-        cloned.spatialWidthGr = asXSizableItem(parentCanonicalItem).spatialWidthGr;
+        cloned.spatialWidthGr = asXSizableItem(parentTreeItem).spatialWidthGr;
       }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }

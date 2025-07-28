@@ -132,7 +132,7 @@ function changeMouseActionStateMaybe(
   }
 
   let activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
-  let activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+  let activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Resize) > 0) {
     MouseActionState.get().startPosBl = null;
@@ -212,7 +212,7 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().activeElementPath = MouseActionState.get().activeCompositeElementMaybe!;
       MouseActionState.get().startActiveElementParent = VeFns.parentPath(MouseActionState.get().activeCompositeElementMaybe!);
       activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
-      activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+      activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
     }
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
@@ -249,7 +249,7 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   let requireArrange = false;
 
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
-  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
@@ -433,7 +433,7 @@ function mouseAction_resizingDockItem(deltaPx: Vector, store: StoreContextModel)
 
 function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
-  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,

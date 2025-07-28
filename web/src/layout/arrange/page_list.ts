@@ -116,7 +116,7 @@ export function arrange_list_page(
   let movingItem = null;
   let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
+    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.get().activeElementPath);
     movingItem = movingItemInThisPage;
     if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
       movingItemInThisPage = null;
@@ -303,7 +303,7 @@ export function arrangeSelectedListItem(
 
   const item = itemState.get(veid.itemId)!;
   const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : asLinkItem(itemState.get(veid.linkIdMaybe)!);
-  const canonicalItem = VeFns.canonicalItemFromVeid(veid)!;
+  const treeItem = VeFns.treeItemFromVeid(veid)!;
 
   const paddedBoundsPx = {
     x: boundsPx.x + LINE_HEIGHT_PX,
@@ -316,7 +316,7 @@ export function arrangeSelectedListItem(
     return null;
   }
 
-  let li = LinkFns.create(item.ownerId, canonicalItem.parentId, RelationshipToParent.Child, veid.itemId, newOrdering());
+  let li = LinkFns.create(item.ownerId, treeItem.parentId, RelationshipToParent.Child, veid.itemId, newOrdering());
   li.id = LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }

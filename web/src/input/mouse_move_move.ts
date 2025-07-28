@@ -181,7 +181,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
   const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElementPath)!;
   const activeVisualElement = activeVisualElementSignal.get();
-  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   let ignoreIds = [activeVisualElement.displayItem.id];
   if (isComposite(activeVisualElement.displayItem)) {
@@ -329,7 +329,7 @@ function moving_handleOverTable(store: StoreContextModel, overContainerVe: Visua
 
 function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean, shouldClone: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
-  const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
+  const treeActiveItem = asPositionalItem(VeFns.treeItem(activeElement));
 
   const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
 
@@ -343,7 +343,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     y: Math.round((pagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
   };
 
-  const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(canonicalActiveItem);
+  const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(treeActiveItem);
   const clickOffsetInActiveItemBl = relationshipToParent == RelationshipToParent.Child
     ? { x: Math.round(activeItemDimensionsBl.w * MouseActionState.get().clickOffsetProp!.x * 2.0) / 2.0,
         y: Math.round(activeItemDimensionsBl.h * MouseActionState.get().clickOffsetProp!.y * 2.0) / 2.0 }
@@ -390,19 +390,19 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 
   } else {
     if (relationshipToParent == RelationshipToParent.Attachment) {
-      const oldActiveItemOrdering = canonicalActiveItem.ordering;
-      const parent = asAttachmentsItem(itemState.get(canonicalActiveItem.parentId)!);
-      const isLast = parent.computed_attachments[asAttachmentsItem(parent).computed_attachments.length-1] == canonicalActiveItem.id;
+      const oldActiveItemOrdering = treeActiveItem.ordering;
+      const parent = asAttachmentsItem(itemState.get(treeActiveItem.parentId)!);
+      const isLast = parent.computed_attachments[asAttachmentsItem(parent).computed_attachments.length-1] == treeActiveItem.id;
       if (!isLast) {
-        const placeholderItem = PlaceholderFns.create(canonicalActiveItem.ownerId, parent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
+        const placeholderItem = PlaceholderFns.create(treeActiveItem.ownerId, parent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
         itemState.add(placeholderItem);
         MouseActionState.get().newPlaceholderItem = placeholderItem;
       }
       MouseActionState.get().startAttachmentsItem = parent;
     }
 
-    canonicalActiveItem.spatialPositionGr = newItemPosGr;
-    itemState.moveToNewParent(canonicalActiveItem, moveToPage.id, RelationshipToParent.Child);
+    treeActiveItem.spatialPositionGr = newItemPosGr;
+    itemState.moveToNewParent(treeActiveItem, moveToPage.id, RelationshipToParent.Child);
 
     MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
   }
@@ -419,7 +419,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink: boolean, shouldClone: boolean) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
-  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);

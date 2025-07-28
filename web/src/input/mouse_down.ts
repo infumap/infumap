@@ -280,7 +280,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const startHeightBl = null;
   const startPx = desktopPosPx;
   const hitVe = HitInfoFns.getHitVe(hitInfo);
-  const activeItem = VeFns.canonicalItem(hitVe);
+  const activeItem = VeFns.treeItem(hitVe);
   let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDesktopPx(store, hitVe);
 
   let onePxSizeBl = { x: 0.0, y: 0.0 };
@@ -311,7 +311,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         onePxSizeBl = { x: squareSize, y: squareSize };
       } else {
         let parent = VesCache.get(hitVe.parentPath!)!.get();
-        if (isPage(parent.displayItem) && VeFns.canonicalItem(hitVe).relationshipToParent == RelationshipToParent.Child) {
+        if (isPage(parent.displayItem) && VeFns.treeItem(hitVe).relationshipToParent == RelationshipToParent.Child) {
           let parentPage = asPageItem(parent.displayItem);
           const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
           onePxSizeBl = {
