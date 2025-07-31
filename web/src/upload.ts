@@ -146,5 +146,5 @@ export async function handleUpload(
 
   setTimeout(() => {
     store.overlay.uploadOverlayInfo.set(null);
-  }, 1000);
+  }, 300);
 }

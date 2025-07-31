@@ -28,7 +28,7 @@ export const UploadOverlay: Component = () => {
   const boxBoundsPx = () => {
     const desktopBounds = store.desktopBoundsPx();
     const boxWidth = 320;
-    const boxHeight = 80;
+    const boxHeight = 125;
     return ({
       x: (desktopBounds.w - boxWidth) / 2,
       y: (desktopBounds.h - boxHeight) / 2,
@@ -47,20 +47,19 @@ export const UploadOverlay: Component = () => {
     <Show when={uploadInfo() != null}>
       <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
            style={`background-color: #00000040; z-index: ${Z_INDEX_TEXT_OVERLAY}; display: flex; align-items: center; justify-content: center;`}>
-        <div class="border border-gray-400 rounded-lg bg-white shadow-lg"
+        <div class="border border-slate-700 rounded-md bg-white shadow-lg"
              style={`width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);`}>
           <div class="px-4 py-3 h-full flex flex-col justify-center">
             <div class="flex items-center mb-3">
-              <i class="fa fa-upload text-blue-500 mr-3" />
-              <span class="font-medium text-gray-700">Uploading files...</span>
+              <span class="font-medium">Uploading files...</span>
             </div>
             <div class="mb-2">
               <div class="flex justify-between text-sm text-gray-600 mb-1">
                 <span>{uploadInfo()!.currentFile} of {uploadInfo()!.totalFiles}</span>
                 <span>{progressPercentage()}%</span>
               </div>
-              <div class="w-full bg-gray-200 rounded-full h-2">
-                <div class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              <div class="w-full bg-gray-200 rounded-md h-2">
+                <div class="bg-blue-500 h-2 rounded-md transition-all duration-300"
                      style={`width: ${progressPercentage()}%;`} />
               </div>
             </div>
