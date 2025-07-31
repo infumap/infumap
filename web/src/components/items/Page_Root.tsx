@@ -74,14 +74,35 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     }
   }
 
+  const renderBorderOverlay = () => {
+    if (!pageFns().isPublic() || store.user.getUserMaybe() == null) {
+      return null;
+    }
+
+    const borderWidth = 3;
+    const bounds = pageFns().viewportBoundsPx();
+    const dockWidthPx = store.getCurrentDockWidthPx();
+
+    const leftOffset = dockWidthPx;
+    const topOffset = store.topToolbarHeightPx() + (pageFns().boundsPx().h - bounds.h);
+
+    return (
+      <>
+        <div class="fixed" style={`left: ${leftOffset}px; top: ${topOffset}px; width: ${bounds.w}px; height: ${borderWidth}px; background-color: #ff0000; pointer-events: none; ${VeFns.zIndexStyle(props.visualElement)} z-index: 9999;`} />
+        <div class="fixed" style={`left: ${leftOffset}px; top: ${topOffset + bounds.h - borderWidth}px; width: ${bounds.w}px; height: ${borderWidth}px; background-color: #ff0000; pointer-events: none; ${VeFns.zIndexStyle(props.visualElement)} z-index: 9999;`} />
+        <div class="fixed" style={`left: ${leftOffset}px; top: ${topOffset}px; width: ${borderWidth}px; height: ${bounds.h}px; background-color: #ff0000; pointer-events: none; ${VeFns.zIndexStyle(props.visualElement)} z-index: 9999;`} />
+        <div class="fixed" style={`left: ${leftOffset + bounds.w - borderWidth}px; top: ${topOffset}px; width: ${borderWidth}px; height: ${bounds.h}px; background-color: #ff0000; pointer-events: none; ${VeFns.zIndexStyle(props.visualElement)} z-index: 9999;`} />
+      </>
+    );
+  };
+
   const renderListPage = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
          style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
                 `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; left: 0px; ` +
                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
                 `background-color: #ffffff;` +
-                `${VeFns.zIndexStyle(props.visualElement)}` +
-                `${pageFns().isPublic() && store.user.getUserMaybe() != null ? "border-width: 3px; border-color: #ff0000;" : ""}`}>
+                `${VeFns.zIndexStyle(props.visualElement)}`}>
       <div ref={rootDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} `}
            style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
@@ -107,6 +128,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
         <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
       </Show>
+      {renderBorderOverlay()}
     </div>;
 
   const keyUpHandler = (ev: KeyboardEvent) => {
@@ -154,8 +176,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
                 `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                 `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
-                `${VeFns.zIndexStyle(props.visualElement)} ` +
-                `${pageFns().isPublic() && store.user.getUserMaybe() != null ? "border-width: 3px; border-color: #ff0000;" : ""}`}
+                `${VeFns.zIndexStyle(props.visualElement)} `}
          onscroll={rootScrollHandler}>
       <div class="absolute"
            style={`left: 0px; top: 0px; ` +
@@ -181,6 +202,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
+      {renderBorderOverlay()}
     </div>;
 
   return (
