@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE } from "../constants";
-import { asAttachmentsItem } from "../items/base/attachments-item";
+import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -180,10 +180,16 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
       } else {
         const childId = tableItem.computed_children[insertRow];
-        const child = asAttachmentsItem(itemState.get(childId)!);
-        const displayedChild = asAttachmentsItem(isLink(child)
+        const child = itemState.get(childId)!;
+        const targetItem = isLink(child)
           ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
-          : child);
+          : child;
+
+        if (!isAttachmentsItem(targetItem)) {
+          return;
+        }
+
+        const displayedChild = asAttachmentsItem(targetItem);
 
         const numPlaceholdersToCreate = attachmentPos > displayedChild.computed_attachments.length ? attachmentPos - displayedChild.computed_attachments.length : 0;
         for (let i=0; i<numPlaceholdersToCreate; ++i) {
@@ -196,7 +202,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           store,
           type,
           displayedChild.id,
-          itemState.newOrderingAtEndOfAttachments(childId),
+          itemState.newOrderingAtEndOfAttachments(displayedChild.id),
           RelationshipToParent.Attachment);
 
         itemState.add(newItem);
