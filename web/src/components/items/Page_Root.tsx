@@ -26,6 +26,7 @@ import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
+import { getMonthInfo } from "../../util/time";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -168,29 +169,85 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     }
   }
 
-  const renderCalendarPage = () =>
-    <div ref={rootDiv}
-         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-         style={`left: 0px; ` +
-               `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
-                `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
-                `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
-                `${VeFns.zIndexStyle(props.visualElement)} `}
-        onscroll={rootScrollHandler}>
-      <div class="absolute"
-           style={`left: 0px; top: 0px; ` +
-                  `width: ${pageFns().childAreaBoundsPx().w}px; ` +
-                  `height: ${pageFns().childAreaBoundsPx().h}px;` +
-                  `outline: 0px solid transparent; `}
-          contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
-          onKeyUp={keyUpHandler}
-          onKeyDown={keyDownHandler}
-          onInput={inputListener}>
+  const renderCalendarPage = () => {
+    const currentYear = new Date().getFullYear();
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
+    const columnWidth = (pageFns().viewportBoundsPx().w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
+    const titleHeight = 40;
+    const monthTitleHeight = 30;
+    const topPadding = 10;
+    const bottomMargin = 5;
+    const availableHeightForDays = pageFns().viewportBoundsPx().h - topPadding - titleHeight - 20 - monthTitleHeight - bottomMargin; // 20px gap between year and months
+    const dayRowHeight = availableHeightForDays / 31; // 31 max days
+
+    const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+
+    return (
+      <div ref={rootDiv}
+           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
+           style={`left: 0px; ` +
+                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+                  `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+                  `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                  `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+                  `${VeFns.zIndexStyle(props.visualElement)} `}
+          onscroll={rootScrollHandler}>
+        <div class="absolute"
+             style={`left: 0px; top: 0px; ` +
+                    `width: ${pageFns().childAreaBoundsPx().w}px; ` +
+                    `height: ${pageFns().childAreaBoundsPx().h}px;` +
+                    `outline: 0px solid transparent; `}
+            contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+            onKeyUp={keyUpHandler}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
+
+          {/* Year title */}
+          <div class="absolute text-center font-bold text-2xl"
+               style={`left: 5px; top: 10px; width: ${pageFns().childAreaBoundsPx().w - 10}px; height: ${titleHeight}px; line-height: ${titleHeight}px;`}>
+            {currentYear}
+          </div>
+
+          {/* Calendar months */}
+          <For each={Array.from({length: 12}, (_, i) => i + 1)}>{month => {
+            const monthInfo = getMonthInfo(month, currentYear);
+            const leftPos = 5 + (month - 1) * (columnWidth + 5);
+
+            return (
+              <div class="absolute"
+                   style={`left: ${leftPos}px; top: ${titleHeight + 20}px; width: ${columnWidth}px;`}>
+
+                {/* Month title */}
+                <div class="text-center font-semibold text-lg"
+                     style={`height: ${monthTitleHeight}px; line-height: ${monthTitleHeight}px;`}>
+                  {monthNames[month - 1]}
+                </div>
+
+                {/* Days in month */}
+                <For each={Array.from({length: monthInfo.daysInMonth}, (_, i) => i + 1)}>{day => {
+                  const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
+                  const topPos = monthTitleHeight + (day - 1) * dayRowHeight;
+
+                  return (
+                    <div class="absolute flex items-center"
+                         style={`left: 0px; top: ${topPos}px; width: ${columnWidth}px; height: ${dayRowHeight}px; ` +
+                                `background-color: ${isWeekend(dayOfWeek) ? '#f5f5f5' : '#ffffff'}; ` +
+                                `border-bottom: 1px solid #e5e5e5;`}>
+                      <span class="text-sm ml-2">{day}</span>
+                      <span class="text-sm ml-1 text-gray-600">{dayNames[dayOfWeek]}</span>
+                    </div>
+                  );
+                }}</For>
+              </div>
+            );
+          }}</For>
+        </div>
+        {renderBorderOverlay()}
       </div>
-      {renderBorderOverlay()}
-    </div>;
+    );
+  };
 
   const renderPage = () =>
     <div ref={rootDiv}
