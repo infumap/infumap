@@ -22,7 +22,7 @@ import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, Uid } from "./util/uid";
-import { hashChildrenAndTheirAttachmentsOnly } from "./items/item";
+import { hashChildrenAndTheirAttachmentsOnly, hashChildrenAndTheirAttachmentsOnlyAsync } from "./items/item";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
 import { asContainerItem, isContainer } from "./items/base/container-item";
@@ -297,17 +297,22 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
       return;
     }
 
-    const testRequests: ModifiedCheck[] = [];
-    for (const containerId of localContainers) {
-      const calculatedHash = hashChildrenAndTheirAttachmentsOnly(containerId);
-      testRequests.push({
-        id: containerId,
-        mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
-        hash: calculatedHash
-      });
-    }
-
     try {
+      const testRequests: ModifiedCheck[] = [];
+
+      // Process containers in parallel with async hashing
+      const hashPromises = Array.from(localContainers).map(async (containerId) => {
+        const calculatedHash = await hashChildrenAndTheirAttachmentsOnlyAsync(containerId);
+        return {
+          id: containerId,
+          mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
+          hash: calculatedHash
+        };
+      });
+
+      const resolvedRequests = await Promise.all(hashPromises);
+      testRequests.push(...resolvedRequests);
+
       const results = await server.modifiedCheck(testRequests, store.general.networkStatus);
       const modifiedContainers = results.filter(r => r.modified);
 
@@ -378,7 +383,7 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
     }
   }, 3000);
 
-  console.log("Started container auto-refresh - checking for modifications every 2 seconds");
+  console.log("Started container auto-refresh - checking for modifications every 3 seconds");
 }
 
 /**

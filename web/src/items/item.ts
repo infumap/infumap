@@ -52,8 +52,7 @@ export function hashItemAndAttachmentsOnly(itemId: Uid): Uid {
 }
 
 /**
- * Creates a composite hash of all children of an item and their attachments only.
- * Does NOT include a hash of the item itself.
+ * Creates a composite hash of only the children items and their attachments.
  * Corresponds to GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY.
  */
 export function hashChildrenAndTheirAttachmentsOnly(itemId: Uid): Uid {
@@ -83,6 +82,56 @@ export function hashChildrenAndTheirAttachmentsOnly(itemId: Uid): Uid {
           hashes.push(ItemFns.hash(attachmentItem));
         }
       }
+    }
+  }
+
+  return combineHashes(hashes);
+}
+
+/**
+ * Async version of hashChildrenAndTheirAttachmentsOnly that processes items in chunks
+ * to avoid blocking the main thread for large containers.
+ */
+export async function hashChildrenAndTheirAttachmentsOnlyAsync(itemId: Uid): Promise<Uid> {
+  const hashes: Uid[] = [];
+
+  const item = itemState.get(itemId);
+  if (!item) {
+    throw new Error(`Item with id '${itemId}' not found`);
+  }
+
+  if (!isContainer(item)) {
+    return combineHashes(hashes);
+  }
+
+  const containerItem = asContainerItem(item);
+  const CHUNK_SIZE = 10; // Process 10 items at a time
+
+  for (let i = 0; i < containerItem.computed_children.length; i += CHUNK_SIZE) {
+    const chunk = containerItem.computed_children.slice(i, i + CHUNK_SIZE);
+
+    for (const childId of chunk) {
+      const childItem = itemState.get(childId);
+      if (!childItem) {
+        throw new Error(`Child item with id '${childId}' not found`);
+      }
+      hashes.push(ItemFns.hash(childItem));
+
+      if (isAttachmentsItem(childItem)) {
+        const childAttachmentsItem = asAttachmentsItem(childItem);
+        for (const attachmentId of childAttachmentsItem.computed_attachments) {
+          const attachmentItem = itemState.get(attachmentId);
+          if (!attachmentItem) {
+            throw new Error(`Child attachment item with id '${attachmentId}' not found`);
+          }
+          hashes.push(ItemFns.hash(attachmentItem));
+        }
+      }
+    }
+
+    // Yield control back to the browser after each chunk
+    if (i + CHUNK_SIZE < containerItem.computed_children.length) {
+      await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
 
