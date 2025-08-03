@@ -339,9 +339,9 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 40] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 41] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
-  "creationDate", "lastModifiedDate", "ordering", "title",
+  "creationDate", "lastModifiedDate", "dateTime", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
   "naturalAspect", "backgroundColorIndex", "popupPositionGr",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
@@ -372,6 +372,7 @@ pub struct Item {
   pub relationship_to_parent: RelationshipToParent,
   pub creation_date: i64,
   pub last_modified_date: i64,
+  pub datetime: i64,
   pub ordering: Vec<u8>,
 
   // container
@@ -462,6 +463,7 @@ impl Clone for Item {
       relationship_to_parent: self.relationship_to_parent.clone(),
       creation_date: self.creation_date.clone(),
       last_modified_date: self.last_modified_date.clone(),
+      datetime: self.datetime.clone(),
       ordering: self.ordering.clone(),
       order_children_by: self.order_children_by.clone(),
       spatial_position_gr: self.spatial_position_gr.clone(),
@@ -560,6 +562,7 @@ impl JsonLogSerializable<Item> for Item {
     if old.relationship_to_parent != new.relationship_to_parent { result.insert(String::from("relationshipToParent"), Value::String(String::from(new.relationship_to_parent.as_str()))); }
     if old.creation_date != new.creation_date { cannot_modify_err("creationDate", &old.id)?; }
     if old.last_modified_date != new.last_modified_date { result.insert(String::from("lastModifiedDate"), Value::Number(new.last_modified_date.into())); }
+    if old.datetime != new.datetime { result.insert(String::from("dateTime"), Value::Number(new.datetime.into())); }
     if old.ordering != new.ordering { result.insert(String::from("ordering"), Value::Array(new.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>())); }
 
     // container
@@ -824,6 +827,7 @@ impl JsonLogSerializable<Item> for Item {
     if let Some(u) = json::get_string_field(map, "relationshipToParent")? { self.relationship_to_parent = RelationshipToParent::from_str(&u)?; }
     if json::get_integer_field(map, "creationDate")?.is_some() { cannot_update_err("creationDate", &self.id)?; }
     if let Some(u) = json::get_integer_field(map, "lastModifiedDate")? { self.last_modified_date = u; }
+    if let Some(u) = json::get_integer_field(map, "dateTime")? { self.datetime = u; }
     if map.contains_key("ordering") {
       self.ordering = map.get("ordering")
         .unwrap()
@@ -1019,6 +1023,7 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   result.insert(String::from("relationshipToParent"), Value::String(String::from(item.relationship_to_parent.as_str())));
   result.insert(String::from("creationDate"), Value::Number(item.creation_date.into()));
   result.insert(String::from("lastModifiedDate"), Value::Number(item.last_modified_date.into()));
+  result.insert(String::from("dateTime"), Value::Number(item.datetime.into()));
   result.insert(String::from("ordering"), Value::Array(item.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
 
   // container
@@ -1237,6 +1242,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       &json::get_string_field(map, "relationshipToParent")?.ok_or("'relationshipToParent' field is missing.")?)?,
     creation_date: json::get_integer_field(map, "creationDate")?.ok_or("'creationDate' field was missing.")?,
     last_modified_date: json::get_integer_field(map, "lastModifiedDate")?.ok_or("'lastModifiedDate' field was missing.")?,
+    datetime: json::get_integer_field(map, "dateTime")?.ok_or("'dateTime' field was missing.")?,
     ordering: map.get("ordering")
       .ok_or(format!("'ordering' field for item '{}' was missing.", &id))?
       .as_array()
@@ -1456,6 +1462,7 @@ impl Item {
       relationship_to_parent: relationship,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
+      datetime: unix_now_secs_i64().unwrap(),
       ordering,
       flags: Some(flags.bits()),
       spatial_position_gr: Some(spatial_position_gr),
@@ -1508,6 +1515,7 @@ impl Item {
       relationship_to_parent: relationship,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
+      datetime: unix_now_secs_i64().unwrap(),
       ordering,
       flags: None,
       spatial_position_gr: Some(spatial_position_gr),
@@ -1561,8 +1569,9 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
-      creation_date: 0,
-      last_modified_date: 0,
+      creation_date: unix_now_secs_i64().unwrap(),
+      last_modified_date: unix_now_secs_i64().unwrap(),
+      datetime: unix_now_secs_i64().unwrap(),
       ordering,
       flags: Some(flags.bits()),
       spatial_position_gr: Some(spatial_position_gr),
@@ -1607,8 +1616,9 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: RelationshipToParent::Attachment,
-      creation_date: 0,
-      last_modified_date: 0,
+      creation_date: unix_now_secs_i64().unwrap(),
+      last_modified_date: unix_now_secs_i64().unwrap(),
+      datetime: unix_now_secs_i64().unwrap(),
       ordering,
       flags: None,
       spatial_position_gr: None,
@@ -1660,6 +1670,7 @@ impl Item {
     hashes.push(hash_string_to_uid(self.relationship_to_parent.as_str()));
     hashes.push(hash_i64_to_uid(self.creation_date));
     hashes.push(hash_i64_to_uid(self.last_modified_date));
+    hashes.push(hash_i64_to_uid(self.datetime));
     hashes.push(hash_u8_vec_to_uid(&self.ordering));
 
     // Container properties

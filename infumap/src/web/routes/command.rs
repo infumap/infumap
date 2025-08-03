@@ -609,6 +609,10 @@ async fn handle_add_item(
     item_map.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
   }
 
+  if !item_map.contains_key("dateTime") {
+    item_map.insert("dateTime".to_owned(), Value::Number(unix_time_now.into()));
+  }
+
   if !item_map.contains_key("spatialPositionGr") {
     if is_positionable_type(ItemType::from_str(&item_type)?) {
       item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));

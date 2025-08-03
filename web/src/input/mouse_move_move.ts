@@ -78,6 +78,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       cloned.id = newUid();
       cloned.creationDate = currentUnixTimeSeconds();
       cloned.lastModifiedDate = currentUnixTimeSeconds();
+      cloned.dateTime = currentUnixTimeSeconds();
       cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
       itemState.add(cloned);
       server.addItem(cloned, null, store.general.networkStatus);
@@ -364,6 +365,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     cloned.id = newUid();
     cloned.creationDate = currentUnixTimeSeconds();
     cloned.lastModifiedDate = currentUnixTimeSeconds();
+    cloned.dateTime = currentUnixTimeSeconds();
     cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
     cloned.spatialPositionGr = newItemPosGr;
     cloned.parentId = moveToPage.id;
@@ -474,6 +476,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     cloned.id = newUid();
     cloned.creationDate = currentUnixTimeSeconds();
     cloned.lastModifiedDate = currentUnixTimeSeconds();
+    cloned.dateTime = currentUnixTimeSeconds();
     cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
     cloned.spatialPositionGr = itemPosInPageQuantizedGr;
     cloned.parentId = moveToPage.id;

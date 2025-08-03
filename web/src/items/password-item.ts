@@ -55,6 +55,7 @@ export const PasswordFns = {
       relationshipToParent,
       creationDate: currentUnixTimeSeconds(),
       lastModifiedDate: currentUnixTimeSeconds(),
+      dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
@@ -77,6 +78,7 @@ export const PasswordFns = {
       relationshipToParent: o.relationshipToParent,
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
+      dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
 
@@ -97,6 +99,7 @@ export const PasswordFns = {
       relationshipToParent: p.relationshipToParent,
       creationDate: p.creationDate,
       lastModifiedDate: p.lastModifiedDate,
+      dateTime: p.dateTime,
       ordering: Array.from(p.ordering),
       spatialPositionGr: p.spatialPositionGr,
 

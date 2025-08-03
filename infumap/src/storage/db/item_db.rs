@@ -24,6 +24,7 @@ use infusdk::util::geometry::Vector;
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::json;
+use infusdk::util::time::unix_now_secs_i64;
 use infusdk::util::uid::Uid;
 use log::{info, debug, warn};
 use serde_json::{Map, Value, Number};
@@ -37,7 +38,7 @@ use crate::util::fs::{expand_tilde, path_exists};
 use super::user::User;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 21;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 22;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -1183,6 +1184,37 @@ pub fn migrate_record_v20_to_v21(kvs: &Map<String, Value>) -> InfuResult<Map<Str
         let existing = result.insert(String::from("scale"), Value::Number(Number::from_f64(1.0 as f64).ok_or("invalid scale")?));
         if existing.is_some() { return Err("scale field already exists.".into()); }
       }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+
+/**
+ * Add datetime field to all items.
+ */
+pub fn migrate_record_v21_to_v22(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 21);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let existing = result.insert(String::from("dateTime"), Value::Number(unix_now_secs_i64()?.into()));
+      if existing.is_some() { return Err("dateTime field already exists.".into()); }
       return Ok(result);
     },
 

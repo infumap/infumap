@@ -42,6 +42,7 @@ export const PlaceholderFns = {
       relationshipToParent,
       creationDate: currentUnixTimeSeconds(),
       lastModifiedDate: currentUnixTimeSeconds(),
+      dateTime: currentUnixTimeSeconds(),
       ordering
     };
   },
@@ -57,6 +58,7 @@ export const PlaceholderFns = {
       relationshipToParent: o.relationshipToParent,
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
+      dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
     });
   },
@@ -70,6 +72,7 @@ export const PlaceholderFns = {
       relationshipToParent: h.relationshipToParent,
       creationDate: h.creationDate,
       lastModifiedDate: h.lastModifiedDate,
+      dateTime: h.dateTime,
       ordering: Array.from(h.ordering),
     });
   },

@@ -51,6 +51,7 @@ export interface Item extends ItemTypeMixin {
   relationshipToParent: string,
   creationDate: number,
   lastModifiedDate: number,
+  dateTime: number,
   ordering: Uint8Array,
 }
 
@@ -63,6 +64,7 @@ export const EMPTY_ITEM = () => ({
   relationshipToParent: RelationshipToParent.Child,
   creationDate: 0,
   lastModifiedDate: 0,
+  dateTime: 0,
   ordering: Uint8Array.from([]),
 });
 
@@ -75,6 +77,7 @@ export const uniqueEmptyItem = () => ({
   relationshipToParent: RelationshipToParent.Child,
   creationDate: 0,
   lastModifiedDate: 0,
+  dateTime: 0,
   ordering: Uint8Array.from([]),
 });
 

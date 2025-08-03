@@ -57,6 +57,7 @@ export const FlipCardFns = {
       relationshipToParent,
       creationDate: currentUnixTimeSeconds(),
       lastModifiedDate: currentUnixTimeSeconds(),
+      dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
@@ -85,6 +86,7 @@ export const FlipCardFns = {
       relationshipToParent: o.relationshipToParent,
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
+      dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
 

@@ -368,6 +368,7 @@ export const ItemFns = {
     hashes.push(hashStringToUid(item.relationshipToParent));
     hashes.push(hashI64ToUid(item.creationDate));
     hashes.push(hashI64ToUid(item.lastModifiedDate));
+    hashes.push(hashI64ToUid(item.dateTime));
     hashes.push(hashU8VecToUid(item.ordering));
 
     // Container properties

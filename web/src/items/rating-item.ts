@@ -51,6 +51,7 @@ export const RatingFns = {
       relationshipToParent,
       creationDate: currentUnixTimeSeconds(),
       lastModifiedDate: currentUnixTimeSeconds(),
+      dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
@@ -69,6 +70,7 @@ export const RatingFns = {
       relationshipToParent: o.relationshipToParent,
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
+      dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
 
@@ -85,6 +87,7 @@ export const RatingFns = {
       relationshipToParent: r.relationshipToParent,
       creationDate: r.creationDate,
       lastModifiedDate: r.lastModifiedDate,
+      dateTime: r.dateTime,
       ordering: Array.from(r.ordering),
       spatialPositionGr: r.spatialPositionGr,
 
