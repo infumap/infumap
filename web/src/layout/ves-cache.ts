@@ -47,12 +47,12 @@ import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec }
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 let currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
 let currentTopTitledPages = new Array<VisualElementPath>();
-let currentWatchContainerUids = new Set<Uid>();
+let currentWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
 let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
 let underConstructionTopTitledPages = new Array<VisualElementPath>();
-let underConstructionWatchContainerUids = new Set<Uid>();
+let underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
 
 let evaluationRequired = new Set<VisualElementPath>();
 let currentlyInFullArrange = false;
@@ -66,12 +66,12 @@ export let VesCache = {
     currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
     currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
     currentTopTitledPages = [];
-    currentWatchContainerUids = new Set<Uid>();
+    currentWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
     virtualCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     underConstructionTopTitledPages = [];
-    underConstructionWatchContainerUids = new Set<Uid>();
+    underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
 
     evaluationRequired = new Set<VisualElementPath>();
   },
@@ -110,12 +110,15 @@ export let VesCache = {
     return currentVessVsDisplayId.get(displayId)!;
   },
 
-  addWatchContainerUid: (uid: Uid): void => {
-    currentWatchContainerUids.add(uid);
+  addWatchContainerUid: (uid: Uid, origin: string | null): void => {
+    if (!currentWatchContainerUidsByOrigin.has(origin)) {
+      currentWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
+    }
+    currentWatchContainerUidsByOrigin.get(origin)!.add(uid);
   },
 
-  getCurrentWatchContainerUids: (): Set<Uid> => {
-    return currentWatchContainerUids;
+  getCurrentWatchContainerUidsByOrigin: (): Map<string | null, Set<Uid>> => {
+    return currentWatchContainerUidsByOrigin;
   },
 
   full_initArrange: (): void => {
@@ -136,14 +139,14 @@ export let VesCache = {
       currentVesCache = underConstructionCache;
       currentVessVsDisplayId = underConstructionVesVsDisplayItemId;
       currentTopTitledPages = underConstructionTopTitledPages;
-      currentWatchContainerUids = underConstructionWatchContainerUids;
+      currentWatchContainerUidsByOrigin = underConstructionWatchContainerUidsByOrigin;
       store.topTitledPages.set(currentTopTitledPages);
     }
 
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     underConstructionTopTitledPages = [];
-    underConstructionWatchContainerUids = new Set<Uid>();
+    underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
     currentlyInFullArrange = false;
   },
 
@@ -173,7 +176,11 @@ export let VesCache = {
     if (isContainer(visualElementOverride.displayItem) &&
         (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
         asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
-      underConstructionWatchContainerUids.add(visualElementOverride.displayItem.id);
+      const origin = visualElementOverride.displayItem.origin;
+      if (!currentWatchContainerUidsByOrigin.has(origin)) {
+        currentWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
+      }
+      currentWatchContainerUidsByOrigin.get(origin)!.add(visualElementOverride.displayItem.id);
     }
     const displayItemId = newElement.get().displayItem.id;
 
@@ -239,7 +246,11 @@ export let VesCache = {
     if (isContainer(visualElementOverride.displayItem) &&
         (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
         asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
-      underConstructionWatchContainerUids.add(visualElementOverride.displayItem.id);
+      const origin = visualElementOverride.displayItem.origin;
+      if (!underConstructionWatchContainerUidsByOrigin.has(origin)) {
+        underConstructionWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
+      }
+      underConstructionWatchContainerUidsByOrigin.get(origin)!.add(visualElementOverride.displayItem.id);
     }
 
     const displayItemId = VeFns.itemIdFromPath(newPath);
@@ -307,7 +318,14 @@ export let VesCache = {
   removeByPath: (path: VisualElementPath): void => {
     const ve = currentVesCache.get(path); // TODO (LOW): displayItem.id can be determined from the path.
     if (ve && isContainer(ve.get().displayItem) && asContainerItem(ve.get().displayItem).childrenLoaded) {
-      underConstructionWatchContainerUids.delete(ve.get().displayItem.id);
+      const origin = ve.get().displayItem.origin;
+      const uidSet = currentWatchContainerUidsByOrigin.get(origin);
+      if (uidSet) {
+        uidSet.delete(ve.get().displayItem.id);
+        if (uidSet.size === 0) {
+          currentWatchContainerUidsByOrigin.delete(origin);
+        }
+      }
     }
     if (!currentVesCache.delete(path)) { panic(`item ${path} is not in ves cache.`); }
     deleteFromVessVsDisplayIdLookup(path);
@@ -345,7 +363,11 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
   if (isContainer(visualElementOverride.displayItem) &&
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
-    underConstructionWatchContainerUids.add(visualElementOverride.displayItem.id);
+    const origin = visualElementOverride.displayItem.origin;
+    if (!underConstructionWatchContainerUidsByOrigin.has(origin)) {
+      underConstructionWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
+    }
+    underConstructionWatchContainerUidsByOrigin.get(origin)!.add(visualElementOverride.displayItem.id);
   }
 
   function compareArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {

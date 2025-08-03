@@ -120,7 +120,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     evaluateExpressions(true);
   } else {
     VesCache.full_finalizeArrange(store, umbrellaVeSpec, umbrellaPath);
-    VesCache.addWatchContainerUid(currentPage.id);
+    VesCache.addWatchContainerUid(currentPage.id, currentPage.origin);
     evaluateExpressions(false);
   }
 

@@ -280,31 +280,37 @@ export function startServerLoadTest(store: StoreContextModel): void {
   }
 
   loadTestInterval = window.setInterval(() => {
-    const currentPageVeid = store.history.currentPageVeid();
-    if (!currentPageVeid) {
-      console.log("Load test: no current page, skipping");
+    const watchedContainersByOrigin = VesCache.getCurrentWatchContainerUidsByOrigin();
+    const localContainers = watchedContainersByOrigin.get(null);
+
+    if (!localContainers || localContainers.size === 0) {
+      console.log("Load test: no local containers to watch, skipping");
       return;
     }
 
-    const currentPageId = currentPageVeid.itemId;
-    const calculatedHash = hashChildrenAndTheirAttachmentsOnly(currentPageId);
+    const testRequests: ModifiedCheck[] = [];
+    for (const containerId of localContainers) {
+      const calculatedHash = hashChildrenAndTheirAttachmentsOnly(containerId);
+      testRequests.push({
+        id: containerId,
+        mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
+        hash: calculatedHash
+      });
+    }
 
-    const testRequest: ModifiedCheck = {
-      id: currentPageId,
-      mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
-      hash: calculatedHash
-    };
-
-    server.modifiedCheck([testRequest], store.general.networkStatus)
+    server.modifiedCheck(testRequests, store.general.networkStatus)
       .then((result) => {
-        console.log("Load test modifiedCheck result:", result);
+        const modifiedContainers = result.filter(r => r.modified);
+        if (modifiedContainers.length > 0) {
+          console.log(`Load test: ${modifiedContainers.length} container(s) modified:`, modifiedContainers.map(r => r.id));
+        }
       })
       .catch((error) => {
         console.log("Load test modifiedCheck failed:", error);
       });
   }, 2000);
 
-  console.log("Started server load test - sending modifiedCheck every 2 seconds");
+  console.log("Started server load test - sending modifiedCheck every 2 seconds for local containers");
 }
 
 /**
