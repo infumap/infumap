@@ -26,6 +26,7 @@ import { hashChildrenAndTheirAttachmentsOnly, hashChildrenAndTheirAttachmentsOnl
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
 import { asContainerItem, isContainer } from "./items/base/container-item";
+import { asAttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { TabularFns } from "./items/base/tabular-item";
 import { fullArrange } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
@@ -362,9 +363,31 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
               containerItem.computed_children = Array.from(newChildIds);
               itemState.sortChildren(modifiedContainer.id);
 
+              // Handle attachments with proper cleanup like children
               Object.keys(result.attachments).forEach(id => {
-                for (const attachmentObject of result.attachments[id]) {
-                  itemState.replaceMaybe(attachmentObject, origin);
+                const parentItem = itemState.get(id);
+                if (parentItem && isAttachmentsItem(parentItem)) {
+                  const attachmentsParent = asAttachmentsItem(parentItem);
+
+                  const existingAttachmentIds = new Set(attachmentsParent.computed_attachments);
+                  const newAttachmentIds = new Set<Uid>();
+
+                  for (const attachmentObject of result.attachments[id]) {
+                    const attachmentItem = ItemFns.fromObject(attachmentObject, origin);
+                    itemState.replaceMaybe(attachmentObject, origin);
+                    newAttachmentIds.add(attachmentItem.id);
+                  }
+
+                  // Remove attachments that are no longer present
+                  for (const attachmentId of existingAttachmentIds) {
+                    if (!newAttachmentIds.has(attachmentId)) {
+                      itemState.delete(attachmentId);
+                    }
+                  }
+
+                  // Update the computed_attachments array to match the server response
+                  attachmentsParent.computed_attachments = Array.from(newAttachmentIds);
+                  itemState.sortAttachments(id);
                 }
               });
 
