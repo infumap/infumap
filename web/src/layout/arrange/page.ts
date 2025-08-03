@@ -27,6 +27,7 @@ import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags, arrangeFlagIsRoot } from "./item";
+import { arrange_calendar_page } from "./page_calendar";
 import { arrange_document_page } from "./page_document";
 import { arrange_grid_page } from "./page_grid";
 import { arrange_justified_page } from "./page_justified";
@@ -63,6 +64,9 @@ export const arrangePageWithChildren = (
       break;
     case ArrangeAlgorithm.SingleCell:
       pageWithChildrenVisualElementSpec = arrange_single_cell_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      break;
+    case ArrangeAlgorithm.Calendar:
+      pageWithChildrenVisualElementSpec = arrange_calendar_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
       break;
     default:
       panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);

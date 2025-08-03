@@ -61,6 +61,7 @@ export const ArrangeAlgorithm = {
   Dock: "dock",
   Composite: "composite",
   SingleCell: "single-cell",
+  Calendar: "calendar",
 };
 
 export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, ColorableMixin, AspectItem, Item {

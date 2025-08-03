@@ -129,7 +129,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96,
-      h: store.general.installationState()?.devFeatureFlag ? 138 : 112
+      h: store.general.installationState()?.devFeatureFlag ? 164 : 138
     }
   } else {
     panic("unexpected popup type: " + popupType);
@@ -345,6 +345,7 @@ export const Toolbar_Popup: Component = () => {
   const aaJustifiedClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Justified; finalizeAAChange(); }
   const aaListClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.List; finalizeAAChange(); }
   const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
+  const aaCalendarClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Calendar; finalizeAAChange(); }
 
   const handleMouseDown = (e: MouseEvent) => { if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); } }
 
@@ -407,9 +408,15 @@ export const Toolbar_Popup: Component = () => {
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaListClick}>
               List
             </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCalendarClick}>
+              Calendar
+            </div>
             <Show when={store.general.installationState()?.devFeatureFlag}>
               <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
                 Document
+              </div>
+              <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCalendarClick}>
+                Calendar
               </div>
             </Show>
           </div>

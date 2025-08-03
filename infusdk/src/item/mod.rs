@@ -106,7 +106,7 @@ pub enum ArrangeAlgorithm {
   Document,
   SingleCell,
   // Gallery,
-  // Calendar,
+  Calendar,
 }
 
 impl ArrangeAlgorithm {
@@ -119,7 +119,7 @@ impl ArrangeAlgorithm {
       ArrangeAlgorithm::Document => "document",
       ArrangeAlgorithm::SingleCell => "single-cell",
       // ArrangeAlgorithm::Gallery => "gallery",
-      // ArrangeAlgorithm::Calendar => "calendar",
+      ArrangeAlgorithm::Calendar => "calendar",
     }
   }
 
@@ -132,7 +132,7 @@ impl ArrangeAlgorithm {
       "document" => Ok(ArrangeAlgorithm::Document),
       "single-cell" => Ok(ArrangeAlgorithm::SingleCell),
       // "gallery" => Ok(ArrangeAlgorithm::Gallery),
-      // "calendar" => Ok(ArrangeAlgorithm::Calendar),
+      "calendar" => Ok(ArrangeAlgorithm::Calendar),
       other => Err(format!("Invalid ArrangeAlgorithm value: '{}'.", other).into())
     }
   }

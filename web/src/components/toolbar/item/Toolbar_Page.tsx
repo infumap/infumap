@@ -76,6 +76,7 @@ export const Toolbar_Page: Component = () => {
     if (aa == ArrangeAlgorithm.List) { return "list"; }
     if (aa == ArrangeAlgorithm.Justified) { return "justified"; }
     if (aa == ArrangeAlgorithm.SingleCell) { return "single-cell"; }
+    if (aa == ArrangeAlgorithm.Calendar) { return "calendar"; }
     panic("unexpected arrange algorithm " + aa);
   }
 
