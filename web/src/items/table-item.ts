@@ -72,6 +72,7 @@ export const TableFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
+      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 8.0 * GRID_SIZE,
       spatialHeightGr: 6.0 * GRID_SIZE,
@@ -109,6 +110,7 @@ export const TableFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
+      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
       spatialHeightGr: o.spatialHeightGr,
@@ -300,6 +302,7 @@ export const TableFns = {
     return ({
       itemType: table.itemType,
       spatialPositionGr: table.spatialPositionGr,
+      calendarPositionGr: table.calendarPositionGr,
       spatialWidthGr: table.spatialWidthGr,
       spatialHeightGr: table.spatialHeightGr,
       tableColumns: table.tableColumns,

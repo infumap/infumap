@@ -619,6 +619,12 @@ async fn handle_add_item(
     }
   }
 
+  if !item_map.contains_key("calendarPositionGr") {
+    if is_positionable_type(ItemType::from_str(&item_type)?) {
+      item_map.insert("calendarPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
+    }
+  }
+
   if item_type == ItemType::Image.as_str() && !item_map.contains_key("imageSizePx") {
     item_map.insert("imageSizePx".to_owned(), json::dimensions_to_object(&Dimensions { w: -1, h: -1 }));
   }

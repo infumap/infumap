@@ -61,6 +61,7 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     }
   }
   li.spatialPositionGr = { x: 0, y: 0 };
+  li.calendarPositionGr = { x: 0, y: 0 };
   const desktopBoundsPx = store.desktopMainAreaBoundsPx();
   const cellBoundsPx = {
     x: desktopBoundsPx.w * 0.1,

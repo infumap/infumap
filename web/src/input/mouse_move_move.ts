@@ -101,6 +101,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
         itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
       link.parentId = activeItem.parentId;
       link.spatialPositionGr = activeItem.spatialPositionGr;
+      link.calendarPositionGr = { x: 0, y: 0 };
       if (isXSizableItem(activeVisualElement.displayItem)) {
         link.spatialWidthGr = asXSizableItem(activeVisualElement.displayItem).spatialWidthGr;
       }
@@ -308,6 +309,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   if (asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch || compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {
     activeItem.spatialPositionGr = newPosGr;
+    if (!activeItem.calendarPositionGr) {
+      activeItem.calendarPositionGr = { x: 0, y: 0 };
+    }
     fullArrange(store);
   }
 }
@@ -368,6 +372,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     cloned.dateTime = currentUnixTimeSeconds();
     cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
     cloned.spatialPositionGr = newItemPosGr;
+    cloned.calendarPositionGr = { x: 0, y: 0 };
     cloned.parentId = moveToPage.id;
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
@@ -383,6 +388,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     const link = LinkFns.createFromItem(activeElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
     link.parentId = moveToPage.id;
     link.spatialPositionGr = newItemPosGr;
+    link.calendarPositionGr = { x: 0, y: 0 };
     itemState.add(link);
     server.addItem(link, null, store.general.networkStatus);
     fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
@@ -404,6 +410,9 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     }
 
     treeActiveItem.spatialPositionGr = newItemPosGr;
+    if (!treeActiveItem.calendarPositionGr) {
+      treeActiveItem.calendarPositionGr = { x: 0, y: 0 };
+    }
     itemState.moveToNewParent(treeActiveItem, moveToPage.id, RelationshipToParent.Child);
 
     MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
@@ -479,6 +488,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     cloned.dateTime = currentUnixTimeSeconds();
     cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
     cloned.spatialPositionGr = itemPosInPageQuantizedGr;
+    cloned.calendarPositionGr = { x: 0, y: 0 };
     cloned.parentId = moveToPage.id;
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
@@ -495,6 +505,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     const link = LinkFns.createFromItem(activeVisualElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
     link.parentId = moveToPage.id;
     link.spatialPositionGr = itemPosInPageQuantizedGr;
+    link.calendarPositionGr = { x: 0, y: 0 };
     itemState.add(link);
     server.addItem(link, null, store.general.networkStatus);
     fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
@@ -505,6 +516,9 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
 
   } else {
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
+    if (!activeItem.calendarPositionGr) {
+      activeItem.calendarPositionGr = { x: 0, y: 0 };
+    }
     itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
     MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe));
   }

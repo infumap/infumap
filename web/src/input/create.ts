@@ -123,6 +123,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
     if (hitInfo.overPositionGr != null) {
       newItem.spatialPositionGr = hitInfo.overPositionGr!;
+      newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
       if (isXSizableItem(newItem)) {
         let maxWidthBl = Math.floor((asPageItem(overElementVe.displayItem).innerSpatialWidthGr - newItem.spatialPositionGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
         if (maxWidthBl < 2) { maxWidthBl = 2; }
@@ -233,6 +234,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
         y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
       };
+      newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
 
       itemState.add(newItem);
       server.addItem(newItem, null, store.general.networkStatus);
@@ -256,6 +258,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       itemState.newOrderingAtEndOfChildren(currentPageId),
       RelationshipToParent.Child);
     newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+    newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
 
     itemState.add(newItem);
     server.addItem(newItem, null, store.general.networkStatus);

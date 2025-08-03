@@ -22,6 +22,7 @@ import { Item, ItemTypeMixin, ItemType } from "./item";
 
 export interface PositionalMixin {
   spatialPositionGr: Vector,
+  calendarPositionGr: Vector,
 }
 
 export interface PositionalItem extends PositionalMixin, Item { }

@@ -60,6 +60,7 @@ export const FileFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
+      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -263,6 +264,7 @@ export const FileFns = {
     return ({
       itemType: file.itemType,
       spatialPositionGr: file.spatialPositionGr,
+      calendarPositionGr: file.calendarPositionGr,
       spatialWidthGr: file.spatialWidthGr,
       title: file.title,
     });

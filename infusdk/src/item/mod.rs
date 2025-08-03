@@ -339,10 +339,10 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 41] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 42] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "dateTime", "ordering", "title",
-  "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
+  "spatialPositionGr", "calendarPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
   "naturalAspect", "backgroundColorIndex", "popupPositionGr",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
@@ -380,6 +380,7 @@ pub struct Item {
 
   // positionable (everything but placeholder).
   pub spatial_position_gr: Option<Vector<i64>>,
+  pub calendar_position_gr: Option<Vector<i64>>,
 
   // x-sizeable
   pub spatial_width_gr: Option<i64>,
@@ -467,6 +468,7 @@ impl Clone for Item {
       ordering: self.ordering.clone(),
       order_children_by: self.order_children_by.clone(),
       spatial_position_gr: self.spatial_position_gr.clone(),
+      calendar_position_gr: self.calendar_position_gr.clone(),
       spatial_width_gr: self.spatial_width_gr.clone(),
       spatial_height_gr: self.spatial_height_gr.clone(),
       title: self.title.clone(),
@@ -542,7 +544,7 @@ impl JsonLogSerializable<Item> for Item {
     if old.id != new.id { return Err("An attempt was made to create an item update from instances with non-matching ids.".into()); }
     if old.owner_id != new.owner_id { return Err("An attempt was made to create an item update from instances with non-matching owner_ids.".into()); }
 
-    let mut result: Map<String, Value> = Map::new();
+    let mut result = Map::new();
     result.insert(String::from("__recordType"), Value::String(String::from("update")));
     result.insert(String::from("id"), Value::String(new.id.clone()));
 
@@ -578,6 +580,12 @@ impl JsonLogSerializable<Item> for Item {
       if match &old.spatial_position_gr { Some(o) => o.x != new_spatial_position_gr.x || o.y != new_spatial_position_gr.y, None => { true } } {
         if !is_positionable_type(old.item_type) { cannot_modify_err("spatialPositionGr", &old.id)?; }
         result.insert(String::from("spatialPositionGr"), json::vector_to_object(&new_spatial_position_gr));
+      }
+    }
+    if let Some(new_calendar_position_gr) = &new.calendar_position_gr {
+      if match &old.calendar_position_gr { Some(o) => o.x != new_calendar_position_gr.x || o.y != new_calendar_position_gr.y, None => { true } } {
+        if !is_positionable_type(old.item_type) { cannot_modify_err("calendarPositionGr", &old.id)?; }
+        result.insert(String::from("calendarPositionGr"), json::vector_to_object(&new_calendar_position_gr));
       }
     }
 
@@ -850,6 +858,10 @@ impl JsonLogSerializable<Item> for Item {
       if !is_positionable_type(self.item_type) { not_applicable_err("spatialPositionGr", self.item_type, &self.id)?; }
       self.spatial_position_gr = Some(u);
     }
+    if let Some(u) = json::get_vector_field(map, "calendarPositionGr")? {
+      if !is_positionable_type(self.item_type) { not_applicable_err("calendarPositionGr", self.item_type, &self.id)?; }
+      self.calendar_position_gr = Some(u);
+    }
 
     // x-sizable
     if let Some(v) = json::get_integer_field(map, "spatialWidthGr")? {
@@ -1037,6 +1049,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     if !is_positionable_type(item.item_type) { unexpected_field_err("spatialPositionGr", &item.id, item.item_type)? }
     result.insert(String::from("spatialPositionGr"), json::vector_to_object(&spatial_position_gr));
   }
+  if let Some(calendar_position_gr) = &item.calendar_position_gr {
+    if !is_positionable_type(item.item_type) { unexpected_field_err("calendarPositionGr", &item.id, item.item_type)? }
+    result.insert(String::from("calendarPositionGr"), json::vector_to_object(&calendar_position_gr));
+  }
 
   // x-sizeable
   if let Some(spatial_width_gr) = item.spatial_width_gr {
@@ -1044,7 +1060,7 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(String::from("spatialWidthGr"), Value::Number(spatial_width_gr.into()));
   }
 
-  // y-sizeable
+  // y-sizable
   if let Some(spatial_height_gr) = item.spatial_height_gr {
     if !is_y_sizeable_item_type(item.item_type) && !is_link_item(item) { unexpected_field_err("spatialHeightGr", &item.id, item.item_type)? }
     result.insert(String::from("spatialHeightGr"), Value::Number(spatial_height_gr.into()));
@@ -1268,14 +1284,20 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       },
       None => { if is_positionable_type(item_type) { Err(expected_for_err("spatialPositionGr", item_type, &id)) } else { Ok(None) } }
     }?,
+    calendar_position_gr: match json::get_vector_field(map, "calendarPositionGr")? {
+      Some(v) => {
+        if is_positionable_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("calendarPositionGr", item_type, &id)) }
+      },
+      None => { Ok(None) }
+    }?,
 
-    // x-sizeable
+    // x-sizable
     spatial_width_gr: match json::get_integer_field(map, "spatialWidthGr")? {
       Some(v) => { if is_x_sizeable_item_type(item_type) || item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("spatialWidthGr", item_type, &id)) } },
       None => { if is_x_sizeable_item_type(item_type) || item_type == ItemType::Link { Err(expected_for_err("spatialWidthGr", item_type, &id)) } else { Ok(None) } }
     }?,
 
-    // y-sizeable
+    // y-sizable
     spatial_height_gr: match json::get_integer_field(map, "spatialHeightGr")? {
       Some(v) => { if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("spatialHeightGr", item_type, &id)) } },
       None => { if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link { Err(expected_for_err("spatialHeightGr", item_type, &id)) } else { Ok(None) } }
@@ -1466,6 +1488,7 @@ impl Item {
       ordering,
       flags: Some(flags.bits()),
       spatial_position_gr: Some(spatial_position_gr),
+      calendar_position_gr: None,
       spatial_width_gr: Some(spatial_width_gr),
       title: Some(title.to_owned()),
       url,
@@ -1519,6 +1542,7 @@ impl Item {
       ordering,
       flags: None,
       spatial_position_gr: Some(spatial_position_gr),
+      calendar_position_gr: None,
       spatial_width_gr: Some(spatial_width_gr),
       title: None,
       url: None,
@@ -1575,6 +1599,7 @@ impl Item {
       ordering,
       flags: Some(flags.bits()),
       spatial_position_gr: Some(spatial_position_gr),
+      calendar_position_gr: None,
       order_children_by: Some(order_children_by.to_owned()),
       spatial_width_gr: Some(spatial_width_gr),
       spatial_height_gr: Some(spatial_height_gr),
@@ -1622,6 +1647,7 @@ impl Item {
       ordering,
       flags: None,
       spatial_position_gr: None,
+      calendar_position_gr: None,
       order_children_by: None,
       spatial_width_gr: None,
       spatial_height_gr: None,
@@ -1686,6 +1712,10 @@ impl Item {
     if is_positionable_type(self.item_type) {
       if let Some(spatial_position_gr) = &self.spatial_position_gr {
         let pos_str = format!("{},{}", spatial_position_gr.x, spatial_position_gr.y);
+        hashes.push(hash_string_to_uid(&pos_str));
+      }
+      if let Some(calendar_position_gr) = &self.calendar_position_gr {
+        let pos_str = format!("{},{}", calendar_position_gr.x, calendar_position_gr.y);
         hashes.push(hash_string_to_uid(&pos_str));
       }
     }

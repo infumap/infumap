@@ -58,6 +58,7 @@ export const PasswordFns = {
       dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
+      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 10.0 * GRID_SIZE,
 
@@ -81,6 +82,7 @@ export const PasswordFns = {
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
+      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -243,6 +245,7 @@ export const PasswordFns = {
     return ({
       itemType: password.itemType,
       spatialPositionGr: password.spatialPositionGr,
+      calendarPositionGr: password.calendarPositionGr,
       spatialWidthGr: password.spatialWidthGr,
       text: password.text,
     });

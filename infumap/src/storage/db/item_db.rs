@@ -18,8 +18,9 @@ use infusdk::db::kv_store::KVStore;
 use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
+use infusdk::item::is_positionable_type;
 use infusdk::item::TableColumn;
-use infusdk::item::{Item, RelationshipToParent};
+use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::geometry::Vector;
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::{InfuError, InfuResult};
@@ -1215,6 +1216,13 @@ pub fn migrate_record_v21_to_v22(kvs: &Map<String, Value>) -> InfuResult<Map<Str
       let mut result = kvs.clone();
       let existing = result.insert(String::from("dateTime"), Value::Number(unix_now_secs_i64()?.into()));
       if existing.is_some() { return Err("dateTime field already exists.".into()); }
+
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if is_positionable_type(ItemType::from_str(&item_type)?) {
+        let existing = result.insert(String::from("calendarPositionGr"), json::vector_to_object(&Vector { x: 0, y: 0 }));
+        if existing.is_some() { return Err("calendarPositionGr field already exists.".into()); }
+      }
+
       return Ok(result);
     },
 

@@ -386,6 +386,10 @@ export const ItemFns = {
         const posStr = `${positionalItem.spatialPositionGr.x},${positionalItem.spatialPositionGr.y}`;
         hashes.push(hashStringToUid(posStr));
       }
+      if (positionalItem.calendarPositionGr) {
+        const posStr = `${positionalItem.calendarPositionGr.x},${positionalItem.calendarPositionGr.y}`;
+        hashes.push(hashStringToUid(posStr));
+      }
     }
 
     // X-sizeable properties

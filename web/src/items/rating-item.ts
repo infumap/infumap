@@ -54,6 +54,7 @@ export const RatingFns = {
       dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
+      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       rating,
     };
@@ -73,6 +74,7 @@ export const RatingFns = {
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
+      calendarPositionGr: o.calendarPositionGr,
 
       rating: o.rating,
     });
@@ -227,6 +229,7 @@ export const RatingFns = {
     return ({
       itemType: rating.itemType,
       spatialPositionGr: rating.spatialPositionGr,
+      calendarPositionGr: rating.calendarPositionGr,
     });
   },
 

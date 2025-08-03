@@ -103,6 +103,7 @@ export async function handleUpload(
         parentId: parent.id,
         title: file.name,
         spatialPositionGr: posPx,
+        calendarPositionGr: { x: 0, y: 0 },
         spatialWidthGr: spatialWidthGr,
         originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified/1000.0), `uploading image ${file.name}`),
         mimeType: file.type,
@@ -127,10 +128,10 @@ export async function handleUpload(
 
       let fileItem: object = {
         itemType: ItemType.File,
-        id: newUid(),
         parentId: parent.id,
         title: file.name,
         spatialPositionGr: posPx,
+        calendarPositionGr: { x: 0, y: 0 },
         spatialWidthGr: spatialWidthGr,
         originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified/1000.0), `uploading file ${file.name}`),
         mimeType: file.type,

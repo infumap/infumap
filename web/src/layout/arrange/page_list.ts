@@ -321,6 +321,7 @@ export function arrangeSelectedListItem(
   if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
+  li.calendarPositionGr = { x: 0.0, y: 0.0 };
 
   let cellGeometry: ItemGeometry;
 

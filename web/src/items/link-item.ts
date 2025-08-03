@@ -48,6 +48,7 @@ export const LinkFns = {
     const result = LinkFns.create(item.ownerId, item.parentId, relationshipToParent, item.id, ordering);
     if (isPositionalItem(item)) {
       result.spatialPositionGr = asPositionalItem(item).spatialPositionGr;
+      result.calendarPositionGr = asPositionalItem(item).calendarPositionGr;
     }
     if (isXSizableItem(item)) {
       result.spatialWidthGr = asXSizableItem(item).spatialWidthGr;
@@ -73,6 +74,7 @@ export const LinkFns = {
       dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
+      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       // possibly unused, depending on linked to type.
       spatialWidthGr: 4.0 * GRID_SIZE,
@@ -99,6 +101,7 @@ export const LinkFns = {
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
+      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
       spatialHeightGr: o.spatialHeightGr,
@@ -305,6 +308,7 @@ export const LinkFns = {
     return ({
       itemType: link.itemType,
       spatialPositionGr: link.spatialPositionGr,
+      calendarPositionGr: link.calendarPositionGr,
       spatialWidthGr: link.spatialWidthGr,
       spatialHeightGr: link.spatialHeightGr,
       linkTo: link.linkTo,
@@ -343,6 +347,7 @@ function constructLinkToMeasurable(link: LinkItem): Measurable | null {
 
   if (isPositionalItem(linkedToMeasurableFields)) {
     (asPositionalItem(linkedToMeasurableFields)).spatialPositionGr = link.spatialPositionGr;
+    (asPositionalItem(linkedToMeasurableFields)).calendarPositionGr = link.calendarPositionGr;
   }
   if (isXSizableItem(linkedToMeasurableFields)) {
     (asXSizableItem(linkedToMeasurableFields)).spatialWidthGr = link.spatialWidthGr;
