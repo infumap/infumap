@@ -29,6 +29,7 @@ import { asContainerItem, isContainer } from "./items/base/container-item";
 import { TabularFns } from "./items/base/tabular-item";
 import { fullArrange } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
+import { MouseActionState } from "./input/state";
 
 
 export interface ItemsAndTheirAttachments {
@@ -284,6 +285,11 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
   }
 
   loadTestInterval = window.setInterval(async () => {
+    // Pause refresh during user interactions
+    if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
+      return;
+    }
+
     const watchedContainersByOrigin = VesCache.getCurrentWatchContainerUidsByOrigin();
     const localContainers = watchedContainersByOrigin.get(null);
 
@@ -319,6 +325,10 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
         fetchPromise
           .then(result => {
             if (result != null) {
+              if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
+                return;
+              }
+
               const containerItem = asContainerItem(container);
               if (!containerItem) return;
 
@@ -326,24 +336,15 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
               const oldChildren = [...containerItem.computed_children];
               for (const childId of oldChildren) {
                 const childItem = itemState.get(childId);
-                if (childItem && isContainer(childItem)) {
-                  // Recursively handle child containers if needed
-                  const childContainer = asContainerItem(childItem);
-                  if (childContainer.computed_children.length === 0) {
-                    itemState.delete(childId);
-                  }
-                } else if (childItem) {
+                if (childItem) {
                   itemState.delete(childId);
                 }
               }
 
-              // Clear the children array
               containerItem.computed_children = [];
 
-              // Load new children
               itemState.setChildItemsFromServerObjects(modifiedContainer.id, result.children, origin);
 
-              // Load attachments
               Object.keys(result.attachments).forEach(id => {
                 itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
               });
@@ -361,7 +362,7 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
     } catch (error) {
       console.error("Container auto-refresh modifiedCheck failed:", error);
     }
-  }, 2000);
+  }, 3000);
 
   console.log("Started container auto-refresh - checking for modifications every 2 seconds");
 }
