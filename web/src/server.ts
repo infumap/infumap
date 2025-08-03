@@ -22,7 +22,7 @@ import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, Uid } from "./util/uid";
-import { hashChildrenAndTheirAttachmentsOnly, hashChildrenAndTheirAttachmentsOnlyAsync } from "./items/item";
+import { hashChildrenAndTheirAttachmentsOnly, hashChildrenAndTheirAttachmentsOnlyAsync, hashItemAndAttachmentsOnly } from "./items/item";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
 import { asContainerItem, isContainer } from "./items/base/container-item";
@@ -324,6 +324,26 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
         }
 
         const origin = container.origin;
+
+        // Capture state before fetch to detect concurrent changes
+        const containerItem = asContainerItem(container);
+        const preFetchHashes = new Map<Uid, string>();
+
+        // Hash the container itself and its attachments
+        if (isAttachmentsItem(container)) {
+          preFetchHashes.set(modifiedContainer.id, hashItemAndAttachmentsOnly(modifiedContainer.id));
+        }
+
+        // Hash all current children and their attachments
+        for (const childId of containerItem.computed_children) {
+          const childItem = itemState.get(childId);
+          if (childItem) {
+            if (isAttachmentsItem(childItem)) {
+              preFetchHashes.set(childId, hashItemAndAttachmentsOnly(childId));
+            }
+          }
+        }
+
         const fetchPromise = origin == null
           ? server.fetchItems(modifiedContainer.id, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus)
           : remote.fetchItems(origin, modifiedContainer.id, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus);
@@ -335,7 +355,17 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
                 return;
               }
 
-              const containerItem = asContainerItem(container);
+              // Check if any tracked items have been modified since the fetch started
+              for (const [itemId, preFetchHash] of preFetchHashes) {
+                const currentItem = itemState.get(itemId);
+                if (currentItem && isAttachmentsItem(currentItem)) {
+                  const currentHash = hashItemAndAttachmentsOnly(itemId);
+                  if (currentHash !== preFetchHash) {
+                    console.log(`Discarding fetch result for container ${modifiedContainer.id} because item ${itemId} was modified during fetch`);
+                    return;
+                  }
+                }
+              }
 
               const existingChildIds = new Set(containerItem.computed_children);
               const newChildIds = new Set<Uid>();
@@ -404,7 +434,7 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
     } catch (error) {
       console.error("Container auto-refresh modifiedCheck failed:", error);
     }
-  }, 3000);
+  }, 10000);
 
   console.log("Started container auto-refresh - checking for modifications every 3 seconds");
 }
