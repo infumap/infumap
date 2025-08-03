@@ -17,7 +17,7 @@
 */
 
 import { Component, onCleanup, onMount, Show } from "solid-js";
-import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server, startServerLoadTest, stopServerLoadTest } from "../server";
+import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server, startContainerAutoRefresh, stopContainerAutoRefresh } from "../server";
 import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
@@ -147,7 +147,7 @@ export const Main: Component = () => {
     }
 
     // Start server load test
-    startServerLoadTest(store);
+    startContainerAutoRefresh(store);
 
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
     document.addEventListener('keydown', keyDownListener);
@@ -157,7 +157,7 @@ export const Main: Component = () => {
 
   onCleanup(() => {
     // Stop server load test
-    stopServerLoadTest();
+          stopContainerAutoRefresh();
     
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
     document.removeEventListener('keydown', keyDownListener);

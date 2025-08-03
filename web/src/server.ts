@@ -25,6 +25,10 @@ import { EMPTY_UID, Uid } from "./util/uid";
 import { hashChildrenAndTheirAttachmentsOnly } from "./items/item";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
+import { asContainerItem, isContainer } from "./items/base/container-item";
+import { TabularFns } from "./items/base/tabular-item";
+import { fullArrange } from "./layout/arrange";
+import { itemState } from "./store/ItemState";
 
 
 export interface ItemsAndTheirAttachments {
@@ -272,19 +276,18 @@ export const serverOrRemote = {
 let loadTestInterval: number | null = null;
 
 /**
- * Start a loop that sends modifiedCheck calls to server every 2 seconds for load testing
+ * Start a loop that checks for container modifications and refreshes them automatically
  */
-export function startServerLoadTest(store: StoreContextModel): void {
+export function startContainerAutoRefresh(store: StoreContextModel): void {
   if (loadTestInterval) {
     window.clearInterval(loadTestInterval);
   }
 
-  loadTestInterval = window.setInterval(() => {
+  loadTestInterval = window.setInterval(async () => {
     const watchedContainersByOrigin = VesCache.getCurrentWatchContainerUidsByOrigin();
     const localContainers = watchedContainersByOrigin.get(null);
 
     if (!localContainers || localContainers.size === 0) {
-      console.log("Load test: no local containers to watch, skipping");
       return;
     }
 
@@ -298,29 +301,79 @@ export function startServerLoadTest(store: StoreContextModel): void {
       });
     }
 
-    server.modifiedCheck(testRequests, store.general.networkStatus)
-      .then((result) => {
-        const modifiedContainers = result.filter(r => r.modified);
-        if (modifiedContainers.length > 0) {
-          console.log(`Load test: ${modifiedContainers.length} container(s) modified:`, modifiedContainers.map(r => r.id));
+    try {
+      const results = await server.modifiedCheck(testRequests, store.general.networkStatus);
+      const modifiedContainers = results.filter(r => r.modified);
+
+      for (const modifiedContainer of modifiedContainers) {
+        const container = itemState.get(modifiedContainer.id);
+        if (!container || !isContainer(container)) {
+          continue;
         }
-      })
-      .catch((error) => {
-        console.log("Load test modifiedCheck failed:", error);
-      });
+
+        const origin = container.origin;
+        const fetchPromise = origin == null
+          ? server.fetchItems(modifiedContainer.id, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus)
+          : remote.fetchItems(origin, modifiedContainer.id, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus);
+
+        fetchPromise
+          .then(result => {
+            if (result != null) {
+              const containerItem = asContainerItem(container);
+              if (!containerItem) return;
+
+              // Delete old child items from the items map
+              const oldChildren = [...containerItem.computed_children];
+              for (const childId of oldChildren) {
+                const childItem = itemState.get(childId);
+                if (childItem && isContainer(childItem)) {
+                  // Recursively handle child containers if needed
+                  const childContainer = asContainerItem(childItem);
+                  if (childContainer.computed_children.length === 0) {
+                    itemState.delete(childId);
+                  }
+                } else if (childItem) {
+                  itemState.delete(childId);
+                }
+              }
+
+              // Clear the children array
+              containerItem.computed_children = [];
+
+              // Load new children
+              itemState.setChildItemsFromServerObjects(modifiedContainer.id, result.children, origin);
+
+              // Load attachments
+              Object.keys(result.attachments).forEach(id => {
+                itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
+              });
+
+              TabularFns.validateNumberOfVisibleColumnsMaybe(modifiedContainer.id);
+              containerItem.childrenLoaded = true;
+
+              fullArrange(store);
+            }
+          })
+          .catch((error) => {
+            console.error(`Failed to refresh container ${modifiedContainer.id}:`, error);
+          });
+      }
+    } catch (error) {
+      console.error("Container auto-refresh modifiedCheck failed:", error);
+    }
   }, 2000);
 
-  console.log("Started server load test - sending modifiedCheck every 2 seconds for local containers");
+  console.log("Started container auto-refresh - checking for modifications every 2 seconds");
 }
 
 /**
- * Stop the server load test loop
+ * Stop the container auto-refresh loop
  */
-export function stopServerLoadTest(): void {
+export function stopContainerAutoRefresh(): void {
   if (loadTestInterval) {
     window.clearInterval(loadTestInterval);
     loadTestInterval = null;
-    console.log("Stopped server load test");
+    console.log("Stopped container auto-refresh");
   }
 }
 
