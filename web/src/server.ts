@@ -279,6 +279,9 @@ let loadTestInterval: number | null = null;
 
 /**
  * Start a loop that checks for container modifications and refreshes them automatically
+ *
+ * TODO: have a websocket that sends a message when any of the current displayed containers are modified.
+ *       only need to do the hashing on fist access to the current page.
  */
 export function startContainerAutoRefresh(store: StoreContextModel): void {
   if (loadTestInterval) {
