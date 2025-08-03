@@ -168,6 +168,30 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     }
   }
 
+  const renderCalendarPage = () =>
+    <div ref={rootDiv}
+         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
+         style={`left: 0px; ` +
+               `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+                `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+                `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+                `${VeFns.zIndexStyle(props.visualElement)} `}
+        onscroll={rootScrollHandler}>
+      <div class="absolute"
+           style={`left: 0px; top: 0px; ` +
+                  `width: ${pageFns().childAreaBoundsPx().w}px; ` +
+                  `height: ${pageFns().childAreaBoundsPx().h}px;` +
+                  `outline: 0px solid transparent; `}
+          contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+          onKeyUp={keyUpHandler}
+          onKeyDown={keyDownHandler}
+          onInput={inputListener}>
+
+      </div>
+      {renderBorderOverlay()}
+    </div>;
+
   const renderPage = () =>
     <div ref={rootDiv}
          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
@@ -214,7 +238,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
             {renderListPage()}
           </Match>
-          <Match when={pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
+          <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar}>
+            {renderCalendarPage()}
+          </Match>
+          <Match when={pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List && pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar}>
             {renderPage()}
           </Match>
         </Switch>

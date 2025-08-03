@@ -22,6 +22,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { ItemGeometry } from "../item-geometry";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags } from "./item";
+import { VesCache } from "../ves-cache";
 
 
 export function arrange_calendar_page(
@@ -37,6 +38,11 @@ export function arrange_calendar_page(
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
+
+  const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
+  if (isFull) {
+    VesCache.pushTopTitledPage(pageWithChildrenVePath);
+  }
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
