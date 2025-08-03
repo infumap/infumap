@@ -330,23 +330,37 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
               }
 
               const containerItem = asContainerItem(container);
-              if (!containerItem) return;
 
-              // Delete old child items from the items map
-              const oldChildren = [...containerItem.computed_children];
-              for (const childId of oldChildren) {
-                const childItem = itemState.get(childId);
-                if (childItem) {
-                  itemState.delete(childId);
+              const existingChildIds = new Set(containerItem.computed_children);
+              const newChildIds = new Set<Uid>();
+
+              for (const childObject of result.children) {
+                const childItem = ItemFns.fromObject(childObject, origin);
+                itemState.replaceMaybe(childObject, origin);
+                newChildIds.add(childItem.id);
+              }
+
+              for (const childId of existingChildIds) {
+                if (!newChildIds.has(childId)) {
+                  const childItem = itemState.get(childId);
+                  if (childItem && isContainer(childItem)) {
+                    const childContainer = asContainerItem(childItem);
+                    if (childContainer.computed_children.length === 0) {
+                      itemState.delete(childId);
+                    }
+                  } else if (childItem) {
+                    itemState.delete(childId);
+                  }
                 }
               }
 
-              containerItem.computed_children = [];
-
-              itemState.setChildItemsFromServerObjects(modifiedContainer.id, result.children, origin);
+              containerItem.computed_children = Array.from(newChildIds);
+              itemState.sortChildren(modifiedContainer.id);
 
               Object.keys(result.attachments).forEach(id => {
-                itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
+                for (const attachmentObject of result.attachments[id]) {
+                  itemState.replaceMaybe(attachmentObject, origin);
+                }
               });
 
               TabularFns.validateNumberOfVisibleColumnsMaybe(modifiedContainer.id);

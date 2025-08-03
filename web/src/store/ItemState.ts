@@ -29,6 +29,7 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
+import { hashItemAndAttachmentsOnly } from "../items/item";
 
 let items = new Map<Uid, Item>();
 
@@ -94,6 +95,37 @@ export const itemState = {
     let item = ItemFns.fromObject(itemObject, origin);
     items.set(item.id, item);
     TabularFns.validateNumberOfVisibleColumnsMaybe(item.id);
+  },
+
+  /**
+   * Replace an item only if it has changed (considering item and attachments, not children).
+   * Returns true if the item was replaced, false if no changes were detected.
+   */
+  replaceMaybe: (itemObject: object, origin: string | null): boolean => {
+    const newItem = ItemFns.fromObject(itemObject, origin);
+    const existingItem = itemState.get(newItem.id);
+
+    if (!existingItem) {
+      items.set(newItem.id, newItem);
+      TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
+      return true;
+    }
+
+    const existingHash = hashItemAndAttachmentsOnly(newItem.id);
+
+    // Temporarily set the new item to calculate its hash
+    items.set(newItem.id, newItem);
+    const newHash = hashItemAndAttachmentsOnly(newItem.id);
+
+    if (existingHash === newHash) {
+      // No changes detected, restore the existing item
+      items.set(newItem.id, existingItem);
+      return false;
+    }
+
+    // Changes detected, keep the new item
+    TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
+    return true;
   },
 
   addSoloItemHolderPage: (ownerId: Uid): void => {
