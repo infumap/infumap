@@ -35,4 +35,32 @@ export function sanitizeOriginalCreationDate(value: number, context: string): nu
     return 0;
   }
   return value;
-} 
+}
+
+/**
+ * Calculates month information for a given month and year.
+ * @param month - Month (1-12, where 1 = January)
+ * @param year - Full year (e.g., 2024)
+ * @returns Object containing the number of days in the month and the day of the week (0-6) for the 1st
+ */
+export function getMonthInfo(month: number, year: number): { daysInMonth: number; firstDayOfWeek: number } {
+  if (month < 1 || month > 12) {
+    throw new Error(`Invalid month: ${month}. Month must be between 1 and 12.`);
+  }
+
+  const firstOfMonth = new Date(year, month - 1, 1);
+
+  // Get the day of the week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+  const firstDayOfWeek = firstOfMonth.getDay();
+
+  // Calculate the number of days in the month
+  // Create a Date for the 1st of the next month, then subtract 1 day
+  const nextMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(nextMonth.getTime() - 1);
+  const daysInMonth = lastDayOfMonth.getDate();
+
+  return {
+    daysInMonth,
+    firstDayOfWeek
+  };
+}
