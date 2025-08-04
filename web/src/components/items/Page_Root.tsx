@@ -243,6 +243,11 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               </div>
             );
           }}</For>
+
+          {/* Render child items arranged in calendar grid */}
+          <For each={props.visualElement.childrenVes}>{childVes =>
+            <VisualElement_LineItem visualElement={childVes.get()} />
+          }</For>
         </div>
         {renderBorderOverlay()}
       </div>
