@@ -25,7 +25,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
@@ -41,6 +41,8 @@ import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState,
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { isFlipCard } from "../items/flipcard-item";
+
+
 
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {

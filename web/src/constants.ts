@@ -34,6 +34,10 @@ export const LINE_HEIGHT_PX = 24;
 
 export const NATURAL_BLOCK_SIZE_PX = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
+export const CALENDAR_DAY_ROW_HEIGHT_BL = 2;
+
+export const EMBEDDED_CHILD_WIDTH_BL = 10;
+
 export const NOTE_PADDING_PX = 5;
 
 export const MOUSE_MOVE_AMBIGUOUS_PX = 5;

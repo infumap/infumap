@@ -16,11 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount, createEffect } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
+import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, CALENDAR_DAY_ROW_HEIGHT_BL } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -34,7 +34,8 @@ import { getMonthInfo } from "../../util/time";
 export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
-  let rootDiv: any = undefined; // HTMLDivElement | undefined
+  let updatingRootScrollTop = false;
+  let rootDiv: any = undefined;
 
   const pageFns = () => props.pageFns;
 
@@ -55,8 +56,34 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     rootDiv.scrollLeft = scrollXPx;
   });
 
+  createEffect(() => {
+    // occurs on page arrange algorithm change.
+    if (!pageFns().childAreaBoundsPx()) { return; }
+
+    updatingRootScrollTop = true;
+
+    if (rootDiv) {
+      let veid = store.history.currentPageVeid()!;
+      if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
+        const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+        veid = store.perItem.getSelectedListPageItem(parentVeid);
+      }
+
+      rootDiv.scrollTop =
+        store.perItem.getPageScrollYProp(veid) *
+        (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+      rootDiv.scrollLeft =
+        store.perItem.getPageScrollXProp(veid) *
+        (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+    }
+
+    setTimeout(() => {
+      updatingRootScrollTop = false;
+    }, 0);
+  });
+
   const listRootScrollHandler = (_ev: Event) => {
-    if (!rootDiv) { return; }
+    if (!rootDiv || updatingRootScrollTop) { return; }
 
     const pageBoundsPx = props.visualElement.listChildAreaBoundsPx!.h;
     const desktopSizePx = props.visualElement.boundsPx;
@@ -145,7 +172,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   }
   
   const rootScrollHandler = (_ev: Event) => {
-    if (!rootDiv) { return; }
+    if (!rootDiv || updatingRootScrollTop) { return; }
 
     const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
     const desktopSizePx = props.visualElement.boundsPx;
@@ -174,13 +201,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-    const columnWidth = (pageFns().viewportBoundsPx().w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
+    const columnWidth = (pageFns().childAreaBoundsPx().w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
     const titleHeight = 40;
     const monthTitleHeight = 30;
     const topPadding = 10;
     const bottomMargin = 5;
-    const availableHeightForDays = pageFns().viewportBoundsPx().h - topPadding - titleHeight - 20 - monthTitleHeight - bottomMargin; // 20px gap between year and months
-    const dayRowHeight = availableHeightForDays / 31; // 31 max days
+    const dayRowHeight = CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX; // Use constant block height
 
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 

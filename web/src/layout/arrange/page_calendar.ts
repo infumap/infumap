@@ -26,7 +26,7 @@ import { VesCache } from "../ves-cache";
 import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { NATURAL_BLOCK_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX } from "../../constants";
 import { isComposite } from "../../items/composite-item";
 import { isExpression } from "../../items/expression-item";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -34,6 +34,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { HitboxFns, HitboxFlags } from "../hitbox";
 import { MouseActionState, MouseAction } from "../../input/state";
 import { CursorEventState } from "../../input/state";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 
 
 export function arrange_calendar_page(
@@ -66,6 +67,44 @@ export function arrange_calendar_page(
     VesCache.pushTopTitledPage(pageWithChildrenVePath);
   }
 
+  const childAreaBoundsPx = (() => {
+    let result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx!)!);
+
+    // Calculate natural calendar height
+    const titleHeight = 40;
+    const monthTitleHeight = 30;
+    const topPadding = 10;
+    const bottomMargin = 5;
+    const headerHeight = topPadding + titleHeight + 20 + monthTitleHeight + bottomMargin;
+    const naturalCalendarHeightPx = headerHeight + (31 * CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX);
+    
+    const viewportHeight = geometry.viewportBoundsPx!.h;
+
+    // Check if shrinking by 0.7x would still make content taller than screen
+    const minScaledHeight = naturalCalendarHeightPx * 0.7;
+    if (minScaledHeight > viewportHeight) {
+      // Even at 0.7x scale, content is too tall - fall back to scroll with 1.0x scale
+      result.h = naturalCalendarHeightPx;
+    } else {
+      // Content can be scaled between 0.7x and 1.3x to fit viewport
+      const naturalHeightRatio = naturalCalendarHeightPx / viewportHeight;
+
+      if (naturalHeightRatio > 1.0) {
+        // Content is taller than viewport - scale down (minimum 0.7x)
+        const scaleDown = Math.max(0.7, 1.0 / naturalHeightRatio);
+        result.h = Math.round(naturalCalendarHeightPx * scaleDown);
+      } else if (naturalHeightRatio < (1.0 / 1.3)) {
+        // Content is much shorter than viewport - scale up (maximum 1.3x)
+        result.h = Math.round(viewportHeight * 1.3);
+      } else {
+        // Content fits naturally or with acceptable scaling
+        result.h = naturalCalendarHeightPx;
+      }
+    }
+
+    return result;
+  })();
+
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
 
@@ -86,7 +125,7 @@ export function arrange_calendar_page(
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes: geometry.hitboxes,
-    childAreaBoundsPx: geometry.viewportBoundsPx!,
+    childAreaBoundsPx,
     parentPath,
   };
 
@@ -99,15 +138,15 @@ export function arrange_calendar_page(
     .filter(child => child != null && (!movingItemInThisPage || child.id !== movingItemInThisPage.id))
     .sort((a, b) => a.dateTime - b.dateTime);
 
-  // Calendar layout dimensions (matching Page_Root.tsx renderCalendarPage)
-  const viewportBounds = geometry.viewportBoundsPx!;
-  const columnWidth = (viewportBounds.w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
+  // Calendar layout dimensions (using scaled childAreaBoundsPx)
+  const childAreaBounds = childAreaBoundsPx;
+  const columnWidth = (childAreaBounds.w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
   const titleHeight = 40;
   const monthTitleHeight = 30;
   const topPadding = 10;
   const bottomMargin = 5;
-  const availableHeightForDays = viewportBounds.h - topPadding - titleHeight - 20 - monthTitleHeight - bottomMargin;
-  const dayRowHeight = availableHeightForDays / 31; // 31 max days
+  const availableHeightForDays = childAreaBounds.h - topPadding - titleHeight - 20 - monthTitleHeight - bottomMargin;
+  const dayRowHeight = CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX; // Use constant block height for consistency
 
   // Item dimensions - icon + text layout like other line items
   const blockSizePx = NATURAL_BLOCK_SIZE_PX;
@@ -225,27 +264,75 @@ export function arrange_calendar_page(
   if (movingItemInThisPage) {
     const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
 
-    const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
-    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
-    const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
+    // Get scroll offset calculations matching other page types
+    let scrollPropY;
+    let scrollPropX;
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
+      const popupSpec = store.history.currentPopupSpec();
+      scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
+      scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
+    } else {
+      scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+      scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+    }
 
-    // Calculate moving item position to follow mouse
+    const umbrellaVisualElement = store.umbrellaVisualElement.get();
+    const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
+    const desktopSizePx = store.desktopBoundsPx();
+    const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
+    const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
+
+    const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
+    const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
+    const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+    const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+
+    // Use calendar-specific item dimensions
+    const calendarItemHeight = blockSizePx.h; // Items in calendar use standard block height for icon+text
+
+    // Adjust Y position by approximately one row height to align with calendar grid
+    const calendarYAdjustment = dayRowHeight;
+
+    // Calculate moving item position using the same coordinate system as other page types
     const movingItemBoundsPx = {
-      x: mouseDesktopPosPx.x - geometry.boundsPx.x,
-      y: mouseDesktopPosPx.y - geometry.boundsPx.y,
+      x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
+      y: mouseDesktopPosPx.y - geometry.boundsPx.y - store.topToolbarHeightPx() - popupTitleHeightMaybePx - pageYScrollPx + yOffsetPx + calendarYAdjustment,
       w: itemWidth,
-      h: itemHeight
+      h: calendarItemHeight
     };
 
     // Adjust for click offset
     movingItemBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * movingItemBoundsPx.w;
     movingItemBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * movingItemBoundsPx.h;
 
+    // Create hitboxes for moving item matching normal item structure
+    const movingClickAreaBoundsPx = widthBl > 1 ? {
+      x: blockSizePx.w, // Start after icon block
+      y: 0,
+      w: blockSizePx.w * (widthBl - 1), // Text area width
+      h: calendarItemHeight
+    } : {
+      x: 0, // If only icon fits, click anywhere
+      y: 0,
+      w: itemWidth,
+      h: calendarItemHeight
+    };
+
+    const movingPopupClickAreaBoundsPx = {
+      x: 0,
+      y: 0,
+      w: blockSizePx.w, // Icon area only
+      h: calendarItemHeight
+    };
+
     const movingItemGeometry = {
       boundsPx: movingItemBoundsPx,
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, movingClickAreaBoundsPx),
+        HitboxFns.create(HitboxFlags.OpenPopup, movingPopupClickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.Move, {
           x: 0,
           y: 0,

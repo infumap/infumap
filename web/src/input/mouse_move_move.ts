@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
@@ -48,24 +48,27 @@ import createJustifiedLayout from "justified-layout";
 import { createJustifyOptions } from "../layout/arrange/page_justified";
 
 
+
+
+
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
   const shouldCreateLink = CursorEventState.get().ctrlDown;
   const shouldClone = CursorEventState.get().shiftDown && !isDataItem(activeVisualElement.displayItem); // Don't want to duplicate blob data.
   const parentItem = itemState.get(activeItem.parentId)!;
-  if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
-    moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
-    fullArrange(store);
-  }
-  else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
-    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
-    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone);
-    fullArrange(store);
-  }
-  else if (isComposite(itemState.get(activeItem.parentId)!)) {
-    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false);
-    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
-    fullArrange(store);
-  }
+      if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
+      moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
+      fullArrange(store);
+    }
+    else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
+      const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
+      moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone);
+      fullArrange(store);
+    }
+    else if (isComposite(itemState.get(activeItem.parentId)!)) {
+      const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false);
+      moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
+      fullArrange(store);
+    }
   else {
     MouseActionState.get().startPosBl = {
       x: activeItem.spatialPositionGr.x / GRID_SIZE,
@@ -92,7 +95,23 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = false;
 
+      // Preserve calendar page scroll position during fullArrange
+      const parentPageVeid = VeFns.veidFromPath(activeParentPath);
+      const parentPage = itemState.get(parentPageVeid.itemId)!;
+      let savedScrollY = null;
+      let savedScrollX = null;
+      if (isPage(parentPage) && asPageItem(parentPage).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+        savedScrollY = store.perItem.getPageScrollYProp(parentPageVeid);
+        savedScrollX = store.perItem.getPageScrollXProp(parentPageVeid);
+      }
+
       fullArrange(store);
+
+      // Restore calendar page scroll position
+      if (savedScrollY !== null && savedScrollX !== null) {
+        store.perItem.setPageScrollYProp(parentPageVeid, savedScrollY);
+        store.perItem.setPageScrollXProp(parentPageVeid, savedScrollX);
+      }
     }
     else if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
       const link = LinkFns.createFromItem(
@@ -117,7 +136,23 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = true;
 
+      // Preserve calendar page scroll position during fullArrange
+      const parentPageVeid = VeFns.veidFromPath(activeParentPath);
+      const parentPage = itemState.get(parentPageVeid.itemId)!;
+      let savedScrollY = null;
+      let savedScrollX = null;
+      if (isPage(parentPage) && asPageItem(parentPage).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+        savedScrollY = store.perItem.getPageScrollYProp(parentPageVeid);
+        savedScrollX = store.perItem.getPageScrollXProp(parentPageVeid);
+      }
+
       fullArrange(store);
+
+      // Restore calendar page scroll position
+      if (savedScrollY !== null && savedScrollX !== null) {
+        store.perItem.setPageScrollYProp(parentPageVeid, savedScrollY);
+        store.perItem.setPageScrollXProp(parentPageVeid, savedScrollX);
+      }
     }
 
     if (MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.ContentEditable) {
@@ -301,18 +336,22 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-    // Calculate which month and day the mouse is over
+    // Calculate which month and day the mouse is over using scaled childAreaBoundsPx
+    const childAreaBounds = inElementVe.childAreaBoundsPx!;
     const viewportBounds = inElementVe.viewportBoundsPx!;
-    const columnWidth = (viewportBounds.w - 11 * 5 - 10) / 12; // Match calendar layout
+    const columnWidth = (childAreaBounds.w - 11 * 5 - 10) / 12; // Match calendar layout
     const titleHeight = 40;
     const monthTitleHeight = 30;
     const topPadding = 10;
-    const bottomMargin = 5;
-    const availableHeightForDays = viewportBounds.h - topPadding - titleHeight - 20 - monthTitleHeight - bottomMargin;
-    const dayRowHeight = availableHeightForDays / 31;
+    const dayRowHeight = CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX; // Use constant block height
 
-    const xOffsetPx = desktopPosPx.x - viewportBounds.x;
-    const yOffsetPx = desktopPosPx.y - viewportBounds.y;
+    // Account for scroll position within the scaled child area
+    const veid = VeFns.veidFromVe(inElementVe);
+    const scrollYPx = store.perItem.getPageScrollYProp(veid) * (childAreaBounds.h - viewportBounds.h);
+    const scrollXPx = store.perItem.getPageScrollXProp(veid) * (childAreaBounds.w - viewportBounds.w);
+
+    const xOffsetPx = desktopPosPx.x - viewportBounds.x + scrollXPx;
+    const yOffsetPx = desktopPosPx.y - viewportBounds.y + scrollYPx;
 
     // Calculate month (1-12) and day (1-31)
     const month = Math.floor((xOffsetPx - 5) / (columnWidth + 5)) + 1;
