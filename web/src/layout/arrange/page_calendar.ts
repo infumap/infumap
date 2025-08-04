@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LinkItem } from "../../items/link-item";
+import { LinkItem, isLink, asLinkItem } from "../../items/link-item";
 import { PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { ItemGeometry } from "../item-geometry";
@@ -32,6 +32,8 @@ import { isExpression } from "../../items/expression-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VisualElementSignal } from "../../util/signals";
 import { HitboxFns, HitboxFlags } from "../hitbox";
+import { MouseActionState, MouseAction } from "../../input/state";
+import { CursorEventState } from "../../input/state";
 
 
 export function arrange_calendar_page(
@@ -47,6 +49,17 @@ export function arrange_calendar_page(
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
+
+  // Check if an item is being moved
+  let movingItem = null;
+  let movingItemInThisPage = null;
+  if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
+    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.get().activeElementPath);
+    movingItem = movingItemInThisPage;
+    if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
+      movingItemInThisPage = null;
+    }
+  }
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   if (isFull) {
@@ -80,10 +93,10 @@ export function arrange_calendar_page(
   // Arrange child items in calendar grid layout (6 blocks wide)
   let calendarVeChildren: Array<VisualElementSignal> = [];
 
-  // Sort children by dateTime
+  // Sort children by dateTime, but exclude moving item if it's in this page
   const childrenWithDateTime = displayItem_pageWithChildren.computed_children
     .map(childId => itemState.get(childId)!)
-    .filter(child => child != null)
+    .filter(child => child != null && (!movingItemInThisPage || child.id !== movingItemInThisPage.id))
     .sort((a, b) => a.dateTime - b.dateTime);
 
   // Calendar layout dimensions (matching Page_Root.tsx renderCalendarPage)
@@ -207,6 +220,67 @@ export function arrange_calendar_page(
       }
     });
   });
+
+  // Add moving item if it exists and belongs to this page
+  if (movingItemInThisPage) {
+    const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
+
+    const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
+    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
+    const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
+
+    // Calculate moving item position to follow mouse
+    const movingItemBoundsPx = {
+      x: mouseDesktopPosPx.x - geometry.boundsPx.x,
+      y: mouseDesktopPosPx.y - geometry.boundsPx.y,
+      w: itemWidth,
+      h: itemHeight
+    };
+
+    // Adjust for click offset
+    movingItemBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * movingItemBoundsPx.w;
+    movingItemBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * movingItemBoundsPx.h;
+
+    const movingItemGeometry = {
+      boundsPx: movingItemBoundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
+      hitboxes: [
+        HitboxFns.create(HitboxFlags.Move, {
+          x: 0,
+          y: 0,
+          w: movingItemBoundsPx.w,
+          h: movingItemBoundsPx.h
+        }),
+      ]
+    };
+
+    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(movingItemInThisPage, actualMovingItemLinkItemMaybe), pageWithChildrenVePath);
+    const isChildHighlighted = highlightedPath !== null && highlightedPath === childPath;
+
+    const movingItemVeSpec: VisualElementSpec = {
+      displayItem: movingItemInThisPage,
+      linkItemMaybe: actualMovingItemLinkItemMaybe,
+      actualLinkItemMaybe: actualMovingItemLinkItemMaybe,
+      flags: VisualElementFlags.LineItem |
+             VisualElementFlags.Moving |
+             (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.IsMoving,
+      boundsPx: movingItemGeometry.boundsPx,
+      hitboxes: movingItemGeometry.hitboxes,
+      parentPath: pageWithChildrenVePath,
+      col: 0,
+      row: 0,
+      blockSizePx: blockSizePx,
+    };
+
+    const movingItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(movingItemVeSpec, childPath);
+    calendarVeChildren.push(movingItemVisualElementSignal);
+
+    if (isExpression(movingItemInThisPage)) {
+      VesCache.markEvaluationRequired(VeFns.veToPath(movingItemVisualElementSignal.get()));
+    }
+  }
 
   pageWithChildrenVisualElementSpec.childrenVes = calendarVeChildren;
 

@@ -341,6 +341,30 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
         MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
       serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
     }
+  } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+    const path = VeFns.veToPath(overContainerVe);
+    const combinedIndex = store.perVe.getMoveOverIndex(path);
+
+    // Extract month and day from combined index (month * 100 + day)
+    const targetMonth = Math.floor(combinedIndex / 100);
+    const targetDay = combinedIndex % 100;
+
+    // Get current date from existing dateTime to preserve year and time
+    const currentDate = new Date(activeItem.dateTime * 1000);
+    const currentYear = currentDate.getFullYear();
+    const currentHour = currentDate.getHours();
+    const currentMinute = currentDate.getMinutes();
+    const currentSecond = currentDate.getSeconds();
+
+    // Create new date with target month and day, preserving year and time
+    const newDate = new Date(currentYear, targetMonth - 1, targetDay, currentHour, currentMinute, currentSecond);
+    const newDateTime = Math.floor(newDate.getTime() / 1000);
+
+    // Only update if the dateTime actually changed
+    if (activeItem.dateTime !== newDateTime) {
+      activeItem.dateTime = newDateTime;
+      serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+    }
   }
   else {
     console.debug("todo: explicitly consider other page types here.");

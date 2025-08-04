@@ -300,6 +300,35 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 
+  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+    // Calculate which month and day the mouse is over
+    const viewportBounds = inElementVe.viewportBoundsPx!;
+    const columnWidth = (viewportBounds.w - 11 * 5 - 10) / 12; // Match calendar layout
+    const titleHeight = 40;
+    const monthTitleHeight = 30;
+    const topPadding = 10;
+    const bottomMargin = 5;
+    const availableHeightForDays = viewportBounds.h - topPadding - titleHeight - 20 - monthTitleHeight - bottomMargin;
+    const dayRowHeight = availableHeightForDays / 31;
+
+    const xOffsetPx = desktopPosPx.x - viewportBounds.x;
+    const yOffsetPx = desktopPosPx.y - viewportBounds.y;
+
+    // Calculate month (1-12) and day (1-31)
+    const month = Math.floor((xOffsetPx - 5) / (columnWidth + 5)) + 1;
+    const dayAreaTopPx = titleHeight + 20 + monthTitleHeight;
+    const day = Math.floor((yOffsetPx - dayAreaTopPx) / dayRowHeight) + 1;
+
+    // Clamp to valid ranges
+    const clampedMonth = Math.max(1, Math.min(12, month));
+    const clampedDay = Math.max(1, Math.min(31, day));
+
+    // Store the target month and day for use during mouse up
+    // We'll use setMoveOverIndex to store a combined value (month * 100 + day)
+    const combinedIndex = clampedMonth * 100 + clampedDay;
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), combinedIndex);
+  }
+
   const dockWidthPx = store.getCurrentDockWidthPx();
 
   if (inElementVe.flags & VisualElementFlags.IsDock) {
