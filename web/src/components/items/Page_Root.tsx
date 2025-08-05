@@ -274,6 +274,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <For each={props.visualElement.childrenVes}>{childVes =>
             <VisualElement_LineItem visualElement={childVes.get()} />
           }</For>
+          <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
+            <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
+          </Show>
         </div>
         {renderBorderOverlay()}
       </div>

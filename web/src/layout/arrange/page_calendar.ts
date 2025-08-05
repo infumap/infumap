@@ -23,6 +23,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags } from "./item";
 import { VesCache } from "../ves-cache";
+import { arrangeCellPopup } from "./popup";
 import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -371,5 +372,12 @@ export function arrange_calendar_page(
 
   pageWithChildrenVisualElementSpec.childrenVes = calendarVeChildren;
 
+  if (flags & ArrangeItemFlags.IsTopRoot) {
+    const currentPopupSpec = store.history.currentPopupSpec();
+    if (currentPopupSpec != null) {
+      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
+    }
+  }
+
   return pageWithChildrenVisualElementSpec;
-} 
+}
