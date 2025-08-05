@@ -257,12 +257,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                   const topPos = monthTitleHeight + (day - 1) * dayRowHeight;
 
                   return (
-                    <div class="absolute flex items-center"
+                    <div class="absolute flex items-start"
                          style={`left: 0px; top: ${topPos}px; width: ${columnWidth}px; height: ${dayRowHeight}px; ` +
                                 `background-color: ${isWeekend(dayOfWeek) ? '#f5f5f5' : '#ffffff'}; ` +
-                                `border-bottom: 1px solid #e5e5e5;`}>
-                      <span class="text-sm ml-2">{day}</span>
-                      <span class="text-sm ml-1 text-gray-600">{dayNames[dayOfWeek]}</span>
+                                `border-bottom: 1px solid #e5e5e5; padding-top: 2px;`}>
+                      <span style="width: 14px; text-align: right; font-size: 10px; margin-left: 2px;">{day}</span>
+                      <span class="text-gray-600" style="font-size: 10px; margin-left: 3px;">{dayNames[dayOfWeek]}</span>
                     </div>
                   );
                 }}</For>
