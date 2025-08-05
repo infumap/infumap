@@ -30,6 +30,8 @@ import { appendNewlineIfEmpty } from "../../util/string";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
+import { VesCache } from "../../layout/ves-cache";
+import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 
 
 export const FileLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -42,10 +44,23 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
-  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
+
+  const isInCalendarPage = () => {
+    if (!props.visualElement.parentPath) return false;
+    const parentVes = VesCache.get(props.visualElement.parentPath);
+    if (!parentVes) return false;
+    const parentVe = parentVes.get();
+    return isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+  };
+
+  const shouldHideIcon = () => {
+    return (props.visualElement.flags & VisualElementFlags.Attachment) || isInCalendarPage();
+  };
+
+  const leftPx = () => shouldHideIcon()
     ? boundsPx().x + oneBlockWidthPx() * PADDING_PROP
     : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
+  const widthPx = () => shouldHideIcon()
     ? boundsPx().w - oneBlockWidthPx() * PADDING_PROP
     : boundsPx().w - oneBlockWidthPx();
   const openPopupBoundsPx = () => {
@@ -169,7 +184,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   return (
     <>
       {renderHighlightsMaybe()}
-      <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
+      <Show when={!shouldHideIcon()}>
         {renderIcon()}
       </Show>
       {renderText()}

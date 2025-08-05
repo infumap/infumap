@@ -19,19 +19,21 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
-import { NoteFns, asNoteItem } from "../../items/note-item";
+import { asNoteItem, NoteFns } from "../../items/note-item";
+import { NoteFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_HIGHLIGHT } from "../../constants";
-import { NoteFlags } from "../../items/base/flags-item";
 import { cloneBoundingBox } from "../../util/geometry";
-import { getTextStyleForNote } from "../../layout/text";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
+import { getTextStyleForNote } from "../../layout/text";
+import { VesCache } from "../../layout/ves-cache";
+import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 
 
 export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -46,10 +48,23 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
-  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
+
+  const isInCalendarPage = () => {
+    if (!props.visualElement.parentPath) return false;
+    const parentVes = VesCache.get(props.visualElement.parentPath);
+    if (!parentVes) return false;
+    const parentVe = parentVes.get();
+    return isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+  };
+
+  const shouldHideIcon = () => {
+    return (props.visualElement.flags & VisualElementFlags.Attachment) || isInCalendarPage();
+  };
+
+  const leftPx = () => shouldHideIcon()
     ? boundsPx().x + oneBlockWidthPx() * PADDING_PROP
     : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
+  const widthPx = () => shouldHideIcon()
     ? boundsPx().w - oneBlockWidthPx() * PADDING_PROP - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
     : boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
   const openPopupBoundsPx = () => {
@@ -121,7 +136,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </Switch>;
 
   const renderIconMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
+    <Show when={!shouldHideIcon()}>
       <div class="absolute text-center"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
