@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asFileItem } from "../../items/file-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { LINE_HEIGHT_PX, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
@@ -42,8 +42,12 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
-  const leftPx = () => boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => boundsPx().w - oneBlockWidthPx();
+  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
+    ? boundsPx().x + oneBlockWidthPx() * PADDING_PROP
+    : boundsPx().x + oneBlockWidthPx();
+  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
+    ? boundsPx().w - oneBlockWidthPx() * PADDING_PROP
+    : boundsPx().w - oneBlockWidthPx();
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
     r.w = oneBlockWidthPx();
@@ -165,7 +169,9 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   return (
     <>
       {renderHighlightsMaybe()}
-      {renderIcon()}
+      <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
+        {renderIcon()}
+      </Show>
       {renderText()}
       {renderLinkMarkingMaybe()}
     </>
