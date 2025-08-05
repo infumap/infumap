@@ -161,6 +161,7 @@ export const arrangeItemNoChildren = (
            (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: itemGeometry.boundsPx,
+    blockSizePx: itemGeometry.blockSizePx,
     hitboxes: itemGeometry.hitboxes,
     parentPath: parentVePath,
   };
