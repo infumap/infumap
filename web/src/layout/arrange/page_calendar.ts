@@ -26,7 +26,7 @@ import { VesCache } from "../ves-cache";
 import { arrangeCellPopup } from "./popup";
 import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
-import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
 import { isComposite } from "../../items/composite-item";
 import { isExpression } from "../../items/expression-item";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -152,8 +152,9 @@ export function arrange_calendar_page(
   const blockSizePx = NATURAL_BLOCK_SIZE_PX;
   const itemHeight = blockSizePx.h; // Standard block height for readability
   
-  // Calculate how many blocks can fit in the column width
-  const maxBlocksInColumn = Math.floor(columnWidth / blockSizePx.w);
+  // Calculate how many blocks can fit in the column width (accounting for day label space)
+  const availableWidthForItems = columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX;
+  const maxBlocksInColumn = Math.floor(availableWidthForItems / blockSizePx.w);
   const widthBl = Math.max(1, maxBlocksInColumn); // At least 1 block for icon
   const itemWidth = blockSizePx.w * widthBl;
 
@@ -188,7 +189,7 @@ export function arrange_calendar_page(
 
              // Stack items vertically within the day
        const boundsPx = {
-         x: monthLeftPos,
+         x: monthLeftPos + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX,
          y: dayTopPos + stackIndex * itemHeight,
          w: itemWidth,
          h: itemHeight
