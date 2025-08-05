@@ -32,8 +32,8 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { getTextStyleForNote } from "../../layout/text";
-import { VesCache } from "../../layout/ves-cache";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
+import { itemState } from "../../store/ItemState";
 
 
 export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -50,11 +50,18 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
 
   const isInCalendarPage = () => {
-    if (!props.visualElement.parentPath) return false;
-    const parentVes = VesCache.get(props.visualElement.parentPath);
-    if (!parentVes) return false;
-    const parentVe = parentVes.get();
-    return isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+    if (props.visualElement.parentPath) {
+      try {
+        const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath);
+        const parentItem = itemState.get(parentVeid.itemId);
+        if (parentItem && isPage(parentItem)) {
+          return asPageItem(parentItem).arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+        }
+      } catch (e) {
+        // If path parsing fails, continue to fallback
+      }
+    }
+    return false;
   };
 
   const shouldHideIcon = () => {
