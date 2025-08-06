@@ -386,16 +386,32 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
 
   const existing = currentVesCache.get(path);
   if (existing) {
-    if (existing.get().displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
+    const existingVe = existing.get();
+    if (existingVe.displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(VeFns.create(visualElementOverride));
-      if (debug) { console.debug("display item fingerprint changed", existing.get().displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
+      if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       underConstructionCache.set(path, existing);
       addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
     }
 
+    // Check if the LineItem flag is changing. If it is, we should not recycle
+    // the visual element because the rendering path will be completely different
+    // (VisualElement_LineItem vs VisualElement_Desktop), so there's no DOM reuse
+    // benefit. Creating a new visual element ensures a clean state transition.
+    const oldHasLineItemFlag = !!(existingVe.flags & VisualElementFlags.LineItem);
+    const newHasLineItemFlag = !!((visualElementOverride.flags || VisualElementFlags.None) & VisualElementFlags.LineItem);
+
+    if (oldHasLineItemFlag !== newHasLineItemFlag) {
+      if (debug) { console.debug("LineItem flag changed, creating new visual element instead of recycling:", path); }
+      const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
+      underConstructionCache.set(path, newElement);
+      addVesVsDisplayItem(newElement.get().displayItem.id, path);
+      return newElement;
+    }
+
     const newVals: any = visualElementOverride;
-    const oldVals: any = existing.get();
+    const oldVals: any = existingVe;
     const newProps = Object.getOwnPropertyNames(visualElementOverride);
     let dirty = false;
     if (debug) { console.debug(newProps, oldVals, visualElementOverride); }
@@ -498,10 +514,12 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
       underConstructionCache.set(path, existing);
-      addVesVsDisplayItem(existing.get().displayItem.id, path);
+      addVesVsDisplayItem(existingVe.displayItem.id, path);
       return existing;
     }
     if (debug) { console.debug("dirty:", path); }
+
+    // Recycle the existing visual element
     existing.set(VeFns.create(visualElementOverride));
     underConstructionCache.set(path, existing);
     addVesVsDisplayItem(existing.get().displayItem.id, path);
