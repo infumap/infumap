@@ -204,9 +204,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const columnWidth = (pageFns().childAreaBoundsPx().w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
     const titleHeight = 40;
     const monthTitleHeight = 30;
-    const topPadding = 10;
+    const topPadding = 7;
     const bottomMargin = 5;
-    const dayRowHeight = asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl * LINE_HEIGHT_PX;
+    
+    // Calculate scaled day row height from the available space (matching page_calendar.ts logic)
+    const availableHeightForDays = pageFns().childAreaBoundsPx().h - topPadding - titleHeight - 14 - monthTitleHeight - bottomMargin;
+    const dayRowHeight = availableHeightForDays / 31;
 
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 
@@ -232,7 +235,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
           {/* Year title */}
           <div class="absolute text-center font-bold text-2xl"
-               style={`left: 5px; top: 10px; width: ${pageFns().childAreaBoundsPx().w - 10}px; height: ${titleHeight}px; line-height: ${titleHeight}px;`}>
+               style={`left: 5px; top: 7px; width: ${pageFns().childAreaBoundsPx().w - 10}px; height: ${titleHeight}px; line-height: ${titleHeight}px;`}>
             {currentYear}
           </div>
 
@@ -243,10 +246,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
             return (
               <div class="absolute"
-                   style={`left: ${leftPos}px; top: ${titleHeight + 20}px; width: ${columnWidth}px;`}>
+                   style={`left: ${leftPos}px; top: ${titleHeight + 14}px; width: ${columnWidth}px;`}>
 
                 {/* Month title */}
-                <div class="text-center font-semibold text-lg"
+                <div class="text-center font-semibold text-base"
                      style={`height: ${monthTitleHeight}px; line-height: ${monthTitleHeight}px;`}>
                   {monthNames[month - 1]}
                 </div>

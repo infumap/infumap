@@ -73,9 +73,9 @@ export function arrange_calendar_page(
     // Calculate natural calendar height
     const titleHeight = 40;
     const monthTitleHeight = 30;
-    const topPadding = 10;
+    const topPadding = 7;
     const bottomMargin = 5;
-    const headerHeight = topPadding + titleHeight + 20 + monthTitleHeight + bottomMargin;
+    const headerHeight = topPadding + titleHeight + 14 + monthTitleHeight + bottomMargin;
     const naturalCalendarHeightPx = headerHeight + (31 * displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX);
     
     const viewportHeight = geometry.viewportBoundsPx!.h;
@@ -93,12 +93,16 @@ export function arrange_calendar_page(
         // Content is taller than viewport - scale down (minimum 0.7x)
         const scaleDown = Math.max(0.7, 1.0 / naturalHeightRatio);
         result.h = Math.round(naturalCalendarHeightPx * scaleDown);
-      } else if (naturalHeightRatio < (1.0 / 1.3)) {
-        // Content is much shorter than viewport - scale up (maximum 1.3x)
-        result.h = Math.round(viewportHeight * 1.3);
       } else {
-        // Content fits naturally or with acceptable scaling
-        result.h = naturalCalendarHeightPx;
+        // Content is shorter than or equal to viewport - scale up to fill space (maximum 1.3x)
+        const maxScaledHeight = naturalCalendarHeightPx * 1.3;
+        if (maxScaledHeight <= viewportHeight) {
+          // Can scale up to 1.3x and still fit
+          result.h = Math.round(maxScaledHeight);
+        } else {
+          // Scale up to exactly fit the viewport
+          result.h = Math.round(viewportHeight);
+        }
       }
     }
 
@@ -143,10 +147,13 @@ export function arrange_calendar_page(
   const columnWidth = (childAreaBounds.w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
   const titleHeight = 40;
   const monthTitleHeight = 30;
-  const topPadding = 10;
+  const topPadding = 7;
   const bottomMargin = 5;
-  const availableHeightForDays = childAreaBounds.h - topPadding - titleHeight - 20 - monthTitleHeight - bottomMargin;
-  const dayRowHeight = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
+  const availableHeightForDays = childAreaBounds.h - topPadding - titleHeight - 14 - monthTitleHeight - bottomMargin;
+  
+  // Calculate day row height from the scaled available height
+  // The childAreaBounds.h is already scaled, so we distribute the available height across 31 days
+  const dayRowHeight = availableHeightForDays / 31;
 
   // Item dimensions - icon + text layout like other line items
   const blockSizePx = NATURAL_BLOCK_SIZE_PX;
@@ -178,7 +185,7 @@ export function arrange_calendar_page(
 
     // Calculate base position for this date
     const monthLeftPos = 5 + (month - 1) * (columnWidth + 5);
-    const dayTopPos = titleHeight + 20 + monthTitleHeight + (day - 1) * dayRowHeight;
+    const dayTopPos = titleHeight + 14 + monthTitleHeight + (day - 1) * dayRowHeight;
 
     itemsForDate.forEach((childItem, stackIndex) => {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
