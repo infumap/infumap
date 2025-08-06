@@ -342,8 +342,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const columnWidth = (childAreaBounds.w - 11 * 5 - 10) / 12; // Match calendar layout
     const titleHeight = 40;
     const monthTitleHeight = 30;
-    const topPadding = 10;
-    const dayRowHeight = asPageItem(inElement).calendarDayRowHeightBl * LINE_HEIGHT_PX;
+    const topPadding = 7;
+    const bottomMargin = 5;
+    const availableHeightForDays = childAreaBounds.h - topPadding - titleHeight - 14 - monthTitleHeight - bottomMargin;
+    const dayRowHeight = availableHeightForDays / 31;
 
     // Account for scroll position within the scaled child area
     const veid = VeFns.veidFromVe(inElementVe);
@@ -355,7 +357,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
     // Calculate month (1-12) and day (1-31)
     const month = Math.floor((xOffsetPx - 5) / (columnWidth + 5)) + 1;
-    const dayAreaTopPx = titleHeight + 20 + monthTitleHeight;
+    const dayAreaTopPx = titleHeight + 14 + monthTitleHeight;
     const day = Math.floor((yOffsetPx - dayAreaTopPx) / dayRowHeight) + 1;
 
     // Clamp to valid ranges

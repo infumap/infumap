@@ -92,7 +92,10 @@ function calculateCalendarDateTime(store: StoreContextModel, desktopPosPx: Vecto
   const columnWidth = (childAreaBounds.w - 11 * 5 - 10) / 12;
   const titleHeight = 40;
   const monthTitleHeight = 30;
-  const dayRowHeight = asPageItem(pageVe.displayItem).calendarDayRowHeightBl * LINE_HEIGHT_PX;
+  const topPadding = 7;
+  const bottomMargin = 5;
+  const availableHeightForDays = childAreaBounds.h - topPadding - titleHeight - 14 - monthTitleHeight - bottomMargin;
+  const dayRowHeight = availableHeightForDays / 31;
 
   const veid = VeFns.veidFromVe(pageVe);
   const scrollYPx = store.perItem.getPageScrollYProp(veid) * (childAreaBounds.h - viewportBounds.h);
@@ -102,7 +105,7 @@ function calculateCalendarDateTime(store: StoreContextModel, desktopPosPx: Vecto
   const yOffsetPx = desktopPosPx.y - viewportBounds.y + scrollYPx;
 
   const month = Math.max(1, Math.min(12, Math.floor((xOffsetPx - 5) / (columnWidth + 5)) + 1));
-  const dayAreaTopPx = titleHeight + 20 + monthTitleHeight;
+  const dayAreaTopPx = titleHeight + 14 + monthTitleHeight;
   const day = Math.max(1, Math.min(31, Math.floor((yOffsetPx - dayAreaTopPx) / dayRowHeight) + 1));
 
   const currentYear = new Date().getFullYear();
