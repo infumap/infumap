@@ -56,10 +56,14 @@ export const arrangeTable = (
   let sizeBl = linkItemMaybe_Table
     ? { w: linkItemMaybe_Table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_Table!.spatialHeightGr / GRID_SIZE }
     : { w: displayItem_Table.spatialWidthGr / GRID_SIZE, h: displayItem_Table.spatialHeightGr / GRID_SIZE };
+
+  const blockSizePx = widthBlOverride
+    ? { w: tableGeometry.boundsPx.w / widthBlOverride, h: tableGeometry.blockSizePx.h }
+    : tableGeometry.blockSizePx;
+
   if (widthBlOverride) {
-    sizeBl.w = widthBlOverride
+    sizeBl.w = widthBlOverride;
   }
-  const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
 
   const tableVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table), parentPath);
 
@@ -91,7 +95,7 @@ export const arrangeTable = (
   tableVisualElementSpec.tableVesRows = tableVesRows;
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(tableGeometry.viewportBoundsPx)!);
-  childAreaBoundsPx.h = numRows * tableGeometry.blockSizePx.h
+  childAreaBoundsPx.h = numRows * blockSizePx.h
   tableVisualElementSpec.childAreaBoundsPx = childAreaBoundsPx;
 
   const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Table == null ? displayItem_Table : linkItemMaybe_Table);
