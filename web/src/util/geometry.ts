@@ -142,9 +142,12 @@ export function cloneDimensions(dimensions: Dimensions | null): Dimensions | nul
   };
 }
 
-export function compareDimensions(a: Dimensions, b: Dimensions): number {
-  if (a.w != b.w) { return 1; }
-  if (a.h != b.h) { return 1; }
+export function compareDimensions(a: Dimensions | null, b: Dimensions | null): number {
+  if (a == null && b != null) { return 1; }
+  if (a != null && b == null) { return 1; }
+  if (a == null && b == null) { return 0; }
+  if (a!.w != b!.w) { return 1; }
+  if (a!.h != b!.h) { return 1; }
   return 0;
 }
 
