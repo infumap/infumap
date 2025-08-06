@@ -41,6 +41,7 @@ import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState,
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { isFlipCard } from "../items/flipcard-item";
+import { decodeCalendarCombinedIndex } from "../util/calendar-layout";
 
 
 
@@ -347,9 +348,8 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
     const path = VeFns.veToPath(overContainerVe);
     const combinedIndex = store.perVe.getMoveOverIndex(path);
 
-    // Extract month and day from combined index (month * 100 + day)
-    const targetMonth = Math.floor(combinedIndex / 100);
-    const targetDay = combinedIndex % 100;
+    // Extract month and day from combined index
+    const { month: targetMonth, day: targetDay } = decodeCalendarCombinedIndex(combinedIndex);
 
     // Get current date from existing dateTime to preserve year and time
     const currentDate = new Date(activeItem.dateTime * 1000);

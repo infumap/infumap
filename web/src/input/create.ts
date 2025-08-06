@@ -27,6 +27,7 @@ import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
 import { PageFns, asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
 import { PasswordFns } from "../items/password-item";
+import { calculateCalendarDateTime } from "../util/calendar-layout";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
@@ -86,34 +87,7 @@ export function maybeAddNewChildItems(store: StoreContextModel, item: Positional
   }
 }
 
-function calculateCalendarDateTime(store: StoreContextModel, desktopPosPx: Vector, pageVe: any): number {
-  const childAreaBounds = pageVe.childAreaBoundsPx!;
-  const viewportBounds = pageVe.viewportBoundsPx!;
-  const columnWidth = (childAreaBounds.w - 11 * 5 - 10) / 12;
-  const titleHeight = 40;
-  const monthTitleHeight = 30;
-  const topPadding = 7;
-  const bottomMargin = 5;
-  const availableHeightForDays = childAreaBounds.h - topPadding - titleHeight - 14 - monthTitleHeight - bottomMargin;
-  const dayRowHeight = availableHeightForDays / 31;
 
-  const veid = VeFns.veidFromVe(pageVe);
-  const scrollYPx = store.perItem.getPageScrollYProp(veid) * (childAreaBounds.h - viewportBounds.h);
-  const scrollXPx = store.perItem.getPageScrollXProp(veid) * (childAreaBounds.w - viewportBounds.w);
-
-  const xOffsetPx = desktopPosPx.x - viewportBounds.x + scrollXPx;
-  const yOffsetPx = desktopPosPx.y - viewportBounds.y + scrollYPx;
-
-  const month = Math.max(1, Math.min(12, Math.floor((xOffsetPx - 5) / (columnWidth + 5)) + 1));
-  const dayAreaTopPx = titleHeight + 14 + monthTitleHeight;
-  const day = Math.max(1, Math.min(31, Math.floor((yOffsetPx - dayAreaTopPx) / dayRowHeight) + 1));
-
-  const currentYear = new Date().getFullYear();
-  const currentTime = new Date();
-  const targetDate = new Date(currentYear, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
-
-  return Math.floor(targetDate.getTime() / 1000);
-}
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
   const overElementVe = HitInfoFns.getHitVe(hitInfo);
@@ -157,7 +131,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
       
-      newItem.dateTime = calculateCalendarDateTime(store, desktopPosPx, overElementVe);
+      newItem.dateTime = calculateCalendarDateTime(desktopPosPx, overElementVe, store);
     } else {
       if (hitInfo.overPositionGr != null) {
         newItem.spatialPositionGr = hitInfo.overPositionGr!;
@@ -272,7 +246,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       if (isCalendarView) {
         newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
         newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
-        newItem.dateTime = calculateCalendarDateTime(store, desktopPosPx, overPositionableVe!);
+        newItem.dateTime = calculateCalendarDateTime(desktopPosPx, overPositionableVe!, store);
       } else {
         const propX = (desktopPosPx.x - overPositionableVe!.boundsPx.x) / overPositionableVe!.boundsPx.w;
         const propY = (desktopPosPx.y - overPositionableVe!.boundsPx.y) / overPositionableVe!.boundsPx.h;
@@ -315,7 +289,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       try {
         const currentPageVes = VesCache.findSingle(store.history.currentPageVeid()!);
         if (currentPageVes) {
-          newItem.dateTime = calculateCalendarDateTime(store, desktopPosPx, currentPageVes.get());
+          newItem.dateTime = calculateCalendarDateTime(desktopPosPx, currentPageVes.get(), store);
         }
       } catch (e) {
         // If we can't find the visual element or calculate calendar date, use current time

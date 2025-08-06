@@ -27,6 +27,7 @@ import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../.
 import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
 import { getMonthInfo } from "../../util/time";
+import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS } from "../../util/calendar-layout";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -201,15 +202,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-    const columnWidth = (pageFns().childAreaBoundsPx().w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
-    const titleHeight = 40;
-    const monthTitleHeight = 30;
-    const topPadding = 7;
-    const bottomMargin = 5;
-    
-    // Calculate scaled day row height from the available space (matching page_calendar.ts logic)
-    const availableHeightForDays = pageFns().childAreaBoundsPx().h - topPadding - titleHeight - 14 - monthTitleHeight - bottomMargin;
-    const dayRowHeight = availableHeightForDays / 31;
+    const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx());
 
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 
@@ -235,33 +228,33 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
           {/* Year title */}
           <div class="absolute text-center font-bold text-2xl"
-               style={`left: 5px; top: 7px; width: ${pageFns().childAreaBoundsPx().w - 10}px; height: ${titleHeight}px; line-height: ${titleHeight}px;`}>
+               style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
             {currentYear}
           </div>
 
           {/* Calendar months */}
           <For each={Array.from({length: 12}, (_, i) => i + 1)}>{month => {
             const monthInfo = getMonthInfo(month, currentYear);
-            const leftPos = 5 + (month - 1) * (columnWidth + 5);
+            const leftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (calendarDimensions.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
 
             return (
               <div class="absolute"
-                   style={`left: ${leftPos}px; top: ${titleHeight + 14}px; width: ${columnWidth}px;`}>
+                   style={`left: ${leftPos}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING}px; width: ${calendarDimensions.columnWidth}px;`}>
 
                 {/* Month title */}
                 <div class="text-center font-semibold text-base"
-                     style={`height: ${monthTitleHeight}px; line-height: ${monthTitleHeight}px;`}>
+                     style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px;`}>
                   {monthNames[month - 1]}
                 </div>
 
                 {/* Days in month */}
                 <For each={Array.from({length: monthInfo.daysInMonth}, (_, i) => i + 1)}>{day => {
                   const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
-                  const topPos = monthTitleHeight + (day - 1) * dayRowHeight;
+                  const topPos = CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT + (day - 1) * calendarDimensions.dayRowHeight;
 
                   return (
                     <div class="absolute flex items-start"
-                         style={`left: 0px; top: ${topPos}px; width: ${columnWidth}px; height: ${dayRowHeight}px; ` +
+                         style={`left: 0px; top: ${topPos}px; width: ${calendarDimensions.columnWidth}px; height: ${calendarDimensions.dayRowHeight}px; ` +
                                 `background-color: ${isWeekend(dayOfWeek) ? '#f5f5f5' : '#ffffff'}; ` +
                                 `border-bottom: 1px solid #e5e5e5; padding-top: 5px;`}>
                       <span style="width: 14px; text-align: right; font-size: 10px; margin-left: 2px;">{day}</span>

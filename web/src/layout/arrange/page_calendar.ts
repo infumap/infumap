@@ -35,6 +35,7 @@ import { HitboxFns, HitboxFlags } from "../hitbox";
 import { MouseActionState, MouseAction } from "../../input/state";
 import { CursorEventState } from "../../input/state";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS } from "../../util/calendar-layout";
 
 
 export function arrange_calendar_page(
@@ -144,23 +145,14 @@ export function arrange_calendar_page(
 
   // Calendar layout dimensions (using scaled childAreaBoundsPx)
   const childAreaBounds = childAreaBoundsPx;
-  const columnWidth = (childAreaBounds.w - 11 * 5 - 10) / 12; // 11 gaps of 5px between 12 columns + 5px left/right margins
-  const titleHeight = 40;
-  const monthTitleHeight = 30;
-  const topPadding = 7;
-  const bottomMargin = 5;
-  const availableHeightForDays = childAreaBounds.h - topPadding - titleHeight - 14 - monthTitleHeight - bottomMargin;
-  
-  // Calculate day row height from the scaled available height
-  // The childAreaBounds.h is already scaled, so we distribute the available height across 31 days
-  const dayRowHeight = availableHeightForDays / 31;
+  const calendarDimensions = calculateCalendarDimensions(childAreaBounds);
 
   // Item dimensions - icon + text layout like other line items
   const blockSizePx = NATURAL_BLOCK_SIZE_PX;
   const itemHeight = blockSizePx.h; // Standard block height for readability
   
   // Calculate how many blocks can fit in the column width (accounting for day label space)
-  const availableWidthForItems = columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX;
+  const availableWidthForItems = calendarDimensions.columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX;
   const maxBlocksInColumn = Math.floor(availableWidthForItems / blockSizePx.w);
   const widthBl = Math.max(1, maxBlocksInColumn); // At least 1 block for icon
   const itemWidth = blockSizePx.w * widthBl;
@@ -184,8 +176,8 @@ export function arrange_calendar_page(
     const day = itemDate.getDate(); // 1-31
 
     // Calculate base position for this date
-    const monthLeftPos = 5 + (month - 1) * (columnWidth + 5);
-    const dayTopPos = titleHeight + 14 + monthTitleHeight + (day - 1) * dayRowHeight;
+    const monthLeftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (calendarDimensions.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
+    const dayTopPos = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
 
     itemsForDate.forEach((childItem, stackIndex) => {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
@@ -300,7 +292,7 @@ export function arrange_calendar_page(
     const calendarItemHeight = blockSizePx.h; // Items in calendar use standard block height for icon+text
 
     // Adjust Y position by approximately one row height to align with calendar grid
-    const calendarYAdjustment = dayRowHeight;
+    const calendarYAdjustment = calendarDimensions.dayRowHeight;
 
     // Calculate moving item position using the same coordinate system as other page types
     const movingItemBoundsPx = {
