@@ -170,7 +170,9 @@ export const Toolbar_Popup: Component = () => {
     isTable(store.history.getFocusItem())
       ? asTableItem(store.history.getFocusItem()).numberOfVisibleColumns.toString()
       : isPage(store.history.getFocusItem())
-        ? asPageItem(store.history.getFocusItem()).gridNumberOfColumns.toString()
+        ? overlayTypeConst == ToolbarPopupType.PageCalendarDayRowHeight
+          ? asPageItem(store.history.getFocusItem()).calendarDayRowHeightBl.toString()
+          : asPageItem(store.history.getFocusItem()).gridNumberOfColumns.toString()
         : "1"
   );
 
@@ -242,11 +244,16 @@ export const Toolbar_Popup: Component = () => {
   onMount(() => {
     if (overlayType() == ToolbarPopupType.TableNumCols) {
       setSliderValue(asTableItem(store.history.getFocusItem()).numberOfVisibleColumns.toString());
+    } else if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) {
+      setSliderValue(asPageItem(store.history.getFocusItem()).calendarDayRowHeightBl.toString());
     }
 
     if (overlayType() != ToolbarPopupType.PageColor &&
         overlayType() != ToolbarPopupType.QrLink &&
-        overlayType() != ToolbarPopupType.PageArrangeAlgorithm) {
+        overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
+        overlayType() != ToolbarPopupType.TableNumCols &&
+        overlayType() != ToolbarPopupType.PageNumCols &&
+        overlayType() != ToolbarPopupType.PageCalendarDayRowHeight) {
       textElement!.focus();
     }
   });
@@ -364,17 +371,24 @@ export const Toolbar_Popup: Component = () => {
 
   const handleSliderInput = (e: Event & { currentTarget: HTMLInputElement }) => {
     setSliderValue(e.currentTarget.value);
-    let newNumCols = parseInt(e.currentTarget.value);
-    if (newNumCols > 20) { newNumCols = 20; }
-    if (newNumCols < 1) { newNumCols = 1; }
-    if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
-      tableItem().numberOfVisibleColumns = newNumCols;
-      while (tableItem().tableColumns.length < newNumCols) {
-        tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
+    let newValue = parseInt(e.currentTarget.value);
+    if (overlayTypeConst == ToolbarPopupType.PageCalendarDayRowHeight) {
+      if (newValue > 8) { newValue = 8; }
+      if (newValue < 1) { newValue = 1; }
+      pageItem().calendarDayRowHeightBl = newValue;
+    } else {
+      if (newValue > 20) { newValue = 20; }
+      if (newValue < 1) { newValue = 1; }
+      if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
+        tableItem().numberOfVisibleColumns = newValue;
+        while (tableItem().tableColumns.length < newValue) {
+          tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
+        }
+      } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
+        pageItem().gridNumberOfColumns = newValue;
       }
-    } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
-      pageItem().gridNumberOfColumns = newNumCols;
     }
+    store.touchToolbar();
     fullArrange(store);
   };
 
@@ -473,15 +487,15 @@ export const Toolbar_Popup: Component = () => {
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
                onMouseDown={handleMouseDown}>
             <Show when={label() != null}>
-              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageNumCols
+              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageNumCols || overlayType() == ToolbarPopupType.PageCalendarDayRowHeight
                 ? <div class="flex items-center mt-[7px]">
                     <div class="text-sm ml-2 mr-2">{label()}</div>
                     <input ref={textElement}
                           class="p-[2px] focus:outline-none"
                           style={`width: ${inputWidthPx() - 50}px`}
                           type="range"
-                          min="1"
-                          max="20"
+                          min={overlayType() == ToolbarPopupType.PageCalendarDayRowHeight ? "1" : "1"}
+                          max={overlayType() == ToolbarPopupType.PageCalendarDayRowHeight ? "8" : "20"}
                           value={sliderValue()}
                           onInput={handleSliderInput}
                           onKeyDown={handleKeyDown}

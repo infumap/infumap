@@ -175,6 +175,11 @@ export const Toolbar_Page: Component = () => {
     return pageItem().gridNumberOfColumns;
   }
 
+  const calendarDayRowHeightText = () => {
+    store.touchToolbarDependency();
+    return pageItem().calendarDayRowHeightBl;
+  }
+
   const handleOrderChildrenBy = async () => {
     const orderByTitle = pageItem().orderChildrenBy;
     if (orderByTitle == "") {
@@ -410,7 +415,7 @@ export const Toolbar_Page: Component = () => {
              }}>
           <i class="bi-calendar-week ml-[4px]" />
                      <div class="inline-block w-[25px] pl-[6px] text-right">
-             {pageItem().calendarDayRowHeightBl}
+             {calendarDayRowHeightText()}
            </div>
         </div>
       </Show>
