@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
@@ -25,7 +25,7 @@ import { ExpressionFns } from "../items/expression-item";
 import { asFlipCardItem, FlipCardFns, isFlipCard } from "../items/flipcard-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
-import { PageFns, asPageItem, isPage } from "../items/page-item";
+import { PageFns, asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
 import { PasswordFns } from "../items/password-item";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
@@ -86,6 +86,32 @@ export function maybeAddNewChildItems(store: StoreContextModel, item: Positional
   }
 }
 
+function calculateCalendarDateTime(store: StoreContextModel, desktopPosPx: Vector, pageVe: any): number {
+  const childAreaBounds = pageVe.childAreaBoundsPx!;
+  const viewportBounds = pageVe.viewportBoundsPx!;
+  const columnWidth = (childAreaBounds.w - 11 * 5 - 10) / 12;
+  const titleHeight = 40;
+  const monthTitleHeight = 30;
+  const dayRowHeight = CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX;
+
+  const veid = VeFns.veidFromVe(pageVe);
+  const scrollYPx = store.perItem.getPageScrollYProp(veid) * (childAreaBounds.h - viewportBounds.h);
+  const scrollXPx = store.perItem.getPageScrollXProp(veid) * (childAreaBounds.w - viewportBounds.w);
+
+  const xOffsetPx = desktopPosPx.x - viewportBounds.x + scrollXPx;
+  const yOffsetPx = desktopPosPx.y - viewportBounds.y + scrollYPx;
+
+  const month = Math.max(1, Math.min(12, Math.floor((xOffsetPx - 5) / (columnWidth + 5)) + 1));
+  const dayAreaTopPx = titleHeight + 20 + monthTitleHeight;
+  const day = Math.max(1, Math.min(31, Math.floor((yOffsetPx - dayAreaTopPx) / dayRowHeight) + 1));
+
+  const currentYear = new Date().getFullYear();
+  const currentTime = new Date();
+  const targetDate = new Date(currentYear, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
+
+  return Math.floor(targetDate.getTime() / 1000);
+}
+
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
   const overElementVe = HitInfoFns.getHitVe(hitInfo);
   const overPositionableVe = hitInfo.overPositionableVe;
@@ -121,18 +147,28 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
       RelationshipToParent.Child);
 
-    if (hitInfo.overPositionGr != null) {
-      newItem.spatialPositionGr = hitInfo.overPositionGr!;
+    const pageItem = asPageItem(overElementVe.displayItem);
+    const isCalendarView = pageItem.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+
+    if (isCalendarView) {
+      newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
-      if (isXSizableItem(newItem)) {
-        let maxWidthBl = Math.floor((asPageItem(overElementVe.displayItem).innerSpatialWidthGr - newItem.spatialPositionGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
-        if (maxWidthBl < 2) { maxWidthBl = 2; }
-        if (maxWidthBl * GRID_SIZE < asXSizableItem(newItem).spatialWidthGr) {
-          asXSizableItem(newItem).spatialWidthGr = maxWidthBl * GRID_SIZE;
-        }
-      }
+      
+      newItem.dateTime = calculateCalendarDateTime(store, desktopPosPx, overElementVe);
     } else {
-      console.warn("hitInfo.overPositionGr is not set");
+      if (hitInfo.overPositionGr != null) {
+        newItem.spatialPositionGr = hitInfo.overPositionGr!;
+        newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
+        if (isXSizableItem(newItem)) {
+          let maxWidthBl = Math.floor((asPageItem(overElementVe.displayItem).innerSpatialWidthGr - newItem.spatialPositionGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
+          if (maxWidthBl < 2) { maxWidthBl = 2; }
+          if (maxWidthBl * GRID_SIZE < asXSizableItem(newItem).spatialWidthGr) {
+            asXSizableItem(newItem).spatialWidthGr = maxWidthBl * GRID_SIZE;
+          }
+        }
+      } else {
+        console.warn("hitInfo.overPositionGr is not set");
+      }
     }
 
     const naturalAspect = (store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h);
@@ -228,13 +264,21 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         RelationshipToParent.Child);
 
       const page = asPageItem(overPositionableVe!.displayItem);
-      const propX = (desktopPosPx.x - overPositionableVe!.boundsPx.x) / overPositionableVe!.boundsPx.w;
-      const propY = (desktopPosPx.y - overPositionableVe!.boundsPx.y) / overPositionableVe!.boundsPx.h;
-      newItem.spatialPositionGr = {
-        x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-        y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-      };
-      newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
+      const isCalendarView = page.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+
+      if (isCalendarView) {
+        newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+        newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
+        newItem.dateTime = calculateCalendarDateTime(store, desktopPosPx, overPositionableVe!);
+      } else {
+        const propX = (desktopPosPx.x - overPositionableVe!.boundsPx.x) / overPositionableVe!.boundsPx.w;
+        const propY = (desktopPosPx.y - overPositionableVe!.boundsPx.y) / overPositionableVe!.boundsPx.h;
+        newItem.spatialPositionGr = {
+          x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+          y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
+        };
+        newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
+      }
 
       itemState.add(newItem);
       server.addItem(newItem, null, store.general.networkStatus);
@@ -251,14 +295,33 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     const link = asLinkItem(overElementVe.displayItem);
 
     const currentPageId = store.history.currentPageVeid()!.itemId;
+    const currentPage = itemState.get(currentPageId)!;
     newItem = createNewItem(
       store,
       type,
       currentPageId,
       itemState.newOrderingAtEndOfChildren(currentPageId),
       RelationshipToParent.Child);
-    newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-    newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
+
+    const isCalendarView = isPage(currentPage) && asPageItem(currentPage).arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+
+    if (isCalendarView) {
+      newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+      newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
+      // For link creation in calendar view, try to find the page VE to calculate calendar date
+      try {
+        const currentPageVes = VesCache.findSingle(store.history.currentPageVeid()!);
+        if (currentPageVes) {
+          newItem.dateTime = calculateCalendarDateTime(store, desktopPosPx, currentPageVes.get());
+        }
+      } catch (e) {
+        // If we can't find the visual element or calculate calendar date, use current time
+        console.warn("Could not calculate calendar date for link creation, using current time");
+      }
+    } else {
+      newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+      newItem.calendarPositionGr = { x: 0.0, y: 0.0 };
+    }
 
     itemState.add(newItem);
     server.addItem(newItem, null, store.general.networkStatus);
