@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch, onMount, createEffect } from "soli
 import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, CALENDAR_DAY_ROW_HEIGHT_BL, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
+import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -206,7 +206,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const monthTitleHeight = 30;
     const topPadding = 10;
     const bottomMargin = 5;
-    const dayRowHeight = CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX; // Use constant block height
+    const dayRowHeight = asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl * LINE_HEIGHT_PX;
 
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 

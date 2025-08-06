@@ -76,7 +76,7 @@ export function arrange_calendar_page(
     const topPadding = 10;
     const bottomMargin = 5;
     const headerHeight = topPadding + titleHeight + 20 + monthTitleHeight + bottomMargin;
-    const naturalCalendarHeightPx = headerHeight + (31 * CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX);
+    const naturalCalendarHeightPx = headerHeight + (31 * displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX);
     
     const viewportHeight = geometry.viewportBoundsPx!.h;
 
@@ -146,7 +146,7 @@ export function arrange_calendar_page(
   const topPadding = 10;
   const bottomMargin = 5;
   const availableHeightForDays = childAreaBounds.h - topPadding - titleHeight - 20 - monthTitleHeight - bottomMargin;
-  const dayRowHeight = CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX; // Use constant block height for consistency
+  const dayRowHeight = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
 
   // Item dimensions - icon + text layout like other line items
   const blockSizePx = NATURAL_BLOCK_SIZE_PX;

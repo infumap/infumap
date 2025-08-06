@@ -71,6 +71,7 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   gridCellAspect: number;
   docWidthBl: number;
   justifiedRowAspect: number;
+  calendarDayRowHeightBl: number;
   popupPositionGr: Vector;
   popupAlignmentPoint: string;
   popupWidthGr: number;
@@ -88,6 +89,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   gridCellAspect: number;
   docWidthBl: number,
   justifiedRowAspect: number;
+  calendarDayRowHeightBl: number;
 
   childrenLoaded: boolean;
   computed_children: Array<Uid>;
@@ -141,6 +143,7 @@ export const PageFns = {
       gridCellAspect: 1.5,
       docWidthBl: 36,
       justifiedRowAspect: 7.0,
+      calendarDayRowHeightBl: 1.0,
 
       orderChildrenBy: "title[ASC]",
 
@@ -194,6 +197,7 @@ export const PageFns = {
       gridCellAspect: o.gridCellAspect,
       docWidthBl: o.docWidthBl,
       justifiedRowAspect: o.justifiedRowAspect,
+      calendarDayRowHeightBl: o.calendarDayRowHeightBl,
 
       orderChildrenBy: o.orderChildrenBy,
 
@@ -243,6 +247,7 @@ export const PageFns = {
       gridCellAspect: p.gridCellAspect,
       docWidthBl: p.docWidthBl,
       justifiedRowAspect: p.justifiedRowAspect,
+      calendarDayRowHeightBl: p.calendarDayRowHeightBl,
 
       orderChildrenBy: p.orderChildrenBy,
 
@@ -714,6 +719,7 @@ export const PageFns = {
       gridCellAspect: page.gridCellAspect,
       docWidthBl: page.docWidthBl,
       justifiedRowAspect: page.justifiedRowAspect,
+      calendarDayRowHeightBl: page.calendarDayRowHeightBl,
       childrenLoaded: page.childrenLoaded,
       computed_children: page.computed_children,
       flags: page.flags,

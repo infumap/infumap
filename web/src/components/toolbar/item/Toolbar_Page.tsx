@@ -45,6 +45,7 @@ export const Toolbar_Page: Component = () => {
   let arrangeAlgoDiv: HTMLDivElement | undefined;
   let justifiedRowAspectDiv: HTMLDivElement | undefined;
   let numColsDiv: HTMLDivElement | undefined;
+  let calendarDayRowHeightDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
@@ -110,6 +111,11 @@ export const Toolbar_Page: Component = () => {
   const showJustifiedButtons = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
+  }
+
+  const showCalendarButtons = () => {
+    store.touchToolbarDependency();
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar;
   }
 
   const showDocumentButtons = () => {
@@ -385,6 +391,27 @@ export const Toolbar_Page: Component = () => {
           <div class="inline-block w-[25px] pl-[6px] text-right">
             {justifiedAspectText()}
           </div>
+        </div>
+      </Show>
+      <Show when={showCalendarButtons()}>
+        <div ref={calendarDayRowHeightDiv}
+             class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+             style={`font-size: 13px;`}
+             onClick={() => {
+               if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCalendarDayRowHeight) {
+                 store.overlay.toolbarPopupInfoMaybe.set(null);
+                 return;
+               }
+               store.overlay.toolbarPopupInfoMaybe.set(
+                 { topLeftPx: { x: calendarDayRowHeightDiv!.getBoundingClientRect().x, y: calendarDayRowHeightDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCalendarDayRowHeight });
+             }}
+             onMouseDown={() => {
+               ClickState.setButtonClickBoundsPx(calendarDayRowHeightDiv!.getBoundingClientRect());
+             }}>
+          <i class="bi-calendar-week ml-[4px]" />
+                     <div class="inline-block w-[25px] pl-[6px] text-right">
+             {pageItem().calendarDayRowHeightBl}
+           </div>
         </div>
       </Show>
       <Show when={showDocumentButtons()}>

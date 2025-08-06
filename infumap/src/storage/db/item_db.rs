@@ -39,7 +39,7 @@ use crate::util::fs::{expand_tilde, path_exists};
 use super::user::User;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 22;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 23;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -1223,6 +1223,39 @@ pub fn migrate_record_v21_to_v22(kvs: &Map<String, Value>) -> InfuResult<Map<Str
         if existing.is_some() { return Err("calendarPositionGr field already exists.".into()); }
       }
 
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add calendarDayRowHeightBl field to page items with default value 1.0.
+ */
+pub fn migrate_record_v22_to_v23(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 22);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "page" {
+        let existing = result.insert(String::from("calendarDayRowHeightBl"), Value::Number(Number::from_f64(1.0 as f64).ok_or("invalid calendarDayRowHeightBl")?));
+        if existing.is_some() { return Err("calendarDayRowHeightBl field already exists.".into()); }
+      }
       return Ok(result);
     },
 

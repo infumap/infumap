@@ -49,6 +49,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
+  if (overlayType == ToolbarPopupType.PageCalendarDayRowHeight) { return 60; }
   if (overlayType == ToolbarPopupType.Scale) { return 92; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
@@ -207,6 +208,8 @@ export const Toolbar_Popup: Component = () => {
       pageItem().gridCellAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {
       pageItem().justifiedRowAspect = parseFloat(textElement!.value);
+    } else if (overlayTypeConst == ToolbarPopupType.PageCalendarDayRowHeight) {
+      pageItem().calendarDayRowHeightBl = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
       noteItem().url = textElement!.value;
     } else if (overlayTypeConst == ToolbarPopupType.NoteFormat) {
@@ -230,6 +233,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
+    if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) { return 230; }
     return 200;
   }
 
@@ -271,6 +275,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
+    if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) { return "" + pageItem().calendarDayRowHeightBl; }
     if (overlayType() == ToolbarPopupType.QrLink) { return null; }
     return "[unknown]";
   }
@@ -286,6 +291,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "Row Aspect"; }
+    if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) { return "Row Height"; }
     if (overlayType() == ToolbarPopupType.QrLink) { return null; }
     return "[unknown]";
   }
@@ -298,6 +304,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "The aspect ratio (width / height) of one row of items."; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
+    if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) { return "The height of one row of calendar day items."; }
     return null;
   }
 

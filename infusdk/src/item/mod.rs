@@ -339,7 +339,7 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 42] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 43] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "dateTime", "ordering", "title",
   "spatialPositionGr", "calendarPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -349,7 +349,7 @@ const ALL_JSON_FIELDS: [&'static str; 42] = ["__recordType",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
   "linkTo", "gridNumberOfColumns", "orderChildrenBy", "text",
   "flags", "permissionFlags", "format", "docWidthBl",
-  "gridCellAspect", "justifiedRowAspect", "numberOfVisibleColumns",
+  "gridCellAspect", "justifiedRowAspect", "calendarDayRowHeightBl", "numberOfVisibleColumns",
   "scale"];
 
 
@@ -425,6 +425,7 @@ pub struct Item {
   pub grid_cell_aspect: Option<f64>,
   pub doc_width_bl: Option<i64>,
   pub justified_row_aspect: Option<f64>,
+  pub calendar_day_row_height_bl: Option<f64>,
 
   // note
   pub url: Option<String>,
@@ -488,6 +489,7 @@ impl Clone for Item {
       grid_cell_aspect: self.grid_cell_aspect.clone(),
       doc_width_bl: self.doc_width_bl.clone(),
       justified_row_aspect: self.justified_row_aspect.clone(),
+      calendar_day_row_height_bl: self.calendar_day_row_height_bl.clone(),
       url: self.url.clone(),
       format: self.format.clone(),
       table_columns: self.table_columns.clone(),
@@ -740,6 +742,12 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("justifiedRowAspect"), Value::Number(Number::from_f64(new_justified_row_aspect).ok_or(nan_err("justifiedRowAspect", &old.id))?));
       }
     }
+    if let Some(new_calendar_day_row_height_bl) = new.calendar_day_row_height_bl {
+      if match old.calendar_day_row_height_bl { Some(o) => o != new_calendar_day_row_height_bl, None => { true } } {
+        if old.item_type != ItemType::Page { cannot_modify_err("calendarDayRowHeightBl", &old.id)?; }
+        result.insert(String::from("calendarDayRowHeightBl"), Value::Number(Number::from_f64(new_calendar_day_row_height_bl).ok_or(nan_err("calendarDayRowHeightBl", &old.id))?));
+      }
+    }
 
     // note
     if let Some(new_url) = &new.url {
@@ -964,6 +972,10 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ItemType::Page { not_applicable_err("justifiedRowAspect", self.item_type, &self.id)?; }
       self.justified_row_aspect = Some(v);
     }
+    if let Some(v) = json::get_float_field(map, "calendarDayRowHeightBl")? {
+      if self.item_type != ItemType::Page { not_applicable_err("calendarDayRowHeightBl", self.item_type, &self.id)?; }
+      self.calendar_day_row_height_bl = Some(v);
+    }
 
     // note
     if let Some(v) = json::get_string_field(map, "url")? {
@@ -1168,6 +1180,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(
       String::from("justifiedRowAspect"),
       Value::Number(Number::from_f64(justified_row_aspect).ok_or(nan_err("justifiedRowAspect", &item.id))?));
+  }
+  if let Some(calendar_day_row_height_bl) = item.calendar_day_row_height_bl {
+    if item.item_type != ItemType::Page { unexpected_field_err("calendarDayRowHeightBl", &item.id, item.item_type)? }
+    result.insert(String::from("calendarDayRowHeightBl"), Value::Number(Number::from_f64(calendar_day_row_height_bl).ok_or(nan_err("calendarDayRowHeightBl", &item.id))?));
   }
 
   // note
@@ -1410,6 +1426,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("justifiedRowAspect", item_type, &id)) } },
       None => { if item_type == ItemType::Page { Err(expected_for_err("justifiedRowAspect", item_type, &id)) } else { Ok(None) } }
     }?,
+    calendar_day_row_height_bl: match json::get_float_field(map, "calendarDayRowHeightBl")? {
+      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("calendarDayRowHeightBl", item_type, &id)) } },
+      None => { if item_type == ItemType::Page { Err(expected_for_err("calendarDayRowHeightBl", item_type, &id)) } else { Ok(None) } }
+    }?,
 
     // note
     url: match json::get_string_field(map, "url")? {
@@ -1513,6 +1533,7 @@ impl Item {
       grid_cell_aspect: None,
       doc_width_bl: None,
       justified_row_aspect: None,
+      calendar_day_row_height_bl: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -1567,6 +1588,7 @@ impl Item {
       grid_cell_aspect: None,
       doc_width_bl: None,
       justified_row_aspect: None,
+      calendar_day_row_height_bl: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -1624,6 +1646,7 @@ impl Item {
       grid_cell_aspect: None,
       doc_width_bl: None,
       justified_row_aspect: None,
+      calendar_day_row_height_bl: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -1672,6 +1695,7 @@ impl Item {
       grid_cell_aspect: None,
       doc_width_bl: None,
       justified_row_aspect: None,
+      calendar_day_row_height_bl: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -1840,6 +1864,9 @@ impl Item {
       }
       if let Some(justified_row_aspect) = self.justified_row_aspect {
         hashes.push(hash_f64_to_uid(justified_row_aspect));
+      }
+      if let Some(calendar_day_row_height_bl) = self.calendar_day_row_height_bl {
+        hashes.push(hash_f64_to_uid(calendar_day_row_height_bl));
       }
     }
 

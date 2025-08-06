@@ -343,7 +343,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const titleHeight = 40;
     const monthTitleHeight = 30;
     const topPadding = 10;
-    const dayRowHeight = CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX; // Use constant block height
+    const dayRowHeight = asPageItem(inElement).calendarDayRowHeightBl * LINE_HEIGHT_PX;
 
     // Account for scroll position within the scaled child area
     const veid = VeFns.veidFromVe(inElementVe);

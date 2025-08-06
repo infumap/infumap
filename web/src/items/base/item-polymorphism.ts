@@ -515,6 +515,9 @@ export const ItemFns = {
       if (pageItem.justifiedRowAspect !== undefined) {
         hashes.push(hashF64ToUid(pageItem.justifiedRowAspect));
       }
+      if (pageItem.calendarDayRowHeightBl !== undefined) {
+        hashes.push(hashF64ToUid(pageItem.calendarDayRowHeightBl));
+      }
     }
 
     // Note-specific properties
