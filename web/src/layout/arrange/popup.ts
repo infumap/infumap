@@ -38,7 +38,8 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   const currentPopupSpec = store.history.currentPopupSpec()!;
 
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-                         currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified);
+                         currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
+                         currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
 
   const popupVeid = currentPopupSpec.actualVeid;
   const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
