@@ -1214,7 +1214,14 @@ pub fn migrate_record_v21_to_v22(kvs: &Map<String, Value>) -> InfuResult<Map<Str
 
     "entry" => {
       let mut result = kvs.clone();
-      let existing = result.insert(String::from("dateTime"), Value::Number(unix_now_secs_i64()?.into()));
+      let creation_date = match json::get_integer_field(kvs, "creationDate")? {
+        Some(date) => date,
+        None => {
+          warn!("Entry record missing 'creationDate' field during v21 to v22 migration, using current time as fallback");
+          unix_now_secs_i64()?
+        }
+      };
+      let existing = result.insert(String::from("dateTime"), Value::Number(creation_date.into()));
       if existing.is_some() { return Err("dateTime field already exists.".into()); }
 
       let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
