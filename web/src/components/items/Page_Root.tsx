@@ -28,6 +28,7 @@ import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
 import { getMonthInfo } from "../../util/time";
 import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
+import { fullArrange } from "../../layout/arrange";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -198,7 +199,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   }
 
   const renderCalendarPage = () => {
-    const currentYear = new Date().getFullYear();
+    const currentYear = store.perVe.getCalendarYear(VeFns.veToPath(props.visualElement));
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -226,10 +227,24 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
 
-          {/* Year title */}
-          <div class="absolute text-center font-bold text-2xl"
-               style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
-            {currentYear}
+          {/* Year title with navigation */}
+          <div class="absolute flex items-center justify-center font-bold text-2xl"
+               style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
+            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
+                 onClick={() => {
+                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
+                   fullArrange(store);
+                 }}>
+              <i class="fas fa-angle-left" />
+            </div>
+            <span class="mx-2">{currentYear}</span>
+            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
+                 onClick={() => {
+                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
+                   fullArrange(store);
+                 }}>
+              <i class="fas fa-angle-right" />
+            </div>
           </div>
 
           {/* Calendar months */}

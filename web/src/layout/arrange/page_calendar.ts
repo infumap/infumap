@@ -137,10 +137,21 @@ export function arrange_calendar_page(
   // Arrange child items in calendar grid layout (6 blocks wide)
   let calendarVeChildren: Array<VisualElementSignal> = [];
 
+  // Get the currently selected calendar year for this page
+  const selectedCalendarYear = store.perVe.getCalendarYear(pageWithChildrenVePath);
+
   // Sort children by dateTime, but exclude moving item if it's in this page
+  // Also filter to only show items from the selected calendar year
   const childrenWithDateTime = displayItem_pageWithChildren.computed_children
     .map(childId => itemState.get(childId)!)
-    .filter(child => child != null && (!movingItemInThisPage || child.id !== movingItemInThisPage.id))
+    .filter(child => {
+      if (child == null) return false;
+      if (movingItemInThisPage && child.id === movingItemInThisPage.id) return false;
+      
+      // Filter by selected calendar year
+      const itemDate = new Date(child.dateTime * 1000);
+      return itemDate.getFullYear() === selectedCalendarYear;
+    })
     .sort((a, b) => a.dateTime - b.dateTime);
 
   // Calendar layout dimensions (using scaled childAreaBoundsPx)

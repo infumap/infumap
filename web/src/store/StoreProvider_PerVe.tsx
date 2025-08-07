@@ -60,6 +60,9 @@ export interface PerVeStoreContextModel {
   getFlipCardIsEditing: (vePath: VisualElementPath) => boolean,
   setFlipCardIsEditing: (vePath: VisualElementPath, isEditing: boolean) => void,
 
+  getCalendarYear: (vePath: VisualElementPath) => number,
+  setCalendarYear: (vePath: VisualElementPath, year: number) => void,
+
   clear: () => void,
 }
 
@@ -78,6 +81,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const moveOverIndexAndPosition = new Map<string, InfuSignal<IndexAndPosition>>();
   const isExpanded = new Map<string, BooleanSignal>();
   const flipcardIsEditing = new Map<string, BooleanSignal>();
+  const calendarYear = new Map<string, NumberSignal>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
     if (!mouseIsOver.get(vePath)) {
@@ -244,6 +248,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
     flipcardIsEditing.get(vePath)!.set(isEditing);
   };
 
+  const getCalendarYear = (vePath: VisualElementPath): number => {
+    if (!calendarYear.get(vePath)) {
+      calendarYear.set(vePath, createNumberSignal(new Date().getFullYear()));
+    }
+    return calendarYear.get(vePath)!.get();
+  };
+
+  const setCalendarYear = (vePath: VisualElementPath, year: number): void => {
+    if (!calendarYear.get(vePath)) {
+      calendarYear.set(vePath, createNumberSignal(year));
+      return;
+    }
+    calendarYear.get(vePath)!.set(year);
+  };
+
   return ({
     getMouseIsOver,
     setMouseIsOver,
@@ -277,6 +296,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getFlipCardIsEditing,
     setFlipCardIsEditing,
+
+    getCalendarYear,
+    setCalendarYear,
 
     clear
   });
