@@ -27,7 +27,7 @@ import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../.
 import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
 import { getMonthInfo } from "../../util/time";
-import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS } from "../../util/calendar-layout";
+import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -251,11 +251,19 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 <For each={Array.from({length: monthInfo.daysInMonth}, (_, i) => i + 1)}>{day => {
                   const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
                   const topPos = CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT + (day - 1) * calendarDimensions.dayRowHeight;
+                  const isToday = isCurrentDay(month, day, currentYear);
+
+                  let backgroundColor = '#ffffff';
+                  if (isToday) {
+                    backgroundColor = '#fef3c7';
+                  } else if (isWeekend(dayOfWeek)) {
+                    backgroundColor = '#f5f5f5';
+                  }
 
                   return (
                     <div class="absolute flex items-start"
                          style={`left: 0px; top: ${topPos}px; width: ${calendarDimensions.columnWidth}px; height: ${calendarDimensions.dayRowHeight}px; ` +
-                                `background-color: ${isWeekend(dayOfWeek) ? '#f5f5f5' : '#ffffff'}; ` +
+                                `background-color: ${backgroundColor}; ` +
                                 `border-bottom: 1px solid #e5e5e5; padding-top: 5px;`}>
                       <span style="width: 14px; text-align: right; font-size: 10px; margin-left: 2px;">{day}</span>
                       <span class="text-gray-600" style="font-size: 10px; margin-left: 3px;">{dayNames[dayOfWeek]}</span>

@@ -125,4 +125,18 @@ export function decodeCalendarCombinedIndex(combinedIndex: number): CalendarPosi
   const month = Math.floor(combinedIndex / 100);
   const day = combinedIndex % 100;
   return { month, day };
+}
+
+export function getCurrentDayInfo(): { month: number; day: number; year: number } {
+  const now = new Date();
+  return {
+    month: now.getMonth() + 1,
+    day: now.getDate(),
+    year: now.getFullYear()
+  };
+}
+
+export function isCurrentDay(month: number, day: number, year: number): boolean {
+  const currentDay = getCurrentDayInfo();
+  return currentDay.month === month && currentDay.day === day && currentDay.year === year;
 } 
