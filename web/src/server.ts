@@ -322,6 +322,12 @@ export const serverOrRemote = {
 
 let loadTestInterval: number | null = null;
 
+/**
+ * Check for container modifications and refresh them automatically
+ * 
+ * TODO: 1. race condition with user interaction.
+ *       2. setInterval [Violation] - takes too long.
+ */
 async function performAutoRefresh(store: StoreContextModel): Promise<void> {
   // Pause refresh during user interactions
   if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
