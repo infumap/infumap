@@ -283,6 +283,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   while (!finished) {
     let itemId = iterContainers[iterContainers.length-1].computed_children[iterIndices[iterIndices.length-1]];
     const item = itemState.get(itemId)!;
+
     // 1. make row.
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
     let itemVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);

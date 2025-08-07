@@ -79,6 +79,8 @@ interface ServerCommand {
   panicLogoutOnError: boolean,
   resolve: (response: any) => void,
   reject: (reason: any) => void,
+  isInternal?: boolean,
+  internalHandler?: () => Promise<any>,
 }
 
 // TODO (MEDIUM): Allow multiple in flight requests. But add seq number and enforce execution order on server.
@@ -97,19 +99,38 @@ function serveWaiting(networkStatus: NumberSignal) {
   inProgress = command;
   const DEBUG = false;
   if (DEBUG) { console.debug(command.command, command.payload); }
-  sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
-    .then((resp: any) => {
-      inProgress = null;
-      command.resolve(resp);
-    })
-    .catch((error) => {
-      inProgress = null;
-      command.reject(error);
-      networkStatus.set(NETWORK_STATUS_ERROR);
-    })
-    .finally(() => {
-      serveWaiting(networkStatus);
-    });
+  
+  if (command.isInternal && command.internalHandler) {
+    // Handle internal command
+    command.internalHandler()
+      .then((resp: any) => {
+        inProgress = null;
+        command.resolve(resp);
+      })
+      .catch((error) => {
+        inProgress = null;
+        command.reject(error);
+        networkStatus.set(NETWORK_STATUS_ERROR);
+      })
+      .finally(() => {
+        serveWaiting(networkStatus);
+      });
+  } else {
+    // Handle server command
+    sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+      .then((resp: any) => {
+        inProgress = null;
+        command.resolve(resp);
+      })
+      .catch((error) => {
+        inProgress = null;
+        command.reject(error);
+        networkStatus.set(NETWORK_STATUS_ERROR);
+      })
+      .finally(() => {
+        serveWaiting(networkStatus);
+      });
+  }
 }
 
 function constructCommandPromise(
@@ -123,6 +144,30 @@ function constructCommandPromise(
     const commandObj: ServerCommand = {
       host, command, payload, base64data, panicLogoutOnError,
       resolve, reject
+    };
+    commandQueue.push(commandObj);
+    if (networkStatus.get() != NETWORK_STATUS_ERROR) {
+      networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+    }
+    serveWaiting(networkStatus);
+  })
+}
+
+function constructInternalCommandPromise(
+    command: string,
+    handler: () => Promise<any>,
+    networkStatus: NumberSignal): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const commandObj: ServerCommand = {
+      host: null,
+      command,
+      payload: {},
+      base64data: null,
+      panicLogoutOnError: false,
+      resolve,
+      reject,
+      isInternal: true,
+      internalHandler: handler
     };
     commandQueue.push(commandObj);
     if (networkStatus.get() != NETWORK_STATUS_ERROR) {
@@ -277,6 +322,159 @@ export const serverOrRemote = {
 
 let loadTestInterval: number | null = null;
 
+async function performAutoRefresh(store: StoreContextModel): Promise<void> {
+  // Pause refresh during user interactions
+  if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
+    return;
+  }
+
+  const watchedContainersByOrigin = VesCache.getCurrentWatchContainerUidsByOrigin();
+  const localContainers = watchedContainersByOrigin.get(null);
+
+  if (!localContainers || localContainers.size === 0) {
+    return;
+  }
+
+  const testRequests: ModifiedCheck[] = [];
+
+  // Process containers in parallel with async hashing
+  const hashPromises = Array.from(localContainers).map(async (containerId) => {
+    const calculatedHash = await hashChildrenAndTheirAttachmentsOnlyAsync(containerId);
+    return {
+      id: containerId,
+      mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
+      hash: calculatedHash
+    };
+  });
+
+  const resolvedRequests = await Promise.all(hashPromises);
+  testRequests.push(...resolvedRequests);
+
+  // Call sendCommand directly to avoid queue recursion
+  const results = await sendCommand(null, "modified-check", testRequests, null, false);
+  const modifiedContainers = results.filter((r: any) => r.modified);
+
+  for (const modifiedContainer of modifiedContainers) {
+    const container = itemState.get(modifiedContainer.id);
+    if (!container || !isContainer(container)) {
+      continue;
+    }
+
+    const origin = container.origin;
+
+    // Capture state before fetch to detect concurrent changes
+    const containerItem = asContainerItem(container);
+    const preFetchHashes = new Map<Uid, string>();
+
+    // Hash the container itself and its attachments
+    if (isAttachmentsItem(container)) {
+      preFetchHashes.set(modifiedContainer.id, hashItemAndAttachmentsOnly(modifiedContainer.id));
+    }
+
+    // Hash all current children and their attachments
+    for (const childId of containerItem.computed_children) {
+      const childItem = itemState.get(childId);
+      if (childItem) {
+        if (isAttachmentsItem(childItem)) {
+          preFetchHashes.set(childId, hashItemAndAttachmentsOnly(childId));
+        }
+      }
+    }
+
+    // Call sendCommand directly to avoid queue recursion
+    const fetchResult = origin == null
+      ? await sendCommand(null, "get-items", { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false)
+      : await sendCommand(origin, "get-items", { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false);
+
+    if (fetchResult != null) {
+      // Apply the same processing as in server.fetchItems
+      if (fetchResult.item && fetchResult.item.parentId == null) { 
+        fetchResult.item.parentId = EMPTY_UID; 
+      }
+      const result = {
+        item: fetchResult.item,
+        children: fetchResult.children,
+        attachments: fetchResult.attachments
+      };
+
+      if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
+        return;
+      }
+
+      // Check if any tracked items have been modified since the fetch started
+      for (const [itemId, preFetchHash] of preFetchHashes) {
+        const currentItem = itemState.get(itemId);
+        if (currentItem && isAttachmentsItem(currentItem)) {
+          const currentHash = hashItemAndAttachmentsOnly(itemId);
+          if (currentHash !== preFetchHash) {
+            console.log(`Discarding fetch result for container ${modifiedContainer.id} because item ${itemId} was modified during fetch`);
+            return;
+          }
+        }
+      }
+
+      const existingChildIds = new Set(containerItem.computed_children);
+      const newChildIds = new Set<Uid>();
+
+      for (const childObject of result.children) {
+        const childItem = ItemFns.fromObject(childObject, origin);
+        itemState.replaceMaybe(childObject, origin);
+        newChildIds.add(childItem.id);
+      }
+
+      for (const childId of existingChildIds) {
+        if (!newChildIds.has(childId)) {
+          const childItem = itemState.get(childId);
+          if (childItem && isContainer(childItem)) {
+            const childContainer = asContainerItem(childItem);
+            if (childContainer.computed_children.length === 0) {
+              itemState.delete(childId);
+            }
+          } else if (childItem) {
+            itemState.delete(childId);
+          }
+        }
+      }
+
+      containerItem.computed_children = Array.from(newChildIds);
+      itemState.sortChildren(modifiedContainer.id);
+
+      // Handle attachments with proper cleanup like children
+      Object.keys(result.attachments).forEach(id => {
+        const parentItem = itemState.get(id);
+        if (parentItem && isAttachmentsItem(parentItem)) {
+          const attachmentsParent = asAttachmentsItem(parentItem);
+
+          const existingAttachmentIds = new Set(attachmentsParent.computed_attachments);
+          const newAttachmentIds = new Set<Uid>();
+
+          for (const attachmentObject of result.attachments[id]) {
+            const attachmentItem = ItemFns.fromObject(attachmentObject, origin);
+            itemState.replaceMaybe(attachmentObject, origin);
+            newAttachmentIds.add(attachmentItem.id);
+          }
+
+          // Remove attachments that are no longer present
+          for (const attachmentId of existingAttachmentIds) {
+            if (!newAttachmentIds.has(attachmentId)) {
+              itemState.delete(attachmentId);
+            }
+          }
+
+          // Update the computed_attachments array to match the server response
+          attachmentsParent.computed_attachments = Array.from(newAttachmentIds);
+          itemState.sortAttachments(id);
+        }
+      });
+
+      TabularFns.validateNumberOfVisibleColumnsMaybe(modifiedContainer.id);
+      containerItem.childrenLoaded = true;
+
+      fullArrange(store);
+    }
+  }
+}
+
 /**
  * Start a loop that checks for container modifications and refreshes them automatically
  *
@@ -289,157 +487,18 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
   }
 
   loadTestInterval = window.setInterval(async () => {
-    // Pause refresh during user interactions
-    if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
-      return;
-    }
-
-    const watchedContainersByOrigin = VesCache.getCurrentWatchContainerUidsByOrigin();
-    const localContainers = watchedContainersByOrigin.get(null);
-
-    if (!localContainers || localContainers.size === 0) {
-      return;
-    }
-
     try {
-      const testRequests: ModifiedCheck[] = [];
-
-      // Process containers in parallel with async hashing
-      const hashPromises = Array.from(localContainers).map(async (containerId) => {
-        const calculatedHash = await hashChildrenAndTheirAttachmentsOnlyAsync(containerId);
-        return {
-          id: containerId,
-          mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
-          hash: calculatedHash
-        };
-      });
-
-      const resolvedRequests = await Promise.all(hashPromises);
-      testRequests.push(...resolvedRequests);
-
-      const results = await server.modifiedCheck(testRequests, store.general.networkStatus);
-      const modifiedContainers = results.filter(r => r.modified);
-
-      for (const modifiedContainer of modifiedContainers) {
-        const container = itemState.get(modifiedContainer.id);
-        if (!container || !isContainer(container)) {
-          continue;
-        }
-
-        const origin = container.origin;
-
-        // Capture state before fetch to detect concurrent changes
-        const containerItem = asContainerItem(container);
-        const preFetchHashes = new Map<Uid, string>();
-
-        // Hash the container itself and its attachments
-        if (isAttachmentsItem(container)) {
-          preFetchHashes.set(modifiedContainer.id, hashItemAndAttachmentsOnly(modifiedContainer.id));
-        }
-
-        // Hash all current children and their attachments
-        for (const childId of containerItem.computed_children) {
-          const childItem = itemState.get(childId);
-          if (childItem) {
-            if (isAttachmentsItem(childItem)) {
-              preFetchHashes.set(childId, hashItemAndAttachmentsOnly(childId));
-            }
-          }
-        }
-
-        const fetchPromise = origin == null
-          ? server.fetchItems(modifiedContainer.id, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus)
-          : remote.fetchItems(origin, modifiedContainer.id, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus);
-
-        fetchPromise
-          .then(result => {
-            if (result != null) {
-              if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
-                return;
-              }
-
-              // Check if any tracked items have been modified since the fetch started
-              for (const [itemId, preFetchHash] of preFetchHashes) {
-                const currentItem = itemState.get(itemId);
-                if (currentItem && isAttachmentsItem(currentItem)) {
-                  const currentHash = hashItemAndAttachmentsOnly(itemId);
-                  if (currentHash !== preFetchHash) {
-                    console.log(`Discarding fetch result for container ${modifiedContainer.id} because item ${itemId} was modified during fetch`);
-                    return;
-                  }
-                }
-              }
-
-              const existingChildIds = new Set(containerItem.computed_children);
-              const newChildIds = new Set<Uid>();
-
-              for (const childObject of result.children) {
-                const childItem = ItemFns.fromObject(childObject, origin);
-                itemState.replaceMaybe(childObject, origin);
-                newChildIds.add(childItem.id);
-              }
-
-              for (const childId of existingChildIds) {
-                if (!newChildIds.has(childId)) {
-                  const childItem = itemState.get(childId);
-                  if (childItem && isContainer(childItem)) {
-                    const childContainer = asContainerItem(childItem);
-                    if (childContainer.computed_children.length === 0) {
-                      itemState.delete(childId);
-                    }
-                  } else if (childItem) {
-                    itemState.delete(childId);
-                  }
-                }
-              }
-
-              containerItem.computed_children = Array.from(newChildIds);
-              itemState.sortChildren(modifiedContainer.id);
-
-              // Handle attachments with proper cleanup like children
-              Object.keys(result.attachments).forEach(id => {
-                const parentItem = itemState.get(id);
-                if (parentItem && isAttachmentsItem(parentItem)) {
-                  const attachmentsParent = asAttachmentsItem(parentItem);
-
-                  const existingAttachmentIds = new Set(attachmentsParent.computed_attachments);
-                  const newAttachmentIds = new Set<Uid>();
-
-                  for (const attachmentObject of result.attachments[id]) {
-                    const attachmentItem = ItemFns.fromObject(attachmentObject, origin);
-                    itemState.replaceMaybe(attachmentObject, origin);
-                    newAttachmentIds.add(attachmentItem.id);
-                  }
-
-                  // Remove attachments that are no longer present
-                  for (const attachmentId of existingAttachmentIds) {
-                    if (!newAttachmentIds.has(attachmentId)) {
-                      itemState.delete(attachmentId);
-                    }
-                  }
-
-                  // Update the computed_attachments array to match the server response
-                  attachmentsParent.computed_attachments = Array.from(newAttachmentIds);
-                  itemState.sortAttachments(id);
-                }
-              });
-
-              TabularFns.validateNumberOfVisibleColumnsMaybe(modifiedContainer.id);
-              containerItem.childrenLoaded = true;
-
-              fullArrange(store);
-            }
-          })
-          .catch((error) => {
-            console.error(`Failed to refresh container ${modifiedContainer.id}:`, error);
-          });
-      }
+      await constructInternalCommandPromise(
+        "auto-refresh",
+        () => performAutoRefresh(store),
+        store.general.networkStatus
+      );
     } catch (error) {
-      console.error("Container auto-refresh modifiedCheck failed:", error);
+      console.error("Container auto-refresh failed:", error);
     }
   }, 10000);
 
-  console.log("Started container auto-refresh - checking for modifications every 3 seconds");
+  console.log("Started container auto-refresh - checking for modifications every 10 seconds");
 }
 
 /**
