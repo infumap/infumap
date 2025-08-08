@@ -417,24 +417,24 @@ function hitChildMaybe(
       for (let i=0; i<childVe.childrenVes.length; ++i) {
         let ve = childVe.childrenVes[i].get();
         const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x, y: childVe.boundsPx.y + ve.boundsPx.y });
-        // console.log(ve.boundsPx);
         for (let j=0; j<ve.attachmentsVes.length; ++j) {
-          const attachmentVe = ve.attachmentsVes[j].get();
+          const attachmentVes = ve.attachmentsVes[j];
+          const attachmentVe = attachmentVes.get();
           if (!isInside(posRelativeToChildElementPx, attachmentVe.boundsPx)) {
             continue;
           }
           let hitboxType = HitboxFlags.None;
           let meta = null;
-          for (let j=attachmentVe.hitboxes.length-1; j>=0; --j) {
-            if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[j].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
-              hitboxType |= attachmentVe.hitboxes[j].type;
-              if (attachmentVe.hitboxes[j].meta != null) { meta = attachmentVe.hitboxes[j].meta; }
+          for (let k=attachmentVe.hitboxes.length-1; k>=0; --k) {
+            if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
+              hitboxType |= attachmentVe.hitboxes[k].type;
+              if (attachmentVe.hitboxes[k].meta != null) { meta = attachmentVe.hitboxes[k].meta; }
             }
           }
           if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
             const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
             return {
-              overVes: ve.attachmentsVes[j],
+              overVes: attachmentVes,
               rootVes,
               subRootVe: noAttachmentResult.subRootVe,
               subSubRootVe: noAttachmentResult.subSubRootVe,
@@ -1352,6 +1352,8 @@ function finalize(
     posRelativeToRootVePx: Vector,
     canHitEmbeddedInteractive: boolean,
     debugCreatedAt: string): HitInfo {
+
+  if (!overVes) { panic("finalize called with undefined overVes"); }
 
   const overVe = overVes.get();
   if (overVe.displayItem.id == PageFns.umbrellaPage().id) {
