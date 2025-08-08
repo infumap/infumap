@@ -298,6 +298,17 @@ interface RootInfo {
   hitMaybe: HitInfo | null
 }
 
+/**
+ * If rootInfo has a hit and it is not ignored by id, return it; otherwise null.
+ */
+function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Array<Uid>): HitInfo | null {
+  if (rootInfo.hitMaybe) {
+    const overVes = rootInfo.hitMaybe.overVes;
+    if (overVes == null) { return rootInfo.hitMaybe; }
+    if (!ignoreItems.find(a => a == overVes.get().displayItem.id)) { return rootInfo.hitMaybe; }
+  }
+  return null;
+}
 
 function getHitInfo(
     store: StoreContextModel,
@@ -321,18 +332,12 @@ function getHitInfo(
   // progressively narrow it down:
 
   let rootInfo = determineTopLevelRoot(store, umbrellaVe, posOnDesktopPx);
-  if (rootInfo.hitMaybe) {
-    if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
-      return rootInfo.hitMaybe!; // hit a root hitbox, done already.
-    }
-  }
+  const hit1 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
+  if (hit1) { return hit1; }
 
   rootInfo = hitPagePopupRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
-  if (rootInfo.hitMaybe) {
-    if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
-      return rootInfo.hitMaybe!; // hit a root hitbox, done already.
-    }
-  }
+  const hit2 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
+  if (hit2) { return hit2; }
 
   rootInfo = hitNonPagePopupMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, ignoreAttachments);
   if (rootInfo.hitMaybe) {
@@ -340,25 +345,16 @@ function getHitInfo(
   }
 
   rootInfo = hitPageSelectedRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
-  if (rootInfo.hitMaybe) {
-    if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
-      return rootInfo.hitMaybe!; // hit a root hitbox, done already.
-    }
-  }
+  const hit3 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
+  if (hit3) { return hit3; }
 
   rootInfo = hitEmbeddedRootMaybe(store, rootInfo, ignoreItems, canHitEmbeddedInteractive);
-  if (rootInfo.hitMaybe) {
-    if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
-      return rootInfo.hitMaybe!; // hit a root hitbox, done already.
-    }
-  }
+  const hit4 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
+  if (hit4) { return hit4; }
 
   rootInfo = hitFlipCardRootMaybe(rootInfo, ignoreItems);
-  if (rootInfo.hitMaybe) {
-    if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
-      return rootInfo.hitMaybe!; // hit a root hitbox, done already.
-    }
-  }
+  const hit5 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
+  if (hit5) { return hit5; }
 
   return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, ignoreAttachments, canHitEmbeddedInteractive, rootInfo);
 }
