@@ -49,6 +49,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   const expressionItem = () => asExpressionItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
+  const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       const cloned = ExpressionFns.asExpressionMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
@@ -116,30 +117,30 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `${positionClass()} border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (expressionItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
-        return `absolute border border-transparent rounded-sm shadow-xl`;
+        return `${positionClass()} border border-transparent rounded-sm shadow-xl`;
       } else {
-        return 'absolute border border-transparent rounded-sm';
+        return `${positionClass()} border border-transparent rounded-sm`;
       }
     }
-    return `absolute border border-transparent rounded-sm shadow-xl bg-white`;
+    return `${positionClass()} border border-transparent rounded-sm shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return 'absolute rounded-sm';
+      return `${positionClass()} rounded-sm`;
     } else {
       if (expressionItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `absolute border border-[#999] rounded-sm hover:shadow-md`;
+          return `${positionClass()} border border-[#999] rounded-sm hover:shadow-md`;
         } else {
-          return 'absolute border border-transparent rounded-sm';
+          return `${positionClass()} border border-transparent rounded-sm`;
         }
       }
-      return `absolute border border-[#999] rounded-sm bg-white hover:shadow-md`;
+      return `${positionClass()} border border-[#999] rounded-sm bg-white hover:shadow-md`;
     }
   };
 
@@ -185,7 +186,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
                 !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
@@ -265,7 +266,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     <>
       {renderShadowMaybe()}
       <div class={`${outerClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w-(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc ? 2 : 0)}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w-(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc ? 2 : 0)}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
                   `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : 'background-color: #fff1e4;'}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>

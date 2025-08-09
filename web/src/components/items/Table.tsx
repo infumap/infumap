@@ -74,6 +74,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
   }
   const showTriangleDetail = () => (blockSizePx().h / LINE_HEIGHT_PX) > 0.5;
+  const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
   const headerHeightPx = () => blockSizePx().h * TABLE_TITLE_HEADER_HEIGHT_BL;
   const scale = () => blockSizePx().h / LINE_HEIGHT_PX;
   const overPosRowPx = (): number => {
@@ -151,9 +152,9 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const shadowClass = () => {
     if (isPopup()) {
-      return `absolute border border-transparent rounded-sm shadow-xl blur-md bg-slate-700`;
+      return `${positionClass()} border border-transparent rounded-sm shadow-xl blur-md bg-slate-700`;
     }
-    return `absolute border border-transparent rounded-sm shadow-xl`;
+    return `${positionClass()} border border-transparent rounded-sm shadow-xl`;
   };
 
   const renderShadowMaybe = () =>
@@ -161,20 +162,20 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <>
         <div class={`${shadowClass()}`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
                    `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
         <Show when={isPopup() || true}>
-          <div class={`absolute bg-white pointer-events-none`}
-               style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
+          <div class={`${positionClass()} bg-white pointer-events-none`}
+               style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
                       `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW};`} />
         </Show>
       </>
     </Show>;
 
   const renderNotDetailed = () =>
-    <div class={`absolute border border-[#999] rounded-sm bg-white hover:shadow-md`}
+    <div class={`${positionClass()} border border-[#999] rounded-sm bg-white hover:shadow-md`}
          style={`left: ${boundsPx().x}px; ` +
-                `top: ${boundsPx().y + blockSizePx().h}px; ` +
+                `top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
                 `width: ${boundsPx().w}px; ` +
                 `height: ${boundsPx().h - blockSizePx().h}px; ` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />;
@@ -189,9 +190,9 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                     `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
       <TableChildArea visualElement={props.visualElement} />
-      <div class={`absolute pointer-events-none ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+             <div class={`${positionClass()} pointer-events-none ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
              class={`absolute font-bold`}
              style={`left: 0px; top: 0px; ` +
@@ -234,32 +235,32 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
       </div>
       <Show when={showColHeader()}>
-        <div class='absolute'
-             style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - blockSizePx().h}px; ` +
+               <div class={`${positionClass()}`}
+             style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
                     `width: ${viewportBoundsPx()!.w}px; height: ${blockSizePx().h}px; ` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-          <For each={columnSpecs()}>{spec =>
-            <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
-                 class={`absolute whitespace-nowrap overflow-hidden`}
-                 style={`left: ${spec.startPosPx + PADDING_PROP * blockSizePx().w}px; top: 0px; ` +
-                        `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                        `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
-                        `transform: scale(${scale()}); transform-origin: top left;` +
-                        `outline: 0px solid transparent;`}
+         <For each={columnSpecs()}>{spec =>
+           <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
+                class={`absolute whitespace-nowrap overflow-hidden`}
+                style={`left: ${spec.startPosPx + PADDING_PROP * blockSizePx().w}px; top: 0px; ` +
+                       `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+                       `transform: scale(${scale()}); transform-origin: top left;` +
+                       `outline: 0px solid transparent;`}
                  contentEditable={store.overlay.textEditInfo() != null}
                  spellcheck={store.overlay.textEditInfo() != null}>
-              {spec.name}
-              <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>
-                <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
-                  <i class="fas fa-chevron-down" />
-                </div>
-              </Show>
-            </div>
-          }</For>
-        </div>
+             {spec.name}
+             <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>
+               <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
+                 <i class="fas fa-chevron-down" />
+               </div>
+             </Show>
+           </div>
+         }</For>
+       </div>
       </Show>
-      <div class='absolute pointer-events-none'
-           style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
+      <div class={`${positionClass()} pointer-events-none`}
+           style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0) - (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <For each={columnSpecs()}>{spec =>
@@ -273,23 +274,23 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   store.perVe.getMoveOverRowNumber(vePath()) > -1 &&
                   store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
                   !isSortedByTitle()}>
-        <div class={`absolute border border-black`}
-             style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px;` +
+        <div class={`${positionClass()} border border-black`}
+             style={`left: ${boundsPx().x}px; top: ${overPosRowPx() + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: 1px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
                   store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0}>
-        <div class={`absolute border border-black bg-black`}
-             style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;` +
+        <div class={`${positionClass()} border border-black bg-black`}
+             style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
                   store.perVe.getMoveOverRowNumber(vePath()) > -2 && // always true, create dependency.
                   store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
                   isSortedByTitle()}>
-        <div class="absolute pointer-events-none"
+        <div class={`${positionClass()} pointer-events-none`}
              style={`background-color: #0044ff0a; ` +
-                    `left: ${viewportBoundsPx()!.x + 1}px; top: ${viewportBoundsPx()!.y + 1}px; ` +
+                    `left: ${viewportBoundsPx()!.x + 1}px; top: ${viewportBoundsPx()!.y + 1 + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
                     `width: ${viewportBoundsPx()!.w - 2}px; height: ${viewportBoundsPx()!.h - 2}px; ` +
                     `${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
@@ -366,8 +367,8 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   return (
     <div ref={outerDiv}
          id={props.visualElement.displayItem.id}
-         class='absolute'
-         style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y}px; ` +
+         class={`${(props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute'}`}
+         style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
                 `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; overflow-y: auto;` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
          onscroll={scrollHandler}>

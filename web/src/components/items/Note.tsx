@@ -59,6 +59,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const boundsPx = () => props.visualElement.boundsPx;
+  const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
@@ -126,30 +127,30 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `${positionClass()} border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (noteItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
-        return `absolute border border-[#999] rounded-sm shadow-xl`;
+        return `${positionClass()} border border-[#999] rounded-sm shadow-xl`;
       } else {
-        return 'absolute border border-transparent rounded-sm';
+        return `${positionClass()} border border-transparent rounded-sm`;
       }
     }
-    return `absolute border border-[#999] rounded-sm shadow-xl bg-white`;
+    return `${positionClass()} border border-[#999] rounded-sm shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return 'absolute rounded-sm';
+      return `${positionClass()} rounded-sm`;
     } else {
       if (noteItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `absolute border border-[#999] rounded-sm`;
+          return `${positionClass()} border border-[#999] rounded-sm`;
         } else {
-          return 'absolute border border-transparent rounded-sm';
+          return `${positionClass()} border border-transparent rounded-sm`;
         }
       }
-      return `absolute border border-[#999] rounded-sm bg-white hover:shadow-md`;
+      return `${positionClass()} border border-[#999] rounded-sm bg-white hover:shadow-md`;
     }
   };
 
@@ -288,7 +289,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
@@ -405,7 +406,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     <>
       {renderShadowMaybe()}
       <div class={`${outerClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
                   `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>

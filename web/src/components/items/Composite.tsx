@@ -38,6 +38,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
+  const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
 
   const attachCompositeBoundsPx = (): BoundingBox => {
     return {
@@ -54,15 +55,15 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
     const shadowClass = () => {
       if (isPopup()) {
-        return `absolute border border-transparent rounded-sm overflow-hidden blur-md bg-slate-700 pointer-events-none`;
+        return `${positionClass()} border border-transparent rounded-sm overflow-hidden blur-md bg-slate-700 pointer-events-none`;
       }
-      return `absolute border border-transparent rounded-sm shadow-xl overflow-hidden`;
+      return `${positionClass()} border border-transparent rounded-sm shadow-xl overflow-hidden`;
     };
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
       <div class={shadowClass()}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
@@ -81,11 +82,11 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   return (
     <>
       {renderShadowMaybe()}
-      <div class={`absolute border ` +
+      <div class={`${positionClass()} border ` +
                   `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
                   `rounded-sm ` +
                   `bg-white  hover:shadow-md`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
                   `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
                   `outline: 0px solid transparent; ` +
@@ -109,8 +110,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         </Show>
       </div>
       <Show when={showTriangleDetail()}>
-        <div class={`absolute border border-transparent pointer-events-none`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+        <div class={`${positionClass()} border border-transparent pointer-events-none`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
                     `outline: 0px solid transparent; ` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>

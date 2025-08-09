@@ -53,10 +53,11 @@ import { asLinkItem, isLink } from "../../items/link-item";
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
-  const fileItem = () => asFileItem(props.visualElement.displayItem);
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
+  const fileItem = () => asFileItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
+  const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
   const attachBoundsPx = (): BoundingBox => {
     return {
       x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
@@ -221,16 +222,16 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `${positionClass()} border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
-    return `absolute border border-[#999] rounded-sm shadow-xl bg-white`;
+    return `${positionClass()} border border-[#999] rounded-sm shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return 'absolute rounded-sm';
+      return `${positionClass()} rounded-sm`;
     } else {
-      return `absolute border border-[#999] rounded-sm bg-white hover:shadow-md`;
+      return `${positionClass()} border border-[#999] rounded-sm bg-white hover:shadow-md`;
     }
   };
 
@@ -238,7 +239,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
                 !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
@@ -324,7 +325,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     <>
       {renderShadowMaybe()}
       <div class={outerClass()}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
