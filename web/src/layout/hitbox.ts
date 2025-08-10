@@ -41,6 +41,7 @@ export enum HitboxFlags {
   TimedFlip =               0x020000,
   Edit =                    0x040000,
   ShowPointer =             0x080000,
+  CalendarOverflow =        0x100000,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -65,6 +66,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.TimedFlip) { result += "TimedFlip "; }
   if (flags & HitboxFlags.Edit) { result += "Edit"; }
   if (flags & HitboxFlags.ShowPointer) { result += "ShowPointer "; }
+  if (flags & HitboxFlags.CalendarOverflow) { result += "CalendarOverflow "; }
   result += "(" + flags + ")";
   return result;
 }
@@ -79,6 +81,9 @@ export interface HitboxMeta {
   colNum?: number,
   startBl?: number,
   endBl?: number,
+  calendarYear?: number,
+  calendarMonth?: number,
+  calendarDay?: number,
 }
 
 export const HitboxFns = {
@@ -105,6 +110,15 @@ export const HitboxFns = {
     }
     if (typeof(meta.endBl) != 'undefined') {
       result.endBl = meta.endBl;
+    }
+    if (typeof(meta.calendarYear) != 'undefined') {
+      result.calendarYear = meta.calendarYear;
+    }
+    if (typeof(meta.calendarMonth) != 'undefined') {
+      result.calendarMonth = meta.calendarMonth;
+    }
+    if (typeof(meta.calendarDay) != 'undefined') {
+      result.calendarDay = meta.calendarDay;
     }
     return result;
   },
@@ -134,6 +148,9 @@ export const HitboxFns = {
     return "[colNum: " +
       (meta.colNum ? meta.colNum : "undefined") + ", startBl: " +
       (meta.startBl ? meta.startBl : "undefined") + ", endBl: " +
-      (meta.endBl ? meta.endBl : "undefined") + "]";
+      (meta.endBl ? meta.endBl : "undefined") + ", year: " +
+      (meta.calendarYear ? meta.calendarYear : "undefined") + ", month: " +
+      (meta.calendarMonth ? meta.calendarMonth : "undefined") + ", day: " +
+      (meta.calendarDay ? meta.calendarDay : "undefined") + "]";
   }
 }

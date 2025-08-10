@@ -209,7 +209,13 @@ export function arrange_calendar_page(
         w: blockSizePx.w - 2,
         h: blockSizePx.h - 4,
       };
-      overflowHitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, overlayBoundsPx));
+      const meta = HitboxFns.createMeta({
+        calendarYear: itemDate.getFullYear(),
+        calendarMonth: month,
+        calendarDay: day,
+      });
+      overflowHitboxes.push(HitboxFns.create(HitboxFlags.CalendarOverflow, overlayBoundsPx, meta));
+      overflowHitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, overlayBoundsPx, meta));
     }
 
     cappedItems.forEach((childItem, stackIndex) => {
