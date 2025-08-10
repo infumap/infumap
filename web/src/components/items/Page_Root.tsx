@@ -29,6 +29,7 @@ import { BorderType, borderColorForColorIdx } from "../../style";
 import { getMonthInfo } from "../../util/time";
 import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
 import { fullArrange } from "../../layout/arrange";
+import { itemState } from "../../store/ItemState";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -293,6 +294,52 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <For each={props.visualElement.childrenVes}>{childVes =>
             <VisualElement_LineItem visualElement={childVes.get()} />
           }</For>
+
+          {/* Render overflow count overlays per day */}
+          {(() => {
+            const childArea = pageFns().childAreaBoundsPx();
+            const dims = calculateCalendarDimensions(childArea);
+            const block = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
+            const rowsPerDay = Math.max(1, Math.floor(dims.dayRowHeight / block.h));
+
+            const itemCounts = new Map<string, number>();
+
+            // Count all items per day present in the page item state for the current year
+            const pageItem = asPageItem(props.visualElement.displayItem);
+            const year = store.perVe.getCalendarYear(VeFns.veToPath(props.visualElement));
+            for (const childId of pageItem.computed_children) {
+              const it = itemState.get(childId);
+              if (!it) continue;
+              const d = new Date(it.dateTime * 1000);
+              if (d.getFullYear() !== year) continue;
+              const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+              itemCounts.set(key, (itemCounts.get(key) || 0) + 1);
+            }
+
+            // For each day with overflow, render overlay
+            const overlays: any[] = [];
+            itemCounts.forEach((totalCount, key) => {
+              if (totalCount <= rowsPerDay) return;
+              const [y, m, dd] = key.split('-').map(n => parseInt(n, 10));
+              const month = m;
+              const day = dd;
+              const monthLeftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (dims.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
+              const dayTopPos = dims.dayAreaTopPx + (day - 1) * dims.dayRowHeight;
+              const rightEdge = monthLeftPos + dims.columnWidth;
+              const baseX = rightEdge - block.w;
+              const baseY = dayTopPos + (rowsPerDay - 1) * block.h;
+              const overlayWidth = block.w - 2;
+              const overlayHeight = block.h - 4;
+              const overlayX = baseX + 2;
+              const overlayY = baseY + 2;
+              const overflowCount = totalCount - rowsPerDay;
+              overlays.push(
+                <div class="absolute flex items-center justify-center text-[10px] font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
+                      style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px;`}>{overflowCount}</div>
+              );
+            });
+            return overlays;
+          })()}
           <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
             <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
           </Show>

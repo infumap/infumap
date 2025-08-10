@@ -168,6 +168,9 @@ export function arrange_calendar_page(
   const widthBl = Math.max(1, maxBlocksInColumn); // At least 1 block for icon
   const itemWidth = blockSizePx.w * widthBl;
 
+  // Cap items per day by how many rows fit in a day
+  const rowsPerDay = Math.max(1, Math.floor(calendarDimensions.dayRowHeight / itemHeight));
+
     // Group items by date for stacking
   const itemsByDate = new Map<string, typeof childrenWithDateTime>();
   childrenWithDateTime.forEach(child => {
@@ -179,9 +182,13 @@ export function arrange_calendar_page(
     itemsByDate.get(dateKey)!.push(child);
   });
 
+  // Prepare an array of page-level hitboxes for overflow indicators
+  const overflowHitboxes: Array<ReturnType<typeof HitboxFns.create>> = [];
+
   // Arrange items by date
   itemsByDate.forEach((itemsForDate, dateKey) => {
-    const firstItem = itemsForDate[0];
+    const cappedItems = itemsForDate.slice(0, rowsPerDay);
+    const firstItem = cappedItems[0];
     const itemDate = new Date(firstItem.dateTime * 1000);
     const month = itemDate.getMonth() + 1; // 1-12
     const day = itemDate.getDate(); // 1-31
@@ -190,77 +197,92 @@ export function arrange_calendar_page(
     const monthLeftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (calendarDimensions.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
     const dayTopPos = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
 
-    itemsForDate.forEach((childItem, stackIndex) => {
+    // Add a page-level hitbox for overflow count if there are more items than rows
+    const overflowCount = Math.max(0, itemsForDate.length - rowsPerDay);
+    if (overflowCount > 0) {
+      const rightEdge = monthLeftPos + calendarDimensions.columnWidth;
+      const baseX = rightEdge - blockSizePx.w;
+      const baseY = dayTopPos + (rowsPerDay - 1) * itemHeight;
+      const overlayBoundsPx = {
+        x: baseX + 2,
+        y: baseY + 2,
+        w: blockSizePx.w - 2,
+        h: blockSizePx.h - 4,
+      };
+      overflowHitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, overlayBoundsPx));
+    }
+
+    cappedItems.forEach((childItem, stackIndex) => {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
       if (isComposite(displayItem)) {
         initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
       }
 
-             // Stack items vertically within the day
-       const boundsPx = {
-         x: monthLeftPos + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX,
-         y: dayTopPos + stackIndex * itemHeight,
-         w: itemWidth,
-         h: itemHeight
-       };
+      // Stack items vertically within the day
+      const boundsPx = {
+        x: monthLeftPos + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX,
+        y: dayTopPos + stackIndex * itemHeight,
+        w: itemWidth,
+        h: itemHeight
+      };
 
-       const innerBoundsPx = {
-         x: 0,
-         y: 0,
-         w: itemWidth,
-         h: itemHeight
-       };
+      const innerBoundsPx = {
+        x: 0,
+        y: 0,
+        w: itemWidth,
+        h: itemHeight
+      };
 
-       // Line item hitbox layout: icon area + text area
-       const clickAreaBoundsPx = widthBl > 1 ? {
-         x: blockSizePx.w, // Start after icon block
-         y: 0,
-         w: blockSizePx.w * (widthBl - 1), // Text area width
-         h: itemHeight
-       } : {
-         x: 0, // If only icon fits, click anywhere
-         y: 0,
-         w: itemWidth,
-         h: itemHeight
-       };
+      // Line item hitbox layout: icon area + text area
+      const clickAreaBoundsPx = widthBl > 1 ? {
+        x: blockSizePx.w, // Start after icon block
+        y: 0,
+        w: blockSizePx.w * (widthBl - 1), // Text area width
+        h: itemHeight
+      } : {
+        x: 0, // If only icon fits, click anywhere
+        y: 0,
+        w: itemWidth,
+        h: itemHeight
+      };
 
-       const popupClickAreaBoundsPx = {
-         x: 0,
-         y: 0,
-         w: blockSizePx.w, // Icon area only
-         h: itemHeight
-       };
+      const popupClickAreaBoundsPx = {
+        x: 0,
+        y: 0,
+        w: blockSizePx.w, // Icon area only
+        h: itemHeight
+      };
 
-       const calendarItemGeometry = {
-         boundsPx,
-         blockSizePx,
-         viewportBoundsPx: null,
-         hitboxes: [
-           HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-           HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-         ]
-       };
+      const calendarItemGeometry = {
+        boundsPx,
+        blockSizePx,
+        viewportBoundsPx: null,
+        hitboxes: [
+          HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+          HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
+          HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        ]
+      };
 
       const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
 
       const isChildHighlighted = highlightedPath !== null && highlightedPath === childPath;
 
-             const calendarItemVeSpec: VisualElementSpec = {
-         displayItem,
-         linkItemMaybe,
-         actualLinkItemMaybe: linkItemMaybe,
-         flags: VisualElementFlags.LineItem |
-                (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
-         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
-         boundsPx: calendarItemGeometry.boundsPx,
-         hitboxes: calendarItemGeometry.hitboxes,
-         parentPath: pageWithChildrenVePath,
-         col: 0,
-         row: stackIndex,
-         blockSizePx: blockSizePx,
-       };
+      const calendarItemVeSpec: VisualElementSpec = {
+        displayItem,
+        linkItemMaybe,
+        actualLinkItemMaybe: linkItemMaybe,
+        flags: VisualElementFlags.LineItem |
+              (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+        _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
+        boundsPx: calendarItemGeometry.boundsPx,
+        hitboxes: calendarItemGeometry.hitboxes,
+        parentPath: pageWithChildrenVePath,
+        col: 0,
+        row: stackIndex,
+        blockSizePx: blockSizePx,
+      };
 
       const calendarItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(calendarItemVeSpec, childPath);
       calendarVeChildren.push(calendarItemVisualElementSignal);
@@ -270,6 +292,13 @@ export function arrange_calendar_page(
       }
     });
   });
+
+  // Attach overflow hitboxes to the page visual element
+  pageWithChildrenVisualElementSpec = pageWithChildrenVisualElementSpec || ({} as any);
+  pageWithChildrenVisualElementSpec.hitboxes = [
+    ...(pageWithChildrenVisualElementSpec.hitboxes || []),
+    ...overflowHitboxes,
+  ];
 
   // Add moving item if it exists and belongs to this page
   if (movingItemInThisPage) {
