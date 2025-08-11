@@ -548,7 +548,8 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   } else {
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
-    MouseActionState.get().activeElementPath = VeFns.veToPath(moveToPageVe);
+    // Set active element to the moved item within the new page path
+    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe));
   }
 
   MouseActionState.get().onePxSizeBl = {
@@ -557,6 +558,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   };
 
   MouseActionState.get().startPosBl = { x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE };
+  MouseActionState.get().moveOver_scaleDefiningElement = VeFns.veToPath(moveToPageVe);
 }
 
 
