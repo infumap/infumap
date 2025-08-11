@@ -131,6 +131,7 @@ fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: M
           20 => crate::storage::db::item_db::migrate_record_v20_to_v21(&kvs)?,
           21 => crate::storage::db::item_db::migrate_record_v21_to_v22(&kvs)?,
           22 => crate::storage::db::item_db::migrate_record_v22_to_v23(&kvs)?,
+          23 => crate::storage::db::item_db::migrate_record_v23_to_v24(&kvs)?,
           _ => { return Err(format!("Unexpected item log version: {}.", from_version).into()); }
         };
         writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;

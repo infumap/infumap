@@ -63,7 +63,6 @@ export const ImageFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -285,7 +284,6 @@ export const ImageFns = {
       itemType: image.itemType,
       flags: image.flags,
       spatialPositionGr: image.spatialPositionGr,
-      calendarPositionGr: image.calendarPositionGr,
       spatialWidthGr: image.spatialWidthGr,
       imageSizePx: image.imageSizePx
     });

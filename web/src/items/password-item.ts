@@ -58,7 +58,6 @@ export const PasswordFns = {
       dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 10.0 * GRID_SIZE,
 
@@ -82,7 +81,6 @@ export const PasswordFns = {
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -173,7 +171,7 @@ export const PasswordFns = {
           x: innerBoundsPx.w / 4,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
           w: innerBoundsPx.w / 2,
-          h: ATTACH_AREA_SIZE_PX,
+          h: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
         }),
       ]
     };
@@ -206,8 +204,8 @@ export const PasswordFns = {
     const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     return {
       boundsPx,
-      blockSizePx,
       viewportBoundsPx: null,
+      blockSizePx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
@@ -245,7 +243,6 @@ export const PasswordFns = {
     return ({
       itemType: password.itemType,
       spatialPositionGr: password.spatialPositionGr,
-      calendarPositionGr: password.calendarPositionGr,
       spatialWidthGr: password.spatialWidthGr,
       text: password.text,
     });

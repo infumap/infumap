@@ -54,7 +54,6 @@ export const RatingFns = {
       dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       rating,
     };
@@ -74,7 +73,6 @@ export const RatingFns = {
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
 
       rating: o.rating,
     });
@@ -137,7 +135,7 @@ export const RatingFns = {
       x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
-      h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+      h: innerBoundsPx.h
     };
     return {
       boundsPx,
@@ -229,7 +227,6 @@ export const RatingFns = {
     return ({
       itemType: rating.itemType,
       spatialPositionGr: rating.spatialPositionGr,
-      calendarPositionGr: rating.calendarPositionGr,
     });
   },
 

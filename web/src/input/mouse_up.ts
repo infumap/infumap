@@ -401,7 +401,6 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
     // case #1.1: the moving item is not a composite.
     if (!isComposite(activeItem)) {
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      activeItem.calendarPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(
         activeItem, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id));
       serverOrRemote.updateItem(activeItem, store.general.networkStatus);
@@ -430,18 +429,15 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
     if (!isComposite(activeItem)) {
       const compositeItem = CompositeFns.create(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
       compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
-      compositeItem.calendarPositionGr = { x: 0.0, y: 0.0 };
       if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
       itemState.add(compositeItem);
       server.addItem(compositeItem, null, store.general.networkStatus);
 
       attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      attachToItem.calendarPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
       serverOrRemote.updateItem(attachToItem, store.general.networkStatus);
 
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      activeItem.calendarPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(activeItem, compositeItem.id, RelationshipToParent.Child);
       serverOrRemote.updateItem(activeItem, store.general.networkStatus);
     }
@@ -451,7 +447,6 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
       const activeItem_composite = asCompositeItem(activeItem);
       const attachToPositionGr = attachToItem.spatialPositionGr;
       activeItem_composite.spatialPositionGr = attachToPositionGr;
-      activeItem_composite.calendarPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(attachToItem, activeItem_composite.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(activeItem_composite.id));
       serverOrRemote.updateItem(attachToItem, store.general.networkStatus);
       serverOrRemote.updateItem(activeItem_composite, store.general.networkStatus);
@@ -478,7 +473,6 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   MouseActionState.get().moveOver_attachHitboxElement = null;
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  activeItem.calendarPositionGr = { x: 0.0, y: 0.0 };
   itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, RelationshipToParent.Attachment);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
@@ -493,7 +487,6 @@ function mouseUpHandler_moving_toFlipCard(store: StoreContextModel, activeItem: 
   const pageItem = asPageItem(itemState.get(flipCardItem.computed_children[visibleSide])!);
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  activeItem.calendarPositionGr = { x: 0.0, y: 0.0 };
   itemState.moveToNewParent(activeItem, pageItem.id, RelationshipToParent.Child);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
@@ -514,7 +507,6 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
   }
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  activeItem.calendarPositionGr = { x: 0.0, y: 0.0 };
   itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
@@ -612,7 +604,6 @@ async function maybeDeleteComposite(store: StoreContextModel) {
   if (!isPositionalItem(child)) { panic("maybeDeleteComposite: child is not positional."); }
   child.parentId = compositeItem.parentId;
   asPositionalItem(child).spatialPositionGr = compositeItem.spatialPositionGr;
-  asPositionalItem(child).calendarPositionGr = { x: 0.0, y: 0.0 };
   compositeItem.computed_children = [];
   compositeItemParent.computed_children.push(child.id);
   itemState.delete(compositeItem.id);

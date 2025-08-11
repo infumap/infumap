@@ -211,7 +211,7 @@ export const ItemFns = {
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InComposite(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InComposite(RatingFns.asRatingMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InComposite(asLinkItem(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode); }
-    if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InComposite(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx);}
+    if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InComposite(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx);}    
     if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_InComposite(FlipCardFns.asFlipCardMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },
@@ -384,10 +384,6 @@ export const ItemFns = {
       const positionalItem = item as any;
       if (positionalItem.spatialPositionGr) {
         const posStr = `${positionalItem.spatialPositionGr.x},${positionalItem.spatialPositionGr.y}`;
-        hashes.push(hashStringToUid(posStr));
-      }
-      if (positionalItem.calendarPositionGr) {
-        const posStr = `${positionalItem.calendarPositionGr.x},${positionalItem.calendarPositionGr.y}`;
         hashes.push(hashStringToUid(posStr));
       }
     }

@@ -65,7 +65,6 @@ export const NoteFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 10.0 * GRID_SIZE,
 
@@ -95,7 +94,6 @@ export const NoteFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -297,7 +295,6 @@ export const NoteFns = {
     return ({
       itemType: note.itemType,
       spatialPositionGr: note.spatialPositionGr,
-      calendarPositionGr: note.calendarPositionGr,
       spatialWidthGr: note.spatialWidthGr,
       title: note.title,
       flags: note.flags,

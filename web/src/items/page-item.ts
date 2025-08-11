@@ -127,7 +127,7 @@ export const PageFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      calendarPositionGr: { x: 0.0, y: 0.0 },
+      
 
       spatialWidthGr: 4.0 * GRID_SIZE,
 
@@ -181,7 +181,7 @@ export const PageFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
+      
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -231,7 +231,7 @@ export const PageFns = {
       ordering: Array.from(p.ordering),
       title: p.title,
       spatialPositionGr: p.spatialPositionGr,
-      calendarPositionGr: p.calendarPositionGr,
+      
 
       spatialWidthGr: p.spatialWidthGr,
 
@@ -710,7 +710,6 @@ export const PageFns = {
       itemType: page.itemType,
       id: page.id,
       spatialPositionGr: page.spatialPositionGr,
-      calendarPositionGr: page.calendarPositionGr,
       spatialWidthGr: page.spatialWidthGr,
       naturalAspect: page.naturalAspect,
       innerSpatialWidthGr: page.innerSpatialWidthGr,

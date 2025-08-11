@@ -274,6 +274,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   }
 
   const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
+  console.log(hitInfo.overVes?.get(), hitInfo.hitboxType);
 
   const startPosBl = null;
   const startWidthBl = null;

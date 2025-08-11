@@ -60,7 +60,7 @@ export const FlipCardFns = {
       dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      calendarPositionGr: { x: 0.0, y: 0.0 },
+      
 
       spatialWidthGr: 10.0 * GRID_SIZE,
 
@@ -90,7 +90,7 @@ export const FlipCardFns = {
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
+      
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -266,7 +266,7 @@ export const FlipCardFns = {
       itemType: flipcard.itemType,
       id: flipcard.id,
       spatialPositionGr: flipcard.spatialPositionGr,
-      calendarPositionGr: flipcard.calendarPositionGr,
+      
       spatialWidthGr: flipcard.spatialWidthGr,
       naturalAspect: flipcard.naturalAspect,
       childrenLoaded: flipcard.childrenLoaded,

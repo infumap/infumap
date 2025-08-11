@@ -72,7 +72,6 @@ export const TableFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 8.0 * GRID_SIZE,
       spatialHeightGr: 6.0 * GRID_SIZE,
@@ -102,7 +101,7 @@ export const TableFns = {
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,
-      parentId: o.parentId,
+      parentId: o.parentId == EMPTY_UID ? null : o.parentId,
       relationshipToParent: o.relationshipToParent,
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
@@ -110,7 +109,6 @@ export const TableFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
       spatialHeightGr: o.spatialHeightGr,
@@ -134,7 +132,7 @@ export const TableFns = {
       itemType: t.itemType,
       ownerId: t.ownerId,
       id: t.id,
-      parentId: t.parentId,
+      parentId: t.parentId == EMPTY_UID ? null : t.parentId,
       relationshipToParent: t.relationshipToParent,
       creationDate: t.creationDate,
       lastModifiedDate: t.lastModifiedDate,
@@ -302,7 +300,6 @@ export const TableFns = {
     return ({
       itemType: table.itemType,
       spatialPositionGr: table.spatialPositionGr,
-      calendarPositionGr: table.calendarPositionGr,
       spatialWidthGr: table.spatialWidthGr,
       spatialHeightGr: table.spatialHeightGr,
       tableColumns: table.tableColumns,

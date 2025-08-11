@@ -62,7 +62,6 @@ export const ExpressionFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 10.0 * GRID_SIZE,
 
@@ -90,7 +89,6 @@ export const ExpressionFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -287,7 +285,6 @@ export const ExpressionFns = {
     return ({
       itemType: expression.itemType,
       spatialPositionGr: expression.spatialPositionGr,
-      calendarPositionGr: expression.calendarPositionGr,
       spatialWidthGr: expression.spatialWidthGr,
       title: expression.title,
       flags: expression.flags,

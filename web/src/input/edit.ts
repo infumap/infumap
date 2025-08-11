@@ -162,7 +162,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
     const widthGr = compositeItem.spatialWidthGr;
     itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child);
     asPositionalItem(upFocusItem).spatialPositionGr = posGr;
-    asPositionalItem(upFocusItem).calendarPositionGr = { x: 0.0, y: 0.0 };
+
     asXSizableItem(upFocusItem).spatialWidthGr = widthGr;
     server.updateItem(upFocusItem, store.general.networkStatus);
     itemState.delete(compositeItem.id);

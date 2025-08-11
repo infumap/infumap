@@ -66,7 +66,6 @@ export const CompositeFns = {
       dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      calendarPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 4.0 * GRID_SIZE,
 
@@ -94,7 +93,6 @@ export const CompositeFns = {
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-      calendarPositionGr: o.calendarPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -293,7 +291,6 @@ export const CompositeFns = {
       itemType: composite.itemType,
       id: composite.id,
       spatialPositionGr: composite.spatialPositionGr,
-      calendarPositionGr: composite.calendarPositionGr,
       spatialWidthGr: composite.spatialWidthGr,
       childrenLoaded: composite.childrenLoaded,
       computed_children: composite.computed_children,
