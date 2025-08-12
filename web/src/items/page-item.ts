@@ -17,7 +17,7 @@
 */
 
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX, PAGE_POPUP_TITLE_HEIGHT_BL, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, LIST_PAGE_TOP_PADDING_PX, PADDING_PROP, CONTAINER_IN_COMPOSITE_PADDING_PX, LINE_HEIGHT_PX, ANCHOR_OFFSET_PX } from '../constants';
-import { HitboxFlags, HitboxFns } from '../layout/hitbox';
+import { HitboxFlags, HitboxFns, HitboxMeta } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
@@ -703,6 +703,18 @@ export const PageFns = {
     const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
     const selectedVeid = store.perItem.getSelectedListPageItem(parentVeid);
     switchToPage(store, selectedVeid, true, false, false);
+  },
+
+  /**
+   * Handle click on a calendar day overflow indicator.
+   */
+  handleCalendarOverflowClick: (visualElement: VisualElement, _store: StoreContextModel, meta: HitboxMeta | null): void => {
+    if (!meta) { return; }
+    const _pagePath = VeFns.veToPath(visualElement);
+    const _year = meta.calendarYear;
+    const _month = meta.calendarMonth;
+    const _day = meta.calendarDay;
+    console.log("Calendar overflow click", { path: _pagePath, year: _year, month: _month, day: _day });
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {

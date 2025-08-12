@@ -44,7 +44,7 @@ export enum HitboxFlags {
   CalendarOverflow =        0x100000,
 }
 
-function hitboxFlagsToString(flags: HitboxFlags): string {
+export function hitboxFlagsToString(flags: HitboxFlags): string {
   let result = " ";
   if (flags & HitboxFlags.Click) { result += "Click "; }
   if (flags & HitboxFlags.Move) { result += "Move "; }

@@ -785,9 +785,11 @@ function hitPagePopupRootMaybe(
             : getBoundingBoxTopLeft(rootVe.boundsPx));
 
       let hitboxType = HitboxFlags.None;
+      let hitboxMeta = null;
       for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
         if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
           hitboxType |= rootVe.hitboxes[j].type;
+          if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
         }
       }
       if (hitboxType != HitboxFlags.None) {
@@ -797,7 +799,7 @@ function hitPagePopupRootMaybe(
           rootVe,
           posRelativeToRootVeBoundsPx,
           posRelativeToRootVeViewportPx,
-          hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe1")
+          hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe1")
         });
       }
       posRelativeToRootVeBoundsPx = vectorSubtract(
@@ -809,14 +811,16 @@ function hitPagePopupRootMaybe(
   }
 
   let hitboxType = HitboxFlags.None;
+  let hitboxMeta = null;
   for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
     if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
       hitboxType |= rootVe.hitboxes[j].type;
+      if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
     }
   }
   let hitMaybe = null;
   if (hitboxType != HitboxFlags.None) {
-    hitMaybe = finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe3");
+    hitMaybe = finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe3");
   }
 
   const posRelativeToRootVeViewportPx = cloneVector(posRelativeToRootVeBoundsPx)!;
@@ -889,9 +893,11 @@ if (rootVe.selectedVes != null) {
       }
 
       let hitboxType = HitboxFlags.None;
+      let hitboxMeta = null;
       for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
         if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
           hitboxType |= rootVe.hitboxes[j].type;
+          if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
         }
       }
 
@@ -902,7 +908,7 @@ if (rootVe.selectedVes != null) {
           rootVe,
           posRelativeToRootVeBoundsPx,
           posRelativeToRootVeViewportPx: posRelativeToRootVeBoundsPx,
-          hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe2")
+          hitMaybe: finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe2")
         });
       }
 
@@ -912,14 +918,16 @@ if (rootVe.selectedVes != null) {
 }
 
 let hitboxType = HitboxFlags.None;
+let hitboxMeta = null;
 for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
   if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
     hitboxType |= rootVe.hitboxes[j].type;
+    if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
   }
 }
 let hitMaybe = null;
 if (hitboxType != HitboxFlags.None) {
-  hitMaybe = finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe3");
+  hitMaybe = finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe3");
 }
 
 const posRelativeToRootVeViewportPx = cloneVector(posRelativeToRootVeBoundsPx)!;

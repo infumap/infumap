@@ -202,6 +202,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store);
 
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.CalendarOverflow) {
+        DoubleClickState.preventDoubleClick();
+        PageFns.handleCalendarOverflowClick(activeVisualElement, store, MouseActionState.get().hitMeta ?? null);
+
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
