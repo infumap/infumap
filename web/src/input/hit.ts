@@ -647,6 +647,29 @@ class HitBuilder {
   }
 }
 
+function parentVe(ve: VisualElement): VisualElement {
+  return VesCache.get(ve.parentPath!)!.get();
+}
+
+function grandparentVe(ve: VisualElement): VisualElement {
+  const p = parentVe(ve);
+  return VesCache.get(p.parentPath!)!.get();
+}
+
+function assertPageShowsChildren(pageVe: VisualElement): void {
+  assert(isPage(pageVe.displayItem), "expected page visual element");
+  assert((pageVe.flags & VisualElementFlags.ShowChildren) > 0, "page not marked as showing children");
+}
+
+function computeGridPositionForPage(pageVe: VisualElement, prop: { x: number, y: number }): Vector {
+  const inner = asPageItem(pageVe.displayItem).innerSpatialWidthGr;
+  const aspect = asPageItem(pageVe.displayItem).naturalAspect;
+  return {
+    x: Math.round(prop.x * inner / (GRID_SIZE / 2)) * (GRID_SIZE / 2),
+    y: Math.round(prop.y * inner / aspect / (GRID_SIZE / 2)) * (GRID_SIZE / 2)
+  };
+}
+
 function getHitInfo(
     store: StoreContextModel,
     posOnDesktopPx: Vector,
@@ -1368,6 +1391,32 @@ function finalize(
 
   const overVe = overVes.get();
   if (overVe.displayItem.id == PageFns.umbrellaPage().id) {
+    return finalizeUmbrella(parentRootVe, overVes, debugCreatedAt);
+  }
+
+  if (overVe.flags & VisualElementFlags.InsideTable) {
+    return finalizeInsideTableChild(hitboxType, containerHitboxType, parentRootVe, rootVes, overVes, overElementMeta, debugCreatedAt);
+  }
+
+  if (isTable(overVe.displayItem) && !(overVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
+    return finalizeTopLevelTable(hitboxType, containerHitboxType, parentRootVe, rootVes, overVes, overElementMeta, posRelativeToRootVePx, debugCreatedAt);
+  }
+
+  if (isPage(overVe.displayItem) && (overVe.flags & VisualElementFlags.ShowChildren)) {
+    return finalizePageWithChildren(hitboxType, containerHitboxType, parentRootVe, rootVes, overVes, overElementMeta, posRelativeToRootVePx, canHitEmbeddedInteractive, debugCreatedAt);
+  }
+
+  if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
+    return finalizeInsideCompositeParent(hitboxType, containerHitboxType, parentRootVe, rootVes, overVes, overElementMeta, posRelativeToRootVePx, debugCreatedAt);
+  }
+
+  return finalizeGeneric(hitboxType, containerHitboxType, parentRootVe, rootVes, overVes, overElementMeta, posRelativeToRootVePx, debugCreatedAt);
+}
+
+function finalizeUmbrella(
+    parentRootVe: VisualElement | null,
+    overVes: VisualElementSignal,
+    debugCreatedAt: string): HitInfo {
     return {
       overVes: null,
       rootVes: overVes,
@@ -1379,17 +1428,24 @@ function finalize(
       overElementMeta: null,
       overPositionableVe: null,
       overPositionGr: null,
-      debugCreatedAt: "finalize " + debugCreatedAt + " (A)",
-    };
-  }
+    debugCreatedAt: "finalize/umbrella " + debugCreatedAt,
+  };
+}
 
-  const overPositionGr = { x: 0, y: 0 };
-
-  if (overVe.flags & VisualElementFlags.InsideTable) {
-    assert(isTable(VesCache.get(overVe.parentPath!)!.get().displayItem), "a visual element marked as inside table, is not in fact inside a table.");
-    const parentTableVe = VesCache.get(overVe.parentPath!)!.get();
-    const tableParentVe = VesCache.get(parentTableVe.parentPath!)!.get();
+function finalizeInsideTableChild(
+    hitboxType: HitboxFlags,
+    containerHitboxType: HitboxFlags,
+    parentRootVe: VisualElement | null,
+    rootVes: VisualElementSignal,
+    overVes: VisualElementSignal,
+    overElementMeta: HitboxMeta | null,
+    debugCreatedAt: string): HitInfo {
+  const overVe = overVes.get();
+  assert(isTable(parentVe(overVe).displayItem), "a visual element marked as inside table, is not in fact inside a table.");
+  const parentTableVe = parentVe(overVe);
+  const tableParentVe = parentVe(parentTableVe);
     let overPositionableVe = tableParentVe;
+  const overPositionGr = { x: 0, y: 0 };
     if (isComposite(tableParentVe.displayItem)) {
       overPositionableVe = VesCache.get(tableParentVe.parentPath!)!.get();
       return {
@@ -1403,9 +1459,9 @@ function finalize(
         overElementMeta,
         overPositionableVe,
         overPositionGr,
-        debugCreatedAt: "finalize " + debugCreatedAt + " (B)",
+      debugCreatedAt: "finalize/tableChild-inComposite " + debugCreatedAt,
       };
-    } else {
+  }
       assert(isPage(tableParentVe.displayItem), "the parent of a table that has a visual element child, is not a page.");
       assert((tableParentVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing table is not marked as having children visible.");
       return {
@@ -1419,28 +1475,33 @@ function finalize(
         overElementMeta,
         overPositionableVe,
         overPositionGr,
-        debugCreatedAt: "finalize " + debugCreatedAt + " (C)",
-      };
-    }
-  }
+    debugCreatedAt: "finalize/tableChild-inPage " + debugCreatedAt,
+  };
+}
 
-  if (isTable(overVe.displayItem) && !(overVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
-    const parentVe = VesCache.get(overVe.parentPath!)!.get();
+function finalizeTopLevelTable(
+    hitboxType: HitboxFlags,
+    containerHitboxType: HitboxFlags,
+    parentRootVe: VisualElement | null,
+    rootVes: VisualElementSignal,
+    overVes: VisualElementSignal,
+    overElementMeta: HitboxMeta | null,
+    posRelativeToRootVePx: Vector,
+    debugCreatedAt: string): HitInfo {
+  const overVe = overVes.get();
+  const parentVeLocal = parentVe(overVe);
     let prop = {
-      x: (posRelativeToRootVePx.x - parentVe.viewportBoundsPx!.x) / parentVe.childAreaBoundsPx!.w,
-      y: (posRelativeToRootVePx.y - parentVe.viewportBoundsPx!.y) / parentVe.childAreaBoundsPx!.h
+    x: (posRelativeToRootVePx.x - parentVeLocal.viewportBoundsPx!.x) / parentVeLocal.childAreaBoundsPx!.w,
+    y: (posRelativeToRootVePx.y - parentVeLocal.viewportBoundsPx!.y) / parentVeLocal.childAreaBoundsPx!.h
     }
     let overPositionGr = { x: 0, y: 0 };
-    let overPositionableVe = parentVe;
-    if (isPage(parentVe.displayItem)) {
-      overPositionGr = {
-        x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / (GRID_SIZE / 2)) * (GRID_SIZE / 2),
-        y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / (GRID_SIZE / 2)) * (GRID_SIZE / 2)
-      };
-    } else if (isComposite(parentVe.displayItem)) {
-      overPositionableVe = VesCache.get(parentVe.parentPath!)!.get();
+  let overPositionableVe = parentVeLocal;
+  if (isPage(parentVeLocal.displayItem)) {
+    overPositionGr = computeGridPositionForPage(parentVeLocal, prop);
+  } else if (isComposite(parentVeLocal.displayItem)) {
+    overPositionableVe = parentVe(parentVeLocal);
     } else {
-      panic("unexpected table parent ve type: " + parentVe.displayItem.itemType);
+    panic("unexpected table parent ve type: " + parentVeLocal.displayItem.itemType);
     }
     return {
       overVes,
@@ -1453,11 +1514,21 @@ function finalize(
       overElementMeta,
       overPositionableVe,
       overPositionGr,
-      debugCreatedAt: "finalize " + debugCreatedAt + " (D)",
-    };
-  }
+    debugCreatedAt: "finalize/topLevelTable " + debugCreatedAt,
+  };
+}
 
-  if (isPage(overVe.displayItem) && (overVe.flags & VisualElementFlags.ShowChildren)) {
+function finalizePageWithChildren(
+    hitboxType: HitboxFlags,
+    containerHitboxType: HitboxFlags,
+    parentRootVe: VisualElement | null,
+    rootVes: VisualElementSignal,
+    overVes: VisualElementSignal,
+    overElementMeta: HitboxMeta | null,
+    posRelativeToRootVePx: Vector,
+    canHitEmbeddedInteractive: boolean,
+    debugCreatedAt: string): HitInfo {
+  const overVe = overVes.get();
     let prop = {
       x: (posRelativeToRootVePx.x - overVe.viewportBoundsPx!.x) / overVe.childAreaBoundsPx!.w,
       y: (posRelativeToRootVePx.y - overVe.viewportBoundsPx!.y) / overVe.childAreaBoundsPx!.h
@@ -1468,22 +1539,17 @@ function finalize(
         y: posRelativeToRootVePx.y / overVe.childAreaBoundsPx!.h
       }
     }
-    const overPositionGr = {
-      x: Math.round(prop.x * asPageItem(overVe.displayItem).innerSpatialWidthGr / (GRID_SIZE / 2)) * (GRID_SIZE / 2),
-      y: Math.round(prop.y * asPageItem(overVe.displayItem).innerSpatialWidthGr / asPageItem(overVe.displayItem).naturalAspect / (GRID_SIZE / 2)) * (GRID_SIZE / 2)
-    };
+  const overPositionGr = computeGridPositionForPage(overVe, prop);
     let overPositionableVe = overVe;
     if (canHitEmbeddedInteractive) {
       if (overVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
         overPositionableVe = VesCache.get(overVe.parentPath!)!.get();
       }
     }
-
     if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
-      const parentCompositeVe = VesCache.get(overVe.parentPath!)!.get();
-      const compositeParentPageVe = VesCache.get(parentCompositeVe.parentPath!)!.get();
-      assert(isPage(compositeParentPageVe.displayItem), "the parent of a composite that has a visual element child, is not a page.");
-      assert((compositeParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing composite is not marked as having children visible.");
+    const parentCompositeVe = parentVe(overVe);
+    const compositeParentPageVe = parentVe(parentCompositeVe);
+    assertPageShowsChildren(compositeParentPageVe);
       return {
         overVes,
         rootVes,
@@ -1495,11 +1561,9 @@ function finalize(
         compositeHitboxTypeMaybe: containerHitboxType,
         overElementMeta,
         overPositionGr,
-        debugCreatedAt: "finalize " + debugCreatedAt + " (E1)",
+      debugCreatedAt: "finalize/pageChildren-inComposite " + debugCreatedAt,
       };
     }
-
-    else {
       return {
         overVes,
         rootVes,
@@ -1511,16 +1575,24 @@ function finalize(
         overElementMeta,
         overPositionableVe,
         overPositionGr,
-        debugCreatedAt: "finalize " + debugCreatedAt + " (E2)",
-      };
-    }
-  }
+    debugCreatedAt: "finalize/pageChildren " + debugCreatedAt,
+  };
+}
 
-  if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
-    const parentCompositeVe = VesCache.get(overVe.parentPath!)!.get();
-    const compositeParentPageVe = VesCache.get(parentCompositeVe.parentPath!)!.get();
-    assert(isPage(compositeParentPageVe.displayItem), "the parent of a composite that has a visual element child, is not a page.");
-    assert((compositeParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing composite is not marked as having children visible.");
+function finalizeInsideCompositeParent(
+    hitboxType: HitboxFlags,
+    containerHitboxType: HitboxFlags,
+    parentRootVe: VisualElement | null,
+    rootVes: VisualElementSignal,
+    overVes: VisualElementSignal,
+    overElementMeta: HitboxMeta | null,
+    posRelativeToRootVePx: Vector,
+    debugCreatedAt: string): HitInfo {
+  const overVe = overVes.get();
+  const parentCompositeVe = parentVe(overVe);
+  const compositeParentPageVe = parentVe(parentCompositeVe);
+  assertPageShowsChildren(compositeParentPageVe);
+  const overPositionGr = { x: 0, y: 0 };
     return {
       overVes,
       rootVes,
@@ -1532,10 +1604,20 @@ function finalize(
       compositeHitboxTypeMaybe: containerHitboxType,
       overElementMeta,
       overPositionGr,
-      debugCreatedAt: "finalize " + debugCreatedAt + " (F)",
-    };
-  }
+    debugCreatedAt: "finalize/insideCompositeParent " + debugCreatedAt,
+  };
+}
 
+function finalizeGeneric(
+    hitboxType: HitboxFlags,
+    containerHitboxType: HitboxFlags,
+    parentRootVe: VisualElement | null,
+    rootVes: VisualElementSignal,
+    overVes: VisualElementSignal,
+    overElementMeta: HitboxMeta | null,
+    posRelativeToRootVePx: Vector,
+    debugCreatedAt: string): HitInfo {
+  const overVe = overVes.get();
   const overVeParentVes = VesCache.get(overVe.parentPath!)!;
   if (!overVeParentVes) {
     console.error("no overVeParentVes");
@@ -1543,14 +1625,14 @@ function finalize(
     VesCache.debugLog();
   }
   const overVeParent = overVeParentVes.get();
-
   assert(
-    isPage(VesCache.get(overVe.parentPath!)!.get().displayItem) ||
-    isFlipCard(VesCache.get(overVe.parentPath!)!.get().displayItem),
+    isPage(parentVe(overVe).displayItem) ||
+    isFlipCard(parentVe(overVe).displayItem),
     "the parent of a non-container item not in page is not a page of flipcard.");
   assert(
-    (VesCache.get(overVe.parentPath!)!.get().flags & VisualElementFlags.ShowChildren) > 0,
-    `the parent '${VesCache.get(overVe.parentPath!)!.get().displayItem.id}' of a non-container does not allow drag in positioning.`);
+    (parentVe(overVe).flags & VisualElementFlags.ShowChildren) > 0,
+    `the parent '${parentVe(overVe).displayItem.id}' of a non-container does not allow drag in positioning.`);
+  const overPositionGr = { x: 0, y: 0 };
   if (isPage(overVe.displayItem)) {
     return {
       overVes,
@@ -1563,10 +1645,9 @@ function finalize(
       overElementMeta,
       overPositionableVe: overVeParent,
       overPositionGr,
-      debugCreatedAt: "finalize " + debugCreatedAt + " (G)",
+      debugCreatedAt: "finalize/generic-page " + debugCreatedAt,
     };
   }
-
   return {
     overVes,
     rootVes,
@@ -1578,6 +1659,6 @@ function finalize(
     overElementMeta,
     overPositionableVe: overVeParent,
     overPositionGr,
-    debugCreatedAt: "finalize " + debugCreatedAt + " (H)",
+    debugCreatedAt: "finalize/generic " + debugCreatedAt,
   };
 }
