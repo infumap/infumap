@@ -132,23 +132,23 @@ export const HitInfoFns = {
       if (isContainer(hitInfo.overVes.get().displayItem)) {
         if (hitInfo.subRootVe && isTable(hitInfo.subRootVe!.displayItem)) {
           if (hitInfo.hitboxType & HitboxFlags.Click) {
-            if (!ignoreItems.find(a => a == hitInfo.subRootVe!.displayItem.id)) {
+            if (!isIgnored(hitInfo.subRootVe!.displayItem.id, ignoreItems)) {
               return hitInfo.subRootVe;
             }
           }
         }
-        if (!ignoreItems.find(a => a == hitInfo.overVes!.get().displayItem.id)) {
+        if (!isIgnored(hitInfo.overVes!.get().displayItem.id, ignoreItems)) {
           return hitInfo.overVes.get();
         }
       }
     }
-    if (hitInfo.subSubRootVe && !ignoreItems.find(a => a == hitInfo.subSubRootVe!.displayItem.id)) {
+    if (hitInfo.subSubRootVe && !isIgnored(hitInfo.subSubRootVe!.displayItem.id, ignoreItems)) {
       return hitInfo.subSubRootVe;
     }
-    if (hitInfo.subRootVe && !ignoreItems.find(a => a == hitInfo.subRootVe!.displayItem.id)) {
+    if (hitInfo.subRootVe && !isIgnored(hitInfo.subRootVe!.displayItem.id, ignoreItems)) {
       return hitInfo.subRootVe;
     }
-    if (!ignoreItems.find(a => a == hitInfo.rootVes.get().displayItem.id)) {
+    if (!isIgnored(hitInfo.rootVes.get().displayItem.id, ignoreItems)) {
       return hitInfo.rootVes.get();
     }
     // Fallback: if everything is ignored, return rootVes anyway to avoid null
@@ -305,7 +305,7 @@ function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Array<Uid>): 
   if (rootInfo.hitMaybe) {
     const overVes = rootInfo.hitMaybe.overVes;
     if (overVes == null) { return rootInfo.hitMaybe; }
-    if (!ignoreItems.find(a => a == overVes.get().displayItem.id)) { return rootInfo.hitMaybe; }
+    if (!isIgnored(overVes.get().displayItem.id, ignoreItems)) { return rootInfo.hitMaybe; }
   }
   return null;
 }
@@ -526,7 +526,7 @@ function hitChildMaybe(
 
   // handle inside any other item (including pages that are sized such that they can't be clicked in).
   const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx));
-  if (!ignoreItems.find(a => a == childVe.displayItem.id)) {
+  if (!isIgnored(childVe.displayItem.id, ignoreItems)) {
     return finalize(hitboxType, HitboxFlags.None, parentRootVe, rootVes, childVes, meta, posRelativeToRootVeViewportPx, canHitEmbeddedInteractive, "hitChildMaybe");
   }
 
@@ -643,7 +643,7 @@ function hitNonPagePopupMaybe(
 
   if (isTable(rootVe.displayItem)) {
 
-    if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+    if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move && !isIgnored(rootVe.displayItem.id, ignoreItems)) {
       return ({
         parentRootVe: parentRootInfo.parentRootVe,
         rootVes,
@@ -666,56 +666,36 @@ function hitNonPagePopupMaybe(
       );
 
       if (!ignoreAttachments) {
-        for (let k=0; k<tableChildVe.attachmentsVes.length; ++k) {
-          const attachmentVes = tableChildVe.attachmentsVes[k];
-          const attachmentVe = attachmentVes.get();
-          if (isInside(posRelativeToTableChildAreaPx, attachmentVe.boundsPx)) {
-            let hitboxType = HitboxFlags.None;
-            let meta = null;
-            for (let l=attachmentVe.hitboxes.length-1; l>=0; --l) {
-              if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[l].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
-                hitboxType |= attachmentVe.hitboxes[l].type;
-                if (attachmentVe.hitboxes[l].meta != null) { meta = attachmentVe.hitboxes[l].meta; }
-              }
-            }
-            if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
-              const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
-              parentRootInfo.hitMaybe = {
-                overVes: attachmentVes,
-                rootVes,
-                subRootVe: rootVe,
-                subSubRootVe: null,
-                parentRootVe: parentRootInfo.parentRootVe,
-                hitboxType,
-                compositeHitboxTypeMaybe: HitboxFlags.None,
-                overElementMeta: meta,
-                overPositionableVe: parentRootInfo.rootVe,
-                overPositionGr: null,
-                debugCreatedAt: "hitNonPagePopupMaybe-table-attachment",
-              };
-              return parentRootInfo;
-            }
-          }
+        const attHit = findAttachmentHit(tableChildVe.attachmentsVes, posRelativeToTableChildAreaPx, ignoreItems, false);
+        if (attHit) {
+          const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
+          parentRootInfo.hitMaybe = {
+            overVes: attHit.attachmentVes,
+            rootVes,
+            subRootVe: rootVe,
+            subSubRootVe: null,
+            parentRootVe: parentRootInfo.parentRootVe,
+            hitboxType: attHit.flags,
+            compositeHitboxTypeMaybe: HitboxFlags.None,
+            overElementMeta: attHit.meta,
+            overPositionableVe: parentRootInfo.rootVe,
+            overPositionGr: null,
+            debugCreatedAt: "hitNonPagePopupMaybe-table-attachment",
+          };
+          return parentRootInfo;
         }
       }
 
-      if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
-        let hitboxType = HitboxFlags.None;
-        let meta = null;
-        for (let k=tableChildVe.hitboxes.length-1; k>=0; --k) {
-          if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(tableChildVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(tableChildVe.boundsPx)))) {
-            hitboxType |= tableChildVe.hitboxes[k].type;
-            if (tableChildVe.hitboxes[k].meta != null) { meta = tableChildVe.hitboxes[k].meta; }
-          }
-        }
-        if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
+        if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
+        const { flags: hitboxType, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx));
+        if (!isIgnored(tableChildVe.displayItem.id, ignoreItems)) {
           parentRootInfo.hitMaybe = finalize(hitboxType, HitboxFlags.None, parentRootInfo.parentRootVe, rootVes, tableChildVes, meta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "hitNonPagePopupMaybe-table-child");
           return parentRootInfo;
         }
       }
     }
 
-    if (hitboxType != HitboxFlags.None && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+    if (hitboxType != HitboxFlags.None && !isIgnored(rootVe.displayItem.id, ignoreItems)) {
       return ({
         parentRootVe: parentRootInfo.parentRootVe,
         rootVes,
@@ -737,7 +717,7 @@ function hitNonPagePopupMaybe(
     }
   }
 
-  if (hitboxType != HitboxFlags.None && !ignoreItems.find(a => a == rootVe.displayItem.id)) {
+  if (hitboxType != HitboxFlags.None && !isIgnored(rootVe.displayItem.id, ignoreItems)) {
     return ({
       parentRootVe: parentRootInfo.parentRootVe,
       rootVes,
@@ -950,7 +930,7 @@ function hitFlipCardRootMaybe(
     const childVes = rootVe.childrenVes[i];
     const childVe = childVes.get();
 
-    if (ignoreItems.find(a => a == childVe.displayItem.id)) { continue; }
+    if (isIgnored(childVe.displayItem.id, ignoreItems)) { continue; }
     if (!isFlipCard(childVe.displayItem)) { continue; }
 
     if (isInside(posRelativeToRootVeViewportPx, childVe.viewportBoundsPx!)) {
@@ -1005,7 +985,7 @@ function hitEmbeddedRootMaybe(
     const childVes = rootVe.childrenVes[i];
     const childVe = childVes.get();
 
-    if (ignoreItems.find(a => a == childVe.displayItem.id)) { continue; }
+    if (isIgnored(childVe.displayItem.id, ignoreItems)) { continue; }
     if (!(childVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) { continue; }
 
     if (isInside(posRelativeToRootVeViewportPx, childVe.boundsPx!)) {
@@ -1127,7 +1107,7 @@ function handleInsideTableMaybe(
           if (tableChildVe.hitboxes[k].meta != null) { meta = tableChildVe.hitboxes[k].meta; }
         }
       }
-      if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
+    if (!isIgnored(tableChildVe.displayItem.id, ignoreItems)) {
         if (!ignoreItems.find(a => a == tableVe.displayItem.id)) {
           return finalize(hitboxType, HitboxFlags.None, parentRootVe, rootVes, tableChildVes, meta, posRelativeToRootVePx, false, "handleInsideTableMaybe3");
         }
@@ -1194,18 +1174,18 @@ function handleInsideCompositeMaybe(
     if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx)) {
       const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
 
-      if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
+        if (!isIgnored(compositeChildVe.displayItem.id, ignoreItems)) {
         const insideTableHit = handleInsideTableInCompositeMaybe(store, parentRootVe, rootVes, compositeChildVe, ignoreItems, posRelativeToRootVePx, posRelativeToCompositeChildAreaPx, posOnDesktopPx, ignoreAttachments);
         if (insideTableHit != null) { return insideTableHit; }
       }
 
       if (hitboxType == HitboxFlags.None && !isTable(compositeChildVe.displayItem)) {
         // if inside a composite child, but didn't hit any hitboxes, then hit the composite, not the child.
-        if (!ignoreItems.find(a => a == compositeVe.displayItem.id)) {
+        if (!isIgnored(compositeVe.displayItem.id, ignoreItems)) {
           return finalize(compositeHitboxType, HitboxFlags.None, parentRootVe, rootVes, compositeVes, meta, posRelativeToRootVePx, false, "handleInsideCompositeMaybe2");
         }
       } else {
-        if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
+        if (!isIgnored(compositeChildVe.displayItem.id, ignoreItems)) {
           return finalize(hitboxType, compositeHitboxType, parentRootVe, rootVes, compositeChildVes, meta, posRelativeToRootVePx, false, "handleInsideCompositeMaybe3");
         }
       }
@@ -1242,7 +1222,7 @@ function handleInsideTableInCompositeMaybe(
     );
     if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
       const { flags: hitboxType, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx));
-      if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
+      if (!isIgnored(tableChildVe.displayItem.id, ignoreItems)) {
         return finalize(hitboxType, HitboxFlags.None, parentRootVe, rootVes, tableChildVes, meta, posRelativeToRootVePx, false, "handleInsideTableInCompositeMaybe1");
       }
     }
