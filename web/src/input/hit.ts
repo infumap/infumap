@@ -429,29 +429,23 @@ function getHitInfo(
   // progressively narrow it down:
 
   let rootInfo = determineTopLevelRoot(store, umbrellaVe, posOnDesktopPx);
-  const hit1 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-  if (hit1) { return hit1; }
+  const hitTop = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
+  if (hitTop) { return hitTop; }
 
-  rootInfo = hitPagePopupRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
-  const hit2 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-  if (hit2) { return hit2; }
+  type RootResolver = (info: RootInfo) => RootInfo;
+  const resolvers: Array<RootResolver> = [
+    (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
+    (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, ignoreAttachments),
+    (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
+    (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive),
+    (info) => hitFlipCardRootMaybe(info, ignoreItems),
+  ];
 
-  rootInfo = hitNonPagePopupMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, ignoreAttachments);
-  if (rootInfo.hitMaybe) {
-    return rootInfo.hitMaybe!;
+  for (const resolve of resolvers) {
+    rootInfo = resolve(rootInfo);
+    const hit = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
+    if (hit) { return hit; }
   }
-
-  rootInfo = hitPageSelectedRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
-  const hit3 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-  if (hit3) { return hit3; }
-
-  rootInfo = hitEmbeddedRootMaybe(store, rootInfo, ignoreItems, canHitEmbeddedInteractive);
-  const hit4 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-  if (hit4) { return hit4; }
-
-  rootInfo = hitFlipCardRootMaybe(rootInfo, ignoreItems);
-  const hit5 = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-  if (hit5) { return hit5; }
 
   return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, ignoreAttachments, canHitEmbeddedInteractive, rootInfo);
 }
