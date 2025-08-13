@@ -310,6 +310,61 @@ function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Array<Uid>): 
   return null;
 }
 
+/** Utility: fast ignore check. */
+function isIgnored(id: Uid, ignoreItems: Array<Uid>): boolean {
+  return ignoreItems.indexOf(id) !== -1;
+}
+
+/**
+ * Utility: scan a VE's hitboxes at a local position.
+ * If offsetTopLeft is provided, hitboxes are first offset by that top-left.
+ */
+function scanHitboxes(
+    ve: VisualElement,
+    localPos: Vector,
+    offsetTopLeft?: Vector): { flags: HitboxFlags, meta: HitboxMeta | null } {
+  let flags = HitboxFlags.None;
+  let meta: HitboxMeta | null = null;
+  for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
+    const hbBounds = typeof offsetTopLeft === 'undefined'
+      ? ve.hitboxes[i].boundsPx
+      : offsetBoundingBoxTopLeftBy(ve.hitboxes[i].boundsPx, offsetTopLeft);
+    if (isInside(localPos, hbBounds)) {
+      flags |= ve.hitboxes[i].type;
+      if (ve.hitboxes[i].meta != null) { meta = ve.hitboxes[i].meta; }
+    }
+  }
+  return { flags, meta };
+}
+
+/**
+ * Utility: find the first attachment that hits at localPos, honoring ignoreItems.
+ * If reverse is true, iterate attachments from back to front.
+ */
+function findAttachmentHit(
+    attachmentsVes: Array<VisualElementSignal>,
+    localPos: Vector,
+    ignoreItems: Array<Uid>,
+    reverse: boolean): { attachmentVes: VisualElementSignal, flags: HitboxFlags, meta: HitboxMeta | null } | null {
+  if (attachmentsVes.length === 0) { return null; }
+  const start = reverse ? attachmentsVes.length - 1 : 0;
+  const end = reverse ? -1 : attachmentsVes.length;
+  const step = reverse ? -1 : 1;
+  for (let i = start; i !== end; i += step) {
+    const attachmentVes = attachmentsVes[i];
+    const attachmentVe = attachmentVes.get();
+    if (!isInside(localPos, attachmentVe.boundsPx)) { continue; }
+    if (isIgnored(attachmentVe.displayItem.id, ignoreItems)) { continue; }
+    const { flags, meta } = scanHitboxes(
+      attachmentVe,
+      localPos,
+      getBoundingBoxTopLeft(attachmentVe.boundsPx)
+    );
+    return { attachmentVes, flags, meta };
+  }
+  return null;
+}
+
 function getHitInfo(
     store: StoreContextModel,
     posOnDesktopPx: Vector,
@@ -413,66 +468,40 @@ function hitChildMaybe(
       for (let i=0; i<childVe.childrenVes.length; ++i) {
         let ve = childVe.childrenVes[i].get();
         const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x, y: childVe.boundsPx.y + ve.boundsPx.y });
-        for (let j=0; j<ve.attachmentsVes.length; ++j) {
-          const attachmentVes = ve.attachmentsVes[j];
-          const attachmentVe = attachmentVes.get();
-          if (!isInside(posRelativeToChildElementPx, attachmentVe.boundsPx)) {
-            continue;
-          }
-          let hitboxType = HitboxFlags.None;
-          let meta = null;
-          for (let k=attachmentVe.hitboxes.length-1; k>=0; --k) {
-            if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
-              hitboxType |= attachmentVe.hitboxes[k].type;
-              if (attachmentVe.hitboxes[k].meta != null) { meta = attachmentVe.hitboxes[k].meta; }
-            }
-          }
-          if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
-            const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
-            return {
-              overVes: attachmentVes,
-              rootVes,
-              subRootVe: noAttachmentResult.subRootVe,
-              subSubRootVe: noAttachmentResult.subSubRootVe,
-              parentRootVe,
-              hitboxType,
-              compositeHitboxTypeMaybe: HitboxFlags.None,
-              overElementMeta: meta,
-              overPositionableVe: noAttachmentResult.overPositionableVe,
-              overPositionGr: noAttachmentResult.overPositionGr,
-              debugCreatedAt: "hitChildMaybe1",
-            };
-          }
+        const hit = findAttachmentHit(ve.attachmentsVes, posRelativeToChildElementPx, ignoreItems, false);
+        if (hit) {
+          const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
+          return {
+            overVes: hit.attachmentVes,
+            rootVes,
+            subRootVe: noAttachmentResult.subRootVe,
+            subSubRootVe: noAttachmentResult.subSubRootVe,
+            parentRootVe,
+            hitboxType: hit.flags,
+            compositeHitboxTypeMaybe: HitboxFlags.None,
+            overElementMeta: hit.meta,
+            overPositionableVe: noAttachmentResult.overPositionableVe,
+            overPositionGr: noAttachmentResult.overPositionGr,
+            debugCreatedAt: "hitChildMaybe1",
+          };
         }
       }
     }
 
     const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x, y: childVe.boundsPx.y });
-    for (let j=childVe.attachmentsVes.length-1; j>=0; j--) {
-      const attachmentVes = childVe.attachmentsVes[j];
-      const attachmentVe = attachmentVes.get();
-      if (!isInside(posRelativeToChildElementPx, attachmentVe.boundsPx)) {
-        continue;
-      }
-      let hitboxType = HitboxFlags.None;
-      let meta = null;
-      for (let j=attachmentVe.hitboxes.length-1; j>=0; --j) {
-        if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[j].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
-          hitboxType |= attachmentVe.hitboxes[j].type;
-          if (attachmentVe.hitboxes[j].meta != null) { meta = attachmentVe.hitboxes[j].meta; }
-        }
-      }
-      if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
+    {
+      const hit = findAttachmentHit(childVe.attachmentsVes, posRelativeToChildElementPx, ignoreItems, true);
+      if (hit) {
         const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
         return {
-          overVes: attachmentVes,
+          overVes: hit.attachmentVes,
           rootVes,
           subRootVe: noAttachmentResult.subRootVe,
           subSubRootVe: noAttachmentResult.subSubRootVe,
           parentRootVe,
-          hitboxType,
+          hitboxType: hit.flags,
           compositeHitboxTypeMaybe: HitboxFlags.None,
-          overElementMeta: meta,
+          overElementMeta: hit.meta,
           overPositionableVe: noAttachmentResult.overPositionableVe,
           overPositionGr: noAttachmentResult.overPositionGr,
           debugCreatedAt: "hitChildMaybe1",
@@ -496,14 +525,7 @@ function hitChildMaybe(
   if (insideCompositeHit != null) { return insideCompositeHit; }
 
   // handle inside any other item (including pages that are sized such that they can't be clicked in).
-  let hitboxType = HitboxFlags.None;
-  let meta = null;
-  for (let j=childVe.hitboxes.length-1; j>=0; --j) {
-    if (isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(childVe.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVe.boundsPx)))) {
-      hitboxType |= childVe.hitboxes[j].type;
-      if (childVe.hitboxes[j].meta != null) { meta = childVe.hitboxes[j].meta; }
-    }
-  }
+  const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx));
   if (!ignoreItems.find(a => a == childVe.displayItem.id)) {
     return finalize(hitboxType, HitboxFlags.None, parentRootVe, rootVes, childVes, meta, posRelativeToRootVeViewportPx, canHitEmbeddedInteractive, "hitChildMaybe");
   }
@@ -616,14 +638,7 @@ function hitNonPagePopupMaybe(
         ? getBoundingBoxTopLeft(rootVe.viewportBoundsPx!)
         : getBoundingBoxTopLeft(rootVe.boundsPx));
 
-  let hitboxType = HitboxFlags.None;
-  let hitboxMeta = null;
-  for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
-    if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
-      hitboxType |= rootVe.hitboxes[j].type;
-      if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
-    }
-  }
+  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
 
 
   if (isTable(rootVe.displayItem)) {
@@ -784,14 +799,7 @@ function hitPagePopupRootMaybe(
             ? getBoundingBoxTopLeft(rootVe.viewportBoundsPx!)
             : getBoundingBoxTopLeft(rootVe.boundsPx));
 
-      let hitboxType = HitboxFlags.None;
-      let hitboxMeta = null;
-      for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
-        if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
-          hitboxType |= rootVe.hitboxes[j].type;
-          if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
-        }
-      }
+  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
       if (hitboxType != HitboxFlags.None) {
         return ({
           parentRootVe: parentRootInfo.rootVe,
@@ -810,14 +818,7 @@ function hitPagePopupRootMaybe(
     }
   }
 
-  let hitboxType = HitboxFlags.None;
-  let hitboxMeta = null;
-  for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
-    if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
-      hitboxType |= rootVe.hitboxes[j].type;
-      if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
-    }
-  }
+  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
   let hitMaybe = null;
   if (hitboxType != HitboxFlags.None) {
     hitMaybe = finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe3");
@@ -892,14 +893,7 @@ if (rootVe.selectedVes != null) {
           });
       }
 
-      let hitboxType = HitboxFlags.None;
-      let hitboxMeta = null;
-      for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
-        if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
-          hitboxType |= rootVe.hitboxes[j].type;
-          if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
-        }
-      }
+      const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
 
       if (hitboxType != HitboxFlags.None) {
         return ({
@@ -917,14 +911,7 @@ if (rootVe.selectedVes != null) {
   }
 }
 
-let hitboxType = HitboxFlags.None;
-let hitboxMeta = null;
-for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
-  if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
-    hitboxType |= rootVe.hitboxes[j].type;
-    if (rootVe.hitboxes[j].meta != null) { hitboxMeta = rootVe.hitboxes[j].meta; }
-  }
-}
+  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
 let hitMaybe = null;
 if (hitboxType != HitboxFlags.None) {
   hitMaybe = finalize(hitboxType, HitboxFlags.None, parentRootInfo.rootVe, rootVes, rootVes, hitboxMeta, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe3");
@@ -975,12 +962,7 @@ function hitFlipCardRootMaybe(
         posRelativeToRootVeViewportPx,
         { x: childVe.boundsPx.x, y: childVe.boundsPx.y });
 
-      let hitboxType = HitboxFlags.None;
-      for (let j=childVe.hitboxes.length-1; j>=0; --j) {
-        if (isInside(newPosRelativeToRootVeBoundsPx, childVe.hitboxes[j].boundsPx)) {
-          hitboxType |= childVe.hitboxes[j].type;
-        }
-      }
+  const { flags: hitboxType } = scanHitboxes(childVe, newPosRelativeToRootVeBoundsPx);
 
       if (hitboxType) {
         return ({
@@ -1042,12 +1024,7 @@ function hitEmbeddedRootMaybe(
         { x: childVe.boundsPx.x - scrollPropX * (childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w),
           y: childVe.boundsPx.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h)});
 
-      let hitboxType = HitboxFlags.None;
-      for (let j=childVe.hitboxes.length-1; j>=0; --j) {
-        if (isInside(newPosRelativeToRootVeBoundsPx, childVe.hitboxes[j].boundsPx)) {
-          hitboxType |= childVe.hitboxes[j].type;
-        }
-      }
+      const { flags: hitboxType } = scanHitboxes(childVe, newPosRelativeToRootVeBoundsPx);
 
       return ({
         parentRootVe: parentRootInfo.rootVe,
@@ -1075,12 +1052,7 @@ function determineIfDockRoot(umbrellaVe: VisualElement, posOnDesktopPx: Vector):
 
   const posRelativeToRootVePx = vectorSubtract(posOnDesktopPx, { x: dockVe.boundsPx.x, y: dockVe.boundsPx.y });
 
-  let hitboxType = HitboxFlags.None;
-  for (let j=dockVe.hitboxes.length-1; j>=0; --j) {
-    if (isInside(posRelativeToRootVePx, dockVe.hitboxes[j].boundsPx)) {
-      hitboxType |= dockVe.hitboxes[j].type;
-    }
-  }
+  const { flags: hitboxType } = scanHitboxes(dockVe, posRelativeToRootVePx);
   if (hitboxType != HitboxFlags.None) {
     return ({
       parentRootVe: null,
@@ -1162,35 +1134,22 @@ function handleInsideTableMaybe(
       }
     }
     if (!ignoreAttachments) {
-      for (let k=0; k<tableChildVe.attachmentsVes.length; ++k) {
-        const attachmentVes = tableChildVe.attachmentsVes[k];
-        const attachmentVe = attachmentVes.get();
-        if (isInside(posRelativeToTableChildAreaPx, attachmentVe.boundsPx)) {
-          let hitboxType = HitboxFlags.None;
-          let meta = null;
-          for (let l=attachmentVe.hitboxes.length-1; l>=0; --l) {
-            if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[l].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
-              hitboxType |= attachmentVe.hitboxes[l].type;
-              if (attachmentVe.hitboxes[l].meta != null) { meta = attachmentVe.hitboxes[l].meta; }
-            }
-          }
-          if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
-            const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, false);
-            return {
-              overVes: attachmentVes,
-              parentRootVe: parentRootVe,
-              rootVes: rootVes,
-              subRootVe: tableVe,
-              subSubRootVe: null,
-              hitboxType,
-              compositeHitboxTypeMaybe: HitboxFlags.None,
-              overElementMeta: meta,
-              overPositionableVe: noAttachmentResult.overPositionableVe,
-              overPositionGr: noAttachmentResult.overPositionGr,
-              debugCreatedAt: "handleInsideTableMaybe (attachment)",
-            };
-          }
-        }
+      const hit = findAttachmentHit(tableChildVe.attachmentsVes, posRelativeToTableChildAreaPx, ignoreItems, false);
+      if (hit) {
+        const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, false);
+        return {
+          overVes: hit.attachmentVes,
+          parentRootVe: parentRootVe,
+          rootVes: rootVes,
+          subRootVe: tableVe,
+          subSubRootVe: null,
+          hitboxType: hit.flags,
+          compositeHitboxTypeMaybe: HitboxFlags.None,
+          overElementMeta: hit.meta,
+          overPositionableVe: noAttachmentResult.overPositionableVe,
+          overPositionGr: noAttachmentResult.overPositionGr,
+          debugCreatedAt: "handleInsideTableMaybe (attachment)",
+        };
       }
     }
   }
@@ -1225,14 +1184,7 @@ function handleInsideCompositeMaybe(
   }
 
   // for the composite case, also hit the container, even if a child is also hit.
-  let compositeHitboxType = HitboxFlags.None;
-  let _compositeMeta = null;
-  for (let k=compositeVe.hitboxes.length-1; k>=0; --k) {
-    if (isInside(posRelativeToRootVePx, offsetBoundingBoxTopLeftBy(compositeVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
-      compositeHitboxType |= compositeVe.hitboxes[k].type;
-      if (compositeVe.hitboxes[k].meta != null) { _compositeMeta = compositeVe.hitboxes[k].meta; }
-    }
-  }
+  const { flags: compositeHitboxType, meta: _compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVePx, getBoundingBoxTopLeft(compositeVe.boundsPx!));
 
   for (let j=0; j<compositeVe.childrenVes.length; ++j) {
     const compositeChildVes = compositeVe.childrenVes[j];
@@ -1240,14 +1192,7 @@ function handleInsideCompositeMaybe(
     const posRelativeToCompositeChildAreaPx = vectorSubtract(
       posRelativeToRootVePx, { x: compositeVe.boundsPx!.x, y: compositeVe.boundsPx!.y });
     if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx)) {
-      let hitboxType = HitboxFlags.None;
-      let meta = null;
-      for (let k=compositeChildVe.hitboxes.length-1; k>=0; --k) {
-        if (isInside(posRelativeToCompositeChildAreaPx, offsetBoundingBoxTopLeftBy(compositeChildVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx)))) {
-          hitboxType |= compositeChildVe.hitboxes[k].type;
-          if (compositeChildVe.hitboxes[k].meta != null) { meta = compositeChildVe.hitboxes[k].meta; }
-        }
-      }
+      const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
 
       if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
         const insideTableHit = handleInsideTableInCompositeMaybe(store, parentRootVe, rootVes, compositeChildVe, ignoreItems, posRelativeToRootVePx, posRelativeToCompositeChildAreaPx, posOnDesktopPx, ignoreAttachments);
@@ -1296,49 +1241,29 @@ function handleInsideTableInCompositeMaybe(
         y: tableVe.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe)) * tableBlockHeightPx }
     );
     if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
-      let hitboxType = HitboxFlags.None;
-      let meta = null;
-      for (let k=tableChildVe.hitboxes.length-1; k>=0; --k) {
-        if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(tableChildVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(tableChildVe.boundsPx)))) {
-          hitboxType |= tableChildVe.hitboxes[k].type;
-          if (tableChildVe.hitboxes[k].meta != null) { meta = tableChildVe.hitboxes[k].meta; }
-        }
-      }
+      const { flags: hitboxType, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx));
       if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
         return finalize(hitboxType, HitboxFlags.None, parentRootVe, rootVes, tableChildVes, meta, posRelativeToRootVePx, false, "handleInsideTableInCompositeMaybe1");
       }
     }
 
     if (!ignoreAttachments) {
-      for (let k=0; k<tableChildVe.attachmentsVes.length; ++k) {
-        const attachmentVes = tableChildVe.attachmentsVes[k];
-        const attachmentVe = attachmentVes.get();
-        if (isInside(posRelativeToTableChildAreaPx, attachmentVe.boundsPx)) {
-          let hitboxType = HitboxFlags.None;
-          let meta = null;
-          for (let l=attachmentVe.hitboxes.length-1; l>=0; --l) {
-            if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[l].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
-              hitboxType |= attachmentVe.hitboxes[l].type;
-              if (attachmentVe.hitboxes[l].meta != null) { meta = attachmentVe.hitboxes[l].meta; }
-            }
-          }
-          if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
-            const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, false);
-            return {
-              overVes: attachmentVes,
-              parentRootVe,
-              rootVes,
-              subRootVe: noAttachmentResult.subRootVe,
-              subSubRootVe: tableVe,
-              hitboxType,
-              compositeHitboxTypeMaybe: HitboxFlags.None,
-              overElementMeta: meta,
-              overPositionableVe: noAttachmentResult.overPositionableVe,
-              overPositionGr: noAttachmentResult.overPositionGr,
-              debugCreatedAt: "handleInsideTableInCompositeMaybe (attachment)",
-            };
-          }
-        }
+      const attHit = findAttachmentHit(tableChildVe.attachmentsVes, posRelativeToTableChildAreaPx, ignoreItems, false);
+      if (attHit) {
+        const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, false);
+        return {
+          overVes: attHit.attachmentVes,
+          parentRootVe,
+          rootVes,
+          subRootVe: noAttachmentResult.subRootVe,
+          subSubRootVe: tableVe,
+          hitboxType: attHit.flags,
+          compositeHitboxTypeMaybe: HitboxFlags.None,
+          overElementMeta: attHit.meta,
+          overPositionableVe: noAttachmentResult.overPositionableVe,
+          overPositionGr: noAttachmentResult.overPositionGr,
+          debugCreatedAt: "handleInsideTableInCompositeMaybe (attachment)",
+        };
       }
     }
   }
