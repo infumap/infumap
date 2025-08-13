@@ -70,6 +70,16 @@ export const arrangeTable = (
   const highlightedPath = store.find.highlightedPath.get();
   const isTableHighlighted = highlightedPath !== null && highlightedPath === tableVePath;
 
+  const isSelectionHighlighted = (() => {
+    const sel = store.overlay.selectedVeids.get();
+    if (!sel || sel.length === 0) { return false; }
+    const veid = VeFns.veidFromItems(displayItem_Table, actualLinkItemMaybe_Table);
+    for (let i=0; i<sel.length; ++i) {
+      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
+    }
+    return false;
+  })();
+
   const tableVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Table,
     linkItemMaybe: linkItemMaybe_Table,
@@ -80,7 +90,8 @@ export const arrangeTable = (
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
-           (isTableHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+           (isTableHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+           (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: tableGeometry.boundsPx,
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,

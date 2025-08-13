@@ -190,6 +190,13 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                     `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
                     `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
+      <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+        <div class={`${positionClass()} pointer-events-none rounded-sm`}
+             style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
+                    `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; ` +
+                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+                    `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+      </Show>
       <TableChildArea visualElement={props.visualElement} />
              <div class={`${positionClass()} pointer-events-none ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
             style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +

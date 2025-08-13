@@ -286,7 +286,8 @@ function mouseAction_selecting(store: StoreContextModel) {
         const ax = Math.min(selectionRect.x + selectionRect.w, veBox.x + veBox.w);
         const ay = Math.min(selectionRect.y + selectionRect.h, veBox.y + veBox.h);
         if (ix < ax && iy < ay) {
-          if (!(ve.flags & VisualElementFlags.ShowChildren) && !(ve.flags & VisualElementFlags.Popup)) {
+          const isSelectableContainer = isTable(ve.displayItem);
+          if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer) && !(ve.flags & VisualElementFlags.Popup)) {
             selected.push({ itemId: ve.displayItem.id, linkIdMaybe: ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null });
           }
         }
