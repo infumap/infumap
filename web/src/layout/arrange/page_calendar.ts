@@ -17,6 +17,7 @@
 */
 
 import { LinkItem, isLink, asLinkItem } from "../../items/link-item";
+import { isRating } from "../../items/rating-item";
 import { PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { ItemGeometry } from "../item-geometry";
@@ -264,11 +265,18 @@ export function arrange_calendar_page(
         boundsPx,
         blockSizePx,
         viewportBoundsPx: null,
-        hitboxes: [
-          HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-          HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-          HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        ]
+        hitboxes: (
+          isRating(displayItem)
+            ? [
+                HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+                HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+              ]
+            : [
+                HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+                HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
+                HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+              ]
+        )
       };
 
       const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
@@ -376,16 +384,18 @@ export function arrange_calendar_page(
       boundsPx: movingItemBoundsPx,
       blockSizePx,
       viewportBoundsPx: null,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, movingClickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, movingPopupClickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, {
-          x: 0,
-          y: 0,
-          w: movingItemBoundsPx.w,
-          h: movingItemBoundsPx.h
-        }),
-      ]
+      hitboxes: (
+        isRating(movingItemInThisPage)
+          ? [
+              HitboxFns.create(HitboxFlags.Click, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
+              HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
+            ]
+          : [
+              HitboxFns.create(HitboxFlags.Click, movingClickAreaBoundsPx),
+              HitboxFns.create(HitboxFlags.OpenPopup, movingPopupClickAreaBoundsPx),
+              HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
+            ]
+      )
     };
 
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(movingItemInThisPage, actualMovingItemLinkItemMaybe), pageWithChildrenVePath);
