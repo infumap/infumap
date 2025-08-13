@@ -196,7 +196,14 @@ export function makeHistoryStore(): HistoryStoreContextModel {
         console.trace();
       }
 
-      breadcrumb.focusPath = popupParentPath;
+      // If parent is umbrella (top-level) or empty, focus should be set back to the current page root path
+      // instead of an invalid umbrella-only path.
+      if (popupParentPath === "" || popupParentPath === UMBRELLA_PAGE_UID) {
+        const currentPageRootPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
+        breadcrumb.focusPath = currentPageRootPath;
+      } else {
+        breadcrumb.focusPath = popupParentPath;
+      }
     } else {
       const nextVePath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length-1].vePath;
 

@@ -63,6 +63,9 @@ export interface PerVeStoreContextModel {
   getCalendarYear: (vePath: VisualElementPath) => number,
   setCalendarYear: (vePath: VisualElementPath, year: number) => void,
 
+  getPopupFilterDate: (vePath: VisualElementPath) => { year: number; month: number; day: number } | null,
+  setPopupFilterDate: (vePath: VisualElementPath, d: { year: number; month: number; day: number } | null) => void,
+
   clear: () => void,
 }
 
@@ -82,6 +85,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const isExpanded = new Map<string, BooleanSignal>();
   const flipcardIsEditing = new Map<string, BooleanSignal>();
   const calendarYear = new Map<string, NumberSignal>();
+  const popupFilterDate = new Map<string, InfuSignal<{ year: number; month: number; day: number } | null>>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
     if (!mouseIsOver.get(vePath)) {
@@ -263,6 +267,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
     calendarYear.get(vePath)!.set(year);
   };
 
+  const getPopupFilterDate = (vePath: VisualElementPath) => {
+    if (!popupFilterDate.get(vePath)) {
+      popupFilterDate.set(vePath, createInfuSignal<{ year: number; month: number; day: number } | null>(null));
+    }
+    return popupFilterDate.get(vePath)!.get();
+  };
+
+  const setPopupFilterDate = (vePath: VisualElementPath, d: { year: number; month: number; day: number } | null) => {
+    if (!popupFilterDate.get(vePath)) {
+      popupFilterDate.set(vePath, createInfuSignal<{ year: number; month: number; day: number } | null>(d));
+      return;
+    }
+    popupFilterDate.get(vePath)!.set(d);
+  };
+
   return ({
     getMouseIsOver,
     setMouseIsOver,
@@ -299,6 +318,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getCalendarYear,
     setCalendarYear,
+
+    getPopupFilterDate,
+    setPopupFilterDate,
 
     clear
   });

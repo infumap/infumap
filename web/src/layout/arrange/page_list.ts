@@ -187,6 +187,16 @@ export function arrange_list_page(
       initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
     }
 
+    // Optional date filter via link override (client-only)
+    if (linkItemMaybe_pageWithChildren?.filterDate) {
+      const d = new Date(childItem.dateTime * 1000);
+      const f = linkItemMaybe_pageWithChildren.filterDate;
+      if (d.getFullYear() !== f.year || (d.getMonth() + 1) !== f.month || d.getDate() !== f.day) {
+        skippedCount += 1;
+        continue;
+      }
+    }
+
     const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
 
     const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, parentIsPopup, true, false, false);

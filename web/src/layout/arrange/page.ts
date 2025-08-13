@@ -46,7 +46,10 @@ export const arrangePageWithChildren = (
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
-  switch (displayItem_pageWithChildren.arrangeAlgorithm) {
+  const arrangeAlgOverride = linkItemMaybe_pageWithChildren?.overrideArrangeAlgorithm || null;
+  const effectiveArrange = arrangeAlgOverride || displayItem_pageWithChildren.arrangeAlgorithm;
+
+  switch (effectiveArrange) {
     case ArrangeAlgorithm.Grid:
       pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
       break;
@@ -82,5 +85,10 @@ export const arrangePageWithChildren = (
   }
 
   const pageWithChildrenVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
+  if (linkItemMaybe_pageWithChildren?.overrideTitle) {
+    const ve = pageWithChildrenVisualElementSignal.get();
+    ve.evaluatedTitle = linkItemMaybe_pageWithChildren.overrideTitle;
+    pageWithChildrenVisualElementSignal.set(ve);
+  }
   return pageWithChildrenVisualElementSignal;
 }

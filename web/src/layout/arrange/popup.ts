@@ -46,6 +46,17 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   const popupLinkToId = popupVeid.itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, popupLinkToId!, newOrdering());
   li.id = POPUP_LINK_UID;
+  // Apply client-side popup overrides if present for this popup's source vePath
+  if (currentPopupSpec.vePath) {
+    const filter = store.perVe.getPopupFilterDate(currentPopupSpec.vePath);
+    if (filter) {
+      (li as any).overrideArrangeAlgorithm = ArrangeAlgorithm.List;
+      (li as any).filterDate = filter;
+      const mm = filter.month.toString().padStart(2, '0');
+      const dd = filter.day.toString().padStart(2, '0');
+      (li as any).overrideTitle = `${filter.year}-${mm}-${dd}`;
+    }
+  }
   if (popupVeid.linkIdMaybe) {
     if (isXSizableItem(itemState.get(popupVeid.linkIdMaybe)!)) {
       li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.linkIdMaybe)!).spatialWidthGr;

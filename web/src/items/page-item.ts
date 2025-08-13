@@ -708,13 +708,14 @@ export const PageFns = {
   /**
    * Handle click on a calendar day overflow indicator.
    */
-  handleCalendarOverflowClick: (visualElement: VisualElement, _store: StoreContextModel, meta: HitboxMeta | null): void => {
-    if (!meta) { return; }
-    const _pagePath = VeFns.veToPath(visualElement);
-    const _year = meta.calendarYear;
-    const _month = meta.calendarMonth;
-    const _day = meta.calendarDay;
-    console.log("Calendar overflow click", { path: _pagePath, year: _year, month: _month, day: _day });
+  handleCalendarOverflowClick: (visualElement: VisualElement, store: StoreContextModel, meta: HitboxMeta | null): void => {
+    if (!meta || !meta.calendarYear || !meta.calendarMonth || !meta.calendarDay) { return; }
+    const veid = VeFns.actualVeidFromVe(visualElement);
+    const vePath = VeFns.veToPath(visualElement);
+    // Store client-side popup overrides on perVe keyed by the visual element path
+    store.perVe.setPopupFilterDate(vePath, { year: meta.calendarYear, month: meta.calendarMonth, day: meta.calendarDay });
+    store.history.replacePopup({ actualVeid: veid, vePath });
+    fullArrange(store);
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {

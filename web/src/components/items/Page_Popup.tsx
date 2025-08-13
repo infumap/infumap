@@ -110,7 +110,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                 `background-color: #fff; ` +
                 `${VeFns.zIndexStyle(props.visualElement)}` +
                 `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.9)};`}>
-      <div class="absolute font-bold"
+          <div class="absolute font-bold"
            style={`left: 0px; top: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale() * 0.05}px; ` +
                   `width: ${pageFns().boundsPx().w / titleScale() * 0.9}px; ` +
                   `height: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale() * 0.9}px; ` +
@@ -120,7 +120,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                   `padding-left: 4px; ` +
                   `margin-left: 3px;` +
                   `color: ${titleColor()}`}>
-        {pageFns().pageItem().title}
+        {props.visualElement.evaluatedTitle ?? pageFns().pageItem().title}
       </div>
     </div>;
 
@@ -208,7 +208,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     <>
       {renderShadow()}
       <Switch>
-        <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
+        <Match when={(props.visualElement.linkItemMaybe as any)?.overrideArrangeAlgorithm === ArrangeAlgorithm.List || pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           {renderListPage()}
         </Match>
         <Match when={pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>

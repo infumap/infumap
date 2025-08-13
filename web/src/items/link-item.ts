@@ -35,6 +35,9 @@ import { itemState } from "../store/ItemState";
 // The XSizableItem and YSizableItem may not apply, depending on the item linked to.
 
 export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
+  overrideArrangeAlgorithm?: string | null,
+  filterDate?: { year: number; month: number; day: number } | null,
+  overrideTitle?: string | null,
 }
 
 export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
@@ -82,6 +85,9 @@ export const LinkFns = {
       linkToResolvedId: linkToMaybe == "" ? null : linkToMaybe,
 
       computed_attachments: [],
+      overrideArrangeAlgorithm: null,
+      filterDate: null,
+      overrideTitle: null,
     };
   },
 
@@ -107,6 +113,9 @@ export const LinkFns = {
       linkToResolvedId: null,
 
       computed_attachments: [],
+      overrideArrangeAlgorithm: null,
+      filterDate: null,
+      overrideTitle: null,
     });
   },
 
