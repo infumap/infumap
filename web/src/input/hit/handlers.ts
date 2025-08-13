@@ -37,7 +37,7 @@ export const HitHandlers: Array<HitHandler> = [];
 const _tableHandler: HitHandler = {
   canHandle: (ve: VisualElement) => isTable(ve.displayItem) && !(ve.flags & VisualElementFlags.LineItem),
   handle: (childVe: VisualElement, childVes: VisualElementSignal, ctx: HitTraversalContext): HitInfo | null => {
-    const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, ignoreAttachments } = ctx;
+    const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems } = ctx;
     if (!isInside(posRelativeToRootVeViewportPx, childVe.viewportBoundsPx!)) { return null; }
     const tableVes = childVes;
     const tableVe = childVe;
@@ -65,7 +65,7 @@ const _tableHandler: HitHandler = {
           }
         }
       }
-      if (!ignoreAttachments) {
+      {
         const hit = findAttachmentHit(tableChildVe.attachmentsVes, posRelativeToTableChildAreaPx, ignoreItems, false);
         if (hit) {
           return {
@@ -93,7 +93,7 @@ HitHandlers.push(_tableHandler);
 const _compositeHandler: HitHandler = {
   canHandle: (ve: VisualElement) => isComposite(ve.displayItem) && !(ve.flags & VisualElementFlags.LineItem),
   handle: (childVe: VisualElement, childVes: VisualElementSignal, ctx: HitTraversalContext): HitInfo | null => {
-    const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, ignoreAttachments } = ctx;
+    const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems } = ctx;
     if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx!)) { return null; }
     const compositeVes = childVes;
     const compositeVe = childVe;

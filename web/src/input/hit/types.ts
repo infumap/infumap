@@ -43,7 +43,6 @@ export interface HitTraversalContext {
   parentRootVe: VisualElement | null,
   posRelativeToRootVeViewportPx: Vector,
   ignoreItems: Set<Uid>,
-  ignoreAttachments: boolean,
   posOnDesktopPx: Vector,
   canHitEmbeddedInteractive: boolean
 }
