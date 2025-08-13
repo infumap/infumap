@@ -127,28 +127,29 @@ export const HitInfoFns = {
   /**
    * The top most container element (including if this was the hit element)
    */
-  getOverContainerVe: (hitInfo: HitInfo, ignoreItems: Array<Uid> = []): VisualElement => {
+  getOverContainerVe: (hitInfo: HitInfo, ignoreItems: Array<Uid> | Set<Uid> = []): VisualElement => {
+    const ignoredSet: Set<Uid> = Array.isArray(ignoreItems) ? new Set(ignoreItems) : ignoreItems;
     if (hitInfo.overVes) {
       if (isContainer(hitInfo.overVes.get().displayItem)) {
         if (hitInfo.subRootVe && isTable(hitInfo.subRootVe!.displayItem)) {
           if (hitInfo.hitboxType & HitboxFlags.Click) {
-            if (!isIgnored(hitInfo.subRootVe!.displayItem.id, ignoreItems)) {
+            if (!isIgnored(hitInfo.subRootVe!.displayItem.id, ignoredSet)) {
               return hitInfo.subRootVe;
             }
           }
         }
-        if (!isIgnored(hitInfo.overVes!.get().displayItem.id, ignoreItems)) {
+        if (!isIgnored(hitInfo.overVes!.get().displayItem.id, ignoredSet)) {
           return hitInfo.overVes.get();
         }
       }
     }
-    if (hitInfo.subSubRootVe && !isIgnored(hitInfo.subSubRootVe!.displayItem.id, ignoreItems)) {
+    if (hitInfo.subSubRootVe && !isIgnored(hitInfo.subSubRootVe!.displayItem.id, ignoredSet)) {
       return hitInfo.subSubRootVe;
     }
-    if (hitInfo.subRootVe && !isIgnored(hitInfo.subRootVe!.displayItem.id, ignoreItems)) {
+    if (hitInfo.subRootVe && !isIgnored(hitInfo.subRootVe!.displayItem.id, ignoredSet)) {
       return hitInfo.subRootVe;
     }
-    if (!isIgnored(hitInfo.rootVes.get().displayItem.id, ignoreItems)) {
+    if (!isIgnored(hitInfo.rootVes.get().displayItem.id, ignoredSet)) {
       return hitInfo.rootVes.get();
     }
     // Fallback: if everything is ignored, return rootVes anyway to avoid null
@@ -284,7 +285,8 @@ export const HitInfoFns = {
         posOnDesktopPx: Vector,
         ignoreItems: Array<Uid>,
         canHitEmbeddedInteractive: boolean): HitInfo => {
-    return getHitInfo(store, posOnDesktopPx, ignoreItems, false, canHitEmbeddedInteractive);
+    const ignoreSet = new Set<Uid>(ignoreItems);
+    return getHitInfo(store, posOnDesktopPx, ignoreSet, false, canHitEmbeddedInteractive);
   }
 };
 
@@ -301,7 +303,7 @@ interface RootInfo {
 /**
  * If rootInfo has a hit and it is not ignored by id, return it; otherwise null.
  */
-function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Array<Uid>): HitInfo | null {
+function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Set<Uid>): HitInfo | null {
   if (rootInfo.hitMaybe) {
     const overVes = rootInfo.hitMaybe.overVes;
     if (overVes == null) { return rootInfo.hitMaybe; }
@@ -311,8 +313,8 @@ function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Array<Uid>): 
 }
 
 /** Utility: fast ignore check. */
-function isIgnored(id: Uid, ignoreItems: Array<Uid>): boolean {
-  return ignoreItems.indexOf(id) !== -1;
+function isIgnored(id: Uid, ignoreItems: Set<Uid>): boolean {
+  return ignoreItems.has(id);
 }
 
 /**
@@ -344,7 +346,7 @@ function scanHitboxes(
 function findAttachmentHit(
     attachmentsVes: Array<VisualElementSignal>,
     localPos: Vector,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     reverse: boolean): { attachmentVes: VisualElementSignal, flags: HitboxFlags, meta: HitboxMeta | null } | null {
   if (attachmentsVes.length === 0) { return null; }
   const start = reverse ? attachmentsVes.length - 1 : 0;
@@ -365,10 +367,50 @@ function findAttachmentHit(
   return null;
 }
 
+/**
+ * Coordinate helper: child bounds-local from a parent viewport-local position.
+ */
+function toChildBoundsLocalFromViewport(parentViewportLocalPos: Vector, childVe: VisualElement): Vector {
+  return vectorSubtract(parentViewportLocalPos, { x: childVe.boundsPx.x, y: childVe.boundsPx.y });
+}
+
+/**
+ * Coordinate helper: composite child area local from parent bounds-local pos.
+ */
+function toCompositeChildAreaPos(compositeVe: VisualElement, parentBoundsLocalPos: Vector): Vector {
+  return vectorSubtract(parentBoundsLocalPos, { x: compositeVe.boundsPx!.x, y: compositeVe.boundsPx!.y });
+}
+
+/**
+ * Coordinate helper: table child area local from parent bounds-local pos.
+ */
+function toTableChildAreaPos(
+    store: StoreContextModel,
+    tableVe: VisualElement,
+    tableChildVe: VisualElement,
+    parentBoundsLocalPos: Vector): Vector {
+  const tableBlockHeightPx = tableChildVe.boundsPx.h;
+  return vectorSubtract(
+    parentBoundsLocalPos,
+    { x: tableVe.viewportBoundsPx!.x,
+      y: tableVe.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe)) * tableBlockHeightPx }
+  );
+}
+
+/**
+ * Coordinate helper: inner element local for attachments inside a composite child.
+ */
+function toInnerAttachmentLocalInComposite(
+    parentChildVe: VisualElement,
+    innerVe: VisualElement,
+    parentViewportLocalPos: Vector): Vector {
+  return vectorSubtract(parentViewportLocalPos, { x: parentChildVe.boundsPx.x, y: parentChildVe.boundsPx.y + innerVe.boundsPx.y });
+}
+
 function getHitInfo(
     store: StoreContextModel,
     posOnDesktopPx: Vector,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     ignoreAttachments: boolean,
     canHitEmbeddedInteractive: boolean): HitInfo {
 
@@ -418,7 +460,7 @@ function getHitInfo(
 function getHitInfoUnderRoot(
     store: StoreContextModel,
     posOnDesktopPx: Vector,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     ignoreAttachments: boolean,
     canHitEmbeddedInteractive: boolean,
     rootInfo: RootInfo): HitInfo {
@@ -453,7 +495,7 @@ function hitChildMaybe(
     parentRootVe: VisualElement | null,
     posRelativeToRootVeViewportPx: Vector,
     childVes: VisualElementSignal,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     ignoreAttachments: boolean,
     canHitEmbeddedInteractive: boolean): HitInfo | null {
 
@@ -467,7 +509,7 @@ function hitChildMaybe(
     if (isComposite(childVe.displayItem)) {
       for (let i=0; i<childVe.childrenVes.length; ++i) {
         let ve = childVe.childrenVes[i].get();
-        const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x, y: childVe.boundsPx.y + ve.boundsPx.y });
+        const posRelativeToChildElementPx = toInnerAttachmentLocalInComposite(childVe, ve, posRelativeToRootVeViewportPx);
         const hit = findAttachmentHit(ve.attachmentsVes, posRelativeToChildElementPx, ignoreItems, false);
         if (hit) {
           const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
@@ -488,7 +530,7 @@ function hitChildMaybe(
       }
     }
 
-    const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x, y: childVe.boundsPx.y });
+    const posRelativeToChildElementPx = toChildBoundsLocalFromViewport(posRelativeToRootVeViewportPx, childVe);
     {
       const hit = findAttachmentHit(childVe.attachmentsVes, posRelativeToChildElementPx, ignoreItems, true);
       if (hit) {
@@ -598,7 +640,7 @@ function hitNonPagePopupMaybe(
     parentRootInfo: RootInfo,
     posOnDesktopPx: Vector,
     canHitEmbeddedInteractive: boolean,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     ignoreAttachments: boolean): RootInfo {
 
   let rootVe = parentRootInfo.rootVe;
@@ -919,7 +961,7 @@ return result;
 
 function hitFlipCardRootMaybe(
     parentRootInfo: RootInfo,
-    ignoreItems: Array<Uid>): RootInfo {
+    ignoreItems: Set<Uid>): RootInfo {
 
   const {
     rootVe,
@@ -973,7 +1015,7 @@ function hitFlipCardRootMaybe(
 function hitEmbeddedRootMaybe(
     store: StoreContextModel,
     parentRootInfo: RootInfo,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     canHitEmbeddedInteractive: boolean): RootInfo {
 
   const {
@@ -1062,7 +1104,7 @@ function handleInsideTableMaybe(
     parentRootVe: VisualElement | null,
     rootVes: VisualElementSignal,
     posRelativeToRootVePx: Vector,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     ignoreAttachments: boolean,
     posOnDesktopPx: Vector): HitInfo | null {
 
@@ -1093,11 +1135,7 @@ function handleInsideTableMaybe(
     const tableChildVe = tableChildVes.get();
     const tableBlockHeightPx = tableChildVe.boundsPx.h;
 
-    const posRelativeToTableChildAreaPx = vectorSubtract(
-      posRelativeToRootVePx,
-      { x: tableVe.viewportBoundsPx!.x,
-        y: tableVe.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe)) * tableBlockHeightPx }
-    );
+    const posRelativeToTableChildAreaPx = toTableChildAreaPos(store, tableVe, tableChildVe, posRelativeToRootVePx);
     if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
       let hitboxType = HitboxFlags.None;
       let meta = null;
@@ -1108,7 +1146,7 @@ function handleInsideTableMaybe(
         }
       }
     if (!isIgnored(tableChildVe.displayItem.id, ignoreItems)) {
-        if (!ignoreItems.find(a => a == tableVe.displayItem.id)) {
+        if (!isIgnored(tableVe.displayItem.id, ignoreItems)) {
           return finalize(hitboxType, HitboxFlags.None, parentRootVe, rootVes, tableChildVes, meta, posRelativeToRootVePx, false, "handleInsideTableMaybe3");
         }
       }
@@ -1145,7 +1183,7 @@ function handleInsideCompositeMaybe(
     parentRootVe: VisualElement | null,
     rootVes: VisualElementSignal,
     posRelativeToRootVePx: Vector,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     posOnDesktopPx: Vector,
     ignoreAttachments: boolean): HitInfo | null {
 
@@ -1169,8 +1207,7 @@ function handleInsideCompositeMaybe(
   for (let j=0; j<compositeVe.childrenVes.length; ++j) {
     const compositeChildVes = compositeVe.childrenVes[j];
     const compositeChildVe = compositeChildVes.get();
-    const posRelativeToCompositeChildAreaPx = vectorSubtract(
-      posRelativeToRootVePx, { x: compositeVe.boundsPx!.x, y: compositeVe.boundsPx!.y });
+    const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVePx);
     if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx)) {
       const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
 
@@ -1200,7 +1237,7 @@ function handleInsideTableInCompositeMaybe(
     parentRootVe: VisualElement | null,
     rootVes: VisualElementSignal,
     compositeChildVe: VisualElement,
-    ignoreItems: Array<Uid>,
+    ignoreItems: Set<Uid>,
     posRelativeToRootVePx: Vector,
     posRelativeToCompositeChildAreaPx: Vector,
     posOnDesktopPx: Vector,
@@ -1215,11 +1252,7 @@ function handleInsideTableInCompositeMaybe(
     const tableChildVe = tableChildVes.get();
     const tableBlockHeightPx = tableChildVe.boundsPx.h;
 
-    const posRelativeToTableChildAreaPx = vectorSubtract(
-      posRelativeToCompositeChildAreaPx,
-      { x: tableVe.viewportBoundsPx!.x,
-        y: tableVe.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe)) * tableBlockHeightPx }
-    );
+    const posRelativeToTableChildAreaPx = toTableChildAreaPos(store, tableVe, tableChildVe, posRelativeToCompositeChildAreaPx);
     if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
       const { flags: hitboxType, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx));
       if (!isIgnored(tableChildVe.displayItem.id, ignoreItems)) {
