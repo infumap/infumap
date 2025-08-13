@@ -969,29 +969,43 @@ function hitNonPagePopupMaybe(
       if (!ignoreAttachments) {
         const attHit = findAttachmentHit(tableChildVe.attachmentsVes, posRelativeToTableChildAreaPx, ignoreItems, false);
         if (attHit) {
-              const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
-              parentRootInfo.hitMaybe = {
+          const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
+          const hitMaybe = {
             overVes: attHit.attachmentVes,
-                rootVes,
-                subRootVe: rootVe,
-                subSubRootVe: null,
-                parentRootVe: parentRootInfo.parentRootVe,
+            rootVes,
+            subRootVe: rootVe,
+            subSubRootVe: null,
+            parentRootVe: parentRootInfo.parentRootVe,
             hitboxType: attHit.flags,
-                compositeHitboxTypeMaybe: HitboxFlags.None,
+            compositeHitboxTypeMaybe: HitboxFlags.None,
             overElementMeta: attHit.meta,
-                overPositionableVe: parentRootInfo.rootVe,
-                overPositionGr: null,
-                debugCreatedAt: "hitNonPagePopupMaybe-table-attachment",
-              };
-              return parentRootInfo;
+            overPositionableVe: parentRootInfo.rootVe,
+            overPositionGr: null,
+            debugCreatedAt: "hitNonPagePopupMaybe-table-attachment",
+          };
+          return ({
+            parentRootVe: parentRootInfo.parentRootVe,
+            rootVes,
+            rootVe,
+            posRelativeToRootVeBoundsPx,
+            posRelativeToRootVeViewportPx,
+            hitMaybe
+          });
         }
       }
 
       if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
         const { flags: hitboxType, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx));
         if (!isIgnored(tableChildVe.displayItem.id, ignoreItems)) {
-          parentRootInfo.hitMaybe = new HitBuilder(parentRootInfo.parentRootVe, rootVes).over(tableChildVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitNonPagePopupMaybe-table-child").build();
-          return parentRootInfo;
+          const hitMaybe = new HitBuilder(parentRootInfo.parentRootVe, rootVes).over(tableChildVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitNonPagePopupMaybe-table-child").build();
+          return ({
+            parentRootVe: parentRootInfo.parentRootVe,
+            rootVes,
+            rootVe,
+            posRelativeToRootVeBoundsPx,
+            posRelativeToRootVeViewportPx,
+            hitMaybe
+          });
         }
       }
     }
@@ -1013,8 +1027,14 @@ function hitNonPagePopupMaybe(
   for (let i=rootVe.childrenVes.length-1; i>=0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVe.childrenVes[i], ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
     if (hitMaybe) {
-      parentRootInfo.hitMaybe = hitMaybe;
-      return parentRootInfo;
+      return ({
+        parentRootVe: parentRootInfo.parentRootVe,
+        rootVes,
+        rootVe,
+        posRelativeToRootVeBoundsPx,
+        posRelativeToRootVeViewportPx,
+        hitMaybe
+      });
     }
   }
 
@@ -1355,26 +1375,6 @@ function determineIfDockRoot(umbrellaVe: VisualElement, posOnDesktopPx: Vector):
   });
 }
 
-
-// handleInsideTableMaybe is superseded by the _tableHandler
-
-
-function handleInsideCompositeMaybe(
-    store: StoreContextModel,
-    childVe: VisualElement,
-    childVes: VisualElementSignal,
-    parentRootVe: VisualElement | null,
-    rootVes: VisualElementSignal,
-    posRelativeToRootVePx: Vector,
-    ignoreItems: Set<Uid>,
-    posOnDesktopPx: Vector,
-    ignoreAttachments: boolean): HitInfo | null {
-
-  // Legacy composite handler is superseded by _compositeHandler; keep as no-op fallback.
-  return null;
-}
-
-// handleInsideTableInCompositeMaybe inlined into _compositeHandler
 
 function finalize(
     hitboxType: HitboxFlags,
