@@ -319,7 +319,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     if (isFlipCard(overContainerVe.displayItem)) {
       mouseUpHandler_moving_toFlipCard(store, activeItem, overContainerVe);
       return;
-    } else {
+    } else if (isPage(overContainerVe.displayItem)) {
       const targetPageItem = asPageItem(overContainerVe.displayItem);
       if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
         const path = VeFns.veToPath(overContainerVe);
@@ -353,58 +353,67 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
         return;
       }
+    } else {
+      // Non-page container: treat as opaque container move
+      mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
+      return;
     }
   }
 
   // root page
 
-  const pageItem = asPageItem(overContainerVe.displayItem);
-  if (overContainerVe.flags & VisualElementFlags.IsDock) {
+  if (isPage(overContainerVe.displayItem)) {
+    const pageItem = asPageItem(overContainerVe.displayItem);
+    if (overContainerVe.flags & VisualElementFlags.IsDock) {
     const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
     activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index, activeItem.id);
     itemState.sortChildren(pageItem.id);
    persistMovedItems(store, [activeItem.id]);
-  }
-  else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-           pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
-           pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-    const path = VeFns.veToPath(overContainerVe);
-    const idx = store.perVe.getMoveOverIndex(path);
-    const insertIndex = pageItem.orderChildrenBy != "" ? 0 : idx;
-    activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
-    itemState.sortChildren(pageItem.id);
-   persistMovedItems(store, [activeItem.id]);
-  } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
-        MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
-   persistMovedItems(store, [activeItem.id]);
     }
-  } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-    const path = VeFns.veToPath(overContainerVe);
-    let combinedIndex = store.perVe.getMoveOverIndex(path);
-    let targetMonth: number;
-    let targetDay: number;
-    if (combinedIndex >= 0) {
-      const decoded = decodeCalendarCombinedIndex(combinedIndex);
-      targetMonth = decoded.month;
-      targetDay = decoded.day;
-    } else {
-      const pos = calculateCalendarPosition(CursorEventState.getLatestDesktopPx(store), overContainerVe, store);
-      targetMonth = pos.month;
-      targetDay = pos.day;
+    else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+             pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
+             pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+      const path = VeFns.veToPath(overContainerVe);
+      const idx = store.perVe.getMoveOverIndex(path);
+      const insertIndex = pageItem.orderChildrenBy != "" ? 0 : idx;
+      activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
+      itemState.sortChildren(pageItem.id);
+     persistMovedItems(store, [activeItem.id]);
+    } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
+          MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
+     persistMovedItems(store, [activeItem.id]);
+      }
+    } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+      const path = VeFns.veToPath(overContainerVe);
+      let combinedIndex = store.perVe.getMoveOverIndex(path);
+      let targetMonth: number;
+      let targetDay: number;
+      if (combinedIndex >= 0) {
+        const decoded = decodeCalendarCombinedIndex(combinedIndex);
+        targetMonth = decoded.month;
+        targetDay = decoded.day;
+      } else {
+        const pos = calculateCalendarPosition(CursorEventState.getLatestDesktopPx(store), overContainerVe, store);
+        targetMonth = pos.month;
+        targetDay = pos.day;
+      }
+      const selectedYear = store.perVe.getCalendarYear(path);
+      const currentDate = new Date(activeItem.dateTime * 1000);
+      const newDate = new Date(selectedYear, targetMonth - 1, targetDay, currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
+      const newDateTime = Math.floor(newDate.getTime() / 1000);
+      if (activeItem.dateTime !== newDateTime) {
+        activeItem.dateTime = newDateTime;
+        serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+      }
     }
-    const selectedYear = store.perVe.getCalendarYear(path);
-    const currentDate = new Date(activeItem.dateTime * 1000);
-    const newDate = new Date(selectedYear, targetMonth - 1, targetDay, currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
-    const newDateTime = Math.floor(newDate.getTime() / 1000);
-    if (activeItem.dateTime !== newDateTime) {
-      activeItem.dateTime = newDateTime;
+    else {
+      console.debug("todo: explicitly consider other page types here.");
       serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
     }
-  }
-  else {
-    console.debug("todo: explicitly consider other page types here.");
-    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+  } else {
+    // Not over a page; persist moved items (including group) if any
+    persistMovedItems(store, [activeItem.id]);
   }
 
   finalizeMouseUp(store);
