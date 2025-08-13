@@ -166,6 +166,19 @@ export const arrangeItemNoChildren = (
     parentPath: parentVePath,
   };
 
+  const isInOverlaySelection = (() => {
+    const sel = store.overlay.selectedVeids.get();
+    if (!sel || sel.length === 0) { return false; }
+    const veid = VeFns.veidFromItems(displayItem, actualLinkItemMaybe);
+    for (let i=0; i<sel.length; ++i) {
+      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
+    }
+    return false;
+  })();
+  if (isInOverlaySelection) {
+    itemVisualElement.flags = (itemVisualElement.flags || VisualElementFlags.None) | VisualElementFlags.SelectionHighlighted;
+  }
+
   // TODO (MEDIUM): reconcile, don't override.
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
   if (isAttachmentsItem(displayItem)) {

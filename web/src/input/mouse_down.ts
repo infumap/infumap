@@ -397,6 +397,20 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     hitEmbeddedInteractive: canHitEmbeddedInteractive
   });
 
+  // Clear selection set when clicking away from current selection
+  try {
+    const currentSelection = store.overlay.selectedVeids.get();
+    if (currentSelection && currentSelection.length > 0) {
+      const clickedVeid = VeFns.veidFromPath(activeElementPath);
+      const clickedIsSelected = currentSelection.some(v => v.itemId === clickedVeid.itemId && v.linkIdMaybe === clickedVeid.linkIdMaybe);
+      const clickedIsBackground = veFlagIsRoot(hitVe.flags) && !(hitInfo.hitboxType & HitboxFlags.ContentEditable);
+      if (!clickedIsSelected || clickedIsBackground) {
+        store.overlay.selectedVeids.set([]);
+        fullArrange(store);
+      }
+    }
+  } catch {}
+
   if (hitInfo.hitboxType & HitboxFlags.ContentEditable) {
     // make sure not PreventDefault in the case of clicking on a contenteditable.
     return MouseEventActionFlags.None;
@@ -431,6 +445,13 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 
 
 export async function mouseRightDownHandler(store: StoreContextModel) {
+  // Always clear current selection set if present
+  if (store.overlay.selectedVeids.get() && store.overlay.selectedVeids.get()!.length > 0) {
+    store.overlay.selectedVeids.set([]);
+    fullArrange(store);
+    return;
+  }
+
   if (store.overlay.toolbarTransientMessage.get() != null) {
     store.overlay.toolbarTransientMessage.set(null);
     return;

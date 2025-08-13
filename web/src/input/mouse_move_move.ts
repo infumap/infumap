@@ -75,6 +75,30 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       y: activeItem.spatialPositionGr.y / GRID_SIZE
     };
 
+    // Setup group move if the active item is part of the current selection set
+    const selected = store.overlay.selectedVeids.get();
+    if (selected && selected.length > 0) {
+      const isActiveSelected = selected.some(v => {
+        const veid = VeFns.veidFromVe(activeVisualElement);
+        return v.itemId === veid.itemId && v.linkIdMaybe === veid.linkIdMaybe;
+      });
+      if (isActiveSelected) {
+        const group = selected
+          .map(v => ({ veid: v, item: itemState.get(v.linkIdMaybe ? v.linkIdMaybe : v.itemId)! }))
+          .filter(e => isPositionalItem(e.item))
+          .map(e => ({
+            veid: e.veid,
+            startPosGr: (e.item as PositionalItem).spatialPositionGr,
+            parentId: (e.item as PositionalItem).parentId,
+          }));
+        MouseActionState.get().groupMoveItems = group;
+      } else {
+        MouseActionState.get().groupMoveItems = undefined;
+      }
+    } else {
+      MouseActionState.get().groupMoveItems = undefined;
+    }
+
     if (shouldClone) {
       const toClone = activeVisualElement.displayItem;
       const cloned = ItemFns.fromObject(ItemFns.toObject(toClone), null);
@@ -349,8 +373,25 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   if (asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch || compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {
-    activeItem.spatialPositionGr = newPosGr;
-    fullArrange(store);
+    const group = MouseActionState.get().groupMoveItems;
+    if (group && group.length > 0) {
+      const veidActive = VeFns.veidFromVe(activeVisualElement);
+      const activeEntry = group.find(g => g.veid.itemId === veidActive.itemId && g.veid.linkIdMaybe === veidActive.linkIdMaybe);
+      const deltaFromStart = {
+        x: newPosGr.x - (activeEntry ? activeEntry.startPosGr.x : activeItem.spatialPositionGr.x),
+        y: newPosGr.y - (activeEntry ? activeEntry.startPosGr.y : activeItem.spatialPositionGr.y),
+      };
+      for (const g of group) {
+        const itm = asPositionalItem(itemState.get(g.veid.linkIdMaybe ? g.veid.linkIdMaybe : g.veid.itemId)!);
+        if (itm.parentId === activeItem.parentId) {
+          itm.spatialPositionGr = { x: g.startPosGr.x + deltaFromStart.x, y: g.startPosGr.y + deltaFromStart.y };
+        }
+      }
+      fullArrange(store);
+    } else {
+      activeItem.spatialPositionGr = newPosGr;
+      fullArrange(store);
+    }
   }
 }
 

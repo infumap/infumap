@@ -126,3 +126,6 @@ export let SELECTED_DARK = "#d8d8d8";
 export let SELECTED_LIGHT = "#f3f3f3";
 
 export let LINK_TRIANGLE_COLOR = "#b143";
+
+export const FIND_HIGHLIGHT_COLOR = 'rgba(255, 255, 0, 0.4)';
+export const SELECTION_HIGHLIGHT_COLOR = '#4a90e233';

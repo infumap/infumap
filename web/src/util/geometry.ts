@@ -110,6 +110,13 @@ export function isInside(point: Vector, boundingBox: BoundingBox): boolean {
          point.y < boundingBox.y + boundingBox.h;
 }
 
+export function rectsIntersect(a: BoundingBox, b: BoundingBox): boolean {
+  return !(a.x + a.w <= b.x ||
+           b.x + b.w <= a.x ||
+           a.y + a.h <= b.y ||
+           b.y + b.h <= a.y);
+}
+
 export interface Vector {
   x: number;
   y: number;

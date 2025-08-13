@@ -182,6 +182,17 @@ function arrangeCompositeChildItem(
 
   const compositeChildVeSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
 
+  const sel = store.overlay.selectedVeids.get();
+  if (sel && sel.length > 0) {
+    const veid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
+    const isSelected = sel.some(v => v.itemId === veid.itemId && v.linkIdMaybe === veid.linkIdMaybe);
+    if (isSelected) {
+      const updated = compositeChildVeSignal.get();
+      updated.flags |= VisualElementFlags.SelectionHighlighted;
+      compositeChildVeSignal.set(updated);
+    }
+  }
+
   if (isExpression(displayItem_childItem)) {
     VesCache.markEvaluationRequired(compositeChildVePath);
   }

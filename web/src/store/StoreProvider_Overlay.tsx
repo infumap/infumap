@@ -17,7 +17,7 @@
 */
 
 import { HitInfo } from "../input/hit";
-import { VisualElementPath } from "../layout/visual-element";
+import { Veid, VisualElementPath } from "../layout/visual-element";
 import { BoundingBox, Vector } from "../util/geometry";
 import { InfuSignal, createInfuSignal } from "../util/signals";
 import { HistoryStoreContextModel } from "./StoreProvider_History";
@@ -89,6 +89,8 @@ export interface OverlayStoreContextModel {
   editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
   contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
   tableColumnContextMenuInfo: InfuSignal<TableColumnContextMenuInfo | null>,
+  selectionMarqueePx: InfuSignal<BoundingBox | null>,
+  selectedVeids: InfuSignal<Array<Veid>>,
 
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
@@ -115,6 +117,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
   const tableColumnContextMenuInfo = createInfuSignal<TableColumnContextMenuInfo | null>(null);
+  const selectionMarqueePx = createInfuSignal<BoundingBox | null>(null);
+  const selectedVeids = createInfuSignal<Array<Veid>>([]);
 
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
   const toolbarTransientMessage = createInfuSignal<TransientMessage | null>(null);
@@ -130,6 +134,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
     tableColumnContextMenuInfo.set(null);
+    selectionMarqueePx.set(null);
+    selectedVeids.set([]);
     searchOverlayVisible.set(false);
     networkOverlayVisible.set(false);
     findOverlayVisible.set(false);
@@ -173,6 +179,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editUserSettingsInfo,
     contextMenuInfo,
     tableColumnContextMenuInfo,
+    selectionMarqueePx,
+    selectedVeids,
 
     isPanicked: createInfuSignal<boolean>(false),
 

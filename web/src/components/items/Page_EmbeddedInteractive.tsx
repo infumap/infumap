@@ -129,7 +129,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <div class="absolute pointer-events-none rounded-sm"
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
                   `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
-                  `background-color: rgba(255, 255, 0, 0.4); ` +
+                  `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
                   `z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 

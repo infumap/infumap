@@ -78,6 +78,8 @@ export interface MouseActionStateType {
   newPlaceholderItem: PlaceholderItem | null,
 
   hitEmbeddedInteractive: boolean,
+
+  groupMoveItems?: Array<{ veid: { itemId: string, linkIdMaybe: string | null }, startPosGr: { x: number, y: number }, parentId: string }>,
 }
 
 

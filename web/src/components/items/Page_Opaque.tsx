@@ -20,6 +20,7 @@ import { Component, For, Show, createMemo } from "solid-js";
 import { FEATURE_COLOR_DARK, linearGradient } from "../../style";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElement_Desktop } from "../VisualElement";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -109,11 +110,11 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     </Show>;
 
   const renderHighlightMaybe = () =>
-    <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+    <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
       <div class="absolute pointer-events-none rounded-sm"
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
                   `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-                  `background-color: rgba(255, 255, 0, 0.4); ` +
+                  `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
                   `z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 

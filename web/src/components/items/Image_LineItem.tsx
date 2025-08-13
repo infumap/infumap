@@ -23,6 +23,7 @@ import { asImageItem } from "../../items/image-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { LINE_HEIGHT_PX, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
+import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { cloneBoundingBox } from "../../util/geometry";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -83,7 +84,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
       <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
         <div class="absolute"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: rgba(255, 255, 0, 0.4); z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+                    `background-color: ${FIND_HIGHLIGHT_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
       </Match>
     </Switch>;
 

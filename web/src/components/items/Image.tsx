@@ -18,6 +18,7 @@
 
 import { Component, For, JSX, Show, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, MIN_IMAGE_WIDTH_PX, Z_INDEX_SHADOW } from "../../constants";
+import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -344,10 +345,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
                         `background-color: #dddddd88; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
-          <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+          <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
-                        `background-color: rgba(255, 255, 0, 0.4); ${VeFns.zIndexStyle(props.visualElement)}`} />
+                        `background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
           <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
             <div class="absolute rounded-sm"

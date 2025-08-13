@@ -23,6 +23,7 @@ import { asExpressionItem, ExpressionFns } from "../../items/expression-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { getTextStyleForNote } from "../../layout/text";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -60,11 +61,11 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
 
   const renderHighlightsMaybe = () =>
     <Switch>
-      <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+      <Match when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: rgba(255, 255, 0, 0.4); ` +
+                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
                     `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Match>
       <Match when={store.perVe.getMouseIsOver(vePath())}>

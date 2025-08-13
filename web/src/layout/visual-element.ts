@@ -86,6 +86,7 @@ export enum VisualElementFlags {
   FocusPageSelected       = 0x080000, // Line item is in focussed page and selected.
   FlipCardPage            = 0x100000, // A flipcard page.
   FindHighlighted         = 0x200000, // The item is highlighted by find-on-page.
+  SelectionHighlighted    = 0x400000, // Highlighted by selection marquee.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {

@@ -70,7 +70,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
   switch (MouseActionState.get().action) {
     case MouseAction.Moving:
       DoubleClickState.preventDoubleClick();
-      mouseUpHandler_moving(store, activeItem);
+      mouseUpHandler_moving_groupAware(store, activeItem);
       break;
 
     case MouseAction.MovingPopup: {
@@ -140,7 +140,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
 
     case MouseAction.Selecting:
-      console.debug("TODO (HIGH): multi-item selection (mouse up).");
+      handleSelectionMouseUp(store);
       break;
 
     case MouseAction.Ambiguous:
@@ -237,8 +237,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           }
         }
 
-        fullArrange(store);
         // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
+        fullArrange(store);
 
       } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.Popup) {
         DoubleClickState.preventDoubleClick();
@@ -274,8 +274,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
             );
           }
 
-          fullArrange(store);
           // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
+          fullArrange(store);
         }
       }
 
@@ -292,7 +292,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 }
 
 
-function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalItem) {
+function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: PositionalItem) {
 
   if (MouseActionState.get().moveOver_containerElement != null) {
     const ve = VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get();
@@ -344,7 +344,7 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
         }
         activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
         itemState.moveToNewParent(activeItem, targetPageItem.id, RelationshipToParent.Child);
-        serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+         persistMovedItems(store, [activeItem.id]);
         finalizeMouseUp(store);
         MouseActionState.set(null);
         fullArrange(store);
@@ -363,7 +363,7 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
     const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
     activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index, activeItem.id);
     itemState.sortChildren(pageItem.id);
-    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+   persistMovedItems(store, [activeItem.id]);
   }
   else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
            pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
@@ -373,11 +373,11 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
     const insertIndex = pageItem.orderChildrenBy != "" ? 0 : idx;
     activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
     itemState.sortChildren(pageItem.id);
-    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+   persistMovedItems(store, [activeItem.id]);
   } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
         MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
-      serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+   persistMovedItems(store, [activeItem.id]);
     }
   } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
     const path = VeFns.veToPath(overContainerVe);
@@ -410,6 +410,20 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
   finalizeMouseUp(store);
   MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
   fullArrange(store);
+}
+
+function persistMovedItems(store: StoreContextModel, defaultIds: string[]) {
+  const group = MouseActionState.get().groupMoveItems;
+  if (group && group.length > 0) {
+    const ids = group.map(g => g.veid.linkIdMaybe ? g.veid.linkIdMaybe : g.veid.itemId);
+    for (const id of ids) {
+      serverOrRemote.updateItem(itemState.get(id)!, store.general.networkStatus);
+    }
+  } else {
+    for (const id of defaultIds) {
+      serverOrRemote.updateItem(itemState.get(id)!, store.general.networkStatus);
+    }
+  }
 }
 
 
@@ -620,6 +634,54 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
 function finalizeMouseUp(store: StoreContextModel) {
   cleanupAndPersistPlaceholders(store);
   maybeDeleteComposite(store)
+}
+
+function handleSelectionMouseUp(store: StoreContextModel) {
+  const rect = store.overlay.selectionMarqueePx.get();
+  store.overlay.selectionMarqueePx.set(null);
+  if (rect == null) { return; }
+
+  const activeRootVe = VesCache.get(MouseActionState.get().activeRoot)!.get();
+  const activeRootBounds = VeFns.veBoundsRelativeToDesktopPx(store, activeRootVe);
+  const selectionRect = {
+    x: Math.max(rect.x, activeRootBounds.x),
+    y: Math.max(rect.y, activeRootBounds.y),
+    w: Math.min(rect.x + rect.w, activeRootBounds.x + activeRootBounds.w) - Math.max(rect.x, activeRootBounds.x),
+    h: Math.min(rect.y + rect.h, activeRootBounds.y + activeRootBounds.h) - Math.max(rect.y, activeRootBounds.y),
+  };
+  if (selectionRect.w <= 0 || selectionRect.h <= 0) {
+    store.overlay.selectedVeids.set([]);
+    return;
+  }
+
+  const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
+  const rootPath = MouseActionState.get().activeRoot;
+  const stack: string[] = [rootPath];
+  while (stack.length > 0) {
+    const path = stack.pop()!;
+    const ves = VesCache.get(path);
+    if (!ves) { continue; }
+    const ve = ves.get();
+    if (ve.parentPath && !(ve.flags & VisualElementFlags.LineItem)) {
+      const veBox = VeFns.veBoundsRelativeToDesktopPx(store, ve);
+      if (veBox.w > 0 && veBox.h > 0) {
+        const ix = Math.max(selectionRect.x, veBox.x);
+        const iy = Math.max(selectionRect.y, veBox.y);
+        const ax = Math.min(selectionRect.x + selectionRect.w, veBox.x + veBox.w);
+        const ay = Math.min(selectionRect.y + selectionRect.h, veBox.y + veBox.h);
+        if (ix < ax && iy < ay) {
+          if (!(ve.flags & VisualElementFlags.ShowChildren) && !(ve.flags & VisualElementFlags.Popup)) {
+            selected.push({ itemId: ve.displayItem.id, linkIdMaybe: ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null });
+          }
+        }
+      }
+    }
+    for (const child of ve.childrenVes) { stack.push(VeFns.veToPath(child.get())); }
+    for (const att of ve.attachmentsVes) { stack.push(VeFns.veToPath(att.get())); }
+    if (ve.popupVes) { stack.push(VeFns.veToPath(ve.popupVes.get())); }
+  }
+  store.overlay.selectedVeids.set(selected);
+  fullArrange(store);
 }
 
 

@@ -44,6 +44,9 @@ import { itemState } from "../store/ItemState";
 
 let lastMouseOverVes: VisualElementSignal | null = null;
 let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
+let lastSelectionArrangeTimeMs = 0;
+let lastSelectionSignature = "";
+const SELECTION_ARRANGE_THROTTLE_MS = 33;
 
 
 export function mouseMoveHandler(store: StoreContextModel) {
@@ -111,7 +114,7 @@ export function mouseMoveHandler(store: StoreContextModel) {
       mouseAction_resizingListPageColumn(deltaPx, store);
       return;
     case MouseAction.Selecting:
-      console.debug("TODO (HIGH): multi-item selection.");
+      mouseAction_selecting(store);
       return;
     default:
       panic("unknown mouse action.");
@@ -228,8 +231,84 @@ function changeMouseActionStateMaybe(
   } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags) ||
              VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.FlipCardPage) {
     MouseActionState.get().action = MouseAction.Selecting;
+    store.overlay.selectionMarqueePx.set({ x: MouseActionState.get().startPx!.x, y: MouseActionState.get().startPx!.y, w: 0, h: 0 });
+    store.overlay.selectedVeids.set([]);
   } else {
     console.debug(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags);
+  }
+}
+
+
+function selectionRectFromStartAndCurrent(store: StoreContextModel): { x: number; y: number; w: number; h: number } {
+  const start = MouseActionState.get().startPx!;
+  const current = CursorEventState.getLatestDesktopPx(store);
+  const x = Math.min(start.x, current.x);
+  const y = Math.min(start.y, current.y);
+  const w = Math.abs(current.x - start.x);
+  const h = Math.abs(current.y - start.y);
+  return { x, y, w, h };
+}
+
+function mouseAction_selecting(store: StoreContextModel) {
+  const rect = selectionRectFromStartAndCurrent(store);
+  store.overlay.selectionMarqueePx.set(rect);
+  if (rect.w <= 0 || rect.h <= 0) {
+    store.overlay.selectedVeids.set([]);
+    return;
+  }
+
+  const activeRootVe = VesCache.get(MouseActionState.get().activeRoot)!.get();
+  const activeRootBounds = VeFns.veBoundsRelativeToDesktopPx(store, activeRootVe);
+  const selectionRect = {
+    x: Math.max(rect.x, activeRootBounds.x),
+    y: Math.max(rect.y, activeRootBounds.y),
+    w: Math.min(rect.x + rect.w, activeRootBounds.x + activeRootBounds.w) - Math.max(rect.x, activeRootBounds.x),
+    h: Math.min(rect.y + rect.h, activeRootBounds.y + activeRootBounds.h) - Math.max(rect.y, activeRootBounds.y),
+  };
+  if (selectionRect.w <= 0 || selectionRect.h <= 0) {
+    store.overlay.selectedVeids.set([]);
+    return;
+  }
+
+  const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
+  const rootPath = MouseActionState.get().activeRoot;
+  const stack: string[] = [rootPath];
+  while (stack.length > 0) {
+    const path = stack.pop()!;
+    const ves = VesCache.get(path);
+    if (!ves) { continue; }
+    const ve = ves.get();
+    if (ve.parentPath && !(ve.flags & VisualElementFlags.LineItem)) {
+      const veBox = VeFns.veBoundsRelativeToDesktopPx(store, ve);
+      if (veBox.w > 0 && veBox.h > 0) {
+        const ix = Math.max(selectionRect.x, veBox.x);
+        const iy = Math.max(selectionRect.y, veBox.y);
+        const ax = Math.min(selectionRect.x + selectionRect.w, veBox.x + veBox.w);
+        const ay = Math.min(selectionRect.y + selectionRect.h, veBox.y + veBox.h);
+        if (ix < ax && iy < ay) {
+          if (!(ve.flags & VisualElementFlags.ShowChildren) && !(ve.flags & VisualElementFlags.Popup)) {
+            selected.push({ itemId: ve.displayItem.id, linkIdMaybe: ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null });
+          }
+        }
+      }
+    }
+    for (const child of ve.childrenVes) { stack.push(VeFns.veToPath(child.get())); }
+    for (const att of ve.attachmentsVes) { stack.push(VeFns.veToPath(att.get())); }
+    if (ve.popupVes) { stack.push(VeFns.veToPath(ve.popupVes.get())); }
+  }
+  store.overlay.selectedVeids.set(selected);
+  
+
+  const signature = (() => {
+    const ids = selected.map(s => s.itemId + (s.linkIdMaybe ? `[${s.linkIdMaybe}]` : ""));
+    ids.sort();
+    return ids.join(",");
+  })();
+  const now = Date.now();
+  if (signature !== lastSelectionSignature && (now - lastSelectionArrangeTimeMs) > SELECTION_ARRANGE_THROTTLE_MS) {
+    lastSelectionSignature = signature;
+    lastSelectionArrangeTimeMs = now;
+    fullArrange(store);
   }
 }
 

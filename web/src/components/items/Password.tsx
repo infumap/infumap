@@ -27,7 +27,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { FEATURE_COLOR } from "../../style";
+import { FEATURE_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
@@ -166,6 +166,12 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
   const renderDetailed = () =>
     <>
+      <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+        <div class="absolute pointer-events-none rounded-sm"
+             style={`left: 0px; top: 0px; ` +
+                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
+      </Show>
       <Switch>
         <Match when={!isVisible() && (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}

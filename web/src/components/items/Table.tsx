@@ -18,6 +18,7 @@
 
 import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
@@ -182,11 +183,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const renderDetailed = () =>
     <>
-      <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+      <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-sm"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${boundsPx().w}px; height: ${headerHeightPx()}px; ` +
-                    `background-color: rgba(255, 255, 0, 0.4); ` +
+                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
                     `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
       <TableChildArea visualElement={props.visualElement} />

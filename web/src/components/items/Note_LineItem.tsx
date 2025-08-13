@@ -30,7 +30,7 @@ import { ClickState } from "../../input/state";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
+import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR } from "../../style";
 import { getTextStyleForNote } from "../../layout/text";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
@@ -108,7 +108,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         <div class="absolute pointer-events-none"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: rgba(255, 255, 0, 0.4); ` +
+                    `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
                     `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Match>
       <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>

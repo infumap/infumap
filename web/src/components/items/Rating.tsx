@@ -24,7 +24,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
-import { FEATURE_COLOR } from "../../style";
+import { FEATURE_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
@@ -71,6 +71,12 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
     <div class={`absolute`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+      <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+        <div class="absolute pointer-events-none rounded-sm"
+             style={`left: 0px; top: 0px; ` +
+                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
+      </Show>
       <div class={`fas fa-star text-gray-400 absolute`}
            style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; ` +
                   `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +

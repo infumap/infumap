@@ -30,6 +30,7 @@ import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
 import { TableColumnContextMenu } from "./overlay/TableColumnContextMenu";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
+import { SELECTION_HIGHLIGHT_COLOR } from "../style";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -100,6 +101,10 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       </Show>
       <Show when={store.overlay.isPanicked.get()}>
         <Panic />
+      </Show>
+      <Show when={store.overlay.selectionMarqueePx.get() != null}>
+        <div class="absolute pointer-events-none border"
+             style={`left: ${store.overlay.selectionMarqueePx.get()!.x}px; top: ${store.overlay.selectionMarqueePx.get()!.y}px; width: ${store.overlay.selectionMarqueePx.get()!.w}px; height: ${store.overlay.selectionMarqueePx.get()!.h}px; border-color: #4a90e2; background-color: ${SELECTION_HIGHLIGHT_COLOR};`} />
       </Show>
 
     </div>
