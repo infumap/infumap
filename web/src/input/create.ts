@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
+import { GRID_SIZE } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
@@ -38,7 +38,7 @@ import { VeFns, VisualElementFlags } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Vector, cloneBoundingBox, isInside } from "../util/geometry";
+import { Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";

@@ -102,11 +102,11 @@ export function calculateCalendarDateTime(
   store: StoreContextModel
 ): number {
   const position = calculateCalendarPosition(desktopPosPx, pageVe, store);
-  
-  const currentYear = new Date().getFullYear();
+
+  const selectedYear = store.perVe.getCalendarYear(VeFns.veToPath(pageVe));
   const currentTime = new Date();
   const targetDate = new Date(
-    currentYear, 
+    selectedYear,
     position.month - 1, 
     position.day, 
     currentTime.getHours(), 

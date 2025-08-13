@@ -41,7 +41,7 @@ import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState,
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { isFlipCard } from "../items/flipcard-item";
-import { decodeCalendarCombinedIndex } from "../util/calendar-layout";
+import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
 
 
 
@@ -320,8 +320,39 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
       mouseUpHandler_moving_toFlipCard(store, activeItem, overContainerVe);
       return;
     } else {
-      mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
-      return;
+      const targetPageItem = asPageItem(overContainerVe.displayItem);
+      if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+        const path = VeFns.veToPath(overContainerVe);
+        let combinedIndex = store.perVe.getMoveOverIndex(path);
+        let targetMonth: number;
+        let targetDay: number;
+        if (combinedIndex >= 0) {
+          const decoded = decodeCalendarCombinedIndex(combinedIndex);
+          targetMonth = decoded.month;
+          targetDay = decoded.day;
+        } else {
+          const pos = calculateCalendarPosition(CursorEventState.getLatestDesktopPx(store), overContainerVe, store);
+          targetMonth = pos.month;
+          targetDay = pos.day;
+        }
+        const selectedYear = store.perVe.getCalendarYear(path);
+        const currentDate = new Date(activeItem.dateTime * 1000);
+        const newDate = new Date(selectedYear, targetMonth - 1, targetDay, currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
+        const newDateTime = Math.floor(newDate.getTime() / 1000);
+        if (activeItem.dateTime !== newDateTime) {
+          activeItem.dateTime = newDateTime;
+        }
+        activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+        itemState.moveToNewParent(activeItem, targetPageItem.id, RelationshipToParent.Child);
+        serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+        finalizeMouseUp(store);
+        MouseActionState.set(null);
+        fullArrange(store);
+        return;
+      } else {
+        mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
+        return;
+      }
     }
   }
 
@@ -350,23 +381,22 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
     }
   } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
     const path = VeFns.veToPath(overContainerVe);
-    const combinedIndex = store.perVe.getMoveOverIndex(path);
-
-    // Extract month and day from combined index
-    const { month: targetMonth, day: targetDay } = decodeCalendarCombinedIndex(combinedIndex);
-
-    // Get current date from existing dateTime to preserve year and time
+    let combinedIndex = store.perVe.getMoveOverIndex(path);
+    let targetMonth: number;
+    let targetDay: number;
+    if (combinedIndex >= 0) {
+      const decoded = decodeCalendarCombinedIndex(combinedIndex);
+      targetMonth = decoded.month;
+      targetDay = decoded.day;
+    } else {
+      const pos = calculateCalendarPosition(CursorEventState.getLatestDesktopPx(store), overContainerVe, store);
+      targetMonth = pos.month;
+      targetDay = pos.day;
+    }
+    const selectedYear = store.perVe.getCalendarYear(path);
     const currentDate = new Date(activeItem.dateTime * 1000);
-    const currentYear = currentDate.getFullYear();
-    const currentHour = currentDate.getHours();
-    const currentMinute = currentDate.getMinutes();
-    const currentSecond = currentDate.getSeconds();
-
-    // Create new date with target month and day, preserving year and time
-    const newDate = new Date(currentYear, targetMonth - 1, targetDay, currentHour, currentMinute, currentSecond);
+    const newDate = new Date(selectedYear, targetMonth - 1, targetDay, currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
     const newDateTime = Math.floor(newDate.getTime() / 1000);
-
-    // Only update if the dateTime actually changed
     if (activeItem.dateTime !== newDateTime) {
       activeItem.dateTime = newDateTime;
       serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
