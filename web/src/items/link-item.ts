@@ -170,7 +170,7 @@ export const LinkFns = {
         viewportBoundsPx: null,
         hitboxes: !emitHitboxes ? [] : [
           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }),
           HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
         ],
       }
@@ -186,7 +186,7 @@ export const LinkFns = {
     if (result.hitboxes.length > 0 && result.hitboxes[result.hitboxes.length-1].type == HitboxFlags.Resize) {
       insertPos = result.hitboxes.length - 1;
     }
-    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }))
+    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }))
 
     return result;
   },
@@ -215,7 +215,7 @@ export const LinkFns = {
         blockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
-          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }),
           HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
           HitboxFns.create(HitboxFlags.AttachComposite, {
             x: innerBoundsPx.w / 4,
@@ -233,7 +233,7 @@ export const LinkFns = {
 
     const result = ItemFns.calcGeometry_InComposite(measurableMaybe!, blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode);
     let insertPos = result.hitboxes.length;
-    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }))
+    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }))
     return result;
   },
 
@@ -263,7 +263,7 @@ export const LinkFns = {
         blockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
-          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }),
           HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(boundsPx)),
         ]
       };
@@ -276,7 +276,7 @@ export const LinkFns = {
     const result = ItemFns.calcGeometry_ListItem(measurableMaybe!, blockSizePx, row, col, widthBl, parentIsPopup, padTop, expandable, inTable);
 
     let insertPos = result.hitboxes.length;
-    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }))
+    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }))
 
     return result;
   },
