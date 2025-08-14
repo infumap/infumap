@@ -20,6 +20,7 @@ import { HitboxFlags, HitboxMeta } from "../../layout/hitbox";
 import { VisualElement, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorSubtract } from "../../util/geometry";
+import { BoundingBox } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
 
@@ -39,7 +40,16 @@ export function scanHitboxes(
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
       : offsetBoundingBoxTopLeftBy(ve.hitboxes[i].boundsPx, offsetTopLeft);
-    if (isInside(localPos, hbBounds)) {
+    let inside = isInside(localPos, hbBounds);
+    if (inside) {
+      const type = ve.hitboxes[i].type;
+      if (type & HitboxFlags.TriangleLinkSettings) {
+        inside = isInsideTopLeftTriangle(localPos, hbBounds);
+      } else if (type & HitboxFlags.Resize) {
+        inside = isInsideBottomRightTriangle(localPos, hbBounds);
+      }
+    }
+    if (inside) {
       flags |= ve.hitboxes[i].type;
       if (ve.hitboxes[i].meta != null) { meta = ve.hitboxes[i].meta; }
     }
@@ -100,6 +110,22 @@ export function toInnerAttachmentLocalInComposite(
   parentViewportLocalPos: Vector,
 ): Vector {
   return vectorSubtract(parentViewportLocalPos, { x: parentChildVe.boundsPx.x, y: parentChildVe.boundsPx.y + innerVe.boundsPx.y });
+}
+
+export function isInsideTopLeftTriangle(localPos: Vector, rect: BoundingBox): boolean {
+  const dx = localPos.x - rect.x;
+  const dy = localPos.y - rect.y;
+  if (dx < 0 || dy < 0 || dx > rect.w || dy > rect.h) { return false; }
+  const size = Math.min(rect.w, rect.h);
+  return (dx + dy) <= size;
+}
+
+export function isInsideBottomRightTriangle(localPos: Vector, rect: BoundingBox): boolean {
+  const dx = (rect.x + rect.w) - localPos.x;
+  const dy = (rect.y + rect.h) - localPos.y;
+  if (dx < 0 || dy < 0 || dx > rect.w || dy > rect.h) { return false; }
+  const size = Math.min(rect.w, rect.h);
+  return (dx + dy) <= size;
 }
 
 

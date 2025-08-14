@@ -22,7 +22,7 @@ export const GRID_SIZE = 60;
 
 export const TOP_TOOLBAR_HEIGHT_PX = 40;
 
-export const RESIZE_BOX_SIZE_PX = 8;
+export const RESIZE_BOX_SIZE_PX = 10;
 
 export const ATTACH_AREA_SIZE_PX = 10;
 

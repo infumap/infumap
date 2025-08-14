@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
-import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient } from "../../style";

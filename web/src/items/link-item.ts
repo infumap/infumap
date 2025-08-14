@@ -170,8 +170,8 @@ export const LinkFns = {
         viewportBoundsPx: null,
         hitboxes: !emitHitboxes ? [] : [
           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.TriangleLinkSettings, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
         ],
       }
     }
@@ -215,7 +215,7 @@ export const LinkFns = {
         blockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
-          HitboxFns.create(HitboxFlags.TriangleLinkSettings, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }),
           HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
           HitboxFns.create(HitboxFlags.AttachComposite, {
             x: innerBoundsPx.w / 4,
@@ -263,7 +263,7 @@ export const LinkFns = {
         blockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
-          HitboxFns.create(HitboxFlags.TriangleLinkSettings, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }),
           HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(boundsPx)),
         ]
       };

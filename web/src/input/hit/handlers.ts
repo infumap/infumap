@@ -26,7 +26,7 @@ import { VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { HitHandler, HitInfo, HitTraversalContext } from "./types";
 import { HitBuilder } from "./builder";
-import { findAttachmentHit, scanHitboxes, toCompositeChildAreaPos, toTableChildAreaPos } from "./utils";
+import { findAttachmentHit, isInsideBottomRightTriangle, scanHitboxes, toCompositeChildAreaPos, toTableChildAreaPos } from "./utils";
 
 function parentVe(ve: VisualElement): VisualElement {
   return VesCache.get(ve.parentPath!)!.get();
@@ -43,7 +43,9 @@ const _tableHandler: HitHandler = {
     const tableVe = childVe;
     const resizeHitbox = tableVe.hitboxes[tableVe.hitboxes.length-1];
     if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
-    if (isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
+    if (isInsideBottomRightTriangle(
+          posRelativeToRootVeViewportPx,
+          offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
       return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-resize").build();
     }
     for (let j=tableVe.hitboxes.length-2; j>=0; j--) {
@@ -99,7 +101,9 @@ const _compositeHandler: HitHandler = {
     const compositeVe = childVe;
     const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length-1];
     if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
-    if (isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
+    if (isInsideBottomRightTriangle(
+          posRelativeToRootVeViewportPx,
+          offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
       return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-resize").build();
     }
     const { flags: compositeHitboxType, meta: compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(compositeVe.boundsPx!));
