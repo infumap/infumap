@@ -144,6 +144,17 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
 
     case MouseAction.Ambiguous:
+      {
+        const sel = store.overlay.selectedVeids.get();
+        if (sel && sel.length > 1) {
+          const clickedVeid = VeFns.veidFromVe(activeVisualElement);
+          const clickedIsSelected = sel.some(v => v.itemId === clickedVeid.itemId && v.linkIdMaybe === clickedVeid.linkIdMaybe);
+          if (clickedIsSelected) {
+            store.overlay.selectedVeids.set([]);
+            fullArrange(store);
+          }
+        }
+      }
 
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement, store);
