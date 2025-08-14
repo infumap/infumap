@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch, createEffect, createMemo, onMount 
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
-import { LINE_HEIGHT_PX, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { FEATURE_COLOR, linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -28,6 +28,10 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { ArrangeAlgorithm } from "../../items/page-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { PageVisualElementProps } from "./Page";
+import { CALENDAR_LAYOUT_CONSTANTS, getCurrentDayInfo } from "../../util/calendar-layout";
+import { itemState } from "../../store/ItemState";
+import { Item } from "../../items/base/item";
+import { Uid } from "../../util/uid";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -119,26 +123,30 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     </>;
 
   const renderPage = () =>
-    <div ref={translucentDiv}
-         class={`absolute ${borderClass()} rounded-sm`}
-         style={`left: ${pageFns().boundsPx().x}px; ` +
-                `top: ${pageFns().boundsPx().y}px; ` +
-                `width: ${pageFns().boundsPx().w}px; ` +
-                `height: ${pageFns().boundsPx().h}px; ` +
-                `background-color: #ffffff; ` +
-                `overflow-y: ${pageFns().boundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                `overflow-x: ${pageFns().boundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
-         onscroll={translucentScrollHandler}>
-      <div class="absolute"
-           style={`left: ${0}px; top: ${0}px; ` +
-                  `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-        <For each={props.visualElement.childrenVes}>{childVes =>
-          <VisualElement_Desktop visualElement={childVes.get()} />
-        }</For>
-        {pageFns().renderMoveOverAnnotationMaybe()}
-      </div>
-    </div>;
+    (
+      pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar
+        ? renderCalendarTranslucentPage()
+        : <div ref={translucentDiv}
+               class={`absolute ${borderClass()} rounded-sm`}
+               style={`left: ${pageFns().boundsPx().x}px; ` +
+                      `top: ${pageFns().boundsPx().y}px; ` +
+                      `width: ${pageFns().boundsPx().w}px; ` +
+                      `height: ${pageFns().boundsPx().h}px; ` +
+                      `background-color: #ffffff; ` +
+                      `overflow-y: ${pageFns().boundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                      `overflow-x: ${pageFns().boundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+                      `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+               onscroll={translucentScrollHandler}>
+            <div class="absolute"
+                 style={`left: ${0}px; top: ${0}px; ` +
+                        `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+              <For each={props.visualElement.childrenVes}>{childVes =>
+                <VisualElement_Desktop visualElement={childVes.get()} />
+              }</For>
+              {pageFns().renderMoveOverAnnotationMaybe()}
+            </div>
+          </div>
+    );
 
   const renderBoxTitleMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
@@ -149,7 +157,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
                   `width: ${pageFns().boundsPx().w}px; ` +
                   `height: ${pageFns().boundsPx().h}px;` +
                   `font-size: ${20 * translucentTitleInBoxScale()}px; ` +
-                  `justify-content: center; align-items: center; text-align: center; ` +
+                  `${pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar ? "justify-content: flex-start; align-items: flex-start; text-align: left; padding: 6px;" : "justify-content: center; align-items: center; text-align: center;"} ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
                   `outline: 0px solid transparent;`}
            spellcheck={store.overlay.textEditInfo() != null}
@@ -157,6 +165,52 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           {pageFns().pageItem().title}
       </div>
     </Show>;
+
+  const renderCalendarTranslucentPage = () => {
+    const childArea = pageFns().childAreaBoundsPx();
+    const bounds = pageFns().boundsPx();
+    const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
+    const today = getCurrentDayInfo();
+    const headerHeightPx = 26;
+
+    const allChildren = pageFns().pageItem().computed_children
+      .map((id: Uid) => itemState.get(id)!)
+      .filter((it: Item | null) => it != null)
+      .filter((it: Item) => {
+        const d = new Date(it.dateTime * 1000);
+        return d.getFullYear() === today.year && (d.getMonth() + 1) === today.month && d.getDate() === today.day;
+      })
+      .sort((a: Item, b: Item) => a.dateTime - b.dateTime);
+
+    const leftMargin = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN;
+    const innerWidth = childArea.w - leftMargin * 2;
+    const rowH = LINE_HEIGHT_PX;
+
+    return (
+      <div ref={translucentDiv}
+           class={`absolute ${borderClass()} rounded-sm`}
+           style={`left: ${bounds.x}px; top: ${bounds.y}px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow: auto; ${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+           onscroll={translucentScrollHandler}>
+        <div class="absolute"
+             style={`left: 0px; top: 0px; width: ${childArea.w / scale}px; height: ${(headerHeightPx + rowH * allChildren.length) / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
+          <For each={allChildren}>{(child, idx) => {
+            const y = headerHeightPx + idx() * rowH;
+            const ve = VeFns.create({
+              displayItem: child,
+              flags: VisualElementFlags.LineItem,
+              boundsPx: { x: leftMargin, y, w: innerWidth, h: rowH },
+              blockSizePx: NATURAL_BLOCK_SIZE_PX,
+              hitboxes: [],
+              parentPath: VeFns.veToPath(props.visualElement),
+              col: 0,
+              row: idx(),
+            });
+            return <VisualElement_LineItem visualElement={ve} />;
+          }}</For>
+        </div>
+      </div>
+    );
+  };
 
   const renderHoverOverMaybe = () =>
     <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
