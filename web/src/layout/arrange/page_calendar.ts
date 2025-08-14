@@ -82,6 +82,12 @@ export function arrange_calendar_page(
     
     const viewportHeight = geometry.viewportBoundsPx!.h;
 
+    // For popup, always scale to fit exactly (no scrollbars)
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
+      result.h = Math.round(viewportHeight);
+      return result;
+    }
+
     // Check if shrinking by 0.7x would still make content taller than screen
     const minScaledHeight = naturalCalendarHeightPx * 0.7;
     if (minScaledHeight > viewportHeight) {
@@ -155,13 +161,27 @@ export function arrange_calendar_page(
     })
     .sort((a, b) => a.dateTime - b.dateTime);
 
-  // Calendar layout dimensions (using scaled childAreaBoundsPx)
+  // Calendar layout dimensions (using arranged childAreaBoundsPx)
   const childAreaBounds = childAreaBoundsPx;
   const calendarDimensions = calculateCalendarDimensions(childAreaBounds);
 
+  // Popup-specific vertical stretch: reduce non-day paddings to increase dayRowHeight
+  const popupTopPadding = 5;
+  const popupTitleToMonthSpacing = 8;
+  const popupMonthTitleHeight = 26;
+  const popupBottomMargin = 3;
+
+  const dayRowHeight = (flags & ArrangeItemFlags.IsPopupRoot)
+    ? ((childAreaBounds.h - popupTopPadding - CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT - popupTitleToMonthSpacing - popupMonthTitleHeight - popupBottomMargin) / CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT)
+    : calendarDimensions.dayRowHeight;
+
+  const dayAreaTopPx = (flags & ArrangeItemFlags.IsPopupRoot)
+    ? (CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight)
+    : calendarDimensions.dayAreaTopPx;
+
   // Item dimensions - icon + text layout like other line items
   const blockSizePx = NATURAL_BLOCK_SIZE_PX;
-  const itemHeight = blockSizePx.h; // Standard block height for readability
+  const itemHeight = Math.min(dayRowHeight, blockSizePx.h);
   
   // Calculate how many blocks can fit in the column width (accounting for day label space)
   const availableWidthForItems = calendarDimensions.columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX;
@@ -170,7 +190,7 @@ export function arrange_calendar_page(
   const itemWidth = blockSizePx.w * widthBl;
 
   // Cap items per day by how many rows fit in a day
-  const rowsPerDay = Math.max(1, Math.floor(calendarDimensions.dayRowHeight / itemHeight));
+  const rowsPerDay = Math.max(1, Math.floor(dayRowHeight / itemHeight));
 
     // Group items by date for stacking
   const itemsByDate = new Map<string, typeof childrenWithDateTime>();
@@ -196,7 +216,7 @@ export function arrange_calendar_page(
 
     // Calculate base position for this date
     const monthLeftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (calendarDimensions.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
-    const dayTopPos = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
+    const dayTopPos = dayAreaTopPx + (day - 1) * dayRowHeight;
 
     // Add a page-level hitbox for overflow count if there are more items than rows
     const overflowCount = Math.max(0, itemsForDate.length - rowsPerDay);
@@ -208,7 +228,7 @@ export function arrange_calendar_page(
         x: baseX + 2,
         y: baseY + 2,
         w: blockSizePx.w - 2,
-        h: blockSizePx.h - 4,
+        h: itemHeight - 4,
       };
       const meta = HitboxFns.createMeta({
         calendarYear: itemDate.getFullYear(),
@@ -343,10 +363,10 @@ export function arrange_calendar_page(
     const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
 
     // Use calendar-specific item dimensions
-    const calendarItemHeight = blockSizePx.h; // Items in calendar use standard block height for icon+text
+      const calendarItemHeight = itemHeight;
 
     // Adjust Y position by approximately one row height to align with calendar grid
-    const calendarYAdjustment = calendarDimensions.dayRowHeight;
+      const calendarYAdjustment = dayRowHeight;
 
     // Calculate moving item position using the same coordinate system as other page types
     const movingItemBoundsPx = {

@@ -17,14 +17,18 @@
 */
 
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
-import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
 import { hexToRGBA } from "../../util/color";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem } from "../../items/page-item";
 import { PageVisualElementProps } from "./Page";
+import { getMonthInfo } from "../../util/time";
+import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
+import { fullArrange } from "../../layout/arrange";
+import { itemState } from "../../store/ItemState";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -92,6 +96,10 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     if (childAreaBoundsPx_.h > viewportBoundsPx.h) {
       const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - viewportBoundsPx.h);
       store.perItem.setPageScrollYProp(popupVeid, scrollYProp);
+    }
+    if (childAreaBoundsPx_.w > viewportBoundsPx.w) {
+      const scrollXProp = popupDiv!.scrollLeft / (childAreaBoundsPx_.w - viewportBoundsPx.w);
+      store.perItem.setPageScrollXProp(popupVeid, scrollXProp);
     }
   };
 
@@ -178,6 +186,153 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       </div>
     </div>;
 
+  const renderCalendarPage = () => {
+    const currentYear = store.perVe.getCalendarYear(VeFns.veToPath(props.visualElement));
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx());
+    const baseDayRowPx = asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl * LINE_HEIGHT_PX;
+    // Mirror popup stretch logic used during arrange to keep visual and item rows in sync
+    const popupTopPadding = 5;
+    const popupTitleToMonthSpacing = 8;
+    const popupMonthTitleHeight = 26;
+    const popupBottomMargin = 3;
+    const stretchedDayRowHeight = (pageFns().childAreaBoundsPx().h - popupTopPadding - CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT - popupTitleToMonthSpacing - popupMonthTitleHeight - popupBottomMargin) / CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT;
+    const effectiveDayRowHeight = Math.max(calendarDimensions.dayRowHeight, stretchedDayRowHeight);
+    const scale = baseDayRowPx > 0 ? (effectiveDayRowHeight / baseDayRowPx) : 1.0;
+    const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6;
+
+    return (
+      <div ref={popupDiv}
+           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-t border-slate-300`}
+           style={`left: ${pageFns().viewportBoundsPx().x}px; ` +
+                  `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+                  `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+                  `background-color: #ffffff; ` +
+                  `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                  `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+                  `${VeFns.zIndexStyle(props.visualElement)} `}
+           onscroll={popupScrollHandler}>
+        <div class="absolute"
+             style={`left: 0px; top: 0px; ` +
+                    `width: ${pageFns().childAreaBoundsPx().w}px; ` +
+                    `height: ${pageFns().childAreaBoundsPx().h}px;` +
+                    `outline: 0px solid transparent; `}>
+          <div class="absolute flex items-center justify-center font-bold"
+               style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${popupTopPadding}px; width: ${(pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN) / scale}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
+            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
+                 onClick={() => {
+                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
+                   fullArrange(store);
+                 }}>
+              <i class="fas fa-angle-left" />
+            </div>
+            <span class="mx-2 text-2xl">{currentYear}</span>
+            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
+                 onClick={() => {
+                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
+                   fullArrange(store);
+                 }}>
+              <i class="fas fa-angle-right" />
+            </div>
+          </div>
+
+          <For each={Array.from({length: 12}, (_, i) => i + 1)}>{month => {
+            const monthInfo = getMonthInfo(month, currentYear);
+            const leftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (calendarDimensions.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
+
+            return (
+               <div class="absolute"
+                    style={`left: ${leftPos}px; top: ${popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + 1}px; width: ${calendarDimensions.columnWidth}px;`}>
+                <div class="text-center font-semibold"
+                     style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT / scale}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT / scale}px; width: ${calendarDimensions.columnWidth / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
+                  <span class="text-base" style={`position: relative; top: ${Math.round(5/scale)}px;`}>{monthNames[month - 1]}</span>
+                </div>
+
+                <For each={Array.from({length: monthInfo.daysInMonth}, (_, i) => i + 1)}>{day => {
+                  const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
+                   const topPos = popupMonthTitleHeight + (day - 1) * effectiveDayRowHeight;
+                  const isToday = isCurrentDay(month, day, currentYear);
+
+                  let backgroundColor = '#ffffff';
+                  if (isToday) {
+                    backgroundColor = '#fef3c7';
+                  } else if (isWeekend(dayOfWeek)) {
+                    backgroundColor = '#f5f5f5';
+                  }
+
+                  return (
+                    <div class="absolute"
+                          style={`left: 0px; top: ${topPos}px; width: ${calendarDimensions.columnWidth}px; height: ${effectiveDayRowHeight}px; ` +
+                                `background-color: ${backgroundColor}; ` +
+                                `border-bottom: 1px solid #e5e5e5;`}>
+                      <div class="flex items-start"
+                           style={`width: ${calendarDimensions.columnWidth / scale}px; height: ${effectiveDayRowHeight / scale}px; transform: scale(${scale}); transform-origin: top left; padding-top: 5px;`}>
+                        <div style={`width: ${CALENDAR_DAY_LABEL_LEFT_MARGIN_PX / scale}px; display: flex; align-items: flex-start; justify-content: flex-end;`}>
+                          <span style="font-size: 10px; margin-right: 2px;">{day}</span>
+                          <span class="text-gray-600" style="font-size: 10px; margin-left: 3px;">{dayNames[dayOfWeek]}</span>
+                        </div>
+                        <div style={`width: ${(calendarDimensions.columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX) / scale}px;`} />
+                      </div>
+                    </div>
+                  );
+                }}</For>
+              </div>
+            );
+          }}</For>
+
+          <For each={props.visualElement.childrenVes}>{childVes =>
+            <VisualElement_LineItem visualElement={childVes.get()} />
+          }</For>
+
+          {(() => {
+            const childArea = pageFns().childAreaBoundsPx();
+            const dims = calculateCalendarDimensions(childArea);
+            const block = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX } as const;
+            const rowsPerDay = Math.max(1, Math.floor(effectiveDayRowHeight / block.h));
+
+            const itemCounts = new Map<string, number>();
+            const pageItem = asPageItem(props.visualElement.displayItem);
+            const year = store.perVe.getCalendarYear(VeFns.veToPath(props.visualElement));
+            for (const childId of pageItem.computed_children) {
+              const it = itemState.get(childId);
+              if (!it) continue;
+              const d = new Date(it.dateTime * 1000);
+              if (d.getFullYear() !== year) continue;
+              const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+              itemCounts.set(key, (itemCounts.get(key) || 0) + 1);
+            }
+
+            const overlays: any[] = [];
+            itemCounts.forEach((totalCount, key) => {
+              if (totalCount <= rowsPerDay) return;
+              const [y, m, dd] = key.split('-').map(n => parseInt(n, 10));
+              const month = m;
+              const day = dd;
+              const monthLeftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (dims.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
+              const dayAreaTopPopup = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + 1 + popupMonthTitleHeight;
+              const dayTopPos = dayAreaTopPopup + (day - 1) * effectiveDayRowHeight;
+              const rightEdge = monthLeftPos + dims.columnWidth;
+              const baseX = rightEdge - block.w;
+              const baseY = dayTopPos + (rowsPerDay - 1) * effectiveDayRowHeight;
+              const overlayWidth = block.w - 2;
+              const overlayHeight = Math.max(8, Math.round(effectiveDayRowHeight)) - 4;
+              const overlayX = baseX + 2;
+              const overlayY = baseY + 2;
+              const overflowCount = totalCount - rowsPerDay;
+              overlays.push(
+                <div class="absolute flex items-center justify-center font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
+                      style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px; font-size: ${Math.max(8, Math.round(10*scale))}px;`}>{overflowCount}</div>
+              );
+            });
+            return overlays;
+          })()}
+        </div>
+      </div>
+    );
+  };
+
   const renderAnchorMaybe = () =>
     <Show when={PageFns.popupPositioningHasChanged(pageFns().parentPage())}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-900`}
@@ -211,7 +366,10 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         <Match when={(props.visualElement.linkItemMaybe as any)?.overrideArrangeAlgorithm === ArrangeAlgorithm.List || pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           {renderListPage()}
         </Match>
-        <Match when={pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
+        <Match when={(props.visualElement.linkItemMaybe as any)?.overrideArrangeAlgorithm === ArrangeAlgorithm.Calendar || pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar}>
+          {renderCalendarPage()}
+        </Match>
+        <Match when={(props.visualElement.linkItemMaybe as any)?.overrideArrangeAlgorithm !== ArrangeAlgorithm.List && (props.visualElement.linkItemMaybe as any)?.overrideArrangeAlgorithm !== ArrangeAlgorithm.Calendar && pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List && pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar}>
           {renderPage()}
         </Match>
       </Switch>
