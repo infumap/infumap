@@ -271,6 +271,7 @@ function mouseAction_selecting(store: StoreContextModel) {
   }
 
   const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
+  const selectedSet = new Set<string>();
   const rootPath = MouseActionState.get().activeRoot;
   const stack: string[] = [rootPath];
   while (stack.length > 0) {
@@ -286,9 +287,24 @@ function mouseAction_selecting(store: StoreContextModel) {
         const ax = Math.min(selectionRect.x + selectionRect.w, veBox.x + veBox.w);
         const ay = Math.min(selectionRect.y + selectionRect.h, veBox.y + veBox.h);
         if (ix < ax && iy < ay) {
+          // If inside a composite, select the composite parent instead of the child
+          if (ve.flags & VisualElementFlags.InsideCompositeOrDoc) {
+            const parentVe = VesCache.get(ve.parentPath!)!.get();
+            if (isComposite(parentVe.displayItem)) {
+              const itemId = parentVe.displayItem.id;
+              const linkIdMaybe = parentVe.actualLinkItemMaybe ? parentVe.actualLinkItemMaybe.id : null;
+              const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");
+              if (!selectedSet.has(key)) { selected.push({ itemId, linkIdMaybe }); selectedSet.add(key); }
+              continue;
+            }
+          }
+
           const isSelectableContainer = isTable(ve.displayItem);
           if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer) && !(ve.flags & VisualElementFlags.Popup)) {
-            selected.push({ itemId: ve.displayItem.id, linkIdMaybe: ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null });
+            const itemId = ve.displayItem.id;
+            const linkIdMaybe = ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null;
+            const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");
+            if (!selectedSet.has(key)) { selected.push({ itemId, linkIdMaybe }); selectedSet.add(key); }
           }
         }
       }

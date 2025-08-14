@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
@@ -28,6 +28,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -95,6 +96,13 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
           onKeyUp={keyUpHandler}
           onKeyDown={keyDownHandler}
           onInput={inputListener}>
+        <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+          <div class="absolute pointer-events-none rounded-sm"
+               style={`left: 0px; top: 0px; ` +
+                      `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                      `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+                      `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+        </Show>
         <For each={props.visualElement.childrenVes}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>

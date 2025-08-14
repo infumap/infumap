@@ -280,7 +280,20 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPosPx;
-  const hitVe = HitInfoFns.getHitVe(hitInfo);
+  let hitVe = HitInfoFns.getHitVe(hitInfo);
+  // If clicking a child inside a composite and that composite is in the current selection,
+  // treat this as hitting the composite to preserve selection during drag (tables unchanged).
+  if ((hitVe.flags & VisualElementFlags.InsideCompositeOrDoc) && !isTable(hitVe.displayItem)) {
+    const parentVe = VesCache.get(hitVe.parentPath!)!.get();
+    if (isComposite(parentVe.displayItem)) {
+      const sel = store.overlay.selectedVeids.get();
+      if (sel && sel.length > 0) {
+        const parentVeid = VeFns.veidFromItems(parentVe.displayItem, parentVe.actualLinkItemMaybe);
+        const parentSelected = sel.some(v => v.itemId === parentVeid.itemId && v.linkIdMaybe === parentVeid.linkIdMaybe);
+        if (parentSelected) { hitVe = parentVe; }
+      }
+    }
+  }
   const activeItem = VeFns.treeItem(hitVe);
   let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDesktopPx(store, hitVe);
 

@@ -74,6 +74,18 @@ export const arrangeComposite = (
     parentPath,
   };
 
+  // Highlight composite when it is part of the overlay selection
+  {
+    const sel = store.overlay.selectedVeids.get();
+    if (sel && sel.length > 0) {
+      const veid = VeFns.veidFromItems(displayItem_Composite, actualLinkItemMaybe_Composite);
+      const isSelected = sel.some(v => v.itemId === veid.itemId && v.linkIdMaybe === veid.linkIdMaybe);
+      if (isSelected) {
+        compositeVisualElementSpec.flags = (compositeVisualElementSpec.flags || VisualElementFlags.None) | VisualElementFlags.SelectionHighlighted;
+      }
+    }
+  }
+
   const compositeSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Composite ? linkItemMaybe_Composite : displayItem_Composite);
   const blockSizePx = { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
 
