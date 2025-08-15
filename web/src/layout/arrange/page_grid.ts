@@ -102,6 +102,15 @@ export function arrange_grid_page(
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
+  const isSelectionHighlighted = (() => {
+    const sel = store.overlay.selectedVeids.get();
+    if (!sel || sel.length === 0) { return false; }
+    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
+    for (let i=0; i<sel.length; ++i) {
+      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
+    }
+    return false;
+  })();
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
@@ -115,7 +124,8 @@ export function arrange_grid_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
-           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+           (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,

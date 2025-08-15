@@ -25,7 +25,7 @@ import { asTableItem, isTable } from "../items/table-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VisualElementFlags, VeFns, veFlagIsRoot } from "../layout/visual-element";
+import { VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage } from "../layout/visual-element";
 import { VisualElementSignal } from "../util/signals";
 import { HitInfoFns } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
@@ -300,7 +300,7 @@ function mouseAction_selecting(store: StoreContextModel) {
           }
 
           const isSelectableContainer = isTable(ve.displayItem);
-          if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer) && !(ve.flags & VisualElementFlags.Popup)) {
+          if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer || isVeTranslucentPage(ve)) && !(ve.flags & VisualElementFlags.Popup)) {
             const itemId = ve.displayItem.id;
             const linkIdMaybe = ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null;
             const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");

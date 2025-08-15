@@ -32,7 +32,7 @@ import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, EMPTY_VEID } from "../layout/visual-element";
+import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, EMPTY_VEID, isVeTranslucentPage } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -704,7 +704,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
           }
 
           const isSelectableContainer = isTable(ve.displayItem);
-          if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer) && !(ve.flags & VisualElementFlags.Popup)) {
+          if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer || isVeTranslucentPage(ve)) && !(ve.flags & VisualElementFlags.Popup)) {
             const itemId = ve.displayItem.id;
             const linkIdMaybe = ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null;
             const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");

@@ -103,6 +103,17 @@ export function arrange_list_page(
 
   const listWidthBl = displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE;
 
+  // Mark page as selection-highlighted when included in overlay selection
+  const isSelectionHighlighted = (() => {
+    const sel = store.overlay.selectedVeids.get();
+    if (!sel || sel.length === 0) { return false; }
+    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
+    for (let i=0; i<sel.length; ++i) {
+      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
+    }
+    return false;
+  })();
+
   let resizeBoundsPx = {
     x: listWidthBl * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
     y: 0,
@@ -156,7 +167,8 @@ export function arrange_list_page(
            (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+           (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
