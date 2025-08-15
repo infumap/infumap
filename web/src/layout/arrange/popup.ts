@@ -27,14 +27,14 @@ import { VisualElementSignal } from "../../util/signals";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VeFns, VisualElementFlags } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
-import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
+import { POPUP_LINK_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 
 
 export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
   const currentPage = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
-  const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), UMBRELLA_PAGE_UID);
+  const currentPath = VeFns.veToPath(store.umbrellaVisualElement.get().childrenVes[0].get());
   const currentPopupSpec = store.history.currentPopupSpec()!;
 
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
