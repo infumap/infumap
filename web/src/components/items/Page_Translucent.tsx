@@ -78,6 +78,23 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const translucentTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("lg"));
 
+  const calendarTitleStyle = (): string => {
+    const base = `left: ${pageFns().boundsPx().x}px; ` +
+                 `top: ${pageFns().boundsPx().y}px; ` +
+                 `width: ${pageFns().boundsPx().w}px; ` +
+                 `height: ${pageFns().boundsPx().h}px;` +
+                 `font-size: ${20 * translucentTitleInBoxScale()}px; ` +
+                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+                 `outline: 0px solid transparent;`;
+    if (pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+      const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
+      const padLeft = (CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + 4) * scale;
+      return base + `justify-content: flex-start; align-items: flex-start; text-align: left; padding-top: 6px; padding-left: ${padLeft}px;`;
+    } else {
+      return base + `justify-content: center; align-items: center; text-align: center;`;
+    }
+  };
+
   const translucentScrollHandler = (_ev: Event) => {
     if (!translucentDiv) { return; }
     if (updatingTranslucentScrollTop) { return; }
@@ -152,14 +169,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
       <div id={VeFns.veToPath(props.visualElement) + ":title"}
            class={`absolute flex font-bold text-white pointer-events-none`}
-           style={`left: ${pageFns().boundsPx().x}px; ` +
-                  `top: ${pageFns().boundsPx().y}px; ` +
-                  `width: ${pageFns().boundsPx().w}px; ` +
-                  `height: ${pageFns().boundsPx().h}px;` +
-                  `font-size: ${20 * translucentTitleInBoxScale()}px; ` +
-                  `${pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar ? "justify-content: flex-start; align-items: flex-start; text-align: left; padding: 6px;" : "justify-content: center; align-items: center; text-align: center;"} ` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
-                  `outline: 0px solid transparent;`}
+           style={calendarTitleStyle()}
            spellcheck={store.overlay.textEditInfo() != null}
            contentEditable={store.overlay.textEditInfo() != null}>
           {pageFns().pageItem().title}
@@ -171,7 +181,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const bounds = pageFns().boundsPx();
     const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
     const today = getCurrentDayInfo();
-    const headerHeightPx = 26;
+    const headerHeightPx = 36;
 
     const allChildren = pageFns().pageItem().computed_children
       .map((id: Uid) => itemState.get(id)!)

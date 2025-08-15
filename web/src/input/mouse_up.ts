@@ -44,8 +44,6 @@ import { isFlipCard } from "../items/flipcard-item";
 import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
 
 
-
-
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
 
   if (document.activeElement!.id.includes("toolbarTitleDiv")) {
