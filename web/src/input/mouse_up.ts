@@ -660,7 +660,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
   if (rect == null) { return; }
 
   const activeRootVe = VesCache.get(MouseActionState.get().activeRoot)!.get();
-  const activeRootBounds = VeFns.veBoundsRelativeToDesktopPx(store, activeRootVe);
+  const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, activeRootVe);
   const selectionRect = {
     x: Math.max(rect.x, activeRootBounds.x),
     y: Math.max(rect.y, activeRootBounds.y),
@@ -682,7 +682,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
     if (!ves) { continue; }
     const ve = ves.get();
     if (ve.parentPath && !(ve.flags & VisualElementFlags.LineItem)) {
-      const veBox = VeFns.veBoundsRelativeToDesktopPx(store, ve);
+      const veBox = VeFns.veViewportBoundsRelativeToDesktopPx(store, ve);
       if (veBox.w > 0 && veBox.h > 0) {
         const ix = Math.max(selectionRect.x, veBox.x);
         const iy = Math.max(selectionRect.y, veBox.y);

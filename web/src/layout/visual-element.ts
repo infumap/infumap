@@ -706,6 +706,85 @@ export const VeFns = {
     return visualElement.flags & VisualElementFlags.Moving ? " opacity: 0.3;" : "";
   },
 
+  /**
+   * Like veBoundsRelativeToDesktopPx, but for pages returns the on-screen viewport rectangle
+   * rather than the full childArea size. This is useful for interactions that should be
+   * clipped to what is visibly covered by the page (e.g., marquee selection intersection).
+   */
+  veViewportBoundsRelativeToDesktopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
+    let ve: VisualElement | null = visualElement;
+    if (ve.parentPath == null) {
+      if (isPage(ve.displayItem) && ve.viewportBoundsPx) {
+        const popupTitleHeightMaybePx = ve.boundsPx.h - ve.viewportBoundsPx.h;
+        return {
+          x: ve.boundsPx.x,
+          y: ve.boundsPx.y + popupTitleHeightMaybePx,
+          w: ve.viewportBoundsPx.w,
+          h: ve.viewportBoundsPx.h,
+        };
+      }
+      return cloneBoundingBox(ve.boundsPx)!;
+    }
+
+    let r = getBoundingBoxTopLeft(ve.boundsPx);
+
+    // handle case of attachment in a table.
+    const treeItem = VeFns.treeItem(ve);
+    if (treeItem.relationshipToParent == RelationshipToParent.Attachment) {
+      const veParent = VesCache.get(ve.parentPath!)!.get();
+      const veParentParent = VesCache.get(veParent.parentPath!)!.get();
+      if (isTable(veParentParent.displayItem)) {
+        const tableItem = asTableItem(veParentParent.displayItem);
+        const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
+        const blockHeightPx = ve.boundsPx.h / fullHeightBl;
+        r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
+        // skip the item that is a child of the table - the attachment ve is relative to the table.
+        // TODO (LOW): it would be better if the attachment were relative to the item, not the table.
+        ve = VesCache.get(ve.parentPath!)!.get();
+      }
+    }
+
+    ve = VesCache.get(ve.parentPath!)!.get();
+    while (ve != null) {
+      r = vectorAdd(r, getBoundingBoxTopLeft(ve.viewportBoundsPx ? ve.viewportBoundsPx : ve.boundsPx));
+      if (isTable(ve.displayItem)) {
+        const tableItem = asTableItem(ve.displayItem);
+        const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
+        const blockHeightPx = visualElement.boundsPx.h / fullHeightBl;
+        r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
+      } else if (isPage(ve.displayItem)) {
+        let adjY = 0.0;
+        let adjX = 0.0;
+        if (ve.flags & VisualElementFlags.Popup) {
+          const popupSpec = store.history.currentPopupSpec()!;
+          assert(itemState.get(popupSpec.actualVeid.itemId)!.itemType == ItemType.Page, "veViewportBoundsRelativeToDesktopPx: popup spec type not page.");
+          adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid);
+          adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid);
+        } else {
+          if (ve.flags & VisualElementFlags.ShowChildren) {
+            adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.actualVeidFromVe(ve));
+            adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.actualVeidFromVe(ve));
+          }
+        }
+        r.x -= adjX;
+        r.y -= adjY;
+      }
+      ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
+    }
+
+    if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx) {
+      const popupTitleHeightMaybePx = visualElement.boundsPx.h - visualElement.viewportBoundsPx!.h;
+      return {
+        x: r.x,
+        y: r.y + popupTitleHeightMaybePx,
+        w: visualElement.viewportBoundsPx!.w,
+        h: visualElement.viewportBoundsPx!.h,
+      };
+    }
+
+    return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
+  },
+
   toDebugString: (ve: VisualElement): string => {
     let result = "";
     if (isTitledItem(ve.displayItem)) {
