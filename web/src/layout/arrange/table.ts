@@ -230,6 +230,14 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   };
   if (!needToRearrange()) { return; }
 
+  if (existingEvaluationQueue.length > 0) {
+    console.debug("Expressions need evaluation during table scroll, falling back to fullArrange to avoid path errors.");
+    // Clear text editing state
+    store.overlay.setTextEditInfo(store.history, null);
+    fullArrange(store);
+    return;
+  }
+
   const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
   const tableVe = VesCache.get(tableVePath)!.get();
   const displayItem_table = asTableItem(tableVe.displayItem);
@@ -309,22 +317,6 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
         const existingVe = vesToOverwrite?.get();
         const existingPath = existingVe ? VeFns.veToPath(existingVe) : null;
         const newPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
-        
-        console.debug("[TABLE_DEBUG] Rearranging row:", {
-          tableVePath: tableVePath,
-          rowIdx: rowIdx,
-          outIdx: outIdx,
-          expectedRowForOutIdx: tableVesRows[outIdx],
-          actualRowIdx: rowIdx,
-          itemId: item.id,
-          existingPath: existingPath,
-          newPath: newPath,
-          vesToOverwriteExists: !!vesToOverwrite,
-          existingVeExists: !!existingVe,
-          itemType: displayItem_childItem.itemType,
-          iterIndicesDepth: iterIndices.length,
-          timestamp: new Date().toISOString()
-        });
         
         try {
           tableVeChildren[outIdx] = createRow(
@@ -447,13 +439,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     if (hasInconsistency) {
     console.error("[TABLE_DEBUG] Inconsistencies detected in final table arrangement:", finalDebugInfo);
   } else if (debugRowMapping.size > 0) {
-    // Only log when we actually rearranged something
-    console.debug("[TABLE_DEBUG] Table rearrangement completed successfully:", {
-      tableId: displayItem_table.id,
-      rearrangedCount: debugRowMapping.size,
-      scrollChange: `${prevScrollYPos} -> ${scrollYPos}`,
-      timestamp: new Date().toISOString()
-    });
+    // don't log.
   }
 
   for (const path of existingEvaluationQueue) {
@@ -558,16 +544,6 @@ function createRow(
       };
       let tableChildAttachmentVes;
       if (vesToOverwrite != null) {
-        // TODO (MEDIUM): re-use these.
-        console.debug("[TABLE_DEBUG] Creating new attachment VE (not reusing):", {
-          tableVePath: tableVePath,
-          attachmentIndex: i,
-          attachmentId: attachmentId,
-          parentRowIdx: rowIdx,
-          parentItemId: displayItem_childItem.id,
-          existingAttachmentsCount: vesToOverwrite.get()?.attachmentsVes?.length || 0,
-          timestamp: new Date().toISOString()
-        });
         tableChildAttachmentVes = VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
       } else {
         tableChildAttachmentVes = VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
