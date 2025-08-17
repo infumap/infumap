@@ -202,21 +202,28 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
            style={`left: ${bounds.x}px; top: ${bounds.y}px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow: auto; ${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={translucentScrollHandler}>
         <div class="absolute"
-             style={`left: 0px; top: 0px; width: ${childArea.w / scale}px; height: ${(headerHeightPx + rowH * allChildren.length) / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
-          <For each={allChildren}>{(child, idx) => {
-            const y = headerHeightPx + idx() * rowH;
-            const ve = VeFns.create({
-              displayItem: child,
-              flags: VisualElementFlags.LineItem,
-              boundsPx: { x: leftMargin, y, w: innerWidth, h: rowH },
-              blockSizePx: NATURAL_BLOCK_SIZE_PX,
-              hitboxes: [],
-              parentPath: VeFns.veToPath(props.visualElement),
-              col: 0,
-              row: idx(),
-            });
-            return <VisualElement_LineItem visualElement={ve} />;
-          }}</For>
+             style={`left: 0px; top: 0px; width: ${childArea.w / scale}px; height: ${(headerHeightPx + rowH * Math.max(1, allChildren.length)) / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
+          <Show when={allChildren.length > 0} fallback={
+            <div class="absolute text-[#666] italic"
+                 style={`left: ${leftMargin}px; top: ${headerHeightPx}px; width: ${innerWidth}px; height: ${rowH}px; line-height: ${rowH}px; padding-left: 4px;`}>
+              [no items]
+            </div>
+          }>
+            <For each={allChildren}>{(child, idx) => {
+              const y = headerHeightPx + idx() * rowH;
+              const ve = VeFns.create({
+                displayItem: child,
+                flags: VisualElementFlags.LineItem,
+                boundsPx: { x: leftMargin, y, w: innerWidth, h: rowH },
+                blockSizePx: NATURAL_BLOCK_SIZE_PX,
+                hitboxes: [],
+                parentPath: VeFns.veToPath(props.visualElement),
+                col: 0,
+                row: idx(),
+              });
+              return <VisualElement_LineItem visualElement={ve} />;
+            }}</For>
+          </Show>
         </div>
       </div>
     );
