@@ -180,21 +180,48 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const childArea = pageFns().childAreaBoundsPx();
     const bounds = pageFns().boundsPx();
     const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
-    const today = getCurrentDayInfo();
-    const headerHeightPx = 36;
 
+    // Prepare date range: today + next 6 days
+    const todayInfo = getCurrentDayInfo();
+    const baseDate = new Date(todayInfo.year, todayInfo.month - 1, todayInfo.day);
+    const days: Array<{ key: string, display: string, date: Date }> = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(baseDate.getTime() + i * 24 * 60 * 60 * 1000);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return { key: `${yyyy}-${d.getMonth() + 1}-${d.getDate()}`, display: `${yyyy}-${mm}-${dd}`, date: d };
+    });
+
+    // Collect all children once and group by date key
     const allChildren = pageFns().pageItem().computed_children
       .map((id: Uid) => itemState.get(id)!)
-      .filter((it: Item | null) => it != null)
-      .filter((it: Item) => {
-        const d = new Date(it.dateTime * 1000);
-        return d.getFullYear() === today.year && (d.getMonth() + 1) === today.month && d.getDate() === today.day;
-      })
+      .filter((it: Item | null): it is Item => it != null)
       .sort((a: Item, b: Item) => a.dateTime - b.dateTime);
+
+    const itemsByDate = new Map<string, Array<Item>>();
+    for (const item of allChildren) {
+      const d = new Date(item.dateTime * 1000);
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      if (!itemsByDate.has(key)) { itemsByDate.set(key, []); }
+      itemsByDate.get(key)!.push(item);
+    }
 
     const leftMargin = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN;
     const innerWidth = childArea.w - leftMargin * 2;
+    const textLeft = leftMargin + 3; // align with item title text (after icon)
     const rowH = LINE_HEIGHT_PX;
+    const titleTopOffsetPx = 40; // keep items below page title on first render
+    const dayHeaderTextH = 18;
+    const daySeparatorSpacing = 4;
+    const daySeparatorH = 1;
+    const dayHeaderH = dayHeaderTextH + daySeparatorSpacing + daySeparatorH;
+
+    // Compute total height needed
+    const totalHeight = days.reduce((acc, day) => {
+      const items = itemsByDate.get(day.key) || [];
+      const rows = Math.max(1, items.length);
+      return acc + dayHeaderH + rowH * rows;
+    }, titleTopOffsetPx) + 6;
 
     return (
       <div ref={translucentDiv}
@@ -202,28 +229,57 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
            style={`left: ${bounds.x}px; top: ${bounds.y}px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow: auto; ${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={translucentScrollHandler}>
         <div class="absolute"
-             style={`left: 0px; top: 0px; width: ${childArea.w / scale}px; height: ${(headerHeightPx + rowH * Math.max(1, allChildren.length)) / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
-          <Show when={allChildren.length > 0} fallback={
-            <div class="absolute text-[#666] italic"
-                 style={`left: ${leftMargin}px; top: ${headerHeightPx}px; width: ${innerWidth}px; height: ${rowH}px; line-height: ${rowH}px; padding-left: 4px;`}>
-              [no items]
-            </div>
-          }>
-            <For each={allChildren}>{(child, idx) => {
-              const y = headerHeightPx + idx() * rowH;
-              const ve = VeFns.create({
-                displayItem: child,
-                flags: VisualElementFlags.LineItem,
-                boundsPx: { x: leftMargin, y, w: innerWidth, h: rowH },
-                blockSizePx: NATURAL_BLOCK_SIZE_PX,
-                hitboxes: [],
-                parentPath: VeFns.veToPath(props.visualElement),
-                col: 0,
-                row: idx(),
-              });
-              return <VisualElement_LineItem visualElement={ve} />;
-            }}</For>
-          </Show>
+             style={`left: 0px; top: 0px; width: ${childArea.w / scale}px; height: ${totalHeight / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
+          {(() => {
+            // Render sequentially to maintain running Y
+            let runningY = titleTopOffsetPx;
+            const sections: any[] = [];
+            for (const day of days) {
+              const items = (itemsByDate.get(day.key) || []).sort((a, b) => a.dateTime - b.dateTime);
+              const sectionTop = runningY;
+              // Date header text
+              sections.push(
+                <div class="absolute font-semibold"
+                     style={`left: ${textLeft}px; top: ${sectionTop}px; width: ${innerWidth - NATURAL_BLOCK_SIZE_PX.w}px; height: ${dayHeaderTextH}px; line-height: ${dayHeaderTextH}px;`}>
+                  {day.display}
+                </div>
+              );
+              // Separator line spanning inner width
+              sections.push(
+                <div class="absolute"
+                     style={`left: ${textLeft}px; top: ${sectionTop + dayHeaderTextH + daySeparatorSpacing}px; width: ${childArea.w - 2 * textLeft - 4}px; height: ${daySeparatorH}px; background-color: #aaaaaa;`} />
+              );
+
+              const contentTop = sectionTop + dayHeaderH;
+              if (items.length === 0) {
+                sections.push(
+                  <div class="absolute text-[#666] italic"
+                       style={`left: ${textLeft}px; top: ${contentTop}px; width: ${childArea.w - textLeft - leftMargin}px; height: ${rowH}px; line-height: ${rowH}px;`}>
+                    [no items]
+                  </div>
+                );
+                runningY += dayHeaderH + rowH;
+              } else {
+                for (let i = 0; i < items.length; i++) {
+                  const y = contentTop + i * rowH;
+                  const child = items[i];
+                  const ve = VeFns.create({
+                    displayItem: child,
+                    flags: VisualElementFlags.LineItem,
+                    boundsPx: { x: leftMargin, y, w: innerWidth, h: rowH },
+                    blockSizePx: NATURAL_BLOCK_SIZE_PX,
+                    hitboxes: [],
+                    parentPath: VeFns.veToPath(props.visualElement),
+                    col: 0,
+                    row: i,
+                  });
+                  sections.push(<VisualElement_LineItem visualElement={ve} />);
+                }
+                runningY += dayHeaderH + rowH * items.length;
+              }
+            }
+            return sections;
+          })()}
         </div>
       </div>
     );
