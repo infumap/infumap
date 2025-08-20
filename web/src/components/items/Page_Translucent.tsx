@@ -184,6 +184,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     // Prepare date range: today + next 6 days
     const todayInfo = getCurrentDayInfo();
     const baseDate = new Date(todayInfo.year, todayInfo.month - 1, todayInfo.day);
+    const todayKey = `${todayInfo.year}-${todayInfo.month}-${todayInfo.day}`;
     const days: Array<{ key: string, display: string, date: Date }> = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(baseDate.getTime() + i * 24 * 60 * 60 * 1000);
       const yyyy = d.getFullYear();
@@ -210,18 +211,19 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const innerWidth = childArea.w - leftMargin * 2;
     const textLeft = leftMargin + 3; // align with item title text (after icon)
     const rowH = LINE_HEIGHT_PX;
-    const titleTopOffsetPx = 40; // keep items below page title on first render
+    const titleTopOffsetPx = 30; // keep items below page title on first render
     const dayHeaderTextH = 18;
     const daySeparatorSpacing = 4;
     const daySeparatorH = 1;
     const dayHeaderH = dayHeaderTextH + daySeparatorSpacing + daySeparatorH;
+    const dayHeaderTopMargin = 12; // extra space above each section heading
 
     // Compute total height needed
     const totalHeight = days.reduce((acc, day) => {
       const items = itemsByDate.get(day.key) || [];
       const rows = Math.max(1, items.length);
-      return acc + dayHeaderH + rowH * rows;
-    }, titleTopOffsetPx) + 6;
+      return acc + dayHeaderTopMargin + dayHeaderH + rowH * rows;
+    }, titleTopOffsetPx) + 12;
 
     return (
       <div ref={translucentDiv}
@@ -236,12 +238,12 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             const sections: any[] = [];
             for (const day of days) {
               const items = (itemsByDate.get(day.key) || []).sort((a, b) => a.dateTime - b.dateTime);
-              const sectionTop = runningY;
+              const sectionTop = runningY + dayHeaderTopMargin;
               // Date header text
               sections.push(
                 <div class="absolute font-semibold"
                      style={`left: ${textLeft}px; top: ${sectionTop}px; width: ${innerWidth - NATURAL_BLOCK_SIZE_PX.w}px; height: ${dayHeaderTextH}px; line-height: ${dayHeaderTextH}px;`}>
-                  {day.display}
+                  {day.display}{day.key === todayKey ? " (today)" : ""}
                 </div>
               );
               // Separator line spanning inner width
@@ -258,7 +260,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
                     [no items]
                   </div>
                 );
-                runningY += dayHeaderH + rowH;
+                runningY += dayHeaderTopMargin + dayHeaderH + rowH;
               } else {
                 for (let i = 0; i < items.length; i++) {
                   const y = contentTop + i * rowH;
@@ -275,7 +277,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
                   });
                   sections.push(<VisualElement_LineItem visualElement={ve} />);
                 }
-                runningY += dayHeaderH + rowH * items.length;
+                runningY += dayHeaderTopMargin + dayHeaderH + rowH * items.length;
               }
             }
             return sections;
