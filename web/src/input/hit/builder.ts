@@ -266,6 +266,11 @@ function finalizePageWithChildren(
   }
   const overPositionGr = computeGridPositionForPage(overVe, prop);
   let overPositionableVe = overVe;
+  // If the root is the dock, position and scale should be defined by the dock VE
+  // so that moving logic computes dock insert indices and shows insertion lines.
+  if (rootVes.get().flags & VisualElementFlags.IsDock) {
+    overPositionableVe = rootVes.get();
+  }
   if (canHitEmbeddedInteractive) {
     if (overVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
       overPositionableVe = VesCache.get(overVe.parentPath!)!.get();

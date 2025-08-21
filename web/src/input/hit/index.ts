@@ -20,6 +20,7 @@ import { isComposite } from "../../items/composite-item";
 import { isFlipCard } from "../../items/flipcard-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { isTable } from "../../items/table-item";
+import { isContainer } from "../../items/base/container-item";
 import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
@@ -47,6 +48,15 @@ export const HitInfoFns = {
   getOverContainerVe: (hitInfo: HitInfo, ignoreItems: Array<Uid> | Set<Uid> = []): VisualElement => {
     const ignoredSet: Set<Uid> = Array.isArray(ignoreItems) ? new Set(ignoreItems) : ignoreItems;
     if (hitInfo.overVes) {
+      // Prefer the nearest container ancestor of the directly-over element
+      // so drops target containers instead of leaf items (important in dock).
+      let candidate = hitInfo.overVes.get();
+      while (candidate && !isContainer(candidate.displayItem)) {
+        if (!candidate.parentPath) { break; }
+        const parent = VesCache.get(candidate.parentPath)!.get();
+        candidate = parent;
+      }
+      if (candidate && !isIgnored(candidate.displayItem.id, ignoredSet)) { return candidate; }
       if (isTable(hitInfo.subRootVe?.displayItem as any)) {
         if (hitInfo.hitboxType & HitboxFlags.Click) {
           if (!isIgnored(hitInfo.subRootVe!.displayItem.id, ignoredSet)) { return hitInfo.subRootVe!; }
