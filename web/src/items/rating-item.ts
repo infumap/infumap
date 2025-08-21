@@ -192,7 +192,7 @@ export const RatingFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({
-      boundsPx: cloneBoundingBox(cellBoundsPx)!,
+      boundsPx: cloneBoundingBox(boundsPx)!,
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
