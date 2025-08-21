@@ -16,11 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { DOCK_GAP_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, DOCK_GAP_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asLinkItem, isLink } from "../../items/link-item";
+import { isAttachmentsItem } from "../../items/base/attachments-item";
 import { ArrangeAlgorithm, PageItem, asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -78,6 +79,17 @@ export const renderDockMaybe = (
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockWidthPx * 10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true, store.smallScreenMode());
+
+    const hasAttachHb = geometry.hitboxes.some(hb => (hb.type & HitboxFlags.Attach) !== 0);
+    if (!hasAttachHb && isAttachmentsItem(childItem)) {
+      const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
+      geometry.hitboxes.push(
+        HitboxFns.create(
+          HitboxFlags.Attach,
+          { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }
+        )
+      );
+    }
 
     let viewportOffsetPx = 0;
     if (geometry.viewportBoundsPx) {
