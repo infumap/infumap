@@ -31,6 +31,7 @@ import { PageVisualElementProps } from "./Page";
 import { CALENDAR_LAYOUT_CONSTANTS, getCurrentDayInfo } from "../../util/calendar-layout";
 import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
+import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
 
 
@@ -265,8 +266,20 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
                 for (let i = 0; i < items.length; i++) {
                   const y = contentTop + i * rowH;
                   const child = items[i];
+
+                  // Resolve links to their targets, but keep link metadata for rendering markers
+                  let displayItem: Item = child;
+                  let linkItemMaybe: any = null;
+                  if (isLink(child)) {
+                    linkItemMaybe = child as any;
+                    const linkToId = LinkFns.getLinkToId(linkItemMaybe);
+                    const target = itemState.get(linkToId);
+                    if (target) { displayItem = target; }
+                  }
+
                   const ve = VeFns.create({
-                    displayItem: child,
+                    displayItem,
+                    linkItemMaybe,
                     flags: VisualElementFlags.LineItem,
                     boundsPx: { x: leftMargin, y, w: innerWidth, h: rowH },
                     blockSizePx: NATURAL_BLOCK_SIZE_PX,
