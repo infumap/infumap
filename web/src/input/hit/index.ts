@@ -220,6 +220,7 @@ function hitChildMaybe(
     const hit = findAttachmentHit(childVe.attachmentsVes, posRelativeToChildElementPx, ignoreItems, true);
     if (hit) {
       const parent = parentVe(childVe);
+
       const grandparent = parentVe(parent);
       return {
         overVes: hit.attachmentVes,

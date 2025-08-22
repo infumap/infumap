@@ -44,6 +44,8 @@ export const TableColumnContextMenu: Component = () => {
   const colNum = () => store.overlay.tableColumnContextMenuInfo.get()!.colNum;
 
   const newColToRight = () => {
+    const insertHeaderIdx = Math.min(colNum() + 1, tableItem().tableColumns.length);
+    tableItem().tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
     TableFns.insertEmptyColAt(tableId(), colNum(), store);
     tableItem().numberOfVisibleColumns += 1;
     fullArrange(store);
@@ -53,6 +55,7 @@ export const TableColumnContextMenu: Component = () => {
 
   const deleteColumn = () => {
     TableFns.removeColItemsAt(tableId(), colNum()-1, store);
+    tableItem().tableColumns.splice(colNum(), 1);
     tableItem().numberOfVisibleColumns -= 1;
     fullArrange(store);
     serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
