@@ -209,7 +209,7 @@ function hitChildMaybe(
             hitboxType: hit.flags,
             compositeHitboxTypeMaybe: HitboxFlags.None,
             overElementMeta: hit.meta,
-            overPositionableVe: parentOfParent,
+            overPositionableVe: parentOfComposite,
             overPositionGr: { x: 0, y: 0 },
             debugCreatedAt: "hitChildMaybe1",
           };
@@ -230,7 +230,7 @@ function hitChildMaybe(
         hitboxType: hit.flags,
         compositeHitboxTypeMaybe: HitboxFlags.None,
         overElementMeta: hit.meta,
-        overPositionableVe: grandparent,
+        overPositionableVe: parent,
         overPositionGr: { x: 0, y: 0 },
         debugCreatedAt: "hitChildMaybe1",
       };
