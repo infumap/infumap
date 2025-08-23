@@ -137,7 +137,11 @@ export const itemState = {
   sortChildren: (parentId: Uid): void => {
     const container = asContainerItem(itemState.get(parentId)!);
     if (container.orderChildrenBy == "" || (isPage(container) && asPageItem(container).arrangeAlgorithm == ArrangeAlgorithm.Document)) {
-      container.computed_children.sort((a, b) => compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering));
+      container.computed_children.sort((a, b) => {
+        const cmp = compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering);
+        if (cmp !== 0) { return cmp; }
+        return a < b ? -1 : (a > b ? 1 : 0);
+      });
     } else if (container.orderChildrenBy == "title[ASC]") {
       container.computed_children.sort((a, b) => {
         let aTitle = "";
@@ -148,14 +152,20 @@ export const itemState = {
         const bItem = itemState.get(b)!
         if (isTitledItem(bItem)) { bTitle = asTitledItem(bItem).title; }
         bTitle.toLocaleLowerCase();
-        return aTitle.localeCompare(bTitle);
+        const cmp = aTitle.localeCompare(bTitle);
+        if (cmp !== 0) { return cmp; }
+        return a < b ? -1 : (a > b ? 1 : 0);
       });
     }
   },
 
   sortAttachments: (parentId: Uid): void => {
     const container = asAttachmentsItem(itemState.get(parentId)!);
-    container.computed_attachments.sort((a, b) => compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering));
+    container.computed_attachments.sort((a, b) => {
+      const cmp = compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering);
+      if (cmp !== 0) { return cmp; }
+      return a < b ? -1 : (a > b ? 1 : 0);
+    });
   },
 
   /**
