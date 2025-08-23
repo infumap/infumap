@@ -47,8 +47,10 @@ export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 
 export const LinkFns = {
-  createFromItem: (item: Item, relationshipToParent: string, ordering: Uint8Array): LinkItem => {
-    const result = LinkFns.create(item.ownerId, item.parentId, relationshipToParent, item.id, ordering);
+  createFromItem: (item: Item, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): LinkItem => {
+    const parent = itemState.get(parentId);
+    const ownerId = parent ? parent.ownerId : item.ownerId;
+    const result = LinkFns.create(ownerId, parentId, relationshipToParent, item.id, ordering);
     if (isPositionalItem(item)) {
       result.spatialPositionGr = asPositionalItem(item).spatialPositionGr;
     }

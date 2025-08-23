@@ -52,8 +52,10 @@ import { createJustifyOptions } from "../layout/arrange/page_justified";
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
-  const shouldCreateLink = CursorEventState.get().ctrlDown;
-  const shouldClone = CursorEventState.get().shiftDown && !isDataItem(activeVisualElement.displayItem); // Don't want to duplicate blob data.
+  const isActiveLinkItem = isLink(activeItem);
+  const shiftWantsClone = CursorEventState.get().shiftDown && !isDataItem(activeVisualElement.displayItem);
+  const shouldCreateLink = CursorEventState.get().ctrlDown || (shiftWantsClone && isActiveLinkItem);
+  const shouldClone = shiftWantsClone && !isActiveLinkItem; // For link items, shift behaves like ctrl (create link)
   const parentItem = itemState.get(activeItem.parentId)!;
       if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
       moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
@@ -140,15 +142,20 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     else if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
       const link = LinkFns.createFromItem(
         activeVisualElement.displayItem,
+        activeItem.parentId,
         RelationshipToParent.Child,
         itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
-      link.parentId = activeItem.parentId;
       link.spatialPositionGr = activeItem.spatialPositionGr;
-      if (isXSizableItem(activeVisualElement.displayItem)) {
-        link.spatialWidthGr = asXSizableItem(activeVisualElement.displayItem).spatialWidthGr;
-      }
-      if (isYSizableItem(activeVisualElement.displayItem)) {
-        link.spatialHeightGr = asYSizableItem(activeVisualElement.displayItem).spatialHeightGr;
+      if (activeVisualElement.linkItemMaybe) {
+        link.spatialWidthGr = activeVisualElement.linkItemMaybe.spatialWidthGr;
+        link.spatialHeightGr = activeVisualElement.linkItemMaybe.spatialHeightGr;
+      } else {
+        if (isXSizableItem(activeVisualElement.displayItem)) {
+          link.spatialWidthGr = asXSizableItem(activeVisualElement.displayItem).spatialWidthGr;
+        }
+        if (isYSizableItem(activeVisualElement.displayItem)) {
+          link.spatialHeightGr = asYSizableItem(activeVisualElement.displayItem).spatialHeightGr;
+        }
       }
       itemState.add(link);
       server.addItem(link, null, store.general.networkStatus);
@@ -463,9 +470,12 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 
 
   } else if (shouldCreateLink && !isLink(activeElement.displayItem)) {
-    const link = LinkFns.createFromItem(activeElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
-    link.parentId = moveToPage.id;
+    const link = LinkFns.createFromItem(activeElement.displayItem, moveToPage.id, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
     link.spatialPositionGr = newItemPosGr;
+    if (activeElement.linkItemMaybe) {
+      link.spatialWidthGr = activeElement.linkItemMaybe.spatialWidthGr;
+      link.spatialHeightGr = activeElement.linkItemMaybe.spatialHeightGr;
+    }
     itemState.add(link);
     server.addItem(link, null, store.general.networkStatus);
     fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
@@ -575,9 +585,12 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     fullArrange(store);
 
   } else if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
-    const link = LinkFns.createFromItem(activeVisualElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
-    link.parentId = moveToPage.id;
+    const link = LinkFns.createFromItem(activeVisualElement.displayItem, moveToPage.id, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
     link.spatialPositionGr = itemPosInPageQuantizedGr;
+    if (activeVisualElement.linkItemMaybe) {
+      link.spatialWidthGr = activeVisualElement.linkItemMaybe.spatialWidthGr;
+      link.spatialHeightGr = activeVisualElement.linkItemMaybe.spatialHeightGr;
+    }
     itemState.add(link);
     server.addItem(link, null, store.general.networkStatus);
     fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
