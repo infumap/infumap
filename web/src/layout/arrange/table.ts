@@ -119,7 +119,7 @@ export const arrangeTable = (
 }
 
 
-export function arrangeTableChildren(
+export function arrangeTableChildren_old(
     store: StoreContextModel,
     displayItem_table: TableItem,
     linkItemMaybe_table: LinkItem | null,
@@ -192,6 +192,65 @@ export function arrangeTableChildren(
           tableVeChildren[outIdx] = createFillerRow(displayItem_table, tableVePath);
           rowIdx = rowIdx + 1;
         }
+        break;
+      }
+    }
+  }
+
+  return [tableVeChildren, tableVesRows, numRows];
+}
+
+
+export function arrangeTableChildren(
+    store: StoreContextModel,
+    displayItem_table: TableItem,
+    linkItemMaybe_table: LinkItem | null,
+    tableGeometry: ItemGeometry,
+    tableVePath: VisualElementPath,
+    flags: ArrangeItemFlags,
+    sizeBl: Dimensions,
+    blockSizePx: Dimensions): [Array<VisualElementSignal>, Array<number>, number] {
+
+  let tableVeChildren: Array<VisualElementSignal> = [];
+  let tableVesRows: Array<number> = [];
+  let iterIndices = [0];
+  let iterContainers: Array<ContainerItem> = [displayItem_table];
+  let rowIdx = 0;
+  let currentParentPath = tableVePath;
+  let numRows = 0;
+
+  if (displayItem_table.computed_children.length == 0) { return [tableVeChildren, tableVesRows, 0]; }
+
+  while (true) {
+    let itemId = iterContainers[iterContainers.length-1].computed_children[iterIndices[iterIndices.length-1]];
+    const item = itemState.get(itemId)!;
+
+    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
+    let itemVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
+    let itemPath = VeFns.addVeidToPath(itemVeid, currentParentPath);
+
+    const indentBl = iterIndices.length - 1;
+    tableVeChildren.push(
+      createRow(
+        store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableGeometry.boundsPx), null)
+    );
+    tableVesRows.push(rowIdx);
+    rowIdx = rowIdx + 1;
+    numRows += 1;
+
+    if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
+    if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
+      iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
+      iterIndices.push(0);
+      iterContainers.push(asContainerItem(displayItem_childItem));
+    }
+    else {
+      iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
+      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length-1].computed_children.length) {
+        iterIndices.pop();
+        iterContainers.pop();
+      }
+      if (iterIndices.length == 0) {
         break;
       }
     }
