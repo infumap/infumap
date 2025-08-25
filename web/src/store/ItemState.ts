@@ -207,7 +207,8 @@ export const itemState = {
       }
       children.push(childItem.id);
     });
-    parent.computed_children = [...parent.computed_children, ...children];
+    const childrenToAdd = children.filter(id => !parent.computed_children.includes(id));
+    parent.computed_children = [...parent.computed_children, ...childrenToAdd];
     itemState.sortChildren(parentId);
   },
 
@@ -228,7 +229,8 @@ export const itemState = {
       }
       attachments.push(attachmentItem.id);
     });
-    parent.computed_attachments = [...parent.computed_attachments, ...attachments];
+    const attachmentsToAdd = attachments.filter(id => !parent.computed_attachments.includes(id));
+    parent.computed_attachments = [...parent.computed_attachments, ...attachmentsToAdd];
     itemState.sortAttachments(parentId);
   },
 
