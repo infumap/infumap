@@ -193,6 +193,36 @@ pub struct TableColumn {
 
 
 #[derive(Debug, PartialEq, Copy, Clone)]
+pub enum RatingType {
+  Number,
+  Star,
+  HorizontalBar,
+  VerticalBar,
+}
+
+impl RatingType {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      RatingType::Number => "Number",
+      RatingType::Star => "Star",
+      RatingType::HorizontalBar => "HorizontalBar",
+      RatingType::VerticalBar => "VerticalBar",
+    }
+  }
+
+  pub fn from_str(s: &str) -> InfuResult<RatingType> {
+    match s {
+      "Number" => Ok(RatingType::Number),
+      "Star" => Ok(RatingType::Star),
+      "HorizontalBar" => Ok(RatingType::HorizontalBar),
+      "VerticalBar" => Ok(RatingType::VerticalBar),
+      other => Err(format!("Invalid RatingType value: '{}'.", other).into())
+    }
+  }
+}
+
+
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ItemType {
   Page,
   Table,
@@ -339,14 +369,14 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 42] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 43] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "dateTime", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
   "naturalAspect", "backgroundColorIndex", "popupPositionGr",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
-  "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
+  "thumbnail", "mimeType", "fileSizeBytes", "rating", "ratingType", "tableColumns",
   "linkTo", "gridNumberOfColumns", "orderChildrenBy", "text",
   "flags", "permissionFlags", "format", "docWidthBl",
   "gridCellAspect", "justifiedRowAspect", "calendarDayRowHeightBl", "numberOfVisibleColumns",
@@ -442,6 +472,7 @@ pub struct Item {
 
   // rating
   pub rating: Option<i64>,
+  pub rating_type: Option<RatingType>,
 
   // link
   pub link_to: Option<Uid>,
@@ -495,6 +526,7 @@ impl Clone for Item {
       image_size_px: self.image_size_px.clone(),
       thumbnail: self.thumbnail.clone(),
       rating: self.rating.clone(),
+      rating_type: self.rating_type.clone(),
       link_to: self.link_to.clone(),
       text: self.text.clone(),
       scale: self.scale.clone(),
@@ -782,6 +814,12 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("rating"), Value::Number(new_rating.into()));
       }
     }
+    if let Some(new_rating_type) = &new.rating_type {
+      if match &old.rating_type { Some(o) => o != new_rating_type, None => { true } } {
+        if old.item_type != ItemType::Rating { cannot_modify_err("ratingType", &old.id)?; }
+        result.insert(String::from("ratingType"), Value::String(String::from(new_rating_type.as_str())));
+      }
+    }
 
     // link
     if let Some(new_link_to) = &new.link_to {
@@ -996,6 +1034,10 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ItemType::Rating { not_applicable_err("rating", self.item_type, &self.id)?; }
       self.rating = Some(v);
     }
+    if let Some(v) = json::get_string_field(map, "ratingType")? {
+      if self.item_type != ItemType::Rating { not_applicable_err("ratingType", self.item_type, &self.id)?; }
+      self.rating_type = Some(RatingType::from_str(&v)?);
+    }
 
     // link
     if let Some(v) = json::get_string_field(map, "linkTo")? {
@@ -1200,6 +1242,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(rating) = item.rating {
     if item.item_type != ItemType::Rating { unexpected_field_err("rating", &item.id, item.item_type)? }
     result.insert(String::from("rating"), Value::Number(rating.into()));
+  }
+  if let Some(rating_type) = &item.rating_type {
+    if item.item_type != ItemType::Rating { unexpected_field_err("ratingType", &item.id, item.item_type)? }
+    result.insert(String::from("ratingType"), Value::String(String::from(rating_type.as_str())));
   }
 
   // link
@@ -1440,6 +1486,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       Some(v) => { if item_type == ItemType::Rating { Ok(Some(v)) } else { Err(not_applicable_err("rating", item_type, &id)) } },
       None => { if item_type == ItemType::Rating { Err(expected_for_err("rating", item_type, &id)) } else { Ok(None) } }
     }?,
+    rating_type: match &json::get_string_field(map, "ratingType")? {
+      Some(v) => { if item_type == ItemType::Rating { Ok(Some(RatingType::from_str(v)?)) } else { Err(not_applicable_err("ratingType", item_type, &id)) } },
+      None => { if item_type == ItemType::Rating { Ok(None) } else { Ok(None) } }
+    }?,
 
     // link
     link_to: match json::get_string_field(map, "linkTo")? {
@@ -1515,6 +1565,7 @@ impl Item {
       image_size_px: None,
       thumbnail: None,
       rating: None,
+      rating_type: None,
       scale: None,
     }
   }
@@ -1569,6 +1620,7 @@ impl Item {
       image_size_px: None,
       thumbnail: None,
       rating: None,
+      rating_type: None,
       scale: None,
     }
   }
@@ -1626,6 +1678,7 @@ impl Item {
       image_size_px: None,
       thumbnail: None,
       rating: None,
+      rating_type: None,
       scale: None,
     }
   }
@@ -1674,6 +1727,7 @@ impl Item {
       image_size_px: None,
       thumbnail: None,
       rating: None,
+      rating_type: None,
       scale: None,
     }
   }
@@ -1875,6 +1929,9 @@ impl Item {
     if self.item_type == ItemType::Rating {
       if let Some(rating) = self.rating {
         hashes.push(hash_i64_to_uid(rating));
+      }
+      if let Some(rating_type) = &self.rating_type {
+        hashes.push(hash_string_to_uid(rating_type.as_str()));
       }
     }
 

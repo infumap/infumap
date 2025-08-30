@@ -34,6 +34,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
   const ratingItem = () => asRatingItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
+  const ratingType = () => ratingItem().ratingType;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const boundsPx = () => {
     let result = props.visualElement.boundsPx;
@@ -81,14 +82,42 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
       {renderHighlightsMaybe()}
       <div class={`absolute`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        <div class={`fas fa-star text-gray-400 absolute`}
-             style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; `+
-                    `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
-                    `text-align: center; vertical-align: bottom;`} />
-        <div class={`fas fa-star text-yellow-400 absolute`}
-             style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; ` +
-                    `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
-                    `text-align: center; vertical-align: bottom;`} />
+        <Show when={ratingType() == "Star"}>
+          <div class={`fas fa-star text-gray-400 absolute`}
+               style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; `+
+                      `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
+                      `text-align: center; vertical-align: bottom;`} />
+          <div class={`fas fa-star text-yellow-400 absolute`}
+               style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; ` +
+                      `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
+                      `text-align: center; vertical-align: bottom;`} />
+        </Show>
+
+        <Show when={ratingType() == "Number"}>
+          <div class="absolute rounded-full bg-slate-300 text-center text-gray-800"
+               style={`left: ${boundsPx().x + (boundsPx().w - (Math.min(boundsPx().w, boundsPx().h) - 2)) / 2 - boundsPx().x}px; ` +
+                      `top: ${boundsPx().y + (boundsPx().h - (Math.min(boundsPx().w, boundsPx().h) - 2)) / 2 - boundsPx().y}px; ` +
+                      `width: ${Math.min(boundsPx().w, boundsPx().h) - 2}px; ` +
+                      `height: ${Math.min(boundsPx().w, boundsPx().h) - 2}px; ` +
+                      `font-size: ${FONT_SIZE_PX * 1.0 * scale()}px; ` +
+                      `line-height: ${Math.min(boundsPx().w, boundsPx().h) - 2}px;`}>
+            {ratingItem().rating}
+          </div>
+        </Show>
+
+        <Show when={ratingType() == "HorizontalBar"}>
+          <div class="absolute bg-slate-300"
+               style={`left: 3px; right: 3px; top: ${boundsPx().h/2 - 6}px; height: 12px;`} />
+          <div class="absolute bg-blue-700"
+               style={`left: 3px; top: ${boundsPx().h/2 - 6}px; height: 12px; width: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().w-6)}px;`} />
+        </Show>
+
+        <Show when={ratingType() == "VerticalBar"}>
+          <div class="absolute bg-slate-300"
+               style={`top: 2px; bottom: 2px; left: ${boundsPx().w/2 - 6}px; width: 12px;`} />
+          <div class="absolute bg-blue-700"
+               style={`left: ${boundsPx().w/2 - 6}px; bottom: 2px; width: 12px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4)}px;`} />
+        </Show>
       </div>
       {renderLinkMarkingMaybe()}
     </>

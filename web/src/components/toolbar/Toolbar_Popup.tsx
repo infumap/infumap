@@ -19,6 +19,7 @@
 import { Component, Match, Show, Switch, createSignal, on, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { asRatingItem, isRating } from "../../items/rating-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { fullArrange } from "../../layout/arrange";
@@ -108,7 +109,8 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   };
 
   if (popupType != ToolbarPopupType.PageColor &&
-      popupType != ToolbarPopupType.PageArrangeAlgorithm) {
+      popupType != ToolbarPopupType.PageArrangeAlgorithm &&
+      popupType != ToolbarPopupType.RatingType) {
     const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
@@ -132,6 +134,13 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       w: 96,
       h: store.general.installationState()?.devFeatureFlag ? 164 : 138
     }
+  } else if (popupType == ToolbarPopupType.RatingType) {
+    return {
+      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
+      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      w: 140,
+      h: 128
+    }
   } else {
     panic("unexpected popup type: " + popupType);
   }
@@ -147,6 +156,7 @@ export const Toolbar_Popup: Component = () => {
   const flipCardItem = () => asFlipCardItem(store.history.getFocusItem());
   const noteItem = () => asNoteItem(store.history.getFocusItem());
   const tableItem = () => asTableItem(store.history.getFocusItem());
+  const ratingItem = () => asRatingItem(store.history.getFocusItem());
   const formatItem = () => asFormatItem(store.history.getFocusItem());
 
   const noteVisualElement = () => VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
@@ -253,7 +263,8 @@ export const Toolbar_Popup: Component = () => {
         overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
         overlayType() != ToolbarPopupType.TableNumCols &&
         overlayType() != ToolbarPopupType.PageNumCols &&
-        overlayType() != ToolbarPopupType.PageCalendarDayRowHeight) {
+        overlayType() != ToolbarPopupType.PageCalendarDayRowHeight &&
+        overlayType() != ToolbarPopupType.RatingType) {
       textElement!.focus();
     }
   });
@@ -440,6 +451,24 @@ export const Toolbar_Popup: Component = () => {
                 Calendar
               </div>
             </Show>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.RatingType}>
+          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
+               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
+               onMouseDown={handleMouseDown}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={() => { ratingItem().ratingType = "Star"; fullArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+              Star
+            </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "Number"; fullArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+              Number
+            </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "HorizontalBar"; fullArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+              Horizontal Bar
+            </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "VerticalBar"; fullArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+              Vertical Bar
+            </div>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.QrLink}>

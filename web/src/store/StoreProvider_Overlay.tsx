@@ -35,6 +35,7 @@ export enum ToolbarPopupType {
   PageJustifiedRowAspect = "justifiedrowaspect",
   PageCalendarDayRowHeight = "calendardayrowheight",
   PageArrangeAlgorithm = "arrangealgorithm",
+  RatingType = "ratingtype",
   TableNumCols = "tablenumcols",
   QrLink = "qrlink",
   Scale = "scale",

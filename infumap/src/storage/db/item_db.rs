@@ -39,7 +39,7 @@ use crate::util::fs::{expand_tilde, path_exists};
 use super::user::User;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 24;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 25;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -1296,6 +1296,39 @@ pub fn migrate_record_v23_to_v24(kvs: &Map<String, Value>) -> InfuResult<Map<Str
       let mut result = kvs.clone();
       result.remove("calendarPositionGr");
       return Ok(result);
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add ratingType field to rating items, defaulting to "Star".
+ */
+pub fn migrate_record_v24_to_v25(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 24);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "rating" {
+        let existing = result.insert(String::from("ratingType"), Value::String(("Star").into()));
+        if existing.is_some() { return Err("ratingType field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
     },
 
     "delete" => {

@@ -32,8 +32,11 @@ import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-
 import { fullArrange } from '../layout/arrange';
 
 
+export type RatingType = "Number" | "Star" | "HorizontalBar" | "VerticalBar";
+
 export interface RatingItem extends RatingMeasurable, Item {
   rating: number,
+  ratingType: RatingType,
 }
 
 export interface RatingMeasurable extends ItemTypeMixin, PositionalMixin { }
@@ -56,6 +59,7 @@ export const RatingFns = {
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
       rating,
+      ratingType: "Star",
     };
   },
 
@@ -75,6 +79,11 @@ export const RatingFns = {
       spatialPositionGr: o.spatialPositionGr,
 
       rating: o.rating,
+      ratingType: ((): RatingType => {
+        const v = o.ratingType;
+        if (v == "Number" || v == "Star" || v == "HorizontalBar" || v == "VerticalBar") { return v; }
+        return "Star";
+      })(),
     });
   },
 
@@ -92,6 +101,7 @@ export const RatingFns = {
       spatialPositionGr: r.spatialPositionGr,
 
       rating: r.rating,
+      ratingType: r.ratingType,
     });
   },
 
@@ -231,11 +241,11 @@ export const RatingFns = {
   },
 
   debugSummary: (ratingItem: RatingItem) => {
-    return "[rating] " + ratingItem.rating;
+    return "[rating] " + ratingItem.rating + " (" + ratingItem.ratingType + ")";
   },
 
   getFingerprint: (ratingItem: RatingItem): string => {
-    return "" + ratingItem.rating;
+    return "" + ratingItem.rating + ":" + ratingItem.ratingType;
   } 
 };
 

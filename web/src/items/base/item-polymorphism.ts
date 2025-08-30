@@ -550,6 +550,9 @@ export const ItemFns = {
       if (ratingItem.rating !== undefined) {
         hashes.push(hashI64ToUid(ratingItem.rating));
       }
+      if (ratingItem.ratingType) {
+        hashes.push(hashStringToUid(ratingItem.ratingType));
+      }
     }
 
     // Link-specific properties
