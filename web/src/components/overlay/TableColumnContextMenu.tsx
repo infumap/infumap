@@ -53,8 +53,25 @@ export const TableColumnContextMenu: Component = () => {
     store.overlay.tableColumnContextMenuInfo.set(null);
   };
 
+  const newHeaderOnlyToRight = () => {
+    const insertHeaderIdx = Math.min(colNum() + 1, tableItem().tableColumns.length);
+    tableItem().tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
+    tableItem().numberOfVisibleColumns += 1;
+    fullArrange(store);
+    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    store.overlay.tableColumnContextMenuInfo.set(null);
+  };
+
   const deleteColumn = () => {
     TableFns.removeColItemsAt(tableId(), colNum()-1, store);
+    tableItem().tableColumns.splice(colNum(), 1);
+    tableItem().numberOfVisibleColumns -= 1;
+    fullArrange(store);
+    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    store.overlay.tableColumnContextMenuInfo.set(null);
+  }
+
+  const deleteColumnHeaderOnly = () => {
     tableItem().tableColumns.splice(colNum(), 1);
     tableItem().numberOfVisibleColumns -= 1;
     fullArrange(store);
@@ -67,13 +84,19 @@ export const TableColumnContextMenu: Component = () => {
          style={`left: ${posPx().x+10}px; top: ${posPx().y-12}px; ` +
                 `z-index: ${Z_INDEX_TEXT_OVERLAY};`}
          onMouseDown={mouseDownListener}>
-      <div class={`border rounded w-[160px] h-[${colNum() == 0 ? '30' : '60'}px] bg-slate-50 mb-1 shadow-lg`}>
+      <div class={`border rounded w-[160px] h-[${colNum() == 0 ? '60' : '120'}px] bg-slate-50 mb-1 shadow-lg`}>
         <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newColToRight}>
           Insert 1 Column Right
+        </div>
+        <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newHeaderOnlyToRight}>
+          Insert 1 Column Right (Header Only)
         </div>
         <Show when={colNum() > 0}>
           <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={deleteColumn}>
             Delete column
+          </div>
+          <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={deleteColumnHeaderOnly}>
+            Delete column (Header Only)
           </div>
         </Show>
       </div>
