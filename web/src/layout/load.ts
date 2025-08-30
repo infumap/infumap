@@ -109,7 +109,7 @@ export enum InitiateLoadResult {
 
 const itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Promise<InitiateLoadResult> => {
+export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, containerToSortId?: Uid): Promise<InitiateLoadResult> => {
   if (itemLoadInitiatedOrComplete[id]) { return Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
   if (itemState.get(id) != null) { return Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
   itemLoadInitiatedOrComplete[id] = true;
@@ -123,6 +123,7 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Pro
         Object.keys(result.attachments).forEach(id => {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
         });
+        if (containerToSortId) { itemState.sortChildren(containerToSortId); }
         try {
           fullArrange(store);
         } catch (e: any) {
@@ -142,7 +143,7 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Pro
 
 let itemLoadFromRemoteInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId: string, baseUrl: string, resolveId: string) => {
+export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId: string, baseUrl: string, resolveId: string, containerToSortId?: Uid) => {
   if (itemLoadFromRemoteInitiatedOrComplete[itemId]) { return; }
   itemLoadFromRemoteInitiatedOrComplete[itemId] = true;
 
@@ -156,6 +157,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
         Object.keys(result.attachments).forEach(id => {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
         });
+        if (containerToSortId) { itemState.sortChildren(containerToSortId); }
         try {
           fullArrange(store);
         } catch (e: any) {

@@ -56,7 +56,8 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
   } else {
     if (linkItemMaybe.linkTo != EMPTY_UID && linkItemMaybe.linkTo != '') {
       if (!linkItemMaybe.linkTo.startsWith("http")) {
-        initiateLoadItemMaybe(store, linkItemMaybe.linkTo);
+        const parentIdToSort = item.parentId;
+        initiateLoadItemMaybe(store, linkItemMaybe.linkTo, parentIdToSort);
       } else {
         const lastIdx = linkItemMaybe.linkTo.lastIndexOf('/');
         if (lastIdx != -1) {
@@ -65,7 +66,8 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
           // in the form {user}/{id} are allowed. however, the server responds to all
           // urls that end in /command (restricted to the user, if specified, else not).
           const id = linkItemMaybe.linkTo.substring(lastIdx + 1);
-          initiateLoadItemFromRemoteMaybe(store, id, baseUrl, linkItemMaybe.id);
+          const parentIdToSort = item.parentId;
+          initiateLoadItemFromRemoteMaybe(store, id, baseUrl, linkItemMaybe.id, parentIdToSort);
         }
       }
     }
