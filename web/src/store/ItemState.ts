@@ -24,6 +24,7 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { TabularFns } from "../items/base/tabular-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
+import { asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic } from "../util/lang";
@@ -144,14 +145,26 @@ export const itemState = {
       });
     } else if (container.orderChildrenBy == "title[ASC]") {
       container.computed_children.sort((a, b) => {
-        let aTitle = "";
-        const aItem = itemState.get(a)!
-        if (isTitledItem(aItem)) { aTitle = asTitledItem(aItem).title; }
-        aTitle.toLocaleLowerCase();
-        let bTitle = "";
-        const bItem = itemState.get(b)!
-        if (isTitledItem(bItem)) { bTitle = asTitledItem(bItem).title; }
-        bTitle.toLocaleLowerCase();
+        const aItemOriginal = itemState.get(a)!;
+        const bItemOriginal = itemState.get(b)!;
+
+        const aItemForSort = (() => {
+          if (isLink(aItemOriginal)) {
+            const target = itemState.get(LinkFns.getLinkToId(asLinkItem(aItemOriginal)));
+            if (target) { return target; }
+          }
+          return aItemOriginal;
+        })();
+        const bItemForSort = (() => {
+          if (isLink(bItemOriginal)) {
+            const target = itemState.get(LinkFns.getLinkToId(asLinkItem(bItemOriginal)));
+            if (target) { return target; }
+          }
+          return bItemOriginal;
+        })();
+
+        const aTitle = isTitledItem(aItemForSort) ? asTitledItem(aItemForSort).title.toLocaleLowerCase() : "";
+        const bTitle = isTitledItem(bItemForSort) ? asTitledItem(bItemForSort).title.toLocaleLowerCase() : "";
         const cmp = aTitle.localeCompare(bTitle);
         if (cmp !== 0) { return cmp; }
         return a < b ? -1 : (a > b ? 1 : 0);
