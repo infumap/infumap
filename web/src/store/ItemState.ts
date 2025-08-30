@@ -148,23 +148,21 @@ export const itemState = {
         const aItemOriginal = itemState.get(a)!;
         const bItemOriginal = itemState.get(b)!;
 
-        const aItemForSort = (() => {
-          if (isLink(aItemOriginal)) {
-            const target = itemState.get(LinkFns.getLinkToId(asLinkItem(aItemOriginal)));
-            if (target) { return target; }
-          }
-          return aItemOriginal;
-        })();
-        const bItemForSort = (() => {
-          if (isLink(bItemOriginal)) {
-            const target = itemState.get(LinkFns.getLinkToId(asLinkItem(bItemOriginal)));
-            if (target) { return target; }
-          }
-          return bItemOriginal;
-        })();
+        const aLinkTargetId = isLink(aItemOriginal) ? LinkFns.getLinkToId(asLinkItem(aItemOriginal)) : EMPTY_UID;
+        const bLinkTargetId = isLink(bItemOriginal) ? LinkFns.getLinkToId(asLinkItem(bItemOriginal)) : EMPTY_UID;
+        const aTarget = aLinkTargetId != EMPTY_UID ? itemState.get(aLinkTargetId) : null;
+        const bTarget = bLinkTargetId != EMPTY_UID ? itemState.get(bLinkTargetId) : null;
 
-        const aTitle = isTitledItem(aItemForSort) ? asTitledItem(aItemForSort).title.toLocaleLowerCase() : "";
-        const bTitle = isTitledItem(bItemForSort) ? asTitledItem(bItemForSort).title.toLocaleLowerCase() : "";
+        const aIsUnresolved = isLink(aItemOriginal) && (aTarget == null);
+        const bIsUnresolved = isLink(bItemOriginal) && (bTarget == null);
+
+        if (aIsUnresolved !== bIsUnresolved) { return aIsUnresolved ? 1 : -1; }
+
+        const aForSort = aTarget ? aTarget : aItemOriginal;
+        const bForSort = bTarget ? bTarget : bItemOriginal;
+
+        const aTitle = isTitledItem(aForSort) ? asTitledItem(aForSort).title.toLocaleLowerCase() : "";
+        const bTitle = isTitledItem(bForSort) ? asTitledItem(bForSort).title.toLocaleLowerCase() : "";
         const cmp = aTitle.localeCompare(bTitle);
         if (cmp !== 0) { return cmp; }
         return a < b ? -1 : (a > b ? 1 : 0);
