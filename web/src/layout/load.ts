@@ -19,7 +19,8 @@
 import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, remote, server } from "../server";
 import { SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { StoreContextModel } from "../store/StoreProvider";
-import { asContainerItem } from "../items/base/container-item";
+import { asContainerItem, isContainer } from "../items/base/container-item";
+import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asLinkItem } from "../items/link-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { itemState } from "../store/ItemState";
@@ -123,7 +124,13 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
         Object.keys(result.attachments).forEach(id => {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
         });
-        if (containerToSortId) { itemState.sortChildren(containerToSortId); }
+        if (containerToSortId) {
+          const parentForSort = itemState.get(containerToSortId);
+          if (parentForSort) {
+            if (isContainer(parentForSort)) { itemState.sortChildren(containerToSortId); }
+            else if (isAttachmentsItem(parentForSort)) { itemState.sortAttachments(containerToSortId); }
+          }
+        }
         try {
           fullArrange(store);
         } catch (e: any) {
@@ -157,7 +164,13 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
         Object.keys(result.attachments).forEach(id => {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
         });
-        if (containerToSortId) { itemState.sortChildren(containerToSortId); }
+        if (containerToSortId) {
+          const parentForSort = itemState.get(containerToSortId);
+          if (parentForSort) {
+            if (isContainer(parentForSort)) { itemState.sortChildren(containerToSortId); }
+            else if (isAttachmentsItem(parentForSort)) { itemState.sortAttachments(containerToSortId); }
+          }
+        }
         try {
           fullArrange(store);
         } catch (e: any) {
