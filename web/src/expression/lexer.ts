@@ -40,11 +40,14 @@ export let Lexer = {
     if (tokenFirstChar == '-') { return { type: TokenType.Minus, literal: '-', position: tokenStartPosition }; }
     if (tokenFirstChar == '*') { return { type: TokenType.Multiply, literal: '*', position: tokenStartPosition }; }
     if (tokenFirstChar == '/') { return { type: TokenType.Divide, literal: '/', position: tokenStartPosition }; }
+    if (tokenFirstChar == '=') { return { type: TokenType.Equal, literal: '=', position: tokenStartPosition }; }
+    if (tokenFirstChar == ';') { return { type: TokenType.Semicolon, literal: ';', position: tokenStartPosition }; }
     if (tokenFirstChar == '(') { return { type: TokenType.LeftParenthesis, literal: '(', position: tokenStartPosition }; }
     if (tokenFirstChar == ')') { return { type: TokenType.RightParenthesis, literal: ')', position: tokenStartPosition }; }
 
     if (isNumber(tokenFirstChar) || tokenFirstChar == '.') { return readNumber(); }
-    if (tokenFirstChar == '$') { return readReference(); }
+    if (tokenFirstChar == '$') { return readReferenceOrVariable(); }
+    if (isLetter(tokenFirstChar)) { return readIdentifier(tokenStartPosition); }
 
     return { type: TokenType.Illegal, literal: tokenFirstChar, position };
   }
@@ -54,9 +57,9 @@ function skipWhiteSpace(): void {
   while (position < text.length && isWhiteSpace(text[position])) { position += 1; };
 }
 
-function readReference(): Token {
+function readReferenceOrVariable(): Token {
   const startPos = position - 1;
-  while (position < text.length && (isNumber(text[position]) || isLetter(text[position]))) {
+  while (position < text.length && (isNumber(text[position]) || isLetter(text[position]) || text[position] == '_')) {
     position += 1;
   }
   const token = text.substring(startPos, position);
@@ -72,21 +75,29 @@ function readReference(): Token {
   }
 
   // Relative
-  if (token.length < 3) {
-    return { type: TokenType.Illegal, literal: token, position: startPos };
-  }
-  if (token[1].toUpperCase() != 'L' &&
-      token[1].toUpperCase() != 'R' &&
-      token[1].toUpperCase() != 'U' &&
-      token[1].toUpperCase() != 'D') {
-    return { type: TokenType.Illegal, literal: token, position: startPos };
-  }
-  for (let i=2; i<token.length; ++i) {
-    if (!isNumber(token[i])) {
-      return { type: TokenType.Illegal, literal: token, position: startPos };
+  if (token.length >= 3 &&
+      (token[1].toUpperCase() == 'L' || token[1].toUpperCase() == 'R' || token[1].toUpperCase() == 'U' || token[1].toUpperCase() == 'D')) {
+    let allDigits = true;
+    for (let i=2; i<token.length; ++i) {
+      if (!isNumber(token[i])) { allDigits = false; break; }
     }
+    if (allDigits) {
+      return { type: TokenType.RelativeReference, literal: token, position: startPos };
+    }
+    // else fall through to variable handling
   }
-  return { type: TokenType.RelativeReference, literal: token, position: startPos };
+
+  // Variable reference: $name (name must start with a letter; may contain letters/digits/_)
+  if (token.length >= 2 && isLetter(token[1])) {
+    for (let i=2; i<token.length; ++i) {
+      if (!isLetter(token[i]) && !isNumber(token[i]) && token[i] != '_') {
+        return { type: TokenType.Illegal, literal: token, position: startPos };
+      }
+    }
+    return { type: TokenType.VariableReference, literal: token.substring(1), position: startPos };
+  }
+
+  return { type: TokenType.Illegal, literal: token, position: startPos };
 }
 
 function readNumber(): Token {
@@ -99,6 +110,15 @@ function readNumber(): Token {
   }
   const literal = text.substring(startPos, position);
   return { type: TokenType.Number, literal, position: startPos };
+}
+
+function readIdentifier(startPos: number): Token {
+  // first char already consumed and is a letter
+  while (position < text.length && (isLetter(text[position]) || isNumber(text[position]) || text[position] == '_')) {
+    position += 1;
+  }
+  const literal = text.substring(startPos, position);
+  return { type: TokenType.Identifier, literal, position: startPos };
 }
 
 function isWhiteSpace(charStr: string): boolean {

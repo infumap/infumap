@@ -26,16 +26,25 @@ import { Token, TokenType } from './token';
 
 // Language grammar:
 //
-// expression     → term ;
+// expression     → sequence ;
+// sequence       → assignment ( ";" assignment )* ;
+// assignment     → IDENTIFIER "=" assignment
+//                | term ;
 // term           → factor ( ( "-" | "+" ) factor )* ;
 // factor         → unary ( ( "/" | "*" ) unary )* ;
 // unary          → ( "-" ) unary
 //                | primary ;
-// primary        → NUMBER | ABSOLUTE_REFERENCE | RELATIVE_REFERENCE
+// primary        → NUMBER | ABSOLUTE_REFERENCE | RELATIVE_REFERENCE | VARIABLE_REFERENCE
 //                | "(" expression ")" ;
 
 let tokens: Array<Token>;
 let current: number;
+
+function isReservedVariableName(name: string): boolean {
+  if (/^[LRUDlrud][0-9]+$/.test(name)) { return true; }
+  if (/^[0-9a-fA-F]{32}$/.test(name)) { return true; }
+  return false;
+}
 
 export let Parser = {
   parse(text: string): Expression {
@@ -57,6 +66,44 @@ export let Parser = {
 
 
 function expression(): Expression {
+  return sequence();
+}
+
+function sequence(): Expression {
+  const exprs: Expression[] = [];
+  exprs.push(assignment());
+  while (match([TokenType.Semicolon])) {
+    if (check(TokenType.EOF)) { break; }
+    exprs.push(assignment());
+  }
+  if (exprs.length > 1) {
+    for (let i=0; i<exprs.length-1; ++i) {
+      if ((exprs[i] as any).type !== ExpressionType.Assignment) {
+        throw new Error('Only assignments allowed before final expression');
+      }
+    }
+    if ((exprs[exprs.length-1] as any).type === ExpressionType.Assignment) {
+      throw new Error('Final expression must not be an assignment');
+    }
+  }
+  if (exprs.length === 1) { return exprs[0]; }
+  return { type: ExpressionType.Sequence, expressions: exprs } as any;
+}
+
+function assignment(): Expression {
+  if (check(TokenType.Identifier)) {
+    const nameTok = advance();
+    if (match([TokenType.Equal])) {
+      if (isReservedVariableName(nameTok.literal)) {
+        throw new Error('Invalid variable name');
+      }
+      const value = assignment();
+      return { type: ExpressionType.Assignment, name: nameTok.literal, value } as any;
+    } else {
+      // rollback if not actually assignment
+      current -= 1;
+    }
+  }
   return term();
 }
 
@@ -99,6 +146,7 @@ function primary(): Expression {
   if (match([TokenType.AbsoluteReference])) { return { type: ExpressionType.AbsoluteReference, uid: literal.substring(1) }; }
   if (match([TokenType.RelativeReference])) { return { type: ExpressionType.RelativeReference, findDirection: findDirectionFromLetterPrefix(literal[1]), findOffset: parseInt(literal.substring(2)) }; }
   if (match([TokenType.Number])) { return { type: ExpressionType.Value, value: parseFloat(literal) }; }
+  if (match([TokenType.VariableReference])) { return { type: ExpressionType.VariableReference, name: literal } as any; }
   if (match([TokenType.LeftParenthesis])) {
     let expr = expression();
     consume(TokenType.RightParenthesis, "Expect ')' after expression.");

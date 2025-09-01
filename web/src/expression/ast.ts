@@ -27,6 +27,9 @@ export enum ExpressionType {
   AbsoluteReference,
   RelativeReference,
   Grouping,
+  VariableReference,
+  Assignment,
+  Sequence,
 }
 
 export interface Expression {
@@ -64,4 +67,20 @@ export interface RelativeReferenceExpression extends Expression {
 export interface GroupingExpression extends Expression {
   type: ExpressionType,
   expression: Expression,
+}
+
+export interface VariableReferenceExpression extends Expression {
+  type: ExpressionType,
+  name: string,
+}
+
+export interface AssignmentExpression extends Expression {
+  type: ExpressionType,
+  name: string,
+  value: Expression,
+}
+
+export interface SequenceExpression extends Expression {
+  type: ExpressionType,
+  expressions: Expression[],
 }

@@ -29,12 +29,15 @@ export enum TokenType {
   Minus = 'MINUS',
   Multiply = 'MULTIPLY',
   Divide = 'DIVIDE',
+  Equal = 'EQUAL',
+  Semicolon = 'SEMICOLON',
 
   LeftParenthesis = 'LEFT_PARENTHESIS',
   RightParenthesis = 'RIGHT_PARENTHESIS',
 
   RelativeReference = 'RELATIVE_REFERENCE',
   AbsoluteReference = 'ABSOLUTE_REFERENCE',
+  VariableReference = 'VARIABLE_REFERENCE',
 }
 
 export interface Token {

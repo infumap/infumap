@@ -42,13 +42,14 @@ export function evaluateExpressions(virtual: boolean) {
 interface Context {
   path: string,
   evaluationStack: Set<string>,
+  variables?: Map<string, number>,
 }
 
 function evaluateExpression(path: VisualElementPath, text: string, virtual: boolean): string {
   if (text.trim() == "") { return ""; }
   try {
     const expr = Parser.parse(text);
-    const context = { path, evaluationStack: new Set<string>() };
+    const context = { path, evaluationStack: new Set<string>(), variables: new Map<string, number>() };
     const r = evaluate(expr, context, virtual);
     return "" + r;
   } catch (e: any) {
@@ -98,6 +99,29 @@ function evaluate(expr: Expression, context: Context, virtual: boolean): number 
   if (exprType == ExpressionType.Grouping) {
     const e = expr as GroupingExpression;
     return evaluate(e.expression, context, virtual);
+  }
+  if (exprType == ExpressionType.Sequence) {
+    let last = NaN;
+    const exprs = (expr as any).expressions as Expression[];
+    for (let i=0; i<exprs.length; ++i) {
+      last = evaluate(exprs[i], context, virtual);
+    }
+    return last;
+  }
+  if (exprType == ExpressionType.Assignment) {
+    const name = (expr as any).name as string;
+    const valueExpr = (expr as any).value as Expression;
+    const value = evaluate(valueExpr, context, virtual);
+    if (!context.variables) { context.variables = new Map<string, number>(); }
+    context.variables.set(name, value);
+    return value;
+  }
+  if (exprType == ExpressionType.VariableReference) {
+    const name = (expr as any).name as string;
+    if (context.variables && context.variables.has(name)) {
+      return context.variables.get(name)!;
+    }
+    return NaN;
   }
   if (exprType == ExpressionType.AbsoluteReference) {
     const e = expr as AbsoluteReferenceExpression;
