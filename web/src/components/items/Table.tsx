@@ -332,7 +332,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), newScrollYPos);
     (outerDiv!)!.scrollTop = newScrollYPos * blockHeightPx();
     scrollDoneTimer = null;
-    // rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), newScrollYPos);
+    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), newScrollYPos);
   }
 
   const blockHeightPx = () => props.visualElement.blockSizePx!.h;
@@ -348,7 +348,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     scrollDoneTimer = setTimeout(scrollDoneHandler, QUANTIZE_SCROLL_TIMEOUT_MS);
     const prevScrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
     store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), (outerDiv!)!.scrollTop / blockHeightPx());
-    // rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), prevScrollYPos);
+    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), prevScrollYPos);
   }
 
   onMount(() => {
