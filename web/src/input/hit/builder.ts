@@ -24,6 +24,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { VisualElementSignal } from "../../util/signals";
 import { Vector } from "../../util/geometry";
 import { VisualElement, VisualElementFlags } from "../../layout/visual-element";
+import { GRID_SIZE } from "../../constants";
 import { HitInfo } from "./types";
 import { panic } from "../../util/lang";
 
@@ -97,8 +98,8 @@ export function computeGridPositionForPage(pageVe: VisualElement, prop: { x: num
   const inner = asPageItem(pageVe.displayItem).innerSpatialWidthGr;
   const aspect = asPageItem(pageVe.displayItem).naturalAspect;
   return {
-    x: Math.round(prop.x * inner / (32 / 2)) * (32 / 2),
-    y: Math.round(prop.y * inner / aspect / (32 / 2)) * (32 / 2)
+    x: Math.round(prop.x * inner / (GRID_SIZE / 2)) * (GRID_SIZE / 2),
+    y: Math.round(prop.y * inner / aspect / (GRID_SIZE / 2)) * (GRID_SIZE / 2)
   };
 }
 
