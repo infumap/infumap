@@ -254,16 +254,19 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     return;
   }
 
-  const sizeBl = tableVeid.linkIdMaybe
-    ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
-    : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
-  const blockSizePx = { w: tableVe.boundsPx.w / sizeBl.w, h: tableVe.boundsPx.h / sizeBl.h };
+  const blockSizePx = tableVe.blockSizePx ?? (() => {
+    const fallbackSizeBl = tableVeid.linkIdMaybe
+      ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
+      : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
+    return { w: tableVe.boundsPx.w / fallbackSizeBl.w, h: tableVe.boundsPx.h / fallbackSizeBl.h };
+  })();
+  const sizeBl = { w: tableVe.boundsPx.w / blockSizePx.w, h: tableVe.boundsPx.h / blockSizePx.h };
 
-  const numVisibleRows = sizeBl.h - 1 - (asTableItem(tableVe.displayItem).flags & TableFlags.ShowColHeader ? 1 : 0);
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
   const firstItemIdx = Math.floor(scrollYPos);
+  const outCount = childrenVes.length;
+  const numVisibleRows = outCount - 1;
   const lastItemIdx = firstItemIdx + numVisibleRows;
-  const outCount = lastItemIdx - firstItemIdx + 1;
   if (childrenVes.length != outCount) {
     console.error("[TABLE_DEBUG] Unexpected child ves count:", {
       tableVePath: tableVePath,
@@ -372,9 +375,11 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
         while (rowIdx <= lastItemIdx) {
           let outIdx = rowIdx % outCount;
           if (tableVesRows[outIdx] != rowIdx) {
-            createFillerRow(displayItem_table, tableVePath);
-            rowIdx = rowIdx + 1;
+            const fillerVes = createFillerRow(displayItem_table, tableVePath);
+            childrenVes[outIdx] = fillerVes;
+            tableVesRows[outIdx] = rowIdx;
           }
+          rowIdx = rowIdx + 1;
         }
         finished = true;
         break;
