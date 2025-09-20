@@ -66,7 +66,7 @@ impl PendingUserDb {
     Ok(user)
   }
 
-  pub fn get_iter(&self) -> Iter<String, User> {
+  pub fn get_iter(&self) -> Iter<'_, String, User> {
     self.store.get_iter()
   }
 

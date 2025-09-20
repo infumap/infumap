@@ -120,7 +120,7 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
     Ok(itm)
   }
 
-  pub fn get_iter(&self) -> Iter<String, T> {
+  pub fn get_iter(&self) -> Iter<'_, String, T> {
     self.map.iter()
   }
 
