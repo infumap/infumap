@@ -20,7 +20,7 @@ import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-ite
 import { fullArrange } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
-import { EMPTY_VEID, VeFns } from "../layout/visual-element";
+import { EMPTY_VEID, VeFns, VisualElementFlags } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
@@ -200,6 +200,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   const path = store.history.currentPopupSpec()!.vePath;
   if (path == null) { return; }
   const direction = findDirectionFromKeyCode(ev.code);
+  if (handleTableAttachmentPopupNavigation(store, path, direction)) { return; }
   const closest = findClosest(path, direction, false, false)!;
   if (closest != null) {
     const closestVeid = VeFns.veidFromPath(closest);
@@ -331,5 +332,74 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     }
   }
 
+  return true;
+}
+
+/**
+ * Handle up/down navigation between attachments in different table rows.
+ */
+function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentPath: string, direction: FindDirection): boolean {
+  if (direction != FindDirection.Up && direction != FindDirection.Down) { return false; }
+
+  const currentVes = VesCache.get(currentPath);
+  if (!currentVes) { return false; }
+
+  const currentVe = currentVes.get();
+  if (!(currentVe.flags & VisualElementFlags.InsideTable) || !(currentVe.flags & VisualElementFlags.Attachment)) {
+    return false;
+  }
+
+  if (currentVe.col == null || currentVe.row == null || currentVe.parentPath == null) {
+    return false;
+  }
+
+  const columnIndex = currentVe.col;
+  const currentRow = currentVe.row;
+
+  const rowVes = VesCache.get(currentVe.parentPath);
+  if (!rowVes) { return false; }
+  const rowVe = rowVes.get();
+  if (!rowVe.parentPath) { return false; }
+
+  const tableVes = VesCache.get(rowVe.parentPath);
+  if (!tableVes) { return false; }
+  const tableVe = tableVes.get();
+
+  const childRows = tableVe.childrenVes ?? [];
+
+  let targetPath: string | null = null;
+  let targetRow: number | null = null;
+
+  for (const childSignal of childRows) {
+    const childVe = childSignal.get();
+    if (childVe.row == null || !childVe.attachmentsVes) { continue; }
+
+    const childRow = childVe.row;
+    let rowIsCandidate = false;
+
+    if (direction == FindDirection.Up) {
+      rowIsCandidate = childRow < currentRow && (targetRow == null || childRow > targetRow);
+    } else {
+      rowIsCandidate = childRow > currentRow && (targetRow == null || childRow < targetRow);
+    }
+
+    if (!rowIsCandidate) { continue; }
+
+    for (const attachmentSignal of childVe.attachmentsVes) {
+      const attachmentVe = attachmentSignal.get();
+      if (!(attachmentVe.flags & VisualElementFlags.Attachment)) { continue; }
+      if (attachmentVe.col != columnIndex) { continue; }
+
+      targetPath = VeFns.veToPath(attachmentVe);
+      targetRow = childRow;
+      break;
+    }
+  }
+
+  if (!targetPath) { return false; }
+
+  const targetVeid = VeFns.veidFromPath(targetPath);
+  store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+  fullArrange(store);
   return true;
 }
