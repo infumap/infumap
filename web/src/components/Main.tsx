@@ -32,7 +32,7 @@ import { FindOverlay } from "./overlay/FindOverlay";
 import { UploadOverlay } from "./overlay/UploadOverlay";
 import { Toolbar_Popup } from "./toolbar/Toolbar_Popup";
 import { mouseUpHandler } from "../input/mouse_up";
-import { mouseMoveHandler } from "../input/mouse_move";
+import { mouseMoveHandler, clearMouseOverState } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyDownHandler } from "../input/key";
@@ -222,6 +222,10 @@ export const Main: Component = () => {
     mouseMoveHandler(store);
   };
 
+  const mouseLeaveListener = () => {
+    clearMouseOverState(store);
+  };
+
   const mouseUpListener = (ev: MouseEvent) => {
     let flags = mouseUpHandler(store);
     if (flags & MouseEventActionFlags.PreventDefault) {
@@ -239,6 +243,7 @@ export const Main: Component = () => {
          ontouchstart={touchListener}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
+         onmouseleave={mouseLeaveListener}
          onpaste={pasteListener}
          ondblclick={mouseDoubleClickListener}
          onmouseup={mouseUpListener}>

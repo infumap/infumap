@@ -122,6 +122,18 @@ export function mouseMoveHandler(store: StoreContextModel) {
 }
 
 
+export function clearMouseOverState(store: StoreContextModel) {
+  if (lastMouseOverVes) {
+    store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);
+    lastMouseOverVes = null;
+  }
+  if (lastMouseOverOpenPopupVes) {
+    store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(lastMouseOverOpenPopupVes.get()), false);
+    lastMouseOverOpenPopupVes = null;
+  }
+}
+
+
 function changeMouseActionStateMaybe(
     deltaPx: Vector,
     store: StoreContextModel,
