@@ -1,16 +1,20 @@
 # Infumap
 
-What if the computer desktop was a giant work space that provided a collection of interoperable building blocks powerful enough to facilitate many of the tasks you would traditionally need dedicated applications for?
+Infumap is the platform I built to run my life off of.
 
-I have wondered this for as long as I can remember, and finally built Infumap as a way of exploring the idea. It's still pretty rough around the edges, but it's clear that the concept works - Infumap has become the platform I run my life off of and I wouldn't have it any other way.
+It’s a giant workspace that provides a powerful set of building blocks that can be pieced together to match a wide variety of needs.
 
-The high level concept is not novel, for example [Muse](https://museapp.com/) and [Kosmik](https://www.kosmik.app/) are two relatively recent projects with similar goals. Infumap is quite different though and feels different to use - more closely aligns with my own preferences and requirements. It is also open source - something I think is table stakes for the system I'm trusting to store all of my personal information.
+It has an API which allows data to be pulled in from various sources.
+
+It's built to handle a large amount of information (an entire life's worth) securely, and durably.
 
 <kbd>
   <img src="screenshot.png" />
 </kbd>
 
 ## Development Status
+
+I use Infumap to manage all of my personal information and spend a significant part of almost every day using it. Time I spend developing it is generally directed towards features or bug fixes that I will personally benefit from.
 
 My goals in developing Infumap, in order, are:
 
