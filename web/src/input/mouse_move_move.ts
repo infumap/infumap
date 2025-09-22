@@ -118,6 +118,12 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
       const newLinkVeid = VeFns.veidFromId(cloned.id);
       MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
+      const updatedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? MouseActionState.get().activeElementSignalMaybe;
+      MouseActionState.get().activeElementSignalMaybe = updatedSignal;
+      if (updatedSignal) {
+        MouseActionState.get().activeLinkIdMaybe = updatedSignal.get().actualLinkItemMaybe?.id ?? updatedSignal.get().linkItemMaybe?.id ?? null;
+        MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? updatedSignal.get().displayItem : null;
+      }
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = false;
 
@@ -163,6 +169,12 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
       const newLinkVeid = VeFns.veidFromId(link.id);
       MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
+      const updatedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? MouseActionState.get().activeElementSignalMaybe;
+      MouseActionState.get().activeElementSignalMaybe = updatedSignal;
+      if (updatedSignal) {
+        MouseActionState.get().activeLinkIdMaybe = updatedSignal.get().actualLinkItemMaybe?.id ?? updatedSignal.get().linkItemMaybe?.id ?? null;
+        MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? updatedSignal.get().displayItem : null;
+      }
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = true;
 
@@ -246,7 +258,11 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
 
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
-  const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElementPath)!;
+  const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!activeVisualElementSignal) {
+    store.anItemIsMoving.set(false);
+    return;
+  }
   const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
@@ -419,7 +435,12 @@ function moving_handleOverTable(store: StoreContextModel, overContainerVe: Visua
 
 
 function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean, shouldClone: boolean) {
-  const activeElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
+  const activeSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!activeSignal) {
+    store.anItemIsMoving.set(false);
+    return;
+  }
+  const activeElement = activeSignal.get();
   const treeActiveItem = asPositionalItem(VeFns.treeItem(activeElement));
 
   const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
@@ -466,6 +487,9 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     fullArrange(store);
     let ve = VesCache.findSingle({ itemId: cloned.id, linkIdMaybe: null });
     MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
+    MouseActionState.get().activeElementSignalMaybe = ve;
+    MouseActionState.get().activeLinkIdMaybe = ve.get().actualLinkItemMaybe?.id ?? ve.get().linkItemMaybe?.id ?? null;
+    MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? ve.get().displayItem : null;
     MouseActionState.get().linkCreatedOnMoveStart = false;
 
 
@@ -481,6 +505,9 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.findSingle({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id });
     MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
+    MouseActionState.get().activeElementSignalMaybe = ve;
+    MouseActionState.get().activeLinkIdMaybe = ve.get().actualLinkItemMaybe?.id ?? ve.get().linkItemMaybe?.id ?? null;
+    MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? ve.get().displayItem : null;
     MouseActionState.get().linkCreatedOnMoveStart = true;
 
   } else {
@@ -500,6 +527,12 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     itemState.moveToNewParent(treeActiveItem, moveToPage.id, RelationshipToParent.Child);
 
     MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
+    const refreshedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? activeSignal;
+    MouseActionState.get().activeElementSignalMaybe = refreshedSignal;
+    if (refreshedSignal) {
+      MouseActionState.get().activeLinkIdMaybe = refreshedSignal.get().actualLinkItemMaybe?.id ?? refreshedSignal.get().linkItemMaybe?.id ?? null;
+      MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? refreshedSignal.get().displayItem : null;
+    }
   }
 
   MouseActionState.get().onePxSizeBl = {
@@ -512,7 +545,12 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 
 
 function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink: boolean, shouldClone: boolean) {
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
+  const activeSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!activeSignal) {
+    store.anItemIsMoving.set(false);
+    return;
+  }
+  const activeVisualElement = activeSignal.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
@@ -580,6 +618,9 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     fullArrange(store);
     let ve = VesCache.findSingle({ itemId: cloned.id, linkIdMaybe: null });
     MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
+    MouseActionState.get().activeElementSignalMaybe = ve;
+    MouseActionState.get().activeLinkIdMaybe = ve.get().actualLinkItemMaybe?.id ?? ve.get().linkItemMaybe?.id ?? null;
+    MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? ve.get().displayItem : null;
     MouseActionState.get().linkCreatedOnMoveStart = false;
 
     fullArrange(store);
@@ -597,6 +638,9 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     let ve = VesCache.findSingle({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id });
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
     MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
+    MouseActionState.get().activeElementSignalMaybe = ve;
+    MouseActionState.get().activeLinkIdMaybe = ve.get().actualLinkItemMaybe?.id ?? ve.get().linkItemMaybe?.id ?? null;
+    MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? ve.get().displayItem : null;
     MouseActionState.get().linkCreatedOnMoveStart = true;
 
   } else {
@@ -604,6 +648,12 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
     // Set active element to the moved item within the new page path
     MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe));
+    const refreshedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? activeSignal;
+    MouseActionState.get().activeElementSignalMaybe = refreshedSignal;
+    if (refreshedSignal) {
+      MouseActionState.get().activeLinkIdMaybe = refreshedSignal.get().actualLinkItemMaybe?.id ?? refreshedSignal.get().linkItemMaybe?.id ?? null;
+      MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? refreshedSignal.get().displayItem : null;
+    }
   }
 
   MouseActionState.get().onePxSizeBl = {

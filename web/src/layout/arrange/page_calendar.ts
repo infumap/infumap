@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LinkItem, isLink, asLinkItem } from "../../items/link-item";
+import { LinkItem, isLink, asLinkItem, LinkFns } from "../../items/link-item";
 import { isRating } from "../../items/rating-item";
 import { PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -431,8 +431,22 @@ export function arrange_calendar_page(
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(movingItemInThisPage, actualMovingItemLinkItemMaybe), pageWithChildrenVePath);
     const isChildHighlighted = highlightedPath !== null && highlightedPath === childPath;
 
+    let movingDisplayItem = movingItemInThisPage;
+    if (actualMovingItemLinkItemMaybe) {
+      const linkToId = LinkFns.getLinkToId(actualMovingItemLinkItemMaybe);
+      const linkedItem = itemState.get(linkToId);
+      if (linkedItem) {
+        movingDisplayItem = linkedItem;
+      } else {
+        const actionState = MouseActionState.empty() ? null : MouseActionState.get();
+        if (actionState && actionState.activeLinkIdMaybe === actualMovingItemLinkItemMaybe.id && actionState.activeLinkedDisplayItemMaybe) {
+          movingDisplayItem = actionState.activeLinkedDisplayItemMaybe;
+        }
+      }
+    }
+
     const movingItemVeSpec: VisualElementSpec = {
-      displayItem: movingItemInThisPage,
+      displayItem: movingDisplayItem,
       linkItemMaybe: actualMovingItemLinkItemMaybe,
       actualLinkItemMaybe: actualMovingItemLinkItemMaybe,
       flags: VisualElementFlags.LineItem |

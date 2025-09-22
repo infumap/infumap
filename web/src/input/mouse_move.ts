@@ -146,7 +146,12 @@ function changeMouseActionStateMaybe(
     return;
   }
 
-  let activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+  const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!activeVisualElementSignal) {
+    store.anItemIsMoving.set(false);
+    return;
+  }
+  let activeVisualElement = activeVisualElementSignal.get();
   let activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Resize) > 0) {
@@ -225,8 +230,19 @@ function changeMouseActionStateMaybe(
       // if the composite move hitbox is hit, but not the child, then swap out the active element.
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
       MouseActionState.get().activeElementPath = MouseActionState.get().activeCompositeElementMaybe!;
+      const updatedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? MouseActionState.get().activeElementSignalMaybe;
+      MouseActionState.get().activeElementSignalMaybe = updatedSignal;
+      if (updatedSignal) {
+        MouseActionState.get().activeLinkIdMaybe = updatedSignal.get().actualLinkItemMaybe?.id ?? updatedSignal.get().linkItemMaybe?.id ?? null;
+        MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? updatedSignal.get().displayItem : null;
+      }
       MouseActionState.get().startActiveElementParent = VeFns.parentPath(MouseActionState.get().activeCompositeElementMaybe!);
-      activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+      const newActiveSignal = MouseActionState.getActiveVisualElementSignal();
+      if (!newActiveSignal) {
+        store.anItemIsMoving.set(false);
+        return;
+      }
+      activeVisualElement = newActiveSignal.get();
       activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
     }
     MouseActionState.get().startWidthBl = null;
@@ -240,13 +256,13 @@ function changeMouseActionStateMaybe(
     } else {
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
-  } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags) ||
-             VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.FlipCardPage) {
+  } else if (veFlagIsRoot(activeVisualElement.flags) ||
+             (activeVisualElement.flags & VisualElementFlags.FlipCardPage)) {
     MouseActionState.get().action = MouseAction.Selecting;
     store.overlay.selectionMarqueePx.set({ x: MouseActionState.get().startPx!.x, y: MouseActionState.get().startPx!.y, w: 0, h: 0 });
     store.overlay.selectedVeids.set([]);
   } else {
-    console.debug(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags);
+    console.debug(activeVisualElement.flags);
   }
 }
 
@@ -356,7 +372,12 @@ function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
 function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   let requireArrange = false;
 
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+  const activeSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!activeSignal) {
+    store.anItemIsResizing.set(false);
+    return;
+  }
+  const activeVisualElement = activeSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   const deltaBl = {
@@ -462,7 +483,12 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   if (newWidthBl < 3.0) { newWidthBl = 3.0; }
   const newWidthGr = newWidthBl * GRID_SIZE;
 
-  const activeVe = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+  const activeVeSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!activeVeSignal) {
+    store.anItemIsResizing.set(false);
+    return;
+  }
+  const activeVe = activeVeSignal.get();
   if (isPage(activeVe.displayItem)) {
     const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
     if (newWidthGr != asPageItem(activeRoot.displayItem).pendingPopupWidthGr) {
@@ -511,7 +537,12 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
 
 function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContextModel) {
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+  const listPageSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!listPageSignal) {
+    store.anItemIsResizing.set(false);
+    return;
+  }
+  const activeVisualElement = listPageSignal.get();
 
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
@@ -528,7 +559,12 @@ function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContext
 
 
 function mouseAction_resizingDockItem(deltaPx: Vector, store: StoreContextModel) {
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+  const dockItemSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!dockItemSignal) {
+    store.anItemIsResizing.set(false);
+    return;
+  }
+  const activeVisualElement = dockItemSignal.get();
   const activePage = asPageItem(activeVisualElement.displayItem);
   let newHeightPx = MouseActionState.get().startChildAreaBoundsPx!.h + deltaPx.y;
   if (newHeightPx < 5) { newHeightPx = 5; }
@@ -540,7 +576,12 @@ function mouseAction_resizingDockItem(deltaPx: Vector, store: StoreContextModel)
 }
 
 function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+  const columnSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!columnSignal) {
+    store.anItemIsResizing.set(false);
+    return;
+  }
+  const activeVisualElement = columnSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   const deltaBl = {

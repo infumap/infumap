@@ -350,6 +350,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
   const activeElementPath = VeFns.veToPath(hitVe);
+  const activeLinkIdMaybe = hitVe.actualLinkItemMaybe ? hitVe.actualLinkItemMaybe.id : (hitVe.linkItemMaybe ? hitVe.linkItemMaybe.id : null);
+  const activeLinkedDisplayItemMaybe = activeLinkIdMaybe ? hitVe.displayItem : null;
 
   if (longHoldTimeoutId) {
     clearTimeout(longHoldTimeoutId);
@@ -387,6 +389,9 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     startActiveElementParent: hitVe.parentPath!,
     activeElementPath,
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(HitInfoFns.getCompositeContainerVe(hitInfo)!) : null,
+    activeElementSignalMaybe: VesCache.get(activeElementPath) ?? null,
+    activeLinkIdMaybe,
+    activeLinkedDisplayItemMaybe,
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
     moveOver_attachCompositeHitboxElement: null,

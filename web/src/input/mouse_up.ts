@@ -61,7 +61,12 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
   // Note: right mouse is handled in mouse_down.ts/mouseRightDownHandler.
   if (MouseActionState.empty()) { return MouseEventActionFlags.PreventDefault; }
 
-  const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElementPath)!;
+  const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!activeVisualElementSignal) {
+    store.anItemIsResizing.set(false);
+    store.anItemIsMoving.set(false);
+    return MouseEventActionFlags.PreventDefault;
+  }
   const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
@@ -249,14 +254,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
         fullArrange(store);
 
-      } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.Popup) {
+      } else if (activeVisualElementSignal.get().flags & VisualElementFlags.Popup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
 
-      } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.IsDock) {
+      } else if (activeVisualElementSignal.get().flags & VisualElementFlags.IsDock) {
         DoubleClickState.preventDoubleClick();
 
-      } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.FlipCardPage) {
+      } else if (activeVisualElementSignal.get().flags & VisualElementFlags.FlipCardPage) {
         // nothing.
 
       } else {

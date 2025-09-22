@@ -21,6 +21,7 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
+import { MouseActionState } from "../../input/state";
 import { EMPTY_UID } from "../../util/uid";
 import { initiateLoadItemMaybe, initiateLoadItemFromRemoteMaybe } from "../load";
 
@@ -47,9 +48,15 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
 
   linkItemMaybe = asLinkItem(item);
   const linkToId = LinkFns.getLinkToId(linkItemMaybe);
+  const activeState = !MouseActionState.empty() ? MouseActionState.get() : null;
   const displayItemMaybe = itemState.get(linkToId)!;
   if (displayItemMaybe != null) {
     displayItem = displayItemMaybe!;
+    if (isXSizableItem(displayItem)) {
+      spatialWidthGr = linkItemMaybe.spatialWidthGr;
+    }
+  } else if (activeState && activeState.activeLinkIdMaybe === linkItemMaybe.id && activeState.activeLinkedDisplayItemMaybe) {
+    displayItem = activeState.activeLinkedDisplayItemMaybe;
     if (isXSizableItem(displayItem)) {
       spatialWidthGr = linkItemMaybe.spatialWidthGr;
     }
