@@ -303,6 +303,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       Err(_) => { info!("  {} = {}", CONFIG_S3_2_SECRET, "<not set>"); }
     }
   }
+  info!(" {} = {}", CONFIG_BYPASS_TOTP_CHECK, config.get_bool(CONFIG_BYPASS_TOTP_CHECK).map_err(|e| e.to_string())?);
   info!(" {} = {}", CONFIG_ENABLE_S3_BACKUP, config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())?);
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
     info!("  {} = {}", CONFIG_BACKUP_PERIOD_MINUTES, config.get_int(CONFIG_BACKUP_PERIOD_MINUTES).map_err(|e| e.to_string())?);
