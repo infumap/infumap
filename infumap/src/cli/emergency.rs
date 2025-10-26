@@ -219,7 +219,8 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     .set_override("log_level", "debug").map_err(|_| "failed to override log_level config")?
     .set_override("data_dir", infumap_data_dir.to_str().ok_or("can't interpret data dir pathbuf")?).map_err(|_| "failed to override data_dir config")?
     .set_override("cache_dir", infumap_cache_dir.to_str().ok_or("can't interpret cache dir pathbuf")?).map_err(|_| "failed to override cache_dir config")?
-    .set_override("enable_local_object_storage", "false").map_err(|_| "failed to override enable_local_object_storage config")?;
+    .set_override("enable_local_object_storage", "false").map_err(|_| "failed to override enable_local_object_storage config")?
+    .set_override("bypass_totp_check", "true").map_err(|_| "failed to override bypass_totp_check config")?;
   config_builder = config_builder.set_override("port", port as i64).map_err(|_| "failed to override port config")?;
   if s3_region.is_some() || s3_endpoint.is_some() {
     config_builder = config_builder.set_override("enable_s3_1_object_storage", "true").map_err(|_| "failed to override enable_s1_1_object_storage config")?;

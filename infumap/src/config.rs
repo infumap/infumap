@@ -92,6 +92,9 @@ pub const CONFIG_DISABLE_BACKUP_CLEANUP_DEFAULT: bool = false;
 
 pub const CONFIG_BACKUP_ENCRYPTION_KEY: &'static str = "backup_encryption_key";
 
+pub const CONFIG_BYPASS_TOTP_CHECK: &'static str = "bypass_totp_check";
+pub const CONFIG_BYPASS_TOTP_CHECK_DEFAULT: bool = false;
+
 pub const CONFIG_S3_BACKUP_REGION: &'static str = "s3_backup_region";
 pub const CONFIG_S3_BACKUP_ENDPOINT: &'static str = "s3_backup_endpoint";
 pub const CONFIG_S3_BACKUP_BUCKET: &'static str = "s3_backup_bucket";

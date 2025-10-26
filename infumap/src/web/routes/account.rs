@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use bytes::Bytes;
+use config::Config;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Method};
 use infusdk::util::geometry::Dimensions;
@@ -30,6 +31,7 @@ use tokio::time::{sleep, Duration};
 use totp_rs::{Algorithm, TOTP, Secret};
 use uuid::Uuid;
 
+use crate::config::CONFIG_BYPASS_TOTP_CHECK;
 use crate::storage::db::users_extra::UserExtra;
 use crate::storage::db::Db;
 use crate::storage::db::user::{User, ROOT_USER_NAME};
@@ -46,9 +48,9 @@ const TOTP_SKEW: u8 = 1; // OTP is valid for this number of time intervals in th
 const TOTP_STEP: u64 = 30; // Time step interval of 30 seconds is pretty standard.
 
 
-pub async fn serve_account_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn serve_account_route(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   match (req.method(), req.uri().path()) {
-    (&Method::POST, "/account/login") => login(db, req).await,
+    (&Method::POST, "/account/login") => login(config, db, req).await,
     (&Method::POST, "/account/logout") => logout(db, req).await,
     (&Method::POST, "/account/register") => register(db, req).await,
     (&Method::POST, "/account/create-totp") => create_totp(),
@@ -86,8 +88,10 @@ pub struct LoginResponse {
   pub has_totp: bool,
 }
 
-pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   let mut db = db.lock().await;
+
+  let bypass_totp_check = config.get_bool(CONFIG_BYPASS_TOTP_CHECK).unwrap_or(false);
 
   async fn failed_response(msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
     // TODO (LOW): rate limit login requests properly.
@@ -120,29 +124,34 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     return failed_response("credentials incorrect").await;
   }
 
-  if let Some(totp_secret) = &user.totp_secret {
-    if let Some(totp_token) = &payload.totp_token {
-      match validate_totp(totp_secret, totp_token) {
-        Err(e) => {
-          info!("An error occurred whilst trying to validate a TOTP token for user '{}': {}", payload.username, e);
-          return failed_response("server error").await;
-        },
-        Ok(v) => {
-          if !v {
-            info!("A login attempt for user '{}' failed due to an incorrect TOTP.", payload.username);
-            return failed_response("credentials incorrect").await;
+  // TOTP validation - skipped if bypass_totp_check is enabled
+  if !bypass_totp_check {
+    if let Some(totp_secret) = &user.totp_secret {
+      if let Some(totp_token) = &payload.totp_token {
+        match validate_totp(totp_secret, totp_token) {
+          Err(e) => {
+            info!("An error occurred whilst trying to validate a TOTP token for user '{}': {}", payload.username, e);
+            return failed_response("server error").await;
+          },
+          Ok(v) => {
+            if !v {
+              info!("A login attempt for user '{}' failed due to an incorrect TOTP.", payload.username);
+              return failed_response("credentials incorrect").await;
+            }
           }
-        }
-      };
+        };
+      } else {
+        info!("A login attempt for user '{}' failed because a TOTP was not specified.", payload.username);
+        return failed_response("credentials incorrect").await;
+      }
     } else {
-      info!("A login attempt for user '{}' failed because a TOTP was not specified.", payload.username);
-      return failed_response("credentials incorrect").await;
+      if payload.totp_token.is_some() {
+        info!("A login attempt for user '{}' failed because a TOTP token was specified, but this is not expected.", payload.username);
+        return failed_response("credentials incorrect").await;
+      }
     }
   } else {
-    if payload.totp_token.is_some() {
-      info!("A login attempt for user '{}' failed because a TOTP token was specified, but this is not expected.", payload.username);
-      return failed_response("credentials incorrect").await;
-    }
+    info!("TOTP check bypassed for user '{}' due to configuration.", payload.username);
   }
 
   match db.session.create_session(&user.id, &user.username).await {
