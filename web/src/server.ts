@@ -97,11 +97,13 @@ const commandQueue: Array<ServerCommand> = [];
 let inProgress: ServerCommand | null = null;
 const MUTATION_COMMANDS = new Set<string>([COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH]);
 let pendingMutationCommands = 0;
+let mutationGeneration = 0;
 
 const isMutationCommand = (command: string): boolean => MUTATION_COMMANDS.has(command);
 const incrementPendingMutations = (command: string): void => {
   if (isMutationCommand(command)) {
     pendingMutationCommands++;
+    mutationGeneration++;
   }
 };
 const decrementPendingMutations = (command: string): void => {
@@ -357,6 +359,7 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
     // Wait for pending mutations to reach the server before risking a refresh.
     return;
   }
+  const mutationGenerationAtStart = mutationGeneration;
   // Pause refresh during user interactions
   if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
     return;
@@ -389,6 +392,9 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
   const modifiedContainers = results.filter((r: any) => r.modified);
 
   for (const modifiedContainer of modifiedContainers) {
+    if (mutationGenerationAtStart !== mutationGeneration) {
+      return;
+    }
     const container = itemState.get(modifiedContainer.id);
     if (!container || !isContainer(container)) {
       continue;
@@ -421,6 +427,9 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
       : await sendCommand(origin, COMMAND_GET_ITEMS, { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false);
 
     if (fetchResult != null) {
+      if (mutationGenerationAtStart !== mutationGeneration) {
+        return;
+      }
       // Apply the same processing as in server.fetchItems
       if (fetchResult.item && fetchResult.item.parentId == null) { 
         fetchResult.item.parentId = EMPTY_UID; 
