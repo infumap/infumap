@@ -458,6 +458,7 @@ function hitPageSelectedRootMaybe(
   const posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
   posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y - (rootVe.boundsPx.h - rootVe.viewportBoundsPx!.h);
   let result: RootInfo = { parentRootVe: parentRootInfo.rootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
+  if (changedRoot && rootVe.selectedVes) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }
 
