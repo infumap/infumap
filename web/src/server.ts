@@ -83,9 +83,33 @@ interface ServerCommand {
   internalHandler?: () => Promise<any>,
 }
 
+const COMMAND_GET_ITEMS = "get-items";
+const COMMAND_ADD_ITEM = "add-item";
+const COMMAND_UPDATE_ITEM = "update-item";
+const COMMAND_DELETE_ITEM = "delete-item";
+const COMMAND_SEARCH = "search";
+const COMMAND_EMPTY_TRASH = "empty-trash";
+const COMMAND_MODIFIED_CHECK = "modified-check";
+const COMMAND_AUTO_REFRESH = "auto-refresh";
+
 // TODO (MEDIUM): Allow multiple in flight requests. But add seq number and enforce execution order on server.
 const commandQueue: Array<ServerCommand> = [];
 let inProgress: ServerCommand | null = null;
+const MUTATION_COMMANDS = new Set<string>([COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH]);
+let pendingMutationCommands = 0;
+
+const isMutationCommand = (command: string): boolean => MUTATION_COMMANDS.has(command);
+const incrementPendingMutations = (command: string): void => {
+  if (isMutationCommand(command)) {
+    pendingMutationCommands++;
+  }
+};
+const decrementPendingMutations = (command: string): void => {
+  if (isMutationCommand(command) && pendingMutationCommands > 0) {
+    pendingMutationCommands--;
+  }
+};
+const mutationsInFlight = (): boolean => pendingMutationCommands > 0;
 
 function serveWaiting(networkStatus: NumberSignal) {
   if (commandQueue.length == 0 || inProgress != null) {
@@ -99,37 +123,34 @@ function serveWaiting(networkStatus: NumberSignal) {
   inProgress = command;
   const DEBUG = false;
   if (DEBUG) { console.debug(command.command, command.payload); }
+  const finalizeCommand = () => {
+    inProgress = null;
+    decrementPendingMutations(command.command);
+    serveWaiting(networkStatus);
+  };
   
   if (command.isInternal && command.internalHandler) {
     // Handle internal command
     command.internalHandler()
       .then((resp: any) => {
-        inProgress = null;
         command.resolve(resp);
       })
       .catch((error) => {
-        inProgress = null;
         command.reject(error);
         networkStatus.set(NETWORK_STATUS_ERROR);
       })
-      .finally(() => {
-        serveWaiting(networkStatus);
-      });
+      .finally(finalizeCommand);
   } else {
     // Handle server command
     sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
       .then((resp: any) => {
-        inProgress = null;
         command.resolve(resp);
       })
       .catch((error) => {
-        inProgress = null;
         command.reject(error);
         networkStatus.set(NETWORK_STATUS_ERROR);
       })
-      .finally(() => {
-        serveWaiting(networkStatus);
-      });
+      .finally(finalizeCommand);
   }
 }
 
@@ -145,6 +166,7 @@ function constructCommandPromise(
       host, command, payload, base64data, panicLogoutOnError,
       resolve, reject
     };
+    incrementPendingMutations(command);
     commandQueue.push(commandObj);
     if (networkStatus.get() != NETWORK_STATUS_ERROR) {
       networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
@@ -182,7 +204,7 @@ export const server = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise(null, "get-items", { id, mode }, null, false, networkStatus)
+    return constructCommandPromise(null, COMMAND_GET_ITEMS, { id, mode }, null, false, networkStatus)
       .then((r: any) => {
         // Server side, itemId is an optional and the root page does not have this set (== null in the response).
         // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
@@ -196,31 +218,31 @@ export const server = {
   },
 
   addItemFromPartialObject: async (item: object, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, "add-item", item, base64Data, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data, true, networkStatus);
   },
 
   addItem: async (item: Item, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, "add-item", ItemFns.toObject(item), base64Data, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data, true, networkStatus);
   },
 
   updateItem: async (item: Item, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise(null, "update-item", ItemFns.toObject(item), null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, true, networkStatus);
   },
 
   deleteItem: async (id: Uid, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise(null, "delete-item", { id }, null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null, true, networkStatus);
   },
 
   search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal, pageNumMaybe?: number): Promise<Array<SearchResult>> => {
-    return constructCommandPromise(null, "search", { pageId: pageIdMaybe, text, numResults: 10, pageNum: pageNumMaybe }, null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: 10, pageNum: pageNumMaybe }, null, true, networkStatus);
   },
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
-    return constructCommandPromise(null, "empty-trash", { }, null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, { }, null, true, networkStatus);
   },
 
   modifiedCheck: async (requests: ModifiedCheck[], networkStatus: NumberSignal): Promise<ModifiedCheckResult[]> => {
-    return constructCommandPromise(null, "modified-check", requests, null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_MODIFIED_CHECK, requests, null, true, networkStatus);
   }
 }
 
@@ -241,19 +263,20 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
   inProgress_remote = command;
   const DEBUG = false;
   if (DEBUG) { console.debug(command.command, command.payload); }
+  const finalizeCommand = () => {
+    inProgress_remote = null;
+    decrementPendingMutations(command.command);
+    serveWaiting_remote(networkStatus);
+  };
   sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
     .then((resp: any) => {
-      inProgress_remote = null;
       command.resolve(resp);
     })
     .catch((error) => {
-      inProgress_remote = null;
       command.reject(error);
       networkStatus.set(NETWORK_STATUS_ERROR);
     })
-    .finally(() => {
-      serveWaiting_remote(networkStatus);
-    });
+    .finally(finalizeCommand);
 }
 
 function constructCommandPromise_remote(
@@ -268,6 +291,7 @@ function constructCommandPromise_remote(
       host, command, payload, base64data, panicLogoutOnError,
       resolve, reject
     };
+    incrementPendingMutations(command);
     commandQueue_remote.push(commandObj);
     if (networkStatus.get() != NETWORK_STATUS_ERROR) {
       networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
@@ -281,7 +305,7 @@ export const remote = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (host: string, id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise_remote(host, "get-items", { id, mode }, null, false, networkStatus)
+    return constructCommandPromise_remote(host, COMMAND_GET_ITEMS, { id, mode }, null, false, networkStatus)
       .then((r: any) => {
         // Server side, itemId is an optional and the root page does not have this set (== null in the response).
         // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
@@ -298,14 +322,14 @@ export const remote = {
    * update an item
    */
   updateItem: async (host: string, item: Item, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise_remote(host, "update-item", ItemFns.toObject(item), null, false, networkStatus);
+    return constructCommandPromise_remote(host, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, false, networkStatus);
   },
 
   /**
    * check if items have been modified
    */
   modifiedCheck: async (host: string, requests: ModifiedCheck[], networkStatus: NumberSignal): Promise<ModifiedCheckResult[]> => {
-    return constructCommandPromise_remote(host, "modified-check", requests, null, false, networkStatus);
+    return constructCommandPromise_remote(host, COMMAND_MODIFIED_CHECK, requests, null, false, networkStatus);
   },
 }
 
@@ -329,6 +353,10 @@ let loadTestInterval: number | null = null;
  *       2. setInterval [Violation] - takes too long.
  */
 async function performAutoRefresh(store: StoreContextModel): Promise<void> {
+  if (mutationsInFlight()) {
+    // Wait for pending mutations to reach the server before risking a refresh.
+    return;
+  }
   // Pause refresh during user interactions
   if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
     return;
@@ -357,7 +385,7 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
   testRequests.push(...resolvedRequests);
 
   // Call sendCommand directly to avoid queue recursion
-  const results = await sendCommand(null, "modified-check", testRequests, null, false);
+  const results = await sendCommand(null, COMMAND_MODIFIED_CHECK, testRequests, null, false);
   const modifiedContainers = results.filter((r: any) => r.modified);
 
   for (const modifiedContainer of modifiedContainers) {
@@ -389,8 +417,8 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
 
     // Call sendCommand directly to avoid queue recursion
     const fetchResult = origin == null
-      ? await sendCommand(null, "get-items", { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false)
-      : await sendCommand(origin, "get-items", { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false);
+      ? await sendCommand(null, COMMAND_GET_ITEMS, { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false)
+      : await sendCommand(origin, COMMAND_GET_ITEMS, { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false);
 
     if (fetchResult != null) {
       // Apply the same processing as in server.fetchItems
@@ -495,7 +523,7 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
   loadTestInterval = window.setInterval(async () => {
     try {
       await constructInternalCommandPromise(
-        "auto-refresh",
+        COMMAND_AUTO_REFRESH,
         () => performAutoRefresh(store),
         store.general.networkStatus
       );
@@ -526,7 +554,7 @@ async function sendCommand(host: string | null, command: string, payload: object
   if (base64Data) { d.base64Data = base64Data; }
   const r = await post(host, '/command', d);
   if (!r.success) {
-    if (logout != null && command != "get-items") {
+    if (logout != null && command != COMMAND_GET_ITEMS) {
       if (panicLogoutOnError) {
         await logout();
       }
