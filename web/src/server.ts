@@ -112,7 +112,7 @@ const decrementPendingMutations = (command: string): void => {
 const mutationsInFlight = (): boolean => pendingMutationCommands > 0;
 
 function serveWaiting(networkStatus: NumberSignal) {
-  if (commandQueue.length == 0 || inProgress != null) {
+  if (commandQueue.length == 0 && inProgress == null) {
     networkStatus.set(NETWORK_STATUS_OK);
     return;
   }
@@ -252,7 +252,7 @@ const commandQueue_remote: Array<ServerCommand> = [];
 let inProgress_remote: ServerCommand | null = null;
 
 function serveWaiting_remote(networkStatus: NumberSignal) {
-  if (commandQueue_remote.length == 0 || inProgress_remote != null) {
+  if (commandQueue_remote.length == 0 && inProgress_remote == null) {
     networkStatus.set(NETWORK_STATUS_OK);
     return;
   }
