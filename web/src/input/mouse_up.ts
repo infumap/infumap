@@ -59,7 +59,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
   // Note: There is no right mouse up handler. Program control flow will exit here in right mouse case.
   // Note: right mouse is handled in mouse_down.ts/mouseRightDownHandler.
-  if (MouseActionState.empty()) { return MouseEventActionFlags.PreventDefault; }
+  if (MouseActionState.empty()) {
+    // Allow native controls (sliders, form inputs, etc.) to handle mouseup normally when nothing is being dragged.
+    return MouseEventActionFlags.None;
+  }
 
   const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeVisualElementSignal) {
