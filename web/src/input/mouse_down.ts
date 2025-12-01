@@ -442,7 +442,7 @@ function calcStartCompositeItemMaybe(activeItem: Item): CompositeItem | null {
   if (activeItem == null) { return null; }
   if (activeItem.parentId == null) { return null; }
   if (activeItem.relationshipToParent != RelationshipToParent.Child) { return null; }
-  let parent = itemState.get(activeItem.parentId)!;
+  const parent = itemState.get(activeItem.parentId);
   if (!parent) { return null; }
   if (parent.parentId == null) { return null; }
   if (!isComposite(parent)) { return null; }
@@ -454,9 +454,11 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
   if (activeItem == null) { return null; }
   if (activeItem.parentId == null) { return null; }
   if (activeItem.relationshipToParent != RelationshipToParent.Attachment) { return null; }
-  let parent = itemState.get(activeItem.parentId)!;
+  const parent = itemState.get(activeItem.parentId);
+  if (!parent) { return null; }
   if (parent.parentId == null) { return null; }
-  let parentParent = itemState.get(parent.parentId)!;
+  const parentParent = itemState.get(parent.parentId);
+  if (!parentParent) { return null; }
   if (!isTable(parentParent)) { return null; }
   return asAttachmentsItem(parent);
 }
