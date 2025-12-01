@@ -57,6 +57,26 @@ let underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid
 let evaluationRequired = new Set<VisualElementPath>();
 let currentlyInFullArrange = false;
 
+function logOrphanedVes(cache: Map<VisualElementPath, VisualElementSignal>, context: string) {
+  // Diagnostic helper: reports any visual elements whose parentPath is missing from the cache.
+  const orphans: Array<{ path: VisualElementPath, parentPath: VisualElementPath, itemId: string, flags: number }> = [];
+  for (const [path, ves] of cache.entries()) {
+    const ve = ves.get();
+    if (ve.parentPath == null) { continue; }
+    if (!cache.has(ve.parentPath)) {
+      orphans.push({
+        path,
+        parentPath: ve.parentPath,
+        itemId: ve.displayItem.id,
+        flags: ve.flags,
+      });
+    }
+  }
+  if (orphans.length > 0) {
+    console.warn("[VES_CACHE_DEBUG] Orphaned visual elements detected", { context, count: orphans.length, orphans });
+  }
+}
+
 export let VesCache = {
 
   /**
@@ -141,6 +161,7 @@ export let VesCache = {
       currentTopTitledPages = underConstructionTopTitledPages;
       currentWatchContainerUidsByOrigin = underConstructionWatchContainerUidsByOrigin;
       store.topTitledPages.set(currentTopTitledPages);
+      logOrphanedVes(currentVesCache, "full_finalizeArrange");
     }
 
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();

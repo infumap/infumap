@@ -597,6 +597,31 @@ export const VeFns = {
   },
 
   veBoundsRelativeToDesktopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
+    const resolveParentVe = (path: VisualElementPath | null): VisualElement | null => {
+      if (!path) { return null; }
+      const ves = VesCache.get(path);
+      if (!ves) {
+        console.warn("veBoundsRelativeToDesktopPx: parent path missing from VesCache", {
+          parentPath: path,
+          childId: visualElement.displayItem.id
+        });
+        return null;
+      }
+      return ves.get();
+    };
+    const fallbackBounds = (veForSize: VisualElement = visualElement) => {
+      if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx && visualElement.childAreaBoundsPx) {
+        const popupTitleHeightMaybePx = visualElement.boundsPx.h - visualElement.viewportBoundsPx.h;
+        return {
+          x: r.x,
+          y: r.y + popupTitleHeightMaybePx,
+          w: visualElement.childAreaBoundsPx.w,
+          h: visualElement.childAreaBoundsPx.h
+        };
+      }
+      return { x: r.x, y: r.y, w: veForSize.boundsPx.w, h: veForSize.boundsPx.h };
+    };
+
     let ve: VisualElement | null = visualElement;
     if (ve.parentPath == null) {
       return cloneBoundingBox(ve.boundsPx)!;
@@ -607,8 +632,10 @@ export const VeFns = {
     // handle case of attachment in a table.
     const treeItem = VeFns.treeItem(ve);
     if (treeItem.relationshipToParent == RelationshipToParent.Attachment) {
-      const veParent = VesCache.get(ve.parentPath!)!.get();
-      const veParentParent = VesCache.get(veParent.parentPath!)!.get();
+      const veParent = resolveParentVe(ve.parentPath!);
+      if (!veParent) { return fallbackBounds(ve); }
+      const veParentParent = resolveParentVe(veParent.parentPath!);
+      if (!veParentParent) { return fallbackBounds(veParent); }
       if (isTable(veParentParent.displayItem)) {
         const tableItem = asTableItem(veParentParent.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
@@ -616,11 +643,12 @@ export const VeFns = {
         r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
         // skip the item that is a child of the table - the attachment ve is relative to the table.
         // TODO (LOW): it would be better if the attachment were relative to the item, not the table.
-        ve = VesCache.get(ve.parentPath!)!.get();
+        ve = veParent;
       }
     }
 
-    ve = VesCache.get(ve.parentPath!)!.get();
+    ve = resolveParentVe(ve.parentPath!);
+    if (!ve) { return fallbackBounds(); }
     while (ve != null) {
       r = vectorAdd(r, getBoundingBoxTopLeft(ve.viewportBoundsPx ? ve.viewportBoundsPx : ve.boundsPx));
       if (isTable(ve.displayItem)) {
@@ -645,7 +673,8 @@ export const VeFns = {
         r.x -= adjX;
         r.y -= adjY;
       }
-      ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
+      ve = ve.parentPath == null ? null : resolveParentVe(ve.parentPath!);
+      if (ve === null) { break; }
     }
 
     if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx) {
@@ -712,6 +741,31 @@ export const VeFns = {
    * clipped to what is visibly covered by the page (e.g., marquee selection intersection).
    */
   veViewportBoundsRelativeToDesktopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
+    const resolveParentVe = (path: VisualElementPath | null): VisualElement | null => {
+      if (!path) { return null; }
+      const ves = VesCache.get(path);
+      if (!ves) {
+        console.warn("veViewportBoundsRelativeToDesktopPx: parent path missing from VesCache", {
+          parentPath: path,
+          childId: visualElement.displayItem.id
+        });
+        return null;
+      }
+      return ves.get();
+    };
+    const fallbackBounds = (veForSize: VisualElement = visualElement) => {
+      if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx) {
+        const popupTitleHeightMaybePx = visualElement.boundsPx.h - visualElement.viewportBoundsPx.h;
+        return {
+          x: r.x,
+          y: r.y + popupTitleHeightMaybePx,
+          w: visualElement.viewportBoundsPx.w,
+          h: visualElement.viewportBoundsPx.h,
+        };
+      }
+      return { x: r.x, y: r.y, w: veForSize.boundsPx.w, h: veForSize.boundsPx.h };
+    };
+
     let ve: VisualElement | null = visualElement;
     if (ve.parentPath == null) {
       if (isPage(ve.displayItem) && ve.viewportBoundsPx) {
@@ -731,8 +785,10 @@ export const VeFns = {
     // handle case of attachment in a table.
     const treeItem = VeFns.treeItem(ve);
     if (treeItem.relationshipToParent == RelationshipToParent.Attachment) {
-      const veParent = VesCache.get(ve.parentPath!)!.get();
-      const veParentParent = VesCache.get(veParent.parentPath!)!.get();
+      const veParent = resolveParentVe(ve.parentPath!);
+      if (!veParent) { return fallbackBounds(ve); }
+      const veParentParent = resolveParentVe(veParent.parentPath!);
+      if (!veParentParent) { return fallbackBounds(veParent); }
       if (isTable(veParentParent.displayItem)) {
         const tableItem = asTableItem(veParentParent.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
@@ -740,11 +796,12 @@ export const VeFns = {
         r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
         // skip the item that is a child of the table - the attachment ve is relative to the table.
         // TODO (LOW): it would be better if the attachment were relative to the item, not the table.
-        ve = VesCache.get(ve.parentPath!)!.get();
+        ve = veParent;
       }
     }
 
-    ve = VesCache.get(ve.parentPath!)!.get();
+    ve = resolveParentVe(ve.parentPath!);
+    if (!ve) { return fallbackBounds(); }
     while (ve != null) {
       r = vectorAdd(r, getBoundingBoxTopLeft(ve.viewportBoundsPx ? ve.viewportBoundsPx : ve.boundsPx));
       if (isTable(ve.displayItem)) {
@@ -769,7 +826,8 @@ export const VeFns = {
         r.x -= adjX;
         r.y -= adjY;
       }
-      ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
+      ve = ve.parentPath == null ? null : resolveParentVe(ve.parentPath!);
+      if (ve === null) { break; }
     }
 
     if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx) {
