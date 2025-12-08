@@ -92,9 +92,9 @@ const COMMAND_EMPTY_TRASH = "empty-trash";
 const COMMAND_MODIFIED_CHECK = "modified-check";
 const COMMAND_AUTO_REFRESH = "auto-refresh";
 
-// TODO (MEDIUM): Allow multiple in flight requests. But add seq number and enforce execution order on server.
 const commandQueue: Array<ServerCommand> = [];
-let inProgress: ServerCommand | null = null;
+let inProgressNonGet: ServerCommand | null = null; // any non-get-items command currently running
+let inProgressGetItems = 0; // number of get-items commands currently running
 const MUTATION_COMMANDS = new Set<string>([COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH]);
 let pendingMutationCommands = 0;
 let mutationGeneration = 0;
@@ -114,45 +114,106 @@ const decrementPendingMutations = (command: string): void => {
 const mutationsInFlight = (): boolean => pendingMutationCommands > 0;
 
 function serveWaiting(networkStatus: NumberSignal) {
-  if (commandQueue.length == 0 && inProgress == null) {
+  // If nothing is queued and nothing is running, mark idle.
+  if (commandQueue.length == 0 && inProgressNonGet == null && inProgressGetItems == 0) {
     networkStatus.set(NETWORK_STATUS_OK);
     return;
   }
+
+  // Ensure UI shows activity when work is queued or running.
   if (networkStatus.get() != NETWORK_STATUS_ERROR) {
-    networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+    if (commandQueue.length > 0 || inProgressNonGet != null || inProgressGetItems > 0) {
+      networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+    }
   }
-  const command = commandQueue.shift() as ServerCommand;
-  inProgress = command;
-  const DEBUG = false;
-  if (DEBUG) { console.debug(command.command, command.payload); }
-  const finalizeCommand = () => {
-    inProgress = null;
-    decrementPendingMutations(command.command);
-    serveWaiting(networkStatus);
-  };
-  
-  if (command.isInternal && command.internalHandler) {
-    // Handle internal command
-    command.internalHandler()
-      .then((resp: any) => {
-        command.resolve(resp);
-      })
-      .catch((error) => {
-        command.reject(error);
-        networkStatus.set(NETWORK_STATUS_ERROR);
-      })
-      .finally(finalizeCommand);
-  } else {
-    // Handle server command
-    sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
-      .then((resp: any) => {
-        command.resolve(resp);
-      })
-      .catch((error) => {
-        command.reject(error);
-        networkStatus.set(NETWORK_STATUS_ERROR);
-      })
-      .finally(finalizeCommand);
+
+  // Start as many leading get-items as possible; keep ordering otherwise.
+  while (commandQueue.length > 0) {
+    const next = commandQueue[0];
+
+    // Non-get commands (mutations, searches, etc.) run strictly one at a time.
+    if (next.command !== COMMAND_GET_ITEMS) {
+      if (inProgressNonGet != null || inProgressGetItems > 0) {
+        return; // wait for running commands to finish before starting the next non-get
+      }
+
+      const command = commandQueue.shift() as ServerCommand;
+      inProgressNonGet = command;
+
+      const DEBUG = false;
+      if (DEBUG) { console.debug(command.command, command.payload); }
+
+      const finalizeCommand = () => {
+        inProgressNonGet = null;
+        decrementPendingMutations(command.command);
+        serveWaiting(networkStatus);
+      };
+
+      if (command.isInternal && command.internalHandler) {
+        command.internalHandler()
+          .then((resp: any) => {
+            command.resolve(resp);
+          })
+          .catch((error) => {
+            command.reject(error);
+            networkStatus.set(NETWORK_STATUS_ERROR);
+          })
+          .finally(finalizeCommand);
+      } else {
+        sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+          .then((resp: any) => {
+            command.resolve(resp);
+          })
+          .catch((error) => {
+            command.reject(error);
+            networkStatus.set(NETWORK_STATUS_ERROR);
+          })
+          .finally(finalizeCommand);
+      }
+
+      return; // non-get commands run one at a time
+    }
+
+    // get-items can run in parallel, but only while they are at the head and no non-get is running.
+    if (inProgressNonGet != null) {
+      return;
+    }
+
+    const command = commandQueue.shift() as ServerCommand;
+    inProgressGetItems++;
+
+    const DEBUG = false;
+    if (DEBUG) { console.debug(command.command, command.payload); }
+
+    const finalizeCommand = () => {
+      inProgressGetItems--;
+      decrementPendingMutations(command.command);
+      serveWaiting(networkStatus);
+    };
+
+    if (command.isInternal && command.internalHandler) {
+      command.internalHandler()
+        .then((resp: any) => {
+          command.resolve(resp);
+        })
+        .catch((error) => {
+          command.reject(error);
+          networkStatus.set(NETWORK_STATUS_ERROR);
+        })
+        .finally(finalizeCommand);
+    } else {
+      sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+        .then((resp: any) => {
+          command.resolve(resp);
+        })
+        .catch((error) => {
+          command.reject(error);
+          networkStatus.set(NETWORK_STATUS_ERROR);
+        })
+        .finally(finalizeCommand);
+    }
+
+    // continue loop to launch more get-items at the head.
   }
 }
 
@@ -251,34 +312,80 @@ export const server = {
 
 
 const commandQueue_remote: Array<ServerCommand> = [];
-let inProgress_remote: ServerCommand | null = null;
+let inProgressNonGet_remote: ServerCommand | null = null; // any non-get-items command currently running remotely
+let inProgressGetItems_remote = 0;
 
 function serveWaiting_remote(networkStatus: NumberSignal) {
-  if (commandQueue_remote.length == 0 && inProgress_remote == null) {
+  if (commandQueue_remote.length == 0 && inProgressNonGet_remote == null && inProgressGetItems_remote == 0) {
     networkStatus.set(NETWORK_STATUS_OK);
     return;
   }
+
   if (networkStatus.get() != NETWORK_STATUS_ERROR) {
-    networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+    if (commandQueue_remote.length > 0 || inProgressNonGet_remote != null || inProgressGetItems_remote > 0) {
+      networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+    }
   }
-  const command = commandQueue_remote.shift() as ServerCommand;
-  inProgress_remote = command;
-  const DEBUG = false;
-  if (DEBUG) { console.debug(command.command, command.payload); }
-  const finalizeCommand = () => {
-    inProgress_remote = null;
-    decrementPendingMutations(command.command);
-    serveWaiting_remote(networkStatus);
-  };
-  sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
-    .then((resp: any) => {
-      command.resolve(resp);
-    })
-    .catch((error) => {
-      command.reject(error);
-      networkStatus.set(NETWORK_STATUS_ERROR);
-    })
-    .finally(finalizeCommand);
+
+  while (commandQueue_remote.length > 0) {
+    const next = commandQueue_remote[0];
+
+    if (next.command !== COMMAND_GET_ITEMS) {
+      if (inProgressNonGet_remote != null || inProgressGetItems_remote > 0) {
+        return;
+      }
+
+      const command = commandQueue_remote.shift() as ServerCommand;
+      inProgressNonGet_remote = command;
+
+      const DEBUG = false;
+      if (DEBUG) { console.debug(command.command, command.payload); }
+
+      const finalizeCommand = () => {
+        inProgressNonGet_remote = null;
+        decrementPendingMutations(command.command);
+        serveWaiting_remote(networkStatus);
+      };
+
+      sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+        .then((resp: any) => {
+          command.resolve(resp);
+        })
+        .catch((error) => {
+          command.reject(error);
+          networkStatus.set(NETWORK_STATUS_ERROR);
+        })
+        .finally(finalizeCommand);
+
+      return;
+    }
+
+    if (inProgressNonGet_remote != null) {
+      return;
+    }
+
+    const command = commandQueue_remote.shift() as ServerCommand;
+    inProgressGetItems_remote++;
+
+    const DEBUG = false;
+    if (DEBUG) { console.debug(command.command, command.payload); }
+
+    const finalizeCommand = () => {
+      inProgressGetItems_remote--;
+      decrementPendingMutations(command.command);
+      serveWaiting_remote(networkStatus);
+    };
+
+    sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+      .then((resp: any) => {
+        command.resolve(resp);
+      })
+      .catch((error) => {
+        command.reject(error);
+        networkStatus.set(NETWORK_STATUS_ERROR);
+      })
+      .finally(finalizeCommand);
+  }
 }
 
 function constructCommandPromise_remote(
