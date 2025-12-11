@@ -22,7 +22,7 @@ import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, Uid } from "./util/uid";
-import { hashChildrenAndTheirAttachmentsOnly, hashChildrenAndTheirAttachmentsOnlyAsync, hashItemAndAttachmentsOnly } from "./items/item";
+import { hashChildrenAndTheirAttachmentsOnlyAsync, hashItemAndAttachmentsOnly } from "./items/item";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
 import { asContainerItem, isContainer } from "./items/base/container-item";
