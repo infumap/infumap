@@ -94,7 +94,7 @@ export const RemoteLoginOverlay: Component = () => {
            style={`background-color: #00000040; z-index: ${Z_INDEX_TEXT_OVERLAY}; display: flex; align-items: center; justify-content: center;`}>
         <div class="border border-slate-700 rounded-md bg-white shadow-lg"
              style={`width: ${boxBoundsPx().w}px; min-height: ${boxBoundsPx().h}px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);`}>
-          <div class="px-4 py-3 h-full flex flex-col">
+          <div class="px-4 py-3 flex flex-col">
             <div class="flex items-center justify-between mb-3">
               <div class="text-lg font-semibold">Login to remote host</div>
               <button class="text-sm text-slate-500 hover:text-slate-700" onClick={closeOverlay}>Close</button>
