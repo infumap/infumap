@@ -38,7 +38,7 @@ use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
 use crate::web::cookie::get_session_cookie_maybe;
 use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
-use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response};
+use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response, cors_response};
 use crate::web::session::get_and_validate_session;
 
 
@@ -49,6 +49,10 @@ const TOTP_STEP: u64 = 30; // Time step interval of 30 seconds is pretty standar
 
 
 pub async fn serve_account_route(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  if req.method() == Method::OPTIONS {
+    return cors_response();
+  }
+
   match (req.method(), req.uri().path()) {
     (&Method::POST, "/account/login") => login(config, db, req).await,
     (&Method::POST, "/account/logout") => logout(db, req).await,
