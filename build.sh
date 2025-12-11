@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Copyright (C) The Infumap Authors
 # This file is part of Infumap.

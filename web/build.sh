@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Copyright (C) The Infumap Authors
 # This file is part of Infumap.
@@ -32,6 +33,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 pushd "$(dirname "$0")"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "Error: npm is required to build web assets. Install Node.js (which includes npm) and ensure it is on your PATH."
+  exit 1
+fi
 rm -rf ./dist
 npm install
 
