@@ -2,7 +2,7 @@
 ## Raspberry Pi / VPN
 
 If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them.
-Notably, it is theoretically possible for your hosting provider to take a snapshot of your running VPS instance, including any data currently
+In particular, it's theoretically possible for your hosting provider to take a snapshot of your running VPS instance, including any data currently
 in memory. There is no way to secure Infumap against this possibility.
 
 If this risk is unacceptable to you, your only option is to host Infumap on hardware that you control. A Raspberry Pi 5 connected to your
@@ -12,11 +12,7 @@ a public IP address.
 
 There are many ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the security implications
 of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel HTTPS
-traffic through the public IP of the VPS. This is the approach outlined in this document, and how I run my personal Infumap instance.
-
-In terms of performance / latency, I find it notably better than hosting on a 2 vCPU, 4 GB
-[high performance Vultr VPS instance](https://www.vultr.com/pricing/#cloud-compute) @ $24 / mo, despite the additional network hops.
-This is what I was doing previously.
+traffic through the public IP of the VPS. This is the approach outlined in this document.
 
 
 ### Initial Raspberry Pi Setup
