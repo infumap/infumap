@@ -76,11 +76,16 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
+  const loginRequired = () => !!props.visualElement.linkItemMaybe?.linkRequiresRemoteLogin;
+  const backgroundStyle = () => {
+    const stripeColor = loginRequired() ? "#f6c78d" : "#fdd";
+    return `background: repeating-linear-gradient(315deg, #fff, #fff 3px, ${stripeColor} 2px, ${stripeColor} 5px);`;
+  };
+
   return (
     <div class={outerClass()}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0)}px; height: ${boundsPx().h}px;` +
-                "background: repeating-linear-gradient(315deg, #fff, #fff 3px, #fdd 2px, #fdd 5px);" +
-                `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
+                `${backgroundStyle()}${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
       <Show when={showMoveOutOfCompositeArea()}>
         <div class={`absolute rounded-sm`}
              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +

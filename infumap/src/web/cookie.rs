@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 
 
 pub const SESSION_COOKIE_NAME: &'static str = "infusession";
+pub const SESSION_HEADER_NAME: &'static str = "x-infusession";
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct InfuSession {
@@ -30,6 +31,29 @@ pub struct InfuSession {
   pub user_id: Uid,
   #[serde(rename="sessionId")]
   pub session_id: Uid,
+}
+
+pub fn get_session_header_maybe(request: &Request<hyper::body::Incoming>) -> Option<InfuSession> {
+  match request.headers().get(SESSION_HEADER_NAME) {
+    Some(header_value) => {
+      match header_value.to_str() {
+        Ok(header_value_str) => {
+          match serde_json::from_str::<InfuSession>(header_value_str) {
+            Ok(session) => Some(session),
+            Err(e) => {
+              warn!("Session header could not be parsed: {}", e);
+              None
+            }
+          }
+        },
+        Err(e) => {
+          warn!("Session header is not a valid string: {}", e);
+          None
+        }
+      }
+    },
+    None => None
+  }
 }
 
 pub fn get_session_cookie_maybe(request: &Request<hyper::body::Incoming>) -> Option<InfuSession> {

@@ -62,12 +62,18 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
       </Match>
     </Switch>;
 
+  const loginRequired = () => !!props.visualElement.linkItemMaybe?.linkRequiresRemoteLogin;
+  const backgroundStyle = () => {
+    const stripeColor = loginRequired() ? "#f6c78d" : "#fdd";
+    return `background: repeating-linear-gradient(315deg, #fff, #fff 3px, ${stripeColor} 2px, ${stripeColor} 5px);`;
+  };
+
   return (
     <>
       {renderHighlightsMaybe()}
       <div class={`absolute rounded-sm border border-slate-200`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  "background: repeating-linear-gradient(315deg, #fff, #fff 3px, #fdd 2px, #fdd 5px);"} />
+                  `${backgroundStyle()}`} />
     </>
   );
 }

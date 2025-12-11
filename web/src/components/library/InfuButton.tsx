@@ -21,7 +21,8 @@ import { Component } from "solid-js";
 
 interface InfuButtonProps {
   text: string,
-  onClick?: (() => void)
+  onClick?: (() => void),
+  disabled?: boolean,
 }
 
 
@@ -36,7 +37,10 @@ export const InfuButton: Component<InfuButtonProps> = (props: InfuButtonProps) =
   }
 
   return (
-    <button class="border border-slate-600 hover:bg-slate-300 rounded pl-4 pr-4 pt-2 pb-2" onclick={handleClick} onmousedown={handleMouseDown}>
+    <button class={`border border-slate-600 hover:bg-slate-300 rounded pl-4 pr-4 pt-2 pb-2 ${props.disabled ? "opacity-70 cursor-not-allowed" : ""}`}
+            onclick={handleClick}
+            onmousedown={handleMouseDown}
+            disabled={props.disabled}>
       {props.text}
     </button>
   );

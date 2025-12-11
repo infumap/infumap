@@ -41,11 +41,7 @@ export function clearLoadState() {
       delete itemLoadInitiatedOrComplete[key];
     }
   }
-  for (let key in itemLoadFromRemoteInitiatedOrComplete) {
-    if (itemLoadFromRemoteInitiatedOrComplete.hasOwnProperty(key)) {
-      delete itemLoadFromRemoteInitiatedOrComplete[key];
-    }
-  }
+  itemLoadFromRemoteStatus = {};
 }
 
 export function markChildrenLoadAsInitiatedOrComplete(containerId: Uid) {
@@ -148,19 +144,39 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
 }
 
 
-let itemLoadFromRemoteInitiatedOrComplete: { [id: Uid]: boolean } = {};
+enum RemoteLoadStatus {
+  Pending = "pending",
+  Success = "success",
+  AuthRequired = "auth-required"
+}
+let itemLoadFromRemoteStatus: { [id: Uid]: RemoteLoadStatus } = {};
 
-export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId: string, baseUrl: string, resolveId: string, containerToSortId?: Uid) => {
-  if (itemLoadFromRemoteInitiatedOrComplete[itemId]) { return; }
-  itemLoadFromRemoteInitiatedOrComplete[itemId] = true;
+export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId: string, baseUrl: string, resolveId: string, containerToSortId?: Uid, forceRetry?: boolean) => {
+  const currentStatus = itemLoadFromRemoteStatus[itemId];
+  if (!forceRetry) {
+    if (currentStatus === RemoteLoadStatus.Pending ||
+        currentStatus === RemoteLoadStatus.Success ||
+        currentStatus === RemoteLoadStatus.AuthRequired) {
+      return;
+    }
+  } else {
+    if (currentStatus === RemoteLoadStatus.Pending) { return; }
+  }
+  itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Pending;
 
   remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
     .then(result => {
-      if (!itemLoadFromRemoteInitiatedOrComplete[itemId]) { return; };
+      if (itemLoadFromRemoteStatus[itemId] !== RemoteLoadStatus.Pending) { return; };
 
       if (result != null) {
+        itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Success;
         itemState.setItemFromServerObject(result.item, baseUrl);
-        asLinkItem(itemState.get(resolveId)!).linkToResolvedId = ItemFns.fromObject(result.item, baseUrl).id;
+        const linkItemMaybe = itemState.get(resolveId);
+        if (linkItemMaybe) {
+          const linkItem = asLinkItem(linkItemMaybe);
+          linkItem.linkToResolvedId = ItemFns.fromObject(result.item, baseUrl).id;
+          linkItem.linkRequiresRemoteLogin = null;
+        }
         Object.keys(result.attachments).forEach(id => {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
         });
@@ -178,9 +194,37 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
         };
       } else {
         console.error(`Empty result fetching '${itemId}' from ${baseUrl}.`);
+        const linkItemMaybe = itemState.get(resolveId);
+        if (linkItemMaybe) {
+          asLinkItem(linkItemMaybe).linkRequiresRemoteLogin = baseUrl;
+        }
+        itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.AuthRequired;
+        try {
+          fullArrange(store);
+        } catch (_e) {}
       }
     })
     .catch((e: any) => {
+      itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.AuthRequired;
+      const linkItemMaybe = itemState.get(resolveId);
+      if (linkItemMaybe) {
+        asLinkItem(linkItemMaybe).linkRequiresRemoteLogin = baseUrl;
+      }
       console.error(`Error occurred fetching item '${itemId}' from '${baseUrl}': ${e.message}.`);
+      try {
+        fullArrange(store);
+      } catch (_e) {}
     });
+}
+
+export const retryLoadItemFromRemote = (store: StoreContextModel, resolveId: string) => {
+  const linkItemMaybe = itemState.get(resolveId);
+  if (!linkItemMaybe) { return; }
+  const linkItem = asLinkItem(linkItemMaybe);
+  if (!linkItem.linkTo.startsWith("http")) { return; }
+  const lastIdx = linkItem.linkTo.lastIndexOf('/');
+  if (lastIdx == -1) { return; }
+  const baseUrl = linkItem.linkTo.substring(0, lastIdx);
+  const id = linkItem.linkTo.substring(lastIdx + 1);
+  initiateLoadItemFromRemoteMaybe(store, id, baseUrl, linkItem.id, linkItem.parentId, true);
 }

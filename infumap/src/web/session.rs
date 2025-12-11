@@ -21,15 +21,15 @@ use tokio::sync::Mutex;
 
 use crate::storage::db::{Db, session::Session};
 
-use super::cookie::get_session_cookie_maybe;
+use super::cookie::{get_session_cookie_maybe, get_session_header_maybe};
 
 
 pub async fn get_and_validate_session(request: &Request<hyper::body::Incoming>, db: &Arc<Mutex<Db>>) -> Option<Session> {
   let mut db = db.lock().await;
-  let session_cookie = match get_session_cookie_maybe(request) {
+  let session_cookie = match get_session_cookie_maybe(request).or_else(|| get_session_header_maybe(request)) {
     Some(s) => s,
     None => {
-      debug!("No session cookie is present.");
+      debug!("No session cookie or header is present.");
       return None;
     }
   };

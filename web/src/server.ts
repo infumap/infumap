@@ -31,6 +31,7 @@ import { TabularFns } from "./items/base/tabular-item";
 import { fullArrange } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
 import { MouseActionState } from "./input/state";
+import { RemoteSessions, REMOTE_SESSION_HEADER } from "./store/RemoteSessions";
 
 
 export interface ItemsAndTheirAttachments {
@@ -687,12 +688,20 @@ export async function post(host: string | null, path: string, json: any) {
   const url = host == null
     ? path
     : new URL(path, host).href;
+  const headers: any = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+  };
+
+  if (host != null) {
+    const session = RemoteSessions.get(host);
+    if (session) {
+      headers[REMOTE_SESSION_HEADER] = session.sessionDataString;
+    }
+  }
   const fetchResult = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
+    headers,
     body
   });
   return await fetchResult.json();

@@ -38,6 +38,7 @@ export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
   overrideArrangeAlgorithm?: string | null,
   filterDate?: { year: number; month: number; day: number } | null,
   overrideTitle?: string | null,
+  linkRequiresRemoteLogin?: string | null,
 }
 
 export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
@@ -90,6 +91,7 @@ export const LinkFns = {
       overrideArrangeAlgorithm: null,
       filterDate: null,
       overrideTitle: null,
+      linkRequiresRemoteLogin: null,
     };
   },
 
@@ -118,6 +120,7 @@ export const LinkFns = {
       overrideArrangeAlgorithm: null,
       filterDate: null,
       overrideTitle: null,
+      linkRequiresRemoteLogin: null,
     });
   },
 
@@ -320,6 +323,7 @@ export const LinkFns = {
       spatialHeightGr: link.spatialHeightGr,
       linkTo: link.linkTo,
       linkToResolvedId: link.linkToResolvedId,
+      linkRequiresRemoteLogin: link.linkRequiresRemoteLogin,
     });
   },
 

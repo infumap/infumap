@@ -159,10 +159,19 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
             store.overlay.selectedVeids.set([]);
             fullArrange(store);
           }
-        }
+      }
       }
 
-      if (ClickState.getLinkWasClicked()) {
+      if (isLink(activeVisualElement.displayItem) &&
+          asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin &&
+          !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings)) {
+        DoubleClickState.preventDoubleClick();
+        store.overlay.remoteLoginInfo.set({
+          host: asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin!,
+          linkId: asLinkItem(activeVisualElement.displayItem).id,
+        });
+
+      } else if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement, store);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) {

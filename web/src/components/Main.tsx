@@ -45,6 +45,7 @@ import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { asPageItem, isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
+import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -272,6 +273,9 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.uploadOverlayInfo.get() != null}>
         <UploadOverlay />
+      </Show>
+      <Show when={store.overlay.remoteLoginInfo.get() != null}>
+        <RemoteLoginOverlay />
       </Show>
 
     </div>

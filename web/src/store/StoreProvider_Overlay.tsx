@@ -19,6 +19,7 @@
 import { HitInfo } from "../input/hit";
 import { Veid, VisualElementPath } from "../layout/visual-element";
 import { BoundingBox, Vector } from "../util/geometry";
+import { Uid } from "../util/uid";
 import { InfuSignal, createInfuSignal } from "../util/signals";
 import { HistoryStoreContextModel } from "./StoreProvider_History";
 
@@ -75,6 +76,11 @@ export interface UploadOverlayInfo {
   currentFileName: string,
 }
 
+export interface RemoteLoginInfo {
+  host: string,
+  linkId: Uid,
+}
+
 export enum TransientMessageType {
   Error = "error",
   Info = "info"
@@ -100,6 +106,7 @@ export interface OverlayStoreContextModel {
   searchOverlayVisible: InfuSignal<boolean>,
   findOverlayVisible: InfuSignal<boolean>,
   uploadOverlayInfo: InfuSignal<UploadOverlayInfo | null>,
+  remoteLoginInfo: InfuSignal<RemoteLoginInfo | null>,
 
   textEditInfo: () => TextEditInfo | null,
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => void,
@@ -127,6 +134,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const networkOverlayVisible = createInfuSignal<boolean>(false);
   const findOverlayVisible = createInfuSignal<boolean>(false);
   const uploadOverlayInfo = createInfuSignal<UploadOverlayInfo | null>(null);
+  const remoteLoginInfo = createInfuSignal<RemoteLoginInfo | null>(null);
 
   function clear() {
     textEditInfo_.set(null);
@@ -141,6 +149,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     networkOverlayVisible.set(false);
     findOverlayVisible.set(false);
     uploadOverlayInfo.set(null);
+    remoteLoginInfo.set(null);
   }
 
   function anOverlayIsVisible(): boolean {
@@ -153,7 +162,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       tableColumnContextMenuInfo.get() != null ||
       toolbarPopupInfoMaybe.get() != null ||
       networkOverlayVisible.get() ||
-      uploadOverlayInfo.get() != null
+      uploadOverlayInfo.get() != null ||
+      remoteLoginInfo.get() != null
     );
   }
 
@@ -191,6 +201,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     networkOverlayVisible,
     findOverlayVisible,
     uploadOverlayInfo,
+    remoteLoginInfo,
 
     clear,
     anOverlayIsVisible,
