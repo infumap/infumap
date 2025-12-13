@@ -642,6 +642,32 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
     : child);
   const insertPosition = store.perVe.getMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe));
 
+  const startAttachmentsItem = MouseActionState.get().startAttachmentsItem;
+  const isDroppingBack = startAttachmentsItem != null && startAttachmentsItem.id == displayedChild.id;
+
+  if (isDroppingBack && insertPosition < displayedChild.computed_attachments.length) {
+    const overAttachmentId = displayedChild.computed_attachments[insertPosition];
+    const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
+    if (isPlaceholder(placeholderToReplaceMaybe)) {
+      const newPlaceholderItem = MouseActionState.get().newPlaceholderItem;
+      let newOrdering: Uint8Array;
+      if (newPlaceholderItem != null && newPlaceholderItem.id == placeholderToReplaceMaybe.id) {
+        newOrdering = placeholderToReplaceMaybe.ordering;
+        itemState.delete(placeholderToReplaceMaybe.id);
+        MouseActionState.get().newPlaceholderItem = null;
+      } else {
+        newOrdering = placeholderToReplaceMaybe.ordering;
+        itemState.delete(placeholderToReplaceMaybe.id);
+        server.deleteItem(placeholderToReplaceMaybe.id, store.general.networkStatus);
+      }
+      itemState.moveToNewParent(activeItem, displayedChild.id, RelationshipToParent.Attachment, newOrdering);
+      serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+      finalizeMouseUp(store);
+      fullArrange(store);
+      return;
+    }
+  }
+
   const numPlaceholdersToCreate = insertPosition > displayedChild.computed_attachments.length ? insertPosition - displayedChild.computed_attachments.length : 0;
   for (let i=0; i<numPlaceholdersToCreate; ++i) {
     const placeholderItem = PlaceholderFns.create(activeItem.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
