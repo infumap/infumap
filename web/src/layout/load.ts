@@ -147,7 +147,8 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
 enum RemoteLoadStatus {
   Pending = "pending",
   Success = "success",
-  AuthRequired = "auth-required"
+  AuthRequired = "auth-required",
+  Failed = "failed"
 }
 let itemLoadFromRemoteStatus: { [id: Uid]: RemoteLoadStatus } = {};
 
@@ -196,19 +197,28 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
         console.error(`Empty result fetching '${itemId}' from ${baseUrl}.`);
         const linkItemMaybe = itemState.get(resolveId);
         if (linkItemMaybe) {
-          asLinkItem(linkItemMaybe).linkRequiresRemoteLogin = baseUrl;
+          asLinkItem(linkItemMaybe).linkRequiresRemoteLogin = null;
         }
-        itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.AuthRequired;
+        itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Failed;
         try {
           fullArrange(store);
         } catch (_e) {}
       }
     })
     .catch((e: any) => {
-      itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.AuthRequired;
       const linkItemMaybe = itemState.get(resolveId);
-      if (linkItemMaybe) {
-        asLinkItem(linkItemMaybe).linkRequiresRemoteLogin = baseUrl;
+      const isAuthError = e.message && e.message.includes("Reason: auth");
+      
+      if (isAuthError) {
+        itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.AuthRequired;
+        if (linkItemMaybe) {
+          asLinkItem(linkItemMaybe).linkRequiresRemoteLogin = baseUrl;
+        }
+      } else {
+        itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Failed;
+        if (linkItemMaybe) {
+          asLinkItem(linkItemMaybe).linkRequiresRemoteLogin = null;
+        }
       }
       console.error(`Error occurred fetching item '${itemId}' from '${baseUrl}': ${e.message}.`);
       try {

@@ -79,6 +79,7 @@ pub struct CommandRequest {
 
 const REASON_SERVER: &str = "server";
 const REASON_CLIENT: &str = "client";
+const REASON_AUTH: &str = "auth";
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CommandResponse {
@@ -87,6 +88,19 @@ pub struct CommandResponse {
   pub fail_reason: Option<String>,
   #[serde(rename="jsonData")]
   pub json_data: Option<String>,
+}
+
+enum CommandErrorKind {
+  Auth,
+  Server,
+}
+
+fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKind {
+  if e.message().contains("Not authorized") {
+    CommandErrorKind::Auth
+  } else {
+    CommandErrorKind::Server
+  }
 }
 
 
@@ -150,7 +164,11 @@ pub async fn serve_command_route(
       }
       METRIC_COMMAND_REQUESTS_TOTAL.with_label_values(&[&request.command]).inc();
       METRIC_COMMAND_FAILURES_TOTAL.with_label_values(&[&request.command]).inc();
-      return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
+      let fail_reason = match classify_command_error(&e) {
+        CommandErrorKind::Auth => REASON_AUTH,
+        CommandErrorKind::Server => REASON_SERVER,
+      };
+      return json_response(&CommandResponse { success: false, fail_reason: Some(fail_reason.to_owned()), json_data: None });
     }
   };
 

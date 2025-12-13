@@ -177,6 +177,17 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           linkPath: linkFocusPath,
         });
 
+      } else if (isLink(activeVisualElement.displayItem) &&
+                 !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) &&
+                 ClickState.getLinkWasClicked()) {
+        const linkItem = asLinkItem(activeVisualElement.displayItem);
+        const linkFocusPath = VeFns.addVeidToPath(
+          { itemId: linkItem.id, linkIdMaybe: null },
+          activeVisualElement.parentPath!
+        );
+        store.history.setFocus(linkFocusPath);
+        fullArrange(store);
+
       } else if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement, store);
 
