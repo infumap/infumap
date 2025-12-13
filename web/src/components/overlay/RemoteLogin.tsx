@@ -51,10 +51,12 @@ export const RemoteLoginOverlay: Component = () => {
 
   const handleUpdateLink = () => {
     if (!loginInfo()) { return; }
+    const linkId = loginInfo()!.linkId;
     try {
-      const veid = VeFns.veidFromId(loginInfo()!.linkId);
+      const veid = VeFns.veidFromId(linkId);
       const ves = VesCache.findSingle(veid);
-      const focusPath = VeFns.veToPath(ves.get());
+      const parentPath = ves.get().parentPath!;
+      const focusPath = VeFns.addVeidToPath({ itemId: linkId, linkIdMaybe: null }, parentPath);
       store.history.setFocus(focusPath);
       fullArrange(store);
       closeOverlay();
