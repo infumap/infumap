@@ -136,6 +136,7 @@ export const RemoteLoginOverlay: Component = () => {
           <div class="px-4 py-3 flex flex-col">
             <div class="flex items-center justify-between mb-3">
               <div class="text-lg font-semibold">Login to remote host</div>
+              <button class="text-sm text-slate-500 hover:text-slate-700" onclick={handleUpdateLink}>Edit link</button>
             </div>
             <div class="text-sm text-slate-600 mb-3 break-all">
               Host: <span class="font-mono">{loginInfo()!.host}</span>
@@ -161,13 +162,11 @@ export const RemoteLoginOverlay: Component = () => {
                 <InfuTextInput onInput={(v) => { totpToken = v; setError(null); }} onEnterKeyDown={handleLogin} />
               </div>
             </Show>
-            <div class="flex items-center">
-              <div class="inline-block w-28"></div>
+            <div class="flex justify-center">
               <InfuButton text={submitting() ? "Signing in..." : "Login"} onClick={handleLogin} disabled={submitting()} />
-              <button class="ml-3 text-sm text-slate-600 hover:text-slate-800" onclick={handleUpdateLink}>Update link</button>
             </div>
             <Show when={error() != null}>
-              <div class="mt-2 text-sm text-red-700 ml-28">{error()}</div>
+              <div class="mt-2 text-sm text-red-700 text-center">{error()}</div>
             </Show>
           </div>
         </div>
