@@ -79,6 +79,7 @@ export interface UploadOverlayInfo {
 export interface RemoteLoginInfo {
   host: string,
   linkId: Uid,
+  linkPath: string,
 }
 
 export enum TransientMessageType {

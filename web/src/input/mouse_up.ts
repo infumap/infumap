@@ -166,9 +166,15 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin &&
           !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings)) {
         DoubleClickState.preventDoubleClick();
+        const linkItem = asLinkItem(activeVisualElement.displayItem);
+        const linkFocusPath = VeFns.addVeidToPath(
+          { itemId: linkItem.id, linkIdMaybe: null },
+          activeVisualElement.parentPath!
+        );
         store.overlay.remoteLoginInfo.set({
-          host: asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin!,
-          linkId: asLinkItem(activeVisualElement.displayItem).id,
+          host: linkItem.linkRequiresRemoteLogin!,
+          linkId: linkItem.id,
+          linkPath: linkFocusPath,
         });
 
       } else if (ClickState.getLinkWasClicked()) {

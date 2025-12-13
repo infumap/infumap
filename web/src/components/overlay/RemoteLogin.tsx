@@ -27,8 +27,6 @@ import { retryLoadItemFromRemote } from "../../layout/load";
 import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
-import { VesCache } from "../../layout/ves-cache";
-import { VeFns } from "../../layout/visual-element";
 import { fullArrange } from "../../layout/arrange";
 
 
@@ -51,19 +49,9 @@ export const RemoteLoginOverlay: Component = () => {
 
   const handleUpdateLink = () => {
     if (!loginInfo()) { return; }
-    const linkId = loginInfo()!.linkId;
-    try {
-      const veid = VeFns.veidFromId(linkId);
-      const ves = VesCache.findSingle(veid);
-      const parentPath = ves.get().parentPath!;
-      const focusPath = VeFns.addVeidToPath({ itemId: linkId, linkIdMaybe: null }, parentPath);
-      store.history.setFocus(focusPath);
-      fullArrange(store);
-      closeOverlay();
-    } catch (e) {
-      console.error("Failed to focus link:", e);
-      closeOverlay();
-    }
+    store.history.setFocus(loginInfo()!.linkPath);
+    fullArrange(store);
+    closeOverlay();
   };
 
   const handleLogin = async () => {
