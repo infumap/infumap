@@ -157,11 +157,13 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
   if (!forceRetry) {
     if (currentStatus === RemoteLoadStatus.Pending ||
         currentStatus === RemoteLoadStatus.Success ||
-        currentStatus === RemoteLoadStatus.AuthRequired) {
+        currentStatus === RemoteLoadStatus.AuthRequired ||
+        currentStatus === RemoteLoadStatus.Failed) {
       return;
     }
   } else {
     if (currentStatus === RemoteLoadStatus.Pending) { return; }
+    if (currentStatus === RemoteLoadStatus.Failed) { return; }
   }
   itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Pending;
 
