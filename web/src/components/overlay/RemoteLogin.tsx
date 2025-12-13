@@ -27,6 +27,9 @@ import { retryLoadItemFromRemote } from "../../layout/load";
 import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
+import { VesCache } from "../../layout/ves-cache";
+import { VeFns } from "../../layout/visual-element";
+import { fullArrange } from "../../layout/arrange";
 
 
 export const RemoteLoginOverlay: Component = () => {
@@ -44,6 +47,21 @@ export const RemoteLoginOverlay: Component = () => {
   const closeOverlay = () => {
     setError(null);
     store.overlay.remoteLoginInfo.set(null);
+  };
+
+  const handleUpdateLink = () => {
+    if (!loginInfo()) { return; }
+    try {
+      const veid = VeFns.veidFromId(loginInfo()!.linkId);
+      const ves = VesCache.findSingle(veid);
+      const focusPath = VeFns.veToPath(ves.get());
+      store.history.setFocus(focusPath);
+      fullArrange(store);
+      closeOverlay();
+    } catch (e) {
+      console.error("Failed to focus link:", e);
+      closeOverlay();
+    }
   };
 
   const handleLogin = async () => {
@@ -156,7 +174,7 @@ export const RemoteLoginOverlay: Component = () => {
             <div class="flex items-center">
               <div class="inline-block w-28"></div>
               <InfuButton text={submitting() ? "Signing in..." : "Login"} onClick={handleLogin} disabled={submitting()} />
-              <button class="ml-3 text-sm text-slate-600 hover:text-slate-800" onclick={closeOverlay}>Cancel</button>
+              <button class="ml-3 text-sm text-slate-600 hover:text-slate-800" onclick={handleUpdateLink}>Update link</button>
             </div>
             <Show when={error() != null}>
               <div class="mt-2 text-sm text-red-700 ml-28">{error()}</div>
