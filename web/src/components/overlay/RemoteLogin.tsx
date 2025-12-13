@@ -123,7 +123,8 @@ export const RemoteLoginOverlay: Component = () => {
            onmousemove={mouseMoveListener}
            onmouseup={mouseUpListener}>
         <div class="border border-slate-700 rounded-md bg-white shadow-lg"
-             style={`width: ${boxBoundsPx().w}px; min-height: ${boxBoundsPx().h}px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);`}>
+             style={`width: ${boxBoundsPx().w}px; min-height: ${boxBoundsPx().h}px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);`}
+             onmousedown={(ev) => ev.stopPropagation()}>
           <div class="px-4 py-3 flex flex-col">
             <div class="flex items-center justify-between mb-3">
               <div class="text-lg font-semibold">Login to remote host</div>
