@@ -24,6 +24,9 @@ import { InfuButton } from "../library/InfuButton";
 import { post } from "../../server";
 import { RemoteSessions } from "../../store/RemoteSessions";
 import { retryLoadItemFromRemote } from "../../layout/load";
+import { CursorEventState } from "../../input/state";
+import { isInside } from "../../util/geometry";
+import { MOUSE_RIGHT } from "../../input/mouse_down";
 
 
 export const RemoteLoginOverlay: Component = () => {
@@ -88,16 +91,42 @@ export const RemoteLoginOverlay: Component = () => {
     });
   };
 
+  const boxBoundsRelativeToDesktopPx = () => {
+    return boxBoundsPx();
+  };
+
+  const mouseDownListener = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    CursorEventState.setFromMouseEvent(ev);
+    if (ev.button === MOUSE_RIGHT) {
+      closeOverlay();
+      return;
+    }
+    if (isInside(CursorEventState.getLatestDesktopPx(store), boxBoundsRelativeToDesktopPx())) { return; }
+    closeOverlay();
+  };
+
+  const mouseMoveListener = (ev: MouseEvent) => {
+    CursorEventState.setFromMouseEvent(ev);
+    ev.stopPropagation();
+  };
+
+  const mouseUpListener = (ev: MouseEvent) => {
+    ev.stopPropagation();
+  };
+
   return (
     <Show when={loginInfo() != null}>
       <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
-           style={`background-color: #00000040; z-index: ${Z_INDEX_TEXT_OVERLAY}; display: flex; align-items: center; justify-content: center;`}>
+           style={`background-color: #00000040; z-index: ${Z_INDEX_TEXT_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
+           onmousedown={mouseDownListener}
+           onmousemove={mouseMoveListener}
+           onmouseup={mouseUpListener}>
         <div class="border border-slate-700 rounded-md bg-white shadow-lg"
              style={`width: ${boxBoundsPx().w}px; min-height: ${boxBoundsPx().h}px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);`}>
           <div class="px-4 py-3 flex flex-col">
             <div class="flex items-center justify-between mb-3">
               <div class="text-lg font-semibold">Login to remote host</div>
-              <button class="text-sm text-slate-500 hover:text-slate-700" onClick={closeOverlay}>Close</button>
             </div>
             <div class="text-sm text-slate-600 mb-3 break-all">
               Host: <span class="font-mono">{loginInfo()!.host}</span>
