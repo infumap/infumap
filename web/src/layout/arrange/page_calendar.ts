@@ -175,19 +175,32 @@ export function arrange_calendar_page(
   const childAreaBounds = childAreaBoundsPx;
   const calendarDimensions = calculateCalendarDimensions(childAreaBounds);
 
-  // Popup-specific vertical stretch: reduce non-day paddings to increase dayRowHeight
   const popupTopPadding = 5;
   const popupTitleToMonthSpacing = 8;
   const popupMonthTitleHeight = 26;
   const popupBottomMargin = 3;
 
-  const dayRowHeight = (flags & ArrangeItemFlags.IsPopupRoot)
-    ? ((childAreaBounds.h - popupTopPadding - CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT - popupTitleToMonthSpacing - popupMonthTitleHeight - popupBottomMargin) / CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT)
-    : calendarDimensions.dayRowHeight;
+  const dayRowHeight = (() => {
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
+      const baseDayRowPx = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
+      const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
+      const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
+      const scale = childAreaBounds.h / naturalTotal;
+      return baseDayRowPx * scale;
+    }
+    return calendarDimensions.dayRowHeight;
+  })();
 
-  const dayAreaTopPx = (flags & ArrangeItemFlags.IsPopupRoot)
-    ? (CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight)
-    : calendarDimensions.dayAreaTopPx;
+  const dayAreaTopPx = (() => {
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
+      const baseDayRowPx = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
+      const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
+      const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
+      const scale = childAreaBounds.h / naturalTotal;
+      return (popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight) * scale;
+    }
+    return calendarDimensions.dayAreaTopPx;
+  })();
 
   // Item dimensions - icon + text layout like other line items
   const blockSizePx = NATURAL_BLOCK_SIZE_PX;

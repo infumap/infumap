@@ -193,14 +193,14 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
     const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx());
     const baseDayRowPx = asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl * LINE_HEIGHT_PX;
-    // Mirror popup stretch logic used during arrange to keep visual and item rows in sync
     const popupTopPadding = 5;
     const popupTitleToMonthSpacing = 8;
     const popupMonthTitleHeight = 26;
     const popupBottomMargin = 3;
-    const stretchedDayRowHeight = (pageFns().childAreaBoundsPx().h - popupTopPadding - CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT - popupTitleToMonthSpacing - popupMonthTitleHeight - popupBottomMargin) / CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT;
-    const effectiveDayRowHeight = Math.max(calendarDimensions.dayRowHeight, stretchedDayRowHeight);
-    const scale = baseDayRowPx > 0 ? (effectiveDayRowHeight / baseDayRowPx) : 1.0;
+    const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
+    const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
+    const scale = baseDayRowPx > 0 ? (pageFns().childAreaBoundsPx().h / naturalTotal) : 1.0;
+    const effectiveDayRowHeight = baseDayRowPx * scale;
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6;
 
     return (
@@ -210,8 +210,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                   `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                   `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
                   `background-color: #ffffff; ` +
-                  `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                  `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+                  `overflow: hidden; ` +
                   `${VeFns.zIndexStyle(props.visualElement)} `}
            onscroll={popupScrollHandler}>
         <div class="absolute"
@@ -219,22 +218,25 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                     `width: ${pageFns().childAreaBoundsPx().w}px; ` +
                     `height: ${pageFns().childAreaBoundsPx().h}px;` +
                     `outline: 0px solid transparent; `}>
-          <div class="absolute flex items-center justify-center font-bold"
-               style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${popupTopPadding}px; width: ${(pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN) / scale}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
-            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
-                 onClick={() => {
-                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
-                   fullArrange(store);
-                 }}>
-              <i class="fas fa-angle-left" />
-            </div>
-            <span class="mx-2 text-2xl">{currentYear}</span>
-            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
-                 onClick={() => {
-                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
-                   fullArrange(store);
-                 }}>
-              <i class="fas fa-angle-right" />
+          <div class="absolute flex items-center justify-center"
+               style={`left: 0px; top: ${popupTopPadding * scale}px; width: ${pageFns().childAreaBoundsPx().w}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT * scale}px;`}>
+            <div class="flex items-center justify-center font-bold"
+                 style={`transform: scale(${scale}); transform-origin: center center;`}>
+              <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
+                   onClick={() => {
+                     store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
+                     fullArrange(store);
+                   }}>
+                <i class="fas fa-angle-left" />
+              </div>
+              <span class="mx-2 text-2xl">{currentYear}</span>
+              <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
+                   onClick={() => {
+                     store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
+                     fullArrange(store);
+                   }}>
+                <i class="fas fa-angle-right" />
+              </div>
             </div>
           </div>
 
@@ -244,15 +246,15 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
             return (
                <div class="absolute"
-                    style={`left: ${leftPos}px; top: ${popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + 1}px; width: ${calendarDimensions.columnWidth}px;`}>
+                    style={`left: ${leftPos}px; top: ${(popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing) * scale}px; width: ${calendarDimensions.columnWidth}px;`}>
                 <div class="text-center font-semibold"
-                     style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT / scale}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT / scale}px; width: ${calendarDimensions.columnWidth / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
-                  <span class="text-base" style={`position: relative; top: ${Math.round(5/scale)}px;`}>{monthNames[month - 1]}</span>
+                     style={`height: ${popupMonthTitleHeight}px; line-height: ${popupMonthTitleHeight}px; width: ${calendarDimensions.columnWidth}px; transform: scale(${scale}); transform-origin: top left;`}>
+                  <span class="text-base" style={`position: relative; top: 3px;`}>{monthNames[month - 1]}</span>
                 </div>
 
                 <For each={Array.from({length: monthInfo.daysInMonth}, (_, i) => i + 1)}>{day => {
                   const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
-                   const topPos = popupMonthTitleHeight + (day - 1) * effectiveDayRowHeight;
+                   const topPos = popupMonthTitleHeight * scale + (day - 1) * effectiveDayRowHeight;
                   const isToday = isCurrentDay(month, day, currentYear);
 
                   let backgroundColor = '#ffffff';
@@ -266,7 +268,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                     <div class="absolute"
                           style={`left: 0px; top: ${topPos}px; width: ${calendarDimensions.columnWidth}px; height: ${effectiveDayRowHeight}px; ` +
                                 `background-color: ${backgroundColor}; ` +
-                                `border-bottom: 1px solid #e5e5e5;`}>
+                                `border-bottom: 1px solid #e5e5e5; box-sizing: border-box;`}>
                       <div class="flex items-start"
                            style={`width: ${calendarDimensions.columnWidth / scale}px; height: ${effectiveDayRowHeight / scale}px; transform: scale(${scale}); transform-origin: top left; padding-top: 5px;`}>
                         <div style={`width: ${CALENDAR_DAY_LABEL_LEFT_MARGIN_PX / scale}px; display: flex; align-items: flex-start; justify-content: flex-end;`}>
@@ -311,7 +313,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               const month = m;
               const day = dd;
               const monthLeftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (dims.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
-              const dayAreaTopPopup = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + 1 + popupMonthTitleHeight;
+              const dayAreaTopPopup = (popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight) * scale;
               const dayTopPos = dayAreaTopPopup + (day - 1) * effectiveDayRowHeight;
               const rightEdge = monthLeftPos + dims.columnWidth;
               const baseX = rightEdge - block.w;
