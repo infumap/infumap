@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show, createSignal } from "solid-js";
+import { Component, Show, createSignal, createEffect } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { InfuTextInput } from "../library/InfuTextInput";
@@ -41,6 +41,17 @@ export const RemoteLoginOverlay: Component = () => {
   const [submitting, setSubmitting] = createSignal<boolean>(false);
 
   const loginInfo = () => store.overlay.remoteLoginInfo.get();
+
+  let usernameInputContainer: HTMLDivElement | undefined;
+
+  createEffect(() => {
+    if (loginInfo() != null) {
+      setTimeout(() => {
+        const input = usernameInputContainer?.querySelector('input') as HTMLInputElement | null;
+        input?.focus();
+      }, 0);
+    }
+  });
 
   const closeOverlay = () => {
     setError(null);
@@ -146,7 +157,9 @@ export const RemoteLoginOverlay: Component = () => {
             </div>
             <div class="mb-3">
               <div class="inline-block w-28 text-sm text-slate-700">Username</div>
-              <InfuTextInput onInput={(v) => { username = v; setError(null); }} />
+              <div ref={usernameInputContainer} class="inline-block">
+                <InfuTextInput onInput={(v) => { username = v; setError(null); }} />
+              </div>
             </div>
             <div class="mb-3">
               <div class="inline-block w-28 text-sm text-slate-700">Password</div>
