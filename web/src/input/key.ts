@@ -187,6 +187,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
 
+  if (handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
   if (handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
 
   if (!store.history.currentPopupSpec()) {
@@ -251,6 +252,37 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       }
     }
   }
+}
+
+
+function handleArrowKeyCalendarPageMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (store.history.currentPopupSpec()) { return false; }
+
+  const focusItem = store.history.getFocusItem();
+  if (!isPage(focusItem) || asPageItem(focusItem).arrangeAlgorithm != ArrangeAlgorithm.Calendar) {
+    return false;
+  }
+
+  if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
+    return true;
+  }
+
+  const focusPath = store.history.getFocusPath();
+  const currentYear = store.perVe.getCalendarYear(focusPath);
+
+  if (ev.code == "ArrowLeft") {
+    store.perVe.setCalendarYear(focusPath, currentYear - 1);
+    fullArrange(store);
+    return true;
+  }
+
+  if (ev.code == "ArrowRight") {
+    store.perVe.setCalendarYear(focusPath, currentYear + 1);
+    fullArrange(store);
+    return true;
+  }
+
+  return false;
 }
 
 
