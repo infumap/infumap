@@ -80,6 +80,7 @@ pub struct CommandRequest {
 const REASON_SERVER: &str = "server";
 const REASON_CLIENT: &str = "client";
 const REASON_AUTH: &str = "auth";
+const REASON_NOT_FOUND: &str = "not-found";
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CommandResponse {
@@ -92,12 +93,16 @@ pub struct CommandResponse {
 
 enum CommandErrorKind {
   Auth,
+  NotFound,
   Server,
 }
 
 fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKind {
-  if e.message().contains("Not authorized") {
+  let msg = e.message();
+  if msg.contains("Not authorized") {
     CommandErrorKind::Auth
+  } else if msg.contains("is missing") || msg.contains("does not exist") || msg.contains("not found") {
+    CommandErrorKind::NotFound
   } else {
     CommandErrorKind::Server
   }
@@ -166,6 +171,7 @@ pub async fn serve_command_route(
       METRIC_COMMAND_FAILURES_TOTAL.with_label_values(&[&request.command]).inc();
       let fail_reason = match classify_command_error(&e) {
         CommandErrorKind::Auth => REASON_AUTH,
+        CommandErrorKind::NotFound => REASON_NOT_FOUND,
         CommandErrorKind::Server => REASON_SERVER,
       };
       return json_response(&CommandResponse { success: false, fail_reason: Some(fail_reason.to_owned()), json_data: None });
