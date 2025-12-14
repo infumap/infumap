@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
-import { asContainerItem } from "../items/base/container-item";
+import { asContainerItem, isContainer } from "../items/base/container-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -396,8 +396,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
         return;
       }
-    } else {
-      // Non-page container: treat as opaque container move
+    } else if (isContainer(overContainerVe.displayItem)) {
       mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
       return;
     }
