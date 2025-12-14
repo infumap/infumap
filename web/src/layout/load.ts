@@ -21,13 +21,15 @@ import { SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { StoreContextModel } from "../store/StoreProvider";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { isAttachmentsItem } from "../items/base/attachments-item";
-import { asLinkItem } from "../items/link-item";
+import { asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { itemState } from "../store/ItemState";
 import { fullArrange } from "./arrange";
 import { PageFns } from "../items/page-item";
-import { Veid } from "./visual-element";
+import { Veid, VeFns } from "./visual-element";
 import { TabularFns } from "../items/base/tabular-item";
+import { VesCache } from "./ves-cache";
+import { VisualElementSignal } from "../util/signals";
 
 
 export function clearLoadState() {
@@ -144,20 +146,24 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
 }
 
 
-enum RemoteLoadStatus {
+export enum RemoteLoadStatus {
   Pending = "pending",
   Success = "success",
   AuthRequired = "auth-required",
   Failed = "failed"
 }
-let itemLoadFromRemoteStatus: { [id: Uid]: RemoteLoadStatus } = {};
+export let itemLoadFromRemoteStatus: { [id: Uid]: RemoteLoadStatus } = {};
+export let linkIdToRemoteInfo: { [linkId: Uid]: { itemId: string, baseUrl: string } } = {};
 
 export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId: string, baseUrl: string, resolveId: string, containerToSortId?: Uid, forceRetry?: boolean) => {
+  linkIdToRemoteInfo[resolveId] = { itemId, baseUrl };
   const currentStatus = itemLoadFromRemoteStatus[itemId];
   if (!forceRetry) {
     if (currentStatus === RemoteLoadStatus.Pending ||
-        currentStatus === RemoteLoadStatus.Success ||
-        currentStatus === RemoteLoadStatus.AuthRequired ||
+        currentStatus === RemoteLoadStatus.Success) {
+      return;
+    }
+    if (currentStatus === RemoteLoadStatus.AuthRequired ||
         currentStatus === RemoteLoadStatus.Failed) {
       return;
     }
@@ -239,4 +245,105 @@ export const retryLoadItemFromRemote = (store: StoreContextModel, resolveId: str
   const baseUrl = linkItem.linkTo.substring(0, lastIdx);
   const id = linkItem.linkTo.substring(lastIdx + 1);
   initiateLoadItemFromRemoteMaybe(store, id, baseUrl, linkItem.id, linkItem.parentId, true);
+}
+
+const findVisualElementsByLinkId = (linkId: Uid): Array<VisualElementSignal> => {
+  const result: Array<VisualElementSignal> = [];
+  try {
+    const linkItem = itemState.get(linkId);
+    if (!linkItem || !isLink(linkItem)) { return result; }
+    const linkToId = LinkFns.getLinkToId(asLinkItem(linkItem));
+    
+    const pathsForLinkItem = VesCache.getPathsForDisplayId(linkId);
+    for (const path of pathsForLinkItem) {
+      const ves = VesCache.get(path);
+      if (ves) {
+        const ve = ves.get();
+        if ((ve.linkItemMaybe && ve.linkItemMaybe.id === linkId) ||
+            (ve.actualLinkItemMaybe && ve.actualLinkItemMaybe.id === linkId)) {
+          if (!result.find(r => r === ves)) {
+            result.push(ves);
+          }
+        }
+      }
+    }
+    
+    const veid = { itemId: linkToId, linkIdMaybe: linkId };
+    const ves = VesCache.find(veid);
+    for (const v of ves) {
+      const ve = v.get();
+      if ((ve.linkItemMaybe && ve.linkItemMaybe.id === linkId) ||
+          (ve.actualLinkItemMaybe && ve.actualLinkItemMaybe.id === linkId)) {
+        if (!result.find(r => r === v)) {
+          result.push(v);
+        }
+      }
+    }
+  } catch (_e) {
+  }
+  return result;
+};
+
+export const retryVisibleLinksForHost = (store: StoreContextModel, host: string) => {
+  const normalizedHost = (() => {
+    try {
+      return new URL(host).origin;
+    } catch (_e) {
+      return host;
+    }
+  })();
+  
+  for (const [linkId, remoteInfo] of Object.entries(linkIdToRemoteInfo)) {
+    const linkItemMaybe = itemState.get(linkId);
+    if (!linkItemMaybe || !isLink(linkItemMaybe)) { continue; }
+    
+    const linkItem = asLinkItem(linkItemMaybe);
+    if (!linkItem.linkTo.startsWith("http")) { continue; }
+    
+    const lastIdx = linkItem.linkTo.lastIndexOf('/');
+    if (lastIdx == -1) { continue; }
+    const baseUrl = linkItem.linkTo.substring(0, lastIdx);
+    const normalizedBaseUrl = (() => {
+      try {
+        return new URL(baseUrl).origin;
+      } catch (_e) {
+        return baseUrl;
+      }
+    })();
+    
+    if (normalizedBaseUrl !== normalizedHost) { continue; }
+    
+    const status = itemLoadFromRemoteStatus[remoteInfo.itemId];
+    if (status === RemoteLoadStatus.AuthRequired || status === RemoteLoadStatus.Failed) {
+      const parentItem = itemState.get(linkItem.parentId);
+      if (parentItem && isContainer(parentItem)) {
+        const containerItem = asContainerItem(parentItem);
+        if (containerItem.childrenLoaded) {
+          const ves = findVisualElementsByLinkId(linkId);
+          if (ves.length > 0) {
+            initiateLoadItemFromRemoteMaybe(store, remoteInfo.itemId, remoteInfo.baseUrl, linkId, linkItem.parentId, true);
+          }
+        }
+      }
+    }
+  }
+}
+
+export const retryLinkIfVisible = (store: StoreContextModel, linkId: Uid): boolean => {
+  const remoteInfo = linkIdToRemoteInfo[linkId];
+  if (!remoteInfo) { return false; }
+  
+  const status = itemLoadFromRemoteStatus[remoteInfo.itemId];
+  if (status !== RemoteLoadStatus.AuthRequired && status !== RemoteLoadStatus.Failed) { return false; }
+  
+  const linkItemMaybe = itemState.get(linkId);
+  if (!linkItemMaybe || !isLink(linkItemMaybe)) { return false; }
+  
+  const linkItem = asLinkItem(linkItemMaybe);
+  const ves = findVisualElementsByLinkId(linkId);
+  if (ves.length > 0) {
+    initiateLoadItemFromRemoteMaybe(store, remoteInfo.itemId, remoteInfo.baseUrl, linkId, linkItem.parentId, true);
+    return true;
+  }
+  return false;
 }

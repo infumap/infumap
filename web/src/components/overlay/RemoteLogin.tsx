@@ -23,7 +23,7 @@ import { InfuTextInput } from "../library/InfuTextInput";
 import { InfuButton } from "../library/InfuButton";
 import { post } from "../../server";
 import { RemoteSessions } from "../../store/RemoteSessions";
-import { retryLoadItemFromRemote } from "../../layout/load";
+import { retryLoadItemFromRemote, retryVisibleLinksForHost } from "../../layout/load";
 import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
@@ -76,6 +76,9 @@ export const RemoteLoginOverlay: Component = () => {
         });
         RemoteSessions.set({ host: loginInfo()!.host, sessionDataString, username });
         retryLoadItemFromRemote(store, loginInfo()!.linkId);
+        setTimeout(() => {
+          retryVisibleLinksForHost(store, loginInfo()!.host);
+        }, 0);
         closeOverlay();
       } else {
         setError(response.err ?? "Login failed.");
