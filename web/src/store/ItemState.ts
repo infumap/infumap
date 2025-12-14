@@ -287,7 +287,21 @@ export const itemState = {
 
   newOrderingAtChildrenPosition: (parentId: Uid, position: number, ignoreUid: Uid | null): Uint8Array => {
     let parent = asContainerItem(items.get(parentId)!);
-    let childrenOrderings = parent.computed_children.filter(i => i != ignoreUid).map(c => items.get(c)!.ordering);
+    let filteredChildren = parent.computed_children.filter(i => i != ignoreUid);
+    let childrenOrderings: Uint8Array[] = [];
+    for (let i = 0; i < filteredChildren.length; i++) {
+      const childId = filteredChildren[i];
+      const child = items.get(childId);
+      if (!child) {
+        console.error("[ORDERING_BUG] Child not in items map:", { parentId, position, ignoreUid, childId, index: i, filteredChildren: [...filteredChildren] });
+        panic(`newOrderingAtChildrenPosition: child ${childId} not found in items map`);
+      }
+      if (!child.ordering) {
+        console.error("[ORDERING_BUG] Child has no ordering:", { parentId, position, ignoreUid, childId, index: i, childType: child.itemType, childParentId: child.parentId });
+        panic(`newOrderingAtChildrenPosition: child ${childId} has undefined ordering`);
+      }
+      childrenOrderings.push(child.ordering);
+    }
     if (position <= 0) {
       return newOrderingAtBeginning(childrenOrderings);
     } else if (position >= childrenOrderings.length) {

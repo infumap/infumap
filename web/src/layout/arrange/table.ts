@@ -190,6 +190,7 @@ export function arrangeTableChildren(
         while (rowIdx <= lastItemIdx) {
           let outIdx = rowIdx % outCount;
           tableVeChildren[outIdx] = createFillerRow(displayItem_table, tableVePath);
+          tableVesRows[outIdx] = rowIdx;
           rowIdx = rowIdx + 1;
         }
         break;
@@ -220,6 +221,10 @@ function createFillerRow(
 
 export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: VisualElementPath, tableVeid: Veid, prevScrollYPos: number) {
   if (VesCache.isCurrentlyInFullArrange()) { return; }
+  if (store.anItemIsMoving.get()) {
+    fullArrange(store);
+    return;
+  }
 
   const existingEvaluationQueue = VesCache.getEvaluationRequired();
 
@@ -307,21 +312,25 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       if (tableVesRows[outIdx] != rowIdx) {
         const indentBl = iterIndices.length - 1;
         const vesToOverwrite = childrenVes[outIdx];
-        
-        // Debug logging for problematic cases
+
         const existingVe = vesToOverwrite?.get();
         const existingPath = existingVe ? VeFns.veToPath(existingVe) : null;
+
+        if (existingPath && !existingPath.includes(tableVePath)) {
+          console.debug("rearrangeTableAfterScroll: stale VE signal detected, resorting to fullArrange.");
+          fullArrange(store);
+          return;
+        }
+
         const newPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
-        
+
         try {
           tableVeChildren[outIdx] = createRow(
             store, item, displayItem_table, tableVePath, tableVe._arrangeFlags_useForPartialRearrangeOnly, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
-          
-          // Track the mapping for debugging
+
           debugRowMapping.set(outIdx, {rowIdx: rowIdx, itemId: item.id, outIdx: outIdx});
-          
+
         } catch (e: any) {
-          // TODO (LOW): should really implement logic such that this never happens. This clumsy catch-all is lazy.
           console.error("[TABLE_DEBUG] createRow failed:", {
             tableVePath: tableVePath,
             rowIdx: rowIdx,
@@ -339,7 +348,6 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
             timestamp: new Date().toISOString()
           });
           console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
-          // Clear text editing state to prevent race conditions with DOM elements
           store.overlay.setTextEditInfo(store.history, null);
           fullArrange(store);
           return;
