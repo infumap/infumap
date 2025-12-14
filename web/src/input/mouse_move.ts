@@ -387,7 +387,11 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
 
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
   if (isLink(activeItem)) {
-    newWidthBl = allowHalfBlockWidth(asXSizableItem(activeVisualElement.displayItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+    if (isLink(activeVisualElement.displayItem)) {
+      newWidthBl = Math.round(newWidthBl);
+    } else {
+      newWidthBl = allowHalfBlockWidth(asXSizableItem(activeVisualElement.displayItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+    }
   } else {
     newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
   }

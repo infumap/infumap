@@ -307,7 +307,8 @@ export const LinkFns = {
         viewportBoundsPx: null,
         hitboxes: [
           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.Click, innerBoundsPx)
+          HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
         ]
       });
     }
