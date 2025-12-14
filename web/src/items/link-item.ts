@@ -29,6 +29,7 @@ import { asXSizableItem, isXSizableItem, XSizableMixin } from "./base/x-sizeable
 import { asYSizableItem, isYSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { itemState } from "../store/ItemState";
+import { calcBoundsInCellFromSizeBl } from "./base/item-common-fns";
 
 
 // If the linked-to item can not have attachments, then neither can the link item.
@@ -294,12 +295,19 @@ export const LinkFns = {
       h: boundsPx.h / sizeBl.h,
     };
     function noLinkTo(): ItemGeometry {
+      const calculatedBoundsPx = calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
+      const calculatedBlockSizePx = {
+        w: calculatedBoundsPx.w / sizeBl.w,
+        h: calculatedBoundsPx.h / sizeBl.h,
+      };
+      const innerBoundsPx = zeroBoundingBoxTopLeft(calculatedBoundsPx);
       return ({
-        boundsPx: cloneBoundingBox(cellBoundsPx)!,
-        blockSizePx,
+        boundsPx: cloneBoundingBox(calculatedBoundsPx)!,
+        blockSizePx: calculatedBlockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
-          HitboxFns.create(HitboxFlags.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+          HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.Click, innerBoundsPx)
         ]
       });
     }
@@ -323,7 +331,6 @@ export const LinkFns = {
       spatialHeightGr: link.spatialHeightGr,
       linkTo: link.linkTo,
       linkToResolvedId: link.linkToResolvedId,
-      linkRequiresRemoteLogin: link.linkRequiresRemoteLogin,
     });
   },
 
