@@ -17,6 +17,8 @@
 */
 
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
+import { asTableItem, isTable } from "../items/table-item";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { fullArrange } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
@@ -67,9 +69,16 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       (document.activeElement! as HTMLElement).blur();
       let selection = window.getSelection();
       if (selection != null) { selection.removeAllRanges(); }
-      asPageItem(store.history.getFocusItem()).title = titleText;
+      const focusItem = store.history.getFocusItem();
+      asPageItem(focusItem).title = titleText;
+      if (focusItem.relationshipToParent == RelationshipToParent.Child) {
+        const parentItem = itemState.get(focusItem.parentId);
+        if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
+          itemState.sortChildren(focusItem.parentId);
+        }
+      }
       fullArrange(store);
-      serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+      serverOrRemote.updateItem(focusItem, store.general.networkStatus);
       ev.preventDefault();
     }
     return;

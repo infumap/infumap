@@ -94,8 +94,15 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     const titleText = (document.activeElement! as HTMLElement).innerText;
     let selection = window.getSelection();
     if (selection != null) { selection.removeAllRanges(); }
-    asPageItem(store.history.getFocusItem()).title = titleText;
-    serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+    const focusItem = store.history.getFocusItem();
+    asPageItem(focusItem).title = titleText;
+    if (focusItem.relationshipToParent == RelationshipToParent.Child) {
+      const parentItem = itemState.get(focusItem.parentId);
+      if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
+        itemState.sortChildren(focusItem.parentId);
+      }
+    }
+    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
   }
   for (let i=0; i<toolbarTitleDivs.length; ++i) {
     const toolbarTitleDiv = toolbarTitleDivs[i];
@@ -191,6 +198,13 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
           editingDomEl.parentElement!.scrollLeft = 0;
           asPasswordItem(item).text = trimNewline(newText);
+        }
+
+        if (item.relationshipToParent == RelationshipToParent.Child) {
+          const parentItem = itemState.get(item.parentId);
+          if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
+            itemState.sortChildren(item.parentId);
+          }
         }
 
         serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);

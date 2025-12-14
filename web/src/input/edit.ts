@@ -74,7 +74,14 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   }
   const currentEditingPath = store.history.getFocusPath();
   if (currentEditingPath != currentCaretItemInfo.path) {
-    serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+    const focusItem = store.history.getFocusItem();
+    if (focusItem.relationshipToParent == RelationshipToParent.Child) {
+      const parentItem = itemState.get(focusItem.parentId);
+      if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
+        itemState.sortChildren(focusItem.parentId);
+      }
+    }
+    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
 
     const newEditingDomId = editPathInfoToDomId(currentCaretItemInfo);
     let newEditingTextElement = document.getElementById(newEditingDomId);
