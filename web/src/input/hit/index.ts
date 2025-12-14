@@ -434,18 +434,19 @@ function hitPageSelectedRootMaybe(
   let rootVe = parentRootInfo.rootVe;
   let rootVes = parentRootInfo.rootVes;
   let posRelativeToRootVeBoundsPx = parentRootInfo.posRelativeToRootVeBoundsPx;
+  let posRelativeToRootVeViewportPx = parentRootInfo.posRelativeToRootVeViewportPx;
   let changedRoot = false;
   if (rootVe.selectedVes != null) {
     const newRootVesMaybe = rootVe.selectedVes!;
     const newRootVeMaybe = newRootVesMaybe.get();
     if (isPage(newRootVeMaybe.displayItem)) {
-      if (isInside(posRelativeToRootVeBoundsPx, newRootVeMaybe.boundsPx)) {
+      if (isInside(posRelativeToRootVeViewportPx, newRootVeMaybe.boundsPx)) {
         rootVes = newRootVesMaybe;
         rootVe = newRootVeMaybe;
         let veid = VeFns.actualVeidFromVe(newRootVeMaybe);
         const scrollPropX = store.perItem.getPageScrollXProp(veid);
         const scrollPropY = store.perItem.getPageScrollYProp(veid);
-        posRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeBoundsPx, { x: newRootVeMaybe.boundsPx!.x - scrollPropX * (newRootVeMaybe.childAreaBoundsPx!.w - newRootVeMaybe.viewportBoundsPx!.w), y: newRootVeMaybe.boundsPx!.y - scrollPropY * (newRootVeMaybe.childAreaBoundsPx!.h - newRootVeMaybe.viewportBoundsPx!.h) });
+        posRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: newRootVeMaybe.boundsPx!.x - scrollPropX * (newRootVeMaybe.childAreaBoundsPx!.w - newRootVeMaybe.viewportBoundsPx!.w), y: newRootVeMaybe.boundsPx!.y - scrollPropY * (newRootVeMaybe.childAreaBoundsPx!.h - newRootVeMaybe.viewportBoundsPx!.h) });
         changedRoot = true;
       }
     }
@@ -455,7 +456,7 @@ function hitPageSelectedRootMaybe(
   if (hitboxType != HitboxFlags.None) {
     hitMaybe = new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe3").build();
   }
-  const posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
+  posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
   posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y - (rootVe.boundsPx.h - rootVe.viewportBoundsPx!.h);
   let result: RootInfo = { parentRootVe: parentRootInfo.rootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
   if (changedRoot && rootVe.selectedVes) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
