@@ -52,6 +52,9 @@ export function isArrowKey(key: string) {
  * Top level handler for keydown events.
  */
 export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): void {
+  
+  // IMPORTANT: keep these in sync with the code below.
+
   const recognizedKeys = [
     "Slash", "Backslash", "Escape", "Enter",
     "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
@@ -91,6 +94,10 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     ev.preventDefault();
     store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(store), hitInfo });
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
+  }
+
+  else if (ev.code == "Backslash") {
+    return;
   }
 
   else if (ev.code == "Escape") {
