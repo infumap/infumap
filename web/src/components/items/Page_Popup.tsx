@@ -189,7 +189,6 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const renderCalendarPage = () => {
     const currentYear = store.perVe.getCalendarYear(VeFns.veToPath(props.visualElement));
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
     const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx());
     const baseDayRowPx = asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl * LINE_HEIGHT_PX;
@@ -275,7 +274,6 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                            style={`width: ${calendarDimensions.columnWidth / scale}px; height: ${effectiveDayRowHeight / scale}px; transform: scale(${scale}); transform-origin: top left; padding-top: 5px;`}>
                         <div style={`width: ${CALENDAR_DAY_LABEL_LEFT_MARGIN_PX / scale}px; display: flex; align-items: flex-start; justify-content: flex-end;`}>
                           <span style="font-size: 10px; margin-right: 2px;">{day}</span>
-                          <span class="text-gray-600" style="font-size: 10px; margin-left: 3px;">{dayNames[dayOfWeek]}</span>
                         </div>
                         <div style={`width: ${(calendarDimensions.columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX) / scale}px;`} />
                       </div>
@@ -319,7 +317,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               const dayTopPos = dayAreaTopPopup + (day - 1) * effectiveDayRowHeight;
               const rightEdge = monthLeftPos + dims.columnWidth;
               const baseX = rightEdge - block.w;
-              const baseY = dayTopPos + (rowsPerDay - 1) * effectiveDayRowHeight;
+              const baseY = dayTopPos + (rowsPerDay - 1) * effectiveDayRowHeight + 1;
               const overlayWidth = block.w - 2;
               const overlayHeight = Math.max(8, Math.round(effectiveDayRowHeight)) - 4;
               const overlayX = baseX + 2;

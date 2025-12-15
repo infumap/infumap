@@ -205,12 +205,11 @@ export function arrange_calendar_page(
   // Item dimensions - icon + text layout like other line items
   const blockSizePx = NATURAL_BLOCK_SIZE_PX;
   const itemHeight = Math.min(dayRowHeight, blockSizePx.h);
-  
-  // Calculate how many blocks can fit in the column width (accounting for day label space)
-  const availableWidthForItems = calendarDimensions.columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX;
-  const maxBlocksInColumn = Math.floor(availableWidthForItems / blockSizePx.w);
-  const widthBl = Math.max(1, maxBlocksInColumn); // At least 1 block for icon
-  const itemWidth = blockSizePx.w * widthBl;
+
+  // Calculate available width for items (with 2px left padding after day number)
+  const itemLeftPadding = 2;
+  const availableWidthForItems = calendarDimensions.columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding;
+  const itemWidth = availableWidthForItems;
 
   // Cap items per day by how many rows fit in a day
   const rowsPerDay = Math.max(1, Math.floor(dayRowHeight / itemHeight));
@@ -246,7 +245,7 @@ export function arrange_calendar_page(
     if (overflowCount > 0) {
       const rightEdge = monthLeftPos + calendarDimensions.columnWidth;
       const baseX = rightEdge - blockSizePx.w;
-      const baseY = dayTopPos + (rowsPerDay - 1) * itemHeight;
+      const baseY = dayTopPos + (rowsPerDay - 1) * itemHeight + 1;
       const overlayBoundsPx = {
         x: baseX + 2,
         y: baseY + 2,
@@ -269,31 +268,37 @@ export function arrange_calendar_page(
         initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
       }
 
+      const isLastRow = stackIndex === rowsPerDay - 1;
+      const effectiveItemWidth = (overflowCount > 0 && isLastRow)
+        ? itemWidth - blockSizePx.w - 2
+        : itemWidth - 2;
+
       // Stack items vertically within the day
       const boundsPx = {
-        x: monthLeftPos + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX,
-        y: dayTopPos + stackIndex * itemHeight,
-        w: itemWidth,
+        x: monthLeftPos + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX + itemLeftPadding,
+        y: dayTopPos + stackIndex * itemHeight + 1,
+        w: effectiveItemWidth,
         h: itemHeight
       };
 
       const innerBoundsPx = {
         x: 0,
         y: 0,
-        w: itemWidth,
+        w: effectiveItemWidth,
         h: itemHeight
       };
 
       // Line item hitbox layout: icon area + text area
-      const clickAreaBoundsPx = widthBl > 1 ? {
+      const effectiveWidthBl = Math.floor(effectiveItemWidth / blockSizePx.w);
+      const clickAreaBoundsPx = effectiveWidthBl > 1 ? {
         x: blockSizePx.w, // Start after icon block
         y: 0,
-        w: blockSizePx.w * (widthBl - 1), // Text area width
+        w: effectiveItemWidth - blockSizePx.w, // Text area width
         h: itemHeight
       } : {
         x: 0, // If only icon fits, click anywhere
         y: 0,
-        w: itemWidth,
+        w: effectiveItemWidth,
         h: itemHeight
       };
 
@@ -404,10 +409,11 @@ export function arrange_calendar_page(
     movingItemBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * movingItemBoundsPx.h;
 
     // Create hitboxes for moving item matching normal item structure
-    const movingClickAreaBoundsPx = widthBl > 1 ? {
+    const movingWidthBl = Math.floor(itemWidth / blockSizePx.w);
+    const movingClickAreaBoundsPx = movingWidthBl > 1 ? {
       x: blockSizePx.w, // Start after icon block
       y: 0,
-      w: blockSizePx.w * (widthBl - 1), // Text area width
+      w: itemWidth - blockSizePx.w, // Text area width
       h: calendarItemHeight
     } : {
       x: 0, // If only icon fits, click anywhere

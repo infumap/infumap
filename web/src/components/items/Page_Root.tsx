@@ -202,7 +202,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   const renderCalendarPage = () => {
     const currentYear = store.perVe.getCalendarYear(VeFns.veToPath(props.visualElement));
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
     const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx());
 
@@ -282,7 +281,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                                 `background-color: ${backgroundColor}; ` +
                                 `border-bottom: 1px solid #e5e5e5; padding-top: 5px;`}>
                       <span style="width: 14px; text-align: right; font-size: 10px; margin-left: 2px;">{day}</span>
-                      <span class="text-gray-600" style="font-size: 10px; margin-left: 3px;">{dayNames[dayOfWeek]}</span>
                     </div>
                   );
                 }}</For>
@@ -327,7 +325,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               const dayTopPos = dims.dayAreaTopPx + (day - 1) * dims.dayRowHeight;
               const rightEdge = monthLeftPos + dims.columnWidth;
               const baseX = rightEdge - block.w;
-              const baseY = dayTopPos + (rowsPerDay - 1) * block.h;
+              const baseY = dayTopPos + (rowsPerDay - 1) * block.h + 1;
               const overlayWidth = block.w - 2;
               const overlayHeight = block.h - 4;
               const overlayX = baseX + 2;

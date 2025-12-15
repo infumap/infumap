@@ -167,7 +167,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderText = () =>
     <div class={`absolute overflow-hidden whitespace-nowrap ` +
-                ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
+                ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) || isInCalendarPage() ? '' : `text-ellipsis `) +
                 `${infuTextStyle().alignClass} `}
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
