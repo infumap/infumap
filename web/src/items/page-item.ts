@@ -42,7 +42,7 @@ import { serverOrRemote } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
 import { RelationshipToParent } from '../layout/relationship-to-parent';
-import { newOrdering } from '../util/ordering';
+import { compareOrderings, newOrdering, newOrderingAfter } from '../util/ordering';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { TabularItem, TabularMixin } from './base/tabular-item';
@@ -705,16 +705,40 @@ export const PageFns = {
     switchToPage(store, selectedVeid, true, false, false);
   },
 
-  /**
-   * Handle click on a calendar day overflow indicator.
-   */
   handleCalendarOverflowClick: (visualElement: VisualElement, store: StoreContextModel, meta: HitboxMeta | null): void => {
     if (!meta || !meta.calendarYear || !meta.calendarMonth || !meta.calendarDay) { return; }
-    const veid = VeFns.actualVeidFromVe(visualElement);
-    const vePath = VeFns.veToPath(visualElement);
-    // Store client-side popup overrides on perVe keyed by the visual element path
-    store.perVe.setPopupFilterDate(vePath, { year: meta.calendarYear, month: meta.calendarMonth, day: meta.calendarDay });
-    store.history.replacePopup({ actualVeid: veid, vePath });
+
+    const pageItem = asPageItem(visualElement.displayItem);
+    const targetYear = meta.calendarYear;
+    const targetMonth = meta.calendarMonth;
+    const targetDay = meta.calendarDay;
+
+    const itemsForDate: Array<Item> = [];
+    for (const childId of pageItem.computed_children) {
+      const item = itemState.get(childId);
+      if (!item) continue;
+      const d = new Date(item.dateTime * 1000);
+      if (d.getFullYear() === targetYear &&
+          d.getMonth() + 1 === targetMonth &&
+          d.getDate() === targetDay) {
+        itemsForDate.push(item);
+      }
+    }
+
+    if (itemsForDate.length <= 1) { return; }
+
+    itemsForDate.sort((a, b) => {
+      const cmp = compareOrderings(a.ordering, b.ordering);
+      if (cmp !== 0) return cmp;
+      return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+    });
+
+    const firstItem = itemsForDate[0];
+    const lastItem = itemsForDate[itemsForDate.length - 1];
+    firstItem.ordering = newOrderingAfter(lastItem.ordering);
+
+    itemState.sortChildren(pageItem.id);
+    serverOrRemote.updateItem(firstItem, store.general.networkStatus);
     fullArrange(store);
   },
 

@@ -33,6 +33,7 @@ import { isExpression } from "../../items/expression-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VisualElementSignal } from "../../util/signals";
 import { HitboxFns, HitboxFlags } from "../hitbox";
+import { compareOrderings } from "../../util/ordering";
 import { MouseActionState, MouseAction } from "../../input/state";
 import { CursorEventState } from "../../input/state";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -223,6 +224,15 @@ export function arrange_calendar_page(
       itemsByDate.set(dateKey, []);
     }
     itemsByDate.get(dateKey)!.push(child);
+  });
+
+  // Sort items within each date by ordering
+  itemsByDate.forEach((items) => {
+    items.sort((a, b) => {
+      const cmp = compareOrderings(a.ordering, b.ordering);
+      if (cmp !== 0) return cmp;
+      return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+    });
   });
 
   // Prepare an array of page-level hitboxes for overflow indicators
