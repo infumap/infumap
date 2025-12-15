@@ -19,7 +19,7 @@
 import { batch } from "solid-js";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, asLinkItem } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { newOrdering } from "../../util/ordering";
@@ -76,6 +76,12 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   li.spatialPositionGr = { x: 0, y: 0 };
 
   const desktopBoundsPx = store.desktopMainAreaBoundsPx();
+
+  const popupItem = itemState.get(popupVeid.itemId);
+  if (popupItem && isPage(popupItem) && asPageItem(popupItem).arrangeAlgorithm === ArrangeAlgorithm.Calendar) {
+    li.aspectOverride = desktopBoundsPx.w / desktopBoundsPx.h;
+  }
+
   const cellBoundsPx = {
     x: desktopBoundsPx.w * 0.1,
     y: desktopBoundsPx.h * 0.07,

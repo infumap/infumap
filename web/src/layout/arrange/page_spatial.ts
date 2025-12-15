@@ -165,7 +165,15 @@ export function arrange_spatial_page(
         const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, popupLinkToPageId!, newOrdering());
         li.id = POPUP_LINK_UID;
         const widthGr = PageFns.getPopupWidthGr(displayItem_pageWithChildren);
-        const heightGr = Math.round((widthGr / displayItem_pageWithChildren.naturalAspect / GRID_SIZE)/ 2.0) * 2.0 * GRID_SIZE;
+        const popupPage = asPageItem(itemState.get(popupLinkToPageId)!);
+        const popupIsCalendar = popupPage.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+        const targetAspect = popupIsCalendar
+          ? store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h
+          : displayItem_pageWithChildren.naturalAspect;
+        if (popupIsCalendar) {
+          li.aspectOverride = targetAspect;
+        }
+        const heightGr = Math.round((widthGr / targetAspect / GRID_SIZE)/ 2.0) * 2.0 * GRID_SIZE;
         li.spatialWidthGr = widthGr;
         // assume center positioning.
         li.spatialPositionGr = {

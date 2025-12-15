@@ -40,6 +40,7 @@ export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
   filterDate?: { year: number; month: number; day: number } | null,
   overrideTitle?: string | null,
   linkRequiresRemoteLogin?: string | null,
+  aspectOverride?: number | null,
 }
 
 export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
@@ -93,6 +94,7 @@ export const LinkFns = {
       filterDate: null,
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
+      aspectOverride: null,
     };
   },
 
@@ -122,6 +124,7 @@ export const LinkFns = {
       filterDate: null,
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
+      aspectOverride: null,
     });
   },
 
@@ -372,6 +375,9 @@ function constructLinkToMeasurable(link: LinkItem): Measurable | null {
   }
   if (isYSizableItem(linkedToMeasurableFields)) {
     (asYSizableItem(linkedToMeasurableFields)).spatialHeightGr = link.spatialHeightGr;
+  }
+  if (link.aspectOverride != null && (linkedToMeasurableFields as any).naturalAspect !== undefined) {
+    (linkedToMeasurableFields as any).naturalAspect = link.aspectOverride;
   }
 
   return linkedToMeasurableFields

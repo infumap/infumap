@@ -46,7 +46,6 @@ import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { isFlipCard } from "../items/flipcard-item";
 import { asPasswordItem } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
-import { hitboxFlagsToString } from "../layout/hitbox";
 
 
 export const MOUSE_LEFT = 0;
