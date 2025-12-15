@@ -223,6 +223,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             <div class="flex items-center justify-center font-bold"
                  style={`transform: scale(${scale}); transform-origin: center center;`}>
               <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
+                   onMouseDown={(e) => e.stopPropagation()}
                    onClick={() => {
                      store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
                      fullArrange(store);
@@ -231,6 +232,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               </div>
               <span class="mx-2 text-2xl">{currentYear}</span>
               <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
+                   onMouseDown={(e) => e.stopPropagation()}
                    onClick={() => {
                      store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
                      fullArrange(store);
