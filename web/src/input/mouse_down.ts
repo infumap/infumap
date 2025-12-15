@@ -520,6 +520,11 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     return;
   }
 
+  if (store.currentVisiblePassword.get() != null) {
+    store.currentVisiblePassword.set(null);
+    return;
+  }
+
   // compact expanded list item.
   let hi = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
   if (hi.hitboxType & HitboxFlags.Expand) {
