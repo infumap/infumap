@@ -330,10 +330,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               const overlayHeight = block.h - 4;
               const overlayX = baseX + 2;
               const overlayY = baseY + 2;
-              const overflowCount = totalCount - rowsPerDay;
               overlays.push(
                 <div class="absolute flex items-center justify-center text-[10px] font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
-                      style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px;`}>{overflowCount}</div>
+                      style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px;`}>{totalCount}</div>
               );
             });
             return overlays;

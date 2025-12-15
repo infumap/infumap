@@ -322,10 +322,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               const overlayHeight = Math.max(8, Math.round(effectiveDayRowHeight)) - 4;
               const overlayX = baseX + 2;
               const overlayY = baseY + 2;
-              const overflowCount = totalCount - rowsPerDay;
               overlays.push(
                 <div class="absolute flex items-center justify-center font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
-                      style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px; font-size: ${Math.max(8, Math.round(10*scale))}px;`}>{overflowCount}</div>
+                      style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px; font-size: ${Math.max(8, Math.round(10*scale))}px;`}>{totalCount}</div>
               );
             });
             return overlays;
