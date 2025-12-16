@@ -493,9 +493,6 @@ export const ItemFns = {
         const posStr = `${pageItem.popupPositionGr.x},${pageItem.popupPositionGr.y}`;
         hashes.push(hashStringToUid(posStr));
       }
-      if (pageItem.popupAlignmentPoint) {
-        hashes.push(hashStringToUid(pageItem.popupAlignmentPoint));
-      }
       if (pageItem.popupWidthGr !== undefined) {
         hashes.push(hashI64ToUid(pageItem.popupWidthGr));
       }

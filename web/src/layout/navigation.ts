@@ -103,7 +103,6 @@ export function navigateBack(store: StoreContextModel): boolean {
   if (store.history.currentPopupSpec() != null) {
     store.history.popPopup();
     const page = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
-    page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
     if (store.history.currentPopupSpec() == null) {

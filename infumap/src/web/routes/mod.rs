@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use infusdk::{item::{AlignmentPoint, ArrangeAlgorithm, Item, ItemType, RelationshipToParent, TableColumn}, util::{geometry::{Vector, GRID_SIZE}, time::unix_now_secs_i64, uid::Uid}};
+use infusdk::{item::{ArrangeAlgorithm, Item, ItemType, RelationshipToParent, TableColumn}, util::{geometry::{Vector, GRID_SIZE}, time::unix_now_secs_i64, uid::Uid}};
 
 pub mod account;
 pub mod admin;
@@ -50,7 +50,6 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     background_color_index: Some(0),
     arrange_algorithm: Some(ArrangeAlgorithm::SpatialStretch),
     popup_position_gr: Some(Vector { x: inner_spatial_width_br / 2 * GRID_SIZE, y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE }),
-    popup_alignment_point: Some(AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(4),
     grid_cell_aspect: Some(1.5),
@@ -100,7 +99,6 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     background_color_index: Some(0),
     arrange_algorithm: Some(ArrangeAlgorithm::SpatialStretch),
     popup_position_gr: Some(Vector { x: inner_spatial_width_br / 2 * GRID_SIZE, y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE }),
-    popup_alignment_point: Some(AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(4),
     grid_cell_aspect: Some(1.5),
@@ -150,7 +148,6 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     background_color_index: Some(0),
     arrange_algorithm: Some(ArrangeAlgorithm::SpatialStretch),
     popup_position_gr: Some(Vector { x: inner_spatial_width_br / 2 * GRID_SIZE, y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE }),
-    popup_alignment_point: Some(AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(1),
     grid_cell_aspect: Some(1.5),

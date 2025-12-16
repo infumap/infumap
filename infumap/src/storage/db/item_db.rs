@@ -39,7 +39,7 @@ use crate::util::fs::{expand_tilde, path_exists};
 use super::user::User;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 25;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 26;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -1329,6 +1329,34 @@ pub fn migrate_record_v24_to_v25(kvs: &Map<String, Value>) -> InfuResult<Map<Str
 
     "update" => {
       return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+pub fn migrate_record_v25_to_v26(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 25);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      result.remove("popupAlignmentPoint");
+      return Ok(result);
+    },
+
+    "update" => {
+      let mut result = kvs.clone();
+      result.remove("popupAlignmentPoint");
+      return Ok(result);
     },
 
     "delete" => {

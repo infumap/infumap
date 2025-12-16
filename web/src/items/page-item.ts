@@ -73,12 +73,10 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   justifiedRowAspect: number;
   calendarDayRowHeightBl: number;
   popupPositionGr: Vector;
-  popupAlignmentPoint: string;
   popupWidthGr: number;
 
   pendingPopupPositionGr: Vector | null;
   pendingPopupWidthGr: number | null;
-  pendingPopupAlignmentPoint: string | null;
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin, AspectMixin {
@@ -137,7 +135,6 @@ export const PageFns = {
       innerSpatialWidthGr: 60.0 * GRID_SIZE,
       arrangeAlgorithm: ArrangeAlgorithm.SpatialStretch,
       popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
-      popupAlignmentPoint: "center",
       popupWidthGr: 10.0 * GRID_SIZE,
       gridNumberOfColumns: 6,
       gridCellAspect: 1.5,
@@ -162,7 +159,6 @@ export const PageFns = {
 
       pendingPopupPositionGr: null,
       pendingPopupWidthGr: null,
-      pendingPopupAlignmentPoint: null,
     });
   },
 
@@ -191,7 +187,6 @@ export const PageFns = {
       innerSpatialWidthGr: o.innerSpatialWidthGr,
       arrangeAlgorithm: o.arrangeAlgorithm,
       popupPositionGr: o.popupPositionGr,
-      popupAlignmentPoint: o.popupAlignmentPoint,
       popupWidthGr: o.popupWidthGr,
       gridNumberOfColumns: o.gridNumberOfColumns,
       gridCellAspect: o.gridCellAspect,
@@ -214,7 +209,6 @@ export const PageFns = {
 
       pendingPopupPositionGr: null,
       pendingPopupWidthGr: null,
-      pendingPopupAlignmentPoint: null,
     });
   },
 
@@ -241,7 +235,6 @@ export const PageFns = {
       innerSpatialWidthGr: p.innerSpatialWidthGr,
       arrangeAlgorithm: p.arrangeAlgorithm,
       popupPositionGr: p.popupPositionGr,
-      popupAlignmentPoint: p.popupAlignmentPoint,
       popupWidthGr: p.popupWidthGr,
       gridNumberOfColumns: p.gridNumberOfColumns,
       gridCellAspect: p.gridCellAspect,
@@ -692,9 +685,6 @@ export const PageFns = {
     if (popupParentPage.pendingPopupWidthGr != null) {
       popupParentPage.popupWidthGr = popupParentPage.pendingPopupWidthGr;
     }
-    if (popupParentPage.pendingPopupAlignmentPoint != null) {
-      popupParentPage.popupAlignmentPoint = popupParentPage.pendingPopupAlignmentPoint;
-    }
     serverOrRemote.updateItem(popupParentPage, store.general.networkStatus);
     fullArrange(store);
   },
@@ -848,7 +838,6 @@ const soloItemHolderPage = () => {
   result.childrenLoaded = true;
   result.pendingPopupPositionGr = null;
   result.pendingPopupWidthGr = null;
-  result.pendingPopupAlignmentPoint = null;
 
   return result;
 }
