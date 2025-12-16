@@ -211,9 +211,13 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           }, 750);
         }
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorClick(activeVisualElement, store);
+        PageFns.handleAnchorChildClick(activeVisualElement, store);
+
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorDefault) {
+        DoubleClickState.preventDoubleClick();
+        PageFns.handleAnchorDefaultClick(activeVisualElement, store);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Edit) {
         store.perVe.setFlipCardIsEditing(

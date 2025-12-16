@@ -122,7 +122,8 @@ export function arrange_spatial_page(
     const emitHitboxes = true;
     const childItemIsPopup = false; // never the case.
     const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
-    const hasPendingChanges = false; // it may do, but only matters for popups.
+    const hasChildChanges = false; // it may do, but only matters for popups.
+    const hasDefaultChanges = false;
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
     const itemGeometry = ItemFns.calcGeometry_Spatial(
       childItem,
@@ -131,7 +132,8 @@ export function arrange_spatial_page(
       parentIsPopup,
       emitHitboxes,
       childItemIsPopup,
-      hasPendingChanges,
+      hasChildChanges,
+      hasDefaultChanges,
       store.perVe.getFlipCardIsEditing(VeFns.addVeidToPath(VeFns.veidFromItems(childItem, actualLinkItemMaybe), pageWithChildrenVePath)),
       store.smallScreenMode());
     if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
@@ -186,7 +188,8 @@ export function arrange_spatial_page(
           zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
           PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren),
           false, true, true,
-          PageFns.popupPositioningHasChanged(displayItem_pageWithChildren, popupPage),
+          PageFns.childPopupPositioningHasChanged(displayItem_pageWithChildren, popupPage),
+          PageFns.defaultPopupPositioningHasChanged(displayItem_pageWithChildren, popupPage),
           false,
           store.smallScreenMode());
 

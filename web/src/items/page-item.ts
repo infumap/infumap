@@ -296,7 +296,7 @@ export const PageFns = {
   calcGeometry_Spatial: (
       page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
       parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean,
-      hasPendingChanges: boolean, smallScreenMode: boolean): ItemGeometry => {
+      hasChildChanges: boolean, hasDefaultChanges: boolean, smallScreenMode: boolean): ItemGeometry => {
 
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const blockSizePx = {
@@ -351,15 +351,28 @@ export const PageFns = {
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ];
 
-    if (hasPendingChanges && isPopup) {
+    if (isPopup) {
       const scale = blockSizePx.h / LINE_HEIGHT_PX * PAGE_POPUP_TITLE_HEIGHT_BL;
-      const anchorBoundsPx = {
-        x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - ANCHOR_OFFSET_PX * scale,
-        y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
-        w: ANCHOR_BOX_SIZE_PX * scale,
-        h: ANCHOR_BOX_SIZE_PX * scale
-      };
-      hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, anchorBoundsPx));
+      let rightOffset = ANCHOR_OFFSET_PX * scale;
+      if (hasChildChanges) {
+        const anchorChildBoundsPx = {
+          x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - rightOffset,
+          y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
+          w: ANCHOR_BOX_SIZE_PX * scale,
+          h: ANCHOR_BOX_SIZE_PX * scale
+        };
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
+        rightOffset += ANCHOR_BOX_SIZE_PX * scale + ANCHOR_OFFSET_PX * scale;
+      }
+      if (hasDefaultChanges) {
+        const anchorDefaultBoundsPx = {
+          x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - rightOffset,
+          y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
+          w: ANCHOR_BOX_SIZE_PX * scale,
+          h: ANCHOR_BOX_SIZE_PX * scale
+        };
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, anchorDefaultBoundsPx));
+      }
     }
 
     const result = {
@@ -376,8 +389,8 @@ export const PageFns = {
       page: PageMeasurable, cellBoundsPx: BoundingBox,
       expandable: boolean, parentIsPopup: boolean,
       parentIsDock: boolean, isPopup: boolean,
-      hasPendingChanges: boolean, ignoreCellHeight: boolean,
-      smallScreenMode: boolean): ItemGeometry => {
+      hasChildChanges: boolean, hasDefaultChanges: boolean,
+      ignoreCellHeight: boolean, smallScreenMode: boolean): ItemGeometry => {
 
     if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
       const sizeBl = PageFns.calcSpatialDimensionsBl(page);
@@ -478,8 +491,13 @@ export const PageFns = {
       hitboxes.push(HitboxFns.create(HitboxFlags.VerticalResize, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
     }
 
-    if (hasPendingChanges) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
+    let anchorRightOffset = RESIZE_BOX_SIZE_PX;
+    if (hasChildChanges) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - anchorRightOffset, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
+      anchorRightOffset += ANCHOR_BOX_SIZE_PX;
+    }
+    if (hasDefaultChanges) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - anchorRightOffset, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
     }
 
     const result = {
@@ -685,7 +703,7 @@ export const PageFns = {
     fullArrange(store);
   },
 
-  handleAnchorClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleAnchorChildClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const popupPage = asPageItem(visualElement.displayItem);
     if (popupPage.pendingPopupPositionGr != null) {
       popupPage.popupPositionGr = popupPage.pendingPopupPositionGr!;
@@ -696,6 +714,40 @@ export const PageFns = {
       popupPage.pendingPopupWidthGr = null;
     }
     serverOrRemote.updateItem(popupPage, store.general.networkStatus);
+    fullArrange(store);
+  },
+
+  handleAnchorDefaultClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    const popupPage = asPageItem(visualElement.displayItem);
+    const parentId = popupPage.parentId;
+    const parentPage = itemState.get(parentId);
+    if (!parentPage || !isPage(parentPage)) { return; }
+    const parentPageItem = asPageItem(parentPage);
+
+    const currentPos = popupPage.pendingPopupPositionGr ?? popupPage.popupPositionGr ?? parentPageItem.defaultPopupPositionGr;
+    const currentWidth = popupPage.pendingPopupWidthGr ?? popupPage.popupWidthGr ?? parentPageItem.defaultPopupWidthGr;
+
+    parentPageItem.defaultPopupPositionGr = { x: currentPos.x, y: currentPos.y };
+    parentPageItem.defaultPopupWidthGr = currentWidth;
+
+    popupPage.pendingPopupPositionGr = null;
+    popupPage.pendingPopupWidthGr = null;
+
+    for (const childId of parentPageItem.computed_children) {
+      const child = itemState.get(childId);
+      if (child && isPage(child)) {
+        const childPage = asPageItem(child);
+        if (childPage.popupPositionGr != null || childPage.popupWidthGr != null) {
+          childPage.popupPositionGr = null;
+          childPage.popupWidthGr = null;
+          childPage.pendingPopupPositionGr = null;
+          childPage.pendingPopupWidthGr = null;
+          serverOrRemote.updateItem(childPage, store.general.networkStatus);
+        }
+      }
+    }
+
+    serverOrRemote.updateItem(parentPageItem, store.general.networkStatus);
     fullArrange(store);
   },
 
@@ -808,7 +860,7 @@ export const PageFns = {
     return parentPage.defaultPopupWidthGr;
   },
 
-  popupPositioningHasChanged: (parentPage: PageItem | null, childPage?: PageItem | null): boolean => {
+  childPopupPositioningHasChanged: (parentPage: PageItem | null, childPage?: PageItem | null): boolean => {
     if (parentPage == null) { return false; }
     if (childPage == null) { return false; }
     if (childPage.pendingPopupPositionGr != null) {
@@ -823,6 +875,21 @@ export const PageFns = {
       if (childPage.pendingPopupWidthGr != anchorWidth) {
         return true;
       }
+    }
+    return false;
+  },
+
+  defaultPopupPositioningHasChanged: (parentPage: PageItem | null, childPage?: PageItem | null): boolean => {
+    if (parentPage == null) { return false; }
+    if (childPage == null) { return false; }
+    const currentPos = childPage.pendingPopupPositionGr ?? childPage.popupPositionGr ?? parentPage.defaultPopupPositionGr;
+    const currentWidth = childPage.pendingPopupWidthGr ?? childPage.popupWidthGr ?? parentPage.defaultPopupWidthGr;
+    if (currentPos.x != parentPage.defaultPopupPositionGr.x ||
+        currentPos.y != parentPage.defaultPopupPositionGr.y) {
+      return true;
+    }
+    if (currentWidth != parentPage.defaultPopupWidthGr) {
+      return true;
     }
     return false;
   },

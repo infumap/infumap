@@ -78,7 +78,9 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     h: desktopBoundsPx.h * 0.8,
   };
   const popupPage = popupItem && isPage(popupItem) ? asPageItem(popupItem) : null;
-  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, PageFns.popupPositioningHasChanged(currentPage, popupPage ?? undefined), false, false, store.smallScreenMode());
+  const hasChildChanges = PageFns.childPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
+  const hasDefaultChanges = PageFns.defaultPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
+  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, hasChildChanges, hasDefaultChanges, false, false, store.smallScreenMode());
   if (renderAsFixed) {
     geometry.boundsPx.x += store.getCurrentDockWidthPx();
     if (geometry.viewportBoundsPx != null) {

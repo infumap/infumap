@@ -78,7 +78,7 @@ export const renderDockMaybe = (
     let wPx = dockWidthPx - DOCK_GAP_PX * 3;
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockWidthPx * 10 };
-    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true, store.smallScreenMode());
+    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, false, true, store.smallScreenMode());
 
     const hasAttachHb = geometry.hitboxes.some(hb => (hb.type & HitboxFlags.Attach) !== 0);
     if (!hasAttachHb && isAttachmentsItem(childItem)) {
@@ -201,7 +201,7 @@ export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel,
     let wPx = dockWidthPx - DOCK_GAP_PX * 3;
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockWidthPx * 10 };
-    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true, store.smallScreenMode());
+    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, false, true, store.smallScreenMode());
 
     let viewportOffsetPx = 0;
     if (geometry.viewportBoundsPx) {

@@ -159,7 +159,7 @@ export const LinkFns = {
     return ItemFns.calcSpatialDimensionsBl(measurableMaybe!, adjustBl);
   },
 
-  calcGeometry_Spatial: (link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean, editing: boolean, smallScreenMode: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasChildChanges: boolean, hasDefaultChanges: boolean, editing: boolean, smallScreenMode: boolean): ItemGeometry => {
     function noLinkTo(): ItemGeometry {
       const sizeBl = LinkFns.calcSpatialDimensionsBl(link);
       const blockSizePx = {
@@ -189,7 +189,7 @@ export const LinkFns = {
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
 
-    const result = ItemFns.calcGeometry_Spatial(measurableMaybe, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges, editing, smallScreenMode);
+    const result = ItemFns.calcGeometry_Spatial(measurableMaybe, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasChildChanges, hasDefaultChanges, editing, smallScreenMode);
 
     let insertPos = result.hitboxes.length;
     if (result.hitboxes.length > 0 && result.hitboxes[result.hitboxes.length-1].type == HitboxFlags.Resize) {
@@ -290,7 +290,7 @@ export const LinkFns = {
     return result;
   },
 
-  calcGeometry_InCell: (link: LinkItem, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, parentIsDock: boolean, isPopup: boolean, hasPendingChanges: boolean, maximize: boolean, ignoreCellHeight: boolean, smallScreenMode: boolean): ItemGeometry => {
+  calcGeometry_InCell: (link: LinkItem, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, parentIsDock: boolean, isPopup: boolean, hasChildChanges: boolean, hasDefaultChanges: boolean, maximize: boolean, ignoreCellHeight: boolean, smallScreenMode: boolean): ItemGeometry => {
     const sizeBl = LinkFns.calcSpatialDimensionsBl(link);
     const boundsPx = cloneBoundingBox(cellBoundsPx)!;
     const blockSizePx = {
@@ -319,7 +319,7 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcGeometry_InCell(measurableMaybe!, cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasPendingChanges, maximize, ignoreCellHeight, smallScreenMode);
+    return ItemFns.calcGeometry_InCell(measurableMaybe!, cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasChildChanges, hasDefaultChanges, maximize, ignoreCellHeight, smallScreenMode);
   },
 
   asLinkMeasurable: (item: ItemTypeMixin): LinkMeasurable => {

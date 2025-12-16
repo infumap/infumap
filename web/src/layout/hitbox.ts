@@ -29,7 +29,7 @@ export enum HitboxFlags {
   HorizontalResize =        0x000020,
   OpenAttachment =          0x000040,
   AttachComposite =         0x000080,
-  Anchor =                  0x000100,
+  AnchorChild =             0x000100,
   ShiftLeft =               0x000200,
   Settings =                0x000400,
   TriangleLinkSettings =    0x000800,
@@ -42,6 +42,7 @@ export enum HitboxFlags {
   Edit =                    0x040000,
   ShowPointer =             0x080000,
   CalendarOverflow =        0x100000,
+  AnchorDefault =           0x200000,
 }
 
 export function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -55,7 +56,8 @@ export function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.VerticalResize) { result += "VerticalResize "; }
   if (flags & HitboxFlags.OpenAttachment) { result += "OpenAttachment "; }
   if (flags & HitboxFlags.AttachComposite) { result += "AttachComposite "; }
-  if (flags & HitboxFlags.Anchor) { result += "Anchor "; }
+  if (flags & HitboxFlags.AnchorChild) { result += "AnchorChild "; }
+  if (flags & HitboxFlags.AnchorDefault) { result += "AnchorDefault "; }
   if (flags & HitboxFlags.ShiftLeft) { result += "ShiftLeft "; }
   if (flags & HitboxFlags.Settings) { result += "Settings "; }
   if (flags & HitboxFlags.TriangleLinkSettings) { result += "TriangleLinkSettings "; }

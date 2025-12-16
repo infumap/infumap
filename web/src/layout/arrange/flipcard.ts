@@ -92,7 +92,8 @@ export const arrangeFlipCard = (
       const emitHitboxes = true;
       const childItemIsPopup = false; // never the case.
       const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
-      const hasPendingChanges = false; // it may do, but only matters for popups.
+      const hasChildChanges = false; // it may do, but only matters for popups.
+      const hasDefaultChanges = false;
       const parentPageInnerDimensionsBl = FlipCardFns.calcInnerSpatialDimensionsBl(displayItem_flipCard);
       parentPageInnerDimensionsBl.w = Math.round(parentPageInnerDimensionsBl.w / displayItem_flipCard.scale);
       parentPageInnerDimensionsBl.h = Math.round(parentPageInnerDimensionsBl.h / displayItem_flipCard.scale);
@@ -103,7 +104,8 @@ export const arrangeFlipCard = (
         false,
         emitHitboxes,
         childItemIsPopup,
-        hasPendingChanges,
+        hasChildChanges,
+        hasDefaultChanges,
         store.perVe.getFlipCardIsEditing(VeFns.addVeidToPath(VeFns.veidFromItems(childItem, actualLinkItemMaybe), visiblePagePath)),
         store.smallScreenMode(),
       );

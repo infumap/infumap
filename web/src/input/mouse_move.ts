@@ -702,7 +702,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "ns-resize";
     } else if (hitInfo.hitboxType & HitboxFlags.ShowPointer) {
       document.body.style.cursor = "pointer";
-    } else if (hitInfo.hitboxType & HitboxFlags.Anchor) {
+    } else if ((hitInfo.hitboxType & HitboxFlags.AnchorChild) || (hitInfo.hitboxType & HitboxFlags.AnchorDefault)) {
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.TriangleLinkSettings) {
       document.body.style.cursor = "pointer";
