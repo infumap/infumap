@@ -242,8 +242,6 @@ export const PageFns = {
       arrangeAlgorithm: p.arrangeAlgorithm,
       defaultPopupPositionGr: p.defaultPopupPositionGr,
       defaultPopupWidthGr: p.defaultPopupWidthGr,
-      popupPositionGr: p.popupPositionGr,
-      popupWidthGr: p.popupWidthGr,
       gridNumberOfColumns: p.gridNumberOfColumns,
       gridCellAspect: p.gridCellAspect,
       docWidthBl: p.docWidthBl,
