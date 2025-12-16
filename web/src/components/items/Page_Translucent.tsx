@@ -229,7 +229,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     return (
       <div ref={translucentDiv}
            class={`absolute ${borderClass()} rounded-sm`}
-           style={`left: ${bounds.x}px; top: ${bounds.y}px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow: auto; ${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+           style={`left: ${bounds.x}px; top: ${bounds.y}px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow-y: auto; overflow-x: hidden; ${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={translucentScrollHandler}>
         <div class="absolute"
              style={`left: 0px; top: 0px; width: ${childArea.w / scale}px; height: ${totalHeight / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
