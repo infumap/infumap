@@ -496,6 +496,13 @@ export const ItemFns = {
       if (pageItem.defaultPopupWidthGr !== undefined) {
         hashes.push(hashI64ToUid(pageItem.defaultPopupWidthGr));
       }
+      if (pageItem.popupPositionGr) {
+        const posStr = `${pageItem.popupPositionGr.x},${pageItem.popupPositionGr.y}`;
+        hashes.push(hashStringToUid(posStr));
+      }
+      if (pageItem.popupWidthGr !== undefined && pageItem.popupWidthGr !== null) {
+        hashes.push(hashI64ToUid(pageItem.popupWidthGr));
+      }
       if (pageItem.gridNumberOfColumns !== undefined) {
         hashes.push(hashI64ToUid(pageItem.gridNumberOfColumns));
       }

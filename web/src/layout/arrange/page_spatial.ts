@@ -164,8 +164,8 @@ export function arrange_spatial_page(
         const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
         const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, popupLinkToPageId!, newOrdering());
         li.id = POPUP_LINK_UID;
-        const widthGr = PageFns.getPopupWidthGr(displayItem_pageWithChildren);
         const popupPage = asPageItem(itemState.get(popupLinkToPageId)!);
+        const widthGr = PageFns.getPopupWidthGrForParent(displayItem_pageWithChildren, popupPage);
         const popupIsCalendar = popupPage.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
         const targetAspect = popupIsCalendar
           ? store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h
@@ -176,16 +176,17 @@ export function arrange_spatial_page(
         const heightGr = Math.round((widthGr / targetAspect / GRID_SIZE)/ 2.0) * 2.0 * GRID_SIZE;
         li.spatialWidthGr = widthGr;
         // assume center positioning.
+        const popupCenter = PageFns.getPopupPositionGrForParent(displayItem_pageWithChildren, popupPage);
         li.spatialPositionGr = {
-          x: PageFns.getPopupPositionGr(displayItem_pageWithChildren).x - widthGr / 2.0,
-          y: PageFns.getPopupPositionGr(displayItem_pageWithChildren).y - heightGr / 2.0
+          x: popupCenter.x - widthGr / 2.0,
+          y: popupCenter.y - heightGr / 2.0
         };
 
         const itemGeometry = ItemFns.calcGeometry_Spatial(li,
           zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
           PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren),
           false, true, true,
-          PageFns.popupPositioningHasChanged(displayItem_pageWithChildren),
+          PageFns.popupPositioningHasChanged(displayItem_pageWithChildren, popupPage),
           false,
           store.smallScreenMode());
 

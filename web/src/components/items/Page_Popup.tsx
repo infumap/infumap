@@ -335,7 +335,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   };
 
   const renderAnchorMaybe = () =>
-    <Show when={PageFns.popupPositioningHasChanged(pageFns().parentPage())}>
+    <Show when={PageFns.popupPositioningHasChanged(pageFns().parentPage(), pageFns().pageItem())}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-900`}
             style={`left: ${1 + pageFns().boundsPx().x + pageFns().boundsPx().w - ANCHOR_BOX_SIZE_PX * titleScale() - ANCHOR_OFFSET_PX * titleScale()}px; ` +
                    `top: ${1 + pageFns().boundsPx().y + ANCHOR_OFFSET_PX * titleScale() / 3 * 2 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +

@@ -74,6 +74,8 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   calendarDayRowHeightBl: number;
   defaultPopupPositionGr: Vector;
   defaultPopupWidthGr: number;
+  popupPositionGr: Vector | null;
+  popupWidthGr: number | null;
 
   pendingPopupPositionGr: Vector | null;
   pendingPopupWidthGr: number | null;
@@ -136,6 +138,8 @@ export const PageFns = {
       arrangeAlgorithm: ArrangeAlgorithm.SpatialStretch,
       defaultPopupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
       defaultPopupWidthGr: 10.0 * GRID_SIZE,
+      popupPositionGr: null,
+      popupWidthGr: null,
       gridNumberOfColumns: 6,
       gridCellAspect: 1.5,
       docWidthBl: 36,
@@ -188,6 +192,8 @@ export const PageFns = {
       arrangeAlgorithm: o.arrangeAlgorithm,
       defaultPopupPositionGr: o.defaultPopupPositionGr,
       defaultPopupWidthGr: o.defaultPopupWidthGr,
+      popupPositionGr: o.popupPositionGr ?? null,
+      popupWidthGr: o.popupWidthGr ?? null,
       gridNumberOfColumns: o.gridNumberOfColumns,
       gridCellAspect: o.gridCellAspect,
       docWidthBl: o.docWidthBl,
@@ -236,6 +242,8 @@ export const PageFns = {
       arrangeAlgorithm: p.arrangeAlgorithm,
       defaultPopupPositionGr: p.defaultPopupPositionGr,
       defaultPopupWidthGr: p.defaultPopupWidthGr,
+      popupPositionGr: p.popupPositionGr,
+      popupWidthGr: p.popupWidthGr,
       gridNumberOfColumns: p.gridNumberOfColumns,
       gridCellAspect: p.gridCellAspect,
       docWidthBl: p.docWidthBl,
@@ -249,6 +257,8 @@ export const PageFns = {
 
       tableColumns: p.tableColumns,
       numberOfVisibleColumns: p.numberOfVisibleColumns,
+      popupPositionGr: p.popupPositionGr ?? undefined,
+      popupWidthGr: p.popupWidthGr ?? undefined,
     });
   },
 
@@ -678,14 +688,16 @@ export const PageFns = {
   },
 
   handleAnchorClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    const popupParentPage = asPageItem(itemState.get(VesCache.get(visualElement.parentPath!)!.get().displayItem.id)!);
-    if (popupParentPage.pendingPopupPositionGr != null) {
-      popupParentPage.defaultPopupPositionGr = popupParentPage.pendingPopupPositionGr!;
+    const popupPage = asPageItem(visualElement.displayItem);
+    if (popupPage.pendingPopupPositionGr != null) {
+      popupPage.popupPositionGr = popupPage.pendingPopupPositionGr!;
+      popupPage.pendingPopupPositionGr = null;
     }
-    if (popupParentPage.pendingPopupWidthGr != null) {
-      popupParentPage.defaultPopupWidthGr = popupParentPage.pendingPopupWidthGr;
+    if (popupPage.pendingPopupWidthGr != null) {
+      popupPage.popupWidthGr = popupPage.pendingPopupWidthGr;
+      popupPage.pendingPopupWidthGr = null;
     }
-    serverOrRemote.updateItem(popupParentPage, store.general.networkStatus);
+    serverOrRemote.updateItem(popupPage, store.general.networkStatus);
     fullArrange(store);
   },
 
@@ -762,6 +774,9 @@ export const PageFns = {
     if (pageItem.pendingPopupPositionGr != null) {
       return pageItem.pendingPopupPositionGr;
     }
+    if (pageItem.popupPositionGr != null) {
+      return pageItem.popupPositionGr;
+    }
     return pageItem.defaultPopupPositionGr;
   },
 
@@ -769,19 +784,45 @@ export const PageFns = {
     if (pageItem.pendingPopupWidthGr != null) {
       return pageItem.pendingPopupWidthGr;
     }
+    if (pageItem.popupWidthGr != null) {
+      return pageItem.popupWidthGr;
+    }
     return pageItem.defaultPopupWidthGr;
   },
 
-  popupPositioningHasChanged: (pageItem: PageItem | null): boolean => {
-    if (pageItem == null) { return false; }
-    if (pageItem.pendingPopupPositionGr != null) {
-      if (pageItem.pendingPopupPositionGr!.x != pageItem.defaultPopupPositionGr.x ||
-          pageItem.pendingPopupPositionGr!.y != pageItem.defaultPopupPositionGr.y) {
+  getPopupPositionGrForParent: (parentPage: PageItem, childPage: PageItem): Vector => {
+    if (childPage.pendingPopupPositionGr != null) {
+      return childPage.pendingPopupPositionGr;
+    }
+    if (childPage.popupPositionGr != null) {
+      return childPage.popupPositionGr;
+    }
+    return parentPage.defaultPopupPositionGr;
+  },
+
+  getPopupWidthGrForParent: (parentPage: PageItem, childPage: PageItem): number => {
+    if (childPage.pendingPopupWidthGr != null) {
+      return childPage.pendingPopupWidthGr;
+    }
+    if (childPage.popupWidthGr != null) {
+      return childPage.popupWidthGr;
+    }
+    return parentPage.defaultPopupWidthGr;
+  },
+
+  popupPositioningHasChanged: (parentPage: PageItem | null, childPage?: PageItem | null): boolean => {
+    if (parentPage == null) { return false; }
+    if (childPage == null) { return false; }
+    if (childPage.pendingPopupPositionGr != null) {
+      const anchorPos = childPage.popupPositionGr ?? parentPage.defaultPopupPositionGr;
+      if (childPage.pendingPopupPositionGr!.x != anchorPos.x ||
+          childPage.pendingPopupPositionGr!.y != anchorPos.y) {
         return true;
       }
     }
-    if (pageItem.pendingPopupWidthGr != null) {
-      if (pageItem.pendingPopupWidthGr != pageItem.defaultPopupWidthGr) {
+    if (childPage.pendingPopupWidthGr != null) {
+      const anchorWidth = childPage.popupWidthGr ?? parentPage.defaultPopupWidthGr;
+      if (childPage.pendingPopupWidthGr != anchorWidth) {
         return true;
       }
     }

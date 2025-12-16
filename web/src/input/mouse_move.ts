@@ -250,8 +250,11 @@ function changeMouseActionStateMaybe(
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       store.anItemIsMoving.set(true);
       MouseActionState.get().action = MouseAction.MovingPopup;
-      const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get().displayItem;
-      const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));
+      const popupVe = activeVisualElement;
+      const popupItem = asPageItem(popupVe.displayItem);
+      const parentVe = VesCache.get(popupVe.parentPath!)!.get();
+      const parentPage = asPageItem(parentVe.displayItem);
+      const popupPositionGr = PageFns.getPopupPositionGrForParent(parentPage, popupItem);
       MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
     } else {
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
@@ -621,11 +624,12 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
     x: (MouseActionState.get().startPosBl!.x + deltaBl.x) * GRID_SIZE,
     y: (MouseActionState.get().startPosBl!.y + deltaBl.y) * GRID_SIZE
   };
-  const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
+  const popupVe = MouseActionState.getActiveVisualElementSignal()!.get();
+  const popupItem = asPageItem(popupVe.displayItem);
 
-  if (asPageItem(activeRoot.displayItem).pendingPopupPositionGr == null ||
-      compareVector(newPositionGr, asPageItem(activeRoot.displayItem).pendingPopupPositionGr!) != 0) {
-    asPageItem(activeRoot.displayItem).pendingPopupPositionGr = newPositionGr;
+  if (popupItem.pendingPopupPositionGr == null ||
+      compareVector(newPositionGr, popupItem.pendingPopupPositionGr!) != 0) {
+    popupItem.pendingPopupPositionGr = newPositionGr;
     fullArrange(store);
   }
 }

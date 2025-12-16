@@ -324,12 +324,12 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 42] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 44] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "dateTime", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
   "naturalAspect", "backgroundColorIndex", "defaultPopupPositionGr",
-  "defaultPopupWidthGr", "arrangeAlgorithm",
+  "defaultPopupWidthGr", "popupPositionGr", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "ratingType", "tableColumns",
   "linkTo", "gridNumberOfColumns", "orderChildrenBy", "text",
@@ -404,6 +404,8 @@ pub struct Item {
   pub arrange_algorithm: Option<ArrangeAlgorithm>,
   pub default_popup_position_gr: Option<Vector<i64>>,
   pub default_popup_width_gr: Option<i64>,
+  pub popup_position_gr: Option<Vector<i64>>,
+  pub popup_width_gr: Option<i64>,
   pub grid_number_of_columns: Option<i64>,
   pub grid_cell_aspect: Option<f64>,
   pub doc_width_bl: Option<i64>,
@@ -467,6 +469,8 @@ impl Clone for Item {
       arrange_algorithm: self.arrange_algorithm.clone(),
       default_popup_position_gr: self.default_popup_position_gr.clone(),
       default_popup_width_gr: self.default_popup_width_gr.clone(),
+      popup_position_gr: self.popup_position_gr.clone(),
+      popup_width_gr: self.popup_width_gr.clone(),
       grid_number_of_columns: self.grid_number_of_columns.clone(),
       grid_cell_aspect: self.grid_cell_aspect.clone(),
       doc_width_bl: self.doc_width_bl.clone(),
@@ -688,6 +692,28 @@ impl JsonLogSerializable<Item> for Item {
         if old.item_type != ItemType::Page { cannot_modify_err("defaultPopupWidthGr", &old.id)?; }
         result.insert(String::from("defaultPopupWidthGr"), Value::Number(new_default_popup_width_gr.into()));
       }
+    }
+    match (&old.popup_position_gr, &new.popup_position_gr) {
+      (Some(_), None) => {
+        if old.item_type != ItemType::Page { cannot_modify_err("popupPositionGr", &old.id)?; }
+        result.insert(String::from("popupPositionGr"), Value::Null);
+      },
+      (o, n @ Some(_)) if o != n => {
+        if old.item_type != ItemType::Page { cannot_modify_err("popupPositionGr", &old.id)?; }
+        result.insert(String::from("popupPositionGr"), json::vector_to_object(n.as_ref().unwrap()));
+      },
+      _ => {}
+    }
+    match (old.popup_width_gr, new.popup_width_gr) {
+      (Some(_), None) => {
+        if old.item_type != ItemType::Page { cannot_modify_err("popupWidthGr", &old.id)?; }
+        result.insert(String::from("popupWidthGr"), Value::Null);
+      },
+      (o, n @ Some(_)) if o != n => {
+        if old.item_type != ItemType::Page { cannot_modify_err("popupWidthGr", &old.id)?; }
+        result.insert(String::from("popupWidthGr"), Value::Number(n.unwrap().into()));
+      },
+      _ => {}
     }
     if let Some(grid_number_of_columns) = new.grid_number_of_columns {
       if match old.grid_number_of_columns { Some(o) => o != grid_number_of_columns, None => { true } } {
@@ -925,6 +951,24 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ItemType::Page { not_applicable_err("defaultPopupWidthGr", self.item_type, &self.id)?; }
       self.default_popup_width_gr = Some(v);
     }
+    if let Some(raw) = map.get("popupPositionGr") {
+      if self.item_type != ItemType::Page { not_applicable_err("popupPositionGr", self.item_type, &self.id)?; }
+      if raw.is_null() {
+        self.popup_position_gr = None;
+      } else {
+        let v = json::get_vector_field(map, "popupPositionGr")?;
+        self.popup_position_gr = v;
+      }
+    }
+    if let Some(raw) = map.get("popupWidthGr") {
+      if self.item_type != ItemType::Page { not_applicable_err("popupWidthGr", self.item_type, &self.id)?; }
+      if raw.is_null() {
+        self.popup_width_gr = None;
+      } else {
+        let v = json::get_integer_field(map, "popupWidthGr")?;
+        self.popup_width_gr = v;
+      }
+    }
     if let Some(v) = json::get_integer_field(map, "gridNumberOfColumns")? {
       if self.item_type != ItemType::Page { not_applicable_err("gridNumberOfColumns", self.item_type, &self.id)?; }
       self.grid_number_of_columns = Some(v);
@@ -1125,6 +1169,14 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(default_popup_width_gr) = item.default_popup_width_gr {
     if item.item_type != ItemType::Page { unexpected_field_err("defaultPopupWidthGr", &item.id, item.item_type)? }
     result.insert(String::from("defaultPopupWidthGr"), Value::Number(default_popup_width_gr.into()));
+  }
+  if let Some(popup_position_gr) = &item.popup_position_gr {
+    if item.item_type != ItemType::Page { unexpected_field_err("popupPositionGr", &item.id, item.item_type)? }
+    result.insert(String::from("popupPositionGr"), json::vector_to_object(&popup_position_gr));
+  }
+  if let Some(popup_width_gr) = item.popup_width_gr {
+    if item.item_type != ItemType::Page { unexpected_field_err("popupWidthGr", &item.id, item.item_type)? }
+    result.insert(String::from("popupWidthGr"), Value::Number(popup_width_gr.into()));
   }
   if let Some(grid_number_of_columns) = item.grid_number_of_columns {
     if item.item_type != ItemType::Page { unexpected_field_err("gridNumberOfColumns", &item.id, item.item_type)? }
@@ -1367,6 +1419,14 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("defaultPopupWidthGr", item_type, &id)) } },
       None => { if item_type == ItemType::Page { Err(expected_for_err("defaultPopupWidthGr", item_type, &id)) } else { Ok(None) } }
     }?,
+    popup_position_gr: match json::get_vector_field(map, "popupPositionGr")? {
+      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("popupPositionGr", item_type, &id)) } },
+      None => { Ok(None) }
+    }?,
+    popup_width_gr: match json::get_integer_field(map, "popupWidthGr")? {
+      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("popupWidthGr", item_type, &id)) } },
+      None => { Ok(None) }
+    }?,
     grid_number_of_columns: match json::get_integer_field(map, "gridNumberOfColumns")? {
       Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("gridNumberOfColumns", item_type, &id)) } },
       None => { if item_type == ItemType::Page { Err(expected_for_err("gridNumberOfColumns", item_type, &id)) } else { Ok(None) } }
@@ -1488,6 +1548,8 @@ impl Item {
       arrange_algorithm: None,
       default_popup_position_gr: None,
       default_popup_width_gr: None,
+      popup_position_gr: None,
+      popup_width_gr: None,
       grid_number_of_columns: None,
       grid_cell_aspect: None,
       doc_width_bl: None,
@@ -1542,6 +1604,8 @@ impl Item {
       arrange_algorithm: None,
       default_popup_position_gr: None,
       default_popup_width_gr: None,
+      popup_position_gr: None,
+      popup_width_gr: None,
       grid_number_of_columns: None,
       grid_cell_aspect: None,
       doc_width_bl: None,
@@ -1599,6 +1663,8 @@ impl Item {
       arrange_algorithm: None,
       default_popup_position_gr: None,
       default_popup_width_gr: None,
+      popup_position_gr: None,
+      popup_width_gr: None,
       grid_number_of_columns: None,
       grid_cell_aspect: None,
       doc_width_bl: None,
@@ -1647,6 +1713,8 @@ impl Item {
       arrange_algorithm: None,
       default_popup_position_gr: None,
       default_popup_width_gr: None,
+      popup_position_gr: None,
+      popup_width_gr: None,
       grid_number_of_columns: None,
       grid_cell_aspect: None,
       doc_width_bl: None,
@@ -1801,6 +1869,13 @@ impl Item {
       }
       if let Some(default_popup_width_gr) = self.default_popup_width_gr {
         hashes.push(hash_i64_to_uid(default_popup_width_gr));
+      }
+      if let Some(popup_position_gr) = &self.popup_position_gr {
+        let pos_str = format!("{},{}", popup_position_gr.x, popup_position_gr.y);
+        hashes.push(hash_string_to_uid(&pos_str));
+      }
+      if let Some(popup_width_gr) = self.popup_width_gr {
+        hashes.push(hash_i64_to_uid(popup_width_gr));
       }
       if let Some(grid_number_of_columns) = self.grid_number_of_columns {
         hashes.push(hash_i64_to_uid(grid_number_of_columns));
