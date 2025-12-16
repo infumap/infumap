@@ -72,8 +72,8 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   docWidthBl: number;
   justifiedRowAspect: number;
   calendarDayRowHeightBl: number;
-  popupPositionGr: Vector;
-  popupWidthGr: number;
+  defaultPopupPositionGr: Vector;
+  defaultPopupWidthGr: number;
 
   pendingPopupPositionGr: Vector | null;
   pendingPopupWidthGr: number | null;
@@ -134,8 +134,8 @@ export const PageFns = {
 
       innerSpatialWidthGr: 60.0 * GRID_SIZE,
       arrangeAlgorithm: ArrangeAlgorithm.SpatialStretch,
-      popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
-      popupWidthGr: 10.0 * GRID_SIZE,
+      defaultPopupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
+      defaultPopupWidthGr: 10.0 * GRID_SIZE,
       gridNumberOfColumns: 6,
       gridCellAspect: 1.5,
       docWidthBl: 36,
@@ -186,8 +186,8 @@ export const PageFns = {
 
       innerSpatialWidthGr: o.innerSpatialWidthGr,
       arrangeAlgorithm: o.arrangeAlgorithm,
-      popupPositionGr: o.popupPositionGr,
-      popupWidthGr: o.popupWidthGr,
+      defaultPopupPositionGr: o.defaultPopupPositionGr,
+      defaultPopupWidthGr: o.defaultPopupWidthGr,
       gridNumberOfColumns: o.gridNumberOfColumns,
       gridCellAspect: o.gridCellAspect,
       docWidthBl: o.docWidthBl,
@@ -234,8 +234,8 @@ export const PageFns = {
 
       innerSpatialWidthGr: p.innerSpatialWidthGr,
       arrangeAlgorithm: p.arrangeAlgorithm,
-      popupPositionGr: p.popupPositionGr,
-      popupWidthGr: p.popupWidthGr,
+      defaultPopupPositionGr: p.defaultPopupPositionGr,
+      defaultPopupWidthGr: p.defaultPopupWidthGr,
       gridNumberOfColumns: p.gridNumberOfColumns,
       gridCellAspect: p.gridCellAspect,
       docWidthBl: p.docWidthBl,
@@ -680,10 +680,10 @@ export const PageFns = {
   handleAnchorClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const popupParentPage = asPageItem(itemState.get(VesCache.get(visualElement.parentPath!)!.get().displayItem.id)!);
     if (popupParentPage.pendingPopupPositionGr != null) {
-      popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
+      popupParentPage.defaultPopupPositionGr = popupParentPage.pendingPopupPositionGr!;
     }
     if (popupParentPage.pendingPopupWidthGr != null) {
-      popupParentPage.popupWidthGr = popupParentPage.pendingPopupWidthGr;
+      popupParentPage.defaultPopupWidthGr = popupParentPage.pendingPopupWidthGr;
     }
     serverOrRemote.updateItem(popupParentPage, store.general.networkStatus);
     fullArrange(store);
@@ -762,26 +762,26 @@ export const PageFns = {
     if (pageItem.pendingPopupPositionGr != null) {
       return pageItem.pendingPopupPositionGr;
     }
-    return pageItem.popupPositionGr;
+    return pageItem.defaultPopupPositionGr;
   },
 
   getPopupWidthGr: (pageItem: PageItem): number => {
     if (pageItem.pendingPopupWidthGr != null) {
       return pageItem.pendingPopupWidthGr;
     }
-    return pageItem.popupWidthGr;
+    return pageItem.defaultPopupWidthGr;
   },
 
   popupPositioningHasChanged: (pageItem: PageItem | null): boolean => {
     if (pageItem == null) { return false; }
     if (pageItem.pendingPopupPositionGr != null) {
-      if (pageItem.pendingPopupPositionGr!.x != pageItem.popupPositionGr.x ||
-          pageItem.pendingPopupPositionGr!.y != pageItem.popupPositionGr.y) {
+      if (pageItem.pendingPopupPositionGr!.x != pageItem.defaultPopupPositionGr.x ||
+          pageItem.pendingPopupPositionGr!.y != pageItem.defaultPopupPositionGr.y) {
         return true;
       }
     }
     if (pageItem.pendingPopupWidthGr != null) {
-      if (pageItem.pendingPopupWidthGr != pageItem.popupWidthGr) {
+      if (pageItem.pendingPopupWidthGr != pageItem.defaultPopupWidthGr) {
         return true;
       }
     }

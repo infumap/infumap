@@ -149,7 +149,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     if (isPage(newItem)) {
       const page = asPageItem(newItem);
       asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
-      page.popupPositionGr = {
+      page.defaultPopupPositionGr = {
         x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
         y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.4 / GRID_SIZE) * GRID_SIZE
       };
@@ -157,7 +157,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       const parentInnerHeightGr = page.innerSpatialWidthGr / naturalAspect;
       const heightCandidate = Math.floor((parentInnerHeightGr / 2.0) / GRID_SIZE) * GRID_SIZE;
       const widthCandidate2Gr = Math.floor(heightCandidate * page.naturalAspect / GRID_SIZE) * GRID_SIZE;
-      asPageItem(newItem).popupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
+      asPageItem(newItem).defaultPopupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
     }
 
     itemState.add(newItem);

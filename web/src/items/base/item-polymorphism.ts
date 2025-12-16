@@ -489,12 +489,12 @@ export const ItemFns = {
       if (pageItem.arrangeAlgorithm) {
         hashes.push(hashStringToUid(pageItem.arrangeAlgorithm));
       }
-      if (pageItem.popupPositionGr) {
-        const posStr = `${pageItem.popupPositionGr.x},${pageItem.popupPositionGr.y}`;
+      if (pageItem.defaultPopupPositionGr) {
+        const posStr = `${pageItem.defaultPopupPositionGr.x},${pageItem.defaultPopupPositionGr.y}`;
         hashes.push(hashStringToUid(posStr));
       }
-      if (pageItem.popupWidthGr !== undefined) {
-        hashes.push(hashI64ToUid(pageItem.popupWidthGr));
+      if (pageItem.defaultPopupWidthGr !== undefined) {
+        hashes.push(hashI64ToUid(pageItem.defaultPopupWidthGr));
       }
       if (pageItem.gridNumberOfColumns !== undefined) {
         hashes.push(hashI64ToUid(pageItem.gridNumberOfColumns));

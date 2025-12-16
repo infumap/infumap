@@ -39,7 +39,7 @@ use crate::util::fs::{expand_tilde, path_exists};
 use super::user::User;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 26;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 27;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -1356,6 +1356,48 @@ pub fn migrate_record_v25_to_v26(kvs: &Map<String, Value>) -> InfuResult<Map<Str
     "update" => {
       let mut result = kvs.clone();
       result.remove("popupAlignmentPoint");
+      return Ok(result);
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+pub fn migrate_record_v26_to_v27(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 26);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "page" {
+        let pos = result.remove("popupPositionGr").ok_or("popupPositionGr field missing")?;
+        let existing = result.insert(String::from("defaultPopupPositionGr"), pos);
+        if existing.is_some() { return Err("defaultPopupPositionGr field already exists.".into()); }
+
+        let width = result.remove("popupWidthGr").ok_or("popupWidthGr field missing")?;
+        let existing = result.insert(String::from("defaultPopupWidthGr"), width);
+        if existing.is_some() { return Err("defaultPopupWidthGr field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      let mut result = kvs.clone();
+      if let Some(pos) = result.remove("popupPositionGr") {
+        result.insert(String::from("defaultPopupPositionGr"), pos);
+      }
+      if let Some(width) = result.remove("popupWidthGr") {
+        result.insert(String::from("defaultPopupWidthGr"), width);
+      }
       return Ok(result);
     },
 
