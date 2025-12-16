@@ -52,6 +52,15 @@ pub fn get_vector_field(map: &Map<String, Value>, field: &str) -> InfuResult<Opt
   }))
 }
 
+pub fn get_float_vector_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Vector<f64>>> {
+  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
+  let o = v.as_object().ok_or(format!("'{}' field was not of type 'object'.", field))?;
+  Ok(Some(Vector {
+    x: get_float_field(o, "x")?.ok_or("Vector field 'x' was missing.")?,
+    y: get_float_field(o, "y")?.ok_or("Vector field 'y' was missing.")?
+  }))
+}
+
 pub fn get_dimensions_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Dimensions<i64>>> {
   let v = match map.get(field) { None => return Ok(None), Some(s) => s };
   let o = v.as_object().ok_or(format!("'{}' field was not of type 'object'.", field))?;
@@ -79,6 +88,13 @@ pub fn vector_to_object(v: &Vector<i64>) -> Value {
   let mut vec: Map<String, Value> = Map::new();
   vec.insert(String::from("x"), Value::Number(v.x.into()));
   vec.insert(String::from("y"), Value::Number(v.y.into()));
+  Value::Object(vec)
+}
+
+pub fn float_vector_to_object(v: &Vector<f64>) -> Value {
+  let mut vec: Map<String, Value> = Map::new();
+  vec.insert(String::from("x"), Value::Number(serde_json::Number::from_f64(v.x).unwrap()));
+  vec.insert(String::from("y"), Value::Number(serde_json::Number::from_f64(v.y).unwrap()));
   Value::Object(vec)
 }
 

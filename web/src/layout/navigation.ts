@@ -105,6 +105,8 @@ export function navigateBack(store: StoreContextModel): boolean {
     const page = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
+    page.pendingCellPopupPositionNorm = null;
+    page.pendingCellPopupWidthNorm = null;
     if (store.history.currentPopupSpec() == null) {
       store.history.setFocus(store.history.currentPagePath()!);
     } else {

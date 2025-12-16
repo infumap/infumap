@@ -314,11 +314,19 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   if (hitVe.flags & VisualElementFlags.Popup) {
     let parent = VesCache.get(hitVe.parentPath!)!.get();
     let parentPage = asPageItem(parent.displayItem);
-    const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
-    onePxSizeBl = {
-      x: containerInnerDimBl.w / parent.childAreaBoundsPx!.w,
-      y: containerInnerDimBl.h / parent.childAreaBoundsPx!.h
-    };
+    if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
+      onePxSizeBl = {
+        x: containerInnerDimBl.w / parent.childAreaBoundsPx!.w,
+        y: containerInnerDimBl.h / parent.childAreaBoundsPx!.h
+      };
+    } else {
+      const desktopBoundsPx = store.desktopMainAreaBoundsPx();
+      onePxSizeBl = {
+        x: 1.0 / desktopBoundsPx.w,
+        y: 1.0 / desktopBoundsPx.h
+      };
+    }
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
       const compositeVe = HitInfoFns.getCompositeContainerVe(hitInfo)!;

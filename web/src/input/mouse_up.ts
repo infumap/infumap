@@ -80,6 +80,16 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
 
     case MouseAction.MovingPopup: {
+      if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
+        DoubleClickState.preventDoubleClick();
+        PageFns.handleAnchorChildClick(activeVisualElement, store);
+        break;
+      }
+      if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorDefault) {
+        DoubleClickState.preventDoubleClick();
+        PageFns.handleAnchorDefaultClick(activeVisualElement, store);
+        break;
+      }
       DoubleClickState.preventDoubleClick();
       break;
     }
@@ -162,7 +172,15 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       }
       }
 
-      if (isLink(activeVisualElement.displayItem) &&
+      if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
+        DoubleClickState.preventDoubleClick();
+        PageFns.handleAnchorChildClick(activeVisualElement, store);
+
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorDefault) {
+        DoubleClickState.preventDoubleClick();
+        PageFns.handleAnchorDefaultClick(activeVisualElement, store);
+
+      } else if (isLink(activeVisualElement.displayItem) &&
           asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin &&
           !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings)) {
         DoubleClickState.preventDoubleClick();
@@ -210,14 +228,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
             fullArrange(store);
           }, 750);
         }
-
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
-        DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorChildClick(activeVisualElement, store);
-
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorDefault) {
-        DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorDefaultClick(activeVisualElement, store);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Edit) {
         store.perVe.setFlipCardIsEditing(

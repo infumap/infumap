@@ -37,6 +37,18 @@ impl PartialEq for Vector<i64> {
   }
 }
 
+impl Clone for Vector<f64> {
+  fn clone(&self) -> Self {
+    Self { x: self.x.clone(), y: self.y.clone() }
+  }
+}
+
+impl PartialEq for Vector<f64> {
+  fn eq(&self, other: &Self) -> bool {
+    self.x == other.x && self.y == other.y
+  }
+}
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dimensions<T> {

@@ -67,20 +67,33 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   const desktopBoundsPx = store.desktopMainAreaBoundsPx();
 
   const popupItem = itemState.get(popupVeid.itemId);
+  const popupPage = popupItem && isPage(popupItem) ? asPageItem(popupItem) : null;
+
   if (popupItem && isPage(popupItem) && asPageItem(popupItem).arrangeAlgorithm === ArrangeAlgorithm.Calendar) {
     li.aspectOverride = desktopBoundsPx.w / desktopBoundsPx.h;
   }
 
+  const positionNorm = popupPage
+    ? PageFns.getCellPopupPositionNormForParent(currentPage, popupPage)
+    : currentPage.defaultCellPopupPositionNorm;
+  const widthNorm = popupPage
+    ? PageFns.getCellPopupWidthNormForParent(currentPage, popupPage)
+    : currentPage.defaultCellPopupWidthNorm;
+
+  const popupWidthPx = desktopBoundsPx.w * widthNorm;
+  const popupAspect = popupPage ? popupPage.naturalAspect : (li.aspectOverride ?? 2.0);
+  const popupHeightPx = popupWidthPx / popupAspect;
+
   const cellBoundsPx = {
-    x: desktopBoundsPx.w * 0.1,
-    y: desktopBoundsPx.h * 0.07,
-    w: desktopBoundsPx.w * 0.8,
-    h: desktopBoundsPx.h * 0.8,
+    x: desktopBoundsPx.w * positionNorm.x - popupWidthPx / 2.0,
+    y: desktopBoundsPx.h * positionNorm.y - popupHeightPx / 2.0,
+    w: popupWidthPx,
+    h: popupHeightPx,
   };
-  const popupPage = popupItem && isPage(popupItem) ? asPageItem(popupItem) : null;
-  const hasChildChanges = PageFns.childPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
-  const hasDefaultChanges = PageFns.defaultPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
-  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, hasChildChanges, hasDefaultChanges, false, false, store.smallScreenMode());
+
+  const hasChildChanges = PageFns.childCellPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
+  const hasDefaultChanges = PageFns.defaultCellPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
+  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, hasChildChanges, hasDefaultChanges, true, false, store.smallScreenMode());
   if (renderAsFixed) {
     geometry.boundsPx.x += store.getCurrentDockWidthPx();
     if (geometry.viewportBoundsPx != null) {

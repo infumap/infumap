@@ -79,6 +79,13 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
 
   pendingPopupPositionGr: Vector | null;
   pendingPopupWidthGr: number | null;
+
+  defaultCellPopupPositionNorm: Vector;
+  defaultCellPopupWidthNorm: number;
+  cellPopupPositionNorm: Vector | null;
+  cellPopupWidthNorm: number | null;
+  pendingCellPopupPositionNorm: Vector | null;
+  pendingCellPopupWidthNorm: number | null;
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin, AspectMixin {
@@ -163,6 +170,13 @@ export const PageFns = {
 
       pendingPopupPositionGr: null,
       pendingPopupWidthGr: null,
+
+      defaultCellPopupPositionNorm: { x: 0.5, y: 0.5 },
+      defaultCellPopupWidthNorm: 0.6,
+      cellPopupPositionNorm: null,
+      cellPopupWidthNorm: null,
+      pendingCellPopupPositionNorm: null,
+      pendingCellPopupWidthNorm: null,
     });
   },
 
@@ -215,6 +229,13 @@ export const PageFns = {
 
       pendingPopupPositionGr: null,
       pendingPopupWidthGr: null,
+
+      defaultCellPopupPositionNorm: o.defaultCellPopupPositionNorm ?? { x: 0.5, y: 0.5 },
+      defaultCellPopupWidthNorm: o.defaultCellPopupWidthNorm ?? 0.6,
+      cellPopupPositionNorm: o.cellPopupPositionNorm ?? null,
+      cellPopupWidthNorm: o.cellPopupWidthNorm ?? null,
+      pendingCellPopupPositionNorm: null,
+      pendingCellPopupWidthNorm: null,
     });
   },
 
@@ -257,6 +278,10 @@ export const PageFns = {
       numberOfVisibleColumns: p.numberOfVisibleColumns,
       popupPositionGr: p.popupPositionGr ?? undefined,
       popupWidthGr: p.popupWidthGr ?? undefined,
+      defaultCellPopupPositionNorm: p.defaultCellPopupPositionNorm,
+      defaultCellPopupWidthNorm: p.defaultCellPopupWidthNorm,
+      cellPopupPositionNorm: p.cellPopupPositionNorm ?? undefined,
+      cellPopupWidthNorm: p.cellPopupWidthNorm ?? undefined,
     });
   },
 
@@ -475,29 +500,75 @@ export const PageFns = {
 
     const blockSizePx = cloneDimensions(NATURAL_BLOCK_SIZE_PX)!;
 
-    const hitboxes = [
-      HitboxFns.create(HitboxFlags.Move | HitboxFlags.ContentEditable | HitboxFlags.Click, { x: 0, y: 0, h: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, w: innerBoundsPx.w }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-    ];
+    const hitboxes: Array<{ type: HitboxFlags, boundsPx: BoundingBox, meta: HitboxMeta | null }> = [];
 
-    if (!parentIsDock) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
-      hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
-    }
+    if (isPopup) {
+      const scale = blockSizePx.h / LINE_HEIGHT_PX * headerHeightBl;
+      let anchorRightOffset = ANCHOR_OFFSET_PX * scale;
 
-    if (parentIsDock) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.VerticalResize, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
-    }
+      hitboxes.push(
+        HitboxFns.create(HitboxFlags.Move | HitboxFlags.ContentEditable | HitboxFlags.Click, { x: 0, y: 0, h: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, w: innerBoundsPx.w })
+      );
+      hitboxes.push(
+        HitboxFns.create(HitboxFlags.Move, { x: 0, y: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+        HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX })
+      );
 
-    let anchorRightOffset = RESIZE_BOX_SIZE_PX;
-    if (hasChildChanges) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - anchorRightOffset, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
-      anchorRightOffset += ANCHOR_BOX_SIZE_PX;
-    }
-    if (hasDefaultChanges) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - anchorRightOffset, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
+      if (!parentIsDock) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
+        hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
+      }
+
+      if (parentIsDock) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.VerticalResize, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
+      }
+
+      if (hasChildChanges) {
+        const anchorChildBoundsPx = {
+          x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - anchorRightOffset,
+          y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
+          w: ANCHOR_BOX_SIZE_PX * scale,
+          h: ANCHOR_BOX_SIZE_PX * scale
+        };
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
+        anchorRightOffset += ANCHOR_BOX_SIZE_PX * scale + ANCHOR_OFFSET_PX * scale;
+      }
+      if (hasDefaultChanges) {
+        const anchorDefaultBoundsPx = {
+          x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - anchorRightOffset,
+          y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
+          w: ANCHOR_BOX_SIZE_PX * scale,
+          h: ANCHOR_BOX_SIZE_PX * scale
+        };
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, anchorDefaultBoundsPx));
+      }
+    } else {
+      hitboxes.push(
+        HitboxFns.create(HitboxFlags.Move | HitboxFlags.ContentEditable | HitboxFlags.Click, { x: 0, y: 0, h: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, w: innerBoundsPx.w })
+      );
+      hitboxes.push(
+        HitboxFns.create(HitboxFlags.Move, { x: 0, y: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+        HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX })
+      );
+
+      if (!parentIsDock) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
+        hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
+      }
+
+      if (parentIsDock) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.VerticalResize, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
+      }
+      let anchorRightOffset = RESIZE_BOX_SIZE_PX;
+      if (hasChildChanges) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - anchorRightOffset, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
+        anchorRightOffset += ANCHOR_BOX_SIZE_PX;
+      }
+      if (hasDefaultChanges) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - anchorRightOffset, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
+      }
     }
 
     const result = {
@@ -705,13 +776,28 @@ export const PageFns = {
 
   handleAnchorChildClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const popupPage = asPageItem(visualElement.displayItem);
-    if (popupPage.pendingPopupPositionGr != null) {
-      popupPage.popupPositionGr = popupPage.pendingPopupPositionGr!;
-      popupPage.pendingPopupPositionGr = null;
-    }
-    if (popupPage.pendingPopupWidthGr != null) {
-      popupPage.popupWidthGr = popupPage.pendingPopupWidthGr;
-      popupPage.pendingPopupWidthGr = null;
+    const parentId = popupPage.parentId;
+    const parentPage = itemState.get(parentId);
+    const isCellPopup = parentPage && isPage(parentPage) && asPageItem(parentPage).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch;
+
+    if (isCellPopup) {
+      if (popupPage.pendingCellPopupPositionNorm != null) {
+        popupPage.cellPopupPositionNorm = popupPage.pendingCellPopupPositionNorm!;
+        popupPage.pendingCellPopupPositionNorm = null;
+      }
+      if (popupPage.pendingCellPopupWidthNorm != null) {
+        popupPage.cellPopupWidthNorm = popupPage.pendingCellPopupWidthNorm;
+        popupPage.pendingCellPopupWidthNorm = null;
+      }
+    } else {
+      if (popupPage.pendingPopupPositionGr != null) {
+        popupPage.popupPositionGr = popupPage.pendingPopupPositionGr!;
+        popupPage.pendingPopupPositionGr = null;
+      }
+      if (popupPage.pendingPopupWidthGr != null) {
+        popupPage.popupWidthGr = popupPage.pendingPopupWidthGr;
+        popupPage.pendingPopupWidthGr = null;
+      }
     }
     serverOrRemote.updateItem(popupPage, store.general.networkStatus);
     fullArrange(store);
@@ -719,30 +805,63 @@ export const PageFns = {
 
   handleAnchorDefaultClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const popupPage = asPageItem(visualElement.displayItem);
-    const parentId = popupPage.parentId;
+    const parentId = visualElement.parentPath ? VeFns.itemIdFromPath(visualElement.parentPath) : popupPage.parentId;
     const parentPage = itemState.get(parentId);
     if (!parentPage || !isPage(parentPage)) { return; }
     const parentPageItem = asPageItem(parentPage);
 
-    const currentPos = popupPage.pendingPopupPositionGr ?? popupPage.popupPositionGr ?? parentPageItem.defaultPopupPositionGr;
-    const currentWidth = popupPage.pendingPopupWidthGr ?? popupPage.popupWidthGr ?? parentPageItem.defaultPopupWidthGr;
+    const isCellPopup = parentPageItem.arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch;
 
-    parentPageItem.defaultPopupPositionGr = { x: currentPos.x, y: currentPos.y };
-    parentPageItem.defaultPopupWidthGr = currentWidth;
+    if (isCellPopup) {
+      const currentPos = popupPage.pendingCellPopupPositionNorm ?? popupPage.cellPopupPositionNorm ?? parentPageItem.defaultCellPopupPositionNorm;
+      const currentWidth = popupPage.pendingCellPopupWidthNorm ?? popupPage.cellPopupWidthNorm ?? parentPageItem.defaultCellPopupWidthNorm;
 
-    popupPage.pendingPopupPositionGr = null;
-    popupPage.pendingPopupWidthGr = null;
+      parentPageItem.defaultCellPopupPositionNorm = { x: currentPos.x, y: currentPos.y };
+      parentPageItem.defaultCellPopupWidthNorm = currentWidth;
 
-    for (const childId of parentPageItem.computed_children) {
-      const child = itemState.get(childId);
-      if (child && isPage(child)) {
-        const childPage = asPageItem(child);
-        if (childPage.popupPositionGr != null || childPage.popupWidthGr != null) {
-          childPage.popupPositionGr = null;
-          childPage.popupWidthGr = null;
-          childPage.pendingPopupPositionGr = null;
-          childPage.pendingPopupWidthGr = null;
-          serverOrRemote.updateItem(childPage, store.general.networkStatus);
+      popupPage.pendingCellPopupPositionNorm = null;
+      popupPage.pendingCellPopupWidthNorm = null;
+      
+      if (popupPage.cellPopupPositionNorm != null || popupPage.cellPopupWidthNorm != null) {
+        popupPage.cellPopupPositionNorm = null;
+        popupPage.cellPopupWidthNorm = null;
+        serverOrRemote.updateItem(popupPage, store.general.networkStatus);
+      }
+
+      for (const childId of parentPageItem.computed_children) {
+        const child = itemState.get(childId);
+        if (child && isPage(child)) {
+          const childPage = asPageItem(child);
+          if (childPage.cellPopupPositionNorm != null || childPage.cellPopupWidthNorm != null) {
+            childPage.cellPopupPositionNorm = null;
+            childPage.cellPopupWidthNorm = null;
+            childPage.pendingCellPopupPositionNorm = null;
+            childPage.pendingCellPopupWidthNorm = null;
+            serverOrRemote.updateItem(childPage, store.general.networkStatus);
+          }
+        }
+      }
+    } else {
+      const currentPos = popupPage.pendingPopupPositionGr ?? popupPage.popupPositionGr ?? parentPageItem.defaultPopupPositionGr;
+      const currentWidth = popupPage.pendingPopupWidthGr ?? popupPage.popupWidthGr ?? parentPageItem.defaultPopupWidthGr;
+
+      parentPageItem.defaultPopupPositionGr = { x: currentPos.x, y: currentPos.y };
+      parentPageItem.defaultPopupWidthGr = currentWidth;
+
+      popupPage.pendingPopupPositionGr = null;
+      popupPage.pendingPopupWidthGr = null;
+
+      for (const childId of parentPageItem.computed_children) {
+        const child = itemState.get(childId);
+        if (child && isPage(child)) {
+          const childPage = asPageItem(child);
+          if (childPage.popupPositionGr != null || childPage.popupWidthGr != null) {
+            childPage.popupPositionGr = null;
+            childPage.popupWidthGr = null;
+            childPage.pendingPopupPositionGr = null;
+            childPage.pendingPopupWidthGr = null;
+            serverOrRemote.updateItem(childPage, store.general.networkStatus);
+          }
         }
       }
     }
@@ -894,6 +1013,60 @@ export const PageFns = {
     return false;
   },
 
+  getCellPopupPositionNormForParent: (parentPage: PageItem, childPage: PageItem): Vector => {
+    if (childPage.pendingCellPopupPositionNorm != null) {
+      return childPage.pendingCellPopupPositionNorm;
+    }
+    if (childPage.cellPopupPositionNorm != null) {
+      return childPage.cellPopupPositionNorm;
+    }
+    return parentPage.defaultCellPopupPositionNorm;
+  },
+
+  getCellPopupWidthNormForParent: (parentPage: PageItem, childPage: PageItem): number => {
+    if (childPage.pendingCellPopupWidthNorm != null) {
+      return childPage.pendingCellPopupWidthNorm;
+    }
+    if (childPage.cellPopupWidthNorm != null) {
+      return childPage.cellPopupWidthNorm;
+    }
+    return parentPage.defaultCellPopupWidthNorm;
+  },
+
+  childCellPopupPositioningHasChanged: (parentPage: PageItem | null, childPage?: PageItem | null): boolean => {
+    if (parentPage == null) { return false; }
+    if (childPage == null) { return false; }
+    if (childPage.pendingCellPopupPositionNorm != null) {
+      const anchorPos = childPage.cellPopupPositionNorm ?? parentPage.defaultCellPopupPositionNorm;
+      if (childPage.pendingCellPopupPositionNorm!.x != anchorPos.x ||
+          childPage.pendingCellPopupPositionNorm!.y != anchorPos.y) {
+        return true;
+      }
+    }
+    if (childPage.pendingCellPopupWidthNorm != null) {
+      const anchorWidth = childPage.cellPopupWidthNorm ?? parentPage.defaultCellPopupWidthNorm;
+      if (childPage.pendingCellPopupWidthNorm != anchorWidth) {
+        return true;
+      }
+    }
+    return false;
+  },
+
+  defaultCellPopupPositioningHasChanged: (parentPage: PageItem | null, childPage?: PageItem | null): boolean => {
+    if (parentPage == null) { return false; }
+    if (childPage == null) { return false; }
+    const currentPos = childPage.pendingCellPopupPositionNorm ?? childPage.cellPopupPositionNorm ?? parentPage.defaultCellPopupPositionNorm;
+    const currentWidth = childPage.pendingCellPopupWidthNorm ?? childPage.cellPopupWidthNorm ?? parentPage.defaultCellPopupWidthNorm;
+    if (currentPos.x != parentPage.defaultCellPopupPositionNorm.x ||
+        currentPos.y != parentPage.defaultCellPopupPositionNorm.y) {
+      return true;
+    }
+    if (currentWidth != parentPage.defaultCellPopupWidthNorm) {
+      return true;
+    }
+    return false;
+  },
+
   getFingerprint: (pageItem: PageItem): string => {
     return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm + "~~!@#~~~" + pageItem.flags + "~~!@#~~~" + pageItem.permissionFlags;
   },
@@ -944,6 +1117,8 @@ const soloItemHolderPage = () => {
   result.childrenLoaded = true;
   result.pendingPopupPositionGr = null;
   result.pendingPopupWidthGr = null;
+  result.pendingCellPopupPositionNorm = null;
+  result.pendingCellPopupWidthNorm = null;
 
   return result;
 }
