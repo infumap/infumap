@@ -171,7 +171,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   }
 
   const renderText = () =>
-    <div class="absolute overflow-hidden"
+    <div class="absolute overflow-hidden whitespace-nowrap"
          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; ` +
                 `top: ${boundsPx().y}px; ` +
                 `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; ` +

@@ -120,7 +120,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
 
   const renderText = () =>
     <div id={props.visualElement.displayItem.id}
-         class="absolute overflow-hidden"
+         class="absolute overflow-hidden whitespace-nowrap"
          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
