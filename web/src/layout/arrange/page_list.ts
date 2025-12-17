@@ -46,13 +46,13 @@ import { getVePropertiesForItem } from "./util";
 
 
 export function arrange_list_page(
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_pageWithChildren: PageItem,
-    linkItemMaybe_pageWithChildren: LinkItem | null,
-    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
-    geometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSpec {
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_pageWithChildren: PageItem,
+  linkItemMaybe_pageWithChildren: LinkItem | null,
+  actualLinkItemMaybe_pageWithChildren: LinkItem | null,
+  geometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementSpec {
 
   if (flags & ArrangeItemFlags.IsDockRoot) {
     return arrange_dock_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
@@ -68,7 +68,7 @@ export function arrange_list_page(
   const pages = store.topTitledPages.get();
   let isFocusPage = false;
   let pageIdx = -1;
-  for (let i=0; i<pages.length; ++i) {
+  for (let i = 0; i < pages.length; ++i) {
     const veid = VeFns.veidFromPath(pages[i]);
     if (veid.itemId == pageWithChildrenVeid.itemId && veid.linkIdMaybe == pageWithChildrenVeid.linkIdMaybe) {
       pageIdx = i;
@@ -80,7 +80,7 @@ export function arrange_list_page(
 
   let focusedChildItemMaybe = null;
   if (pageIdx >= 0) {
-    for (let i=0; i<pages.length; ++i) {
+    for (let i = 0; i < pages.length; ++i) {
       const veid = VeFns.veidFromPath(pages[i]);
       if (veid.itemId == focusVeid.itemId && veid.linkIdMaybe == focusVeid.linkIdMaybe) {
         if (i == pageIdx + 1) {
@@ -108,19 +108,19 @@ export function arrange_list_page(
     const sel = store.overlay.selectedVeids.get();
     if (!sel || sel.length === 0) { return false; }
     const veid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
-    for (let i=0; i<sel.length; ++i) {
+    for (let i = 0; i < sel.length; ++i) {
       if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
     }
     return false;
   })();
 
   let resizeBoundsPx = {
-    x: listWidthBl * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
+    x: listWidthBl * LINE_HEIGHT_PX * scale - RESIZE_BOX_SIZE_PX,
     y: 0,
     w: RESIZE_BOX_SIZE_PX,
-    h: store.desktopMainAreaBoundsPx().h
+    h: geometry.viewportBoundsPx!.h
   }
-  if (isFull) {
+  if (isFull || parentIsPopup) {
     hitboxes.push(HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx));
   }
 
@@ -160,15 +160,15 @@ export function arrange_list_page(
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
     focusedChildItemMaybe,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
-           (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
-           (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
+      (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
+      (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+      (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
@@ -186,7 +186,7 @@ export function arrange_list_page(
 
   let skippedCount = 0;
   let listVeChildren: Array<VisualElementSignal> = [];
-  for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
+  for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
     const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
@@ -223,10 +223,10 @@ export function arrange_list_page(
       linkItemMaybe,
       actualLinkItemMaybe: linkItemMaybe,
       flags: VisualElementFlags.LineItem |
-             (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
-                ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
-                : VisualElementFlags.None) |
-             (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+        (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
+          ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
+          : VisualElementFlags.None) |
+        (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,
@@ -316,12 +316,12 @@ export function arrange_list_page(
 export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
 export function arrangeSelectedListItem(
-    store: StoreContextModel,
-    veid: Veid,
-    boundsPx: BoundingBox,
-    currentPath: VisualElementPath,
-    canShiftLeft: boolean,
-    isRoot: boolean): VisualElementSignal | null {
+  store: StoreContextModel,
+  veid: Veid,
+  boundsPx: BoundingBox,
+  currentPath: VisualElementPath,
+  canShiftLeft: boolean,
+  isRoot: boolean): VisualElementSignal | null {
 
   const item = itemState.get(veid.itemId)!;
   const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : asLinkItem(itemState.get(veid.linkIdMaybe)!);
@@ -372,13 +372,13 @@ export function arrangeSelectedListItem(
 
 
 export function arrange_dock_list_page(
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_pageWithChildren: PageItem,
-    linkItemMaybe_pageWithChildren: LinkItem | null,
-    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
-    geometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSpec {
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_pageWithChildren: PageItem,
+  linkItemMaybe_pageWithChildren: LinkItem | null,
+  actualLinkItemMaybe_pageWithChildren: LinkItem | null,
+  geometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementSpec {
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
@@ -392,11 +392,11 @@ export function arrange_dock_list_page(
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-            (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
-            VisualElementFlags.EmbeddedInteractiveRoot |
-            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
+      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
+      VisualElementFlags.EmbeddedInteractiveRoot |
+      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
@@ -409,7 +409,7 @@ export function arrange_dock_list_page(
 
 
   let listVeChildren: Array<VisualElementSignal> = [];
-  for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
+  for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
     const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
@@ -431,7 +431,7 @@ export function arrange_dock_list_page(
       linkItemMaybe,
       actualLinkItemMaybe: linkItemMaybe,
       flags: VisualElementFlags.LineItem |
-             (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+        (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,

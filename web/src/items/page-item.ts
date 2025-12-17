@@ -134,7 +134,7 @@ export const PageFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      
+
 
       spatialWidthGr: 4.0 * GRID_SIZE,
 
@@ -195,7 +195,7 @@ export const PageFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-      
+
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -252,7 +252,7 @@ export const PageFns = {
       ordering: Array.from(p.ordering),
       title: p.title,
       spatialPositionGr: p.spatialPositionGr,
-      
+
 
       spatialWidthGr: p.spatialWidthGr,
 
@@ -319,9 +319,9 @@ export const PageFns = {
   },
 
   calcGeometry_Spatial: (
-      page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
-      parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean,
-      hasChildChanges: boolean, hasDefaultChanges: boolean, smallScreenMode: boolean): ItemGeometry => {
+    page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
+    parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean,
+    hasChildChanges: boolean, hasDefaultChanges: boolean, smallScreenMode: boolean): ItemGeometry => {
 
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const blockSizePx = {
@@ -339,8 +339,10 @@ export const PageFns = {
       const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
       const popupClickBoundsPx = parentIsPopup
         ? cloneBoundingBox(innerBoundsPx)!
-        : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-            w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+        : {
+          x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+          w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0
+        };
       const result = ({
         boundsPx,
         blockSizePx,
@@ -414,11 +416,11 @@ export const PageFns = {
   },
 
   calcGeometry_InCell: (
-      page: PageMeasurable, cellBoundsPx: BoundingBox,
-      expandable: boolean, parentIsPopup: boolean,
-      parentIsDock: boolean, isPopup: boolean,
-      hasChildChanges: boolean, hasDefaultChanges: boolean,
-      ignoreCellHeight: boolean, smallScreenMode: boolean): ItemGeometry => {
+    page: PageMeasurable, cellBoundsPx: BoundingBox,
+    expandable: boolean, parentIsPopup: boolean,
+    parentIsDock: boolean, isPopup: boolean,
+    hasChildChanges: boolean, hasDefaultChanges: boolean,
+    ignoreCellHeight: boolean, smallScreenMode: boolean): ItemGeometry => {
 
     if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
       const sizeBl = PageFns.calcSpatialDimensionsBl(page);
@@ -453,8 +455,10 @@ export const PageFns = {
 
       const popupClickBoundsPx = parentIsPopup
         ? cloneBoundingBox(innerBoundsPx)!
-        : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-            w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+        : {
+          x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+          w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0
+        };
 
       const hitboxes = [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
@@ -588,9 +592,9 @@ export const PageFns = {
   },
 
   calcGeometry_InComposite: (
-      measurable: PageMeasurable, blockSizePx: Dimensions,
-      compositeWidthBl: number, leftMarginBl: number,
-      topPx: number, smallScreenMode: boolean): ItemGeometry => {
+    measurable: PageMeasurable, blockSizePx: Dimensions,
+    compositeWidthBl: number, leftMarginBl: number,
+    topPx: number, smallScreenMode: boolean): ItemGeometry => {
 
     let cloned = PageFns.asPageMeasurable(ItemFns.cloneMeasurableFields(measurable));
     if (cloned.spatialWidthGr > compositeWidthBl * GRID_SIZE) {
@@ -605,8 +609,10 @@ export const PageFns = {
     };
     let innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const popupClickBoundsPx =
-      { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-        w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+    {
+      x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+      w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0
+    };
     const moveBoundsPx = {
       x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
@@ -658,7 +664,7 @@ export const PageFns = {
           w: innerBoundsPx.w / 2,
           h: ATTACH_AREA_SIZE_PX,
         }),
-        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX , y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
       ]
     };
   },
@@ -754,8 +760,8 @@ export const PageFns = {
     // line item in list page.
     const parentItem = parentVe.displayItem;
     if ((visualElement.flags & VisualElementFlags.LineItem) &&
-        !(parentVe.flags & VisualElementFlags.DockItem) &&
-        isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+      !(parentVe.flags & VisualElementFlags.DockItem) &&
+      isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
       // If Click hitbox was also hit (click on title area), select the item instead of popping up
       const hitboxType = MouseActionState.get()?.hitboxTypeOnMouseDown ?? 0;
       if (hitboxType & HitboxFlags.Click) {
@@ -835,7 +841,7 @@ export const PageFns = {
 
       popupPage.pendingCellPopupPositionNorm = null;
       popupPage.pendingCellPopupWidthNorm = null;
-      
+
       if (popupPage.cellPopupPositionNorm != null || popupPage.cellPopupWidthNorm != null) {
         popupPage.cellPopupPositionNorm = null;
         popupPage.cellPopupWidthNorm = null;
@@ -887,7 +893,30 @@ export const PageFns = {
   handleShiftLeftClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
     const selectedVeid = store.perItem.getSelectedListPageItem(parentVeid);
-    switchToPage(store, selectedVeid, true, false, false);
+
+    // Check if we're in a popup context by traversing up the parent chain
+    let currentPath = visualElement.parentPath;
+    let isInPopup = false;
+    while (currentPath) {
+      const parentVes = VesCache.get(currentPath);
+      if (parentVes) {
+        const parentVe = parentVes.get();
+        if (parentVe.flags & VisualElementFlags.Popup) {
+          isInPopup = true;
+          break;
+        }
+      }
+      currentPath = VeFns.parentPath(currentPath);
+    }
+
+    if (isInPopup) {
+      // Update the popup to show the selected page as its root
+      store.history.replacePopup({ actualVeid: selectedVeid, vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    } else {
+      // Switch to the page as the main application page
+      switchToPage(store, selectedVeid, true, false, false);
+    }
   },
 
   handleCalendarOverflowClick: (visualElement: VisualElement, store: StoreContextModel, meta: HitboxMeta | null): void => {
@@ -904,8 +933,8 @@ export const PageFns = {
       if (!item) continue;
       const d = new Date(item.dateTime * 1000);
       if (d.getFullYear() === targetYear &&
-          d.getMonth() + 1 === targetMonth &&
-          d.getDate() === targetDay) {
+        d.getMonth() + 1 === targetMonth &&
+        d.getDate() === targetDay) {
         itemsForDate.push(item);
       }
     }
@@ -999,7 +1028,7 @@ export const PageFns = {
     if (childPage.pendingPopupPositionGr != null) {
       const anchorPos = childPage.popupPositionGr ?? parentPage.defaultPopupPositionGr;
       if (childPage.pendingPopupPositionGr!.x != anchorPos.x ||
-          childPage.pendingPopupPositionGr!.y != anchorPos.y) {
+        childPage.pendingPopupPositionGr!.y != anchorPos.y) {
         return true;
       }
     }
@@ -1018,7 +1047,7 @@ export const PageFns = {
     const currentPos = childPage.pendingPopupPositionGr ?? childPage.popupPositionGr ?? parentPage.defaultPopupPositionGr;
     const currentWidth = childPage.pendingPopupWidthGr ?? childPage.popupWidthGr ?? parentPage.defaultPopupWidthGr;
     if (currentPos.x != parentPage.defaultPopupPositionGr.x ||
-        currentPos.y != parentPage.defaultPopupPositionGr.y) {
+      currentPos.y != parentPage.defaultPopupPositionGr.y) {
       return true;
     }
     if (currentWidth != parentPage.defaultPopupWidthGr) {
@@ -1053,7 +1082,7 @@ export const PageFns = {
     if (childPage.pendingCellPopupPositionNorm != null) {
       const anchorPos = childPage.cellPopupPositionNorm ?? parentPage.defaultCellPopupPositionNorm;
       if (childPage.pendingCellPopupPositionNorm!.x != anchorPos.x ||
-          childPage.pendingCellPopupPositionNorm!.y != anchorPos.y) {
+        childPage.pendingCellPopupPositionNorm!.y != anchorPos.y) {
         return true;
       }
     }
@@ -1072,7 +1101,7 @@ export const PageFns = {
     const currentPos = childPage.pendingCellPopupPositionNorm ?? childPage.cellPopupPositionNorm ?? parentPage.defaultCellPopupPositionNorm;
     const currentWidth = childPage.pendingCellPopupWidthNorm ?? childPage.cellPopupWidthNorm ?? parentPage.defaultCellPopupWidthNorm;
     if (currentPos.x != parentPage.defaultCellPopupPositionNorm.x ||
-        currentPos.y != parentPage.defaultCellPopupPositionNorm.y) {
+      currentPos.y != parentPage.defaultCellPopupPositionNorm.y) {
       return true;
     }
     if (currentWidth != parentPage.defaultCellPopupWidthNorm) {
