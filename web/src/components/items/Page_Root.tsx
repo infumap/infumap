@@ -127,40 +127,49 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     );
   };
 
-  const renderListPage = () =>
-    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
-      style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
-        `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; left: 0px; ` +
-        `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
-        `background-color: #ffffff;` +
-        `${VeFns.zIndexStyle(props.visualElement)}`}>
-      <div ref={rootDiv}
-        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} `}
+  const renderListPage = () => {
+    // Determine if we're in a full-screen (root) context or popup context
+    // If bounds height equals desktop height, we're in root context and should use unscaled widths
+    // This matches the arrange code's isFull check: geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h
+    const isFull = pageFns().boundsPx().h == store.desktopMainAreaBoundsPx().h;
+    const effectiveScale = isFull ? 1.0 : pageFns().listViewScale();
+
+    return (
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
         style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
-          `height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `overflow-y: auto; `}
-        onscroll={listRootScrollHandler}>
-        <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
-          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
-            `border-right-width: ${props.visualElement.focusedChildItemMaybe == null ? 1 : 2}px;` +
-            `${props.visualElement.focusedChildItemMaybe == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';'}`}>
-          <For each={pageFns().lineChildren()}>{childVe =>
-            <VisualElement_LineItem visualElement={childVe.get()} />
-          }</For>
-          {pageFns().renderMoveOverAnnotationMaybe()}
+          `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; left: 0px; ` +
+          `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+          `background-color: #ffffff;` +
+          `${VeFns.zIndexStyle(props.visualElement)}`}>
+        <div ref={rootDiv}
+          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} `}
+          style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
+            `height: ${pageFns().viewportBoundsPx().h}px; ` +
+            `overflow-y: auto; `}
+          onscroll={listRootScrollHandler}>
+          <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
+            style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * effectiveScale}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
+              `border-right-width: ${props.visualElement.focusedChildItemMaybe == null ? 1 : 2}px;` +
+              `${props.visualElement.focusedChildItemMaybe == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';'}`}>
+            <For each={pageFns().lineChildren()}>{childVe =>
+              <VisualElement_LineItem visualElement={childVe.get()} />
+            }</For>
+            {pageFns().renderMoveOverAnnotationMaybe()}
+          </div>
         </div>
+        <For each={pageFns().desktopChildren()}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
+        <Show when={props.visualElement.selectedVes != null && props.visualElement.selectedVes.get() != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()!} />
+        </Show>
+        <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
+        </Show>
+        {renderBorderOverlay()}
       </div>
-      <For each={pageFns().desktopChildren()}>{childVe =>
-        <VisualElement_Desktop visualElement={childVe.get()} />
-      }</For>
-      <Show when={props.visualElement.selectedVes != null && props.visualElement.selectedVes.get() != null}>
-        <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()!} />
-      </Show>
-      <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
-        <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
-      </Show>
-      {renderBorderOverlay()}
-    </div>;
+    );
+  };
 
   const keyUpHandler = (ev: KeyboardEvent) => {
     edit_keyUpHandler(store, ev);

@@ -125,7 +125,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       return result; // Not a list page, no nested titles to show
     }
 
-    // Add the root popup page
+    // Add the root popup page - use popup's listViewScale
     const listColumnWidthBl = rootPageItem.tableColumns[0].widthGr / GRID_SIZE;
     const widthPx = listColumnWidthBl * LINE_HEIGHT_PX * pageFns().listViewScale();
     result.push({
@@ -141,6 +141,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
     while (currentVes != null && currentVes.get() != null) {
       const selectedVe = currentVes.get();
+
       if (isPage(selectedVe.displayItem)) {
         const selectedPageItem = asPageItem(selectedVe.displayItem);
         const selectedIsListPage = (selectedVe.linkItemMaybe as any)?.overrideArrangeAlgorithm === ArrangeAlgorithm.List ||
@@ -148,7 +149,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
         if (selectedIsListPage) {
           const selectedListColumnWidthBl = selectedPageItem.tableColumns[0].widthGr / GRID_SIZE;
-          const selectedWidthPx = selectedListColumnWidthBl * LINE_HEIGHT_PX * pageFns().listViewScale();
+          // Use the nested page's own scale (from its viewportBoundsPx) to match Page_Root's calculation
+          const nestedScale = selectedVe.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
+          const selectedWidthPx = selectedListColumnWidthBl * LINE_HEIGHT_PX * nestedScale;
           result.push({
             ve: selectedVe,
             pageItem: selectedPageItem,

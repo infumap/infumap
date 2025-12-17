@@ -93,6 +93,7 @@ export function arrange_list_page(
   const hitboxes = geometry.hitboxes;
 
   const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
+  const isNestedListPage = !!(flags & ArrangeItemFlags.IsListPageMainRoot);
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   const scale = isFull ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
@@ -120,7 +121,8 @@ export function arrange_list_page(
     w: RESIZE_BOX_SIZE_PX,
     h: geometry.viewportBoundsPx!.h
   }
-  if (isFull || parentIsPopup) {
+  // Add horizontal resize for root pages, popup pages, and nested list pages
+  if (isFull || parentIsPopup || isNestedListPage) {
     hitboxes.push(HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx));
   }
 
