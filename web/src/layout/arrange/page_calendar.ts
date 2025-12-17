@@ -41,13 +41,13 @@ import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS } from "../../ut
 
 
 export function arrange_calendar_page(
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_pageWithChildren: PageItem,
-    linkItemMaybe_pageWithChildren: LinkItem | null,
-    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
-    geometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSpec {
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_pageWithChildren: PageItem,
+  linkItemMaybe_pageWithChildren: LinkItem | null,
+  actualLinkItemMaybe_pageWithChildren: LinkItem | null,
+  geometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementSpec {
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
@@ -80,7 +80,7 @@ export function arrange_calendar_page(
     const bottomMargin = 5;
     const headerHeight = topPadding + titleHeight + 14 + monthTitleHeight + bottomMargin;
     const naturalCalendarHeightPx = headerHeight + (31 * displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX);
-    
+
     const viewportHeight = geometry.viewportBoundsPx!.h;
 
     // For popup, always scale to fit exactly (no scrollbars)
@@ -124,7 +124,7 @@ export function arrange_calendar_page(
     const sel = store.overlay.selectedVeids.get();
     if (!sel || sel.length === 0) { return false; }
     const veid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
-    for (let i=0; i<sel.length; ++i) {
+    for (let i = 0; i < sel.length; ++i) {
       if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
     }
     return false;
@@ -135,15 +135,15 @@ export function arrange_calendar_page(
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
-           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
-           (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
+      (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+      (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+      (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
@@ -165,7 +165,7 @@ export function arrange_calendar_page(
     .filter(child => {
       if (child == null) return false;
       if (movingItemInThisPage && child.id === movingItemInThisPage.id) return false;
-      
+
       // Filter by selected calendar year
       const itemDate = new Date(child.dateTime * 1000);
       return itemDate.getFullYear() === selectedCalendarYear;
@@ -204,7 +204,17 @@ export function arrange_calendar_page(
   })();
 
   // Item dimensions - icon + text layout like other line items
-  const blockSizePx = NATURAL_BLOCK_SIZE_PX;
+  // For popups, scale blockSizePx to match the calendar scaling
+  const blockSizePx = (() => {
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
+      const baseDayRowPx = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
+      const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
+      const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
+      const scale = childAreaBounds.h / naturalTotal;
+      return { w: NATURAL_BLOCK_SIZE_PX.w * scale, h: NATURAL_BLOCK_SIZE_PX.h * scale };
+    }
+    return NATURAL_BLOCK_SIZE_PX;
+  })();
   const itemHeight = Math.min(dayRowHeight, blockSizePx.h);
 
   // Calculate available width for items (with 2px left padding after day number)
@@ -215,7 +225,7 @@ export function arrange_calendar_page(
   // Cap items per day by how many rows fit in a day
   const rowsPerDay = Math.max(1, Math.floor(dayRowHeight / itemHeight));
 
-    // Group items by date for stacking
+  // Group items by date for stacking
   const itemsByDate = new Map<string, typeof childrenWithDateTime>();
   childrenWithDateTime.forEach(child => {
     const itemDate = new Date(child.dateTime * 1000);
@@ -326,14 +336,14 @@ export function arrange_calendar_page(
         hitboxes: (
           isRating(displayItem)
             ? [
-                HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-                HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-              ]
+              HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+              HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+            ]
             : [
-                HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-                HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-                HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-              ]
+              HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+              HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
+              HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+            ]
         )
       };
 
@@ -346,7 +356,7 @@ export function arrange_calendar_page(
         linkItemMaybe,
         actualLinkItemMaybe: linkItemMaybe,
         flags: VisualElementFlags.LineItem |
-              (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+          (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: calendarItemGeometry.boundsPx,
         hitboxes: calendarItemGeometry.hitboxes,
@@ -401,10 +411,10 @@ export function arrange_calendar_page(
     const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
 
     // Use calendar-specific item dimensions
-      const calendarItemHeight = itemHeight;
+    const calendarItemHeight = itemHeight;
 
     // Adjust Y position by approximately one row height to align with calendar grid
-      const calendarYAdjustment = dayRowHeight;
+    const calendarYAdjustment = dayRowHeight;
 
     // Calculate moving item position using the same coordinate system as other page types
     const movingItemBoundsPx = {
@@ -446,14 +456,14 @@ export function arrange_calendar_page(
       hitboxes: (
         isRating(movingItemInThisPage)
           ? [
-              HitboxFns.create(HitboxFlags.Click, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
-              HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
-            ]
+            HitboxFns.create(HitboxFlags.Click, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
+            HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
+          ]
           : [
-              HitboxFns.create(HitboxFlags.Click, movingClickAreaBoundsPx),
-              HitboxFns.create(HitboxFlags.OpenPopup, movingPopupClickAreaBoundsPx),
-              HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
-            ]
+            HitboxFns.create(HitboxFlags.Click, movingClickAreaBoundsPx),
+            HitboxFns.create(HitboxFlags.OpenPopup, movingPopupClickAreaBoundsPx),
+            HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
+          ]
       )
     };
 
@@ -479,8 +489,8 @@ export function arrange_calendar_page(
       linkItemMaybe: actualMovingItemLinkItemMaybe,
       actualLinkItemMaybe: actualMovingItemLinkItemMaybe,
       flags: VisualElementFlags.LineItem |
-             VisualElementFlags.Moving |
-             (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+        VisualElementFlags.Moving |
+        (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.IsMoving,
       boundsPx: movingItemGeometry.boundsPx,
       hitboxes: movingItemGeometry.hitboxes,

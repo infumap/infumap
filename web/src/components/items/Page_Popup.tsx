@@ -406,7 +406,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           {(() => {
             const childArea = pageFns().childAreaBoundsPx();
             const dims = calculateCalendarDimensions(childArea);
-            const block = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX } as const;
+            // Scale block size to match the popup calendar scale
+            const block = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
             const rowsPerDay = Math.max(1, Math.floor(effectiveDayRowHeight / block.h));
 
             const itemCounts = new Map<string, number>();
