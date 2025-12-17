@@ -135,14 +135,15 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         `background-color: #ffffff;` +
         `${VeFns.zIndexStyle(props.visualElement)}`}>
       <div ref={rootDiv}
-        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-r border-slate-300"}`}
-        style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * pageFns().listViewScale()}px; ` +
+        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} `}
+        style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `overflow-y: auto; ` +
-          `${props.visualElement.focusedChildItemMaybe != null ? 'border-right-width: 2px; border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';' : ''}`}
+          `overflow-y: auto; `}
         onscroll={listRootScrollHandler}>
-        <div class="absolute"
-          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;`}>
+        <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
+          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
+            `border-right-width: ${props.visualElement.focusedChildItemMaybe == null ? 1 : 2}px;` +
+            `${props.visualElement.focusedChildItemMaybe == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';'}`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
