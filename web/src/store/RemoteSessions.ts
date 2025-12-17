@@ -70,6 +70,10 @@ export const RemoteSessions = {
     return remoteSessions.get(normalizedHost) ?? null;
   },
 
+  getAll: (): RemoteSession[] => {
+    return Array.from(remoteSessions.values());
+  },
+
   set: (session: RemoteSession): void => {
     const normalizedHost = normalizeHost(session.host);
     remoteSessions.set(normalizedHost, { ...session, host: normalizedHost });

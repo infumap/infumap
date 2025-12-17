@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount, createSignal } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { logout } from "../Main";
@@ -25,11 +25,12 @@ import { createInfuSignal, createNumberSignal } from "../../util/signals";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { post } from "../../server";
 import { Totp, UpdateTotpResponse } from "../../util/accountTypes";
+import { RemoteSessions, RemoteSession } from "../../store/RemoteSessions";
 
 
 const DIALOG_WIDTH_PX = 510;
 
-export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 600 };
+export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 640 };
 
 export function initialEditUserSettingsBounds(store: StoreContextModel) {
   let posPx = {
@@ -43,6 +44,9 @@ export const EditUserSettings: Component = () => {
   const store = useStore();
 
   let editUserSettingsDiv: HTMLDivElement | undefined;
+
+  const [activeTab, setActiveTab] = createSignal<"local" | "remote">("local");
+  const [remoteSessionsList, setRemoteSessionsList] = createSignal<RemoteSession[]>([]);
 
   const totpSignal = createInfuSignal<Totp | null>(null);
   const lastBackupTime = createNumberSignal(-1);
@@ -75,7 +79,29 @@ export const EditUserSettings: Component = () => {
     const extra_json: any = await post(null, "/account/extra", {});
     lastBackupTime.set(extra_json.lastBackupTime);
     lastFailedBackupTime.set(extra_json.lastFailedBackupTime);
+    updateRemoteSessionsList();
   });
+
+  const updateRemoteSessionsList = () => {
+    setRemoteSessionsList(RemoteSessions.getAll());
+  };
+
+  const handleRemoteLogout = async (host: string) => {
+    const session = RemoteSessions.get(host);
+    if (session) {
+      try {
+        const sessionData = JSON.parse(session.sessionDataString);
+        await post(host, "/account/logout", {
+          userId: sessionData.userId,
+          sessionId: sessionData.sessionId
+        });
+      } catch (e) {
+        console.error("Failed to logout from remote session:", e);
+      }
+      RemoteSessions.clear(host);
+      updateRemoteSessionsList();
+    }
+  };
 
   const addTotpVisibleSignal = createInfuSignal<boolean>(false);
   const errorSignal = createInfuSignal<String | null>("");
@@ -140,72 +166,130 @@ export const EditUserSettings: Component = () => {
            style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
         <div class="p-3">
           <div class="font-bold text-lg" style="margin-bottom: 14px;">User Settings</div>
-          <div>
-            <div class="inline-block text-right mr-[6px]" style="width: 150px;">username:</div>
-            <div class="font-bold inline-block">{store.user.getUser().username}</div>
-          </div>
-          <div>
-            <div class="inline-block text-right mr-[6px]" style="width: 150px;">id:</div>
-            <div class="text-slate-800 text-sm inline-block">
-              <span class="font-mono text-slate-400">{`${store.user.getUser().userId}`}</span>
-              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-[8px]`} onclick={copyClickHandler} />
-            </div>
-          </div>
 
-          <div>
-            <div class="inline-block text-right mr-[6px]" style="width: 150px;">last backup:</div>
-            <div class="inline-block">{humanReadableTime(lastBackupTime.get())}</div>
-          </div>
-          <div>
-            <div class="inline-block text-right mr-[6px]" style="width: 150px;">last failed backup:</div>
-            <div class="inline-block">{humanReadableTime(lastFailedBackupTime.get())}</div>
+          <div class="flex border-b border-slate-300 mb-3" style="margin-bottom: 14px;">
+            <button
+              class={`px-4 py-2 font-medium ${
+                activeTab() === "local"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-slate-600 hover:text-slate-800"
+              }`}
+              onClick={() => setActiveTab("local")}
+            >
+              Local
+            </button>
+            <button
+              class={`px-4 py-2 font-medium ${
+                activeTab() === "remote"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-slate-600 hover:text-slate-800"
+              }`}
+              onClick={() => {
+                setActiveTab("remote");
+                updateRemoteSessionsList();
+              }}
+            >
+              Remote
+            </button>
           </div>
 
           <Switch>
-            <Match when={!addTotpVisibleSignal.get()}>
+            <Match when={activeTab() === "local"}>
               <div>
-                <div class="inline-block text-right mr-[6px]" style="width: 150px;">2FA:</div>
-                <div class="inline-block">
-                  {store.user.getUser().hasTotp ? "ON" : "OFF"}
-                  <Show when={store.user.getUser().hasTotp} fallback={
-                    <a class="ml-3" style="color: #00a;" href="" onClick={handleShowCreateTotp}>add</a>
-                  }>
-                    <a class="ml-3" style="color: #00a;" href="" onClick={handleRemoveTotp}>remove</a>
-                  </Show>
+                <div>
+                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">username:</div>
+                  <div class="font-bold inline-block">{store.user.getUser().username}</div>
+                </div>
+                <div>
+                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">id:</div>
+                  <div class="text-slate-800 text-sm inline-block">
+                    <span class="font-mono text-slate-400">{`${store.user.getUser().userId}`}</span>
+                    <i class={`fa fa-copy text-slate-400 cursor-pointer ml-[8px]`} onclick={copyClickHandler} />
+                  </div>
+                </div>
+
+                <div>
+                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">last backup:</div>
+                  <div class="inline-block">{humanReadableTime(lastBackupTime.get())}</div>
+                </div>
+                <div>
+                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">last failed backup:</div>
+                  <div class="inline-block">{humanReadableTime(lastFailedBackupTime.get())}</div>
+                </div>
+
+                <Switch>
+                  <Match when={!addTotpVisibleSignal.get()}>
+                    <div>
+                      <div class="inline-block text-right mr-[6px]" style="width: 150px;">2FA:</div>
+                      <div class="inline-block">
+                        {store.user.getUser().hasTotp ? "ON" : "OFF"}
+                        <Show when={store.user.getUser().hasTotp} fallback={
+                          <a class="ml-3" style="color: #00a;" href="" onClick={handleShowCreateTotp}>add</a>
+                        }>
+                          <a class="ml-3" style="color: #00a;" href="" onClick={handleRemoveTotp}>remove</a>
+                        </Show>
+                      </div>
+                    </div>
+                  </Match>
+
+                  <Match when={addTotpVisibleSignal.get()}>
+                    <div>
+                      <div class="inline-block text-right mr-[6px] align-top" style="width: 150px; z-index: 10">Authenticator setup:</div>
+                    </div>
+                    <Show when={totpSignal.get() != null}>
+                    <div class="inline-block">
+                      <img class="inline-block" style="margin-left: 125px; width: 200px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
+                    </div>
+                      <div class="text-sm w-full text-center" style="margin-top: -10px;">
+                        {totpSignal.get()!.secret}
+                        <i class="ml-[8px] fa fa-copy cursor-pointer" onclick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }} />
+                      </div>
+                    </Show>
+                    <div class="ml-[80px] mt-[10px]">6 Digit Token: <InfuTextInput onInput={(v) => { totpToken = v; }} /></div>
+                    <div class="ml-[150px] mt-[8px] mb-[15px]">
+                      <a class="ml-6" style="color: #00a;" href="" onClick={handleAddTotp}>add</a>
+                      <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelAddTotp}>cancel</a>
+                    </div>
+                  </Match>
+                </Switch>
+
+                <Show when={errorSignal.get() != null}>
+                  <div>
+                    {"" + errorSignal.get()!}
+                  </div>
+                </Show>
+
+                <div style="margin-top: 20px;">
+                  <InfuButton text="logout" onClick={logoutHandler} />
                 </div>
               </div>
             </Match>
 
-            <Match when={addTotpVisibleSignal.get()}>
+            <Match when={activeTab() === "remote"}>
               <div>
-                <div class="inline-block text-right mr-[6px] align-top" style="width: 150px; z-index: 10">Authenticator setup:</div>
-              </div>
-              <Show when={totpSignal.get() != null}>
-              <div class="inline-block">
-                <img class="inline-block" style="margin-left: 125px; width: 200px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
-              </div>
-                <div class="text-sm w-full text-center" style="margin-top: -10px;">
-                  {totpSignal.get()!.secret}
-                  <i class="ml-[8px] fa fa-copy cursor-pointer" onclick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }} />
-                </div>
-              </Show>
-              <div class="ml-[80px] mt-[10px]">6 Digit Token: <InfuTextInput onInput={(v) => { totpToken = v; }} /></div>
-              <div class="ml-[150px] mt-[8px] mb-[15px]">
-                <a class="ml-6" style="color: #00a;" href="" onClick={handleAddTotp}>add</a>
-                <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelAddTotp}>cancel</a>
+                <Show when={remoteSessionsList().length === 0} fallback={
+                  <div>
+                    <div class="text-sm text-slate-600 mb-3">Remote sessions:</div>
+                    <For each={remoteSessionsList()}>
+                      {(session) => (
+                        <div class="mb-3 p-2 border border-slate-300 rounded">
+                          <div class="flex items-center justify-between">
+                            <div>
+                              <div class="font-medium">{session.host}</div>
+                              <div class="text-sm text-slate-600">User: {session.username}</div>
+                            </div>
+                            <InfuButton text="Logout" onClick={() => handleRemoteLogout(session.host)} />
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                }>
+                  <div class="text-slate-600">No remote sessions active.</div>
+                </Show>
               </div>
             </Match>
           </Switch>
-
-          <Show when={errorSignal.get() != null}>
-            <div>
-              {"" + errorSignal.get()!}
-            </div>
-          </Show>
-
-          <div style="margin-top: 20px;">
-            <InfuButton text="logout" onClick={logoutHandler} />
-          </div>
         </div>
       </div>
     </>
