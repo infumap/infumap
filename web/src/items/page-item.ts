@@ -910,8 +910,8 @@ export const PageFns = {
     }
 
     if (isInPopup) {
-      // Update the popup to show the selected page as its root
-      store.history.replacePopup({ actualVeid: selectedVeid, vePath: VeFns.veToPath(visualElement) });
+      // Push to history so user can go back to current popup state
+      store.history.pushPopup({ actualVeid: selectedVeid, vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     } else {
       // Switch to the page as the main application page
