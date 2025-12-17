@@ -17,7 +17,7 @@
 */
 
 import { Component, onCleanup, onMount, Show } from "solid-js";
-import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server, startContainerAutoRefresh, stopContainerAutoRefresh } from "../server";
+import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server, remote, startContainerAutoRefresh, stopContainerAutoRefresh } from "../server";
 import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
@@ -61,21 +61,36 @@ export const Main: Component = () => {
     }
 
     let id;
+    let origin: string | null = null;
     let parts = store.currentUrlPath.get().split("/");
-    if (parts.length == 1) { id = "root"; }
-    else if (parts.length == 2) {
+    if (parts.length == 1) {
+      id = "root";
+    } else if (parts.length == 2) {
       id = parts[1];
     } else if (parts.length == 3) {
-      id = `${parts[0]}/${parts[1]}}`;
+      if (parts[1] == "remote") {
+        panic("Main.onMount: remote URL missing item ID.");
+      } else {
+        id = `${parts[1]}/${parts[2]}`;
+      }
+    } else if (parts.length >= 4 && parts[1] == "remote") {
+      origin = decodeURIComponent(parts[2]);
+      id = parts[3];
+    } else if (parts.length == 4) {
+      panic("Main.onMount: unexpected params.");
     } else {
       panic("Main.onMount: unexpected params.");
     }
-    // console.debug(`Main onMount id: '${id}'`);
+    // console.debug(`Main onMount id: '${id}', origin: '${origin}'`);
 
     try {
       let result: ItemsAndTheirAttachments
       try {
-        result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, store.general.networkStatus);
+        if (origin != null) {
+          result = await remote.fetchItems(origin, id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, store.general.networkStatus);
+        } else {
+          result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, store.general.networkStatus);
+        }
       } catch (e: any) {
         console.error(`Main.onMount fetchItems failed ${id}`, e);
         if (window.location.pathname == "/") {
@@ -94,7 +109,7 @@ export const Main: Component = () => {
       }
 
       try {
-        itemState.setItemFromServerObject(itemObject, null);
+        itemState.setItemFromServerObject(itemObject, origin);
       } catch (e: any) {
         console.error(`Main.onMount setItemFromServerObject failed ${id}`, e);
         throw e;
@@ -106,7 +121,7 @@ export const Main: Component = () => {
 
       try {
         if (result.attachments[itemId]) {
-          itemState.setAttachmentItemsFromServerObjects(itemId, result.attachments[itemId], null);
+          itemState.setAttachmentItemsFromServerObjects(itemId, result.attachments[itemId], origin);
         }
       } catch (e: any) {
         console.error(`Main.onMount setAttachmentItemsFromServerObjects (1) failed ${id}`, e);
@@ -117,7 +132,7 @@ export const Main: Component = () => {
       if (isContainer(item)) {
         markChildrenLoadAsInitiatedOrComplete(itemId);
         try {
-          itemState.setChildItemsFromServerObjects(itemId, result.children, null);
+          itemState.setChildItemsFromServerObjects(itemId, result.children, origin);
         } catch (e: any) {
           console.error(`Main.onMount setChildItemsFromServerObjects failed ${id}`, e);
           throw e;
@@ -126,7 +141,7 @@ export const Main: Component = () => {
 
       Object.keys(result.attachments).forEach(id => {
         try {
-          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
+          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
         } catch (e: any) {
           console.error(`Main.onMount setAttachmentItemsFromServerObjects (2) failed ${id}`, e);
           throw e;

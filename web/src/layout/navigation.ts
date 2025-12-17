@@ -34,6 +34,14 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
 }
 
 function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): string {
+  const itemId = overrideItemId != null ? overrideItemId : store.history.currentPageVeid()!.itemId;
+  const item = itemState.get(itemId);
+  
+  if (item && item.origin != null) {
+    const encodedOrigin = encodeURIComponent(item.origin);
+    return `/remote/${encodedOrigin}/${itemId}`;
+  }
+  
   const userMaybe = store.user.getUserMaybe();
   let url = null;
   if (!userMaybe) {

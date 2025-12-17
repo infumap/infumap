@@ -47,7 +47,14 @@ const App: Component = () => {
 
     const p = window.location.pathname;
     const parts = p.split("/");
-    const currentUrlUidMaybe = parts[parts.length-1];
+    let currentUrlUidMaybe: string | null = null;
+    
+    if (parts.length >= 4 && parts[1] == "remote") {
+      currentUrlUidMaybe = parts[3];
+    } else {
+      currentUrlUidMaybe = parts[parts.length-1];
+    }
+    
     if (isUid(currentUrlUidMaybe) || currentUrlUidMaybe == "") {
       const prevHistoryVeid = store.history.peekPrevPageVeid();
       if (!prevHistoryVeid) {
