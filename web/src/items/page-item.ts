@@ -687,9 +687,7 @@ export const PageFns = {
       w: blockSizePx.w * (widthBl - 1),
       h: blockSizePx.h
     };
-    const popupClickAreaBoundsPx = parentIsPopup
-      ? { x: 0.0, y: 0.0, w: boundsPx.w, h: boundsPx.h }
-      : { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
+    const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     const expandAreaBoundsPx = {
       x: boundsPx.w - blockSizePx.w,
       y: 0.0,
