@@ -128,22 +128,21 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   };
 
   const renderListPage = () =>
-    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-         style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
-                `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; left: 0px; ` +
-                `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
-                `background-color: #ffffff;` +
-                `${VeFns.zIndexStyle(props.visualElement)}`}>
+    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+      style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
+        `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; left: 0px; ` +
+        `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+        `background-color: #ffffff;` +
+        `${VeFns.zIndexStyle(props.visualElement)}`}>
       <div ref={rootDiv}
-           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} `}
-           style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
-                  `height: ${pageFns().viewportBoundsPx().h}px; ` +
-                  `overflow-y: auto; `}
-           onscroll={listRootScrollHandler}>
-        <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
-             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
-                    `border-right-width: ${props.visualElement.focusedChildItemMaybe == null ? 1 : 2}px;` +
-                    `${props.visualElement.focusedChildItemMaybe == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';' }`}>
+        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-r border-slate-300"}`}
+        style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * pageFns().listViewScale()}px; ` +
+          `height: ${pageFns().viewportBoundsPx().h}px; ` +
+          `overflow-y: auto; ` +
+          `${props.visualElement.focusedChildItemMaybe != null ? 'border-right-width: 2px; border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';' : ''}`}
+        onscroll={listRootScrollHandler}>
+        <div class="absolute"
+          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
@@ -173,7 +172,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   const inputListener = (ev: InputEvent) => {
     edit_inputListener(store, ev);
   }
-  
+
   const rootScrollHandler = (_ev: Event) => {
     if (!rootDiv || updatingRootScrollTop) { return; }
 
@@ -209,61 +208,61 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
     return (
       <div ref={rootDiv}
-           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-           style={`left: 0px; ` +
-                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
-                  `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
-                  `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                  `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
-                  `${VeFns.zIndexStyle(props.visualElement)} `}
-          onscroll={rootScrollHandler}>
+        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+        style={`left: 0px; ` +
+          `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+          `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+          `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+          `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+          `${VeFns.zIndexStyle(props.visualElement)} `}
+        onscroll={rootScrollHandler}>
         <div class="absolute"
-             style={`left: 0px; top: 0px; ` +
-                    `width: ${pageFns().childAreaBoundsPx().w}px; ` +
-                    `height: ${pageFns().childAreaBoundsPx().h}px;` +
-                    `outline: 0px solid transparent; `}
-            contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
-            onKeyUp={keyUpHandler}
-            onKeyDown={keyDownHandler}
-            onInput={inputListener}>
+          style={`left: 0px; top: 0px; ` +
+            `width: ${pageFns().childAreaBoundsPx().w}px; ` +
+            `height: ${pageFns().childAreaBoundsPx().h}px;` +
+            `outline: 0px solid transparent; `}
+          contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+          onKeyUp={keyUpHandler}
+          onKeyDown={keyDownHandler}
+          onInput={inputListener}>
 
           {/* Year title with navigation */}
           <div class="absolute flex items-center justify-center font-bold text-2xl"
-               style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
+            style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
-                 onClick={() => {
-                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
-                   fullArrange(store);
-                 }}>
+              onClick={() => {
+                store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
+                fullArrange(store);
+              }}>
               <i class="fas fa-angle-left" />
             </div>
             <span class="mx-2">{currentYear}</span>
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
-                 onClick={() => {
-                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
-                   fullArrange(store);
-                 }}>
+              onClick={() => {
+                store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
+                fullArrange(store);
+              }}>
               <i class="fas fa-angle-right" />
             </div>
           </div>
 
           {/* Calendar months */}
-          <For each={Array.from({length: 12}, (_, i) => i + 1)}>{month => {
+          <For each={Array.from({ length: 12 }, (_, i) => i + 1)}>{month => {
             const monthInfo = getMonthInfo(month, currentYear);
             const leftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (calendarDimensions.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
 
             return (
               <div class="absolute"
-                   style={`left: ${leftPos}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING}px; width: ${calendarDimensions.columnWidth}px;`}>
+                style={`left: ${leftPos}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING}px; width: ${calendarDimensions.columnWidth}px;`}>
 
                 {/* Month title */}
                 <div class="text-center font-semibold text-base"
-                     style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px;`}>
+                  style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px;`}>
                   {monthNames[month - 1]}
                 </div>
 
                 {/* Days in month */}
-                <For each={Array.from({length: monthInfo.daysInMonth}, (_, i) => i + 1)}>{day => {
+                <For each={Array.from({ length: monthInfo.daysInMonth }, (_, i) => i + 1)}>{day => {
                   const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
                   const topPos = CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT + (day - 1) * calendarDimensions.dayRowHeight;
                   const isToday = isCurrentDay(month, day, currentYear);
@@ -277,9 +276,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
                   return (
                     <div class="absolute flex items-start"
-                         style={`left: 0px; top: ${topPos}px; width: ${calendarDimensions.columnWidth}px; height: ${calendarDimensions.dayRowHeight}px; ` +
-                                `background-color: ${backgroundColor}; ` +
-                                `border-bottom: 1px solid #e5e5e5; padding-top: 5px;`}>
+                      style={`left: 0px; top: ${topPos}px; width: ${calendarDimensions.columnWidth}px; height: ${calendarDimensions.dayRowHeight}px; ` +
+                        `background-color: ${backgroundColor}; ` +
+                        `border-bottom: 1px solid #e5e5e5; padding-top: 5px;`}>
                       <span style="width: 14px; text-align: right; font-size: 10px; margin-left: 2px;">{day}</span>
                     </div>
                   );
@@ -310,7 +309,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               if (!it) continue;
               const d = new Date(it.dateTime * 1000);
               if (d.getFullYear() !== year) continue;
-              const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+              const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
               itemCounts.set(key, (itemCounts.get(key) || 0) + 1);
             }
 
@@ -332,7 +331,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               const overlayY = baseY + 2;
               overlays.push(
                 <div class="absolute flex items-center justify-center text-[10px] font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
-                      style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px;`}>{totalCount}</div>
+                  style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px;`}>{totalCount}</div>
               );
             });
             return overlays;
@@ -348,23 +347,23 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const renderPage = () =>
     <div ref={rootDiv}
-         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-         style={`left: 0px; ` +
-                `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
-                `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
-                `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
-                `${VeFns.zIndexStyle(props.visualElement)} `}
-         onscroll={rootScrollHandler}>
+      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+      style={`left: 0px; ` +
+        `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+        `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+        `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+        `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+        `${VeFns.zIndexStyle(props.visualElement)} `}
+      onscroll={rootScrollHandler}>
       <div class="absolute"
-           style={`left: 0px; top: 0px; ` +
-                  `width: ${pageFns().childAreaBoundsPx().w}px; ` +
-                  `height: ${pageFns().childAreaBoundsPx().h}px;` +
-                  `outline: 0px solid transparent; `}
-           contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
-           onKeyUp={keyUpHandler}
-           onKeyDown={keyDownHandler}
-           onInput={inputListener}>
+        style={`left: 0px; top: 0px; ` +
+          `width: ${pageFns().childAreaBoundsPx().w}px; ` +
+          `height: ${pageFns().childAreaBoundsPx().h}px;` +
+          `outline: 0px solid transparent; `}
+        contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+        onKeyUp={keyUpHandler}
+        onKeyDown={keyDownHandler}
+        onInput={inputListener}>
         <For each={props.visualElement.childrenVes}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
@@ -386,8 +385,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   return (
     <>
       <div class={`absolute`}
-           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-                  `background-color: #ffffff;`}>
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+          `background-color: #ffffff;`}>
         <Switch>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
             {renderListPage()}
