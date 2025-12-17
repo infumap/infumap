@@ -40,9 +40,9 @@ export const Toolbar_Navigation: Component = () => {
     }
   };
 
-  const handleBack = () => navigateBack(store);
+  const handleBack = async () => { await navigateBack(store); };
 
-  const handleUp = () => navigateUp(store);
+  const handleUp = async () => { await navigateUp(store); };
 
   const handleSearchClick = () => { store.overlay.searchOverlayVisible.set(!store.overlay.searchOverlayVisible.get()); };
 

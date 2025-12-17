@@ -571,7 +571,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
   }
 
-  const changedPages = navigateBack(store);
+  const changedPages = await navigateBack(store);
   if (!changedPages) {
     await navigateUp(store);
   }

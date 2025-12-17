@@ -107,7 +107,38 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
 }
 
 
-export function navigateBack(store: StoreContextModel): boolean {
+async function navigateToLocalRoot(store: StoreContextModel): Promise<void> {
+  const userMaybe = store.user.getUserMaybe();
+  if (!userMaybe) {
+    window.history.pushState(null, "", "/");
+    store.currentUrlPath.set("/");
+    return;
+  }
+  const user = userMaybe;
+  let homePageItem = itemState.get(user.homePageId);
+  if (!homePageItem) {
+    const loadResult = await initiateLoadItemMaybe(store, user.homePageId);
+    if (loadResult == InitiateLoadResult.Failed || !itemState.get(user.homePageId)) {
+      if (user.username == ROOT_USERNAME) {
+        window.location.href = "/";
+      } else {
+        window.location.href = `/${user.username}`;
+      }
+      return;
+    }
+    homePageItem = itemState.get(user.homePageId);
+  }
+  if (homePageItem) {
+    switchToPage(store, { itemId: user.homePageId, linkIdMaybe: null }, false, true, false);
+    if (user.username == ROOT_USERNAME) {
+      window.history.pushState(null, "", "/");
+    } else {
+      window.history.pushState(null, "", `/${user.username}`);
+    }
+  }
+}
+
+export async function navigateBack(store: StoreContextModel): Promise<boolean> {
   if (store.history.currentPopupSpec() != null) {
     store.history.popPopup();
     const page = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
@@ -125,10 +156,18 @@ export function navigateBack(store: StoreContextModel): boolean {
   }
 
   if (store.history.peekPrevPageVeid() != null) {
-    // console.debug("navigateBack: calling back from current url page", currentUrl(store));
     window.history.back();
     fArrange(store);
     return true;
+  }
+
+  const currentPageVeid = store.history.currentPageVeid();
+  if (currentPageVeid != null) {
+    const currentItem = itemState.get(currentPageVeid.itemId);
+    if (currentItem && currentItem.origin != null) {
+      await navigateToLocalRoot(store);
+      return true;
+    }
   }
 
   return false;
@@ -144,6 +183,8 @@ export async function navigateUp(store: StoreContextModel) {
   navigateUpInProgress = true;
 
   const currentPage = asPageItem(itemState.get(currentPageVeid.itemId)!);
+  const currentItem = itemState.get(currentPageVeid.itemId)!;
+  const isRemote = currentItem.origin != null;
 
   const MAX_LEVELS = 8;
   let cnt = 0;
@@ -162,12 +203,18 @@ export async function navigateUp(store: StoreContextModel) {
   while (cnt++ < MAX_LEVELS) {
     // check if already at top.
     if (parentId == EMPTY_UID) {
+      if (isRemote) {
+        await navigateToLocalRoot(store);
+      }
       navigateUpInProgress = false;
       return;
     }
     const userMaybe = store.user.getUserMaybe();
     if (userMaybe) {
       if (parentId == userMaybe!.dockPageId) {
+        if (isRemote) {
+          await navigateToLocalRoot(store);
+        }
         navigateUpInProgress = false;
         return;
       }
@@ -175,6 +222,13 @@ export async function navigateUp(store: StoreContextModel) {
 
     const parentPageMaybe = itemState.get(parentId);
     if (parentPageMaybe != null) {
+      if (isRemote) {
+        if (parentPageMaybe.origin != currentItem.origin) {
+          await navigateToLocalRoot(store);
+          navigateUpInProgress = false;
+          return;
+        }
+      }
       if (isPage(parentPageMaybe) && relationshipToParent == RelationshipToParent.Child) {
         switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true, false);
         navigateUpInProgress = false;
@@ -184,6 +238,12 @@ export async function navigateUp(store: StoreContextModel) {
         relationshipToParent = parentPageMaybe.relationshipToParent;
         continue;
       }
+    }
+
+    if (isRemote) {
+      await navigateToLocalRoot(store);
+      navigateUpInProgress = false;
+      return;
     }
 
     if (await initiateLoadItemMaybe(store, parentId) == InitiateLoadResult.Failed ||
