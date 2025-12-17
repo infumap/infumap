@@ -48,7 +48,7 @@ export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizabl
 
 
 export const ImageFns = {
-  fromObject:(o: any, origin: string | null): ImageItem => {
+  fromObject: (o: any, origin: string | null): ImageItem => {
     // TODO (LOW): dynamic type check of o.
     return ({
       origin,
@@ -245,6 +245,10 @@ export const ImageFns = {
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
+    } else if (store.history.currentPopupSpec() != null) {
+      // Inside a popup hierarchy (e.g., image inside a page displayed from a popup list)
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
     } else {
       if (visualElement.flags & VisualElementFlags.LineItem) {
         if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
@@ -295,7 +299,7 @@ export const ImageFns = {
 
   getFingerprint: (imageItem: ImageItem): string => {
     return imageItem.title + "-~-" + imageItem.flags;
-  }  
+  }
 };
 
 
