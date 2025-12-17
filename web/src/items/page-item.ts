@@ -44,7 +44,7 @@ import { isTable } from './table-item';
 import { RelationshipToParent } from '../layout/relationship-to-parent';
 import { compareOrderings, newOrdering, newOrderingAfter } from '../util/ordering';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
-import { CursorEventState } from '../input/state';
+import { CursorEventState, MouseActionState } from '../input/state';
 import { TabularItem, TabularMixin } from './base/tabular-item';
 import { ColorableMixin } from './base/colorable-item';
 import { AspectItem, AspectMixin } from './base/aspect-item';
@@ -758,7 +758,17 @@ export const PageFns = {
     if ((visualElement.flags & VisualElementFlags.LineItem) &&
         !(parentVe.flags & VisualElementFlags.DockItem) &&
         isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      // If Click hitbox was also hit (click on title area), select the item instead of popping up
+      const hitboxType = MouseActionState.get()?.hitboxTypeOnMouseDown ?? 0;
+      if (hitboxType & HitboxFlags.Click) {
+        handleListPageLineItemClickMaybe(visualElement, store);
+        return;
+      }
+      if (parentVe.flags & VisualElementFlags.Popup) {
+        store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      } else {
+        store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      }
       fullArrange(store);
       return;
     }

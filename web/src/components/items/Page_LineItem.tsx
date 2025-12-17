@@ -78,17 +78,11 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
 
   const renderHighlightsMaybe = () => {
-    // reverse engineer whether we're in a popup from the size of the OpenPopup vs Click hitbox widths.
+    // Always highlight just the icon area when hovering over OpenPopup hitbox
     const openPopupBoundsPx = () => {
-      const opb = props.visualElement.hitboxes.filter(hb => hb.type == HitboxFlags.OpenPopup)[0].boundsPx;
-      const cb = props.visualElement.hitboxes.filter(hb => hb.type == HitboxFlags.Click)[0].boundsPx;
-      if (opb.w > cb.w) { // in a popup.
-        return boundsPx();
-      } else {
-        const r = cloneBoundingBox(boundsPx())!;
-        r.w = oneBlockWidthPx();
-        return r;
-      }
+      const r = cloneBoundingBox(boundsPx())!;
+      r.w = oneBlockWidthPx();
+      return r;
     };
     return (
       <Switch>
