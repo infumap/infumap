@@ -112,7 +112,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         `${VeFns.zIndexStyle(props.visualElement)}`}>
     </div>;
 
-  // Collect all nested list pages by traversing through selectedVes
+  // Collect all nested pages by traversing through selectedVes
   const getPopupTitledPages = (): Array<{ ve: VisualElement; pageItem: ReturnType<typeof asPageItem>; leftPx: number; widthPx: number }> => {
     const result: Array<{ ve: VisualElement; pageItem: ReturnType<typeof asPageItem>; leftPx: number; widthPx: number }> = [];
 
@@ -135,7 +135,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       widthPx: widthPx,
     });
 
-    // Traverse through selectedVes to find nested list pages
+    // Traverse through selectedVes to find nested pages
     let currentVes = props.visualElement.selectedVes;
     let currentLeftPx = widthPx;
 
@@ -148,6 +148,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           selectedPageItem.arrangeAlgorithm === ArrangeAlgorithm.List;
 
         if (selectedIsListPage) {
+          // For list pages, calculate width based on list column width
           const selectedListColumnWidthBl = selectedPageItem.tableColumns[0].widthGr / GRID_SIZE;
           // Use the nested page's own scale (from its viewportBoundsPx) to match Page_Root's calculation
           const nestedScale = selectedVe.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
@@ -159,9 +160,20 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             widthPx: selectedWidthPx,
           });
           currentLeftPx += selectedWidthPx;
+          // Continue traversing for list pages
           currentVes = selectedVe.selectedVes;
         } else {
-          break; // Not a list page, stop traversing
+          // For non-list pages (spatial, document, etc.), add to result with remaining width
+          // The width is the remaining space in the popup
+          const remainingWidthPx = pageFns().boundsPx().w - currentLeftPx;
+          result.push({
+            ve: selectedVe,
+            pageItem: selectedPageItem,
+            leftPx: currentLeftPx,
+            widthPx: remainingWidthPx,
+          });
+          // Stop traversing - non-list pages don't have further nested selected items
+          break;
         }
       } else {
         break; // Not a page, stop traversing
