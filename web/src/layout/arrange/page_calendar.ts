@@ -266,9 +266,13 @@ export function arrange_calendar_page(
       const rightEdge = monthLeftPos + calendarDimensions.columnWidth;
       const baseX = rightEdge - blockSizePx.w;
       const baseY = dayTopPos + (rowsPerDay - 1) * itemHeight + 1;
+      // For popups, hitboxes are in boundsPx coordinates (includes title bar),
+      // but the calendar positions are in viewportBoundsPx/childAreaBoundsPx coordinates.
+      // Add the title bar height offset to convert to boundsPx coordinates.
+      const titleBarHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
       const overlayBoundsPx = {
         x: baseX + 2,
-        y: baseY + 2,
+        y: baseY + 2 + titleBarHeightPx,
         w: blockSizePx.w - 2,
         h: itemHeight - 4,
       };
