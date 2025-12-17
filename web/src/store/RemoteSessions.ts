@@ -22,6 +22,8 @@ export interface RemoteSession {
   username: string,
 }
 
+const REMOTE_SESSIONS_STORAGE_KEY = "infumap_remote_sessions";
+
 const remoteSessions = new Map<string, RemoteSession>();
 
 const normalizeHost = (host: string): string => {
@@ -31,6 +33,34 @@ const normalizeHost = (host: string): string => {
     return host;
   }
 };
+
+const loadFromLocalStorage = (): void => {
+  try {
+    const stored = window.localStorage.getItem(REMOTE_SESSIONS_STORAGE_KEY);
+    if (stored) {
+      const sessions: Record<string, RemoteSession> = JSON.parse(stored);
+      for (const [host, session] of Object.entries(sessions)) {
+        remoteSessions.set(host, session);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load remote sessions from localStorage:", e);
+  }
+};
+
+const saveToLocalStorage = (): void => {
+  try {
+    const sessions: Record<string, RemoteSession> = {};
+    for (const [host, session] of remoteSessions.entries()) {
+      sessions[host] = session;
+    }
+    window.localStorage.setItem(REMOTE_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+  } catch (e) {
+    console.error("Failed to save remote sessions to localStorage:", e);
+  }
+};
+
+loadFromLocalStorage();
 
 export const REMOTE_SESSION_HEADER = "x-infusession";
 
@@ -43,10 +73,12 @@ export const RemoteSessions = {
   set: (session: RemoteSession): void => {
     const normalizedHost = normalizeHost(session.host);
     remoteSessions.set(normalizedHost, { ...session, host: normalizedHost });
+    saveToLocalStorage();
   },
 
   clear: (host: string): void => {
     const normalizedHost = normalizeHost(host);
     remoteSessions.delete(normalizedHost);
+    saveToLocalStorage();
   },
 };
