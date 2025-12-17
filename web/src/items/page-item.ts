@@ -370,11 +370,14 @@ export const PageFns = {
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Move | HitboxFlags.Click | HitboxFlags.ContentEditable, { x: 0, y: 0, h: blockSizePx.h * headerHeightBl, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: blockSizePx.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ];
+    // Don't add left side move hitbox for list pages - it interferes with list item interaction.
+    if (page.arrangeAlgorithm != ArrangeAlgorithm.List) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }));
+    }
 
     if (isPopup) {
       const scale = blockSizePx.h / LINE_HEIGHT_PX * PAGE_POPUP_TITLE_HEIGHT_BL;
@@ -511,9 +514,12 @@ export const PageFns = {
       );
       hitboxes.push(
         HitboxFns.create(HitboxFlags.Move, { x: 0, y: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-        HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
         HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX })
       );
+      // Don't add left side move hitbox for list pages - it interferes with list item interaction.
+      if (page.arrangeAlgorithm != ArrangeAlgorithm.List) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }));
+      }
 
       if (!parentIsDock) {
         hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
