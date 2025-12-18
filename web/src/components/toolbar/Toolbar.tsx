@@ -75,7 +75,7 @@ export const Toolbar: Component = () => {
     }
     const currentFocusVeid = VeFns.veidFromPath(focusPath);
     let focusPageIdx = -1;
-    for (let i=0; i<topPageVePaths.length; ++i) {
+    for (let i = 0; i < topPageVePaths.length; ++i) {
       if (!VeFns.compareVeids(VeFns.veidFromPath(topPageVePaths[i]), currentFocusVeid)) {
         focusPageIdx = i;
       }
@@ -94,12 +94,18 @@ export const Toolbar: Component = () => {
     }
 
     let aTopPageHasFocus = isPage(store.history.getFocusItem());
-    if (store.history.currentPopupSpecVeid() != null && isPage(itemState.get(store.history.currentPopupSpecVeid()!.itemId)!)) {
-      aTopPageHasFocus = false;
-    }
     const fVes = VesCache.get(store.history.getFocusPath()!);
     if (fVes) {
       const fVe = fVes.get();
+      // Check if focus is inside a popup (has Popup flag or is descendant of popup)
+      const focusIsInsidePopup = !!(fVe.flags & VisualElementFlags.Popup) ||
+        (store.history.currentPopupSpecVeid() != null &&
+          !(fVe.flags & VisualElementFlags.ListPageRoot) &&
+          !(fVe.flags & VisualElementFlags.TopLevelRoot));
+      if (focusIsInsidePopup) {
+        aTopPageHasFocus = false;
+      }
+      // Also disable if focus is not on a root-level page
       if (!(fVe.flags & VisualElementFlags.ListPageRoot) && !(fVe.flags & VisualElementFlags.TopLevelRoot)) {
         aTopPageHasFocus = false;
       }
@@ -107,7 +113,7 @@ export const Toolbar: Component = () => {
 
     const topPageVePaths = store.topTitledPages.get();
     const topPageVeids = [];
-    for (let i=0; i<topPageVePaths.length; ++i) {
+    for (let i = 0; i < topPageVePaths.length; ++i) {
       topPageVeids.push(VeFns.veidFromPath(topPageVePaths[i]));
     }
     let focusPageIdx = -1;
@@ -140,12 +146,12 @@ export const Toolbar: Component = () => {
       borderWidthPx: focusPageIdx == 0 ? 2 : 1,
     });
 
-    for (let i=1; i<topPageVeids.length; ++i) {
+    for (let i = 1; i < topPageVeids.length; ++i) {
       let pUid = topPageVeids[i].itemId;
       let page = asPageItem(itemState.get(pUid)!);
       lPosPx = rPosPx;
       rPosPx = lPosPx + (page.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
-      if (i == topPageVeids.length-1) {
+      if (i == topPageVeids.length - 1) {
         rPosPx = -1;
       }
 
@@ -157,7 +163,7 @@ export const Toolbar: Component = () => {
         bg: aTopPageHasFocus && focusPageIdx <= i ? `background-image: ${linearGradient(focusPageItem!.backgroundColorIndex, 0.92)};` : defaultBg,
         col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
         hasFocus: focusPageIdx == i,
-        nextHasFocus: focusPageIdx == i+1,
+        nextHasFocus: focusPageIdx == i + 1,
         borderColor: aTopPageHasFocus && focusPageIdx <= i
           ? borderColorForColorIdx(focusPageItem!.backgroundColorIndex, BorderType.MainPage)
           : ' ',
@@ -169,7 +175,7 @@ export const Toolbar: Component = () => {
   });
 
   const rightMostTitleSpec = () =>
-    titleSpecs()[titleSpecs().length-1];
+    titleSpecs()[titleSpecs().length - 1];
 
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
@@ -196,9 +202,9 @@ export const Toolbar: Component = () => {
     <Show when={store.dockVisible.get()}>
       <>
         <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
-             style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeightPx()}px; background-color: #fafafa; ` +
-                    `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                    `border-right-width: ${mainPageBorderWidth(store)}px`}>
+          style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeightPx()}px; background-color: #fafafa; ` +
+            `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
+            `border-right-width: ${mainPageBorderWidth(store)}px`}>
           <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
             <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
               <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
@@ -207,8 +213,8 @@ export const Toolbar: Component = () => {
             </Show>
             <div class="inline-block" style="flex-grow: 1;" />
             <div class="inline-block"
-                 style={"flex-grow: 0; margin-right: 8px;" +
-                        `padding-right: ${2-(mainPageBorderWidth(store)-1)}px; `}>
+              style={"flex-grow: 0; margin-right: 8px;" +
+                `padding-right: ${2 - (mainPageBorderWidth(store) - 1)}px; `}>
               <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w * 2}>
                 <Toolbar_Navigation />
               </Show>
@@ -217,19 +223,19 @@ export const Toolbar: Component = () => {
         </div>
         {/* this a hack to cover over a barely visible visual issue at the intersection of the toolbar and dock borders. */}
         <div class="absolute"
-             style={`width: ${mainPageBorderWidth(store)}px; ` +
-                    `height: 10px; ` +
-                    `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; ` +
-                    `top: ${store.topToolbarHeightPx() - 5}px; ` +
-                    `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
+          style={`width: ${mainPageBorderWidth(store)}px; ` +
+            `height: 10px; ` +
+            `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; ` +
+            `top: ${store.topToolbarHeightPx() - 5}px; ` +
+            `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
       </>
     </Show>;
 
   const rightToolbarSection = () =>
     <div class="border-l border-b pl-[4px] flex flex-row"
-         style={`border-color: ${rightMostTitleSpec().borderColor}; background-color: #fafafa; ` +
-                `border-left-width: ${rightMostTitleSpec().borderWidthPx}px; border-bottom-width: ${rightMostTitleSpec().borderWidthPx}px; ` +
-                `align-items: baseline;`}>
+      style={`border-color: ${rightMostTitleSpec().borderColor}; background-color: #fafafa; ` +
+        `border-left-width: ${rightMostTitleSpec().borderWidthPx}px; border-bottom-width: ${rightMostTitleSpec().borderWidthPx}px; ` +
+        `align-items: baseline;`}>
 
       <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
         <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
@@ -294,41 +300,41 @@ export const Toolbar: Component = () => {
           <>
             {/* spacer before title text */}
             <div class="border-b flex-grow-0"
-                 style={`width: ${tSpec.lPosPx == 0 ? '5' : (tSpec.hasFocus ? '7' : '6')}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
-                        `${tSpec.bg}` +
-                        (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.hasFocus ? '2' : '1'}px; border-left-color: ${tSpec.hasFocus ? tSpec.borderColor : BORDER_COLOR}; ` : '') +
-                        `border-top-color: ${tSpec.borderColor};` +
-                        `border-top-width: ${tSpec.borderWidthPx - 1}px; `} />
+              style={`width: ${tSpec.lPosPx == 0 ? '5' : (tSpec.hasFocus ? '7' : '6')}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                `${tSpec.bg}` +
+                (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.hasFocus ? '2' : '1'}px; border-left-color: ${tSpec.hasFocus ? tSpec.borderColor : BORDER_COLOR}; ` : '') +
+                `border-top-color: ${tSpec.borderColor};` +
+                `border-top-width: ${tSpec.borderWidthPx - 1}px; `} />
 
             <div id={`toolbarTitleDiv-${tSpec.idx}`}
-                 class="p-[3px] inline-block cursor-text border-b flex-grow-0 overflow-hidden whitespace-nowrap"
-                 contentEditable={true}
-                 style={`font-size: 22px; color: ${tSpec.col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
-                        `${tSpec.bg} ` +
-                        `border-top-color: ${tSpec.borderColor};` +
-                        `border-top-width: ${tSpec.borderWidthPx - 1}px; ` +
-                        `padding-top: ${2-(tSpec.borderWidthPx-1)}px; ` +
-                        `height: ${store.topToolbarHeightPx()}px; ` +
-                        (tSpec.rPosPx > 0 ? `width: ${tSpec.rPosPx - tSpec.lPosPx - 6 - (tSpec.nextHasFocus ? 1 : 0)}px;` : '') +
-                        "outline: 0px solid transparent;"}
-                onClick={handleTitleClick}>
+              class="p-[3px] inline-block cursor-text border-b flex-grow-0 overflow-hidden whitespace-nowrap"
+              contentEditable={true}
+              style={`font-size: 22px; color: ${tSpec.col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                `${tSpec.bg} ` +
+                `border-top-color: ${tSpec.borderColor};` +
+                `border-top-width: ${tSpec.borderWidthPx - 1}px; ` +
+                `padding-top: ${2 - (tSpec.borderWidthPx - 1)}px; ` +
+                `height: ${store.topToolbarHeightPx()}px; ` +
+                (tSpec.rPosPx > 0 ? `width: ${tSpec.rPosPx - tSpec.lPosPx - 6 - (tSpec.nextHasFocus ? 1 : 0)}px;` : '') +
+                "outline: 0px solid transparent;"}
+              onClick={handleTitleClick}>
               {tSpec.title}
             </div>
           </>
         }</For>
 
         <div class="inline-block flex-nowrap border-b"
-             style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
-                    `${rightMostTitleSpec().bg} ` +
-                    `border-top-color: ${rightMostTitleSpec().borderColor};` +
-                    `border-top-width: ${rightMostTitleSpec().borderWidthPx - 1}px; `}></div>
+          style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
+            `${rightMostTitleSpec().bg} ` +
+            `border-top-color: ${rightMostTitleSpec().borderColor};` +
+            `border-top-width: ${rightMostTitleSpec().borderWidthPx - 1}px; `}></div>
 
         {rightToolbarSection()}
 
       </div>
     </div>;
 
-  const toolbar = () => 
+  const toolbar = () =>
     <>
       {dockToolbarAreaMaybe()}
       {mainToolbarArea()}
@@ -336,8 +342,8 @@ export const Toolbar: Component = () => {
 
   const showToolbarButton = () =>
     <div class="absolute"
-         style={`z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON}; ` +
-                `right: 6px; top: -3px;`} onmousedown={showToolbar}>
+      style={`z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON}; ` +
+        `right: 6px; top: -3px;`} onmousedown={showToolbar}>
       <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
     </div>;
 

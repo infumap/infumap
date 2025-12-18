@@ -305,6 +305,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else if (activeVisualElementSignal.get().flags & VisualElementFlags.Popup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
+        fullArrange(store);
 
       } else if (activeVisualElementSignal.get().flags & VisualElementFlags.IsDock) {
         DoubleClickState.preventDoubleClick();

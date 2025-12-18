@@ -121,6 +121,12 @@ export const PageFns = {
 
   switchToOutermostListPageMaybe: (visualElement: VisualElement, store: StoreContextModel): void => {
     const targetVe = PageFns.findOutermostListPage(visualElement);
+    // If the target is currently rendered as a popup and doesn't already have focus,
+    // don't switch pages - just let focus be set on the popup.
+    // But if it already has focus (user clicking again), make it the root.
+    if ((targetVe.flags & VisualElementFlags.Popup) && !(targetVe.flags & VisualElementFlags.HasToolbarFocus)) {
+      return;
+    }
     const targetVeid = VeFns.actualVeidFromVe(targetVe);
     const currentVeid = store.history.currentPageVeid();
     if (isPage(targetVe.displayItem) && (targetVeid.itemId !== currentVeid?.itemId || targetVeid.linkIdMaybe !== currentVeid?.linkIdMaybe)) {
