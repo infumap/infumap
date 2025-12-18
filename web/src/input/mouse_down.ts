@@ -19,7 +19,7 @@
 import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-item";
 import { Item, ItemType } from "../items/base/item";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
-import { asTableItem, isTable } from "../items/table-item";
+import { asTableItem, isTable, TableFns } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp } from "../layout/navigation";

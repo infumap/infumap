@@ -117,7 +117,7 @@ export let MouseActionState = {
     }
 
     if (!signal) {
-      signal = VesCache.get(state.activeElementPath);
+      signal = VesCache.get(state.activeElementPath) ?? null;
     }
 
     if (!signal) {

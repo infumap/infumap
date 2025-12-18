@@ -18,7 +18,8 @@
 
 import { Component, For, Match, Show, Switch, onMount, createEffect } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { Veid, VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
@@ -42,12 +43,27 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const pageFns = () => props.pageFns;
 
-  onMount(() => {
-    let veid = store.history.currentPageVeid()!;
-    if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
-      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+  const getScrollVeid = (): Veid | null => {
+    let veid = store.history.currentPageVeid();
+    if (veid == null) return null;
+    if (props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
+      veid = VeFns.actualVeidFromVe(props.visualElement);
+    } else if (props.visualElement.parentPath && props.visualElement.parentPath != UMBRELLA_PAGE_UID) {
+      // Use veidFromPath as a fallback if the parent isn't in VesCache yet (e.g. during initial mount)
+      const parentVeid = VesCache.get(props.visualElement.parentPath)
+        ? VeFns.actualVeidFromPath(props.visualElement.parentPath)
+        : VeFns.veidFromPath(props.visualElement.parentPath);
       veid = store.perItem.getSelectedListPageItem(parentVeid);
     }
+    return veid;
+  };
+
+  onMount(() => {
+    if (!rootDiv) return;
+
+    const veid = getScrollVeid();
+    if (!veid) return;
+    updatingRootScrollTop = true;
 
     // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
     const isListPage = pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
@@ -68,6 +84,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       rootDiv.scrollTop = scrollYPx;
       rootDiv.scrollLeft = scrollXPx;
     }
+
+    setTimeout(() => {
+      updatingRootScrollTop = false;
+    }, 0);
   });
 
   createEffect(() => {
@@ -77,11 +97,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     updatingRootScrollTop = true;
 
     if (rootDiv) {
-      let veid = store.history.currentPageVeid()!;
-      if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
-        const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
-        veid = store.perItem.getSelectedListPageItem(parentVeid);
-      }
+      const veid = getScrollVeid();
+      if (!veid) return;
 
       // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
       const isListPage = pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
@@ -114,13 +131,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const listChildAreaH = props.visualElement.listChildAreaBoundsPx!.h;
     const viewportH = pageFns().viewportBoundsPx().h;
 
-    let veid = store.history.currentPageVeid()!;
-    if (props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
-      veid = VeFns.actualVeidFromVe(props.visualElement);
-    } else if (props.visualElement.parentPath != UMBRELLA_PAGE_UID) {
-      const parentVeid = VeFns.actualVeidFromPath(props.visualElement.parentPath!);
-      veid = store.perItem.getSelectedListPageItem(parentVeid);
-    }
+    const veid = getScrollVeid();
+    if (!veid) return;
 
     if (viewportH < listChildAreaH) {
       const scrollYProp = rootDiv!.scrollTop / (listChildAreaH - viewportH);
@@ -213,13 +225,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
     const desktopSizePx = props.visualElement.boundsPx;
 
-    let veid = store.history.currentPageVeid()!;
-    if (props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
-      veid = VeFns.actualVeidFromVe(props.visualElement);
-    } else if (props.visualElement.parentPath != UMBRELLA_PAGE_UID) {
-      const parentVeid = VeFns.actualVeidFromPath(props.visualElement.parentPath!);
-      veid = store.perItem.getSelectedListPageItem(parentVeid);
-    }
+    const veid = getScrollVeid();
+    if (!veid) return;
 
     if (desktopSizePx.w < pageBoundsPx.w) {
       const scrollXProp = rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);

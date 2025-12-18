@@ -19,7 +19,7 @@
 import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { BorderType, Colors, borderColorForColorIdx, linearGradient } from "../../style";
+import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -67,7 +67,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const inputListener = (ev: InputEvent) => {
     edit_inputListener(store, ev);
   }
-  
+
   const titleScale = () => (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
   const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot);
@@ -84,20 +84,20 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderEmbeddedInteractiveBackground = () =>
     <div class="absolute w-full"
-         style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
-                `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
-                borderStyle()} />;
+      style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
+        `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
+        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+        borderStyle()} />;
 
   const renderEmbeddedInteractiveForeground = () =>
     <div class="absolute w-full pointer-events-none"
-         style={`${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
-                `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
-                borderStyle()} />;
+      style={`${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+        `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
+        borderStyle()} />;
 
   const renderIsLinkMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                pageFns().showTriangleDetail()}>
+      pageFns().showTriangleDetail()}>
       <InfuLinkTriangle />
     </Show>;
 
@@ -109,16 +109,16 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const renderEmbeddedInteractiveTitleMaybe = () =>
     <Show when={isEmbeddedInteractive()}>
       <div class={`absolute`}
-           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px;`}>
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px;`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
-             class="absolute font-bold"
-             style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word;` +
-                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
-                    `outline: 0px solid transparent;`}
-             spellcheck={store.overlay.textEditInfo() != null}
-             contentEditable={store.overlay.textEditInfo() != null}>
+          class="absolute font-bold"
+          style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale()}px; ` +
+            `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
+            `overflow-wrap: break-word;` +
+            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+            `outline: 0px solid transparent;`}
+          spellcheck={store.overlay.textEditInfo() != null}
+          contentEditable={store.overlay.textEditInfo() != null}>
           {pageFns().pageItem().title}
         </div>
       </div>
@@ -127,31 +127,31 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const renderFindHighlightedMaybe = () =>
     <Show when={isEmbeddedInteractive() && (props.visualElement.flags & VisualElementFlags.FindHighlighted)}>
       <div class="absolute pointer-events-none rounded-sm"
-           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
-                  `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
-                  `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
-                  `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
+          `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
+          `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
+          `z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const renderListPage = () =>
-    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-         style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
-                `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                `left: 0px; ` +
-                `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
-                `background-color: #ffffff;` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+      style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
+        `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+        `left: 0px; ` +
+        `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+        `background-color: #ffffff;` +
+        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
       <div ref={rootDiv}
-           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
-                  `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
-           style={`overflow-y: auto; ` +
-                  `width: ${pageFns().viewportBoundsPx().w}px; ` +
-                  `height: ${pageFns().viewportBoundsPx().h}px; ` +
-                  `background-color: #ffffff;` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
+          `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
+        style={`overflow-y: auto; ` +
+          `width: ${pageFns().viewportBoundsPx().w}px; ` +
+          `height: ${pageFns().viewportBoundsPx().h}px; ` +
+          `background-color: #ffffff;` +
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="absolute"
-             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; ` +
-                    `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
+          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; ` +
+            `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
@@ -170,22 +170,22 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderPage = () =>
     <div ref={rootDiv}
-         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-         style={`left: 0px; ` +
-                `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
-                `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
-                `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+      style={`left: 0px; ` +
+        `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+        `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+        `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+        `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
       <div class="absolute"
-           style={`left: 0px; top: 0px; ` +
-                  `width: ${pageFns().childAreaBoundsPx().w}px; ` +
-                  `height: ${pageFns().childAreaBoundsPx().h}px; ` +
-                  `outline: 0px solid transparent; `}
-           contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
-           onKeyUp={keyUpHandler}
-           onKeyDown={keyDownHandler}
-           onInput={inputListener}>
+        style={`left: 0px; top: 0px; ` +
+          `width: ${pageFns().childAreaBoundsPx().w}px; ` +
+          `height: ${pageFns().childAreaBoundsPx().h}px; ` +
+          `outline: 0px solid transparent; `}
+        contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+        onKeyUp={keyUpHandler}
+        onKeyDown={keyDownHandler}
+        onInput={inputListener}>
         <For each={props.visualElement.childrenVes}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
@@ -206,8 +206,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   return (
     <>
       <div class={`absolute`}
-           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-                  `background-color: #ffffff;`}>
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+          `background-color: #ffffff;`}>
         {renderEmbeddedInteractiveBackground()}
         <Switch>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
