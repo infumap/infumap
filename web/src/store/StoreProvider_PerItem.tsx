@@ -24,6 +24,10 @@ export interface PerItemStoreContextModel {
   getSelectedListPageItem: (listPageVeid: Veid) => Veid,
   setSelectedListPageItem: (listPageVeid: Veid, selectedVeid: Veid) => void,
 
+  getFocusedListPageItem: (listPageVeid: Veid) => Veid,
+  setFocusedListPageItem: (listPageVeid: Veid, focusedVeid: Veid) => void,
+  clearFocusedListPageItem: (listPageVeid: Veid) => void,
+
   getTableScrollYPos: (veid: Veid) => number,
   setTableScrollYPos: (veid: Veid, pos: number) => void,
 
@@ -46,6 +50,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
   const selectedItems = new Map<string, InfuSignal<Veid>>();
+  const focusedItems = new Map<string, InfuSignal<Veid>>();
   const flipCardVisibleSides = new Map<string, NumberSignal>();
 
   const getTableScrollYPos = (veid: Veid): number => {
@@ -133,16 +138,42 @@ export function makePerItemStore(): PerItemStoreContextModel {
     selectedItems.get(key)!.set(selectedVeid);
   };
 
+  const getFocusedListPageItem = (listPageVeid: Veid): Veid => {
+    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
+    if (!focusedItems.get(key)) {
+      focusedItems.set(key, createInfuSignal<Veid>(EMPTY_VEID));
+    }
+    return focusedItems.get(key)!.get();
+  };
+
+  const setFocusedListPageItem = (listPageVeid: Veid, focusedVeid: Veid): void => {
+    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
+    if (!focusedItems.get(key)) {
+      focusedItems.set(key, createInfuSignal<Veid>(focusedVeid));
+      return;
+    }
+    focusedItems.get(key)!.set(focusedVeid);
+  };
+
+  const clearFocusedListPageItem = (listPageVeid: Veid): void => {
+    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
+    if (focusedItems.get(key)) {
+      focusedItems.get(key)!.set(EMPTY_VEID);
+    }
+  };
+
   function clear() {
     tableScrollPositions.clear();
     pageScrollXPxs.clear();
     pageScrollYPxs.clear();
     selectedItems.clear();
+    focusedItems.clear();
     flipCardVisibleSides.clear();
   }
 
   return ({
     getSelectedListPageItem, setSelectedListPageItem,
+    getFocusedListPageItem, setFocusedListPageItem, clearFocusedListPageItem,
     getTableScrollYPos, setTableScrollYPos,
     getPageScrollXProp, setPageScrollXProp,
     getPageScrollYProp, setPageScrollYProp,

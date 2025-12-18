@@ -553,6 +553,16 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   const focusPageIdx = topPagePaths.indexOf(focusPath);
 
   if (focusPageIdx > 0) {
+    // Save the focused page before navigating up, so it can be restored when clicking back in.
+    const currentPageVeid = store.history.currentPageVeid();
+    if (currentPageVeid) {
+      const focusVes = VesCache.get(focusPath);
+      if (focusVes && isPage(focusVes.get().displayItem)) {
+        const focusedVeid = VeFns.actualVeidFromVe(focusVes.get());
+        store.perItem.setFocusedListPageItem(currentPageVeid, focusedVeid);
+      }
+    }
+
     if (store.history.currentPopupSpec() != null) {
       await navigateBack(store);
       return;
@@ -579,6 +589,18 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   const changedPages = await navigateBack(store);
   if (!changedPages) {
+    // Save the focused page before navigating up (when focus is on root)
+    const currentPageVeid = store.history.currentPageVeid();
+    if (currentPageVeid) {
+      const currentPageItem = itemState.get(currentPageVeid.itemId);
+      if (currentPageItem && isPage(currentPageItem) && asPageItem(currentPageItem).arrangeAlgorithm === ArrangeAlgorithm.List) {
+        const focusVes = VesCache.get(focusPath);
+        if (focusVes && isPage(focusVes.get().displayItem)) {
+          const focusedVeid = VeFns.actualVeidFromVe(focusVes.get());
+          store.perItem.setFocusedListPageItem(currentPageVeid, focusedVeid);
+        }
+      }
+    }
     await navigateUp(store);
   }
 }

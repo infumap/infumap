@@ -130,8 +130,72 @@ export const PageFns = {
     const targetVeid = VeFns.actualVeidFromVe(targetVe);
     const currentVeid = store.history.currentPageVeid();
     if (isPage(targetVe.displayItem) && (targetVeid.itemId !== currentVeid?.itemId || targetVeid.linkIdMaybe !== currentVeid?.linkIdMaybe)) {
-      const focusPath = VeFns.computeFocusPathRelativeToRoot(visualElement, targetVeid);
-      switchToPage(store, targetVeid, true, false, false, focusPath);
+      let focusPath = VeFns.computeFocusPathRelativeToRoot(visualElement, targetVeid);
+
+      // If we're clicking directly on the root list page (not through a nested child),
+      // restore focus to a previously focused page or the deepest selected page.
+      const clickedVeid = VeFns.actualVeidFromVe(visualElement);
+      if (clickedVeid.itemId === targetVeid.itemId && clickedVeid.linkIdMaybe === targetVeid.linkIdMaybe) {
+        // First check if there's a saved focused page for this list page
+        const savedFocusedVeid = store.perItem.getFocusedListPageItem(targetVeid);
+        let targetFocusVeid: Veid | null = null;
+
+        if (savedFocusedVeid && savedFocusedVeid !== EMPTY_VEID && savedFocusedVeid.itemId !== "") {
+          // Use the saved focused page
+          targetFocusVeid = savedFocusedVeid;
+          // Clear the saved focus after using it
+          store.perItem.clearFocusedListPageItem(targetVeid);
+        } else {
+          // No saved focus - walk down the selected items chain to find the deepest selected page
+          let currentVeid = targetVeid;
+          const MAX_DEPTH = 10;
+
+          for (let i = 0; i < MAX_DEPTH; i++) {
+            const selectedVeid = store.perItem.getSelectedListPageItem(currentVeid);
+            if (!selectedVeid || selectedVeid === EMPTY_VEID || selectedVeid.itemId === "") {
+              break;
+            }
+
+            const selectedItem = itemState.get(selectedVeid.itemId);
+            // Only track pages as potential focus targets (non-pages won't be in topTitledPages)
+            if (selectedItem && isPage(selectedItem)) {
+              targetFocusVeid = selectedVeid;
+            }
+
+            // Only continue walking if it's a list page (has nested selections)
+            if (!selectedItem || !isPage(selectedItem) || asPageItem(selectedItem).arrangeAlgorithm !== ArrangeAlgorithm.List) {
+              break;
+            }
+            currentVeid = selectedVeid;
+          }
+        }
+
+        // Switch to page with default focus (so arrange runs and creates VEs)
+        switchToPage(store, targetVeid, true, false, false, focusPath);
+
+        // After arrange, find the correct path from topTitledPages for the target focus
+        if (targetFocusVeid) {
+          const topPages = store.topTitledPages.get();
+
+          // Find the path in topTitledPages that matches targetFocusVeid
+          let targetPath: string | null = null;
+          for (const pagePath of topPages) {
+            const pageVeid = VeFns.veidFromPath(pagePath);
+            if (pageVeid.itemId === targetFocusVeid.itemId) {
+              targetPath = pagePath;
+              break;
+            }
+          }
+
+          if (targetPath) {
+            store.history.setFocus(targetPath);
+            fullArrange(store);
+            store.touchToolbar();
+          }
+        }
+      } else {
+        switchToPage(store, targetVeid, true, false, false, focusPath);
+      }
     }
   },
 
