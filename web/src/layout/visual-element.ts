@@ -22,7 +22,7 @@ import { Item, EMPTY_ITEM, ItemType } from "../items/base/item";
 import { VisualElementSignal } from "../util/signals";
 import { LinkItem, asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { StoreContextModel } from "../store/StoreProvider";
-import { EMPTY_UID, Uid } from "../util/uid";
+import { EMPTY_UID, UMBRELLA_PAGE_UID, Uid } from "../util/uid";
 import { assert, panic } from "../util/lang";
 import { asTableItem, isTable } from "../items/table-item";
 import { VesCache } from "./ves-cache";
@@ -63,38 +63,38 @@ export const EMPTY_VEID: Veid = {
 
 
 export enum VisualElementFlags {
-  None                    = 0x000000,
-  Selected                = 0x000001, // The item is selected.
-  HasToolbarFocus         = 0x000002, // The item has toolbar focus.
-  LineItem                = 0x000004, // Render as a line item (like in a table), not desktop item.
-  Detailed                = 0x000008, // The visual element has detail / can be interacted with.
-  InsideTable             = 0x000010, // The visual element is inside a table.
-  Attachment              = 0x000020, // The visual element is an attachment.
-  ShowChildren            = 0x000040, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
-  Fixed                   = 0x000080, // positioning is fixed, not absolute.
-  InsideCompositeOrDoc    = 0x000100, // The visual element is inside a composite item.
-  ZAbove                  = 0x000200, // Render above everything else (except moving).
-  Moving                  = 0x000400, // Render the visual element partially transparent and on top of everything else.
-  IsDock                  = 0x000800, // render the page as the dock.
-  IsTrash                 = 0x001000, // render the page as the trash icon.
-  UmbrellaPage            = 0x002000, // the very top level page.
-  Popup                   = 0x004000, // Is a popped up something (page or image or anything).
-  TopLevelRoot            = 0x008000, // The top most page root element.
-  ListPageRoot            = 0x010000, // Is the root item in a list page.
+  None = 0x000000,
+  Selected = 0x000001, // The item is selected.
+  HasToolbarFocus = 0x000002, // The item has toolbar focus.
+  LineItem = 0x000004, // Render as a line item (like in a table), not desktop item.
+  Detailed = 0x000008, // The visual element has detail / can be interacted with.
+  InsideTable = 0x000010, // The visual element is inside a table.
+  Attachment = 0x000020, // The visual element is an attachment.
+  ShowChildren = 0x000040, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
+  Fixed = 0x000080, // positioning is fixed, not absolute.
+  InsideCompositeOrDoc = 0x000100, // The visual element is inside a composite item.
+  ZAbove = 0x000200, // Render above everything else (except moving).
+  Moving = 0x000400, // Render the visual element partially transparent and on top of everything else.
+  IsDock = 0x000800, // render the page as the dock.
+  IsTrash = 0x001000, // render the page as the trash icon.
+  UmbrellaPage = 0x002000, // the very top level page.
+  Popup = 0x004000, // Is a popped up something (page or image or anything).
+  TopLevelRoot = 0x008000, // The top most page root element.
+  ListPageRoot = 0x010000, // Is the root item in a list page.
   EmbeddedInteractiveRoot = 0x020000, // Is an embedded interactive page.
-  DockItem                = 0x040000, // Is an item inside the dock.
-  FocusPageSelected       = 0x080000, // Line item is in focussed page and selected.
-  FlipCardPage            = 0x100000, // A flipcard page.
-  FindHighlighted         = 0x200000, // The item is highlighted by find-on-page.
-  SelectionHighlighted    = 0x400000, // Highlighted by selection marquee.
+  DockItem = 0x040000, // Is an item inside the dock.
+  FocusPageSelected = 0x080000, // Line item is in focussed page and selected.
+  FlipCardPage = 0x100000, // A flipcard page.
+  FindHighlighted = 0x200000, // The item is highlighted by find-on-page.
+  SelectionHighlighted = 0x400000, // Highlighted by selection marquee.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {
   return !!(flags & VisualElementFlags.TopLevelRoot |
-            flags & VisualElementFlags.Popup |
-            flags & VisualElementFlags.ListPageRoot |
-            flags & VisualElementFlags.IsDock |
-            flags & VisualElementFlags.EmbeddedInteractiveRoot);
+    flags & VisualElementFlags.Popup |
+    flags & VisualElementFlags.ListPageRoot |
+    flags & VisualElementFlags.IsDock |
+    flags & VisualElementFlags.EmbeddedInteractiveRoot);
 }
 
 /**
@@ -543,6 +543,33 @@ export const VeFns = {
     return result;
   },
 
+  computeFocusPathRelativeToRoot: (visualElement: VisualElement, rootVeid: Veid): VisualElementPath => {
+    let currVe: VisualElement | null = visualElement;
+    const hierarchy: Veid[] = [];
+    while (currVe != null) {
+      // Use actualVeidFromVe for root comparison (matches how rootVeid is computed)
+      const actualCurrVeid = VeFns.actualVeidFromVe(currVe);
+      const isRoot = actualCurrVeid.itemId === rootVeid.itemId && actualCurrVeid.linkIdMaybe === rootVeid.linkIdMaybe;
+
+      // For the root element, use actualVeidFromVe since it will become the main page
+      // without synthetic links. For nested elements, use veidFromVe to include
+      // synthetic links (like LIST_PAGE_MAIN_ITEM_LINK_ITEM) that match VesCache paths.
+      const currVeid = isRoot ? actualCurrVeid : VeFns.veidFromVe(currVe);
+      hierarchy.push(currVeid);
+
+      if (isRoot) {
+        break;
+      }
+      currVe = currVe.parentPath ? (VesCache.get(currVe.parentPath)?.get() ?? null) : null;
+    }
+
+    let focusPath = UMBRELLA_PAGE_UID;
+    for (let i = hierarchy.length - 1; i >= 0; i--) {
+      focusPath = VeFns.addVeidToPath(hierarchy[i], focusPath);
+    }
+    return focusPath;
+  },
+
   parentPath: (path: VisualElementPath): VisualElementPath => {
     const pos = path.indexOf("-");
     if (pos == -1) {
@@ -878,7 +905,7 @@ function getIdsFromPathPart(part: string): Veid {
   let linkIdMaybe = null;
   if (part.length == EMPTY_UID.length * 2 + 2) {
     itemId = part.substring(0, EMPTY_UID.length);
-    linkIdMaybe = part.substring(EMPTY_UID.length+1, part.length-1);
+    linkIdMaybe = part.substring(EMPTY_UID.length + 1, part.length - 1);
   } else if (part.length != EMPTY_UID.length) {
     panic(`getIdsFromPathPart: wrong uid length. Expected ${EMPTY_UID.length} or ${EMPTY_UID.length * 2 + 2}, got ${part.length} for part: "${part}"`);
   }
@@ -888,12 +915,12 @@ function getIdsFromPathPart(part: string): Veid {
 
 function printRecursive(visualElement: VisualElement, level: number, relationship: string) {
   let indent = "";
-  for (let i=0; i<level; ++i) { indent += "-"; }
+  for (let i = 0; i < level; ++i) { indent += "-"; }
   console.debug(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.displayItem ? "itemid: " + visualElement.displayItem.id : "") + "}");
-  for (let i=0; i<visualElement.childrenVes.length; ++i) {
+  for (let i = 0; i < visualElement.childrenVes.length; ++i) {
     printRecursive(visualElement.childrenVes[i].get(), level + 1, "c");
   }
-  for (let i=0; i<visualElement.attachmentsVes.length; ++i) {
+  for (let i = 0; i < visualElement.attachmentsVes.length; ++i) {
     printRecursive(visualElement.attachmentsVes[i].get(), level + 1, "a");
   }
 }
@@ -902,32 +929,32 @@ function printRecursive(visualElement: VisualElement, level: number, relationshi
 function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   result.displayItem = override.displayItem;
 
-  if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
-  if (typeof(override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
-  if (typeof(override.focusedChildItemMaybe) != 'undefined') { result.focusedChildItemMaybe = override.focusedChildItemMaybe; }
-  if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
-  if (typeof(override._arrangeFlags_useForPartialRearrangeOnly) != 'undefined') { result._arrangeFlags_useForPartialRearrangeOnly = override._arrangeFlags_useForPartialRearrangeOnly; }
-  if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
-  if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
-  if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
-  if (typeof(override.listChildAreaBoundsPx) != 'undefined') { result.listChildAreaBoundsPx = override.listChildAreaBoundsPx; }
-  if (typeof(override.listViewportBoundsPx) != 'undefined') { result.listViewportBoundsPx = override.listViewportBoundsPx; }
-  if (typeof(override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
-  if (typeof(override.indentBl) != 'undefined') { result.indentBl = override.indentBl; }
-  if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
-  if (typeof(override.col) != 'undefined') { result.col = override.col; }
-  if (typeof(override.row) != 'undefined') { result.row = override.row; }
-  if (typeof(override.cellSizePx) != 'undefined') { result.cellSizePx = override.cellSizePx; }
-  if (typeof(override.numRows) != 'undefined') { result.numRows = override.numRows; }
-  if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
-  if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
-  if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
-  if (typeof(override.childrenVes) != 'undefined') { result.childrenVes = override.childrenVes; }
-  if (typeof(override.tableVesRows) != 'undefined') { result.tableVesRows = override.tableVesRows; }
-  if (typeof(override.attachmentsVes) != 'undefined') { result.attachmentsVes = override.attachmentsVes; }
-  if (typeof(override.popupVes) != 'undefined') { result.popupVes = override.popupVes; }
-  if (typeof(override.selectedVes) != 'undefined') { result.selectedVes = override.selectedVes; }
-  if (typeof(override.dockVes) != 'undefined') { result.dockVes = override.dockVes; }
+  if (typeof (override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
+  if (typeof (override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
+  if (typeof (override.focusedChildItemMaybe) != 'undefined') { result.focusedChildItemMaybe = override.focusedChildItemMaybe; }
+  if (typeof (override.flags) != 'undefined') { result.flags = override.flags; }
+  if (typeof (override._arrangeFlags_useForPartialRearrangeOnly) != 'undefined') { result._arrangeFlags_useForPartialRearrangeOnly = override._arrangeFlags_useForPartialRearrangeOnly; }
+  if (typeof (override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
+  if (typeof (override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
+  if (typeof (override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
+  if (typeof (override.listChildAreaBoundsPx) != 'undefined') { result.listChildAreaBoundsPx = override.listChildAreaBoundsPx; }
+  if (typeof (override.listViewportBoundsPx) != 'undefined') { result.listViewportBoundsPx = override.listViewportBoundsPx; }
+  if (typeof (override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
+  if (typeof (override.indentBl) != 'undefined') { result.indentBl = override.indentBl; }
+  if (typeof (override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
+  if (typeof (override.col) != 'undefined') { result.col = override.col; }
+  if (typeof (override.row) != 'undefined') { result.row = override.row; }
+  if (typeof (override.cellSizePx) != 'undefined') { result.cellSizePx = override.cellSizePx; }
+  if (typeof (override.numRows) != 'undefined') { result.numRows = override.numRows; }
+  if (typeof (override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
+  if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
+  if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
+  if (typeof (override.childrenVes) != 'undefined') { result.childrenVes = override.childrenVes; }
+  if (typeof (override.tableVesRows) != 'undefined') { result.tableVesRows = override.tableVesRows; }
+  if (typeof (override.attachmentsVes) != 'undefined') { result.attachmentsVes = override.attachmentsVes; }
+  if (typeof (override.popupVes) != 'undefined') { result.popupVes = override.popupVes; }
+  if (typeof (override.selectedVes) != 'undefined') { result.selectedVes = override.selectedVes; }
+  if (typeof (override.dockVes) != 'undefined') { result.dockVes = override.dockVes; }
 
   if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
     console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);

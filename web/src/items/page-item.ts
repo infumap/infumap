@@ -104,6 +104,32 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 
 export const PageFns = {
+  findOutermostListPage: (visualElement: VisualElement): VisualElement => {
+    let targetVe = visualElement;
+    let currVe: VisualElement | null = visualElement;
+    while (currVe != null) {
+      if (isPage(currVe.displayItem) && asPageItem(currVe.displayItem).arrangeAlgorithm === ArrangeAlgorithm.List) {
+        targetVe = currVe;
+      }
+      if (currVe.flags & VisualElementFlags.Popup) {
+        break;
+      }
+      currVe = currVe.parentPath ? VesCache.get(currVe.parentPath)?.get() ?? null : null;
+    }
+    return targetVe;
+  },
+
+  switchToOutermostListPageMaybe: (visualElement: VisualElement, store: StoreContextModel): void => {
+    const targetVe = PageFns.findOutermostListPage(visualElement);
+    const targetVeid = VeFns.actualVeidFromVe(targetVe);
+    const currentVeid = store.history.currentPageVeid();
+    if (isPage(targetVe.displayItem) && (targetVeid.itemId !== currentVeid?.itemId || targetVeid.linkIdMaybe !== currentVeid?.linkIdMaybe)) {
+      const focusPath = VeFns.computeFocusPathRelativeToRoot(visualElement, targetVeid);
+      switchToPage(store, targetVeid, true, false, false, focusPath);
+    }
+  },
+
+
 
   /**
    * The absolute top level page.
@@ -729,8 +755,10 @@ export const PageFns = {
     } else {
       const focusPath = VeFns.veToPath(visualElement);
       store.history.setFocus(focusPath);
-      const actualVeid = VeFns.actualVeidFromVe(visualElement);
-      switchToPage(store, actualVeid, true, false, false);
+
+      // Find the outermost list page in the current hierarchy (e.g. if in a popup).
+      // If it's different from the current page, switch to it.
+      PageFns.switchToOutermostListPageMaybe(visualElement, store);
     }
   },
 
@@ -738,8 +766,7 @@ export const PageFns = {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const focusPath = VeFns.veToPath(visualElement);
     store.history.setFocus(focusPath);
-    const actualVeid = VeFns.actualVeidFromVe(visualElement);
-    switchToPage(store, actualVeid, true, false, false);
+    PageFns.switchToOutermostListPageMaybe(visualElement, store);
   },
 
   handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel): void => {

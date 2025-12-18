@@ -100,11 +100,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         ? MouseActionState.get().startWidthBl! * GRID_SIZE != asLinkItem(activeItem).spatialWidthGr
         : MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr;
       if (xsized ||
-          (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
-          // TODO (LOW): don't update if there are no changes.
-          (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) ||
-          isFlipCard(activeItem) ||
-          (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem))) {
+        (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
+        // TODO (LOW): don't update if there are no changes.
+        (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) ||
+        isFlipCard(activeItem) ||
+        (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem))) {
         serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
       }
       // mouseActionState.activeVisualElement.update(ve => {
@@ -169,7 +169,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
             store.overlay.selectedVeids.set([]);
             fullArrange(store);
           }
-      }
+        }
       }
 
       if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
@@ -181,8 +181,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         PageFns.handleAnchorDefaultClick(activeVisualElement, store);
 
       } else if (isLink(activeVisualElement.displayItem) &&
-          asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin &&
-          !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings)) {
+        asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin &&
+        !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings)) {
         DoubleClickState.preventDoubleClick();
         const linkItem = asLinkItem(activeVisualElement.displayItem);
         const linkFocusPath = VeFns.addVeidToPath(
@@ -196,8 +196,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         });
 
       } else if (isLink(activeVisualElement.displayItem) &&
-                 !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) &&
-                 ClickState.getLinkWasClicked()) {
+        !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) &&
+        ClickState.getLinkWasClicked()) {
         const linkItem = asLinkItem(activeVisualElement.displayItem);
         const linkFocusPath = VeFns.addVeidToPath(
           { itemId: linkItem.id, linkIdMaybe: null },
@@ -217,7 +217,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         store.history.setFocus(focusPath);
 
       } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Flip) ||
-                 (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TimedFlip)) {
+        (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TimedFlip)) {
         DoubleClickState.preventDoubleClick();
         const veid = VeFns.veidFromPath(MouseActionState.get().activeElementPath);
         store.perItem.setFlipCardVisibleSide(veid, store.perItem.getFlipCardVisibleSide(veid) == 0 ? 1 : 0);
@@ -272,15 +272,15 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         PageFns.handleShiftLeftClick(activeVisualElement, store);
 
       } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
-                 !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Move)) {
+        !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Move)) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
 
       } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags) &&
-                 !(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.IsDock) &&
-                 ((VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).itemId != store.history.currentPageVeid()!.itemId) ||
-                  (VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
-                 (CursorEventState.getLatestDesktopPx(store).y > 0)) {
+        !(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.IsDock) &&
+        ((VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).itemId != store.history.currentPageVeid()!.itemId) ||
+          (VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
+        (CursorEventState.getLatestDesktopPx(store).y > 0)) {
         DoubleClickState.preventDoubleClick();
         store.history.setFocus(MouseActionState.get().activeElementPath);
 
@@ -292,6 +292,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           if (selectedVeid == EMPTY_VEID) {
             PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
           }
+
+          // If we clicked on a root element that is not the current page (e.g. a popup background
+          // or a nested list page), handle potential switching of the root page.
+          // Nested list pages in popups should make the outermost list page the root.
+          PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
         }
 
         // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
@@ -316,11 +321,18 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
           {
             const focusPagePath = store.history.getFocusPath();
-            const focusPageVe = VesCache.get(focusPagePath)!.get();
-            const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
-            const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-            if (selectedVeid == EMPTY_VEID) {
-              PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+            const focusPageSignal = VesCache.get(focusPagePath);
+            if (focusPageSignal) {
+              const focusPageVe = focusPageSignal.get();
+              const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+              const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+              if (selectedVeid == EMPTY_VEID) {
+                PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+              }
+
+              // If we clicked on an item that is not a root (e.g. a note), handle potential switching 
+              // of the root page to the outermost list page in its hierarchy.
+              PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
             }
           }
 
@@ -401,7 +413,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         }
         activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
         itemState.moveToNewParent(activeItem, targetPageItem.id, RelationshipToParent.Child);
-         persistMovedItems(store, [activeItem.id]);
+        persistMovedItems(store, [activeItem.id]);
         finalizeMouseUp(store);
         MouseActionState.set(null);
         fullArrange(store);
@@ -421,24 +433,24 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
   if (isPage(overContainerVe.displayItem)) {
     const pageItem = asPageItem(overContainerVe.displayItem);
     if (overContainerVe.flags & VisualElementFlags.IsDock) {
-    const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
-    activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index, activeItem.id);
-    itemState.sortChildren(pageItem.id);
-   persistMovedItems(store, [activeItem.id]);
+      const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
+      activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index, activeItem.id);
+      itemState.sortChildren(pageItem.id);
+      persistMovedItems(store, [activeItem.id]);
     }
     else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-             pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
-             pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+      pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
+      pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
       const path = VeFns.veToPath(overContainerVe);
       const idx = store.perVe.getMoveOverIndex(path);
       const insertIndex = pageItem.orderChildrenBy != "" ? 0 : idx;
       activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
       itemState.sortChildren(pageItem.id);
-     persistMovedItems(store, [activeItem.id]);
+      persistMovedItems(store, [activeItem.id]);
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
       if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
-          MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
-     persistMovedItems(store, [activeItem.id]);
+        MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
+        persistMovedItems(store, [activeItem.id]);
       }
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
       const path = VeFns.veToPath(overContainerVe);
@@ -535,7 +547,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
       MouseActionState.get().startCompositeItem = null;
     }
 
-  // case #2: attaching to an item that is not inside an existing composite.
+    // case #2: attaching to an item that is not inside an existing composite.
   } else {
 
     // case #2.1: this item is not a composite either.
@@ -693,7 +705,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
   }
 
   const numPlaceholdersToCreate = insertPosition > displayedChild.computed_attachments.length ? insertPosition - displayedChild.computed_attachments.length : 0;
-  for (let i=0; i<numPlaceholdersToCreate; ++i) {
+  for (let i = 0; i < numPlaceholdersToCreate; ++i) {
     const placeholderItem = PlaceholderFns.create(activeItem.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
     itemState.add(placeholderItem);
     server.addItem(placeholderItem, null, store.general.networkStatus);
@@ -831,7 +843,7 @@ function cleanupAndPersistPlaceholders(store: StoreContextModel) {
   while (true) {
     const attachments = placeholderParent.computed_attachments;
     if (attachments.length == 0) { break; }
-    const attachmentId = placeholderParent.computed_attachments[placeholderParent.computed_attachments.length-1];
+    const attachmentId = placeholderParent.computed_attachments[placeholderParent.computed_attachments.length - 1];
     const attachment = itemState.get(attachmentId)!;
     if (attachment == null) { panic("cleanupAndPersistPlaceholders: no attachment."); }
     if (!isPlaceholder(attachment)) {

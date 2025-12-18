@@ -24,7 +24,7 @@ import { assert, panic } from "../util/lang";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { fArrange } from "./arrange";
 import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
-import { VeFns, Veid } from "./visual-element";
+import { VeFns, Veid, VisualElementPath } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
 
 
@@ -34,39 +34,37 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
 }
 
 function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): string {
-  const itemId = overrideItemId != null ? overrideItemId : store.history.currentPageVeid()!.itemId;
-  const item = itemState.get(itemId);
+  const currentVeid = store.history.currentPageVeid();
+  const itemId = overrideItemId ?? currentVeid?.itemId;
+  if (!itemId) {
+    return "/";
+  }
 
+  const item = itemState.get(itemId);
   if (item && item.origin != null) {
     const encodedOrigin = encodeURIComponent(item.origin);
     return `/remote/${encodedOrigin}/${itemId}`;
   }
 
   const userMaybe = store.user.getUserMaybe();
-  let url = null;
   if (!userMaybe) {
-    if (overrideItemId != null) {
-      url = `/${overrideItemId}`;
-    } else {
-      url = `/${store.history.currentPageVeid()!.itemId}`;
-    }
-  } else {
-    const user = userMaybe;
-    if (overrideItemId != null) {
-      url = `/${overrideItemId}`;
-    } else {
-      if (store.history.currentPageVeid()!.itemId != user.homePageId) {
-        url = `/${store.history.currentPageVeid()!.itemId}`;
-      } else {
-        if (user.username == ROOT_USERNAME) {
-          url = "/";
-        } else {
-          url = `/${user.username}`;
-        }
-      }
-    }
+    return `/${itemId}`;
   }
-  return url;
+
+  const user = userMaybe;
+  if (overrideItemId != null) {
+    return `/${overrideItemId}`;
+  }
+
+  if (itemId !== user.homePageId) {
+    return `/${itemId}`;
+  }
+
+  if (user.username === ROOT_USERNAME) {
+    return "/";
+  }
+
+  return `/${user.username}`;
 }
 
 export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory: boolean) {
@@ -87,14 +85,14 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   store.currentUrlPath.set(url);
 }
 
-export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, replace: boolean) {
+export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, replace: boolean, focusPath?: VisualElementPath) {
   if (clearHistory) {
-    store.history.setHistoryToSinglePage(pageVeid);
+    store.history.setHistoryToSinglePage(pageVeid, focusPath);
   } else {
     if (replace) {
       store.history.popPageVeid();
     }
-    store.history.pushPageVeid(pageVeid);
+    store.history.pushPageVeid(pageVeid, focusPath);
   }
 
   fArrange(store);
@@ -130,22 +128,23 @@ async function navigateToLocalRoot(store: StoreContextModel): Promise<void> {
   }
   if (homePageItem) {
     switchToPage(store, { itemId: user.homePageId, linkIdMaybe: null }, false, true, false);
-    if (user.username == ROOT_USERNAME) {
-      window.history.pushState(null, "", "/");
-    } else {
-      window.history.pushState(null, "", `/${user.username}`);
-    }
   }
 }
 
 export async function navigateBack(store: StoreContextModel): Promise<boolean> {
   if (store.history.currentPopupSpec() != null) {
     store.history.popPopup();
-    const page = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
-    page.pendingPopupPositionGr = null;
-    page.pendingPopupWidthGr = null;
-    page.pendingCellPopupPositionNorm = null;
-    page.pendingCellPopupWidthNorm = null;
+    const currentPageVeid = store.history.currentPageVeid();
+    if (currentPageVeid) {
+      const pageItem = itemState.get(currentPageVeid.itemId);
+      if (pageItem && isPage(pageItem)) {
+        const page = asPageItem(pageItem);
+        page.pendingPopupPositionGr = null;
+        page.pendingPopupWidthGr = null;
+        page.pendingCellPopupPositionNorm = null;
+        page.pendingCellPopupWidthNorm = null;
+      }
+    }
     fArrange(store);
     return true;
   }
@@ -216,20 +215,20 @@ export async function navigateUp(store: StoreContextModel) {
     }
 
     const parentPageMaybe = itemState.get(parentId);
-    if (parentPageMaybe != null) {
+    if (parentPageMaybe) {
       if (isRemote) {
-        if (parentPageMaybe.origin != currentItem.origin) {
+        if (parentPageMaybe.origin !== currentItem.origin) {
           await navigateToLocalRoot(store);
           navigateUpInProgress = false;
           return;
         }
       }
-      if (isPage(parentPageMaybe) && relationshipToParent == RelationshipToParent.Child) {
+      if (isPage(parentPageMaybe) && relationshipToParent === RelationshipToParent.Child) {
         switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true, false);
         navigateUpInProgress = false;
         return;
       } else {
-        parentId = parentPageMaybe!.parentId;
+        parentId = parentPageMaybe.parentId;
         relationshipToParent = parentPageMaybe.relationshipToParent;
         continue;
       }

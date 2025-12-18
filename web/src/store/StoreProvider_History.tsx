@@ -37,8 +37,8 @@ interface PageBreadcrumb {
 
 
 export interface HistoryStoreContextModel {
-  setHistoryToSinglePage: (currentPage: Veid) => void,
-  pushPageVeid: (veid: Veid) => void,
+  setHistoryToSinglePage: (currentPage: Veid, focusPath?: VisualElementPath) => void,
+  pushPageVeid: (veid: Veid, focusPath?: VisualElementPath) => void,
   popPageVeid: () => boolean,
   currentPageVeid: () => Veid | null,
   currentPagePath: () => string | null,
@@ -68,24 +68,24 @@ export interface HistoryStoreContextModel {
 export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
-  const setHistoryToSinglePage = (pageVeid: Veid): void => {
-    const focusPath = VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
+  const setHistoryToSinglePage = (pageVeid: Veid, focusPath?: VisualElementPath): void => {
+    const actualFocusPath = focusPath ?? VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
 
     setBreadcrumbs([{
       pageVeid,
       parentPageChanged: true,
       popupBreadcrumbs: [],
-      focusPath
+      focusPath: actualFocusPath
     }]);
   };
 
-  const pushPageVeid = (pageVeid: Veid): void => {
-    const focusPath = VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
+  const pushPageVeid = (pageVeid: Veid, focusPath?: VisualElementPath): void => {
+    const actualFocusPath = focusPath ?? VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
 
     breadcrumbs().push({
       pageVeid,
       popupBreadcrumbs: [],
-      focusPath
+      focusPath: actualFocusPath
     });
     setBreadcrumbs(breadcrumbs());
   };
@@ -99,12 +99,12 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const currentPageVeid = (): Veid | null => {
     if (breadcrumbs().length == 0) { return null; }
-    return breadcrumbs()[breadcrumbs().length-1].pageVeid;
+    return breadcrumbs()[breadcrumbs().length - 1].pageVeid;
   };
 
   const parentPageBreadcrumb = (): PageBreadcrumb | null => {
     if (breadcrumbs().length < 2) { return null; }
-    return breadcrumbs()[breadcrumbs().length-2];
+    return breadcrumbs()[breadcrumbs().length - 2];
   };
 
   const peekPrevPageVeid = (): Veid | null => {
@@ -146,7 +146,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       panic(`pushPopup: malformed vePath received: "${popupSpec.vePath}"`);
     }
 
-    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     breadcrumb.popupBreadcrumbs.push(popupSpec);
     breadcrumb.focusPath = popupSpec.vePath;
     setBreadcrumbs(breadcrumbs());
@@ -163,7 +163,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       panic(`replacePopup: malformed vePath received: "${popupSpec.vePath}"`);
     }
 
-    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     breadcrumb.popupBreadcrumbs = [popupSpec];
     breadcrumb.focusPath = popupSpec.vePath;
     setBreadcrumbs(breadcrumbs());
@@ -171,7 +171,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const popPopup = (): void => {
     if (breadcrumbs().length == 0) { panic("popPopup: no breadcrumbs."); }
-    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     if (breadcrumb.popupBreadcrumbs.length == 0) { return; }
     const popupSpec = breadcrumb.popupBreadcrumbs.pop();
 
@@ -205,7 +205,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
         breadcrumb.focusPath = popupParentPath;
       }
     } else {
-      const nextVePath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length-1].vePath;
+      const nextVePath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length - 1].vePath;
 
       if (nextVePath && (nextVePath.startsWith("-") || nextVePath.includes("--"))) {
         console.error("MALFORMED PATH DETECTION: popPopup next popup vePath is malformed");
@@ -223,7 +223,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   const popAllPopups = (): void => {
     if (breadcrumbs().length == 0) { panic("popAllPopups: no breadcrumbs."); }
 
-    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     const focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
 
     breadcrumb.popupBreadcrumbs = [];
@@ -233,16 +233,16 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const currentPopupSpec = (): PopupSpec | null => {
     if (breadcrumbs().length == 0) { return null; }
-    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) { return null; }
-    const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
-    return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
+    if (breadcrumbs()[breadcrumbs().length - 1].popupBreadcrumbs.length == 0) { return null; }
+    const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length - 1].popupBreadcrumbs;
+    return lastBreadcrumbPopups[lastBreadcrumbPopups.length - 1];
   };
 
   const currentPopupSpecVeid = (): Veid | null => {
     if (breadcrumbs().length == 0) { return null; }
-    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) { return null; }
-    const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
-    const currentSpec = lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
+    if (breadcrumbs()[breadcrumbs().length - 1].popupBreadcrumbs.length == 0) { return null; }
+    const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length - 1].popupBreadcrumbs;
+    const currentSpec = lastBreadcrumbPopups[lastBreadcrumbPopups.length - 1];
     return currentSpec.actualVeid;
   };
 
@@ -260,12 +260,12 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
     VeFns.validatePath(focusPath);
 
-    breadcrumbs()[breadcrumbs().length-1].focusPath = focusPath;
+    breadcrumbs()[breadcrumbs().length - 1].focusPath = focusPath;
     setBreadcrumbs(breadcrumbs());
   };
 
   const getFocusItem = (): Item => {
-    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     if (!breadcrumb) { return ((EMPTY_ITEM as any) as Item); } // happens on initialization. This is a bit of a hack, it would be better if the logic was tighter.
     if (breadcrumb.focusPath != null) {
       try {
@@ -287,7 +287,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
   const getFocusPath = (): VisualElementPath => {
-    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     if (breadcrumb.focusPath != null) {
       return breadcrumb.focusPath;
     }
@@ -295,12 +295,12 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
   const getFocusPathMaybe = (): VisualElementPath | null => {
-    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     return breadcrumb.focusPath;
   };
 
   const getFocusIsCurrentPage = (): boolean => {
-    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     if (breadcrumb.focusPath != null) {
       return currentPagePath() == getFocusPath();
     }
