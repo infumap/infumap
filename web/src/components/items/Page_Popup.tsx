@@ -42,16 +42,29 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const pageFns = () => props.pageFns;
 
   onMount(() => {
-    let veid = store.history.currentPopupSpec()!.actualVeid;
+    const veid = store.history.currentPopupSpec()!.actualVeid;
 
-    const scrollXProp = store.perItem.getPageScrollXProp(veid);
-    const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+    // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
+    const isListPage = (props.visualElement.linkItemMaybe as any)?.overrideArrangeAlgorithm === ArrangeAlgorithm.List ||
+      pageFns().pageItem().arrangeAlgorithm === ArrangeAlgorithm.List;
 
-    const scrollYProp = store.perItem.getPageScrollYProp(veid);
-    const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+    if (isListPage && props.visualElement.listChildAreaBoundsPx) {
+      const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
+      const viewportH = pageFns().viewportBoundsPx().h;
+      const scrollYProp = store.perItem.getPageScrollYProp(veid);
+      const scrollYPx = scrollYProp * (listChildAreaH - viewportH);
+      popupDiv.scrollTop = scrollYPx;
+      popupDiv.scrollLeft = 0;
+    } else {
+      const scrollXProp = store.perItem.getPageScrollXProp(veid);
+      const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
 
-    popupDiv.scrollTop = scrollYPx;
-    popupDiv.scrollLeft = scrollXPx;
+      const scrollYProp = store.perItem.getPageScrollYProp(veid);
+      const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+
+      popupDiv.scrollTop = scrollYPx;
+      popupDiv.scrollLeft = scrollXPx;
+    }
   });
 
   createEffect(() => {
@@ -61,12 +74,27 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     updatingPopupScrollTop = true;
 
     if (popupDiv && store.history.currentPopupSpec()) {
-      popupDiv.scrollTop =
-        store.perItem.getPageScrollYProp(store.history.currentPopupSpec()!.actualVeid) *
-        (pageFns().childAreaBoundsPx().h - props.visualElement.viewportBoundsPx!.h);
-      popupDiv.scrollLeft =
-        store.perItem.getPageScrollXProp(store.history.currentPopupSpec()!.actualVeid) *
-        (pageFns().childAreaBoundsPx().w - props.visualElement.viewportBoundsPx!.w);
+      const veid = store.history.currentPopupSpec()!.actualVeid;
+
+      // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
+      const isListPage = (props.visualElement.linkItemMaybe as any)?.overrideArrangeAlgorithm === ArrangeAlgorithm.List ||
+        pageFns().pageItem().arrangeAlgorithm === ArrangeAlgorithm.List;
+
+      if (isListPage && props.visualElement.listChildAreaBoundsPx) {
+        const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
+        const viewportH = pageFns().viewportBoundsPx().h;
+        popupDiv.scrollTop =
+          store.perItem.getPageScrollYProp(veid) *
+          (listChildAreaH - viewportH);
+        popupDiv.scrollLeft = 0;
+      } else {
+        popupDiv.scrollTop =
+          store.perItem.getPageScrollYProp(veid) *
+          (pageFns().childAreaBoundsPx().h - props.visualElement.viewportBoundsPx!.h);
+        popupDiv.scrollLeft =
+          store.perItem.getPageScrollXProp(veid) *
+          (pageFns().childAreaBoundsPx().w - props.visualElement.viewportBoundsPx!.w);
+      }
     }
 
     setTimeout(() => {
