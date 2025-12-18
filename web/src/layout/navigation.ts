@@ -36,12 +36,12 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
 function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): string {
   const itemId = overrideItemId != null ? overrideItemId : store.history.currentPageVeid()!.itemId;
   const item = itemState.get(itemId);
-  
+
   if (item && item.origin != null) {
     const encodedOrigin = encodeURIComponent(item.origin);
     return `/remote/${encodedOrigin}/${itemId}`;
   }
-  
+
   const userMaybe = store.user.getUserMaybe();
   let url = null;
   if (!userMaybe) {
@@ -146,11 +146,6 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
     page.pendingPopupWidthGr = null;
     page.pendingCellPopupPositionNorm = null;
     page.pendingCellPopupWidthNorm = null;
-    if (store.history.currentPopupSpec() == null) {
-      store.history.setFocus(store.history.currentPagePath()!);
-    } else {
-      store.history.setFocus(store.history.currentPopupSpec()!.vePath!);
-    }
     fArrange(store);
     return true;
   }
@@ -247,7 +242,7 @@ export async function navigateUp(store: StoreContextModel) {
     }
 
     if (await initiateLoadItemMaybe(store, parentId) == InitiateLoadResult.Failed ||
-        !itemState.get(parentId)) {
+      !itemState.get(parentId)) {
       navigateUpInProgress = false;
       return;
     }
