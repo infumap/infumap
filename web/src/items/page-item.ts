@@ -196,6 +196,17 @@ export const PageFns = {
       } else {
         switchToPage(store, targetVeid, true, false, false, focusPath);
       }
+    } else if (isPage(targetVe.displayItem) && isPage(visualElement.displayItem) &&
+      !(visualElement.flags & VisualElementFlags.ListPageRoot)) {
+      // The outermost list page is already the current page, but we clicked on a nested page
+      // (e.g., a page inside a spatial page displayed in the selectedVes area of the list).
+      // In this case, switch to the clicked page directly.
+      // But don't switch if we clicked on the selectedVes page itself (ListPageRoot) - that
+      // should just receive focus, not become the new root.
+      const clickedVeid = VeFns.actualVeidFromVe(visualElement);
+      if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
+        switchToPage(store, clickedVeid, true, false, false);
+      }
     }
   },
 

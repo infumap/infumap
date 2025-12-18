@@ -587,20 +587,22 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
   }
 
-  const changedPages = await navigateBack(store);
-  if (!changedPages) {
-    // Save the focused page before navigating up (when focus is on root)
-    const currentPageVeid = store.history.currentPageVeid();
-    if (currentPageVeid) {
-      const currentPageItem = itemState.get(currentPageVeid.itemId);
-      if (currentPageItem && isPage(currentPageItem) && asPageItem(currentPageItem).arrangeAlgorithm === ArrangeAlgorithm.List) {
-        const focusVes = VesCache.get(focusPath);
-        if (focusVes && isPage(focusVes.get().displayItem)) {
-          const focusedVeid = VeFns.actualVeidFromVe(focusVes.get());
-          store.perItem.setFocusedListPageItem(currentPageVeid, focusedVeid);
-        }
+  // Save focus before navigating (when focus is on root list page).
+  // This needs to happen before navigateBack/navigateUp so the focus is preserved.
+  const currentPageVeid = store.history.currentPageVeid();
+  if (currentPageVeid) {
+    const currentPageItem = itemState.get(currentPageVeid.itemId);
+    if (currentPageItem && isPage(currentPageItem) && asPageItem(currentPageItem).arrangeAlgorithm === ArrangeAlgorithm.List) {
+      const focusVes = VesCache.get(focusPath);
+      if (focusVes && isPage(focusVes.get().displayItem)) {
+        const focusedVeid = VeFns.actualVeidFromVe(focusVes.get());
+        store.perItem.setFocusedListPageItem(currentPageVeid, focusedVeid);
       }
     }
+  }
+
+  const changedPages = await navigateBack(store);
+  if (!changedPages) {
     await navigateUp(store);
   }
 }
