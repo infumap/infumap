@@ -165,7 +165,30 @@ function getHitInfoUnderRoot(
   canHitEmbeddedInteractive: boolean,
   rootInfo: RootInfo,
 ): HitInfo {
-  const { parentRootVe, rootVes, rootVe, posRelativeToRootVeViewportPx } = rootInfo;
+  const { parentRootVe, rootVes, rootVe } = rootInfo;
+  let { posRelativeToRootVeViewportPx } = rootInfo;
+
+  // For list pages in popups/nested contexts, add the scroll offset to convert from viewport position to child area position
+  // This is necessary because list children have their boundsPx in child area coordinates (not scroll-adjusted)
+  const rootPageItem = asPageItem(rootVe.displayItem);
+  const isListPage = rootPageItem.arrangeAlgorithm == ArrangeAlgorithm.List;
+
+  // Check if this is the actual top-level root (parentRootVe == null)
+  // For actual top-level roots, scroll is already applied in determineTopLevelRoot
+  const isActualTopLevelRoot = parentRootVe == null;
+
+  // For list pages, apply scroll offset if this is NOT the actual top-level root
+  if (isListPage && rootVe.listChildAreaBoundsPx && !isActualTopLevelRoot) {
+    const listVeid = VeFns.actualVeidFromVe(rootVe);
+    const scrollYProp = store.perItem.getPageScrollYProp(listVeid);
+    const listChildAreaH = rootVe.listChildAreaBoundsPx.h;
+    const viewportH = rootVe.viewportBoundsPx!.h;
+    const scrollYPx = scrollYProp * (listChildAreaH - viewportH);
+
+    posRelativeToRootVeViewportPx = { ...posRelativeToRootVeViewportPx };
+    posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y + scrollYPx;
+  }
+
   for (let i = rootVe.childrenVes.length - 1; i >= 0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVe.childrenVes[i], ignoreItems, canHitEmbeddedInteractive);
     if (hitMaybe) { return hitMaybe; }
@@ -417,9 +440,16 @@ function hitPagePopupRootMaybe(
   if (hitboxType != HitboxFlags.None) {
     hitMaybe = new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe3").build();
   }
-  const posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
+
+  // Calculate posRelativeToRootVeViewportPx - only adjust for title bar here
+  // Scroll offset for list pages will be applied in getHitInfoUnderRoot
+  let posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
+  // Adjust for title bar (boundsPx.h - viewportBoundsPx.h is the title bar height)
   posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y - (rootVe.boundsPx.h - rootVe.viewportBoundsPx!.h);
-  let result: RootInfo = { parentRootVe: parentRootInfo.rootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
+
+  // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
+  const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
+  let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
   if (changedRoot && rootVe.selectedVes) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }
@@ -446,7 +476,15 @@ function hitPageSelectedRootMaybe(
         let veid = VeFns.actualVeidFromVe(newRootVeMaybe);
         const scrollPropX = store.perItem.getPageScrollXProp(veid);
         const scrollPropY = store.perItem.getPageScrollYProp(veid);
-        posRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: newRootVeMaybe.boundsPx!.x - scrollPropX * (newRootVeMaybe.childAreaBoundsPx!.w - newRootVeMaybe.viewportBoundsPx!.w), y: newRootVeMaybe.boundsPx!.y - scrollPropY * (newRootVeMaybe.childAreaBoundsPx!.h - newRootVeMaybe.viewportBoundsPx!.h) });
+
+        // For all pages, use childAreaBoundsPx for scroll calculation
+        // List pages have childAreaBoundsPx == viewportBoundsPx, so scrollPropY effect is 0 here
+        // The actual list page scroll adjustment happens in getHitInfoUnderRoot
+        posRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, {
+          x: newRootVeMaybe.boundsPx!.x - scrollPropX * (newRootVeMaybe.childAreaBoundsPx!.w - newRootVeMaybe.viewportBoundsPx!.w),
+          y: newRootVeMaybe.boundsPx!.y - scrollPropY * (newRootVeMaybe.childAreaBoundsPx!.h - newRootVeMaybe.viewportBoundsPx!.h)
+        });
+
         changedRoot = true;
       }
     }
@@ -456,9 +494,16 @@ function hitPageSelectedRootMaybe(
   if (hitboxType != HitboxFlags.None) {
     hitMaybe = new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe3").build();
   }
+
+  // Calculate posRelativeToRootVeViewportPx - only adjust for title bar here
+  // Scroll offset for list pages will be applied in getHitInfoUnderRoot
   posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
+  // Adjust for title bar (if any)
   posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y - (rootVe.boundsPx.h - rootVe.viewportBoundsPx!.h);
-  let result: RootInfo = { parentRootVe: parentRootInfo.rootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
+
+  // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
+  const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
+  let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
   if (changedRoot && rootVe.selectedVes) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }

@@ -167,7 +167,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <div ref={rootDiv}
           class="absolute"
           style={`left: 0px; top: 0px; ` +
-            `width: ${pageFns().viewportBoundsPx().w}px; ` +
+            `width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * effectiveScale}px; ` +
             `height: ${pageFns().viewportBoundsPx().h}px; ` +
             `overflow-y: auto; `}
           onscroll={listRootScrollHandler}>

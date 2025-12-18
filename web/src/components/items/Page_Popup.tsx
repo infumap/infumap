@@ -103,6 +103,20 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     }
   };
 
+  const popupListScrollHandler = (_ev: Event) => {
+    if (!popupDiv) { return; }
+    if (updatingPopupScrollTop) { return; }
+
+    const listChildAreaBoundsPx = props.visualElement.listChildAreaBoundsPx!;
+    const viewportH = pageFns().viewportBoundsPx().h;
+    const popupVeid = store.history.currentPopupSpec()!.actualVeid;
+
+    if (listChildAreaBoundsPx.h > viewportH) {
+      const scrollYProp = popupDiv!.scrollTop / (listChildAreaBoundsPx.h - viewportH);
+      store.perItem.setPageScrollYProp(popupVeid, scrollYProp);
+    }
+  };
+
   const renderShadow = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
       style={`left: ${pageFns().boundsPx().x - 10}px; ` +
@@ -261,7 +275,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           `width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * pageFns().listViewScale()}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
           `background-color: #ffffff;` +
-          `${VeFns.zIndexStyle(props.visualElement)}`}>
+          `${VeFns.zIndexStyle(props.visualElement)}`}
+        onscroll={popupListScrollHandler}>
         <div class="absolute"
           style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
