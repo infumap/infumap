@@ -263,7 +263,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           `background-color: #ffffff;` +
           `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="absolute"
-          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${LINE_HEIGHT_PX * pageFns().lineChildren().length}px`}>
+          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
