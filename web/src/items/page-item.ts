@@ -744,14 +744,18 @@ export const PageFns = {
 
   handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     let itemPath = VeFns.veToPath(visualElement);
-    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    handleListPageLineItemClickMaybe(visualElement, store);
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page });
     const editingPath = itemPath + ":title";
     const el = document.getElementById(editingPath)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     fullArrange(store);
-    setCaretPosition(el, closestIdx);
+    const freshEl = document.getElementById(editingPath)!;
+    if (freshEl) {
+      freshEl.focus();
+      setCaretPosition(freshEl, closestIdx);
+    }
   },
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {

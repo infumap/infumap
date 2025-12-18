@@ -64,8 +64,8 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       return MouseEventActionFlags.None;
     }
     if (ClickState.getButtonClickBoundsPx()! != null &&
-        isInside(CursorEventState.getLatestClientPx(), ClickState.getButtonClickBoundsPx()!) &&
-        buttonNumber == MOUSE_LEFT) {
+      isInside(CursorEventState.getLatestClientPx(), ClickState.getButtonClickBoundsPx()!) &&
+      buttonNumber == MOUSE_LEFT) {
       // if mouse down is inside button of opened popup, this is handled in the relevant button click handler.
       ClickState.setButtonClickBoundsPx(null);
       return MouseEventActionFlags.None;
@@ -82,7 +82,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   const toolbarTitleDivs = (() => {
     let result = [];
     const TOO_MANY_TITLE_DIVS = 100;
-    for (let i=0; i<TOO_MANY_TITLE_DIVS; ++i) {
+    for (let i = 0; i < TOO_MANY_TITLE_DIVS; ++i) {
       const toolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${i}`)!;
       if (!toolbarTitleDiv) { break; }
       result.push(toolbarTitleDiv);
@@ -103,7 +103,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
     serverOrRemote.updateItem(focusItem, store.general.networkStatus);
   }
-  for (let i=0; i<toolbarTitleDivs.length; ++i) {
+  for (let i = 0; i < toolbarTitleDivs.length; ++i) {
     const toolbarTitleDiv = toolbarTitleDivs[i];
     const titleBounds = boundingBoxFromDOMRect(toolbarTitleDiv.getBoundingClientRect())!;
     if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
@@ -152,7 +152,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         : editingItemPath + ":title";
       const editingDomEl = document.getElementById(editingDomId);
       if (editingDomEl && isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl.getBoundingClientRect())!) &&
-          buttonNumber == MOUSE_LEFT) {
+        buttonNumber == MOUSE_LEFT) {
         const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
         if (!(hitInfo.hitboxType & HitboxFlags.Resize)) {
           return MouseEventActionFlags.None;
@@ -229,7 +229,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   if (isLink(store.history.getFocusItem()) ||
-      isRating(store.history.getFocusItem())) {
+    isRating(store.history.getFocusItem())) {
     if (buttonNumber != MOUSE_LEFT || !isInsideItemOptionsToolbarArea()) {
       store.history.setFocus(store.history.currentPagePath()!);
     }
@@ -244,7 +244,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   // Desktop handlers.
 
-  switch(buttonNumber) {
+  switch (buttonNumber) {
     case MOUSE_LEFT:
       defaultResult = mouseLeftDownHandler(store, defaultResult);
       return defaultResult;
@@ -341,7 +341,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       }
     } else {
       if ((hitInfo.hitboxType & HitboxFlags.HorizontalResize) &&
-          isPage(hitVe.displayItem) && asPageItem(hitVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+        isPage(hitVe.displayItem) && asPageItem(hitVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
         const squareSize = (asPageItem(hitVe.displayItem).tableColumns[0].widthGr / GRID_SIZE) / hitVe.listViewportBoundsPx!.w;
         onePxSizeBl = { x: squareSize, y: squareSize };
       } else {
@@ -388,13 +388,17 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     } else if (isRating(overDisplayItem)) {
       store.history.setFocus(activeElementPath);
       MouseActionState.set(null);
+    } else if (isTable(overDisplayItem)) {
+      ClickState.setLinkWasClicked(false);
+      TableFns.handleClick(hitVe, null, store, true);
+      MouseActionState.set(null);
     } else if (isNote(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
-      NoteFns.handleClick(hitVe, store);
+      NoteFns.handleClick(hitVe, store, true);
       MouseActionState.set(null);
     } else if (isFile(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
-      FileFns.handleClick(hitVe, store);
+      FileFns.handleClick(hitVe, store, true);
       MouseActionState.set(null);
     } else if (isImage(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
@@ -448,7 +452,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         fullArrange(store);
       }
     }
-  } catch {}
+  } catch { }
 
   if (hitInfo.hitboxType & HitboxFlags.ContentEditable) {
     // make sure not PreventDefault in the case of clicking on a contenteditable.
@@ -546,9 +550,9 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   const topPagePaths = store.topTitledPages.get();
   const focusPath = store.history.getFocusPath();
-  for (let i=topPagePaths.length-1; i>0; --i) {
+  for (let i = topPagePaths.length - 1; i > 0; --i) {
     if (topPagePaths[i] == focusPath) {
-      const newFocusPath = topPagePaths[i-1];
+      const newFocusPath = topPagePaths[i - 1];
       store.history.setFocus(newFocusPath);
       fullArrange(store);
       return;

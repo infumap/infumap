@@ -144,10 +144,10 @@ export const FileFns = {
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const moveBoundsPx = {
       x: innerBoundsPx.w
-          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-          - CONTAINER_IN_COMPOSITE_PADDING_PX
-          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
@@ -236,8 +236,9 @@ export const FileFns = {
     window.open('/files/' + fileItem.id, '_blank');
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+  handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false): void => {
+    const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
+    if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.File });
     const editingDomId = itemPath + ":title";
@@ -245,7 +246,11 @@ export const FileFns = {
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     fullArrange(store);
-    setCaretPosition(el, closestIdx);
+    const freshEl = document.getElementById(editingDomId)!;
+    if (freshEl) {
+      freshEl.focus();
+      setCaretPosition(freshEl, closestIdx);
+    }
   },
 
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
@@ -274,7 +279,7 @@ export const FileFns = {
 
   getFingerprint: (fileItem: FileItem): string => {
     return fileItem.title;
-  }  
+  }
 };
 
 

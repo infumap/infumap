@@ -265,8 +265,9 @@ export const TableFns = {
     panic("not table measurable.");
   },
 
-  handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+  handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel, forceEdit: boolean = false): void => {
+    const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
+    if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
     store.overlay.setTextEditInfo(store.history, {
       itemPath,
@@ -314,7 +315,7 @@ export const TableFns = {
 
   getFingerprint: (tableItem: TableItem): string => {
     let tableColText = "";
-    for (let i=0; i<tableItem.tableColumns.length; ++i) { tableColText += tableItem.tableColumns[i].name + "!$!!@"; }
+    for (let i = 0; i < tableItem.tableColumns.length; ++i) { tableColText += tableItem.tableColumns[i].name + "!$!!@"; }
     return tableItem.title + "~~~!@#~~~" + tableItem.flags + "~~~%@#~~~" + tableColText + "~~~%^&~~~" + tableItem.numberOfVisibleColumns;
   },
 
@@ -327,7 +328,7 @@ export const TableFns = {
     if (colLen > tableItem.numberOfVisibleColumns) { colLen = tableItem.numberOfVisibleColumns; }
     if (index >= colLen - 1) {
       let accumBl = 0;
-      for (let i=0; i<colLen - 1; ++i) {
+      for (let i = 0; i < colLen - 1; ++i) {
         accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
       }
       let result = tableItem.spatialWidthGr / GRID_SIZE - accumBl;
@@ -353,7 +354,7 @@ export const TableFns = {
    * Given a desktop position desktopPx and table visual element, determine the table cell under desktopPx.
    * This may or not have an existing associated item.
    */
-  tableModifiableColRow(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number} {
+  tableModifiableColRow(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number } {
     const tableItem = asTableItem(tableVe.displayItem);
     const tableDimensionsBl: Dimensions = {
       w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
@@ -374,7 +375,7 @@ export const TableFns = {
 
     let accumBl = 0;
     let colNumber = colLen - 1;
-    for (let i=0; i<colLen; ++i) {
+    for (let i = 0; i < colLen; ++i) {
       accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
       if (accumBl >= tableDimensionsBl.w) {
         colNumber = i;
@@ -402,7 +403,7 @@ export const TableFns = {
 
   insertEmptyColAt(tableId: Uid, colPos: number, store: StoreContextModel) {
     const tableItem = asTableItem(itemState.get(tableId)!);
-    for (let i=0; i<tableItem.computed_children.length; ++i) {
+    for (let i = 0; i < tableItem.computed_children.length; ++i) {
       const child = itemState.get(tableItem.computed_children[i])!;
       if (!isAttachmentsItem(child)) { continue; }
       const attachments = asAttachmentsItem(child).computed_attachments;
@@ -423,7 +424,7 @@ export const TableFns = {
 
   removeColItemsAt(tableId: Uid, colPos: number, store: StoreContextModel) {
     const tableItem = asTableItem(itemState.get(tableId)!);
-    for (let i=0; i<tableItem.computed_children.length; ++i) {
+    for (let i = 0; i < tableItem.computed_children.length; ++i) {
       const child = itemState.get(tableItem.computed_children[i])!;
       if (!isAttachmentsItem(child)) { continue; }
       const attachments = asAttachmentsItem(child).computed_attachments;
@@ -451,11 +452,11 @@ export function asTableItem(item: ItemTypeMixin): TableItem {
 
 
 function calcTableGeometryImpl(
-    table: TableMeasurable,
-    boundsPx: BoundingBox,
-    blockSizePx: Dimensions,
-    emitHitboxes: boolean,
-    emitMove: boolean): ItemGeometry {
+  table: TableMeasurable,
+  boundsPx: BoundingBox,
+  blockSizePx: Dimensions,
+  emitHitboxes: boolean,
+  emitMove: boolean): ItemGeometry {
   let colLen = table.tableColumns.length;
   if (colLen > table.numberOfVisibleColumns) { colLen = table.numberOfVisibleColumns; }
 
@@ -469,7 +470,7 @@ function calcTableGeometryImpl(
   let accumBl = 0;
   let colResizeHitboxes = [];
   let colClickHitboxes = [];
-  for (let i=0; i<colLen; ++i) {
+  for (let i = 0; i < colLen; ++i) {
     const startBl = accumBl;
     const startXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
     accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
@@ -479,11 +480,11 @@ function calcTableGeometryImpl(
       endXPx = innerBoundsPx.w;
       endBl = table.spatialWidthGr / GRID_SIZE;
     }
-    if (i == colLen-1) {
+    if (i == colLen - 1) {
       endXPx = innerBoundsPx.w;
       endBl = endBl = table.spatialWidthGr / GRID_SIZE;
     }
-    if (accumBl < table.spatialWidthGr / GRID_SIZE && i < colLen-1) {
+    if (accumBl < table.spatialWidthGr / GRID_SIZE && i < colLen - 1) {
       colResizeHitboxes.push(HitboxFns.create(
         HitboxFlags.HorizontalResize,
         { x: endXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: boundsPx.h - TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h },
@@ -498,7 +499,7 @@ function calcTableGeometryImpl(
       ));
       colClickHitboxes.push(HitboxFns.create(
         HitboxFlags.TableColumnContextMenu,
-        { x: startXPx + (endBl-startBl-1) * blockSizePx.w, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: blockSizePx.w, h: colHeaderHeightPxOrZero },
+        { x: startXPx + (endBl - startBl - 1) * blockSizePx.w, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: blockSizePx.w, h: colHeaderHeightPxOrZero },
         HitboxFns.createMeta({ colNum: i })
       ));
     }

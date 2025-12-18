@@ -274,7 +274,11 @@ export const ImageFns = {
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     fullArrange(store);
-    setCaretPosition(el, closestIdx);
+    const freshEl = document.getElementById(editingDomId)!;
+    if (freshEl) {
+      freshEl.focus();
+      setCaretPosition(freshEl, closestIdx);
+    }
   },
 
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
