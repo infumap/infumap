@@ -49,14 +49,25 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       veid = store.perItem.getSelectedListPageItem(parentVeid);
     }
 
-    const scrollXProp = store.perItem.getPageScrollXProp(veid);
-    const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+    // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
+    const isListPage = pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
+    if (isListPage && props.visualElement.listChildAreaBoundsPx) {
+      const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
+      const viewportH = pageFns().viewportBoundsPx().h;
+      const scrollYProp = store.perItem.getPageScrollYProp(veid);
+      const scrollYPx = scrollYProp * (listChildAreaH - viewportH);
+      rootDiv.scrollTop = scrollYPx;
+      rootDiv.scrollLeft = 0;
+    } else {
+      const scrollXProp = store.perItem.getPageScrollXProp(veid);
+      const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
 
-    const scrollYProp = store.perItem.getPageScrollYProp(veid);
-    const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+      const scrollYProp = store.perItem.getPageScrollYProp(veid);
+      const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
 
-    rootDiv.scrollTop = scrollYPx;
-    rootDiv.scrollLeft = scrollXPx;
+      rootDiv.scrollTop = scrollYPx;
+      rootDiv.scrollLeft = scrollXPx;
+    }
   });
 
   createEffect(() => {
@@ -72,12 +83,24 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         veid = store.perItem.getSelectedListPageItem(parentVeid);
       }
 
-      rootDiv.scrollTop =
-        store.perItem.getPageScrollYProp(veid) *
-        (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
-      rootDiv.scrollLeft =
-        store.perItem.getPageScrollXProp(veid) *
-        (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+      // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
+      const isListPage = pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
+      if (isListPage && props.visualElement.listChildAreaBoundsPx) {
+        const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
+        const viewportH = pageFns().viewportBoundsPx().h;
+        rootDiv.scrollTop =
+          store.perItem.getPageScrollYProp(veid) *
+          (listChildAreaH - viewportH);
+        // List pages typically only scroll vertically, but handle width just in case
+        rootDiv.scrollLeft = 0;
+      } else {
+        rootDiv.scrollTop =
+          store.perItem.getPageScrollYProp(veid) *
+          (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+        rootDiv.scrollLeft =
+          store.perItem.getPageScrollXProp(veid) *
+          (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+      }
     }
 
     setTimeout(() => {
@@ -88,8 +111,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   const listRootScrollHandler = (_ev: Event) => {
     if (!rootDiv || updatingRootScrollTop) { return; }
 
-    const pageBoundsPx = props.visualElement.listChildAreaBoundsPx!.h;
-    const desktopSizePx = props.visualElement.boundsPx;
+    const listChildAreaH = props.visualElement.listChildAreaBoundsPx!.h;
+    const viewportH = pageFns().viewportBoundsPx().h;
 
     let veid = store.history.currentPageVeid()!;
     if (props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
@@ -99,8 +122,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       veid = store.perItem.getSelectedListPageItem(parentVeid);
     }
 
-    if (desktopSizePx.h < pageBoundsPx) {
-      const scrollYProp = rootDiv!.scrollTop / (pageBoundsPx - desktopSizePx.h);
+    if (viewportH < listChildAreaH) {
+      const scrollYProp = rootDiv!.scrollTop / (listChildAreaH - viewportH);
       store.perItem.setPageScrollYProp(veid, scrollYProp);
     }
   }
@@ -142,8 +165,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           `background-color: #ffffff;` +
           `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={rootDiv}
-          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} `}
-          style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
+          class="absolute"
+          style={`left: 0px; top: 0px; ` +
+            `width: ${pageFns().viewportBoundsPx().w}px; ` +
             `height: ${pageFns().viewportBoundsPx().h}px; ` +
             `overflow-y: auto; `}
           onscroll={listRootScrollHandler}>
