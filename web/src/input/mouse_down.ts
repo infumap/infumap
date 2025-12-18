@@ -550,13 +550,15 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   const topPagePaths = store.topTitledPages.get();
   const focusPath = store.history.getFocusPath();
-  for (let i = topPagePaths.length - 1; i > 0; --i) {
-    if (topPagePaths[i] == focusPath) {
-      const newFocusPath = topPagePaths[i - 1];
-      store.history.setFocus(newFocusPath);
-      fullArrange(store);
+  const focusPageIdx = topPagePaths.indexOf(focusPath);
+
+  if (focusPageIdx > 0) {
+    if (store.history.currentPopupSpec() != null) {
+      await navigateBack(store);
       return;
     }
+    await navigateUp(store);
+    return;
   }
 
   const ves = VesCache.get(focusPath)!;
