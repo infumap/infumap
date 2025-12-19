@@ -54,7 +54,7 @@ export function isArrowKey(key: string) {
  * Top level handler for keydown events.
  */
 export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): void {
-  
+
   // IMPORTANT: keep these in sync with the code below.
 
   const recognizedKeys = [
@@ -220,6 +220,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (path == null) { return; }
   const direction = findDirectionFromKeyCode(ev.code);
   if (handleTableAttachmentPopupNavigation(store, path, direction)) { return; }
+  if (handleTableItemPopupHorizontalNavigation(store, path, direction)) { return; }
   const closest = findClosest(path, direction, false, false)!;
   if (closest != null) {
     const closestVeid = VeFns.veidFromPath(closest);
@@ -246,7 +247,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
             idx = idx - 1;
           }
           if (direction == FindDirection.Right) {
-            if (idx >= pageChildren.length-1) { return; }
+            if (idx >= pageChildren.length - 1) { return; }
             idx = idx + 1;
           }
           const newChildId = pageChildren[idx];
@@ -304,7 +305,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
   const focusPath = store.history.getFocusPath();
   const focusVe = VesCache.get(focusPath)!.get();
   const focusVeid = VeFns.veidFromVe(focusVe);
-  for (let i=1; i<store.topTitledPages.get().length; ++i) {
+  for (let i = 1; i < store.topTitledPages.get().length; ++i) {
     const ttp = VeFns.veidFromPath(store.topTitledPages.get()[i]);
     if (ttp.itemId == focusVeid.itemId && ttp.linkIdMaybe == focusVeid.linkIdMaybe) {
       handleListPageChange = true;
@@ -355,12 +356,12 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     }
     const ttpVePaths = store.topTitledPages.get();
     const ttpVeids = [];
-    for (let i=0; i<ttpVePaths.length; ++i) { ttpVeids.push(VeFns.veidFromPath(ttpVePaths[i])); }
-    for (let i=0; i<ttpVeids.length; ++i) {
+    for (let i = 0; i < ttpVePaths.length; ++i) { ttpVeids.push(VeFns.veidFromPath(ttpVePaths[i])); }
+    for (let i = 0; i < ttpVeids.length; ++i) {
       const veid = ttpVeids[i];
       if (veid.itemId == focusPageVeid.itemId &&
-          veid.linkIdMaybe == focusPageVeid.linkIdMaybe) {
-        const nextIdx = i+1;
+        veid.linkIdMaybe == focusPageVeid.linkIdMaybe) {
+        const nextIdx = i + 1;
         if (nextIdx < ttpVeids.length) {
           const nextFocusVeid = ttpVeids[nextIdx];
           const nextFocusPath = VeFns.addVeidToPath(nextFocusVeid, focusPagePath);
@@ -452,4 +453,95 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
   store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
   fullArrange(store);
   return true;
+}
+
+/**
+ * Handle left/right navigation between table children and their attachments.
+ * - On a table child (col=0), Right navigates to first attachment
+ * - On an attachment (col>0), Left navigates to previous column (attachment or table child)
+ * - On an attachment (col>0), Right navigates to next attachment if available
+ */
+function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, currentPath: string, direction: FindDirection): boolean {
+  if (direction != FindDirection.Left && direction != FindDirection.Right) { return false; }
+
+  const currentVes = VesCache.get(currentPath);
+  if (!currentVes) { return false; }
+
+  const currentVe = currentVes.get();
+
+  // Check if we're inside a table
+  if (!(currentVe.flags & VisualElementFlags.InsideTable)) {
+    return false;
+  }
+
+  const isAttachment = !!(currentVe.flags & VisualElementFlags.Attachment);
+  const currentCol = currentVe.col;
+
+  if (currentCol == null) { return false; }
+
+  // Case 1: On a table child (col=0), pressing Right -> go to first attachment
+  if (!isAttachment && currentCol === 0 && direction === FindDirection.Right) {
+    // currentVe is the table child, check its attachments
+    if (!currentVe.attachmentsVes || currentVe.attachmentsVes.length === 0) {
+      return false;
+    }
+
+    // Find the first attachment (col=1)
+    for (const attachmentSignal of currentVe.attachmentsVes) {
+      const attachmentVe = attachmentSignal.get();
+      if (attachmentVe.col === 1) {
+        const targetPath = VeFns.veToPath(attachmentVe);
+        const targetVeid = VeFns.veidFromPath(targetPath);
+        store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+        fullArrange(store);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Case 2: On an attachment, navigating left or right
+  if (isAttachment && currentVe.parentPath) {
+    const rowVes = VesCache.get(currentVe.parentPath);
+    if (!rowVes) { return false; }
+    const rowVe = rowVes.get();
+
+    if (direction === FindDirection.Left) {
+      // Navigate to previous column
+      if (currentCol === 1) {
+        // Go back to the table child (the parent row)
+        const targetPath = VeFns.veToPath(rowVe);
+        const targetVeid = VeFns.veidFromPath(targetPath);
+        store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+        fullArrange(store);
+        return true;
+      } else if (currentCol > 1) {
+        // Go to previous attachment
+        for (const attachmentSignal of rowVe.attachmentsVes) {
+          const attachmentVe = attachmentSignal.get();
+          if (attachmentVe.col === currentCol - 1) {
+            const targetPath = VeFns.veToPath(attachmentVe);
+            const targetVeid = VeFns.veidFromPath(targetPath);
+            store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+            fullArrange(store);
+            return true;
+          }
+        }
+      }
+    } else if (direction === FindDirection.Right) {
+      // Navigate to next attachment
+      for (const attachmentSignal of rowVe.attachmentsVes) {
+        const attachmentVe = attachmentSignal.get();
+        if (attachmentVe.col === currentCol + 1) {
+          const targetPath = VeFns.veToPath(attachmentVe);
+          const targetVeid = VeFns.veidFromPath(targetPath);
+          store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+          fullArrange(store);
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
 }
