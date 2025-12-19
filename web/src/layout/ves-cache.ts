@@ -24,7 +24,7 @@ import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
 import { HitboxFns } from "./hitbox";
-import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "./visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementSpec } from "./visual-element";
 
 /*
   Explanation:
@@ -195,8 +195,8 @@ export let VesCache = {
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
     currentVesCache.set(path, newElement);
     if (isContainer(visualElementOverride.displayItem) &&
-        (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
-        asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
+      (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
+      asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
       const origin = visualElementOverride.displayItem.origin;
       if (!currentWatchContainerUidsByOrigin.has(origin)) {
         currentWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
@@ -221,7 +221,7 @@ export let VesCache = {
   partial_overwriteVisualElementSignal: (visualElementOverride: VisualElementSpec, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
-    
+
     // Debug logging for potential path conflicts
     if (existingPath === newPath) {
       console.debug("[VES_CACHE_DEBUG] Overwriting visual element with same path:", {
@@ -242,7 +242,7 @@ export let VesCache = {
       });
     }
 
-    for (let i=0; i<veToOverwrite.attachmentsVes.length; ++i) {
+    for (let i = 0; i < veToOverwrite.attachmentsVes.length; ++i) {
       const attachmentVe = veToOverwrite.attachmentsVes[i].get();
       const attachmentVePath = VeFns.veToPath(attachmentVe);
       if (currentVesCache.has(attachmentVePath)) {
@@ -250,7 +250,7 @@ export let VesCache = {
       }
     }
 
-    if (!currentVesCache.delete(existingPath)) { 
+    if (!currentVesCache.delete(existingPath)) {
       console.error("[VES_CACHE_DEBUG] Failed to delete existing path:", {
         existingPath: existingPath,
         newPath: newPath,
@@ -258,15 +258,15 @@ export let VesCache = {
         cacheSize: currentVesCache.size,
         timestamp: new Date().toISOString()
       });
-      throw "vesToOverwrite did not exist"; 
+      throw "vesToOverwrite did not exist";
     }
     deleteFromVessVsDisplayIdLookup(existingPath);
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
     currentVesCache.set(newPath, vesToOverwrite);
     if (isContainer(visualElementOverride.displayItem) &&
-        (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
-        asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
+      (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
+      asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
       const origin = visualElementOverride.displayItem.origin;
       if (!underConstructionWatchContainerUidsByOrigin.has(origin)) {
         underConstructionWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
@@ -371,6 +371,22 @@ export let VesCache = {
   pushTopTitledPage: (vePath: VisualElementPath) => {
     underConstructionTopTitledPages.push(vePath);
   },
+
+  /**
+   * Apply a partial update to an existing visual element signal.
+   * This is for cases where only some properties need to change (e.g., bounds during a move).
+   * 
+   * @param ves The visual element signal to update
+   * @param updater A function that modifies the visual element in place
+   * @returns true if the update was applied successfully
+   */
+  updateVisualElement: (ves: VisualElementSignal, updater: (ve: VisualElement) => void): boolean => {
+    if (currentlyInFullArrange) { return false; }
+    const ve = ves.get();
+    updater(ve);
+    ves.set(ve);
+    return true;
+  },
 }
 
 
@@ -382,8 +398,8 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
   visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem); // TODO (LOW): Modifying the input object is a bit dirty.
 
   if (isContainer(visualElementOverride.displayItem) &&
-      (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
-      asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
+    (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
+    asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
     const origin = visualElementOverride.displayItem.origin;
     if (!underConstructionWatchContainerUidsByOrigin.has(origin)) {
       underConstructionWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
@@ -393,7 +409,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
 
   function compareArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
     if (oldArray.length != newArray.length) { return 1; }
-    for (let i=0; i<oldArray.length; ++i) {
+    for (let i = 0; i < oldArray.length; ++i) {
       if (oldArray[i] != newArray[i]) { return 1; }
     }
     return 0;
@@ -436,9 +452,9 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
     const newProps = Object.getOwnPropertyNames(visualElementOverride);
     let dirty = false;
     if (debug) { console.debug(newProps, oldVals, visualElementOverride); }
-    for (let i=0; i<newProps.length; ++i) {
+    for (let i = 0; i < newProps.length; ++i) {
       if (debug) { console.debug("considering", newProps[i]); }
-      if (typeof(oldVals[newProps[i]]) == 'undefined') {
+      if (typeof (oldVals[newProps[i]]) == 'undefined') {
         if (debug) { console.debug('no current ve property for:', newProps[i]); }
         dirty = true;
         break;
@@ -447,11 +463,11 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       const newVal = newVals[newProps[i]];
 
       if (newProps[i] == "resizingFromBoundsPx" ||
-          newProps[i] == "boundsPx" ||
-          newProps[i] == "viewportBoundsPx" ||
-          newProps[i] == "listViewportBoundsPx" ||
-          newProps[i] == "childAreaBoundsPx" ||
-          newProps[i] == "listChildAreaBoundsPx") {
+        newProps[i] == "boundsPx" ||
+        newProps[i] == "viewportBoundsPx" ||
+        newProps[i] == "listViewportBoundsPx" ||
+        newProps[i] == "childAreaBoundsPx" ||
+        newProps[i] == "listChildAreaBoundsPx") {
         if (compareBoundingBox(oldVal, newVal) != 0) {
           if (debug) { console.debug("ve property changed: ", newProps[i]); }
           dirty = true;
@@ -460,8 +476,8 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
           if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
         }
       } else if (newProps[i] == "tableDimensionsPx" ||
-                 newProps[i] == "blockSizePx" ||
-                 newProps[i] == "cellSizePx") {
+        newProps[i] == "blockSizePx" ||
+        newProps[i] == "cellSizePx") {
         if (compareDimensions(oldVal, newVal) != 0) {
           if (debug) { console.debug("ve property changed: ", newProps[i]); }
           dirty = true;
@@ -489,20 +505,20 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
         // If this is an infumap-generated link, object ref might have changed, and it doesn't matter.
         // TODO (MEDIUM): rethink this through.
       } else if (newProps[i] == "displayItem" ||
-                 newProps[i] == "actualLinkItemMaybe" ||
-                 newProps[i] == "focusedChildItemMaybe" ||
-                 newProps[i] == "flags" ||
-                 newProps[i] == "_arrangeFlags_useForPartialRearrangeOnly" ||
-                 newProps[i] == "row" ||
-                 newProps[i] == "col" ||
-                 newProps[i] == "numRows" ||
-                 newProps[i] == "indentBl" ||
-                 newProps[i] == "parentPath" ||
-                 newProps[i] == "evaluatedTitle" ||
-                 newProps[i] == "displayItemFingerprint" ||
-                 newProps[i] == "popupVes" ||
-                 newProps[i] == "selectedVes" ||
-                 newProps[i] == "dockVes") {
+        newProps[i] == "actualLinkItemMaybe" ||
+        newProps[i] == "focusedChildItemMaybe" ||
+        newProps[i] == "flags" ||
+        newProps[i] == "_arrangeFlags_useForPartialRearrangeOnly" ||
+        newProps[i] == "row" ||
+        newProps[i] == "col" ||
+        newProps[i] == "numRows" ||
+        newProps[i] == "indentBl" ||
+        newProps[i] == "parentPath" ||
+        newProps[i] == "evaluatedTitle" ||
+        newProps[i] == "displayItemFingerprint" ||
+        newProps[i] == "popupVes" ||
+        newProps[i] == "selectedVes" ||
+        newProps[i] == "dockVes") {
         if (oldVal != newVal) {
           if (debug) { console.debug("ve property changed: ", newProps[i]); }
           dirty = true;

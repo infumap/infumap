@@ -33,6 +33,7 @@ import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
 import { fullArrange } from "../layout/arrange";
+import { rearrangePopupPositionOnly } from "../layout/arrange/popup";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
@@ -135,10 +136,10 @@ export function clearMouseOverState(store: StoreContextModel) {
 
 
 function changeMouseActionStateMaybe(
-    deltaPx: Vector,
-    store: StoreContextModel,
-    desktopPosPx: Vector,
-    hasUser: boolean) {
+  deltaPx: Vector,
+  store: StoreContextModel,
+  desktopPosPx: Vector,
+  hasUser: boolean) {
   if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
   if (!hasUser) { return; }
 
@@ -232,9 +233,9 @@ function changeMouseActionStateMaybe(
     MouseActionState.get().action = MouseAction.ResizingDockItem;
 
   } else if (((MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) > 0) ||
-             ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move))) {
+    ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move))) {
     if (!(MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) &&
-        (MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move)) {
+      (MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move)) {
       // if the composite move hitbox is hit, but not the child, then swap out the active element.
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
       MouseActionState.get().activeElementPath = MouseActionState.get().activeCompositeElementMaybe!;
@@ -273,7 +274,7 @@ function changeMouseActionStateMaybe(
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
   } else if (veFlagIsRoot(activeVisualElement.flags) ||
-             (activeVisualElement.flags & VisualElementFlags.FlipCardPage)) {
+    (activeVisualElement.flags & VisualElementFlags.FlipCardPage)) {
     MouseActionState.get().action = MouseAction.Selecting;
     store.overlay.selectionMarqueePx.set({ x: MouseActionState.get().startPx!.x, y: MouseActionState.get().startPx!.y, w: 0, h: 0 });
     store.overlay.selectedVeids.set([]);
@@ -358,7 +359,7 @@ function mouseAction_selecting(store: StoreContextModel) {
     if (ve.popupVes) { stack.push(VeFns.veToPath(ve.popupVes.get())); }
   }
   store.overlay.selectedVeids.set(selected);
-  
+
 
   const signature = (() => {
     const ids = selected.map(s => s.itemId + (s.linkIdMaybe ? `[${s.linkIdMaybe}]` : ""));
@@ -377,7 +378,7 @@ function mouseAction_selecting(store: StoreContextModel) {
 function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   const startPx = MouseActionState.get().startDockWidthPx!;
   let newDockWidthPx = Math.round((startPx + deltaPx.x) / NATURAL_BLOCK_SIZE_PX.w) * NATURAL_BLOCK_SIZE_PX.w;
-  if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w ) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
+  if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
   if (store.getCurrentDockWidthPx() != newDockWidthPx) {
     store.setDockWidthPx(newDockWidthPx);
     fullArrange(store);
@@ -664,8 +665,8 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 
   if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     const deltaBl = {
-      x: Math.round(deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0)/2.0,
-      y: Math.round(deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0)/2.0
+      x: Math.round(deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0) / 2.0,
+      y: Math.round(deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0) / 2.0
     };
     const newPositionGr = {
       x: (MouseActionState.get().startPosBl!.x + deltaBl.x) * GRID_SIZE,
@@ -673,9 +674,13 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
     };
 
     if (popupItem.pendingPopupPositionGr == null ||
-        compareVector(newPositionGr, popupItem.pendingPopupPositionGr!) != 0) {
+      compareVector(newPositionGr, popupItem.pendingPopupPositionGr!) != 0) {
       popupItem.pendingPopupPositionGr = newPositionGr;
-      fullArrange(store);
+      // Use the optimized partial rearrange if possible,
+      // falling back to full arrange if the optimization can't be applied.
+      if (!rearrangePopupPositionOnly(store)) {
+        fullArrange(store);
+      }
     }
   } else {
     const deltaNorm = {
@@ -688,9 +693,13 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
     };
 
     if (popupItem.pendingCellPopupPositionNorm == null ||
-        compareVector(newPositionNorm, popupItem.pendingCellPopupPositionNorm!) != 0) {
+      compareVector(newPositionNorm, popupItem.pendingCellPopupPositionNorm!) != 0) {
       popupItem.pendingCellPopupPositionNorm = newPositionNorm;
-      fullArrange(store);
+      // Use the optimized partial rearrange if possible,
+      // falling back to full arrange if the optimization can't be applied.
+      if (!rearrangePopupPositionOnly(store)) {
+        fullArrange(store);
+      }
     }
   }
 }
@@ -737,15 +746,15 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
-      !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOver(VeFns.veToPath(overElementVes.get())) &&
-      !hasModal && !isInsideToolbarPopup) {
+    !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOver(VeFns.veToPath(overElementVes.get())) &&
+    !hasModal && !isInsideToolbarPopup) {
     store.perVe.setMouseIsOver(VeFns.veToPath(overElementVes.get()), true);
     lastMouseOverVes = overElementVes;
   }
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
-      !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get())) &&
-      !hasModal && !isInsideToolbarPopup) {
+    !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get())) &&
+    !hasModal && !isInsideToolbarPopup) {
     if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {
       store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get()), true);
       lastMouseOverOpenPopupVes = overElementVes;
@@ -768,24 +777,24 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     } else if (hitInfo.hitboxType & HitboxFlags.TriangleLinkSettings) {
       document.body.style.cursor = "pointer";
     } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(HitInfoFns.getHitVe(hitInfo).displayItem)) &&
-               ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) ||
-                ((asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem).flags & PageFlags.EmbeddedInteractive) && !(hitInfo.hitboxType & HitboxFlags.ContentEditable)))) {
+      ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) ||
+        ((asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem).flags & PageFlags.EmbeddedInteractive) && !(hitInfo.hitboxType & HitboxFlags.ContentEditable)))) {
       document.body.style.cursor = "move";
     } else if (hitInfo.hitboxType & HitboxFlags.ShiftLeft) {
       document.body.style.cursor = "zoom-in";
     } else if ((hitInfo.overVes!.get().flags & VisualElementFlags.Attachment) &&
-               !(hitInfo.overVes!.get().flags & VisualElementFlags.InsideTable)) {
+      !(hitInfo.overVes!.get().flags & VisualElementFlags.InsideTable)) {
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.Expand) {
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) {
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.Move &&
-              isComposite(HitInfoFns.getOverContainerVe(hitInfo).displayItem)) {
+      isComposite(HitInfoFns.getOverContainerVe(hitInfo).displayItem)) {
       document.body.style.cursor = "default";
     } else if (hitInfo.hitboxType & HitboxFlags.Flip ||
-               hitInfo.hitboxType & HitboxFlags.TimedFlip ||
-               hitInfo.hitboxType & HitboxFlags.Edit) {
+      hitInfo.hitboxType & HitboxFlags.TimedFlip ||
+      hitInfo.hitboxType & HitboxFlags.Edit) {
       document.body.style.cursor = "pointer";
     } else {
       document.body.style.cursor = "default";

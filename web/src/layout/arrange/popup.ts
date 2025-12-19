@@ -17,53 +17,78 @@
 */
 
 import { batch } from "solid-js";
+import { GRID_SIZE } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkFns, asLinkItem } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
+import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
+import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
+import { ItemGeometry } from "../item-geometry";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VeFns, VisualElementFlags } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
+import { VesCache } from "../ves-cache";
 
 
-export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
-  const currentPage = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
-  const currentPageVeid = store.history.currentPageVeid()!;
-  const currentPath = VeFns.addVeidToPath(currentPageVeid, UMBRELLA_PAGE_UID);
-  const currentPopupSpec = store.history.currentPopupSpec()!;
+/**
+ * Represents the calculated geometry for a popup, including whether it should be rendered as fixed.
+ */
+export interface PopupGeometryResult {
+  geometry: ItemGeometry;
+  renderAsFixed: boolean;
+  linkItem: LinkItem;
+  actualLinkItemMaybe: LinkItem | null;
+}
 
-  const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-                         currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
-                         currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
 
-  const popupVeid = currentPopupSpec.actualVeid;
-  const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
+/**
+ * Creates the popup link item with proper sizing from the popup spec.
+ */
+function createPopupLinkItem(currentPage: PageItem, popupVeid: { itemId: string, linkIdMaybe: string | null }): LinkItem {
   const popupLinkToId = popupVeid.itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, popupLinkToId!, newOrdering());
   li.id = POPUP_LINK_UID;
+
   if (popupVeid.linkIdMaybe) {
-    if (isXSizableItem(itemState.get(popupVeid.linkIdMaybe)!)) {
-      li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.linkIdMaybe)!).spatialWidthGr;
+    const linkItem = itemState.get(popupVeid.linkIdMaybe)!;
+    if (isXSizableItem(linkItem)) {
+      li.spatialWidthGr = asXSizableItem(linkItem).spatialWidthGr;
     }
-    if (isYSizableItem(itemState.get(popupVeid.linkIdMaybe)!)) {
-      li.spatialHeightGr = asYSizableItem(itemState.get(popupVeid.linkIdMaybe)!).spatialHeightGr;
+    if (isYSizableItem(linkItem)) {
+      li.spatialHeightGr = asYSizableItem(linkItem).spatialHeightGr;
     }
   } else {
-    if (isXSizableItem(itemState.get(popupVeid.itemId)!)) {
-      li.spatialWidthGr = asXSizableItem(itemState.get(popupVeid.itemId)!).spatialWidthGr;
+    const item = itemState.get(popupVeid.itemId)!;
+    if (isXSizableItem(item)) {
+      li.spatialWidthGr = asXSizableItem(item).spatialWidthGr;
     }
-    if (isYSizableItem(itemState.get(popupVeid.itemId)!)) {
-      li.spatialHeightGr = asYSizableItem(itemState.get(popupVeid.itemId)!).spatialHeightGr;
+    if (isYSizableItem(item)) {
+      li.spatialHeightGr = asYSizableItem(item).spatialHeightGr;
     }
   }
   li.spatialPositionGr = { x: 0, y: 0 };
 
+  return li;
+}
+
+
+/**
+ * Calculates the geometry for a cell-based popup (Grid, Justified, Calendar pages).
+ * This is the single source of truth for cell popup geometry calculation.
+ */
+function calcCellPopupGeometry(
+  store: StoreContextModel,
+  currentPage: PageItem,
+  popupVeid: { itemId: string, linkIdMaybe: string | null }
+): PopupGeometryResult {
+  const li = createPopupLinkItem(currentPage, popupVeid);
+  const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
   const desktopBoundsPx = store.desktopMainAreaBoundsPx();
 
   const popupItem = itemState.get(popupVeid.itemId);
@@ -93,7 +118,12 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
 
   const hasChildChanges = PageFns.childCellPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
   const hasDefaultChanges = PageFns.defaultCellPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
-  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, hasChildChanges, hasDefaultChanges, true, false, store.smallScreenMode());
+  const geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, hasChildChanges, hasDefaultChanges, true, false, store.smallScreenMode());
+
+  const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+    currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
+    currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
+
   if (renderAsFixed) {
     geometry.boundsPx.x += store.getCurrentDockWidthPx();
     if (geometry.viewportBoundsPx != null) {
@@ -101,12 +131,137 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     }
   }
 
+  return { geometry, renderAsFixed, linkItem: li, actualLinkItemMaybe };
+}
+
+
+/**
+ * Calculates the geometry for a SpatialStretch popup.
+ * This is the single source of truth for spatial popup geometry calculation.
+ */
+export function calcSpatialPopupGeometry(
+  store: StoreContextModel,
+  currentPage: PageItem,
+  popupVeid: { itemId: string, linkIdMaybe: string | null },
+  childAreaBoundsPx: BoundingBox
+): PopupGeometryResult {
+  const li = createPopupLinkItem(currentPage, popupVeid);
+  const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
+
+  const popupPage = asPageItem(itemState.get(popupVeid.itemId)!);
+  const widthGr = PageFns.getPopupWidthGrForParent(currentPage, popupPage);
+  const popupIsCalendar = popupPage.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+  const targetAspect = popupIsCalendar
+    ? store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h
+    : currentPage.naturalAspect;
+
+  if (popupIsCalendar) {
+    li.aspectOverride = targetAspect;
+  }
+
+  const heightGr = Math.round((widthGr / targetAspect / GRID_SIZE) / 2.0) * 2.0 * GRID_SIZE;
+  li.spatialWidthGr = widthGr;
+
+  // Center positioning
+  const popupCenter = PageFns.getPopupPositionGrForParent(currentPage, popupPage);
+  li.spatialPositionGr = {
+    x: popupCenter.x - widthGr / 2.0,
+    y: popupCenter.y - heightGr / 2.0
+  };
+
+  const geometry = ItemFns.calcGeometry_Spatial(
+    li,
+    zeroBoundingBoxTopLeft(childAreaBoundsPx),
+    PageFns.calcInnerSpatialDimensionsBl(currentPage),
+    false, true, true,
+    PageFns.childPopupPositioningHasChanged(currentPage, popupPage),
+    PageFns.defaultPopupPositioningHasChanged(currentPage, popupPage),
+    false,
+    store.smallScreenMode()
+  );
+
+  return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe };
+}
+
+
+/**
+ * Arranges a cell-based popup (Grid, Justified, Calendar pages).
+ */
+export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
+  const currentPage = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
+  const currentPageVeid = store.history.currentPageVeid()!;
+  const currentPath = VeFns.addVeidToPath(currentPageVeid, UMBRELLA_PAGE_UID);
+  const currentPopupSpec = store.history.currentPopupSpec()!;
+
+  const { geometry, renderAsFixed, linkItem, actualLinkItemMaybe } = calcCellPopupGeometry(
+    store, currentPage, currentPopupSpec.actualVeid
+  );
+
   let ves: VisualElementSignal;
   batch(() => {
-    ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, li, actualLinkItemMaybe, geometry, ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.RenderChildrenAsFull);
+    ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, linkItem, actualLinkItemMaybe, geometry, ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.RenderChildrenAsFull);
     let ve = ves.get();
     ve.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
     ves.set(ve);
   });
   return ves!;
+}
+
+
+/**
+ * Efficiently updates only the popup position without a full re-arrange.
+ * This works for both cell-based popups (Grid, Justified, Calendar) and 
+ * spatial stretch popups. Only the popup's position is updated - size remains unchanged.
+ * 
+ * @returns true if the optimization was applied, false if a full arrange is needed.
+ */
+export function rearrangePopupPositionOnly(store: StoreContextModel): boolean {
+  if (VesCache.isCurrentlyInFullArrange()) { return false; }
+
+  const currentPopupSpec = store.history.currentPopupSpec();
+  if (currentPopupSpec == null) { return false; }
+
+  const currentPage = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
+  const isSpatialStretch = currentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
+
+  // Get the current page VE to find the popup VE signal
+  const currentPageVeid = store.history.currentPageVeid()!;
+  const currentPagePath = VeFns.addVeidToPath(currentPageVeid, UMBRELLA_PAGE_UID);
+  const currentPageVes = VesCache.get(currentPagePath);
+  if (!currentPageVes) { return false; }
+
+  const currentPageVe = currentPageVes.get();
+  if (!currentPageVe.popupVes) { return false; }
+
+  const popupVes = currentPageVe.popupVes;
+  const popupVe = popupVes.get();
+
+  // Only handle page popups for now
+  if (!isPage(popupVe.displayItem)) { return false; }
+
+  // Calculate the new geometry using the SAME logic as full arrange
+  const { geometry } = isSpatialStretch
+    ? calcSpatialPopupGeometry(store, currentPage, currentPopupSpec.actualVeid, currentPageVe.childAreaBoundsPx!)
+    : calcCellPopupGeometry(store, currentPage, currentPopupSpec.actualVeid);
+
+  // Use VesCache's updateVisualElement for a clean partial update
+  // Only update position - width and height remain unchanged from the existing VE
+  return VesCache.updateVisualElement(popupVes, (ve) => {
+    ve.boundsPx = {
+      x: geometry.boundsPx.x,
+      y: geometry.boundsPx.y,
+      w: ve.boundsPx.w,  // Preserve existing width
+      h: ve.boundsPx.h,  // Preserve existing height
+    };
+    if (ve.viewportBoundsPx && geometry.viewportBoundsPx) {
+      ve.viewportBoundsPx = {
+        x: geometry.viewportBoundsPx.x,
+        y: geometry.viewportBoundsPx.y,
+        w: ve.viewportBoundsPx.w,  // Preserve existing width
+        h: ve.viewportBoundsPx.h,  // Preserve existing height
+      };
+    }
+    // Note: hitboxes don't need to be updated during a move operation
+    // since they are relative to the element's own bounds (position-independent)
+  });
 }
