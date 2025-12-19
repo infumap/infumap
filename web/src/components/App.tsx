@@ -23,7 +23,7 @@ import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
 import { switchToNonPage, switchToPage } from '../layout/navigation';
 import { isUid } from '../util/uid';
-import { fArrange } from '../layout/arrange';
+import { fullArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 
 
@@ -48,20 +48,20 @@ const App: Component = () => {
     const p = window.location.pathname;
     const parts = p.split("/");
     let currentUrlUidMaybe: string | null = null;
-    
+
     if (parts.length >= 4 && parts[1] == "remote") {
       currentUrlUidMaybe = parts[3];
     } else {
-      currentUrlUidMaybe = parts[parts.length-1];
+      currentUrlUidMaybe = parts[parts.length - 1];
     }
-    
+
     if (isUid(currentUrlUidMaybe) || currentUrlUidMaybe == "") {
       const prevHistoryVeid = store.history.peekPrevPageVeid();
       if (!prevHistoryVeid) {
         e.preventDefault();
         if (currentUrlUidMaybe == "") {
           if (debug) { console.debug("window popstate handler: no prevHistoryVeid, switching to (root) page."); }
-          if (store.user.getUserMaybe() && itemState.get(store.user.getUser().homePageId) ) {
+          if (store.user.getUserMaybe() && itemState.get(store.user.getUser().homePageId)) {
             switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, false, false, false);
           } else {
             if (debug) { console.debug("window popstate handler: root page not available, doing nothing."); }
@@ -84,7 +84,7 @@ const App: Component = () => {
           } else {
             store.history.setFocus(store.history.currentPagePath()!);
           }
-          fArrange(store);
+          fullArrange(store);
         } else {
           if (currentUrlUidMaybe == "") {
             if (store.user.getUser().homePageId == prevHistoryVeid.itemId) {
@@ -95,7 +95,7 @@ const App: Component = () => {
               } else {
                 store.history.setFocus(store.history.currentPagePath()!);
               }
-              fArrange(store);
+              fullArrange(store);
             } else {
               if (debug) { console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid (2).", prevHistoryVeid.itemId, currentUrlUidMaybe); }
               switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);

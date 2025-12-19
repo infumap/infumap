@@ -36,7 +36,7 @@ import { mouseMoveHandler, clearMouseOverState } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyDownHandler } from "../input/key";
-import { fArrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 import { composite_selectionChangeListener } from "../input/edit";
@@ -173,8 +173,8 @@ export const Main: Component = () => {
 
   onCleanup(() => {
     // Stop server load test
-          stopContainerAutoRefresh();
-    
+    stopContainerAutoRefresh();
+
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
     document.removeEventListener('keydown', keyDownListener);
     window.removeEventListener('resize', windowResizeListener);
@@ -191,7 +191,7 @@ export const Main: Component = () => {
 
   const windowResizeListener = () => {
     store.resetDesktopSizePx();
-    fArrange(store);
+    fullArrange(store);
   };
 
   const contextMenuListener = (ev: Event) => {
@@ -255,14 +255,14 @@ export const Main: Component = () => {
 
   return (
     <div ref={mainDiv}
-         class="absolute top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden"
-         ontouchstart={touchListener}
-         onmousedown={mouseDownListener}
-         onmousemove={mouseMoveListener}
-         onmouseleave={mouseLeaveListener}
-         onpaste={pasteListener}
-         ondblclick={mouseDoubleClickListener}
-         onmouseup={mouseUpListener}>
+      class="absolute top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden"
+      ontouchstart={touchListener}
+      onmousedown={mouseDownListener}
+      onmousemove={mouseMoveListener}
+      onmouseleave={mouseLeaveListener}
+      onpaste={pasteListener}
+      ondblclick={mouseDoubleClickListener}
+      onmouseup={mouseUpListener}>
 
       <Show when={store.umbrellaVisualElement.get().displayItem.itemType != ItemType.Empty}>
         <Desktop visualElement={store.umbrellaVisualElement.get()} />

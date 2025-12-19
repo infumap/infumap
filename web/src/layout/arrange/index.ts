@@ -32,15 +32,6 @@ import { asLinkItem } from "../../items/link-item";
 import { createVisualElementSignal } from "../../util/signals";
 
 /**
- * temporary function used during the arrange -> rearrange refactor, which if called, indicates fullArrange
- * should not be replaced by a call to rearrange.
- */
-export function fArrange(store: StoreContextModel): void {
-  fullArrange(store);
-}
-
-
-/**
  * Create a visual element tree for the current page, or if virtualPageVeid is specified, that page instead. A
  * visual element tree for other than the current page is required for keyboard navigation where that requires
  * knowledge of the layout of the parent page.

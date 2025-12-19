@@ -22,7 +22,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
-import { fArrange } from "./arrange";
+import { fullArrange } from "./arrange";
 import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { VeFns, Veid, VisualElementPath } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
@@ -78,7 +78,7 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   } else {
     store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
   }
-  fArrange(store);
+  fullArrange(store);
 
   const url = currentUrl(store, itemId);
   window.history.pushState(null, "", url);
@@ -95,7 +95,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     store.history.pushPageVeid(pageVeid, focusPath);
   }
 
-  fArrange(store);
+  fullArrange(store);
 
   const url = currentUrl(store, null);
   if ((!replace && updateHistory) || clearHistory) {
@@ -145,7 +145,7 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
         page.pendingCellPopupWidthNorm = null;
       }
     }
-    fArrange(store);
+    fullArrange(store);
 
     // After popup is closed and arrange is done, adjust focus appropriately.
     // For list pages, focus should go to the innermost nested page.
@@ -166,7 +166,7 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
             store.history.setFocus(rootPagePath);
           }
           // Re-arrange to update focusedChildItemMaybe (which controls the separator line)
-          fArrange(store);
+          fullArrange(store);
         }
       }
     }
@@ -176,7 +176,7 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
 
   if (store.history.peekPrevPageVeid() != null) {
     window.history.back();
-    fArrange(store);
+    fullArrange(store);
     return true;
   }
 
