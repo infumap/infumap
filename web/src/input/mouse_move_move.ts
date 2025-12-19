@@ -57,20 +57,20 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   const shouldCreateLink = CursorEventState.get().ctrlDown || (shiftWantsClone && isActiveLinkItem);
   const shouldClone = shiftWantsClone && !isActiveLinkItem; // For link items, shift behaves like ctrl (create link)
   const parentItem = itemState.get(activeItem.parentId)!;
-      if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
-      moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
-      fullArrange(store);
-    }
-    else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
-      const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
-      moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone);
-      fullArrange(store);
-    }
-    else if (isComposite(itemState.get(activeItem.parentId)!)) {
-      const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false);
-      moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
-      fullArrange(store);
-    }
+  if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
+    moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
+    fullArrange(store);
+  }
+  else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
+    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
+    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone);
+    fullArrange(store);
+  }
+  else if (isComposite(itemState.get(activeItem.parentId)!)) {
+    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false);
+    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
+    fullArrange(store);
+  }
   else {
     MouseActionState.get().startPosBl = {
       x: activeItem.spatialPositionGr.x / GRID_SIZE,
@@ -209,10 +209,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     const parentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
     const selected = store.perItem.getSelectedListPageItem(VeFns.veidFromPath(parentPath));
 
-    if (selected && VeFns.compareVeids(selected, VeFns.veidFromPath(MouseActionState.get().activeElementPath) ) === 0) {
+    if (selected && VeFns.compareVeids(selected, VeFns.veidFromPath(MouseActionState.get().activeElementPath)) === 0) {
       const children = asPageItem(parentItem).computed_children;
       let foundIdx = -1;
-      for (let i=0; i<children.length; i++) {
+      for (let i = 0; i < children.length; i++) {
         const child = itemState.get(children[i])!;
         if (isLink(child)) {
           const link = asLinkItem(child);
@@ -282,7 +282,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||
-      MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds))) {
+    MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds))) {
     if (MouseActionState.get().moveOver_containerElement != null) {
       const veMaybe = VesCache.get(MouseActionState.get().moveOver_containerElement!);
       if (veMaybe) {
@@ -348,7 +348,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
     const xAdj = (inElementVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) ||
-                 (inElementVe.flags & VisualElementFlags.Popup)
+      (inElementVe.flags & VisualElementFlags.Popup)
       ? store.getCurrentDockWidthPx()
       : 0.0;
     const xOffsetPx = desktopPosPx.x - (inElementVe.viewportBoundsPx!.x + xAdj);
@@ -457,8 +457,10 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 
   const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(treeActiveItem);
   const clickOffsetInActiveItemBl = relationshipToParent == RelationshipToParent.Child
-    ? { x: Math.round(activeItemDimensionsBl.w * MouseActionState.get().clickOffsetProp!.x * 2.0) / 2.0,
-        y: Math.round(activeItemDimensionsBl.h * MouseActionState.get().clickOffsetProp!.y * 2.0) / 2.0 }
+    ? {
+      x: Math.round(activeItemDimensionsBl.w * MouseActionState.get().clickOffsetProp!.x * 2.0) / 2.0,
+      y: Math.round(activeItemDimensionsBl.h * MouseActionState.get().clickOffsetProp!.y * 2.0) / 2.0
+    }
     : { x: 0, y: 0 };
   const startPosBl = vectorSubtract(mousePointBl, clickOffsetInActiveItemBl);
   const newItemPosGr = { x: startPosBl.x * GRID_SIZE, y: startPosBl.y * GRID_SIZE };
@@ -514,7 +516,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     if (relationshipToParent == RelationshipToParent.Attachment) {
       const oldActiveItemOrdering = treeActiveItem.ordering;
       const parent = asAttachmentsItem(itemState.get(treeActiveItem.parentId)!);
-      const isLast = parent.computed_attachments[asAttachmentsItem(parent).computed_attachments.length-1] == treeActiveItem.id;
+      const isLast = parent.computed_attachments[asAttachmentsItem(parent).computed_attachments.length - 1] == treeActiveItem.id;
       if (!isLast) {
         const placeholderItem = PlaceholderFns.create(treeActiveItem.ownerId, parent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
         itemState.add(placeholderItem);
@@ -576,10 +578,12 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, moveToPageVe);
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
-  const itemPosInPagePx = CursorEventState.getLatestDesktopPx(store);
-  itemPosInPagePx.x -= store.getCurrentDockWidthPx();
-  itemPosInPagePx.y += moveToPageAbsoluteBoundsPx.y;
-  itemPosInPagePx.x += moveToPageAbsoluteBoundsPx.x - store.getCurrentDockWidthPx();
+  const desktopPx = CursorEventState.getLatestDesktopPx(store);
+  const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
+  const itemPosInPagePx = {
+    x: pagePx.x - moveToPageAbsoluteBoundsPx.x,
+    y: pagePx.y - moveToPageAbsoluteBoundsPx.y
+  };
 
   let itemPosInPageGr;
   if (moveToPageVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
@@ -671,7 +675,7 @@ function calculateJustifiedMoveOverIndex(store: StoreContextModel, inElementVe: 
   const containerItem = asContainerItem(inElementVe.displayItem);
 
   const xAdj = (inElementVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) ||
-               (inElementVe.flags & VisualElementFlags.Popup)
+    (inElementVe.flags & VisualElementFlags.Popup)
     ? store.getCurrentDockWidthPx()
     : 0.0;
   const xOffsetPx = desktopPosPx.x - (inElementVe.viewportBoundsPx!.x + xAdj);
