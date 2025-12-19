@@ -133,42 +133,24 @@ export const PageFns = {
       let focusPath = VeFns.computeFocusPathRelativeToRoot(visualElement, targetVeid);
 
       // If we're clicking directly on the root list page (not through a nested child),
-      // restore focus to a previously focused page or the deepest selected page.
+      // restore focus to a previously focused page if one was saved (from navigating away).
+      // If there's no saved focus (first time clicking into this page from translucent view),
+      // focus stays on the root list page.
       const clickedVeid = VeFns.actualVeidFromVe(visualElement);
       if (clickedVeid.itemId === targetVeid.itemId && clickedVeid.linkIdMaybe === targetVeid.linkIdMaybe) {
-        // First check if there's a saved focused page for this list page
+        // Check if there's a saved focused page for this list page
         const savedFocusedVeid = store.perItem.getFocusedListPageItem(targetVeid);
         let targetFocusVeid: Veid | null = null;
 
         if (savedFocusedVeid && savedFocusedVeid !== EMPTY_VEID && savedFocusedVeid.itemId !== "") {
-          // Use the saved focused page
+          // Use the saved focused page (user navigated away and is returning)
           targetFocusVeid = savedFocusedVeid;
           // Clear the saved focus after using it
           store.perItem.clearFocusedListPageItem(targetVeid);
-        } else {
-          // No saved focus - walk down the selected items chain to find the deepest selected page
-          let currentVeid = targetVeid;
-          const MAX_DEPTH = 10;
-
-          for (let i = 0; i < MAX_DEPTH; i++) {
-            const selectedVeid = store.perItem.getSelectedListPageItem(currentVeid);
-            if (!selectedVeid || selectedVeid === EMPTY_VEID || selectedVeid.itemId === "") {
-              break;
-            }
-
-            const selectedItem = itemState.get(selectedVeid.itemId);
-            // Only track pages as potential focus targets (non-pages won't be in topTitledPages)
-            if (selectedItem && isPage(selectedItem)) {
-              targetFocusVeid = selectedVeid;
-            }
-
-            // Only continue walking if it's a list page (has nested selections)
-            if (!selectedItem || !isPage(selectedItem) || asPageItem(selectedItem).arrangeAlgorithm !== ArrangeAlgorithm.List) {
-              break;
-            }
-            currentVeid = selectedVeid;
-          }
         }
+        // Note: We no longer walk the selection chain when there's no saved focus.
+        // This ensures that when clicking into a translucent list page for the first time,
+        // focus stays on the root list page rather than jumping to a nested selected page.
 
         // Switch to page with default focus (so arrange runs and creates VEs)
         switchToPage(store, targetVeid, true, false, false, focusPath);
