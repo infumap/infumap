@@ -58,7 +58,7 @@ export const Toolbar_Rating: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="flex-grow-0" style="flex-order: 0">
+         class="grow-0" style="flex-order: 0">
       <div class="inline-block">
 
         <div class="inline-block w-[115px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"

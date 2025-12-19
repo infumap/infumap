@@ -48,13 +48,13 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm pointer-events-none"
+        <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; ` +
                     `width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px; ` +
                     `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
                     `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
+          <div class="absolute border border-slate-300 rounded-xs"
                style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
                       `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
         </Show>

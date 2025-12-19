@@ -274,12 +274,12 @@ export const Toolbar: Component = () => {
         </Switch>
       </Show>
 
-      <div class="flex-grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
+      <div class="grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
         <div class="fixed border-r border-slate-300" style="height: 25px; right: 87px; top: 7px;"></div>
       </div>
 
-      <div class="flex-grow-0 pr-[8px]" style="flex-order: 2;">
+      <div class="grow-0 pr-[8px]" style="flex-order: 2;">
         <Show when={!store.user.getUserMaybe()}>
           <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
         </Show>
@@ -299,7 +299,7 @@ export const Toolbar: Component = () => {
         <For each={titleSpecs()}>{tSpec =>
           <>
             {/* spacer before title text */}
-            <div class="border-b flex-grow-0"
+            <div class="border-b grow-0"
               style={`width: ${tSpec.lPosPx == 0 ? '5' : (tSpec.hasFocus ? '7' : '6')}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                 `${tSpec.bg}` +
                 (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.hasFocus ? '2' : '1'}px; border-left-color: ${tSpec.hasFocus ? tSpec.borderColor : BORDER_COLOR}; ` : '') +
@@ -307,7 +307,7 @@ export const Toolbar: Component = () => {
                 `border-top-width: ${tSpec.borderWidthPx - 1}px; `} />
 
             <div id={`toolbarTitleDiv-${tSpec.idx}`}
-              class="p-[3px] inline-block cursor-text border-b flex-grow-0 overflow-hidden whitespace-nowrap"
+              class="p-[3px] inline-block cursor-text border-b grow-0 overflow-hidden whitespace-nowrap"
               contentEditable={true}
               style={`font-size: 22px; color: ${tSpec.col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                 `${tSpec.bg} ` +

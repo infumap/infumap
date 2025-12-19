@@ -221,7 +221,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
                 !(props.visualElement.flags & VisualElementFlags.DockItem) &&
                 (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
-      <div class={`absolute border border-transparent rounded-sm shadow-xl bg-white`}
+      <div class={`absolute border border-transparent rounded-xs shadow-xl bg-white`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
@@ -237,7 +237,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   `background-color: #303030d0;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`} />
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
-                  `border border-[#555] rounded-sm overflow-hidden pointer-events-none`}
+                  `border border-[#555] rounded-xs overflow-hidden pointer-events-none`}
             style={`left: ${quantizedBoundsPx().x}px; ` +
                    `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                    `width: ${quantizedBoundsPx().w}px; ` +
@@ -290,7 +290,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
-          <div class={`absolute rounded-sm`}
+          <div class={`absolute rounded-xs`}
                style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                       `background-color: ${FEATURE_COLOR};`} />
         </Show>
@@ -331,7 +331,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       {renderPopupBaseMaybe()}
       {renderShadowMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-                  `overflow-hidden border pointer-events-none rounded-sm ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : '' } ` +
+                  `overflow-hidden border pointer-events-none rounded-xs ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : '' } ` +
                   (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
            style={`left: ${quantizedBoundsPx().x}px; ` +
                   `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
@@ -351,7 +351,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                         `background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
           <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
-            <div class="absolute rounded-sm"
+            <div class="absolute rounded-xs"
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                         `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>

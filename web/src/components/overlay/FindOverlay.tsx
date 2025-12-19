@@ -127,7 +127,7 @@ export const FindOverlay: Component = () => {
   const canGoNext = () => hasMatches();
 
   return (
-    <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
+    <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
          style={`background-color: #00000010; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
@@ -136,7 +136,7 @@ export const FindOverlay: Component = () => {
            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);`}>
         <div class="flex items-center justify-between px-3 py-2 h-full">
           <input ref={textElement}
-                 class="border border-gray-300 rounded-md flex-1 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                 class="border border-gray-300 rounded-md flex-1 px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                  placeholder="Find in page..."
                  type="text"
                  onKeyDown={handleInputKeyDown}

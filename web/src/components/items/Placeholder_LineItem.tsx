@@ -46,13 +46,13 @@ export const Placeholder_LineItem: Component<VisualElementProps> = (props: Visua
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm pointer-events-none"
+        <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
                     `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px; ` +
                     `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
                     `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
+          <div class="absolute border border-slate-300 rounded-xs"
                style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
                       `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
         </Show>
@@ -67,7 +67,7 @@ export const Placeholder_LineItem: Component<VisualElementProps> = (props: Visua
   return (
     <>
       {renderHighlightsMaybe()}
-      <div class={`absolute rounded-sm border border-slate-200`}
+      <div class={`absolute rounded-xs border border-slate-200`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   "background: repeating-linear-gradient(315deg, #00000000, #00000000 3px, #eee 2px, #eee 5px);"} />
     </>

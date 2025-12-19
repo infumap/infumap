@@ -20,7 +20,6 @@ import { Component, onMount } from 'solid-js';
 import { render } from 'solid-js/web';
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { sanitizeOriginalCreationDate } from "./util/time";
-import "tailwindcss/tailwind.css";
 import './index.css';
 
 
@@ -38,8 +37,8 @@ const App: Component = () => {
           return;
         }
       }
-    } catch {}
-    location.href = location.href.substring(0, location.href.length - addPath.length) + "/login?redirect=" +  encodeURIComponent("/add");
+    } catch { }
+    location.href = location.href.substring(0, location.href.length - addPath.length) + "/login?redirect=" + encodeURIComponent("/add");
   });
 
   return (
@@ -47,13 +46,13 @@ const App: Component = () => {
       <div style="padding-top: 10px; padding-left: 10px; font-weight: bold;">Add Note</div>
       <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 2px;">
         <textarea id="note" rows="6"
-                  class="border border-slate-700 rounded-md"
-                  style="position: relative; width: 100%; box-sizing: border-box; font-size: 16px; padding: 5px;" />
+          class="border border-slate-700 rounded-md"
+          style="position: relative; width: 100%; box-sizing: border-box; font-size: 16px; padding: 5px;" />
       </div>
       <div style="padding-left: 10px;">
         <button class="border border-slate-700 rounded-md"
-                style="padding: 5px;"
-                onclick={handleSubmit}>submit</button>
+          style="padding: 5px;"
+          onclick={handleSubmit}>submit</button>
       </div>
       <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="status"></div>
 
@@ -61,8 +60,8 @@ const App: Component = () => {
       <input type="file" id="file-input" style="display: none" onchange={handleFileInputUpdated} multiple={false} />
       <div style="padding-left: 10px;">
         <button class="border border-slate-700 rounded-md"
-                style="padding: 5px;"
-                onclick={handleImageSubmit}>upload</button>
+          style="padding: 5px;"
+          onclick={handleImageSubmit}>upload</button>
       </div>
       <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="image_status"></div>
     </>
@@ -82,7 +81,7 @@ async function handleFileInputUpdated() {
     itemType: "image",
     title: file.name,
     spatialWidthGr: 4.0 * 60,
-    originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified/1000.0), `adding image ${file.name}`),
+    originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified / 1000.0), `adding image ${file.name}`),
     mimeType: file.type,
     fileSizeBytes: file.size,
   });

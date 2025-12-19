@@ -60,9 +60,9 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
 
   const outerClass = () => {
     if (InsideCompositeOrDoc()) {
-      return 'absolute rounded-sm';
+      return 'absolute rounded-xs';
     } else {
-      return 'absolute rounded-sm border border-[#999]';
+      return 'absolute rounded-xs border border-[#999]';
     }
   };
 
@@ -87,12 +87,12 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0)}px; height: ${boundsPx().h}px;` +
                 `${backgroundStyle()}${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
       <Show when={showMoveOutOfCompositeArea()}>
-        <div class={`absolute rounded-sm`}
+        <div class={`absolute rounded-xs`}
              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
-        <div class={`absolute rounded-sm`}
+        <div class={`absolute rounded-xs`}
              style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>

@@ -139,7 +139,7 @@ export const RemoteLoginOverlay: Component = () => {
 
   return (
     <Show when={loginInfo() != null}>
-      <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
+      <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
            style={`background-color: #00000040; z-index: ${Z_INDEX_TEXT_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
            onmousedown={mouseDownListener}
            onmousemove={mouseMoveListener}
@@ -169,7 +169,7 @@ export const RemoteLoginOverlay: Component = () => {
             </div>
             <div>
               <div class="inline-block w-28"></div>
-              <input class="rounded-sm" type="checkbox" id="remote2fa" name="remote2fa" value="remote2fa" checked={store.general.prefer2fa()} onclick={() => { store.general.setPrefer2fa(!store.general.prefer2fa()); setError(null); }} />
+              <input class="rounded-xs" type="checkbox" id="remote2fa" name="remote2fa" value="remote2fa" checked={store.general.prefer2fa()} onclick={() => { store.general.setPrefer2fa(!store.general.prefer2fa()); setError(null); }} />
               <div class="ml-2 mb-3 inline-block text-sm text-slate-700"><label for="remote2fa">Use 2FA</label></div>
             </div>
             <Show when={store.general.prefer2fa()}>

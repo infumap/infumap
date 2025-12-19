@@ -92,7 +92,7 @@ export const Toolbar_FlipCard: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="flex-grow-0" style="flex-order: 0">
+         class="grow-0" style="flex-order: 0">
       <div class="inline-block">
 
       <div ref={scaleDiv}
@@ -106,7 +106,7 @@ export const Toolbar_FlipCard: Component = () => {
         </div>
       </div>
 
-        <div ref={divBeforeColorSelect} class="inline-block ml-[0px]" />
+        <div ref={divBeforeColorSelect} class="inline-block ml-0" />
         <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[18px] align-middle" onMouseDown={handleColorDown}>
           <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
         </div>

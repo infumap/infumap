@@ -109,7 +109,7 @@ export const Toolbar_Table: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="flex-grow-0" style="flex-order: 0;">
+         class="grow-0" style="flex-order: 0;">
       <div ref={numColsDiv}
            class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] mr-[10px] hover:bg-slate-300 cursor-pointer"
            style={`font-size: 13px;`}

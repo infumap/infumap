@@ -19,7 +19,6 @@
 
 import { render } from 'solid-js/web';
 import App from './components/App';
-import "tailwindcss/tailwind.css";
 import './index.css';
 import { StoreProvider } from './store/StoreProvider';
 

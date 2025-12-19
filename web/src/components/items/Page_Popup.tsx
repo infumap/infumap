@@ -516,13 +516,13 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     const rightOffset = ANCHOR_OFFSET_PX * titleScale();
     return (
       <Show when={hasChildChanges()}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm text-gray-900 pointer-events-none`}
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs text-gray-900 pointer-events-none`}
           style={`left: ${1 + pageFns().boundsPx().x + pageFns().boundsPx().w - ANCHOR_BOX_SIZE_PX * titleScale() - rightOffset}px; ` +
             `top: ${1 + pageFns().boundsPx().y + ANCHOR_OFFSET_PX * titleScale() / 3 * 2 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
             `width: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
             `height: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
             `${VeFns.zIndexStyle(props.visualElement)}`}>
-          <div class={`absolute text-gray-600 rounded-sm pointer-events-none`}
+          <div class={`absolute text-gray-600 rounded-xs pointer-events-none`}
             style={`transform: scale(${titleScale() * 0.9}) translate(${2}px, ${-1}px); ` +
               `transform-origin: top left; `}>
             <i class={`fa fa-anchor`} />
@@ -539,13 +539,13 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     }
     return (
       <Show when={hasDefaultChanges()}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm text-gray-900 pointer-events-none`}
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs text-gray-900 pointer-events-none`}
           style={`left: ${1 + pageFns().boundsPx().x + pageFns().boundsPx().w - ANCHOR_BOX_SIZE_PX * titleScale() - rightOffset}px; ` +
             `top: ${1 + pageFns().boundsPx().y + ANCHOR_OFFSET_PX * titleScale() / 3 * 2 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
             `width: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
             `height: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
             `${VeFns.zIndexStyle(props.visualElement)}`}>
-          <div class={`absolute text-gray-600 rounded-sm pointer-events-none`}
+          <div class={`absolute text-gray-600 rounded-xs pointer-events-none`}
             style={`transform: scale(${titleScale() * 0.9}) translate(${2}px, ${-1}px); ` +
               `transform-origin: top left; `}>
             <i class={`fa fa-home`} />

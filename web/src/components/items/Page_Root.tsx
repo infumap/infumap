@@ -170,7 +170,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const effectiveScale = isFull ? 1.0 : pageFns().listViewScale();
 
     return (
-      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
         style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
           `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; left: 0px; ` +
           `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
@@ -249,7 +249,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
     return (
       <div ref={rootDiv}
-        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
         style={`left: 0px; ` +
           `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
           `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
@@ -388,7 +388,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const renderPage = () =>
     <div ref={rootDiv}
-      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
       style={`left: 0px; ` +
         `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +

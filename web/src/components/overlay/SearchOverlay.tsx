@@ -237,7 +237,7 @@ export const SearchOverlay: Component = () => {
   }
 
   return (
-    <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
+    <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
          style={`background-color: #00000010; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
@@ -260,7 +260,7 @@ export const SearchOverlay: Component = () => {
           </div>
           <div class="flex items-center space-x-2">
             <input ref={textElement}
-                   class="border border-gray-300 rounded-md flex-1 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   class="border border-gray-300 rounded-md flex-1 px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                    autocomplete="on"
                    placeholder="Search..."
                    value={""}
@@ -282,7 +282,7 @@ export const SearchOverlay: Component = () => {
             <div class="max-h-80 overflow-y-auto">
               <For each={resultsSignal.get()}>{result =>
                 <div class="flex items-start border-b border-gray-100 last:border-b-0">
-                  <div class="flex-shrink-0 w-8 flex justify-center pt-3">
+                  <div class="shrink-0 w-8 flex justify-center pt-3">
                     <i class="fa fa-hashtag text-gray-400 hover:text-blue-500 cursor-pointer text-xs" 
                        onMouseDown={handleCopyId(result.path[result.path.length-1].id)} />
                   </div>

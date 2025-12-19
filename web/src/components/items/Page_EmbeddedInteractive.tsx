@@ -126,7 +126,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderFindHighlightedMaybe = () =>
     <Show when={isEmbeddedInteractive() && (props.visualElement.flags & VisualElementFlags.FindHighlighted)}>
-      <div class="absolute pointer-events-none rounded-sm"
+      <div class="absolute pointer-events-none rounded-xs"
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
@@ -134,7 +134,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </Show>;
 
   const renderListPage = () =>
-    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
       style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
         `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
         `left: 0px; ` +
@@ -170,7 +170,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderPage = () =>
     <div ref={rootDiv}
-      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-sm`}
+      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
       style={`left: 0px; ` +
         `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +

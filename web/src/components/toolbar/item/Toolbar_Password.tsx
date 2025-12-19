@@ -52,7 +52,7 @@ export const Toolbar_Password: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="flex-grow-0" style="flex-order: 0">
+         class="grow-0" style="flex-order: 0">
       <div class="inline-block">
 
         <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>

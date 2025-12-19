@@ -56,9 +56,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
     const shadowClass = () => {
       if (isPopup()) {
-        return `${positionClass()} border border-transparent rounded-sm overflow-hidden blur-md bg-slate-700 pointer-events-none`;
+        return `${positionClass()} border border-transparent rounded-xs overflow-hidden blur-md bg-slate-700 pointer-events-none`;
       }
-      return `${positionClass()} border border-transparent rounded-sm shadow-xl overflow-hidden`;
+      return `${positionClass()} border border-transparent rounded-xs shadow-xl overflow-hidden`;
     };
 
   const renderShadowMaybe = () =>
@@ -85,7 +85,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       {renderShadowMaybe()}
       <div class={`${positionClass()} border ` +
                   `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
-                  `rounded-sm ` +
+                  `rounded-xs ` +
                   `bg-white  hover:shadow-md`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
@@ -97,7 +97,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
           onKeyDown={keyDownHandler}
           onInput={inputListener}>
         <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-          <div class="absolute pointer-events-none rounded-sm"
+          <div class="absolute pointer-events-none rounded-xs"
                style={`left: 0px; top: 0px; ` +
                       `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                       `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
@@ -107,7 +107,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
-          <div class={`absolute rounded-sm`}
+          <div class={`absolute rounded-xs`}
                style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
                       `background-color: #ff0000;`} />
         </Show>

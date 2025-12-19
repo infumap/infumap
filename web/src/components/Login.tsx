@@ -80,7 +80,7 @@ export const Login: Component = () => {
         </div>
         <div>
           <div class="inline-block w-32"></div>
-          <input class="rounded-sm" type="checkbox" id="nootp" name="nootp" value="noopt" checked={store.general.prefer2fa()} onclick={toggle2fa} />
+          <input class="rounded-xs" type="checkbox" id="nootp" name="nootp" value="noopt" checked={store.general.prefer2fa()} onclick={toggle2fa} />
           <div class="ml-2 mb-3 inline-block"><label for="nootp">Use 2FA</label></div>
         </div>
         <Show when={store.general.prefer2fa()}>

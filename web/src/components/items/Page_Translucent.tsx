@@ -145,7 +145,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar
         ? renderCalendarTranslucentPage()
         : <div ref={translucentDiv}
-               class={`absolute ${borderClass()} rounded-sm`}
+               class={`absolute ${borderClass()} rounded-xs`}
                style={`left: ${pageFns().boundsPx().x}px; ` +
                       `top: ${pageFns().boundsPx().y}px; ` +
                       `width: ${pageFns().boundsPx().w}px; ` +
@@ -228,7 +228,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
     return (
       <div ref={translucentDiv}
-           class={`absolute ${borderClass()} rounded-sm`}
+           class={`absolute ${borderClass()} rounded-xs`}
            style={`left: ${bounds.x}px; top: ${bounds.y}px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow-y: auto; overflow-x: hidden; ${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={translucentScrollHandler}>
         <div class="absolute"
@@ -304,12 +304,12 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
       <>
         <Show when={!pageFns().isInComposite()}>
-          <div class={`absolute rounded-sm pointer-events-none`}
+          <div class={`absolute rounded-xs pointer-events-none`}
                style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
                       `background-color: #ffffff33;`} />
         </Show>
         <Show when={pageFns().hasPopupClickBoundsPx()}>
-          <div class={`absolute rounded-sm pointer-events-none`}
+          <div class={`absolute rounded-xs pointer-events-none`}
                style={`left: ${pageFns().popupClickBoundsPx()!.x}px; top: ${pageFns().popupClickBoundsPx()!.y}px; width: ${pageFns().popupClickBoundsPx()!.w}px; height: ${pageFns().popupClickBoundsPx()!.h}px; ` +
                       `background-color: ${pageFns().isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
         </Show>
@@ -318,21 +318,21 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const renderMovingOverMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOver(pageFns().vePath())}>
-      <div class={`absolute rounded-sm pointer-events-none`}
+      <div class={`absolute rounded-xs pointer-events-none`}
            style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
                   `background-color: #ffffff33;`} />
     </Show>;
 
   const renderMovingOverAttachMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOverAttach(pageFns().vePath())}>
-      <div class={`absolute rounded-sm pointer-events-none`}
+      <div class={`absolute rounded-xs pointer-events-none`}
            style={`left: ${pageFns().attachBoundsPx().x}px; top: ${pageFns().attachBoundsPx().y}px; width: ${pageFns().attachBoundsPx().w}px; height: ${pageFns().attachBoundsPx().h}px; ` +
                   `background-color: #ff0000;`} />
     </Show>;
 
   const renderMovingOverAttachCompositeMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOverAttachComposite(pageFns().vePath())}>
-      <div class={`absolute rounded-sm`}
+      <div class={`absolute rounded-xs`}
            style={`left: ${pageFns().attachCompositeBoundsPx().x}px; top: ${pageFns().attachCompositeBoundsPx().y}px; width: ${pageFns().attachCompositeBoundsPx().w}px; height: ${pageFns().attachCompositeBoundsPx().h}px; ` +
                   `background-color: ${FEATURE_COLOR};`} />
     </Show>;
@@ -364,14 +364,14 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`absolute border border-transparent rounded-sm ${shadowClass()} overflow-hidden`}
+      <div class={`absolute border border-transparent rounded-xs ${shadowClass()} overflow-hidden`}
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const renderResizeTriangleMaybe = () =>
     <Show when={pageFns().showTriangleDetail()}>
-      <div class={`absolute border border-transparent rounded-sm overflow-hidden pointer-events-none`}
+      <div class={`absolute border border-transparent rounded-xs overflow-hidden pointer-events-none`}
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)}; ${VeFns.zIndexStyle(props.visualElement)}`}>
           <InfuResizeTriangle />
@@ -390,7 +390,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         </Match>
       </Switch>
       {renderResizeTriangleMaybe()}
-      <div class={`absolute ${borderClass()} rounded-sm pointer-events-none`}
+      <div class={`absolute ${borderClass()} rounded-xs pointer-events-none`}
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
                   backgroundStyle() +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -400,7 +400,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         {renderMovingOverAttachCompositeMaybe()}
         {renderPopupSelectedOverlayMaybe()}
         <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-          <div class="absolute pointer-events-none rounded-sm"
+          <div class="absolute pointer-events-none rounded-xs"
                style={`left: 0px; top: 0px; ` +
                       `width: 100%; height: 100%; ` +
                       `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
@@ -409,7 +409,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={pageFns().showMoveOutOfCompositeArea()}>
-          <div class={`absolute rounded-sm`}
+          <div class={`absolute rounded-xs`}
                style={`left: ${pageFns().moveOutOfCompositeBox().x}px; top: ${pageFns().moveOutOfCompositeBox().y}px; width: ${pageFns().moveOutOfCompositeBox().w}px; height: ${pageFns().moveOutOfCompositeBox().h}px; ` +
                       `background-color: ${FEATURE_COLOR};`} />
         </Show>

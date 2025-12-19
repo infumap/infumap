@@ -237,7 +237,7 @@ export const Toolbar_Note: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="flex-grow-0" style="flex-order: 0">
+         class="grow-0" style="flex-order: 0">
       <Switch>
         <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
         <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>

@@ -153,9 +153,9 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const shadowClass = () => {
     if (isPopup()) {
-      return `${positionClass()} border border-transparent rounded-sm shadow-xl blur-md bg-slate-700`;
+      return `${positionClass()} border border-transparent rounded-xs shadow-xl blur-md bg-slate-700`;
     }
-    return `${positionClass()} border border-transparent rounded-sm shadow-xl`;
+    return `${positionClass()} border border-transparent rounded-xs shadow-xl`;
   };
 
   const renderShadowMaybe = () =>
@@ -174,7 +174,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderNotDetailed = () =>
-    <div class={`${positionClass()} border border-[#999] rounded-sm bg-white hover:shadow-md`}
+    <div class={`${positionClass()} border border-[#999] rounded-xs bg-white hover:shadow-md`}
          style={`left: ${boundsPx().x}px; ` +
                 `top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
                 `width: ${boundsPx().w}px; ` +
@@ -184,14 +184,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderDetailed = () =>
     <>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-        <div class="absolute pointer-events-none rounded-sm"
+        <div class="absolute pointer-events-none rounded-xs"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${boundsPx().w}px; height: ${headerHeightPx()}px; ` +
                     `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
                     `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-        <div class={`${positionClass()} pointer-events-none rounded-sm`}
+        <div class={`${positionClass()} pointer-events-none rounded-xs`}
              style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
                     `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; ` +
                     `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
@@ -213,14 +213,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               spellcheck={store.overlay.textEditInfo() != null}>
           {tableItem().title}
         </div>
-        <div class={`absolute border border-[#999] rounded-sm pointer-events-none`}
+        <div class={`absolute border border-[#999] rounded-xs pointer-events-none`}
              style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
         <Show when={showColHeader()}>
-          <div class={`absolute border border-[#999] bg-slate-300 rounded-sm`}
+          <div class={`absolute border border-[#999] bg-slate-300 rounded-xs`}
                style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
         </Show>
         <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
-          <div class={`absolute rounded-sm`}
+          <div class={`absolute rounded-xs`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                       `background-color: #ff0000;`} />
         </Show>
@@ -228,7 +228,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
-          <div class={`absolute rounded-sm`}
+          <div class={`absolute rounded-xs`}
                style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                       `background-color: ${FEATURE_COLOR};`} />
         </Show>

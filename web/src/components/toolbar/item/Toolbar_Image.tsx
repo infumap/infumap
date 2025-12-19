@@ -86,7 +86,7 @@ export const Toolbar_Image: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="flex-grow-0" style="flex-order: 0">
+         class="grow-0" style="flex-order: 0">
       <div class="inline-block">
         <div class="pl-[4px] inline-block">
           <InfuIconButton icon="bi-crop" highlighted={shouldCropImage()} clickHandler={cropHandler} />

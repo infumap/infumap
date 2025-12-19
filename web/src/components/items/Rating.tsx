@@ -73,7 +73,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-        <div class="absolute pointer-events-none rounded-sm"
+        <div class="absolute pointer-events-none rounded-xs"
              style={`left: 0px; top: 0px; ` +
                     `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
@@ -112,7 +112,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
              style={`left: ${boundsPx().w/2 - 6}px; bottom: 2px; width: 12px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4)}px;`} />
       </Show>
       <Show when={showMoveOutOfCompositeArea()}>
-        <div class={`absolute rounded-sm`}
+        <div class={`absolute rounded-xs`}
              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>

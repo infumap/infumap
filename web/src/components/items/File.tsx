@@ -223,16 +223,16 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `${positionClass()} border border-[#999] rounded-sm shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `${positionClass()} border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
-    return `${positionClass()} border border-[#999] rounded-sm shadow-xl bg-white`;
+    return `${positionClass()} border border-[#999] rounded-xs shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return `${positionClass()} rounded-sm`;
+      return `${positionClass()} rounded-xs`;
     } else {
-      return `${positionClass()} border border-[#999] rounded-sm bg-white hover:shadow-md`;
+      return `${positionClass()} border border-[#999] rounded-xs bg-white hover:shadow-md`;
     }
   };
 
@@ -247,7 +247,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const renderDetailed = () =>
     <>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-        <div class="absolute pointer-events-none rounded-sm"
+        <div class="absolute pointer-events-none rounded-xs"
              style={`left: 0px; top: 0px; ` +
                     `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
@@ -297,7 +297,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
-        <div class={`absolute rounded-sm`}
+        <div class={`absolute rounded-xs`}
               style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
@@ -311,12 +311,12 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
-        <div class={`absolute rounded-sm`}
+        <div class={`absolute rounded-xs`}
               style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
-        <div class={`absolute rounded-sm`}
+        <div class={`absolute rounded-xs`}
               style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>

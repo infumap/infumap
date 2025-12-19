@@ -31,7 +31,7 @@ export const Page_Trash: Component<PageVisualElementProps> = (props: PageVisualE
   }
 
   return (
-    <div class={`absolute rounded-sm align-middle text-center`}
+    <div class={`absolute rounded-xs align-middle text-center`}
          style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
                 `background-color: ${store.perVe.getMovingItemIsOver(props.pageFns.vePath()) ? "#dddddd" : (store.perVe.getMouseIsOver(props.pageFns.vePath()) ? "#eeeeee" : "#ffffff")}; ` +
                 `font-size: ${trashFontSizePx()}px;`}>

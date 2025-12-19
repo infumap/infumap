@@ -69,7 +69,7 @@ export const Toolbar_Link: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="flex-grow-0" style="flex-order: 0">
+         class="grow-0" style="flex-order: 0">
       <div class="inline-block">
         <div class="inline-block ml-[8px]">
           <span class="mr-[6px]">link to:</span>
