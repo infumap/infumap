@@ -51,7 +51,7 @@ export const HitInfoFns = {
       // Prefer the nearest container ancestor of the directly-over element
       // so drops target containers instead of leaf items (important in dock).
       let candidate = hitInfo.overVes.get();
-      while (candidate && !isContainer(candidate.displayItem)) {
+      while (candidate && (!isContainer(candidate.displayItem) || (candidate.flags & VisualElementFlags.LineItem))) {
         if (!candidate.parentPath) { break; }
         const parent = VesCache.get(candidate.parentPath)!.get();
         candidate = parent;
