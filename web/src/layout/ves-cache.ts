@@ -371,22 +371,6 @@ export let VesCache = {
   pushTopTitledPage: (vePath: VisualElementPath) => {
     underConstructionTopTitledPages.push(vePath);
   },
-
-  /**
-   * Apply a partial update to an existing visual element signal.
-   * This is for cases where only some properties need to change (e.g., bounds during a move).
-   * 
-   * @param ves The visual element signal to update
-   * @param updater A function that modifies the visual element in place
-   * @returns true if the update was applied successfully
-   */
-  updateVisualElement: (ves: VisualElementSignal, updater: (ve: VisualElement) => void): boolean => {
-    if (currentlyInFullArrange) { return false; }
-    const ve = ves.get();
-    updater(ve);
-    ves.set(ve);
-    return true;
-  },
 }
 
 

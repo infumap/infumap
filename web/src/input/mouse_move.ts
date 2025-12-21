@@ -33,7 +33,6 @@ import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
 import { fullArrange } from "../layout/arrange";
-import { rearrangePopupPositionOnly } from "../layout/arrange/popup";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
@@ -736,18 +735,14 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       if (pageItem.pendingPopupPositionGr == null ||
         compareVector(newPositionGr, pageItem.pendingPopupPositionGr!) != 0) {
         pageItem.pendingPopupPositionGr = newPositionGr;
-        if (!rearrangePopupPositionOnly(store)) {
-          fullArrange(store);
-        }
+        fullArrange(store);
       }
     } else if (isImage(popupItem)) {
       const imageItem = asImageItem(popupItem);
       if (imageItem.pendingPopupPositionGr == null ||
         compareVector(newPositionGr, imageItem.pendingPopupPositionGr!) != 0) {
         imageItem.pendingPopupPositionGr = newPositionGr;
-        if (!rearrangePopupPositionOnly(store)) {
-          fullArrange(store);
-        }
+        fullArrange(store);
       }
     }
   } else {
@@ -765,18 +760,14 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       if (pageItem.pendingCellPopupPositionNorm == null ||
         compareVector(newPositionNorm, pageItem.pendingCellPopupPositionNorm!) != 0) {
         pageItem.pendingCellPopupPositionNorm = newPositionNorm;
-        if (!rearrangePopupPositionOnly(store)) {
-          fullArrange(store);
-        }
+        fullArrange(store);
       }
     } else if (isImage(popupItem)) {
       const imageItem = asImageItem(popupItem);
       if (imageItem.pendingCellPopupPositionNorm == null ||
         compareVector(newPositionNorm, imageItem.pendingCellPopupPositionNorm!) != 0) {
         imageItem.pendingCellPopupPositionNorm = newPositionNorm;
-        if (!rearrangePopupPositionOnly(store)) {
-          fullArrange(store);
-        }
+        fullArrange(store);
       }
     }
   }

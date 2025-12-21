@@ -33,7 +33,6 @@ import { ArrangeItemFlags, arrangeItem } from "./item";
 import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
-import { VesCache } from "../ves-cache";
 import { ImageFns, asImageItem, isImage } from "../../items/image-item";
 
 
@@ -256,64 +255,4 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     ves.set(ve);
   });
   return ves!;
-}
-
-
-/**
- * Efficiently updates only the popup position without a full re-arrange.
- * This works for both cell-based popups (Grid, Justified, Calendar) and 
- * spatial stretch popups. Only the popup's position is updated - size remains unchanged.
- * 
- * @returns true if the optimization was applied, false if a full arrange is needed.
- */
-export function rearrangePopupPositionOnly(store: StoreContextModel): boolean {
-  if (VesCache.isCurrentlyInFullArrange()) { return false; }
-
-  const currentPopupSpec = store.history.currentPopupSpec();
-  if (currentPopupSpec == null) { return false; }
-
-  const currentPage = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
-  const isSpatialStretch = currentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
-
-  // Get the current page VE to find the popup VE signal
-  const currentPageVeid = store.history.currentPageVeid()!;
-  const currentPagePath = VeFns.addVeidToPath(currentPageVeid, UMBRELLA_PAGE_UID);
-  const currentPageVes = VesCache.get(currentPagePath);
-  if (!currentPageVes) { return false; }
-
-  const currentPageVe = currentPageVes.get();
-  if (!currentPageVe.popupVes) { return false; }
-
-  const popupVes = currentPageVe.popupVes;
-  const popupVe = popupVes.get();
-
-  // Handle both page and image popups
-  if (!isPage(popupVe.displayItem) && !isImage(popupVe.displayItem)) { return false; }
-
-  // Calculate the new geometry using the SAME logic as full arrange
-  const { geometry } = isSpatialStretch
-    ? calcSpatialPopupGeometry(store, currentPage, currentPopupSpec.actualVeid, currentPageVe.childAreaBoundsPx!)
-    : calcCellPopupGeometry(store, currentPage, currentPopupSpec.actualVeid);
-
-  // Use VesCache's updateVisualElement for a clean partial update
-  // Only update position - width and height remain unchanged from the existing VE
-  return VesCache.updateVisualElement(popupVes, (ve) => {
-    ve.boundsPx = {
-      x: geometry.boundsPx.x,
-      y: geometry.boundsPx.y,
-      w: ve.boundsPx.w,  // Preserve existing width
-      h: ve.boundsPx.h,  // Preserve existing height
-    };
-    if (ve.viewportBoundsPx && geometry.viewportBoundsPx) {
-      ve.viewportBoundsPx = {
-        x: geometry.viewportBoundsPx.x,
-        y: geometry.viewportBoundsPx.y,
-        w: ve.viewportBoundsPx.w,  // Preserve existing width
-        h: ve.viewportBoundsPx.h,  // Preserve existing height
-      };
-    }
-    // Update hitboxes since the set of hitboxes may change when hasChildChanges becomes true
-    // (adding anchor/home buttons after the first move)
-    ve.hitboxes = geometry.hitboxes;
-  });
 }
