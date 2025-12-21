@@ -342,6 +342,9 @@ export function arrangeSelectedListItem(
 
   let li = LinkFns.create(item.ownerId, treeItem.parentId, RelationshipToParent.Child, veid.itemId, newOrdering());
   li.id = LIST_PAGE_MAIN_ITEM_LINK_ITEM;
+  li.creationDate = 0;
+  li.lastModifiedDate = 0;
+  li.dateTime = 0;
   if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
