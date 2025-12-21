@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, PAGE_POPUP_TITLE_HEIGHT_BL, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
-import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometry";
+import { BoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { panic } from "../util/lang";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
@@ -40,6 +40,18 @@ import { CursorEventState } from "../input/state";
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
   thumbnail: string,
+
+  // Popup position/size overrides for spatial stretch parent pages
+  popupPositionGr: Vector | null;
+  popupWidthGr: number | null;
+  pendingPopupPositionGr: Vector | null;
+  pendingPopupWidthGr: number | null;
+
+  // Popup position/size overrides for cell-based parent pages (grid, justified, calendar)
+  cellPopupPositionNorm: Vector | null;
+  cellPopupWidthNorm: number | null;
+  pendingCellPopupPositionNorm: Vector | null;
+  pendingCellPopupWidthNorm: number | null;
 }
 
 export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
@@ -75,6 +87,18 @@ export const ImageFns = {
       thumbnail: o.thumbnail,
       imageSizePx: o.imageSizePx,
 
+      // Popup positioning fields (spatial stretch)
+      popupPositionGr: o.popupPositionGr ?? null,
+      popupWidthGr: o.popupWidthGr ?? null,
+      pendingPopupPositionGr: null,
+      pendingPopupWidthGr: null,
+
+      // Popup positioning fields (cell-based)
+      cellPopupPositionNorm: o.cellPopupPositionNorm ?? null,
+      cellPopupWidthNorm: o.cellPopupWidthNorm ?? null,
+      pendingCellPopupPositionNorm: null,
+      pendingCellPopupWidthNorm: null,
+
       computed_attachments: [],
     });
   },
@@ -103,6 +127,14 @@ export const ImageFns = {
 
       thumbnail: i.thumbnail,
       imageSizePx: i.imageSizePx,
+
+      // Popup positioning fields (spatial stretch) - omit if null, round to integers for backend
+      popupPositionGr: i.popupPositionGr ? { x: Math.round(i.popupPositionGr.x), y: Math.round(i.popupPositionGr.y) } : undefined,
+      popupWidthGr: i.popupWidthGr != null ? Math.round(i.popupWidthGr) : undefined,
+
+      // Popup positioning fields (cell-based) - omit if null
+      cellPopupPositionNorm: i.cellPopupPositionNorm ?? undefined,
+      cellPopupWidthNorm: i.cellPopupWidthNorm ?? undefined,
     });
   },
 
@@ -117,7 +149,7 @@ export const ImageFns = {
     return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
   },
 
-  calcGeometry_Spatial: (image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean = false, hasChildChanges: boolean = false, hasDefaultChanges: boolean = false): ItemGeometry => {
     const blockSizePx = {
       w: containerBoundsPx.w / containerInnerSizeBl.w,
       h: containerBoundsPx.h / containerInnerSizeBl.h
@@ -129,16 +161,45 @@ export const ImageFns = {
       h: ImageFns.calcSpatialDimensionsBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+
+    const hitboxes = !emitHitboxes ? [] : [
+      HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+      HitboxFns.create(HitboxFlags.Resize, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: boundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+    ];
+
+    if (isPopup && emitHitboxes) {
+      // Add anchor hitboxes for popup positioning - use 1x1 block size
+      const iconSize = LINE_HEIGHT_PX;
+      const iconOffset = 4; // small gap from edge
+      let rightOffset = iconOffset;
+      if (hasChildChanges) {
+        const anchorChildBoundsPx = {
+          x: innerBoundsPx.w - iconSize - rightOffset,
+          y: iconOffset,
+          w: iconSize,
+          h: iconSize
+        };
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
+        rightOffset += iconSize + iconOffset;
+      }
+      if (hasDefaultChanges) {
+        const anchorDefaultBoundsPx = {
+          x: innerBoundsPx.w - iconSize - rightOffset,
+          y: iconOffset,
+          w: iconSize,
+          h: iconSize
+        };
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, anchorDefaultBoundsPx));
+      }
+    }
+
     return {
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
-      hitboxes: !emitHitboxes ? [] : [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
-        HitboxFns.create(HitboxFlags.Resize, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: boundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
-      ],
+      hitboxes,
     }
   },
 
@@ -220,7 +281,7 @@ export const ImageFns = {
     return result;
   },
 
-  calcGeometry_InCell: (image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
+  calcGeometry_InCell: (image: ImageMeasurable, cellBoundsPx: BoundingBox, isPopup: boolean = false, hasChildChanges: boolean = false, hasDefaultChanges: boolean = false): ItemGeometry => {
     const sizeBl = ImageFns.calcSpatialDimensionsBl(image); // TODO (MEDIUM): inappropriate quantization.
     const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
@@ -228,14 +289,51 @@ export const ImageFns = {
       w: boundsPx.w / sizeBl.w,
       h: boundsPx.h / sizeBl.h,
     };
+
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+    ];
+
+    if (isPopup) {
+      // Add resize hitbox for popups
+      hitboxes.push(HitboxFns.create(HitboxFlags.Resize, {
+        x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX,
+        y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX,
+        w: RESIZE_BOX_SIZE_PX,
+        h: RESIZE_BOX_SIZE_PX
+      }));
+
+      // Add anchor hitboxes for popup positioning - use 1x1 block size
+      const iconSize = LINE_HEIGHT_PX;
+      const iconOffset = 4; // small gap from edge
+      let rightOffset = iconOffset;
+      if (hasChildChanges) {
+        const anchorChildBoundsPx = {
+          x: innerBoundsPx.w - iconSize - rightOffset,
+          y: iconOffset,
+          w: iconSize,
+          h: iconSize
+        };
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
+        rightOffset += iconSize + iconOffset;
+      }
+      if (hasDefaultChanges) {
+        const anchorDefaultBoundsPx = {
+          x: innerBoundsPx.w - iconSize - rightOffset,
+          y: iconOffset,
+          w: iconSize,
+          h: iconSize
+        };
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, anchorDefaultBoundsPx));
+      }
+    }
+
     return ({
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-      ]
+      hitboxes
     });
   },
 
@@ -303,6 +401,210 @@ export const ImageFns = {
 
   getFingerprint: (imageItem: ImageItem): string => {
     return imageItem.title + "-~-" + imageItem.flags;
+  },
+
+  // Popup positioning helpers for spatial stretch pages
+  // For images, the default is computed (centered, 5% margin) rather than using page defaults
+  getPopupPositionGrForParent: (parentPage: { innerSpatialWidthGr: number; naturalAspect: number }, imageItem: ImageItem, desktopBoundsPx?: { w: number; h: number }): Vector => {
+    if (imageItem.pendingPopupPositionGr != null) {
+      return imageItem.pendingPopupPositionGr;
+    }
+    if (imageItem.popupPositionGr != null) {
+      return imageItem.popupPositionGr;
+    }
+    // Compute centered position based on parent page dimensions
+    const innerWidthBl = parentPage.innerSpatialWidthGr / GRID_SIZE;
+    const innerHeightBl = innerWidthBl / parentPage.naturalAspect;
+    return {
+      x: (innerWidthBl / 2) * GRID_SIZE,
+      y: (innerHeightBl / 2) * GRID_SIZE
+    };
+  },
+
+  getPopupWidthGrForParent: (parentPage: { innerSpatialWidthGr: number; naturalAspect: number }, imageItem: ImageItem, desktopBoundsPx?: { w: number; h: number }): number => {
+    if (imageItem.pendingPopupWidthGr != null) {
+      return imageItem.pendingPopupWidthGr;
+    }
+    if (imageItem.popupWidthGr != null) {
+      return imageItem.popupWidthGr;
+    }
+    // Calculate default width with 5% margin on constraining dimension
+    const imageAspect = imageItem.imageSizePx.w / imageItem.imageSizePx.h;
+    const innerWidthBl = parentPage.innerSpatialWidthGr / GRID_SIZE;
+    const innerHeightBl = innerWidthBl / parentPage.naturalAspect;
+    const pageAspect = parentPage.naturalAspect;
+
+    // Determine constraining dimension and calculate width with 5% margin
+    const marginFraction = 0.05;
+    let widthBl: number;
+    if (imageAspect > pageAspect) {
+      // Image is wider than page - width is constraining
+      widthBl = innerWidthBl * (1 - 2 * marginFraction);
+    } else {
+      // Image is taller than page - height is constraining
+      const availableHeightBl = innerHeightBl * (1 - 2 * marginFraction);
+      widthBl = availableHeightBl * imageAspect;
+    }
+    return Math.round(widthBl * 2) / 2 * GRID_SIZE; // Half-block quantization
+  },
+
+  childPopupPositioningHasChanged: (parentPage: { defaultPopupPositionGr: Vector; defaultPopupWidthGr: number } | null, imageItem?: ImageItem | null): boolean => {
+    if (parentPage == null) { return false; }
+    if (imageItem == null) { return false; }
+    if (imageItem.pendingPopupPositionGr != null) {
+      const anchorPos = imageItem.popupPositionGr ?? parentPage.defaultPopupPositionGr;
+      if (imageItem.pendingPopupPositionGr!.x != anchorPos.x ||
+        imageItem.pendingPopupPositionGr!.y != anchorPos.y) {
+        return true;
+      }
+    }
+    if (imageItem.pendingPopupWidthGr != null) {
+      const anchorWidth = imageItem.popupWidthGr ?? parentPage.defaultPopupWidthGr;
+      if (imageItem.pendingPopupWidthGr != anchorWidth) {
+        return true;
+      }
+    }
+    return false;
+  },
+
+  // For images: home button shows when there's ANY stored position (to allow clearing it)
+  // This is different from pages where home button sets page defaults
+  hasStoredPopupPositioning: (imageItem?: ImageItem | null): boolean => {
+    if (imageItem == null) { return false; }
+    // Show home button if there's any stored or pending position/size
+    return imageItem.pendingPopupPositionGr != null ||
+      imageItem.pendingPopupWidthGr != null ||
+      imageItem.popupPositionGr != null ||
+      imageItem.popupWidthGr != null;
+  },
+
+  // Popup positioning helpers for cell-based pages (grid, justified, calendar)
+  // For images, the default is computed (centered, 5% margin) rather than using page defaults
+  getCellPopupPositionNormForParent: (imageItem: ImageItem): Vector => {
+    if (imageItem.pendingCellPopupPositionNorm != null) {
+      return imageItem.pendingCellPopupPositionNorm;
+    }
+    if (imageItem.cellPopupPositionNorm != null) {
+      return imageItem.cellPopupPositionNorm;
+    }
+    // Default: centered
+    return { x: 0.5, y: 0.5 };
+  },
+
+  getCellPopupWidthNormForParent: (imageItem: ImageItem, desktopBoundsPx?: { w: number; h: number }): number => {
+    if (imageItem.pendingCellPopupWidthNorm != null) {
+      return imageItem.pendingCellPopupWidthNorm;
+    }
+    if (imageItem.cellPopupWidthNorm != null) {
+      return imageItem.cellPopupWidthNorm;
+    }
+    // Calculate default width with 5% margin on constraining dimension
+    const imageAspect = imageItem.imageSizePx.w / imageItem.imageSizePx.h;
+    const marginFraction = 0.05;
+
+    if (desktopBoundsPx) {
+      const desktopAspect = desktopBoundsPx.w / desktopBoundsPx.h;
+      if (imageAspect > desktopAspect) {
+        // Image is wider than desktop - width is constraining
+        return 1 - 2 * marginFraction; // 0.9
+      } else {
+        // Image is taller than desktop - height is constraining
+        const availableHeightNorm = 1 - 2 * marginFraction;
+        const widthNorm = availableHeightNorm * imageAspect / desktopAspect;
+        return Math.min(widthNorm, 1 - 2 * marginFraction);
+      }
+    }
+    // Fallback if no desktop bounds provided
+    return 0.9;
+  },
+
+  childCellPopupPositioningHasChanged: (parentPage: { defaultCellPopupPositionNorm: Vector; defaultCellPopupWidthNorm: number } | null, imageItem?: ImageItem | null): boolean => {
+    if (parentPage == null) { return false; }
+    if (imageItem == null) { return false; }
+    if (imageItem.pendingCellPopupPositionNorm != null) {
+      const anchorPos = imageItem.cellPopupPositionNorm ?? parentPage.defaultCellPopupPositionNorm;
+      if (imageItem.pendingCellPopupPositionNorm!.x != anchorPos.x ||
+        imageItem.pendingCellPopupPositionNorm!.y != anchorPos.y) {
+        return true;
+      }
+    }
+    if (imageItem.pendingCellPopupWidthNorm != null) {
+      const anchorWidth = imageItem.cellPopupWidthNorm ?? parentPage.defaultCellPopupWidthNorm;
+      if (imageItem.pendingCellPopupWidthNorm != anchorWidth) {
+        return true;
+      }
+    }
+    return false;
+  },
+
+  // For images: home button shows when there's ANY stored cell position (to allow clearing it)
+  hasStoredCellPopupPositioning: (imageItem?: ImageItem | null): boolean => {
+    if (imageItem == null) { return false; }
+    // Show home button if there's any stored or pending position/size
+    return imageItem.pendingCellPopupPositionNorm != null ||
+      imageItem.pendingCellPopupWidthNorm != null ||
+      imageItem.cellPopupPositionNorm != null ||
+      imageItem.cellPopupWidthNorm != null;
+  },
+
+  handleAnchorChildClick: (imageItem: ImageItem, parentPage: { arrangeAlgorithm: string }, store: StoreContextModel): void => {
+    const isCellPopup = parentPage.arrangeAlgorithm != "spatial-stretch";
+
+    if (isCellPopup) {
+      if (imageItem.pendingCellPopupPositionNorm != null) {
+        imageItem.cellPopupPositionNorm = imageItem.pendingCellPopupPositionNorm!;
+        imageItem.pendingCellPopupPositionNorm = null;
+      }
+      if (imageItem.pendingCellPopupWidthNorm != null) {
+        imageItem.cellPopupWidthNorm = imageItem.pendingCellPopupWidthNorm;
+        imageItem.pendingCellPopupWidthNorm = null;
+      }
+    } else {
+      if (imageItem.pendingPopupPositionGr != null) {
+        imageItem.popupPositionGr = imageItem.pendingPopupPositionGr!;
+        imageItem.pendingPopupPositionGr = null;
+      }
+      if (imageItem.pendingPopupWidthGr != null) {
+        imageItem.popupWidthGr = imageItem.pendingPopupWidthGr;
+        imageItem.pendingPopupWidthGr = null;
+      }
+    }
+    // Note: serverOrRemote.updateItem is called by the caller
+    fullArrange(store);
+  },
+
+  // For images: home button clears stored position (resets to computed default)
+  // This is different from pages where home button sets page-level defaults
+  handleHomeClick: (imageItem: ImageItem, parentPage: any, store: StoreContextModel, serverOrRemote: any): void => {
+    const isCellPopup = parentPage.arrangeAlgorithm != "spatial-stretch";
+    let needsUpdate = false;
+
+    if (isCellPopup) {
+      // Clear all stored/pending cell popup positioning
+      imageItem.pendingCellPopupPositionNorm = null;
+      imageItem.pendingCellPopupWidthNorm = null;
+
+      if (imageItem.cellPopupPositionNorm != null || imageItem.cellPopupWidthNorm != null) {
+        imageItem.cellPopupPositionNorm = null;
+        imageItem.cellPopupWidthNorm = null;
+        needsUpdate = true;
+      }
+    } else {
+      // Clear all stored/pending spatial popup positioning
+      imageItem.pendingPopupPositionGr = null;
+      imageItem.pendingPopupWidthGr = null;
+
+      if (imageItem.popupPositionGr != null || imageItem.popupWidthGr != null) {
+        imageItem.popupPositionGr = null;
+        imageItem.popupWidthGr = null;
+        needsUpdate = true;
+      }
+    }
+
+    if (needsUpdate) {
+      serverOrRemote.updateItem(imageItem, store.general.networkStatus);
+    }
+    fullArrange(store);
   }
 };
 

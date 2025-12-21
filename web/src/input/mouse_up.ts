@@ -42,6 +42,7 @@ import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { isFlipCard } from "../items/flipcard-item";
 import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
+import { ImageFns, asImageItem, isImage } from "../items/image-item";
 
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
@@ -82,12 +83,27 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     case MouseAction.MovingPopup: {
       if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorChildClick(activeVisualElement, store);
+        if (isPage(activeVisualElement.displayItem)) {
+          PageFns.handleAnchorChildClick(activeVisualElement, store);
+        } else if (isImage(activeVisualElement.displayItem)) {
+          const imageItem = asImageItem(activeVisualElement.displayItem);
+          const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+          const parentPage = asPageItem(parentVe.displayItem);
+          ImageFns.handleAnchorChildClick(imageItem, parentPage, store);
+          serverOrRemote.updateItem(imageItem, store.general.networkStatus);
+        }
         break;
       }
       if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorDefault) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorDefaultClick(activeVisualElement, store);
+        if (isPage(activeVisualElement.displayItem)) {
+          PageFns.handleAnchorDefaultClick(activeVisualElement, store);
+        } else if (isImage(activeVisualElement.displayItem)) {
+          const imageItem = asImageItem(activeVisualElement.displayItem);
+          const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+          const parentPage = asPageItem(parentVe.displayItem);
+          ImageFns.handleHomeClick(imageItem, parentPage, store, serverOrRemote);
+        }
         break;
       }
       DoubleClickState.preventDoubleClick();
@@ -174,11 +190,26 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorChildClick(activeVisualElement, store);
+        if (isPage(activeVisualElement.displayItem)) {
+          PageFns.handleAnchorChildClick(activeVisualElement, store);
+        } else if (isImage(activeVisualElement.displayItem)) {
+          const imageItem = asImageItem(activeVisualElement.displayItem);
+          const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+          const parentPage = asPageItem(parentVe.displayItem);
+          ImageFns.handleAnchorChildClick(imageItem, parentPage, store);
+          serverOrRemote.updateItem(imageItem, store.general.networkStatus);
+        }
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorDefault) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorDefaultClick(activeVisualElement, store);
+        if (isPage(activeVisualElement.displayItem)) {
+          PageFns.handleAnchorDefaultClick(activeVisualElement, store);
+        } else if (isImage(activeVisualElement.displayItem)) {
+          const imageItem = asImageItem(activeVisualElement.displayItem);
+          const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+          const parentPage = asPageItem(parentVe.displayItem);
+          ImageFns.handleHomeClick(imageItem, parentPage, store, serverOrRemote);
+        }
 
       } else if (isLink(activeVisualElement.displayItem) &&
         asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin &&

@@ -22,6 +22,8 @@ import { panic } from "../util/lang";
 import { EMPTY_ITEM, Item, ItemType } from "../items/base/item";
 import { itemState } from "./ItemState";
 import { UMBRELLA_PAGE_UID } from "../util/uid";
+import { isImage, asImageItem } from "../items/image-item";
+import { isPage, asPageItem } from "../items/page-item";
 
 
 export interface PopupSpec {
@@ -175,6 +177,24 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (breadcrumb.popupBreadcrumbs.length == 0) { return; }
     const popupSpec = breadcrumb.popupBreadcrumbs.pop();
 
+    // Clear pending popup position fields from the popup item (not persisted changes are discarded)
+    const popupItem = itemState.get(popupSpec!.actualVeid.itemId);
+    if (popupItem) {
+      if (isImage(popupItem)) {
+        const imageItem = asImageItem(popupItem);
+        imageItem.pendingPopupPositionGr = null;
+        imageItem.pendingPopupWidthGr = null;
+        imageItem.pendingCellPopupPositionNorm = null;
+        imageItem.pendingCellPopupWidthNorm = null;
+      } else if (isPage(popupItem)) {
+        const pageItem = asPageItem(popupItem);
+        pageItem.pendingPopupPositionGr = null;
+        pageItem.pendingPopupWidthGr = null;
+        pageItem.pendingCellPopupPositionNorm = null;
+        pageItem.pendingCellPopupWidthNorm = null;
+      }
+    }
+
     if (breadcrumb.popupBreadcrumbs.length == 0) {
       if (!popupSpec!.vePath) {
         console.error("MALFORMED PATH DETECTION: popPopup vePath is null/undefined");
@@ -224,6 +244,27 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (breadcrumbs().length == 0) { panic("popAllPopups: no breadcrumbs."); }
 
     const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
+
+    // Clear pending popup position fields from all popup items
+    for (const popupSpec of breadcrumb.popupBreadcrumbs) {
+      const popupItem = itemState.get(popupSpec.actualVeid.itemId);
+      if (popupItem) {
+        if (isImage(popupItem)) {
+          const imageItem = asImageItem(popupItem);
+          imageItem.pendingPopupPositionGr = null;
+          imageItem.pendingPopupWidthGr = null;
+          imageItem.pendingCellPopupPositionNorm = null;
+          imageItem.pendingCellPopupWidthNorm = null;
+        } else if (isPage(popupItem)) {
+          const pageItem = asPageItem(popupItem);
+          pageItem.pendingPopupPositionGr = null;
+          pageItem.pendingPopupWidthGr = null;
+          pageItem.pendingCellPopupPositionNorm = null;
+          pageItem.pendingCellPopupWidthNorm = null;
+        }
+      }
+    }
+
     const focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
 
     breadcrumb.popupBreadcrumbs = [];

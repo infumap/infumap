@@ -34,6 +34,7 @@ import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { VesCache } from "../ves-cache";
+import { ImageFns, asImageItem, isImage } from "../../items/image-item";
 
 
 /**
@@ -81,6 +82,7 @@ function createPopupLinkItem(currentPage: PageItem, popupVeid: { itemId: string,
 /**
  * Calculates the geometry for a cell-based popup (Grid, Justified, Calendar pages).
  * This is the single source of truth for cell popup geometry calculation.
+ * Supports both page and image popups.
  */
 function calcCellPopupGeometry(
   store: StoreContextModel,
@@ -93,20 +95,44 @@ function calcCellPopupGeometry(
 
   const popupItem = itemState.get(popupVeid.itemId);
   const popupPage = popupItem && isPage(popupItem) ? asPageItem(popupItem) : null;
+  const popupImage = popupItem && isImage(popupItem) ? asImageItem(popupItem) : null;
 
   if (popupItem && isPage(popupItem) && asPageItem(popupItem).arrangeAlgorithm === ArrangeAlgorithm.Calendar) {
     li.aspectOverride = desktopBoundsPx.w / desktopBoundsPx.h;
   }
 
-  const positionNorm = popupPage
-    ? PageFns.getCellPopupPositionNormForParent(currentPage, popupPage)
-    : currentPage.defaultCellPopupPositionNorm;
-  const widthNorm = popupPage
-    ? PageFns.getCellPopupWidthNormForParent(currentPage, popupPage)
-    : currentPage.defaultCellPopupWidthNorm;
+  // Determine position and width based on item type
+  let positionNorm;
+  let widthNorm;
+  let hasChildChanges: boolean;
+  let hasDefaultChanges: boolean;
+
+  if (popupPage) {
+    positionNorm = PageFns.getCellPopupPositionNormForParent(currentPage, popupPage);
+    widthNorm = PageFns.getCellPopupWidthNormForParent(currentPage, popupPage);
+    hasChildChanges = PageFns.childCellPopupPositioningHasChanged(currentPage, popupPage);
+    hasDefaultChanges = PageFns.defaultCellPopupPositioningHasChanged(currentPage, popupPage);
+  } else if (popupImage) {
+    positionNorm = ImageFns.getCellPopupPositionNormForParent(popupImage);
+    widthNorm = ImageFns.getCellPopupWidthNormForParent(popupImage, desktopBoundsPx);
+    hasChildChanges = ImageFns.childCellPopupPositioningHasChanged(currentPage, popupImage);
+    hasDefaultChanges = ImageFns.hasStoredCellPopupPositioning(popupImage);
+  } else {
+    positionNorm = currentPage.defaultCellPopupPositionNorm;
+    widthNorm = currentPage.defaultCellPopupWidthNorm;
+    hasChildChanges = false;
+    hasDefaultChanges = false;
+  }
 
   const popupWidthPx = desktopBoundsPx.w * widthNorm;
-  const popupAspect = popupPage ? popupPage.naturalAspect : (li.aspectOverride ?? 2.0);
+  let popupAspect: number;
+  if (popupPage) {
+    popupAspect = popupPage.naturalAspect;
+  } else if (popupImage) {
+    popupAspect = popupImage.imageSizePx.w / popupImage.imageSizePx.h;
+  } else {
+    popupAspect = li.aspectOverride ?? 2.0;
+  }
   const popupHeightPx = popupWidthPx / popupAspect;
 
   const cellBoundsPx = {
@@ -116,8 +142,6 @@ function calcCellPopupGeometry(
     h: popupHeightPx,
   };
 
-  const hasChildChanges = PageFns.childCellPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
-  const hasDefaultChanges = PageFns.defaultCellPopupPositioningHasChanged(currentPage, popupPage ?? undefined);
   const geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, hasChildChanges, hasDefaultChanges, true, false, store.smallScreenMode());
 
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
@@ -138,6 +162,7 @@ function calcCellPopupGeometry(
 /**
  * Calculates the geometry for a SpatialStretch popup.
  * This is the single source of truth for spatial popup geometry calculation.
+ * Supports both page and image popups.
  */
 export function calcSpatialPopupGeometry(
   store: StoreContextModel,
@@ -148,22 +173,48 @@ export function calcSpatialPopupGeometry(
   const li = createPopupLinkItem(currentPage, popupVeid);
   const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
 
-  const popupPage = asPageItem(itemState.get(popupVeid.itemId)!);
-  const widthGr = PageFns.getPopupWidthGrForParent(currentPage, popupPage);
-  const popupIsCalendar = popupPage.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
-  const targetAspect = popupIsCalendar
-    ? store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h
-    : currentPage.naturalAspect;
+  const popupItem = itemState.get(popupVeid.itemId)!;
+  const popupPage = isPage(popupItem) ? asPageItem(popupItem) : null;
+  const popupImage = isImage(popupItem) ? asImageItem(popupItem) : null;
 
-  if (popupIsCalendar) {
-    li.aspectOverride = targetAspect;
+  let widthGr: number;
+  let targetAspect: number;
+  let popupCenter;
+  let hasChildChanges: boolean;
+  let hasDefaultChanges: boolean;
+
+  if (popupPage) {
+    widthGr = PageFns.getPopupWidthGrForParent(currentPage, popupPage);
+    const popupIsCalendar = popupPage.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+    targetAspect = popupIsCalendar
+      ? store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h
+      : currentPage.naturalAspect;
+
+    if (popupIsCalendar) {
+      li.aspectOverride = targetAspect;
+    }
+
+    popupCenter = PageFns.getPopupPositionGrForParent(currentPage, popupPage);
+    hasChildChanges = PageFns.childPopupPositioningHasChanged(currentPage, popupPage);
+    hasDefaultChanges = PageFns.defaultPopupPositioningHasChanged(currentPage, popupPage);
+  } else if (popupImage) {
+    widthGr = ImageFns.getPopupWidthGrForParent(currentPage, popupImage);
+    targetAspect = popupImage.imageSizePx.w / popupImage.imageSizePx.h;
+    popupCenter = ImageFns.getPopupPositionGrForParent(currentPage, popupImage);
+    hasChildChanges = ImageFns.childPopupPositioningHasChanged(currentPage, popupImage);
+    hasDefaultChanges = ImageFns.hasStoredPopupPositioning(popupImage);
+  } else {
+    widthGr = currentPage.defaultPopupWidthGr;
+    targetAspect = currentPage.naturalAspect;
+    popupCenter = currentPage.defaultPopupPositionGr;
+    hasChildChanges = false;
+    hasDefaultChanges = false;
   }
 
   const heightGr = Math.round((widthGr / targetAspect / GRID_SIZE) / 2.0) * 2.0 * GRID_SIZE;
   li.spatialWidthGr = widthGr;
 
   // Center positioning
-  const popupCenter = PageFns.getPopupPositionGrForParent(currentPage, popupPage);
   li.spatialPositionGr = {
     x: popupCenter.x - widthGr / 2.0,
     y: popupCenter.y - heightGr / 2.0
@@ -174,8 +225,8 @@ export function calcSpatialPopupGeometry(
     zeroBoundingBoxTopLeft(childAreaBoundsPx),
     PageFns.calcInnerSpatialDimensionsBl(currentPage),
     false, true, true,
-    PageFns.childPopupPositioningHasChanged(currentPage, popupPage),
-    PageFns.defaultPopupPositioningHasChanged(currentPage, popupPage),
+    hasChildChanges,
+    hasDefaultChanges,
     false,
     store.smallScreenMode()
   );
@@ -236,8 +287,8 @@ export function rearrangePopupPositionOnly(store: StoreContextModel): boolean {
   const popupVes = currentPageVe.popupVes;
   const popupVe = popupVes.get();
 
-  // Only handle page popups for now
-  if (!isPage(popupVe.displayItem)) { return false; }
+  // Handle both page and image popups
+  if (!isPage(popupVe.displayItem) && !isImage(popupVe.displayItem)) { return false; }
 
   // Calculate the new geometry using the SAME logic as full arrange
   const { geometry } = isSpatialStretch
@@ -261,7 +312,8 @@ export function rearrangePopupPositionOnly(store: StoreContextModel): boolean {
         h: ve.viewportBoundsPx.h,  // Preserve existing height
       };
     }
-    // Note: hitboxes don't need to be updated during a move operation
-    // since they are relative to the element's own bounds (position-independent)
+    // Update hitboxes since the set of hitboxes may change when hasChildChanges becomes true
+    // (adding anchor/home buttons after the first move)
+    ve.hitboxes = geometry.hitboxes;
   });
 }

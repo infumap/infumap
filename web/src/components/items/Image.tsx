@@ -17,9 +17,9 @@
 */
 
 import { Component, For, JSX, Show, createEffect, onCleanup } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, MIN_IMAGE_WIDTH_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX, Z_INDEX_SHADOW } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
-import { asImageItem } from "../../items/image-item";
+import { ImageFns, asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
@@ -33,6 +33,7 @@ import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createInfuSignal } from "../../util/signals";
+import { asPageItem } from "../../items/page-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -46,7 +47,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const quantizedBoundsPx = () => quantizeBoundingBox(boundsPx());
   const attachBoundsPx = (): BoundingBox => {
     return {
-      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX - 2,
       y: 0,
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
@@ -91,7 +92,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       // Image is flatter than bounds, so:
       //   - Image needs to be cropped left and right.
       //   - Bounds height determines width of image to request.
-      return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
+      return Math.round(boundsPx.w / (boundsAspect / imageAspect()));
     }
   }
 
@@ -100,7 +101,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     let boundsAspect = boundsPx.w / boundsPx.h;
     // reverse of the crop case.
     if (boundsAspect > imageAspect()) {
-      return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
+      return Math.round(boundsPx.w / (boundsAspect / imageAspect()));
     } else {
       return boundsPx.w;
     }
@@ -115,7 +116,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const noCropPaddingTopPx = (lockToResizingFromBounds: boolean): number => {
     const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
     const imgSizePx = imageSizePx(lockToResizingFromBounds);
-    const result = Math.round((boundsPx.h - imgSizePx.h)/2.0);
+    const result = Math.round((boundsPx.h - imgSizePx.h) / 2.0);
     if (result <= 0) { return 0; }
     return result;
   }
@@ -123,7 +124,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const noCropPaddingLeftPx = (lockToResizingFromBounds: boolean): number => {
     const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
     const imgSizePx = imageSizePx(lockToResizingFromBounds);
-    const result = Math.round((boundsPx.w - imgSizePx.w)/2.0);
+    const result = Math.round((boundsPx.w - imgSizePx.w) / 2.0);
     if (result <= 0) { return 0; }
     return result;
   }
@@ -218,61 +219,61 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Popup) &&
-                !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
-                !(props.visualElement.flags & VisualElementFlags.DockItem) &&
-                (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
+      !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
+      !(props.visualElement.flags & VisualElementFlags.DockItem) &&
+      (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
       <div class={`absolute border border-transparent rounded-xs shadow-xl bg-white`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - 2}px; height: ${boundsPx().h - 2}px; ` +
+          `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const renderPopupBaseMaybe = (): JSX.Element =>
     <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
-      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
-                  `text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
-           style={`left: ${boundsPx().x-10}px; ` +
-                  `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                  `width: ${boundsPx().w+20}px; ` +
-                  `height: ${boundsPx().h+20}px; ` +
-                  `background-color: #303030d0;` +
-                  `${VeFns.zIndexStyle(props.visualElement)}`} />
-      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
-                  `border border-[#555] rounded-xs overflow-hidden pointer-events-none`}
-            style={`left: ${quantizedBoundsPx().x}px; ` +
-                   `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                   `width: ${quantizedBoundsPx().w}px; ` +
-                   `height: ${quantizedBoundsPx().h}px;` +
-                   `${VeFns.zIndexStyle(props.visualElement)}`}>
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
+        `text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
+        style={`left: ${boundsPx().x - 10}px; ` +
+          `top: ${boundsPx().y - 10 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+          `width: ${boundsPx().w + 20}px; ` +
+          `height: ${boundsPx().h + 20}px; ` +
+          `background-color: #303030d0;` +
+          `${VeFns.zIndexStyle(props.visualElement)}`} />
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
+        `border border-[#555] rounded-xs overflow-hidden pointer-events-none`}
+        style={`left: ${quantizedBoundsPx().x}px; ` +
+          `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+          `width: ${quantizedBoundsPx().w}px; ` +
+          `height: ${quantizedBoundsPx().h}px;` +
+          `${VeFns.zIndexStyle(props.visualElement)}`}>
         <img class="max-w-none absolute pointer-events-none"
-             style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-             width={imageWidthToRequestPx(false)}
-             height={imageWidthToRequestPx(false) / imageAspect()}
-             src={thumbnailSrc()} />
+          style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+          width={imageWidthToRequestPx(false)}
+          height={imageWidthToRequestPx(false) / imageAspect()}
+          src={thumbnailSrc()} />
       </div>
     </Show>;
 
   const tooSmallFallback = (): JSX.Element =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-                `border border-[#555] overflow-hidden pointer-events-none`}
-          style={`left: ${quantizedBoundsPx().x}px; ` +
-                 `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                 `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`} />;
+      `border border-[#555] overflow-hidden pointer-events-none`}
+      style={`left: ${quantizedBoundsPx().x}px; ` +
+        `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+        `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`} />;
 
   const notDetailedFallback = (): JSX.Element =>
     <img class="max-w-none absolute pointer-events-none"
-         style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-         width={imageWidthToRequestPx(false)}
-         height={imageWidthToRequestPx(false) / imageAspect()}
-         src={thumbnailSrc()} />;
+      style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+      width={imageWidthToRequestPx(false)}
+      height={imageWidthToRequestPx(false) / imageAspect()}
+      src={thumbnailSrc()} />;
 
   const renderTitleMaybe = (): JSX.Element =>
     <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
-      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
-           style={`left: ${boundsPx().x}px; ` +
-                  `top: ${boundsPx().y + boundsPx().h - 50 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                  `width: ${boundsPx().w}px; ` +
-                  `height: ${50}px;` +
-                  `${VeFns.zIndexStyle(props.visualElement)}`}>
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} flex items-center justify-center pointer-events-none`}
+        style={`left: ${boundsPx().x}px; ` +
+          `top: ${boundsPx().y + boundsPx().h - 50 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+          `width: ${boundsPx().w}px; ` +
+          `height: ${50}px;` +
+          `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
           {imageItem().title}
         </div>
@@ -282,88 +283,168 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderAttachmentsAndDetailMaybe = (): JSX.Element =>
     <Show when={isDetailed()}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
-           style={`left: ${quantizedBoundsPx().x}px; ` +
-                  `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                  `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
-                  `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
+        style={`left: ${quantizedBoundsPx().x}px; ` +
+          `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+          `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
+          `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
         <For each={props.visualElement.attachmentsVes}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
           <div class={`absolute rounded-xs`}
-               style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                      `background-color: ${FEATURE_COLOR};`} />
+            style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+              `background-color: ${FEATURE_COLOR};`} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null &&
-                    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                    showTriangleDetail() &&
-                    !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
-                    (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
+          (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+          showTriangleDetail() &&
+          !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
+          (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
           <InfuLinkTriangle />
         </Show>
         <Show when={showTriangleDetail() &&
-                    (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
+          (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
           <InfuResizeTriangle />
         </Show>
       </div>
     </Show>;
 
+  // Get parent page for popup positioning checks
+  const getParentPage = () => {
+    if (!(props.visualElement.flags & VisualElementFlags.Popup)) return null;
+    if (!props.visualElement.parentPath) return null;
+    const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath);
+    const parentItem = itemState.get(parentVeid.itemId);
+    if (!parentItem) return null;
+    return asPageItem(parentItem);
+  };
+
+  const hasChildChanges = () => {
+    if (!(props.visualElement.flags & VisualElementFlags.Popup)) return false;
+    const parentPage = getParentPage();
+    if (!parentPage) return false;
+    if (parentPage.arrangeAlgorithm === "spatial-stretch") {
+      return ImageFns.childPopupPositioningHasChanged(parentPage, imageItem());
+    } else {
+      return ImageFns.childCellPopupPositioningHasChanged(parentPage, imageItem());
+    }
+  };
+
+  const hasStoredPosition = () => {
+    if (!(props.visualElement.flags & VisualElementFlags.Popup)) return false;
+    const parentPage = getParentPage();
+    if (!parentPage) return false;
+    if (parentPage.arrangeAlgorithm === "spatial-stretch") {
+      return ImageFns.hasStoredPopupPositioning(imageItem());
+    } else {
+      return ImageFns.hasStoredCellPopupPositioning(imageItem());
+    }
+  };
+
+
+  const iconSize = LINE_HEIGHT_PX;
+  const iconOffset = 4; // small gap from edge - must match hitbox calculation
+
+  const renderAnchorChildMaybe = () => {
+    const rightOffset = iconOffset;
+    return (
+      <Show when={hasChildChanges()}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs text-gray-900 pointer-events-none`}
+          style={`left: ${boundsPx().x + boundsPx().w - iconSize - rightOffset}px; ` +
+            `top: ${boundsPx().y + iconOffset + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+            `width: ${iconSize}px; ` +
+            `height: ${iconSize}px; ` +
+            `${VeFns.zIndexStyle(props.visualElement)}`}>
+          <div class={`absolute text-gray-600 rounded-xs pointer-events-none flex items-center justify-center`}
+            style={`width: ${iconSize}px; height: ${iconSize}px;`}>
+            <i class={`fa fa-anchor`} />
+          </div>
+        </div>
+      </Show>
+    );
+  };
+
+  const renderHomeMaybe = () => {
+    let rightOffset = iconOffset;
+    if (hasChildChanges()) {
+      rightOffset += iconSize + iconOffset;
+    }
+    return (
+      <Show when={hasStoredPosition()}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs text-gray-900 pointer-events-none`}
+          style={`left: ${boundsPx().x + boundsPx().w - iconSize - rightOffset}px; ` +
+            `top: ${boundsPx().y + iconOffset + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+            `width: ${iconSize}px; ` +
+            `height: ${iconSize}px; ` +
+            `${VeFns.zIndexStyle(props.visualElement)}`}>
+          <div class={`absolute text-gray-600 rounded-xs pointer-events-none flex items-center justify-center`}
+            style={`width: ${iconSize}px; height: ${iconSize}px;`}>
+            <i class={`fa fa-home`} />
+          </div>
+        </div>
+      </Show>
+    );
+  };
+
+
   const renderCroppedImage = (): JSX.Element =>
     <img src={imgSrcSignal.get()}
-         class="max-w-none absolute pointer-events-none"
-         style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX)}px; ` +
-                `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX)}px; ` +
-                (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
-                `${VeFns.zIndexStyle(props.visualElement)}`}
-         width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />;
+      class="max-w-none absolute pointer-events-none"
+      style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w) / 2.0) + BORDER_WIDTH_PX)}px; ` +
+        `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) / imageAspect() - quantizedBoundsPx().h) / 2.0) + BORDER_WIDTH_PX)}px; ` +
+        (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
+        `${VeFns.zIndexStyle(props.visualElement)}`}
+      width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />;
 
   const renderNoCropImage = (): JSX.Element =>
     <img src={imgSrcSignal.get()}
-         class="max-w-none absolute pointer-events-none"
-         style={`${VeFns.zIndexStyle(props.visualElement)} ` +
-                (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
-                `left: ${isShowingThumbnail.get() ? 0 : noCropPaddingLeftPx(false)}px; ` +
-                `top: ${isShowingThumbnail.get() ? 0 : noCropPaddingTopPx(false)}px;`}
-         width={isShowingThumbnail.get() ? undefined : noCropWidth(false)} />;
+      class="max-w-none absolute pointer-events-none"
+      style={`${VeFns.zIndexStyle(props.visualElement)} ` +
+        (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
+        `left: ${isShowingThumbnail.get() ? 0 : noCropPaddingLeftPx(false)}px; ` +
+        `top: ${isShowingThumbnail.get() ? 0 : noCropPaddingTopPx(false)}px;`}
+      width={isShowingThumbnail.get() ? undefined : noCropWidth(false)} />;
 
   return (
     <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX} fallback={tooSmallFallback()}>
       {renderPopupBaseMaybe()}
       {renderShadowMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-                  `overflow-hidden border pointer-events-none rounded-xs ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : '' } ` +
-                  (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
-           style={`left: ${quantizedBoundsPx().x}px; ` +
-                  `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-                  `width: ${quantizedBoundsPx().w}px; ` +
-                  `height: ${quantizedBoundsPx().h}px; ` +
-                  `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
+        `overflow-hidden border pointer-events-none rounded-xs ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
+        (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
+        style={`left: ${quantizedBoundsPx().x}px; ` +
+          `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+          `width: ${quantizedBoundsPx().w}px; ` +
+          `height: ${quantizedBoundsPx().h}px; ` +
+          `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
         <Show when={isDetailed()} fallback={notDetailedFallback()}>
           {imageItem().flags & ImageFlags.NoCrop ? renderNoCropImage() : renderCroppedImage()}
           <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || (isMainPoppedUp() && !(props.visualElement.flags & VisualElementFlags.Popup))}>
             <div class="absolute"
-                 style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
-                        `background-color: #dddddd88; ${VeFns.zIndexStyle(props.visualElement)}`} />
+              style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
+                `background-color: #dddddd88; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
           <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
             <div class="absolute"
-                 style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
-                        `background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ${VeFns.zIndexStyle(props.visualElement)}`} />
+              style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
+                `background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
           <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
             <div class="absolute rounded-xs"
-                 style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                        `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
+              style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
           <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && !isInComposite()}>
             <div class="absolute"
-                 style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
-                        `background-color: #ffffff33; ${VeFns.zIndexStyle(props.visualElement)}`} />
+              style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
+                `background-color: #ffffff33; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
         </Show>
       </div>
       {renderAttachmentsAndDetailMaybe()}
       {renderTitleMaybe()}
+      {renderAnchorChildMaybe()}
+      {renderHomeMaybe()}
     </Show>
   );
 }

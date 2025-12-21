@@ -24,6 +24,7 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { TabularFns } from "../items/base/tabular-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
+import { asImageItem, isImage } from "../items/image-item";
 import { asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -33,6 +34,29 @@ import { EMPTY_UID, Uid } from "../util/uid";
 import { hashItemAndAttachmentsOnly } from "../items/item";
 
 let items = new Map<Uid, Item>();
+
+/**
+ * Preserve pending popup position fields from an existing item to a new item.
+ * These fields are client-only and not saved to server, so they must be preserved
+ * when an item is refreshed from the server during periodic sync.
+ */
+function preservePendingPopupFields(existingItem: Item, newItem: Item): void {
+  if (isImage(existingItem) && isImage(newItem)) {
+    const existingImage = asImageItem(existingItem);
+    const newImage = asImageItem(newItem);
+    newImage.pendingPopupPositionGr = existingImage.pendingPopupPositionGr;
+    newImage.pendingPopupWidthGr = existingImage.pendingPopupWidthGr;
+    newImage.pendingCellPopupPositionNorm = existingImage.pendingCellPopupPositionNorm;
+    newImage.pendingCellPopupWidthNorm = existingImage.pendingCellPopupWidthNorm;
+  } else if (isPage(existingItem) && isPage(newItem)) {
+    const existingPage = asPageItem(existingItem);
+    const newPage = asPageItem(newItem);
+    newPage.pendingPopupPositionGr = existingPage.pendingPopupPositionGr;
+    newPage.pendingPopupWidthGr = existingPage.pendingPopupWidthGr;
+    newPage.pendingCellPopupPositionNorm = existingPage.pendingCellPopupPositionNorm;
+    newPage.pendingCellPopupWidthNorm = existingPage.pendingCellPopupWidthNorm;
+  }
+}
 
 
 export const itemState = {
@@ -71,7 +95,7 @@ export const itemState = {
       const containerItem = asContainerItem(item);
       if (containerItem.computed_children.length > 0) {
         console.error(
-          `${containerItem.itemType} container has children, can't delete:`, 
+          `${containerItem.itemType} container has children, can't delete:`,
           [...containerItem.computed_children],
           containerItem.computed_children.map(i => { const itm = itemState.get(i)!; return (isTitledItem(itm)) ? asTitledItem(itm).title : "no-title" }));
         panic!("can't delete container with children.");
@@ -93,9 +117,13 @@ export const itemState = {
   },
 
   setItemFromServerObject: (itemObject: object, origin: string | null): void => {
-    let item = ItemFns.fromObject(itemObject, origin);
-    items.set(item.id, item);
-    TabularFns.validateNumberOfVisibleColumnsMaybe(item.id);
+    let newItem = ItemFns.fromObject(itemObject, origin);
+    const existingItem = items.get(newItem.id);
+    if (existingItem) {
+      preservePendingPopupFields(existingItem, newItem);
+    }
+    items.set(newItem.id, newItem);
+    TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
   },
 
   /**
@@ -114,6 +142,9 @@ export const itemState = {
 
     const existingHash = hashItemAndAttachmentsOnly(newItem.id);
 
+    // Preserve pending popup fields before temporarily setting the new item
+    preservePendingPopupFields(existingItem, newItem);
+
     // Temporarily set the new item to calculate its hash
     items.set(newItem.id, newItem);
     const newHash = hashItemAndAttachmentsOnly(newItem.id);
@@ -124,7 +155,7 @@ export const itemState = {
       return false;
     }
 
-    // Changes detected, keep the new item
+    // Changes detected, keep the new item (pending fields already preserved)
     TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
     return true;
   },
@@ -231,6 +262,10 @@ export const itemState = {
     const parent = itemState.getAsAttachmentsItem(parentId)!;
     let attachments: Array<Uid> = [];
     attachmentItems.forEach(attachmentItem => {
+      const existingItem = items.get(attachmentItem.id);
+      if (existingItem) {
+        preservePendingPopupFields(existingItem, attachmentItem);
+      }
       items.set(attachmentItem.id, attachmentItem);
       if (attachmentItem.parentId != parentId) {
         throw new Error(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
@@ -307,7 +342,7 @@ export const itemState = {
     } else if (position >= childrenOrderings.length) {
       return newOrderingAtEnd(childrenOrderings);
     } else {
-      return newOrderingBetween(childrenOrderings[position-1], childrenOrderings[position]);
+      return newOrderingBetween(childrenOrderings[position - 1], childrenOrderings[position]);
     }
   },
 
@@ -319,7 +354,7 @@ export const itemState = {
     } else if (position >= attachmentOrderings.length) {
       return newOrderingAtEnd(attachmentOrderings);
     } else {
-      return newOrderingBetween(attachmentOrderings[position-1], attachmentOrderings[position]);
+      return newOrderingBetween(attachmentOrderings[position - 1], attachmentOrderings[position]);
     }
   },
 

@@ -155,8 +155,9 @@ export function arrange_spatial_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      if (itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType == ItemType.Page) {
-        // Position of page popup in spatial pages is user defined.
+      const popupItemType = itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType;
+      if (popupItemType == ItemType.Page || popupItemType == ItemType.Image) {
+        // Position of page/image popup in spatial pages is user defined.
         // Use the shared geometry calculation from popup.ts
         const { geometry, linkItem, actualLinkItemMaybe } = calcSpatialPopupGeometry(
           store,

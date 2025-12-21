@@ -29,11 +29,13 @@ pub fn get_string_field(map: &Map<String, Value>, field: &str) -> InfuResult<Opt
 
 pub fn get_integer_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<i64>> {
   let v = match map.get(field) { None => return Ok(None), Some(s) => s };
+  if v.is_null() { return Ok(None); }
   Ok(Some(v.as_i64().ok_or(format!("'{}' field was not of type 'i64'.", field))?))
 }
 
 pub fn get_float_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<f64>> {
   let v = match map.get(field) { None => return Ok(None), Some(s) => s };
+  if v.is_null() { return Ok(None); }
   Ok(Some(v.as_f64().ok_or(format!("'{}' field was not of type 'f64'.", field))?))
 }
 
@@ -45,6 +47,7 @@ pub fn _get_bool_field(map: &Map<String, Value>, field: &str) -> InfuResult<Opti
 
 pub fn get_vector_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Vector<i64>>> {
   let v = match map.get(field) { None => return Ok(None), Some(s) => s };
+  if v.is_null() { return Ok(None); }
   let o = v.as_object().ok_or(format!("'{}' field was not of type 'object'.", field))?;
   Ok(Some(Vector {
     x: get_integer_field(o, "x")?.ok_or("Vector field 'x' was missing.")?,
@@ -54,6 +57,7 @@ pub fn get_vector_field(map: &Map<String, Value>, field: &str) -> InfuResult<Opt
 
 pub fn get_float_vector_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Vector<f64>>> {
   let v = match map.get(field) { None => return Ok(None), Some(s) => s };
+  if v.is_null() { return Ok(None); }
   let o = v.as_object().ok_or(format!("'{}' field was not of type 'object'.", field))?;
   Ok(Some(Vector {
     x: get_float_field(o, "x")?.ok_or("Vector field 'x' was missing.")?,

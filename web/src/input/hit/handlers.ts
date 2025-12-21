@@ -41,21 +41,21 @@ const _tableHandler: HitHandler = {
     if (!isInside(posRelativeToRootVeViewportPx, childVe.viewportBoundsPx!)) { return null; }
     const tableVes = childVes;
     const tableVe = childVe;
-    const resizeHitbox = tableVe.hitboxes[tableVe.hitboxes.length-1];
+    const resizeHitbox = tableVe.hitboxes[tableVe.hitboxes.length - 1];
     if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
     if (isInsideBottomRightTriangle(
-          posRelativeToRootVeViewportPx,
-          offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
+      posRelativeToRootVeViewportPx,
+      offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
       return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-resize").build();
     }
-    for (let j=tableVe.hitboxes.length-2; j>=0; j--) {
+    for (let j = tableVe.hitboxes.length - 2; j >= 0; j--) {
       const hb = tableVe.hitboxes[j];
       if (hb.type != HitboxFlags.HorizontalResize) { break; }
       if (isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
         return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.HorizontalResize, HitboxFlags.None).meta(hb.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-hresize").build();
       }
     }
-    for (let j=0; j<tableVe.childrenVes.length; ++j) {
+    for (let j = 0; j < tableVe.childrenVes.length; ++j) {
       const tableChildVes = tableVe.childrenVes[j];
       const tableChildVe = tableChildVes.get();
       const posRelativeToTableChildAreaPx = toTableChildAreaPos(store, tableVe, tableChildVe, posRelativeToRootVeViewportPx);
@@ -99,15 +99,15 @@ const _compositeHandler: HitHandler = {
     if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx!)) { return null; }
     const compositeVes = childVes;
     const compositeVe = childVe;
-    const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length-1];
+    const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length - 1];
     if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
     if (isInsideBottomRightTriangle(
-          posRelativeToRootVeViewportPx,
-          offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
+      posRelativeToRootVeViewportPx,
+      offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
       return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-resize").build();
     }
     const { flags: compositeHitboxType, meta: compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(compositeVe.boundsPx!));
-    for (let j=0; j<compositeVe.childrenVes.length; ++j) {
+    for (let j = 0; j < compositeVe.childrenVes.length; ++j) {
       const compositeChildVes = compositeVe.childrenVes[j];
       const compositeChildVe = compositeChildVes.get();
       const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVeViewportPx);

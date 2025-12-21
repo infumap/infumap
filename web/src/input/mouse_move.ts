@@ -41,6 +41,7 @@ import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
 import { itemState } from "../store/ItemState";
+import { ImageFns, asImageItem, isImage } from "../items/image-item";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -168,8 +169,15 @@ function changeMouseActionStateMaybe(
           MouseActionState.get().startHeightBl = null;
         }
       } else {
-        const popupItem = asPageItem(activeVisualElement.displayItem);
-        MouseActionState.get().startWidthBl = PageFns.getCellPopupWidthNormForParent(parentPage, popupItem);
+        // Cell-based popup (grid, justified, calendar)
+        const popupItem = activeVisualElement.displayItem;
+        if (isPage(popupItem)) {
+          MouseActionState.get().startWidthBl = PageFns.getCellPopupWidthNormForParent(parentPage, asPageItem(popupItem));
+        } else if (isImage(popupItem)) {
+          MouseActionState.get().startWidthBl = ImageFns.getCellPopupWidthNormForParent(asImageItem(popupItem), store.desktopMainAreaBoundsPx());
+        } else {
+          MouseActionState.get().startWidthBl = parentPage.defaultCellPopupWidthNorm;
+        }
         MouseActionState.get().startHeightBl = null;
       }
       MouseActionState.get().action = MouseAction.ResizingPopup;
@@ -260,14 +268,28 @@ function changeMouseActionStateMaybe(
       store.anItemIsMoving.set(true);
       MouseActionState.get().action = MouseAction.MovingPopup;
       const popupVe = activeVisualElement;
-      const popupItem = asPageItem(popupVe.displayItem);
+      const popupItem = popupVe.displayItem;
       const parentVe = VesCache.get(popupVe.parentPath!)!.get();
       const parentPage = asPageItem(parentVe.displayItem);
       if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-        const popupPositionGr = PageFns.getPopupPositionGrForParent(parentPage, popupItem);
+        let popupPositionGr;
+        if (isPage(popupItem)) {
+          popupPositionGr = PageFns.getPopupPositionGrForParent(parentPage, asPageItem(popupItem));
+        } else if (isImage(popupItem)) {
+          popupPositionGr = ImageFns.getPopupPositionGrForParent(parentPage, asImageItem(popupItem));
+        } else {
+          popupPositionGr = parentPage.defaultPopupPositionGr;
+        }
         MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
       } else {
-        const popupPositionNorm = PageFns.getCellPopupPositionNormForParent(parentPage, popupItem);
+        let popupPositionNorm;
+        if (isPage(popupItem)) {
+          popupPositionNorm = PageFns.getCellPopupPositionNormForParent(parentPage, asPageItem(popupItem));
+        } else if (isImage(popupItem)) {
+          popupPositionNorm = ImageFns.getCellPopupPositionNormForParent(asImageItem(popupItem));
+        } else {
+          popupPositionNorm = parentPage.defaultCellPopupPositionNorm;
+        }
         MouseActionState.get().startPosBl = { x: popupPositionNorm.x, y: popupPositionNorm.y };
       }
     } else {
@@ -537,6 +559,42 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
     return;
   }
 
+  if (isImage(activeVe.displayItem)) {
+    const parentVe = VesCache.get(activeVe.parentPath!)!.get();
+    const parentPage = asPageItem(parentVe.displayItem);
+    const popupItem = asImageItem(activeVe.displayItem);
+
+    if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      const deltaBl = {
+        x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0,
+        y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
+      };
+      let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
+      newWidthBl = Math.round(newWidthBl * 2.0) / 2.0;
+      if (newWidthBl < 3.0) { newWidthBl = 3.0; }
+      const newWidthGr = newWidthBl * GRID_SIZE;
+
+      if (newWidthGr != popupItem.pendingPopupWidthGr) {
+        popupItem.pendingPopupWidthGr = newWidthGr;
+        fullArrange(store);
+      }
+    } else {
+      const deltaNorm = {
+        x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0,
+        y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
+      };
+      let newWidthNorm = MouseActionState.get()!.startWidthBl! + deltaNorm.x;
+      if (newWidthNorm < 0.1) { newWidthNorm = 0.1; }
+      if (newWidthNorm > 0.95) { newWidthNorm = 0.95; }
+
+      if (newWidthNorm != popupItem.pendingCellPopupWidthNorm) {
+        popupItem.pendingCellPopupWidthNorm = newWidthNorm;
+        fullArrange(store);
+      }
+    }
+    return;
+  }
+
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0,
     y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
@@ -659,7 +717,7 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
 
 function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   const popupVe = MouseActionState.getActiveVisualElementSignal()!.get();
-  const popupItem = asPageItem(popupVe.displayItem);
+  const popupItem = popupVe.displayItem;
   const parentVe = VesCache.get(popupVe.parentPath!)!.get();
   const parentPage = asPageItem(parentVe.displayItem);
 
@@ -673,13 +731,23 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       y: (MouseActionState.get().startPosBl!.y + deltaBl.y) * GRID_SIZE
     };
 
-    if (popupItem.pendingPopupPositionGr == null ||
-      compareVector(newPositionGr, popupItem.pendingPopupPositionGr!) != 0) {
-      popupItem.pendingPopupPositionGr = newPositionGr;
-      // Use the optimized partial rearrange if possible,
-      // falling back to full arrange if the optimization can't be applied.
-      if (!rearrangePopupPositionOnly(store)) {
-        fullArrange(store);
+    if (isPage(popupItem)) {
+      const pageItem = asPageItem(popupItem);
+      if (pageItem.pendingPopupPositionGr == null ||
+        compareVector(newPositionGr, pageItem.pendingPopupPositionGr!) != 0) {
+        pageItem.pendingPopupPositionGr = newPositionGr;
+        if (!rearrangePopupPositionOnly(store)) {
+          fullArrange(store);
+        }
+      }
+    } else if (isImage(popupItem)) {
+      const imageItem = asImageItem(popupItem);
+      if (imageItem.pendingPopupPositionGr == null ||
+        compareVector(newPositionGr, imageItem.pendingPopupPositionGr!) != 0) {
+        imageItem.pendingPopupPositionGr = newPositionGr;
+        if (!rearrangePopupPositionOnly(store)) {
+          fullArrange(store);
+        }
       }
     }
   } else {
@@ -692,13 +760,23 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       y: MouseActionState.get().startPosBl!.y + deltaNorm.y
     };
 
-    if (popupItem.pendingCellPopupPositionNorm == null ||
-      compareVector(newPositionNorm, popupItem.pendingCellPopupPositionNorm!) != 0) {
-      popupItem.pendingCellPopupPositionNorm = newPositionNorm;
-      // Use the optimized partial rearrange if possible,
-      // falling back to full arrange if the optimization can't be applied.
-      if (!rearrangePopupPositionOnly(store)) {
-        fullArrange(store);
+    if (isPage(popupItem)) {
+      const pageItem = asPageItem(popupItem);
+      if (pageItem.pendingCellPopupPositionNorm == null ||
+        compareVector(newPositionNorm, pageItem.pendingCellPopupPositionNorm!) != 0) {
+        pageItem.pendingCellPopupPositionNorm = newPositionNorm;
+        if (!rearrangePopupPositionOnly(store)) {
+          fullArrange(store);
+        }
+      }
+    } else if (isImage(popupItem)) {
+      const imageItem = asImageItem(popupItem);
+      if (imageItem.pendingCellPopupPositionNorm == null ||
+        compareVector(newPositionNorm, imageItem.pendingCellPopupPositionNorm!) != 0) {
+        imageItem.pendingCellPopupPositionNorm = newPositionNorm;
+        if (!rearrangePopupPositionOnly(store)) {
+          fullArrange(store);
+        }
       }
     }
   }

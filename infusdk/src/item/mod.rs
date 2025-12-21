@@ -324,6 +324,10 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
+pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
+  item_type == ItemType::Page || item_type == ItemType::Image
+}
+
 const ALL_JSON_FIELDS: [&'static str; 48] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "dateTime", "ordering", "title",
@@ -705,22 +709,22 @@ impl JsonLogSerializable<Item> for Item {
     }
     match (&old.popup_position_gr, &new.popup_position_gr) {
       (Some(_), None) => {
-        if old.item_type != ItemType::Page { cannot_modify_err("popupPositionGr", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("popupPositionGr", &old.id)?; }
         result.insert(String::from("popupPositionGr"), Value::Null);
       },
       (o, n @ Some(_)) if o != n => {
-        if old.item_type != ItemType::Page { cannot_modify_err("popupPositionGr", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("popupPositionGr", &old.id)?; }
         result.insert(String::from("popupPositionGr"), json::vector_to_object(n.as_ref().unwrap()));
       },
       _ => {}
     }
     match (old.popup_width_gr, new.popup_width_gr) {
       (Some(_), None) => {
-        if old.item_type != ItemType::Page { cannot_modify_err("popupWidthGr", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("popupWidthGr", &old.id)?; }
         result.insert(String::from("popupWidthGr"), Value::Null);
       },
       (o, n @ Some(_)) if o != n => {
-        if old.item_type != ItemType::Page { cannot_modify_err("popupWidthGr", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("popupWidthGr", &old.id)?; }
         result.insert(String::from("popupWidthGr"), Value::Number(n.unwrap().into()));
       },
       _ => {}
@@ -739,22 +743,22 @@ impl JsonLogSerializable<Item> for Item {
     }
     match (&old.cell_popup_position_norm, &new.cell_popup_position_norm) {
       (Some(_), None) => {
-        if old.item_type != ItemType::Page { cannot_modify_err("cellPopupPositionNorm", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("cellPopupPositionNorm", &old.id)?; }
         result.insert(String::from("cellPopupPositionNorm"), Value::Null);
       },
       (o, n @ Some(_)) if o != n => {
-        if old.item_type != ItemType::Page { cannot_modify_err("cellPopupPositionNorm", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("cellPopupPositionNorm", &old.id)?; }
         result.insert(String::from("cellPopupPositionNorm"), json::float_vector_to_object(n.as_ref().unwrap()));
       },
       _ => {}
     }
     match (old.cell_popup_width_norm, new.cell_popup_width_norm) {
       (Some(_), None) => {
-        if old.item_type != ItemType::Page { cannot_modify_err("cellPopupWidthNorm", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("cellPopupWidthNorm", &old.id)?; }
         result.insert(String::from("cellPopupWidthNorm"), Value::Null);
       },
       (o, n @ Some(_)) if o != n => {
-        if old.item_type != ItemType::Page { cannot_modify_err("cellPopupWidthNorm", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("cellPopupWidthNorm", &old.id)?; }
         result.insert(String::from("cellPopupWidthNorm"), Value::Number(Number::from_f64(n.unwrap()).ok_or(nan_err("cellPopupWidthNorm", &old.id))?));
       },
       _ => {}
@@ -996,7 +1000,7 @@ impl JsonLogSerializable<Item> for Item {
       self.default_popup_width_gr = Some(v);
     }
     if let Some(raw) = map.get("popupPositionGr") {
-      if self.item_type != ItemType::Page { not_applicable_err("popupPositionGr", self.item_type, &self.id)?; }
+      if !is_popup_positionable_item_type(self.item_type) { not_applicable_err("popupPositionGr", self.item_type, &self.id)?; }
       if raw.is_null() {
         self.popup_position_gr = None;
       } else {
@@ -1005,7 +1009,7 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
     if let Some(raw) = map.get("popupWidthGr") {
-      if self.item_type != ItemType::Page { not_applicable_err("popupWidthGr", self.item_type, &self.id)?; }
+      if !is_popup_positionable_item_type(self.item_type) { not_applicable_err("popupWidthGr", self.item_type, &self.id)?; }
       if raw.is_null() {
         self.popup_width_gr = None;
       } else {
@@ -1022,7 +1026,7 @@ impl JsonLogSerializable<Item> for Item {
       self.default_cell_popup_width_norm = Some(v);
     }
     if let Some(raw) = map.get("cellPopupPositionNorm") {
-      if self.item_type != ItemType::Page { not_applicable_err("cellPopupPositionNorm", self.item_type, &self.id)?; }
+      if !is_popup_positionable_item_type(self.item_type) { not_applicable_err("cellPopupPositionNorm", self.item_type, &self.id)?; }
       if raw.is_null() {
         self.cell_popup_position_norm = None;
       } else {
@@ -1031,7 +1035,7 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
     if let Some(raw) = map.get("cellPopupWidthNorm") {
-      if self.item_type != ItemType::Page { not_applicable_err("cellPopupWidthNorm", self.item_type, &self.id)?; }
+      if !is_popup_positionable_item_type(self.item_type) { not_applicable_err("cellPopupWidthNorm", self.item_type, &self.id)?; }
       if raw.is_null() {
         self.cell_popup_width_norm = None;
       } else {
@@ -1241,11 +1245,11 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(String::from("defaultPopupWidthGr"), Value::Number(default_popup_width_gr.into()));
   }
   if let Some(popup_position_gr) = &item.popup_position_gr {
-    if item.item_type != ItemType::Page { unexpected_field_err("popupPositionGr", &item.id, item.item_type)? }
+    if !is_popup_positionable_item_type(item.item_type) { unexpected_field_err("popupPositionGr", &item.id, item.item_type)? }
     result.insert(String::from("popupPositionGr"), json::vector_to_object(&popup_position_gr));
   }
   if let Some(popup_width_gr) = item.popup_width_gr {
-    if item.item_type != ItemType::Page { unexpected_field_err("popupWidthGr", &item.id, item.item_type)? }
+    if !is_popup_positionable_item_type(item.item_type) { unexpected_field_err("popupWidthGr", &item.id, item.item_type)? }
     result.insert(String::from("popupWidthGr"), Value::Number(popup_width_gr.into()));
   }
   if let Some(default_cell_popup_position_norm) = &item.default_cell_popup_position_norm {
@@ -1259,11 +1263,11 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
       Value::Number(Number::from_f64(default_cell_popup_width_norm).ok_or(nan_err("defaultCellPopupWidthNorm", &item.id))?));
   }
   if let Some(cell_popup_position_norm) = &item.cell_popup_position_norm {
-    if item.item_type != ItemType::Page { unexpected_field_err("cellPopupPositionNorm", &item.id, item.item_type)? }
+    if !is_popup_positionable_item_type(item.item_type) { unexpected_field_err("cellPopupPositionNorm", &item.id, item.item_type)? }
     result.insert(String::from("cellPopupPositionNorm"), json::float_vector_to_object(&cell_popup_position_norm));
   }
   if let Some(cell_popup_width_norm) = item.cell_popup_width_norm {
-    if item.item_type != ItemType::Page { unexpected_field_err("cellPopupWidthNorm", &item.id, item.item_type)? }
+    if !is_popup_positionable_item_type(item.item_type) { unexpected_field_err("cellPopupWidthNorm", &item.id, item.item_type)? }
     result.insert(
       String::from("cellPopupWidthNorm"),
       Value::Number(Number::from_f64(cell_popup_width_norm).ok_or(nan_err("cellPopupWidthNorm", &item.id))?));
@@ -1510,11 +1514,11 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       None => { if item_type == ItemType::Page { Err(expected_for_err("defaultPopupWidthGr", item_type, &id)) } else { Ok(None) } }
     }?,
     popup_position_gr: match json::get_vector_field(map, "popupPositionGr")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("popupPositionGr", item_type, &id)) } },
+      Some(v) => { if is_popup_positionable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("popupPositionGr", item_type, &id)) } },
       None => { Ok(None) }
     }?,
     popup_width_gr: match json::get_integer_field(map, "popupWidthGr")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("popupWidthGr", item_type, &id)) } },
+      Some(v) => { if is_popup_positionable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("popupWidthGr", item_type, &id)) } },
       None => { Ok(None) }
     }?,
     default_cell_popup_position_norm: match json::get_float_vector_field(map, "defaultCellPopupPositionNorm")? {
@@ -1526,11 +1530,11 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       None => { Ok(None) }
     }?,
     cell_popup_position_norm: match json::get_float_vector_field(map, "cellPopupPositionNorm")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("cellPopupPositionNorm", item_type, &id)) } },
+      Some(v) => { if is_popup_positionable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("cellPopupPositionNorm", item_type, &id)) } },
       None => { Ok(None) }
     }?,
     cell_popup_width_norm: match json::get_float_field(map, "cellPopupWidthNorm")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("cellPopupWidthNorm", item_type, &id)) } },
+      Some(v) => { if is_popup_positionable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("cellPopupWidthNorm", item_type, &id)) } },
       None => { Ok(None) }
     }?,
     grid_number_of_columns: match json::get_integer_field(map, "gridNumberOfColumns")? {
