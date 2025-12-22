@@ -57,6 +57,24 @@ let underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid
 let evaluationRequired = new Set<VisualElementPath>();
 let currentlyInFullArrange = false;
 
+// Diagnostic counters for performance analysis
+const LOG_ARRANGE_STATS = true;
+let arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
+function resetArrangeStats() {
+  arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
+}
+function logDirtyReason(reason: string) {
+  arrangeStats.dirty++;
+  arrangeStats.dirtyReasons.set(reason, (arrangeStats.dirtyReasons.get(reason) || 0) + 1);
+}
+function logArrangeStats() {
+  if (!LOG_ARRANGE_STATS) return;
+  console.log(`[VesCache] Arrange stats: recycled=${arrangeStats.recycled}, dirty=${arrangeStats.dirty}, new=${arrangeStats.new}`);
+  if (arrangeStats.dirty > 0) {
+    console.log(`[VesCache] Dirty reasons:`, Object.fromEntries(arrangeStats.dirtyReasons));
+  }
+}
+
 function logOrphanedVes(cache: Map<VisualElementPath, VisualElementSignal>, context: string) {
   // Diagnostic helper: reports any visual elements whose parentPath is missing from the cache.
   const orphans: Array<{ path: VisualElementPath, parentPath: VisualElementPath, itemId: string, flags: number }> = [];
@@ -144,6 +162,7 @@ export let VesCache = {
   full_initArrange: (): void => {
     evaluationRequired = new Set<VisualElementPath>();
     currentlyInFullArrange = true;
+    resetArrangeStats();
   },
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaVeSpec: VisualElementSpec, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
@@ -162,6 +181,7 @@ export let VesCache = {
       currentWatchContainerUidsByOrigin = underConstructionWatchContainerUidsByOrigin;
       store.topTitledPages.set(currentTopTitledPages);
       logOrphanedVes(currentVesCache, "full_finalizeArrange");
+      logArrangeStats();
     }
 
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
@@ -411,6 +431,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
     if (existingVe.displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(VeFns.create(visualElementOverride));
       if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
+      logDirtyReason("fingerprint");
       underConstructionCache.set(path, existing);
       addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
@@ -425,6 +446,8 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
 
     if (oldHasLineItemFlag !== newHasLineItemFlag) {
       if (debug) { console.debug("LineItem flag changed, creating new visual element instead of recycling:", path); }
+      logDirtyReason("lineItemChange");
+      arrangeStats.new++; // This creates a new signal rather than recycling
       const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
       underConstructionCache.set(path, newElement);
       addVesVsDisplayItem(newElement.get().displayItem.id, path);
@@ -534,11 +557,13 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
 
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
+      arrangeStats.recycled++;
       underConstructionCache.set(path, existing);
       addVesVsDisplayItem(existingVe.displayItem.id, path);
       return existing;
     }
     if (debug) { console.debug("dirty:", path); }
+    arrangeStats.dirty++;
 
     // Recycle the existing visual element
     existing.set(VeFns.create(visualElementOverride));
@@ -548,6 +573,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
   }
 
   if (debug) { console.debug("creating:", path); }
+  arrangeStats.new++;
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
   underConstructionCache.set(path, newElement);
   addVesVsDisplayItem(newElement.get().displayItem.id, path);
