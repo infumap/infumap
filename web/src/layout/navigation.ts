@@ -143,20 +143,13 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
         page.pendingPopupWidthGr = null;
         page.pendingCellPopupPositionNorm = null;
         page.pendingCellPopupWidthNorm = null;
-      }
-    }
-    fullArrange(store);
 
-    // After popup is closed and arrange is done, adjust focus appropriately.
-    // For list pages, focus should go to the innermost nested page.
-    // For non-list pages, focus should go to the root page.
-    const afterArrangePageVeid = store.history.currentPageVeid();
-    if (afterArrangePageVeid) {
-      const afterArrangePageItem = itemState.get(afterArrangePageVeid.itemId);
-      if (afterArrangePageItem && isPage(afterArrangePageItem)) {
+        // For list pages, pre-set focus to the innermost nested page.
+        // This allows focusedChildItemMaybe to be computed correctly in a single arrange.
+        // We use store.topTitledPages which was populated in the previous arrange.
         const topPages = store.topTitledPages.get();
         if (topPages.length > 0) {
-          if (asPageItem(afterArrangePageItem).arrangeAlgorithm === ArrangeAlgorithm.List) {
+          if (page.arrangeAlgorithm === ArrangeAlgorithm.List) {
             // For list pages, focus on the innermost nested page (last in topTitledPages)
             const innermostPagePath = topPages[topPages.length - 1];
             store.history.setFocus(innermostPagePath);
@@ -165,11 +158,10 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
             const rootPagePath = topPages[0];
             store.history.setFocus(rootPagePath);
           }
-          // Re-arrange to update focusedChildItemMaybe (which controls the separator line)
-          fullArrange(store);
         }
       }
     }
+    fullArrange(store);
 
     return true;
   }
