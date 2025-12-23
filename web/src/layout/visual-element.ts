@@ -237,12 +237,12 @@ export interface VisualElement {
    */
   displayItemFingerprint: string,
 
-  childrenVes: Array<VisualElementSignal>,
   attachmentsVes: Array<VisualElementSignal>,
   popupVes: VisualElementSignal | null,
   selectedVes: VisualElementSignal | null,
   dockVes: VisualElementSignal | null,
 
+  childrenVes: Array<VisualElementSignal>,
   /**
    * The table row number corresponding to the childrenVes with the same index.
    */

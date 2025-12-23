@@ -57,6 +57,52 @@ let underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid
 let evaluationRequired = new Set<VisualElementPath>();
 let currentlyInFullArrange = false;
 
+type VesAuxData = {
+  displayItemFingerprint: Map<VisualElementPath, string>;
+  attachmentsVes: Map<VisualElementPath, Array<VisualElementSignal>>;
+  popupVes: Map<VisualElementPath, VisualElementSignal | null>;
+  selectedVes: Map<VisualElementPath, VisualElementSignal | null>;
+  dockVes: Map<VisualElementPath, VisualElementSignal | null>;
+  childrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
+  tableVesRows: Map<VisualElementPath, Array<number> | null>;
+}
+
+function createEmptyAuxData(): VesAuxData {
+  return {
+    displayItemFingerprint: new Map(),
+    attachmentsVes: new Map(),
+    popupVes: new Map(),
+    selectedVes: new Map(),
+    dockVes: new Map(),
+    childrenVes: new Map(),
+    tableVesRows: new Map(),
+  };
+}
+
+let currentAux = createEmptyAuxData();
+let virtualAux = createEmptyAuxData();
+let underConstructionAux = createEmptyAuxData();
+
+function syncAuxData(aux: VesAuxData, path: VisualElementPath, ve: VisualElement) {
+  aux.displayItemFingerprint.set(path, ve.displayItemFingerprint);
+  aux.attachmentsVes.set(path, ve.attachmentsVes);
+  aux.popupVes.set(path, ve.popupVes);
+  aux.selectedVes.set(path, ve.selectedVes);
+  aux.dockVes.set(path, ve.dockVes);
+  aux.childrenVes.set(path, ve.childrenVes);
+  aux.tableVesRows.set(path, ve.tableVesRows);
+}
+
+function deleteAuxData(aux: VesAuxData, path: VisualElementPath) {
+  aux.displayItemFingerprint.delete(path);
+  aux.attachmentsVes.delete(path);
+  aux.popupVes.delete(path);
+  aux.selectedVes.delete(path);
+  aux.dockVes.delete(path);
+  aux.childrenVes.delete(path);
+  aux.tableVesRows.delete(path);
+}
+
 // Diagnostic counters for performance analysis
 const LOG_ARRANGE_STATS = true;
 let arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
@@ -105,11 +151,14 @@ export let VesCache = {
     currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
     currentTopTitledPages = [];
     currentWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
+    currentAux = createEmptyAuxData();
     virtualCache = new Map<VisualElementPath, VisualElementSignal>();
+    virtualAux = createEmptyAuxData();
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     underConstructionTopTitledPages = [];
     underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
+    underConstructionAux = createEmptyAuxData();
 
     evaluationRequired = new Set<VisualElementPath>();
   },
@@ -171,14 +220,20 @@ export let VesCache = {
 
     if (virtualUmbrellaVes) {
       underConstructionCache.set(umbrellaPath, virtualUmbrellaVes);
+      syncAuxData(underConstructionAux, umbrellaPath, virtualUmbrellaVes.get());
       virtualCache = underConstructionCache;
+      virtualAux = underConstructionAux;
     } else {
       underConstructionCache.set(umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
+      syncAuxData(underConstructionAux, umbrellaPath, store.umbrellaVisualElement.get());
+
       currentVesCache = underConstructionCache;
       currentVessVsDisplayId = underConstructionVesVsDisplayItemId;
       currentTopTitledPages = underConstructionTopTitledPages;
       currentWatchContainerUidsByOrigin = underConstructionWatchContainerUidsByOrigin;
+      currentAux = underConstructionAux;
+
       store.topTitledPages.set(currentTopTitledPages);
       logOrphanedVes(currentVesCache, "full_finalizeArrange");
       logArrangeStats();
@@ -188,6 +243,8 @@ export let VesCache = {
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     underConstructionTopTitledPages = [];
     underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
+    underConstructionAux = createEmptyAuxData();
+
     currentlyInFullArrange = false;
   },
 
@@ -214,6 +271,7 @@ export let VesCache = {
   partial_create: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
     currentVesCache.set(path, newElement);
+    syncAuxData(currentAux, path, newElement.get());
     if (isContainer(visualElementOverride.displayItem) &&
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
@@ -281,9 +339,11 @@ export let VesCache = {
       throw "vesToOverwrite did not exist";
     }
     deleteFromVessVsDisplayIdLookup(existingPath);
+    deleteAuxData(currentAux, existingPath);
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
     currentVesCache.set(newPath, vesToOverwrite);
+    syncAuxData(currentAux, newPath, vesToOverwrite.get());
     if (isContainer(visualElementOverride.displayItem) &&
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
@@ -369,6 +429,7 @@ export let VesCache = {
       }
     }
     if (!currentVesCache.delete(path)) { panic(`item ${path} is not in ves cache.`); }
+    deleteAuxData(currentAux, path);
     deleteFromVessVsDisplayIdLookup(path);
   },
 
@@ -390,6 +451,34 @@ export let VesCache = {
 
   pushTopTitledPage: (vePath: VisualElementPath) => {
     underConstructionTopTitledPages.push(vePath);
+  },
+
+  getDisplayItemFingerprint: (path: VisualElementPath): string | undefined => {
+    return currentAux.displayItemFingerprint.get(path);
+  },
+
+  getAttachmentsVes: (path: VisualElementPath): Array<VisualElementSignal> | undefined => {
+    return currentAux.attachmentsVes.get(path);
+  },
+
+  getPopupVes: (path: VisualElementPath): VisualElementSignal | null | undefined => {
+    return currentAux.popupVes.get(path);
+  },
+
+  getSelectedVes: (path: VisualElementPath): VisualElementSignal | null | undefined => {
+    return currentAux.selectedVes.get(path);
+  },
+
+  getDockVes: (path: VisualElementPath): VisualElementSignal | null | undefined => {
+    return currentAux.dockVes.get(path);
+  },
+
+  getChildrenVes: (path: VisualElementPath): Array<VisualElementSignal> | undefined => {
+    return currentAux.childrenVes.get(path);
+  },
+
+  getTableVesRows: (path: VisualElementPath): Array<number> | null | undefined => {
+    return currentAux.tableVesRows.get(path);
   },
 }
 
@@ -433,6 +522,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       logDirtyReason("fingerprint");
       underConstructionCache.set(path, existing);
+      syncAuxData(underConstructionAux, path, existing.get());
       addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
     }
@@ -450,6 +540,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       arrangeStats.new++; // This creates a new signal rather than recycling
       const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
       underConstructionCache.set(path, newElement);
+      syncAuxData(underConstructionAux, path, newElement.get());
       addVesVsDisplayItem(newElement.get().displayItem.id, path);
       return newElement;
     }
@@ -559,6 +650,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       if (debug) { console.debug("not dirty:", path); }
       arrangeStats.recycled++;
       underConstructionCache.set(path, existing);
+      syncAuxData(underConstructionAux, path, existing.get());
       addVesVsDisplayItem(existingVe.displayItem.id, path);
       return existing;
     }
@@ -568,6 +660,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
     // Recycle the existing visual element
     existing.set(VeFns.create(visualElementOverride));
     underConstructionCache.set(path, existing);
+    syncAuxData(underConstructionAux, path, existing.get());
     addVesVsDisplayItem(existing.get().displayItem.id, path);
     return existing;
   }
@@ -576,6 +669,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
   arrangeStats.new++;
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
   underConstructionCache.set(path, newElement);
+  syncAuxData(underConstructionAux, path, newElement.get());
   addVesVsDisplayItem(newElement.get().displayItem.id, path);
   return newElement;
 }
