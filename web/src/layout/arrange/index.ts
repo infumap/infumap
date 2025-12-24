@@ -23,7 +23,7 @@ import { itemState } from "../../store/ItemState";
 import { getPanickedMessage } from "../../util/lang";
 import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElementCreateParams, VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { ItemGeometry } from "../item-geometry";
@@ -73,7 +73,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   const umbrellaPageItem = PageFns.umbrellaPage();
   const umbrellaPath = umbrellaPageItem.id;
 
-  const umbrellaVeSpec: VisualElementSpec = {
+  const umbrellaVeSpec: VisualElementCreateParams = {
     displayItem: umbrellaPageItem,
     linkItemMaybe: null,
     actualLinkItemMaybe: null,

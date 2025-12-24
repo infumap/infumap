@@ -293,13 +293,15 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 
 /**
  * Specification for a visual element to be created.
+ * 
+ * This interface contains only fields that are stored directly on the VisualElement object.
+ * For relationship/hierarchy data (children, attachments, popups, etc.), see VisualElementRelationships.
  */
 export interface VisualElementSpec {
   displayItem: Item,
   displayItemFingerprint?: string,
   linkItemMaybe?: LinkItem | null,
   actualLinkItemMaybe?: LinkItem | null,
-  focusedChildItemMaybe?: Item | null,
   flags?: VisualElementFlags,
   _arrangeFlags_useForPartialRearrangeOnly?: ArrangeItemFlags,
   boundsPx: BoundingBox,
@@ -316,15 +318,37 @@ export interface VisualElementSpec {
   numRows?: number,
   hitboxes?: Array<Hitbox>,
   parentPath?: VisualElementPath,
+}
 
+/**
+ * Specification for a visual element's relationships (children, attachments, popups, etc.).
+ * 
+ * These fields are managed by VesCache, not stored directly on the VisualElement object.
+ * This separation clarifies that VisualElement contains the element's own properties,
+ * while VesCache manages the hierarchical relationships between elements.
+ */
+export interface VisualElementRelationships {
   childrenVes?: Array<VisualElementSignal>,
   tableVesRows?: Array<number>,
   attachmentsVes?: Array<VisualElementSignal>,
   popupVes?: VisualElementSignal | null,
-  selectedVes?: VisualElementSignal | null, // moved to VesCache but kept in spec for init
+  selectedVes?: VisualElementSignal | null,
   dockVes?: VisualElementSignal | null,
+  focusedChildItemMaybe?: Item | null,
 }
 
+/**
+ * Combined type for creating visual elements.
+ * 
+ * This type combines VisualElementSpec (properties stored on VisualElement) with
+ * VisualElementRelationships (properties managed by VesCache). The separation into
+ * two interfaces documents the conceptual difference:
+ * - VisualElementSpec: The element's own properties (geometry, flags, etc.)
+ * - VisualElementRelationships: Hierarchical relationships (children, attachments, etc.)
+ * 
+ * VesCache functions accept this combined type for convenience during arrangement.
+ */
+export type VisualElementCreateParams = VisualElementSpec & VisualElementRelationships;
 
 export const VeFns = {
 

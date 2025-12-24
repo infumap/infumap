@@ -31,13 +31,13 @@ import { VisualElementSignal } from "../../util/signals";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../load";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 
 
 export const renderDockMaybe = (
-    store: StoreContextModel,
-    parentPath: VisualElementPath): VisualElementSignal | null => {
+  store: StoreContextModel,
+  parentPath: VisualElementPath): VisualElementSignal | null => {
 
   if (store.user.getUserMaybe() == null) {
     return null;
@@ -66,7 +66,7 @@ export const renderDockMaybe = (
 
   let yCurrentPx = 0;
   const dockChildren = [];
-  for (let i=0; i<dockPage.computed_children.length; ++i) {
+  for (let i = 0; i < dockPage.computed_children.length; ++i) {
     const childId = dockPage.computed_children[i];
     const childItem = itemState.get(childId)!;
     const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
@@ -123,8 +123,8 @@ export const renderDockMaybe = (
   }
 
   let trashHeightPx = 50;
-  if (dockWidthPx - DOCK_GAP_PX*2 < trashHeightPx) {
-    trashHeightPx = dockWidthPx - DOCK_GAP_PX*2;
+  if (dockWidthPx - DOCK_GAP_PX * 2 < trashHeightPx) {
+    trashHeightPx = dockWidthPx - DOCK_GAP_PX * 2;
     if (trashHeightPx < 0) { trashHeightPx = 0; }
   }
 
@@ -138,7 +138,7 @@ export const renderDockMaybe = (
   resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
   resizeBoundsPx.x = dockWidthPx - RESIZE_BOX_SIZE_PX;
 
-  const dockVisualElementSpec: VisualElementSpec = {
+  const dockVisualElementSpec: VisualElementCreateParams = {
     displayItem: dockPage,
     linkItemMaybe: null,
     flags: VisualElementFlags.IsDock | VisualElementFlags.ShowChildren,
@@ -160,7 +160,7 @@ export const renderDockMaybe = (
     const trashBoundsPx = {
       x: DOCK_GAP_PX,
       y: store.desktopBoundsPx().h - trashHeightPx - DOCK_GAP_PX * 2,
-      w: dockWidthPx - DOCK_GAP_PX*2,
+      w: dockWidthPx - DOCK_GAP_PX * 2,
       h: trashHeightPx,
     }
     const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
@@ -178,7 +178,7 @@ export const renderDockMaybe = (
     };
 
     if (dockWidthPx > 25) {
-      const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null}, dockPath);
+      const trashPath = VeFns.addVeidToPath({ itemId: trashPage.id, linkIdMaybe: null }, dockPath);
       dockChildren.push(VesCache.full_createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
     }
   }
@@ -189,7 +189,7 @@ export const renderDockMaybe = (
 export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel, dockItem: PageItem, movingItem: Item, dockWidthPx: number, desktopYPx: number): IndexAndPosition {
   let positionIndex = 0;
   let yCurrentPx = 0;
-  for (let i=0; i<dockItem.computed_children.length; ++i) {
+  for (let i = 0; i < dockItem.computed_children.length; ++i) {
     positionIndex = i;
     const childId = dockItem.computed_children[i];
     const childItem = itemState.get(childId)!;

@@ -21,7 +21,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Item } from "../../items/base/item";
 import { asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
-import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns } from "../visual-element";
+import { VisualElementFlags, VisualElementCreateParams, VisualElementSpec, VisualElementPath, VeFns } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
@@ -43,36 +43,36 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 
 
 export enum ArrangeItemFlags {
-  None                       = 0x000,
-  IsTopRoot                  = 0x001,
-  IsPopupRoot                = 0x002,
-  IsListPageMainRoot         = 0x008,
-  IsEmbeddedInteractiveRoot  = 0x010,
-  IsDockRoot                 = 0x020,
-  ParentIsPopup              = 0x040,
-  IsMoving                   = 0x080,
-  RenderChildrenAsFull       = 0x100,
-  RenderAsOutline            = 0x200,
-  InsideCompositeOrDoc       = 0x400,
+  None = 0x000,
+  IsTopRoot = 0x001,
+  IsPopupRoot = 0x002,
+  IsListPageMainRoot = 0x008,
+  IsEmbeddedInteractiveRoot = 0x010,
+  IsDockRoot = 0x020,
+  ParentIsPopup = 0x040,
+  IsMoving = 0x080,
+  RenderChildrenAsFull = 0x100,
+  RenderAsOutline = 0x200,
+  InsideCompositeOrDoc = 0x400,
 }
 
 export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
   return !!(flags & ArrangeItemFlags.IsTopRoot |
-            flags & ArrangeItemFlags.IsPopupRoot |
-            flags & ArrangeItemFlags.IsListPageMainRoot |
-            flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
-            flags & ArrangeItemFlags.IsDockRoot);
+    flags & ArrangeItemFlags.IsPopupRoot |
+    flags & ArrangeItemFlags.IsListPageMainRoot |
+    flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
+    flags & ArrangeItemFlags.IsDockRoot);
 }
 
 
 export const arrangeItem = (
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    parentArrangeAlgorithm: string,
-    itemWhichMightBeLink: Item,
-    actualLinkItemMaybe: LinkItem | null,
-    itemGeometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSignal => {
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  parentArrangeAlgorithm: string,
+  itemWhichMightBeLink: Item,
+  actualLinkItemMaybe: LinkItem | null,
+  itemGeometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementSignal => {
 
   if (flags & ArrangeItemFlags.IsPopupRoot && !isLink(itemWhichMightBeLink)) { panic("arrangeItem: popup isn't a link."); }
 
@@ -135,13 +135,13 @@ export const arrangeItem = (
 }
 
 export const arrangeItemNoChildren = (
-    store: StoreContextModel,
-    parentVePath: VisualElementPath,
-    displayItem: Item,
-    linkItemMaybe: LinkItem | null,
-    actualLinkItemMaybe: LinkItem | null,
-    itemGeometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSignal => {
+  store: StoreContextModel,
+  parentVePath: VisualElementPath,
+  displayItem: Item,
+  linkItemMaybe: LinkItem | null,
+  actualLinkItemMaybe: LinkItem | null,
+  itemGeometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementSignal => {
   const currentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), parentVePath);
 
   if (displayItem == null) { panic("displayItem == null is unexpected"); }
@@ -149,16 +149,16 @@ export const arrangeItemNoChildren = (
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === currentVePath;
 
-  const itemVisualElement: VisualElementSpec = {
+  const itemVisualElement: VisualElementCreateParams = {
     displayItem,
     linkItemMaybe,
     actualLinkItemMaybe,
     flags: (flags & ArrangeItemFlags.RenderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
-           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
-           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+      (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
+      (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: itemGeometry.boundsPx,
     blockSizePx: itemGeometry.blockSizePx,
@@ -170,7 +170,7 @@ export const arrangeItemNoChildren = (
     const sel = store.overlay.selectedVeids.get();
     if (!sel || sel.length === 0) { return false; }
     const veid = VeFns.veidFromItems(displayItem, actualLinkItemMaybe);
-    for (let i=0; i<sel.length; ++i) {
+    for (let i = 0; i < sel.length; ++i) {
       if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
     }
     return false;

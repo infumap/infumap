@@ -25,7 +25,7 @@ import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
 import { HitboxFns } from "./hitbox";
-import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementSpec } from "./visual-element";
+import { VeFns, Veid, VisualElement, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "./visual-element";
 
 /*
   Explanation:
@@ -245,22 +245,15 @@ let currentAux = createEmptyAuxData();
 let virtualAux = createEmptyAuxData();
 let underConstructionAux = createEmptyAuxData();
 
-function syncAuxData(aux: VesAuxData, path: VisualElementPath, ve: VisualElement, spec: VisualElementSpec | null) {
+function syncAuxData(aux: VesAuxData, path: VisualElementPath, ve: VisualElement, relationships: VisualElementRelationships | null) {
   aux.displayItemFingerprint.set(path, ve.displayItemFingerprint);
-  // attachmentsVes is no longer on VisualElement, read from spec
-  aux.attachmentsVes.set(path, spec?.attachmentsVes ?? []);
-  // popupVes is no longer on VisualElement, read from spec (or default null)
-  aux.popupVes.set(path, spec?.popupVes ?? null);
-  // selectedVes is no longer on VisualElement, read from spec
-  aux.selectedVes.set(path, spec?.selectedVes ?? null);
-  // dockVes is no longer on VisualElement, read from spec
-  aux.dockVes.set(path, spec?.dockVes ?? null);
-  // childrenVes is no longer on VisualElement, read from spec
-  aux.childrenVes.set(path, spec?.childrenVes ?? []);
-  // tableVesRows is no longer on VisualElement, read from spec
-  aux.tableVesRows.set(path, spec?.tableVesRows ?? null);
-  // focusedChildItemMaybe is no longer on VisualElement, read from spec
-  aux.focusedChildItemMaybe.set(path, spec?.focusedChildItemMaybe ?? null);
+  aux.attachmentsVes.set(path, relationships?.attachmentsVes ?? []);
+  aux.popupVes.set(path, relationships?.popupVes ?? null);
+  aux.selectedVes.set(path, relationships?.selectedVes ?? null);
+  aux.dockVes.set(path, relationships?.dockVes ?? null);
+  aux.childrenVes.set(path, relationships?.childrenVes ?? []);
+  aux.tableVesRows.set(path, relationships?.tableVesRows ?? null);
+  aux.focusedChildItemMaybe.set(path, relationships?.focusedChildItemMaybe ?? null);
 }
 
 function deleteAuxData(aux: VesAuxData, path: VisualElementPath) {
@@ -389,7 +382,7 @@ export let VesCache = {
     resetArrangeStats();
   },
 
-  full_finalizeArrange: (store: StoreContextModel, umbrellaVeSpec: VisualElementSpec, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
+  full_finalizeArrange: (store: StoreContextModel, umbrellaVeSpec: VisualElementCreateParams, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
     if (umbrellaVeSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
     umbrellaVeSpec.displayItemFingerprint = ItemFns.getFingerprint(umbrellaVeSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
 
@@ -518,14 +511,14 @@ export let VesCache = {
    * The entire cache should cleared on page change (since there will be little or no overlap anyway).
    * This is achieved using initFullArrange and finalizeFullArrange methods.
    */
-  full_createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
+  full_createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementCreateParams, path: VisualElementPath): VisualElementSignal => {
     return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
   },
 
   /**
    * Create a new VisualElementSignal and insert it into the current cache.
    */
-  partial_create: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
+  partial_create: (visualElementOverride: VisualElementCreateParams, path: VisualElementPath): VisualElementSignal => {
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
     currentVesCache.set(path, newElement);
     syncAuxData(currentAux, path, newElement.get(), visualElementOverride);
@@ -571,7 +564,7 @@ export let VesCache = {
    *
    * TODO (HIGH): should also delete children..., though this is never used
    */
-  partial_overwriteVisualElementSignal: (visualElementOverride: VisualElementSpec, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
+  partial_overwriteVisualElementSignal: (visualElementOverride: VisualElementCreateParams, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
 
@@ -800,7 +793,7 @@ export let VesCache = {
 }
 
 
-function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal {
+function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualElementCreateParams, path: VisualElementPath): VisualElementSignal {
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 

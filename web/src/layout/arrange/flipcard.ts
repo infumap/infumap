@@ -28,20 +28,20 @@ import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { arrangeItem, ArrangeItemFlags } from "./item";
 
 
 export const arrangeFlipCard = (
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_flipCard: FlipCardItem,
-    linkItemMaybe_flipCard: LinkItem | null,
-    actualLinkItemMaybe_flipCard: LinkItem | null,
-    geometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSignal => {
-  let flipCardVisualElementSpec: VisualElementSpec;
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_flipCard: FlipCardItem,
+  linkItemMaybe_flipCard: LinkItem | null,
+  actualLinkItemMaybe_flipCard: LinkItem | null,
+  geometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementSignal => {
+  let flipCardVisualElementSpec: VisualElementCreateParams;
 
   const flipCardVeid = VeFns.veidFromItems(displayItem_flipCard, linkItemMaybe_flipCard ? linkItemMaybe_flipCard : actualLinkItemMaybe_flipCard);
   const flipCardVePath = VeFns.addVeidToPath(flipCardVeid, parentPath);
@@ -71,7 +71,7 @@ export const arrangeFlipCard = (
 
     const pageBoundsPx = zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!);
 
-    let pageVisualElementSpec: VisualElementSpec = {
+    let pageVisualElementSpec: VisualElementCreateParams = {
       displayItem: visiblePage,
       linkItemMaybe: null,
       actualLinkItemMaybe: null,
@@ -85,7 +85,7 @@ export const arrangeFlipCard = (
     };
 
     const childrenVes = [];
-    for (let i=0; i<visiblePage.computed_children.length; ++i) {
+    for (let i = 0; i < visiblePage.computed_children.length; ++i) {
       const childId = visiblePage.computed_children[i];
       const childItem = itemState.get(childId)!;
       const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;

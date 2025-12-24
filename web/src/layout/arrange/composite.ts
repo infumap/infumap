@@ -33,7 +33,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags } from "./item";
 import { arrangePageWithChildren } from "./page";
@@ -42,13 +42,13 @@ import { getVePropertiesForItem } from "./util";
 
 
 export const arrangeComposite = (
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_Composite: CompositeItem,
-    linkItemMaybe_Composite: LinkItem | null,
-    actualLinkItemMaybe_Composite: LinkItem | null,
-    compositeGeometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSignal => {
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_Composite: CompositeItem,
+  linkItemMaybe_Composite: LinkItem | null,
+  actualLinkItemMaybe_Composite: LinkItem | null,
+  compositeGeometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementSignal => {
 
   const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
 
@@ -58,14 +58,14 @@ export const arrangeComposite = (
   };
   let childAreaBoundsPx = zeroBoundingBoxTopLeft(viewportBoundsPx);
 
-  const compositeVisualElementSpec: VisualElementSpec = {
+  const compositeVisualElementSpec: VisualElementCreateParams = {
     displayItem: displayItem_Composite,
     linkItemMaybe: linkItemMaybe_Composite,
     actualLinkItemMaybe: actualLinkItemMaybe_Composite,
     flags: VisualElementFlags.Detailed |
-          (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
+      (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: compositeGeometry.boundsPx,
     childAreaBoundsPx,
@@ -91,7 +91,7 @@ export const arrangeComposite = (
 
   let compositeVeChildren: Array<VisualElementSignal> = [];
   let topPx = 0.0;
-  for (let idx=0; idx<displayItem_Composite.computed_children.length; ++idx) {
+  for (let idx = 0; idx < displayItem_Composite.computed_children.length; ++idx) {
     const childId = displayItem_Composite.computed_children[idx];
     const childItem = itemState.get(childId)!;
 
@@ -123,14 +123,14 @@ export const arrangeComposite = (
 }
 
 function arrangeCompositeChildItem(
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_childItem: Item,
-    linkItemMaybe_childItem: LinkItem | null,
-    geometry: ItemGeometry,
-    idx: number,
-    blockSizePx: Dimensions,
-    compositeWidthBl: number): VisualElementSignal {
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_childItem: Item,
+  linkItemMaybe_childItem: LinkItem | null,
+  geometry: ItemGeometry,
+  idx: number,
+  blockSizePx: Dimensions,
+  compositeWidthBl: number): VisualElementSignal {
 
   if (isTable(displayItem_childItem)) {
     initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem));
@@ -161,12 +161,12 @@ function arrangeCompositeChildItem(
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === compositeChildVePath;
 
-  const compositeChildVeSpec: VisualElementSpec = {
+  const compositeChildVeSpec: VisualElementCreateParams = {
     displayItem: displayItem_childItem,
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
     flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed |
-           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+      (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: {
       x: geometry.boundsPx.x,

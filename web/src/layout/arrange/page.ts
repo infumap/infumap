@@ -24,7 +24,7 @@ import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementCreateParams, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags, arrangeFlagIsRoot } from "./item";
 import { arrange_calendar_page } from "./page_calendar";
@@ -36,15 +36,15 @@ import { arrange_spatial_page } from "./page_spatial";
 import { arrange_single_cell_page } from "./page_singleCell";
 
 export const arrangePageWithChildren = (
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_pageWithChildren: PageItem,
-    linkItemMaybe_pageWithChildren: LinkItem | null,
-    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
-    geometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSignal => {
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_pageWithChildren: PageItem,
+  linkItemMaybe_pageWithChildren: LinkItem | null,
+  actualLinkItemMaybe_pageWithChildren: LinkItem | null,
+  geometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementSignal => {
 
-  let pageWithChildrenVisualElementSpec: VisualElementSpec;
+  let pageWithChildrenVisualElementSpec: VisualElementCreateParams;
 
   const arrangeAlgOverride = linkItemMaybe_pageWithChildren?.overrideArrangeAlgorithm || null;
   const effectiveArrange = arrangeAlgOverride || displayItem_pageWithChildren.arrangeAlgorithm;
