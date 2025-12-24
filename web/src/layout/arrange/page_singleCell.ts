@@ -29,7 +29,7 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeFlagIsRoot, arrangeItem, ArrangeItemFlags } from "./item";
 import { arrangeCellPopup } from "./popup";
 
@@ -40,9 +40,9 @@ export function arrange_single_cell_page(
   linkItemMaybe_pageWithChildren: LinkItem | null,
   actualLinkItemMaybe_pageWithChildren: LinkItem | null,
   geometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementCreateParams {
+  flags: ArrangeItemFlags): VisualElementSpec & VisualElementRelationships {
 
-  let pageWithChildrenVisualElementSpec: VisualElementCreateParams;
+  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);

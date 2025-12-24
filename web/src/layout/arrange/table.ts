@@ -38,7 +38,7 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElement, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags } from "./item";
@@ -82,7 +82,7 @@ export const arrangeTable = (
     return false;
   })();
 
-  const tableVisualElementSpec: VisualElementCreateParams = {
+  const tableVisualElementSpec: VisualElementSpec & VisualElementRelationships = {
     displayItem: displayItem_Table,
     linkItemMaybe: linkItemMaybe_Table,
     actualLinkItemMaybe: actualLinkItemMaybe_Table,
@@ -488,7 +488,7 @@ function createRow(
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === tableChildVePath;
 
-  const tableChildVeSpec: VisualElementCreateParams = {
+  const tableChildVeSpec: VisualElementSpec & VisualElementRelationships = {
     displayItem: displayItem_childItem,
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,

@@ -24,7 +24,7 @@ import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementCreateParams, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags, arrangeFlagIsRoot } from "./item";
 import { arrange_calendar_page } from "./page_calendar";
@@ -44,7 +44,7 @@ export const arrangePageWithChildren = (
   geometry: ItemGeometry,
   flags: ArrangeItemFlags): VisualElementSignal => {
 
-  let pageWithChildrenVisualElementSpec: VisualElementCreateParams;
+  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
 
   const arrangeAlgOverride = linkItemMaybe_pageWithChildren?.overrideArrangeAlgorithm || null;
   const effectiveArrange = arrangeAlgOverride || displayItem_pageWithChildren.arrangeAlgorithm;

@@ -21,7 +21,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Item } from "../../items/base/item";
 import { asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
-import { VisualElementFlags, VisualElementCreateParams, VisualElementSpec, VisualElementPath, VeFns } from "../visual-element";
+import { VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, VeFns } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
@@ -149,7 +149,7 @@ export const arrangeItemNoChildren = (
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === currentVePath;
 
-  const itemVisualElement: VisualElementCreateParams = {
+  const itemVisualElement: VisualElementSpec & VisualElementRelationships = {
     displayItem,
     linkItemMaybe,
     actualLinkItemMaybe,

@@ -337,18 +337,7 @@ export interface VisualElementRelationships {
   focusedChildItemMaybe?: Item | null,
 }
 
-/**
- * Combined type for creating visual elements.
- * 
- * This type combines VisualElementSpec (properties stored on VisualElement) with
- * VisualElementRelationships (properties managed by VesCache). The separation into
- * two interfaces documents the conceptual difference:
- * - VisualElementSpec: The element's own properties (geometry, flags, etc.)
- * - VisualElementRelationships: Hierarchical relationships (children, attachments, etc.)
- * 
- * VesCache functions accept this combined type for convenience during arrangement.
- */
-export type VisualElementCreateParams = VisualElementSpec & VisualElementRelationships;
+
 
 export const VeFns = {
 

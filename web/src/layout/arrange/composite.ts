@@ -33,7 +33,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags } from "./item";
 import { arrangePageWithChildren } from "./page";
@@ -58,7 +58,7 @@ export const arrangeComposite = (
   };
   let childAreaBoundsPx = zeroBoundingBoxTopLeft(viewportBoundsPx);
 
-  const compositeVisualElementSpec: VisualElementCreateParams = {
+  const compositeVisualElementSpec: VisualElementSpec & VisualElementRelationships = {
     displayItem: displayItem_Composite,
     linkItemMaybe: linkItemMaybe_Composite,
     actualLinkItemMaybe: actualLinkItemMaybe_Composite,
@@ -161,7 +161,7 @@ function arrangeCompositeChildItem(
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === compositeChildVePath;
 
-  const compositeChildVeSpec: VisualElementCreateParams = {
+  const compositeChildVeSpec: VisualElementSpec & VisualElementRelationships = {
     displayItem: displayItem_childItem,
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,

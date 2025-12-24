@@ -28,7 +28,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { arrangeItem, ArrangeItemFlags } from "./item";
 
@@ -41,7 +41,7 @@ export const arrangeFlipCard = (
   actualLinkItemMaybe_flipCard: LinkItem | null,
   geometry: ItemGeometry,
   flags: ArrangeItemFlags): VisualElementSignal => {
-  let flipCardVisualElementSpec: VisualElementCreateParams;
+  let flipCardVisualElementSpec: VisualElementSpec & VisualElementRelationships;
 
   const flipCardVeid = VeFns.veidFromItems(displayItem_flipCard, linkItemMaybe_flipCard ? linkItemMaybe_flipCard : actualLinkItemMaybe_flipCard);
   const flipCardVePath = VeFns.addVeidToPath(flipCardVeid, parentPath);
@@ -71,7 +71,7 @@ export const arrangeFlipCard = (
 
     const pageBoundsPx = zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!);
 
-    let pageVisualElementSpec: VisualElementCreateParams = {
+    let pageVisualElementSpec: VisualElementSpec & VisualElementRelationships = {
       displayItem: visiblePage,
       linkItemMaybe: null,
       actualLinkItemMaybe: null,

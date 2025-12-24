@@ -31,7 +31,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../load";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementCreateParams, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 
 
@@ -138,7 +138,7 @@ export const renderDockMaybe = (
   resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
   resizeBoundsPx.x = dockWidthPx - RESIZE_BOX_SIZE_PX;
 
-  const dockVisualElementSpec: VisualElementCreateParams = {
+  const dockVisualElementSpec: VisualElementSpec & VisualElementRelationships = {
     displayItem: dockPage,
     linkItemMaybe: null,
     flags: VisualElementFlags.IsDock | VisualElementFlags.ShowChildren,
