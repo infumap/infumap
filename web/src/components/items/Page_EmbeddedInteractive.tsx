@@ -19,6 +19,7 @@
 import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { VesCache } from "../../layout/ves-cache";
 import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -160,11 +161,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <For each={pageFns().desktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
-      <Show when={props.visualElement.selectedVes != null && props.visualElement.selectedVes.get() != null}>
-        <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
+      <Show when={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
+        <VisualElement_Desktop visualElement={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get()} />
       </Show>
-      <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
-        <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
+      <Show when={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
+        <VisualElement_Desktop visualElement={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get()!} />
       </Show>
     </div>;
 
@@ -186,11 +187,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
-        <For each={props.visualElement.childrenVes}>{childVes =>
+        <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
-        <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
-          <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
+        <Show when={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
+          <VisualElement_Desktop visualElement={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get()!} />
         </Show>
         <Show when={isPage(VeFns.treeItem(props.visualElement)) && asPageItem(VeFns.treeItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
           <>

@@ -145,7 +145,7 @@ export let MouseActionState = {
         if (!parentPath) { return null; }
         const parentSignal = VesCache.get(parentPath);
         if (!parentSignal) { return null; }
-        const child = parentSignal.get().childrenVes.find(childSignal => {
+        const child = VesCache.getChildrenVes(VeFns.veToPath(parentSignal.get()))().find(childSignal => {
           const childVeid = VeFns.veidFromVe(childSignal.get());
           return childVeid.itemId === veid.itemId && childVeid.linkIdMaybe === veid.linkIdMaybe;
         });

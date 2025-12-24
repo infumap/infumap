@@ -105,16 +105,16 @@ export function offsetBoundingBoxTopLeftBy(boundingBox: BoundingBox, offset: Vec
 
 export function isInside(point: Vector, boundingBox: BoundingBox): boolean {
   return point.x > boundingBox.x &&
-         point.x < boundingBox.x + boundingBox.w &&
-         point.y > boundingBox.y &&
-         point.y < boundingBox.y + boundingBox.h;
+    point.x < boundingBox.x + boundingBox.w &&
+    point.y > boundingBox.y &&
+    point.y < boundingBox.y + boundingBox.h;
 }
 
 export function rectsIntersect(a: BoundingBox, b: BoundingBox): boolean {
   return !(a.x + a.w <= b.x ||
-           b.x + b.w <= a.x ||
-           a.y + a.h <= b.y ||
-           b.y + b.h <= a.y);
+    b.x + b.w <= a.x ||
+    a.y + a.h <= b.y ||
+    b.y + b.h <= a.y);
 }
 
 export interface Vector {
@@ -178,5 +178,5 @@ export function vectorAdd(a: Vector, b: Vector): Vector {
 }
 
 export function vectorDistance(a: Vector, b: Vector): number {
-  return Math.sqrt((a.x-b.x) * (a.x-b.x) + (a.y-b.y)*(a.y-b.y));
+  return Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 }

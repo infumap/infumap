@@ -71,7 +71,7 @@ export function findInVisualElements(store: StoreContextModel, findText: string)
       matches.push(path);
     }
   };
-  
+
   const traverseVe = (ve: any) => {
     const path = VeFns.veToPath(ve);
     addMatchIfFound(path);
@@ -82,22 +82,27 @@ export function findInVisualElements(store: StoreContextModel, findText: string)
       }
     }
 
-    if (ve.attachmentsVes) {
-      for (const attachmentVes of ve.attachmentsVes) {
+    const attachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(ve))();
+    if (attachmentsVes) {
+      for (const attachmentVes of attachmentsVes) {
         traverseVe(attachmentVes.get());
       }
     }
 
-    if (ve.popupVes) {
-      traverseVe(ve.popupVes.get());
+    const popupVes = VesCache.getPopupVes(VeFns.veToPath(ve))();
+    if (popupVes) {
+      traverseVe(popupVes.get());
     }
 
-    if (ve.selectedVes) {
-      traverseVe(ve.selectedVes.get());
+    // traverse selectedVes
+    const selectedVes = VesCache.getSelectedVes(VeFns.veToPath(ve))();
+    if (selectedVes) {
+      traverseVe(selectedVes.get());
     }
 
-    if (ve.dockVes) {
-      traverseVe(ve.dockVes.get());
+    const dockVes = VesCache.getDockVes(VeFns.veToPath(ve))();
+    if (dockVes) {
+      traverseVe(dockVes.get());
     }
   };
 
@@ -107,12 +112,12 @@ export function findInVisualElements(store: StoreContextModel, findText: string)
   return matches;
 }
 
-export function findInTableDirectChildren(tableItem: any, findText: string): Array<{itemId: Uid, rowIndex: number}> {
+export function findInTableDirectChildren(tableItem: any, findText: string): Array<{ itemId: Uid, rowIndex: number }> {
   if (!findText || findText.trim() === "") {
     return [];
   }
 
-  const matches: Array<{itemId: Uid, rowIndex: number}> = [];
+  const matches: Array<{ itemId: Uid, rowIndex: number }> = [];
   const searchLower = findText.toLowerCase();
 
   for (let i = 0; i < tableItem.computed_children.length; i++) {
@@ -122,7 +127,7 @@ export function findInTableDirectChildren(tableItem: any, findText: string): Arr
     if (child && isTitledItem(child)) {
       const title = asTitledItem(child).title;
       if (title.toLowerCase().includes(searchLower)) {
-        matches.push({itemId: childId, rowIndex: i});
+        matches.push({ itemId: childId, rowIndex: i });
       }
     }
   }
@@ -320,7 +325,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
 
       const tableItem = asTableItem(parentVe.displayItem);
       const tableVeid = VeFns.veidFromVe(parentVe);
-      const sizeBl = parentVe.linkItemMaybe 
+      const sizeBl = parentVe.linkItemMaybe
         ? { h: parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE }
         : { h: tableItem.spatialHeightGr / GRID_SIZE };
       const showColHeader = !!(tableItem.flags & TableFlags.ShowColHeader);

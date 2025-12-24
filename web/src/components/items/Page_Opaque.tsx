@@ -22,6 +22,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElement_Desktop } from "../VisualElement";
+import { VesCache } from "../../layout/ves-cache";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { useStore } from "../../store/StoreProvider";
@@ -40,16 +41,16 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const renderBoxTitle = () =>
     <div id={VeFns.veToPath(props.visualElement) + ":title"}
-         class={`flex font-bold text-white`}
-         style={`left: ${pageFns().boundsPx().x}px; ` +
-                `top: ${pageFns().boundsPx().y}px; ` +
-                `width: ${pageFns().boundsPx().w}px; ` +
-                `height: ${pageFns().boundsPx().h}px;` +
-                `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
-                `justify-content: center; align-items: center; text-align: center;` +
-                `outline: 0px solid transparent;`}
-          contentEditable={store.overlay.textEditInfo() != null}
-          spellcheck={store.overlay.textEditInfo() != null}>
+      class={`flex font-bold text-white`}
+      style={`left: ${pageFns().boundsPx().x}px; ` +
+        `top: ${pageFns().boundsPx().y}px; ` +
+        `width: ${pageFns().boundsPx().w}px; ` +
+        `height: ${pageFns().boundsPx().h}px;` +
+        `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
+        `justify-content: center; align-items: center; text-align: center;` +
+        `outline: 0px solid transparent;`}
+      contentEditable={store.overlay.textEditInfo() != null}
+      spellcheck={store.overlay.textEditInfo() != null}>
       {appendNewlineIfEmpty(pageFns().pageItem().title)}
     </div>;
 
@@ -58,13 +59,13 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
       <>
         <Show when={!pageFns().isInComposite()}>
           <div class={`absolute rounded-xs`}
-               style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
-                      `background-color: #ffffff33;`} />
+            style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
+              `background-color: #ffffff33;`} />
         </Show>
         <Show when={pageFns().hasPopupClickBoundsPx()}>
           <div class={`absolute rounded-xs`}
-               style={`left: ${pageFns().popupClickBoundsPx()!.x}px; top: ${pageFns().popupClickBoundsPx()!.y}px; width: ${pageFns().popupClickBoundsPx()!.w}px; height: ${pageFns().popupClickBoundsPx()!.h}px; ` +
-                      `background-color: ${pageFns().isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
+            style={`left: ${pageFns().popupClickBoundsPx()!.x}px; top: ${pageFns().popupClickBoundsPx()!.y}px; width: ${pageFns().popupClickBoundsPx()!.w}px; height: ${pageFns().popupClickBoundsPx()!.h}px; ` +
+              `background-color: ${pageFns().isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
         </Show>
       </>
     </Show>;
@@ -72,29 +73,29 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const renderMovingOverMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOver(pageFns().vePath())}>
       <div class={'absolute rounded-xs'}
-           style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
-                  'background-color: #ffffff33;'} />
+        style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
+          'background-color: #ffffff33;'} />
     </Show>;
 
   const renderMovingOverAttachMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOverAttach(pageFns().vePath())}>
       <div class={'absolute rounded-xs'}
-           style={`left: ${pageFns().attachBoundsPx().x}px; top: ${pageFns().attachBoundsPx().y}px; width: ${pageFns().attachBoundsPx().w}px; height: ${pageFns().attachBoundsPx().h}px; ` +
-                  'background-color: #ff0000;'} />
+        style={`left: ${pageFns().attachBoundsPx().x}px; top: ${pageFns().attachBoundsPx().y}px; width: ${pageFns().attachBoundsPx().w}px; height: ${pageFns().attachBoundsPx().h}px; ` +
+          'background-color: #ff0000;'} />
     </Show>;
 
   const renderMovingOverAttachCompositeMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOverAttachComposite(pageFns().vePath())}>
       <div class={`absolute rounded-xs`}
-           style={`left: ${pageFns().attachCompositeBoundsPx().x}px; top: ${pageFns().attachCompositeBoundsPx().y}px; width: ${pageFns().attachCompositeBoundsPx().w}px; height: ${pageFns().attachCompositeBoundsPx().h}px; ` +
-                  `background-color: ${FEATURE_COLOR_DARK};`} />
+        style={`left: ${pageFns().attachCompositeBoundsPx().x}px; top: ${pageFns().attachCompositeBoundsPx().y}px; width: ${pageFns().attachCompositeBoundsPx().w}px; height: ${pageFns().attachCompositeBoundsPx().h}px; ` +
+          `background-color: ${FEATURE_COLOR_DARK};`} />
     </Show>;
 
   const renderPopupSelectedOverlayMaybe = () =>
     <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || pageFns().isPoppedUp()}>
       <div class='absolute'
-           style={`left: ${pageFns().innerBoundsPx().x}px; top: ${pageFns().innerBoundsPx().y}px; width: ${pageFns().innerBoundsPx().w}px; height: ${pageFns().innerBoundsPx().h}px; ` +
-                  'background-color: #dddddd88;'} />
+        style={`left: ${pageFns().innerBoundsPx().x}px; top: ${pageFns().innerBoundsPx().y}px; width: ${pageFns().innerBoundsPx().w}px; height: ${pageFns().innerBoundsPx().h}px; ` +
+          'background-color: #dddddd88;'} />
     </Show>;
 
   const renderIsLinkMaybe = () =>
@@ -105,17 +106,17 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs shadow-xl overflow-hidden`}
-           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+          `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const renderHighlightMaybe = () =>
     <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
       <div class="absolute pointer-events-none rounded-xs"
-           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
-                  `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-                  `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-                  `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
+          `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+          `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+          `z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   return (
@@ -123,12 +124,12 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
       {renderShadowMaybe()}
       {renderHighlightMaybe()}
       <div class={`absolute border border-[#555] rounded-xs hover:shadow-md`}
-           style={`left: ${pageFns().boundsPx().x}px; ` +
-                  `top: ${pageFns().boundsPx().y}px; ` +
-                  `width: ${pageFns().boundsPx().w}px; ` +
-                  `height: ${pageFns().boundsPx().h}px; ` +
-                  `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.0)}; ` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        style={`left: ${pageFns().boundsPx().x}px; ` +
+          `top: ${pageFns().boundsPx().y}px; ` +
+          `width: ${pageFns().boundsPx().w}px; ` +
+          `height: ${pageFns().boundsPx().h}px; ` +
+          `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.0)}; ` +
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderBoxTitle()}
           {renderHoverOverMaybe()}
@@ -136,13 +137,13 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           {renderMovingOverAttachMaybe()}
           {renderMovingOverAttachCompositeMaybe()}
           {renderPopupSelectedOverlayMaybe()}
-          <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
+          <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           <Show when={pageFns().showMoveOutOfCompositeArea()}>
             <div class={`absolute rounded-xs`}
-                  style={`left: ${pageFns().moveOutOfCompositeBox().x}px; top: ${pageFns().moveOutOfCompositeBox().y}px; width: ${pageFns().moveOutOfCompositeBox().w}px; height: ${pageFns().moveOutOfCompositeBox().h}px; ` +
-                         `background-color: ${FEATURE_COLOR_DARK};`} />
+              style={`left: ${pageFns().moveOutOfCompositeBox().x}px; top: ${pageFns().moveOutOfCompositeBox().y}px; width: ${pageFns().moveOutOfCompositeBox().w}px; height: ${pageFns().moveOutOfCompositeBox().h}px; ` +
+                `background-color: ${FEATURE_COLOR_DARK};`} />
           </Show>
           {renderIsLinkMaybe()}
           <Show when={pageFns().showTriangleDetail()}>

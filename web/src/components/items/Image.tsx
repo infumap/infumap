@@ -22,6 +22,7 @@ import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { ImageFns, asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
+import { VesCache } from "../../layout/ves-cache";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
@@ -287,7 +288,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
           `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
           `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
-        <For each={props.visualElement.attachmentsVes}>{attachment =>
+        <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>

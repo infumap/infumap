@@ -20,29 +20,29 @@ import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geome
 
 
 export enum HitboxFlags {
-  None =                    0x000000,
-  Click =                   0x000001,
-  Move =                    0x000002,
-  Resize =                  0x000004,
-  OpenPopup =               0x000008,
-  Attach =                  0x000010,
-  HorizontalResize =        0x000020,
-  OpenAttachment =          0x000040,
-  AttachComposite =         0x000080,
-  AnchorChild =             0x000100,
-  ShiftLeft =               0x000200,
-  Settings =                0x000400,
-  TriangleLinkSettings =    0x000800,
-  ContentEditable =         0x001000,
-  Expand =                  0x002000,
-  TableColumnContextMenu =  0x004000,
-  VerticalResize =          0x008000,
-  Flip =                    0x010000,
-  TimedFlip =               0x020000,
-  Edit =                    0x040000,
-  ShowPointer =             0x080000,
-  CalendarOverflow =        0x100000,
-  AnchorDefault =           0x200000,
+  None = 0x000000,
+  Click = 0x000001,
+  Move = 0x000002,
+  Resize = 0x000004,
+  OpenPopup = 0x000008,
+  Attach = 0x000010,
+  HorizontalResize = 0x000020,
+  OpenAttachment = 0x000040,
+  AttachComposite = 0x000080,
+  AnchorChild = 0x000100,
+  ShiftLeft = 0x000200,
+  Settings = 0x000400,
+  TriangleLinkSettings = 0x000800,
+  ContentEditable = 0x001000,
+  Expand = 0x002000,
+  TableColumnContextMenu = 0x004000,
+  VerticalResize = 0x008000,
+  Flip = 0x010000,
+  TimedFlip = 0x020000,
+  Edit = 0x040000,
+  ShowPointer = 0x080000,
+  CalendarOverflow = 0x100000,
+  AnchorDefault = 0x200000,
 }
 
 export function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -89,10 +89,10 @@ export interface HitboxMeta {
 }
 
 export const HitboxFns = {
-  create: (type: HitboxFlags, boundsPx: BoundingBox, meta?: HitboxMeta ) => {
+  create: (type: HitboxFlags, boundsPx: BoundingBox, meta?: HitboxMeta) => {
     return ({ type, boundsPx, meta: (typeof meta !== 'undefined') ? meta : null });
   },
-  
+
   clone: (hitbox: Hitbox | null): Hitbox | null => {
     if (hitbox == null) { return null; }
     return {
@@ -101,30 +101,30 @@ export const HitboxFns = {
       meta: hitbox.meta == null ? null : Object.assign({}, hitbox.meta) as HitboxMeta
     };
   },
-  
+
   createMeta: (meta: HitboxMeta) => {
     let result: HitboxMeta = {};
-    if (typeof(meta.colNum) != 'undefined') {
+    if (typeof (meta.colNum) != 'undefined') {
       result.colNum = meta.colNum;
     }
-    if (typeof(meta.startBl) != 'undefined') {
+    if (typeof (meta.startBl) != 'undefined') {
       result.startBl = meta.startBl;
     }
-    if (typeof(meta.endBl) != 'undefined') {
+    if (typeof (meta.endBl) != 'undefined') {
       result.endBl = meta.endBl;
     }
-    if (typeof(meta.calendarYear) != 'undefined') {
+    if (typeof (meta.calendarYear) != 'undefined') {
       result.calendarYear = meta.calendarYear;
     }
-    if (typeof(meta.calendarMonth) != 'undefined') {
+    if (typeof (meta.calendarMonth) != 'undefined') {
       result.calendarMonth = meta.calendarMonth;
     }
-    if (typeof(meta.calendarDay) != 'undefined') {
+    if (typeof (meta.calendarDay) != 'undefined') {
       result.calendarDay = meta.calendarDay;
     }
     return result;
   },
-  
+
   compare: (a: Hitbox, b: Hitbox): number => {
     if (a.type != b.type) { return 1; }
     if (a.meta != b.meta) {
@@ -133,15 +133,15 @@ export const HitboxFns = {
     }
     return compareBoundingBox(a.boundsPx, b.boundsPx);
   },
-  
+
   ArrayCompare: (a: Array<Hitbox>, b: Array<Hitbox>): number => {
     if (a.length != b.length) { return 1; }
-    for (let i=0; i<a.length; ++i) {
+    for (let i = 0; i < a.length; ++i) {
       if (HitboxFns.compare(a[i], b[i]) == 1) { return 1; }
     }
     return 0;
   },
-  
+
   hitboxFlagsToString: (flags: HitboxFlags): string => {
     return hitboxFlagsToString(flags);
   },

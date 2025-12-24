@@ -185,8 +185,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           onscroll={listRootScrollHandler}>
           <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * effectiveScale}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
-              `border-right-width: ${props.visualElement.focusedChildItemMaybe == null ? 1 : 2}px;` +
-              `${props.visualElement.focusedChildItemMaybe == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';'}`}>
+              `border-right-width: ${VesCache.getFocusedChild(VeFns.veToPath(props.visualElement))() == null ? 1 : 2}px;` +
+              `${VesCache.getFocusedChild(VeFns.veToPath(props.visualElement))() == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(VesCache.getFocusedChild(VeFns.veToPath(props.visualElement))()!).backgroundColorIndex, BorderType.MainPage) + ';'}`}>
             <For each={pageFns().lineChildren()}>{childVe =>
               <VisualElement_LineItem visualElement={childVe.get()} />
             }</For>
@@ -196,11 +196,11 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={props.visualElement.selectedVes != null && props.visualElement.selectedVes.get() != null}>
-          <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()!} />
+        <Show when={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
+          <VisualElement_Desktop visualElement={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get()!} />
         </Show>
-        <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
-          <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
+        <Show when={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
+          <VisualElement_Desktop visualElement={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get()!} />
         </Show>
         {renderBorderOverlay()}
       </div>
@@ -329,7 +329,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           }}</For>
 
           {/* Render child items arranged in calendar grid */}
-          <For each={props.visualElement.childrenVes}>{childVes =>
+          <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+
             <VisualElement_LineItem visualElement={childVes.get()} />
           }</For>
 
@@ -377,8 +378,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             });
             return overlays;
           })()}
-          <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
-            <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
+          <Show when={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
+            <VisualElement_Desktop visualElement={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get()!} />
           </Show>
         </div>
         {renderBorderOverlay()}
@@ -405,11 +406,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
-        <For each={props.visualElement.childrenVes}>{childVes =>
+        <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
-        <Show when={props.visualElement.popupVes != null && props.visualElement.popupVes.get() != null}>
-          <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()!} />
+        <Show when={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
+          <VisualElement_Desktop visualElement={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get()!} />
         </Show>
         <Show when={pageFns().isDocumentPage()}>
           <>

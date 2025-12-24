@@ -828,9 +828,10 @@ function handleSelectionMouseUp(store: StoreContextModel) {
         }
       }
     }
-    for (const child of ve.childrenVes) { stack.push(VeFns.veToPath(child.get())); }
-    for (const att of ve.attachmentsVes) { stack.push(VeFns.veToPath(att.get())); }
-    if (ve.popupVes) { stack.push(VeFns.veToPath(ve.popupVes.get())); }
+    for (const child of VesCache.getChildrenVes(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
+    for (const att of VesCache.getAttachmentsVes(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
+    const popupVes = VesCache.getPopupVes(VeFns.veToPath(ve))();
+    if (popupVes) { stack.push(VeFns.veToPath(popupVes.get())); }
   }
   store.overlay.selectedVeids.set(selected);
   fullArrange(store);

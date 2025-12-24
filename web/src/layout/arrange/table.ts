@@ -36,22 +36,24 @@ import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
+
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
 export const arrangeTable = (
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_Table: TableItem,
-    linkItemMaybe_Table: LinkItem | null,
-    actualLinkItemMaybe_Table: LinkItem | null,
-    tableGeometry: ItemGeometry,
-    flags: ArrangeItemFlags,
-    widthBlOverride?: number): VisualElementSignal => {
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_Table: TableItem,
+  linkItemMaybe_Table: LinkItem | null,
+  actualLinkItemMaybe_Table: LinkItem | null,
+  tableGeometry: ItemGeometry,
+  flags: ArrangeItemFlags,
+  widthBlOverride?: number): VisualElementSignal => {
 
   let sizeBl = linkItemMaybe_Table
     ? { w: linkItemMaybe_Table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_Table!.spatialHeightGr / GRID_SIZE }
@@ -74,7 +76,7 @@ export const arrangeTable = (
     const sel = store.overlay.selectedVeids.get();
     if (!sel || sel.length === 0) { return false; }
     const veid = VeFns.veidFromItems(displayItem_Table, actualLinkItemMaybe_Table);
-    for (let i=0; i<sel.length; ++i) {
+    for (let i = 0; i < sel.length; ++i) {
       if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
     }
     return false;
@@ -85,13 +87,13 @@ export const arrangeTable = (
     linkItemMaybe: linkItemMaybe_Table,
     actualLinkItemMaybe: actualLinkItemMaybe_Table,
     flags: VisualElementFlags.Detailed |
-           VisualElementFlags.ShowChildren |
-           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
-           (isTableHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
-           (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
+      VisualElementFlags.ShowChildren |
+      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+      (isTableHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+      (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: tableGeometry.boundsPx,
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,
@@ -120,14 +122,14 @@ export const arrangeTable = (
 
 
 export function arrangeTableChildren(
-    store: StoreContextModel,
-    displayItem_table: TableItem,
-    linkItemMaybe_table: LinkItem | null,
-    tableGeometry: ItemGeometry,
-    tableVePath: VisualElementPath,
-    flags: ArrangeItemFlags,
-    sizeBl: Dimensions,
-    blockSizePx: Dimensions): [Array<VisualElementSignal>, Array<number>, number] {
+  store: StoreContextModel,
+  displayItem_table: TableItem,
+  linkItemMaybe_table: LinkItem | null,
+  tableGeometry: ItemGeometry,
+  tableVePath: VisualElementPath,
+  flags: ArrangeItemFlags,
+  sizeBl: Dimensions,
+  blockSizePx: Dimensions): [Array<VisualElementSignal>, Array<number>, number] {
 
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
   const firstItemIdx = Math.floor(scrollYPos);
@@ -154,7 +156,7 @@ export function arrangeTableChildren(
   if (displayItem_table.computed_children.length == 0) { return [tableVeChildren, tableVesRows, 0]; }
 
   while (true) {
-    let itemId = iterContainers[iterContainers.length-1].computed_children[iterIndices[iterIndices.length-1]];
+    let itemId = iterContainers[iterContainers.length - 1].computed_children[iterIndices[iterIndices.length - 1]];
     const item = itemState.get(itemId)!;
 
     // 1. make row.
@@ -175,14 +177,14 @@ export function arrangeTableChildren(
     if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
     if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
       // either step into expanded container
-      iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
+      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
       iterIndices.push(0);
       iterContainers.push(asContainerItem(displayItem_childItem));
     }
     else {
       // or move through current container children by one.
-      iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
-      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length-1].computed_children.length) {
+      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
+      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length - 1].computed_children.length) {
         iterIndices.pop();
         iterContainers.pop();
       }
@@ -203,9 +205,9 @@ export function arrangeTableChildren(
 
 
 function createFillerRow(
-    di_Table: TableItem,
-    tableVePath: VisualElementPath,
-  ) {
+  di_Table: TableItem,
+  tableVePath: VisualElementPath,
+) {
   const uniqueNoneItem = uniqueEmptyItem();
   const tableChildVeSpec: VisualElementSpec = {
     displayItem: uniqueNoneItem,
@@ -238,8 +240,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
   const tableVe = VesCache.get(tableVePath)!.get();
   const displayItem_table = asTableItem(tableVe.displayItem);
-  const childrenVes = tableVe.childrenVes;
-  const tableVesRows = tableVe.tableVesRows;
+  const childrenVes = VesCache.getChildrenVes(tableVePath)();
+  const tableVesRows = VesCache.getTableVesRows(tableVePath);
   if (tableVesRows == null || tableVesRows!.length != childrenVes.length) {
     // TODO (LOW): should really implement logic such that this never happens. This is lazy.
     console.debug("rearrangeTableAfterScroll: invalid tableVesRows, resorting to fullArrange.");
@@ -295,12 +297,12 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   let rowIdx = 0;
   let finished = displayItem_table.computed_children.length == 0;
   let currentParentPath = tableVePath;
-  
+
   // Debug tracking for visual element position mapping
-  const debugRowMapping = new Map<number, {rowIdx: number, itemId: string, outIdx: number}>();
+  const debugRowMapping = new Map<number, { rowIdx: number, itemId: string, outIdx: number }>();
 
   while (!finished) {
-    let itemId = iterContainers[iterContainers.length-1].computed_children[iterIndices[iterIndices.length-1]];
+    let itemId = iterContainers[iterContainers.length - 1].computed_children[iterIndices[iterIndices.length - 1]];
     const item = itemState.get(itemId)!;
 
     // 1. make row.
@@ -328,7 +330,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
           tableVeChildren[outIdx] = createRow(
             store, item, displayItem_table, tableVePath, tableVe._arrangeFlags_useForPartialRearrangeOnly, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
 
-          debugRowMapping.set(outIdx, {rowIdx: rowIdx, itemId: item.id, outIdx: outIdx});
+          debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: item.id, outIdx: outIdx });
 
         } catch (e: any) {
           console.error("[TABLE_DEBUG] createRow failed:", {
@@ -355,7 +357,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
         tableVesRows[outIdx] = rowIdx;
       } else {
         // Track non-rearranged rows too for complete picture
-        debugRowMapping.set(outIdx, {rowIdx: rowIdx, itemId: item.id, outIdx: outIdx});
+        debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: item.id, outIdx: outIdx });
       }
     }
     rowIdx = rowIdx + 1;
@@ -368,14 +370,14 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
     if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
       // either step into expanded container
-      iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
+      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
       iterIndices.push(0);
       iterContainers.push(asContainerItem(displayItem_childItem));
     }
     else {
       // or move through current container children by one.
-      iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
-      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length-1].computed_children.length) {
+      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
+      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length - 1].computed_children.length) {
         iterIndices.pop();
         iterContainers.pop();
       }
@@ -394,7 +396,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       }
     }
   }
-  
+
   // Final validation and comprehensive debug logging
   let hasInconsistency = false;
   const finalDebugInfo = {
@@ -411,12 +413,12 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     inconsistencies: [] as any[],
     timestamp: new Date().toISOString()
   };
-  
+
   // Check for inconsistencies in the final mapping
   for (let i = 0; i < outCount; i++) {
     const mappingInfo = debugRowMapping.get(i);
     const vesRowValue = tableVesRows[i];
-    
+
     if (mappingInfo && mappingInfo.rowIdx !== vesRowValue) {
       hasInconsistency = true;
       finalDebugInfo.inconsistencies.push({
@@ -426,7 +428,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
         itemId: mappingInfo.itemId
       });
     }
-    
+
     // Also check if childrenVes exists and has the right structure
     const childVe = childrenVes[i]?.get();
     if (childVe && childVe.row !== vesRowValue) {
@@ -440,8 +442,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       });
     }
   }
-  
-    if (hasInconsistency) {
+
+  if (hasInconsistency) {
     console.error("[TABLE_DEBUG] Inconsistencies detected in final table arrangement:", finalDebugInfo);
   } else if (debugRowMapping.size > 0) {
     // don't log.
@@ -456,17 +458,17 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
 
 
 function createRow(
-    store: StoreContextModel,
-    childItem: Item,
-    di_Table: TableItem,
-    tableVePath: VisualElementPath,
-    flags: ArrangeItemFlags,
-    rowIdx: number,
-    sizeBl: Dimensions,
-    blockSizePx: Dimensions,
-    indentBl: number,
-    tableDimensionsPx: Dimensions,
-    vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
+  store: StoreContextModel,
+  childItem: Item,
+  di_Table: TableItem,
+  tableVePath: VisualElementPath,
+  flags: ArrangeItemFlags,
+  rowIdx: number,
+  sizeBl: Dimensions,
+  blockSizePx: Dimensions,
+  indentBl: number,
+  tableDimensionsPx: Dimensions,
+  vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
 
   const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
   const childVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
@@ -491,7 +493,7 @@ function createRow(
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
     flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable |
-           (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+      (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: geometry.boundsPx,
     tableDimensionsPx,
@@ -507,14 +509,14 @@ function createRow(
     let tableItemVeAttachments: Array<VisualElementSignal> = [];
     const attachmentsItem = asAttachmentsItem(displayItem_childItem);
     let leftBl = di_Table.tableColumns[0].widthGr / GRID_SIZE;
-    let i=0;
-    for (; i<di_Table.numberOfVisibleColumns-1; ++i) {
+    let i = 0;
+    for (; i < di_Table.numberOfVisibleColumns - 1; ++i) {
       if (i >= attachmentsItem.computed_attachments.length) { break; }
       if (leftBl >= sizeBl.w) { break; }
 
       let widthBl = i == di_Table.numberOfVisibleColumns - 2
         ? sizeBl.w - leftBl
-        : di_Table.tableColumns[i+1].widthGr / GRID_SIZE;
+        : di_Table.tableColumns[i + 1].widthGr / GRID_SIZE;
 
       const attachmentId = attachmentsItem.computed_attachments[i];
       const attachmentItem = itemState.get(attachmentId)!;
@@ -536,7 +538,7 @@ function createRow(
         linkItemMaybe: linkItemMaybe_attachment,
         actualLinkItemMaybe: linkItemMaybe_attachment,
         flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment |
-               (attachmentIsHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+          (attachmentIsHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: geometry.boundsPx,
         tableDimensionsPx,
@@ -560,7 +562,7 @@ function createRow(
 
       tableItemVeAttachments.push(tableChildAttachmentVes);
 
-      leftBl += di_Table.tableColumns[i+1].widthGr / GRID_SIZE;
+      leftBl += di_Table.tableColumns[i + 1].widthGr / GRID_SIZE;
     }
 
     tableChildVeSpec.attachmentsVes = tableItemVeAttachments;

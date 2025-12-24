@@ -24,6 +24,9 @@ import { mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { itemState } from "../../store/ItemState";
 import { Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { PageVisualElementProps } from "./Page";
+import { VesCache } from "../../layout/ves-cache";
+import { VeFns } from "../../layout/visual-element";
+
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -55,7 +58,8 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
             `background-color: #ffffff; ` +
             `border-right-width: ${mainPageBorderWidth(store)}px; ` +
             `border-color: ${mainPageBorderColor(store, itemState.get)}; `}>
-          <For each={props.visualElement.childrenVes}>{childVe =>
+          <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVe =>
+
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
           {renderDockMoveOverIndexMaybe()}

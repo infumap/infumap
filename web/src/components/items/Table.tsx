@@ -21,6 +21,7 @@ import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
+import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
@@ -88,7 +89,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const insertBoundsPx = (): BoundingBox => {
     const colNum = store.perVe.getMoveOverColAttachmentNumber(vePath());
     let offsetBl = 0;
-    for (let i=0; i<=colNum; ++i) {
+    for (let i = 0; i <= colNum; ++i) {
       offsetBl += tableItem().tableColumns[i].widthGr / GRID_SIZE;
     }
     return {
@@ -100,7 +101,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   }
   const attachBoundsPx = (): BoundingBox => {
     return {
-      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX - 2,
       y: 0,
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
@@ -123,14 +124,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     // TODO (LOW): I believe this would be more optimized if this calc was done at arrange time.
     const specsBl = [];
     let accumBl = 0;
-    for (let i=0; i<tableItem().numberOfVisibleColumns; ++i) {
+    for (let i = 0; i < tableItem().numberOfVisibleColumns; ++i) {
       let tc = tableItem().tableColumns[i];
       const prevAccumBl = accumBl;
       accumBl += tc.widthGr / GRID_SIZE;
       if (accumBl >= spatialWidthGr() / GRID_SIZE) {
         break;
       }
-      specsBl.push({ idx: i, prevAccumBl, accumBl, name: tc.name, isLast: i == tableItem().numberOfVisibleColumns-1 });
+      specsBl.push({ idx: i, prevAccumBl, accumBl, name: tc.name, isLast: i == tableItem().numberOfVisibleColumns - 1 });
     }
     return specsBl.map(s => ({
       idx: s.idx,
@@ -160,82 +161,82 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
-                !(props.visualElement.flags & VisualElementFlags.DockItem)}>
+      !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <>
         <div class={`${shadowClass()}`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
-                   `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
+            `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
         <Show when={isPopup() || true}>
           <div class={`${positionClass()} bg-white pointer-events-none`}
-               style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
-                      `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW};`} />
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
+              `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW};`} />
         </Show>
       </>
     </Show>;
 
   const renderNotDetailed = () =>
     <div class={`${positionClass()} border border-[#999] rounded-xs bg-white hover:shadow-md`}
-         style={`left: ${boundsPx().x}px; ` +
-                `top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
-                `width: ${boundsPx().w}px; ` +
-                `height: ${boundsPx().h - blockSizePx().h}px; ` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />;
+      style={`left: ${boundsPx().x}px; ` +
+        `top: ${boundsPx().y + blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
+        `width: ${boundsPx().w}px; ` +
+        `height: ${boundsPx().h - blockSizePx().h}px; ` +
+        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />;
 
   const renderDetailed = () =>
     <>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-xs"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                    `width: ${boundsPx().w}px; height: ${headerHeightPx()}px; ` +
-                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-                    `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+            `width: ${boundsPx().w}px; height: ${headerHeightPx()}px; ` +
+            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class={`${positionClass()} pointer-events-none rounded-xs`}
-             style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
-                    `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; ` +
-                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-                    `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
+            `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; ` +
+            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
       <TableChildArea visualElement={props.visualElement} />
-             <div class={`${positionClass()} pointer-events-none ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+      <div class={`${positionClass()} pointer-events-none ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
-             class={`absolute font-bold`}
-             style={`left: 0px; top: 0px; ` +
-                    `width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
-                    `transform: scale(${scale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word; ` +
-                    `outline: 0px solid transparent;`}
-              contentEditable={store.overlay.textEditInfo() != null}
-              spellcheck={store.overlay.textEditInfo() != null}>
+          class={`absolute font-bold`}
+          style={`left: 0px; top: 0px; ` +
+            `width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+            `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+            `transform: scale(${scale()}); transform-origin: top left; ` +
+            `overflow-wrap: break-word; ` +
+            `outline: 0px solid transparent;`}
+          contentEditable={store.overlay.textEditInfo() != null}
+          spellcheck={store.overlay.textEditInfo() != null}>
           {tableItem().title}
         </div>
         <div class={`absolute border border-[#999] rounded-xs pointer-events-none`}
-             style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
+          style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
         <Show when={showColHeader()}>
           <div class={`absolute border border-[#999] bg-slate-300 rounded-xs`}
-               style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
+            style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
         </Show>
         <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
           <div class={`absolute rounded-xs`}
-               style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`} />
+            style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+              `background-color: #ff0000;`} />
         </Show>
-        <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
+        <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
           <div class={`absolute rounded-xs`}
-               style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                      `background-color: ${FEATURE_COLOR};`} />
+            style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+              `background-color: ${FEATURE_COLOR};`} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null &&
-                    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                    !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
-                    showTriangleDetail()}>
+          (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+          !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
+          showTriangleDetail()}>
           <InfuLinkTriangle />
         </Show>
         <Show when={showTriangleDetail()}>
@@ -243,64 +244,64 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
       </div>
       <Show when={showColHeader()}>
-               <div class={`${positionClass()}`}
-             style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
-                    `width: ${viewportBoundsPx()!.w}px; height: ${blockSizePx().h}px; ` +
-                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-         <For each={columnSpecs()}>{spec =>
-           <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
-                class={`absolute whitespace-nowrap overflow-hidden`}
-                style={`left: ${spec.startPosPx + PADDING_PROP * blockSizePx().w}px; top: 0px; ` +
-                       `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
-                       `transform: scale(${scale()}); transform-origin: top left;` +
-                       `outline: 0px solid transparent;`}
-                 contentEditable={store.overlay.textEditInfo() != null}
-                 spellcheck={store.overlay.textEditInfo() != null}>
-             {spec.name}
-             <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>
-               <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
-                 <i class="fas fa-chevron-down" />
-               </div>
-             </Show>
-           </div>
-         }</For>
-       </div>
+        <div class={`${positionClass()}`}
+          style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - blockSizePx().h + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
+            `width: ${viewportBoundsPx()!.w}px; height: ${blockSizePx().h}px; ` +
+            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+          <For each={columnSpecs()}>{spec =>
+            <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
+              class={`absolute whitespace-nowrap overflow-hidden`}
+              style={`left: ${spec.startPosPx + PADDING_PROP * blockSizePx().w}px; top: 0px; ` +
+                `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+                `transform: scale(${scale()}); transform-origin: top left;` +
+                `outline: 0px solid transparent;`}
+              contentEditable={store.overlay.textEditInfo() != null}
+              spellcheck={store.overlay.textEditInfo() != null}>
+              {spec.name}
+              <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>
+                <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
+                  <i class="fas fa-chevron-down" />
+                </div>
+              </Show>
+            </div>
+          }</For>
+        </div>
       </Show>
       <div class={`${positionClass()} pointer-events-none`}
-           style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0) - (showColHeader() ? blockSizePx().h : 0)}px; ` +
-                  `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0) - (showColHeader() ? blockSizePx().h : 0)}px; ` +
+          `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <For each={columnSpecs()}>{spec =>
           <Show when={!spec.isLast}>
             <div class="absolute"
-                 style={`background-color: #999; left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
+              style={`background-color: #999; left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
           </Show>
         }</For>
       </div>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
-                  store.perVe.getMoveOverRowNumber(vePath()) > -1 &&
-                  store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
-                  !isSortedByTitle()}>
+        store.perVe.getMoveOverRowNumber(vePath()) > -1 &&
+        store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
+        !isSortedByTitle()}>
         <div class={`${positionClass()} border border-black`}
-             style={`left: ${boundsPx().x}px; top: ${overPosRowPx() + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: 1px;` +
-                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+          style={`left: ${boundsPx().x}px; top: ${overPosRowPx() + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: 1px;` +
+            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
-                  store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0}>
+        store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0}>
         <div class={`${positionClass()} border border-black bg-black`}
-             style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;` +
-                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+          style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;` +
+            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
-                  store.perVe.getMoveOverRowNumber(vePath()) > -2 && // always true, create dependency.
-                  store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
-                  isSortedByTitle()}>
+        store.perVe.getMoveOverRowNumber(vePath()) > -2 && // always true, create dependency.
+        store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
+        isSortedByTitle()}>
         <div class={`${positionClass()} pointer-events-none`}
-             style={`background-color: #0044ff0a; ` +
-                    `left: ${viewportBoundsPx()!.x + 1}px; top: ${viewportBoundsPx()!.y + 1 + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
-                    `width: ${viewportBoundsPx()!.w - 2}px; height: ${viewportBoundsPx()!.h - 2}px; ` +
-                    `${VeFns.zIndexStyle(props.visualElement)}`} />
+          style={`background-color: #0044ff0a; ` +
+            `left: ${viewportBoundsPx()!.x + 1}px; top: ${viewportBoundsPx()!.y + 1 + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
+            `width: ${viewportBoundsPx()!.w - 2}px; height: ${viewportBoundsPx()!.h - 2}px; ` +
+            `${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
     </>;
 
@@ -363,10 +364,11 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   });
 
   const renderVisibleItems = () =>
-    <For each={props.visualElement.childrenVes}>{childVes =>
+    <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+
       <>
         <VisualElement_LineItem visualElement={childVes.get()} />
-        <For each={childVes.get().attachmentsVes}>{attachment =>
+        <For each={VesCache.getAttachmentsVes(VeFns.veToPath(childVes.get()))()}>{attachment =>
           <VisualElement_LineItem visualElement={attachment.get()} />
         }</For>
       </>
@@ -374,12 +376,12 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
 
   return (
     <div ref={outerDiv}
-         id={props.visualElement.displayItem.id}
-         class={`${(props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute'}`}
-         style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
-                `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; overflow-y: auto;` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
-         onscroll={scrollHandler}>
+      id={props.visualElement.displayItem.id}
+      class={`${(props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute'}`}
+      style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
+        `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; overflow-y: auto;` +
+        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+      onscroll={scrollHandler}>
       <div class='absolute' style={`width: ${viewportBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
         {renderVisibleItems()}
       </div>

@@ -23,6 +23,7 @@ import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
+import { itemState } from "../../store/ItemState";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
@@ -34,13 +35,13 @@ import { MOUSE_LEFT } from "../../input/mouse_down";
 import { appendNewlineIfEmpty, isUrl, trimNewline } from "../../util/string";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { itemState } from "../../store/ItemState";
+import { VesCache } from "../../layout/ves-cache";
 import { FEATURE_COLOR } from "../../style";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { fullArrange } from "../../layout/arrange";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { VesCache } from "../../layout/ves-cache";
+
 import { asPositionalItem } from "../../items/base/positional-item";
 import { server, serverOrRemote } from "../../server";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
@@ -89,17 +90,17 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
     return NoteFns.calcSpatialDimensionsBl(noteItem());
   };
-  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX*2;
+  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
-  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
-  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
+  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX * 2) / naturalWidthPx();
+  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
 
   const attachBoundsPx = (): BoundingBox => {
     return ({
-      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX - 2,
       y: 0,
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
@@ -116,10 +117,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
       x: boundsPx().w
-          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
-          - CONTAINER_IN_COMPOSITE_PADDING_PX,
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
@@ -290,39 +291,39 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const renderDetailed = () =>
     <>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-xs"
-             style={`left: 0px; top: 0px; ` +
-                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-                    `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          style={`left: 0px; top: 0px; ` +
+            `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
       <Switch>
         <Match when={NoteFns.hasUrl(noteItem()) &&
-                     (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
+          (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
-               style={`position: absolute; ` +
-                      `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                      `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                      `width: ${naturalWidthPx()}px; ` +
-                      `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
-                      `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                      `font-size: ${infuTextStyle().fontSize}px; ` +
-                      `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                      `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+            style={`position: absolute; ` +
+              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+              `width: ${naturalWidthPx()}px; ` +
+              `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+              `font-size: ${infuTextStyle().fontSize}px; ` +
+              `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
-               href={noteItem().url}
-               class={`text-blue-800 hover:text-blue-600`}
-               style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-               onClick={aHrefClickListener}
-               onMouseDown={aHrefMouseDownListener}
-               onMouseUp={aHrefMouseUpListener}>
+              href={noteItem().url}
+              class={`text-blue-800 hover:text-blue-600`}
+              style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+              onClick={aHrefClickListener}
+              onMouseDown={aHrefMouseDownListener}
+              onMouseUp={aHrefMouseUpListener}>
               {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
             </a>
           </div>
@@ -330,76 +331,76 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
           {/* when editing, don't apply text formatting. */}
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-                       `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
-                style={`position: absolute; ` +
-                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                       `width: ${naturalWidthPx()}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
-                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                       `font-size: ${infuTextStyle().fontSize}px; ` +
-                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                       `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
+              `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
+            style={`position: absolute; ` +
+              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+              `width: ${naturalWidthPx()}px; ` +
+              `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+              `font-size: ${infuTextStyle().fontSize}px; ` +
+              `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+              `outline: 0px solid transparent;`}
+            contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {appendNewlineIfEmpty(noteItem().title)}<span></span>
           </span>
         </Match>
         <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-                       `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
-                style={`position: absolute; ` +
-                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                       `width: ${naturalWidthPx()}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
-                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                       `font-size: ${infuTextStyle().fontSize}px; ` +
-                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                       `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
+              `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
+            style={`position: absolute; ` +
+              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+              `width: ${naturalWidthPx()}px; ` +
+              `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+              `font-size: ${infuTextStyle().fontSize}px; ` +
+              `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+              `outline: 0px solid transparent;`}
+            contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
           </span>
         </Match>
       </Switch>
-      <For each={props.visualElement.attachmentsVes}>{attachment =>
+      <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
-                  (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                  (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath())) &&
-                  !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
-                  showTriangleDetail()}>
+        (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+        (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath())) &&
+        !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
+        showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
       <Show when={!isInCompositeOrDocument() &&
-                  showTriangleDetail() &&
-                  (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
+        showTriangleDetail() &&
+        (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
     </>;
 
@@ -407,9 +408,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     <>
       {renderShadowMaybe()}
       <div class={`${outerClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
-                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
+          `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>

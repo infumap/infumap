@@ -156,11 +156,6 @@ export interface VisualElement {
   actualLinkItemMaybe: LinkItem | null,
 
   /**
-   * For list pages, the focused child display item.
-   */
-  focusedChildItemMaybe: Item | null,
-
-  /**
    * Various flags that indicate how the visual element should be rendered.
    */
   flags: VisualElementFlags,
@@ -237,16 +232,16 @@ export interface VisualElement {
    */
   displayItemFingerprint: string,
 
-  attachmentsVes: Array<VisualElementSignal>,
-  popupVes: VisualElementSignal | null,
-  selectedVes: VisualElementSignal | null,
-  dockVes: VisualElementSignal | null,
 
-  childrenVes: Array<VisualElementSignal>,
-  /**
-   * The table row number corresponding to the childrenVes with the same index.
-   */
-  tableVesRows: Array<number> | null,
+
+  // attachmentsVes: Array<VisualElementSignal>, // moved to VesCache
+  // popupVes is moved to VesCache
+  // selectedVes is moved to VesCache
+  // dockVes: VisualElementSignal | null, // moved to VesCache
+
+  // childrenVes is moved to VesCache
+  // tableVesRows is moved to VesCache
+  // focusedChildItemMaybe is moved to VesCache
 
 
   /**
@@ -266,7 +261,6 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   displayItem: EMPTY_ITEM(),
   linkItemMaybe: null,
   actualLinkItemMaybe: null,
-  focusedChildItemMaybe: null,
   flags: VisualElementFlags.None,
   _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
   resizingFromBoundsPx: null,
@@ -284,13 +278,11 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   numRows: null,
   hitboxes: [],
 
-  childrenVes: [],
-  attachmentsVes: [],
-  popupVes: null,
-  selectedVes: null,
-  dockVes: null,
 
-  tableVesRows: null,
+  // attachmentsVes: [], // moved to VesCache
+  // dockVes: null, // moved to VesCache
+
+
 
   parentPath: null,
   evaluatedTitle: null,
@@ -329,7 +321,7 @@ export interface VisualElementSpec {
   tableVesRows?: Array<number>,
   attachmentsVes?: Array<VisualElementSignal>,
   popupVes?: VisualElementSignal | null,
-  selectedVes?: VisualElementSignal | null,
+  selectedVes?: VisualElementSignal | null, // moved to VesCache but kept in spec for init
   dockVes?: VisualElementSignal | null,
 }
 
@@ -344,7 +336,6 @@ export const VeFns = {
       displayItem: EMPTY_ITEM(),
       linkItemMaybe: null,
       actualLinkItemMaybe: null,
-      focusedChildItemMaybe: null,
       flags: VisualElementFlags.None,
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       resizingFromBoundsPx: null,
@@ -361,12 +352,11 @@ export const VeFns = {
       cellSizePx: null,
       numRows: null,
       hitboxes: [],
-      childrenVes: [],
-      attachmentsVes: [],
-      popupVes: null,
-      selectedVes: null,
-      dockVes: null,
-      tableVesRows: null,
+      // childrenVes: [],
+      // attachmentsVes: [], // moved to VesCache
+      // selectedVes: null, // moved to VesCache
+      // dockVes: null, // moved to VesCache
+      // tableVesRows: null,
 
       parentPath: null,
       evaluatedTitle: null,
@@ -387,7 +377,6 @@ export const VeFns = {
     ve.displayItem = EMPTY_ITEM();
     ve.linkItemMaybe = null;
     ve.actualLinkItemMaybe = null;
-    ve.focusedChildItemMaybe = null;
     ve.flags = VisualElementFlags.None;
     ve._arrangeFlags_useForPartialRearrangeOnly = ArrangeItemFlags.None;
     ve.resizingFromBoundsPx = null;
@@ -404,12 +393,8 @@ export const VeFns = {
     ve.cellSizePx = null;
     ve.numRows = null;
     ve.hitboxes = [];
-    ve.childrenVes = [];
-    ve.attachmentsVes = [];
-    ve.popupVes = null;
-    ve.selectedVes = null;
-    ve.dockVes = null;
-    ve.tableVesRows = null;
+    // ve.childrenVes = [];
+    // ve.tableVesRows = null;
 
     ve.parentPath = null;
     ve.evaluatedTitle = null;
@@ -917,12 +902,8 @@ function printRecursive(visualElement: VisualElement, level: number, relationshi
   let indent = "";
   for (let i = 0; i < level; ++i) { indent += "-"; }
   console.debug(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.displayItem ? "itemid: " + visualElement.displayItem.id : "") + "}");
-  for (let i = 0; i < visualElement.childrenVes.length; ++i) {
-    printRecursive(visualElement.childrenVes[i].get(), level + 1, "c");
-  }
-  for (let i = 0; i < visualElement.attachmentsVes.length; ++i) {
-    printRecursive(visualElement.attachmentsVes[i].get(), level + 1, "a");
-  }
+
+
 }
 
 
@@ -931,7 +912,6 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
 
   if (typeof (override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof (override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
-  if (typeof (override.focusedChildItemMaybe) != 'undefined') { result.focusedChildItemMaybe = override.focusedChildItemMaybe; }
   if (typeof (override.flags) != 'undefined') { result.flags = override.flags; }
   if (typeof (override._arrangeFlags_useForPartialRearrangeOnly) != 'undefined') { result._arrangeFlags_useForPartialRearrangeOnly = override._arrangeFlags_useForPartialRearrangeOnly; }
   if (typeof (override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
@@ -949,12 +929,11 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
   if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
   if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
-  if (typeof (override.childrenVes) != 'undefined') { result.childrenVes = override.childrenVes; }
-  if (typeof (override.tableVesRows) != 'undefined') { result.tableVesRows = override.tableVesRows; }
-  if (typeof (override.attachmentsVes) != 'undefined') { result.attachmentsVes = override.attachmentsVes; }
-  if (typeof (override.popupVes) != 'undefined') { result.popupVes = override.popupVes; }
-  if (typeof (override.selectedVes) != 'undefined') { result.selectedVes = override.selectedVes; }
-  if (typeof (override.dockVes) != 'undefined') { result.dockVes = override.dockVes; }
+  // tableVesRows is moved to VesCache, do not copy to VisualElement
+  // attachmentsVes is moved to VesCache, do not copy to VisualElement
+  // popupVes is moved to VesCache, do not copy to VisualElement
+  // selectedVes is moved to VesCache, do not copy to VisualElement
+  // dockVes is moved to VesCache, do not copy to VisualElement
 
   if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
     console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);

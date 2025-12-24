@@ -17,6 +17,8 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
+
+import { VesCache } from "../../layout/ves-cache";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
 import { useStore } from "../../store/StoreProvider";
@@ -104,7 +106,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     attachBoundsPx: (): BoundingBox => {
       return {
-        x: pageFns.boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+        x: pageFns.boundsPx().w - ATTACH_AREA_SIZE_PX - 2,
         y: 0,
         w: ATTACH_AREA_SIZE_PX,
         h: ATTACH_AREA_SIZE_PX,
@@ -137,9 +139,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       store.overlay.textEditInfo() == null &&
       pageFns.isInComposite(),
 
-    lineChildren: () => props.visualElement.childrenVes.filter(c => c.get().flags & VisualElementFlags.LineItem),
+    lineChildren: () => VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))().filter(c => c.get().flags & VisualElementFlags.LineItem),
 
-    desktopChildren: () => props.visualElement.childrenVes.filter(c => !(c.get().flags & VisualElementFlags.LineItem)),
+    desktopChildren: () => VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))().filter(c => !(c.get().flags & VisualElementFlags.LineItem)),
+
 
     showTriangleDetail: () => (pageFns.boundsPx().w / (pageFns.pageItem().spatialWidthGr / GRID_SIZE)) > 0.5,
 
@@ -171,12 +174,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <For each={[...Array(pageFns.pageItem().gridNumberOfColumns).keys()]}>{i =>
           <Show when={i != 0}>
             <div class="absolute bg-slate-100"
-                 style={`left: ${props.visualElement.cellSizePx!.w * i}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
+              style={`left: ${props.visualElement.cellSizePx!.w * i}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
           </Show>
         }</For>
         <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
           <div class="absolute bg-slate-100"
-               style={`left: 0px; height: 1px; width: ${pageFns.childAreaBoundsPx().w}px; top: ${props.visualElement.cellSizePx!.h * (i+1)}px;`} />
+            style={`left: 0px; height: 1px; width: ${pageFns.childAreaBoundsPx().w}px; top: ${props.visualElement.cellSizePx!.h * (i + 1)}px;`} />
         }</For>
       </Show>,
 
@@ -200,20 +203,20 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const heightPx = props.visualElement.viewportBoundsPx!.h;
         return (
           <div class="absolute pointer-events-none"
-               style={`background-color: #0044ff0a; ` +
-                    `left: ${leftPx}px; top: ${topPx}px; ` +
-                    `width: ${widthPx}px; height: ${heightPx}px; ` +
-                    `${VeFns.zIndexStyle(props.visualElement)}`} />
+            style={`background-color: #0044ff0a; ` +
+              `left: ${leftPx}px; top: ${topPx}px; ` +
+              `width: ${widthPx}px; height: ${heightPx}px; ` +
+              `${VeFns.zIndexStyle(props.visualElement)}`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-                 pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+        pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
         const heightPx = Math.max(pageFns.childAreaBoundsPx().h, pageFns.boundsPx().h);
         return (
           <div class="absolute pointer-events-none"
-               style={`background-color: #0044ff0a; ` +
-                      `left: ${0}px; top: ${0}px; ` +
-                      `width: ${pageFns.childAreaBoundsPx().w}px; height: ${heightPx}px; ` +
-                      `${VeFns.zIndexStyle(props.visualElement)}`} />
+            style={`background-color: #0044ff0a; ` +
+              `left: ${0}px; top: ${0}px; ` +
+              `width: ${pageFns.childAreaBoundsPx().w}px; height: ${heightPx}px; ` +
+              `${VeFns.zIndexStyle(props.visualElement)}`} />
         );
       }
       return <></>;
@@ -245,7 +248,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
 
       // Filter out moving items to get the non-moving visual elements
-      const nonMovingChildrenVes = props.visualElement.childrenVes.filter(childVe =>
+      const childrenVes = VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))();
+      const nonMovingChildrenVes = childrenVes.filter(childVe =>
         !(childVe.get().flags & VisualElementFlags.Moving)
       );
 
@@ -285,7 +289,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
         return (
           <div class="absolute border border-black"
-               style={`left: ${leftPx}px; top: ${topPx}px; width: 1px; height: ${heightPx}px; ${VeFns.zIndexStyle(props.visualElement)}`} />
+            style={`left: ${leftPx}px; top: ${topPx}px; width: 1px; height: ${heightPx}px; ${VeFns.zIndexStyle(props.visualElement)}`} />
         );
       }
 
@@ -311,14 +315,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Page_Popup visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
-                   props.visualElement.flags & VisualElementFlags.ListPageRoot}>
+        props.visualElement.flags & VisualElementFlags.ListPageRoot}>
         <Page_Root visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot}>
         <Page_EmbeddedInteractive visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
-                   !(props.visualElement.flags & VisualElementFlags.ShowChildren)}>
+        !(props.visualElement.flags & VisualElementFlags.ShowChildren)}>
         <Page_Opaque visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={true}>

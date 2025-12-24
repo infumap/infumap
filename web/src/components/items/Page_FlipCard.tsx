@@ -19,6 +19,9 @@
 import { Component, For } from "solid-js";
 import { PageVisualElementProps } from "./Page";
 import { VisualElement_Desktop } from "../VisualElement";
+import { VesCache } from "../../layout/ves-cache";
+import { VeFns } from "../../layout/visual-element";
+
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -26,11 +29,12 @@ import { VisualElement_Desktop } from "../VisualElement";
 export const Page_FlipCard: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   return (
     <div class={`absolute`}
-          style={`​left: ${props.pageFns.boundsPx().x}px; ` +
-                 `top: ${props.pageFns.boundsPx().y}px; ` +
-                 `width: ${props.pageFns.boundsPx().w}px; ` +
-                 `height: ${props.pageFns.boundsPx().h}px; `}>
-      <For each={props.visualElement.childrenVes}>{childVes =>
+      style={`​left: ${props.pageFns.boundsPx().x}px; ` +
+        `top: ${props.pageFns.boundsPx().y}px; ` +
+        `width: ${props.pageFns.boundsPx().w}px; ` +
+        `height: ${props.pageFns.boundsPx().h}px; `}>
+      <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+
         <VisualElement_Desktop visualElement={childVes.get()} />
       }</For>
     </div>

@@ -19,6 +19,7 @@
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
+import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
@@ -46,7 +47,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
     return {
-      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX - 2,
       y: 0,
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
@@ -63,10 +64,10 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
       x: boundsPx().w
-          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
-          - CONTAINER_IN_COMPOSITE_PADDING_PX,
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
@@ -79,10 +80,10 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     return PasswordFns.calcSpatialDimensionsBl(passwordItem());
   };
   const oneBlockWidthPx = () => boundsPx().w / sizeBl().w;
-  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX*2;
+  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
-  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
-  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
+  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX * 2) / naturalWidthPx();
+  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
   const smallScale = () => textBlockScale() * 0.7;
@@ -133,10 +134,10 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
-                !(props.visualElement.flags & VisualElementFlags.DockItem)}>
+      !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const inputListener = (_ev: InputEvent) => {
@@ -168,76 +169,76 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     <>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-xs"
-             style={`left: 0px; top: 0px; ` +
-                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
+          style={`left: 0px; top: 0px; ` +
+            `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
       </Show>
       <Switch>
         <Match when={!isVisible() && (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={"text-left"}
-                style={`position: absolute; ` +
-                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                       `width: ${naturalWidthPx()}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; `+
-                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                       `outline: 0px solid transparent;`}>
+            class={"text-left"}
+            style={`position: absolute; ` +
+              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+              `width: ${naturalWidthPx()}px; ` +
+              `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
+              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+              `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `outline: 0px solid transparent;`}>
             ••••••••••••
           </span>
         </Match>
         <Match when={store.overlay.textEditInfo() != null || isVisible()}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={"text-left"}
-                style={`position: absolute; ` +
-                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                       `width: ${naturalWidthPx()}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; `+
-                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            class={"text-left"}
+            style={`position: absolute; ` +
+              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+              `width: ${naturalWidthPx()}px; ` +
+              `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
+              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+              `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `outline: 0px solid transparent;`}
+            contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {appendNewlineIfEmpty(passwordItem().text)}<span></span>
           </span>
         </Match>
       </Switch>
       <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; ` +
-                  `top: ${boundsPx().h*PADDING_PROP}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; ` +
-                  `height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
-          onmousedown={eatMouseEvent}
-          onmouseup={eatMouseEvent}
-          onclick={copyClickHandler}>
+        style={`left: ${boundsPx().w - oneBlockWidthPx() * 1.05}px; ` +
+          `top: ${boundsPx().h * PADDING_PROP}px; ` +
+          `width: ${oneBlockWidthPx() / smallScale()}px; ` +
+          `height: ${boundsPx().h / smallScale()}px; ` +
+          `transform: scale(${smallScale()}); transform-origin: top left;`}
+        onmousedown={eatMouseEvent}
+        onmouseup={eatMouseEvent}
+        onclick={copyClickHandler}>
         <i class={`fas fa-copy cursor-pointer`} />
       </div>
       <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().h*PADDING_PROP}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
-          onmousedown={eatMouseEvent}
-          onmouseup={eatMouseEvent}
-          onclick={VisibleClickHandler}>
+        style={`left: ${boundsPx().w - oneBlockWidthPx() * 1.8}px; top: ${boundsPx().h * PADDING_PROP}px; ` +
+          `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h / smallScale()}px; ` +
+          `transform: scale(${smallScale()}); transform-origin: top left;`}
+        onmousedown={eatMouseEvent}
+        onmouseup={eatMouseEvent}
+        onclick={VisibleClickHandler}>
         <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
       </div>
-      <For each={props.visualElement.attachmentsVes}>{attachment =>
+      <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
-                  (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                  !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
-                  showTriangleDetail()}>
+        (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+        !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
+        showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
       <Show when={!isInCompositeOrDocument() && showTriangleDetail()}>
@@ -245,13 +246,13 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
     </>;
 
@@ -259,8 +260,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     <>
       {renderShadowMaybe()}
       <div class={outerClass()}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>

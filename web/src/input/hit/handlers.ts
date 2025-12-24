@@ -22,7 +22,7 @@ import { isTable } from "../../items/table-item";
 import { getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { VesCache } from "../../layout/ves-cache";
-import { VisualElement, VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { HitHandler, HitInfo, HitTraversalContext } from "./types";
 import { HitBuilder } from "./builder";
@@ -55,8 +55,9 @@ const _tableHandler: HitHandler = {
         return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.HorizontalResize, HitboxFlags.None).meta(hb.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-hresize").build();
       }
     }
-    for (let j = 0; j < tableVe.childrenVes.length; ++j) {
-      const tableChildVes = tableVe.childrenVes[j];
+    const tableVeChildren = VesCache.getChildrenVes(VeFns.veToPath(tableVe))();
+    for (let j = 0; j < tableVeChildren.length; ++j) {
+      const tableChildVes = tableVeChildren[j];
       const tableChildVe = tableChildVes.get();
       const posRelativeToTableChildAreaPx = toTableChildAreaPos(store, tableVe, tableChildVe, posRelativeToRootVeViewportPx);
       if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
@@ -68,7 +69,7 @@ const _tableHandler: HitHandler = {
         }
       }
       {
-        const hit = findAttachmentHit(tableChildVe.attachmentsVes, posRelativeToTableChildAreaPx, ignoreItems, false);
+        const hit = findAttachmentHit(VesCache.getAttachmentsVes(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false);
         if (hit) {
           return {
             overVes: hit.attachmentVes,
@@ -107,8 +108,9 @@ const _compositeHandler: HitHandler = {
       return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-resize").build();
     }
     const { flags: compositeHitboxType, meta: compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(compositeVe.boundsPx!));
-    for (let j = 0; j < compositeVe.childrenVes.length; ++j) {
-      const compositeChildVes = compositeVe.childrenVes[j];
+    const compositeVeChildren = VesCache.getChildrenVes(VeFns.veToPath(compositeVe))();
+    for (let j = 0; j < compositeVeChildren.length; ++j) {
+      const compositeChildVes = compositeVeChildren[j];
       const compositeChildVe = compositeChildVes.get();
       const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVeViewportPx);
       if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx)) {

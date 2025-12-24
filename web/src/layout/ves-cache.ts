@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { createSignal, Accessor, Setter } from "solid-js";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -54,6 +55,165 @@ let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>
 let underConstructionTopTitledPages = new Array<VisualElementPath>();
 let underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
 
+// Reactive map for popupVes
+// We store [read, write] signal pairs for each path.
+let reactivePopups = new Map<VisualElementPath, [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>]>();
+
+function getReactivePopupSignal(path: VisualElementPath) {
+  let entry = reactivePopups.get(path);
+  if (!entry) {
+    entry = createSignal<VisualElementSignal | null>(null);
+    reactivePopups.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactivePopup(path: VisualElementPath, value: VisualElementSignal | null) {
+  const [read, write] = getReactivePopupSignal(path);
+  if (read() !== value) {
+    write(value);
+  }
+}
+
+// Reactive map for selectedVes
+let reactiveSelecteds = new Map<VisualElementPath, [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>]>();
+
+function getReactiveSelectedSignal(path: VisualElementPath) {
+  let entry = reactiveSelecteds.get(path);
+  if (!entry) {
+    entry = createSignal<VisualElementSignal | null>(null);
+    reactiveSelecteds.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactiveSelected(path: VisualElementPath, value: VisualElementSignal | null) {
+  const [read, write] = getReactiveSelectedSignal(path);
+  if (read() !== value) {
+    write(value);
+  }
+}
+
+// Reactive map for dockVes
+let reactiveDocks = new Map<VisualElementPath, [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>]>();
+
+function getReactiveDockSignal(path: VisualElementPath) {
+  let entry = reactiveDocks.get(path);
+  if (!entry) {
+    entry = createSignal<VisualElementSignal | null>(null);
+    reactiveDocks.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactiveDock(path: VisualElementPath, value: VisualElementSignal | null) {
+  const [read, write] = getReactiveDockSignal(path);
+  if (read() !== value) {
+    write(value);
+  }
+}
+
+// Reactive map for focusedChildItemMaybe
+// Storing Item | null
+import { Item } from "../items/base/item";
+let reactiveFocused = new Map<VisualElementPath, [Accessor<Item | null>, Setter<Item | null>]>();
+
+function getReactiveFocusedSignal(path: VisualElementPath) {
+  let entry = reactiveFocused.get(path);
+  if (!entry) {
+    entry = createSignal<Item | null>(null);
+    reactiveFocused.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactiveFocused(path: VisualElementPath, value: Item | null) {
+  let [read, write] = getReactiveFocusedSignal(path);
+  const current = read();
+  if (current?.id !== value?.id) {
+    write(value);
+  } else if (current !== value) {
+    // Same ID, but object ref changed. Updating strictly might trigger signal.
+    // We prefer to update IF object changed, relying on downstream to handle "same-id" efficiency if needed?
+    // User requested "optimize reactivity".
+    // If ID is same, we should probably NOT update signal to prevent downstream re-renders.
+    // BUT if Item properties changed (e.g. background color), we NEED to update.
+    // The previous implementation in VisualElement triggered on ref change.
+    // The previous "Fix" (ID check) suppressed updates even if properties changed (bad?).
+    // Wait. `focusedChildItemMaybe` is used for `backgroundColorIndex`.
+    // If background color changed, ID is same.
+    // We MUST update if properties changed.
+    // So `if (read() !== value) write(value)`.
+    // BUT we want to avoid "Mouse Move" causing "New Object with SAME Props".
+    // Does mouse move cause new Item object?
+    // `itemState.get(id)` usually returns same object unless Store updated.
+    // User said "mouse move... focus changed probably".
+    // If focus changed to SAME ID? No.
+    // If focus changed to DIFFERENT ID? Yes.
+    // So strict equality is fine, IF the Item objects are stable.
+    write(value);
+  }
+}
+
+// Reactive map for attachmentsVes
+let reactiveAttachments = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
+
+function getReactiveAttachmentsSignal(path: VisualElementPath) {
+  let entry = reactiveAttachments.get(path);
+  if (!entry) {
+    entry = createSignal<Array<VisualElementSignal>>([]);
+    reactiveAttachments.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactiveAttachments(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+  const actualValue = value ?? [];
+  const [read, write] = getReactiveAttachmentsSignal(path);
+  const current = read();
+  if (current.length !== actualValue.length) {
+    write(actualValue);
+    return;
+  }
+  for (let i = 0; i < current.length; i++) {
+    if (current[i] !== actualValue[i]) {
+      write(actualValue);
+      return;
+    }
+  }
+}
+
+// Reactive map for childrenVes
+let reactiveChildren = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
+
+function getReactiveChildrenSignal(path: VisualElementPath) {
+  let entry = reactiveChildren.get(path);
+  if (!entry) {
+    entry = createSignal<Array<VisualElementSignal>>([]);
+    reactiveChildren.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactiveChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+  const actualValue = value ?? [];
+  const [read, write] = getReactiveChildrenSignal(path);
+  const current = read();
+  if (current.length !== actualValue.length) {
+    write(actualValue);
+    return;
+  }
+  for (let i = 0; i < current.length; i++) {
+    if (current[i] !== actualValue[i]) {
+      write(actualValue);
+      return;
+    }
+  }
+}
+
+// Static map for tableVesRows (Not reactive, just storage)
+let staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
+
 let evaluationRequired = new Set<VisualElementPath>();
 let currentlyInFullArrange = false;
 
@@ -65,6 +225,7 @@ type VesAuxData = {
   dockVes: Map<VisualElementPath, VisualElementSignal | null>;
   childrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
   tableVesRows: Map<VisualElementPath, Array<number> | null>;
+  focusedChildItemMaybe: Map<VisualElementPath, Item | null>;
 }
 
 function createEmptyAuxData(): VesAuxData {
@@ -76,6 +237,7 @@ function createEmptyAuxData(): VesAuxData {
     dockVes: new Map(),
     childrenVes: new Map(),
     tableVesRows: new Map(),
+    focusedChildItemMaybe: new Map(),
   };
 }
 
@@ -83,14 +245,22 @@ let currentAux = createEmptyAuxData();
 let virtualAux = createEmptyAuxData();
 let underConstructionAux = createEmptyAuxData();
 
-function syncAuxData(aux: VesAuxData, path: VisualElementPath, ve: VisualElement) {
+function syncAuxData(aux: VesAuxData, path: VisualElementPath, ve: VisualElement, spec: VisualElementSpec | null) {
   aux.displayItemFingerprint.set(path, ve.displayItemFingerprint);
-  aux.attachmentsVes.set(path, ve.attachmentsVes);
-  aux.popupVes.set(path, ve.popupVes);
-  aux.selectedVes.set(path, ve.selectedVes);
-  aux.dockVes.set(path, ve.dockVes);
-  aux.childrenVes.set(path, ve.childrenVes);
-  aux.tableVesRows.set(path, ve.tableVesRows);
+  // attachmentsVes is no longer on VisualElement, read from spec
+  aux.attachmentsVes.set(path, spec?.attachmentsVes ?? []);
+  // popupVes is no longer on VisualElement, read from spec (or default null)
+  aux.popupVes.set(path, spec?.popupVes ?? null);
+  // selectedVes is no longer on VisualElement, read from spec
+  aux.selectedVes.set(path, spec?.selectedVes ?? null);
+  // dockVes is no longer on VisualElement, read from spec
+  aux.dockVes.set(path, spec?.dockVes ?? null);
+  // childrenVes is no longer on VisualElement, read from spec
+  aux.childrenVes.set(path, spec?.childrenVes ?? []);
+  // tableVesRows is no longer on VisualElement, read from spec
+  aux.tableVesRows.set(path, spec?.tableVesRows ?? null);
+  // focusedChildItemMaybe is no longer on VisualElement, read from spec
+  aux.focusedChildItemMaybe.set(path, spec?.focusedChildItemMaybe ?? null);
 }
 
 function deleteAuxData(aux: VesAuxData, path: VisualElementPath) {
@@ -101,10 +271,11 @@ function deleteAuxData(aux: VesAuxData, path: VisualElementPath) {
   aux.dockVes.delete(path);
   aux.childrenVes.delete(path);
   aux.tableVesRows.delete(path);
+  aux.focusedChildItemMaybe.delete(path);
 }
 
 // Diagnostic counters for performance analysis
-const LOG_ARRANGE_STATS = true;
+const LOG_ARRANGE_STATS = false;
 let arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
 function resetArrangeStats() {
   arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
@@ -151,7 +322,9 @@ export let VesCache = {
     currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
     currentTopTitledPages = [];
     currentWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
+
     currentAux = createEmptyAuxData();
+    staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
     virtualCache = new Map<VisualElementPath, VisualElementSignal>();
     virtualAux = createEmptyAuxData();
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
@@ -204,6 +377,8 @@ export let VesCache = {
     currentWatchContainerUidsByOrigin.get(origin)!.add(uid);
   },
 
+
+
   getCurrentWatchContainerUidsByOrigin: (): Map<string | null, Set<Uid>> => {
     return currentWatchContainerUidsByOrigin;
   },
@@ -220,13 +395,29 @@ export let VesCache = {
 
     if (virtualUmbrellaVes) {
       underConstructionCache.set(umbrellaPath, virtualUmbrellaVes);
-      syncAuxData(underConstructionAux, umbrellaPath, virtualUmbrellaVes.get());
+      // When restoring virtual, we don't have the spec easily, but virtualUmbrellaVes already has state.
+      // Wait, syncAuxData reads from spec for popupVes.
+      // If we are restoring from virtual, the virtual signal should be correct.
+      // But VisualElement no longer has popupVes.
+      // So where is popupVes? The virtual signal *contained* a VE.
+      // If we are passing virtualUmbrellaVes, it is a VisualElementSignal.
+      // The VE inside it doesn't have popupVes.
+      // We need to fetch popupVes from somewhere.
+      // But wait! If we pass `null` as spec, `syncAuxData` sets `popupVes` to `null`.
+      // This is WRONG if the virtual element actually has a popup.
+      // However, `full_finalizeArrange` with `virtualUmbrellaVes` is usually for restoring... 
+      // Actually `virtualUmbrellaVes` is passed from `full_initArrange`? No.
+      // It is optional.
+      // Note: `virtualCache` is where we store pre-calculated stuff?
+      // If `virtualUmbrellaVes` comes from `virtualCache` previously?
+      // For now, I'll pass umbrellaVeSpec which is available in the function arguments.
+      syncAuxData(underConstructionAux, umbrellaPath, virtualUmbrellaVes.get(), umbrellaVeSpec);
       virtualCache = underConstructionCache;
       virtualAux = underConstructionAux;
     } else {
       underConstructionCache.set(umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
-      syncAuxData(underConstructionAux, umbrellaPath, store.umbrellaVisualElement.get());
+      syncAuxData(underConstructionAux, umbrellaPath, store.umbrellaVisualElement.get(), umbrellaVeSpec);
 
       currentVesCache = underConstructionCache;
       currentVessVsDisplayId = underConstructionVesVsDisplayItemId;
@@ -244,6 +435,72 @@ export let VesCache = {
     underConstructionTopTitledPages = [];
     underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
     underConstructionAux = createEmptyAuxData();
+
+    // Sync reactive popups from currentAux.popupVes
+    for (const [path, signal] of currentAux.popupVes) {
+      updateReactivePopup(path, signal);
+    }
+    for (const [path, _] of reactivePopups) {
+      if (!currentAux.popupVes.has(path)) {
+        updateReactivePopup(path, null);
+      }
+    }
+
+    // Sync reactive selecteds from currentAux.selectedVes
+    for (const [path, signal] of currentAux.selectedVes) {
+      updateReactiveSelected(path, signal);
+    }
+    for (const [path, _] of reactiveSelecteds) {
+      if (!currentAux.selectedVes.has(path)) {
+        updateReactiveSelected(path, null);
+      }
+    }
+
+    // Sync reactive docks from currentAux.dockVes
+    for (const [path, signal] of currentAux.dockVes) {
+      updateReactiveDock(path, signal);
+    }
+    for (const [path, _] of reactiveDocks) {
+      if (!currentAux.dockVes.has(path)) {
+        updateReactiveDock(path, null);
+      }
+    }
+
+    // Sync reactive attachments from currentAux.attachmentsVes
+    for (const [path, list] of currentAux.attachmentsVes) {
+      updateReactiveAttachments(path, list);
+    }
+    for (const [path, _] of reactiveAttachments) {
+      if (!currentAux.attachmentsVes.has(path)) {
+        updateReactiveAttachments(path, []);
+      }
+    }
+
+    // Sync reactive children from currentAux.childrenVes
+    for (const [path, list] of currentAux.childrenVes) {
+      updateReactiveChildren(path, list);
+    }
+    for (const [path, _] of reactiveChildren) {
+      if (!currentAux.childrenVes.has(path)) {
+        updateReactiveChildren(path, []);
+      }
+    }
+
+    // Sync static tableVesRows from currentAux.tableVesRows
+    staticTableVesRows.clear();
+    for (const [path, rows] of currentAux.tableVesRows) {
+      staticTableVesRows.set(path, rows);
+    }
+
+    // Sync reactive focusedChildItemMaybe from currentAux.focusedChildItemMaybe
+    for (const [path, item] of currentAux.focusedChildItemMaybe) {
+      updateReactiveFocused(path, item);
+    }
+    for (const [path, _] of reactiveFocused) {
+      if (!currentAux.focusedChildItemMaybe.has(path)) {
+        updateReactiveFocused(path, null);
+      }
+    }
 
     currentlyInFullArrange = false;
   },
@@ -271,7 +528,25 @@ export let VesCache = {
   partial_create: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
     currentVesCache.set(path, newElement);
-    syncAuxData(currentAux, path, newElement.get());
+    syncAuxData(currentAux, path, newElement.get(), visualElementOverride);
+
+    // Update reactive popup
+    updateReactivePopup(path, visualElementOverride.popupVes ?? null);
+    // Update reactive selected
+    updateReactiveSelected(path, visualElementOverride.selectedVes ?? null);
+    // Update reactive dock
+    updateReactiveDock(path, visualElementOverride.dockVes ?? null);
+    // Update reactive attachments
+    // Update reactive attachments
+    updateReactiveAttachments(path, visualElementOverride.attachmentsVes);
+    // Update reactive children
+    updateReactiveChildren(path, visualElementOverride.childrenVes);
+    // Update reactive focusedChild
+    updateReactiveFocused(path, visualElementOverride.focusedChildItemMaybe ?? null);
+    // Update static tableVesRows
+    staticTableVesRows.set(path, visualElementOverride.tableVesRows ?? null);
+
+
     if (isContainer(visualElementOverride.displayItem) &&
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
@@ -320,8 +595,9 @@ export let VesCache = {
       });
     }
 
-    for (let i = 0; i < veToOverwrite.attachmentsVes.length; ++i) {
-      const attachmentVe = veToOverwrite.attachmentsVes[i].get();
+    const existingAttachments = VesCache.getAttachmentsVes(existingPath)();
+    for (let i = 0; i < existingAttachments.length; ++i) {
+      const attachmentVe = existingAttachments[i].get();
       const attachmentVePath = VeFns.veToPath(attachmentVe);
       if (currentVesCache.has(attachmentVePath)) {
         VesCache.removeByPath(attachmentVePath);
@@ -343,7 +619,23 @@ export let VesCache = {
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
     currentVesCache.set(newPath, vesToOverwrite);
-    syncAuxData(currentAux, newPath, vesToOverwrite.get());
+    syncAuxData(currentAux, newPath, vesToOverwrite.get(), visualElementOverride);
+
+    // Update reactive popup
+    updateReactivePopup(newPath, visualElementOverride.popupVes ?? null);
+    // Update reactive selected
+    updateReactiveSelected(newPath, visualElementOverride.selectedVes ?? null);
+    // Update reactive dock
+    updateReactiveDock(newPath, visualElementOverride.dockVes ?? null);
+    // Update reactive attachments
+    // Update reactive attachments
+    updateReactiveAttachments(newPath, visualElementOverride.attachmentsVes);
+    // Update reactive children
+    updateReactiveChildren(newPath, visualElementOverride.childrenVes);
+    // Update static tableVesRows
+    staticTableVesRows.set(newPath, visualElementOverride.tableVesRows ?? null);
+
+
     if (isContainer(visualElementOverride.displayItem) &&
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
@@ -430,6 +722,15 @@ export let VesCache = {
     }
     if (!currentVesCache.delete(path)) { panic(`item ${path} is not in ves cache.`); }
     deleteAuxData(currentAux, path);
+    updateReactivePopup(path, null);
+    updateReactiveSelected(path, null);
+    updateReactiveDock(path, null);
+    updateReactiveDock(path, null); // Duplicate line in original, leaving as is or fixing? Original had dup.
+    updateReactiveAttachments(path, []);
+    updateReactiveChildren(path, []);
+    updateReactiveFocused(path, null);
+    staticTableVesRows.delete(path);
+
     deleteFromVessVsDisplayIdLookup(path);
   },
 
@@ -453,32 +754,48 @@ export let VesCache = {
     underConstructionTopTitledPages.push(vePath);
   },
 
+  clearPopupVes: (path: VisualElementPath) => {
+    currentAux.popupVes.set(path, null);
+    updateReactivePopup(path, null);
+  },
+
   getDisplayItemFingerprint: (path: VisualElementPath): string | undefined => {
+    if (currentlyInFullArrange && underConstructionAux.displayItemFingerprint.has(path)) {
+      return underConstructionAux.displayItemFingerprint.get(path);
+    }
     return currentAux.displayItemFingerprint.get(path);
   },
 
-  getAttachmentsVes: (path: VisualElementPath): Array<VisualElementSignal> | undefined => {
-    return currentAux.attachmentsVes.get(path);
+  getAttachmentsVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveAttachmentsSignal(path)[0];
   },
 
-  getPopupVes: (path: VisualElementPath): VisualElementSignal | null | undefined => {
-    return currentAux.popupVes.get(path);
+  getPopupVes: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
+    // Return the reactive accessor
+    return getReactivePopupSignal(path)[0];
   },
 
-  getSelectedVes: (path: VisualElementPath): VisualElementSignal | null | undefined => {
-    return currentAux.selectedVes.get(path);
+  getSelectedVes: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
+    return getReactiveSelectedSignal(path)[0];
   },
 
-  getDockVes: (path: VisualElementPath): VisualElementSignal | null | undefined => {
-    return currentAux.dockVes.get(path);
+  getDockVes: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
+    return getReactiveDockSignal(path)[0];
   },
 
-  getChildrenVes: (path: VisualElementPath): Array<VisualElementSignal> | undefined => {
-    return currentAux.childrenVes.get(path);
+  getChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveChildrenSignal(path)[0];
   },
 
-  getTableVesRows: (path: VisualElementPath): Array<number> | null | undefined => {
-    return currentAux.tableVesRows.get(path);
+  getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {
+    return getReactiveFocusedSignal(path)[0];
+  },
+
+  getTableVesRows: (path: VisualElementPath): Array<number> | null => {
+    if (currentlyInFullArrange && underConstructionAux.tableVesRows.has(path)) {
+      return underConstructionAux.tableVesRows.get(path)!;
+    }
+    return staticTableVesRows.get(path) ?? null;
   },
 }
 
@@ -522,7 +839,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       logDirtyReason("fingerprint");
       underConstructionCache.set(path, existing);
-      syncAuxData(underConstructionAux, path, existing.get());
+      syncAuxData(underConstructionAux, path, existing.get(), visualElementOverride);
       addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
     }
@@ -540,7 +857,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       arrangeStats.new++; // This creates a new signal rather than recycling
       const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
       underConstructionCache.set(path, newElement);
-      syncAuxData(underConstructionAux, path, newElement.get());
+      syncAuxData(underConstructionAux, path, newElement.get(), visualElementOverride);
       addVesVsDisplayItem(newElement.get().displayItem.id, path);
       return newElement;
     }
@@ -552,6 +869,16 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
     if (debug) { console.debug(newProps, oldVals, visualElementOverride); }
     for (let i = 0; i < newProps.length; ++i) {
       if (debug) { console.debug("considering", newProps[i]); }
+      if (newProps[i] == "childrenVes" ||
+        newProps[i] == "attachmentsVes" ||
+        newProps[i] == "tableVesRows" ||
+        newProps[i] == "popupVes" ||
+        newProps[i] == "selectedVes" ||
+        newProps[i] == "dockVes" ||
+        newProps[i] == "focusedChildItemMaybe") {
+        continue;
+      }
+
       if (typeof (oldVals[newProps[i]]) == 'undefined') {
         if (debug) { console.debug('no current ve property for:', newProps[i]); }
         dirty = true;
@@ -591,20 +918,11 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
         } else {
           if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
         }
-      } else if (newProps[i] == "childrenVes" || newProps[i] == "attachmentsVes" || newProps[i] == "tableVesRows") {
-        if (compareArrays(oldVal, newVal) != 0) {
-          if (debug) { console.debug("ve property changed: ", newProps[i]); }
-          dirty = true;
-          break;
-        } else {
-          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
-        }
       } else if (newProps[i] == "linkItemMaybe") {
         // If this is an infumap-generated link, object ref might have changed, and it doesn't matter.
         // TODO (MEDIUM): rethink this through.
       } else if (newProps[i] == "displayItem" ||
         newProps[i] == "actualLinkItemMaybe" ||
-        newProps[i] == "focusedChildItemMaybe" ||
         newProps[i] == "flags" ||
         newProps[i] == "_arrangeFlags_useForPartialRearrangeOnly" ||
         newProps[i] == "row" ||
@@ -613,10 +931,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
         newProps[i] == "indentBl" ||
         newProps[i] == "parentPath" ||
         newProps[i] == "evaluatedTitle" ||
-        newProps[i] == "displayItemFingerprint" ||
-        newProps[i] == "popupVes" ||
-        newProps[i] == "selectedVes" ||
-        newProps[i] == "dockVes") {
+        newProps[i] == "displayItemFingerprint") {
         if (oldVal != newVal) {
           if (debug) { console.debug("ve property changed: ", newProps[i]); }
           dirty = true;
@@ -633,24 +948,11 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
 
     // properties that can become unset.
     // TODO (MEDIUM): something less of a hack here.
-    if (oldVals["popupVes"] && !visualElementOverride["popupVes"]) {
-      if (debug) { console.debug("popVes has become unset."); }
-      dirty = true;
-    }
-    if (oldVals["selectedVes"] && !visualElementOverride["selectedVes"]) {
-      if (debug) { console.debug("selectedVes has become unset."); }
-      dirty = true;
-    }
-    if (oldVals["dockVes"] && !visualElementOverride["dockVes"]) {
-      if (debug) { console.debug("dockVes has become unset."); }
-      dirty = true;
-    }
-
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
       arrangeStats.recycled++;
       underConstructionCache.set(path, existing);
-      syncAuxData(underConstructionAux, path, existing.get());
+      syncAuxData(underConstructionAux, path, existing.get(), visualElementOverride);
       addVesVsDisplayItem(existingVe.displayItem.id, path);
       return existing;
     }
@@ -660,7 +962,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
     // Recycle the existing visual element
     existing.set(VeFns.create(visualElementOverride));
     underConstructionCache.set(path, existing);
-    syncAuxData(underConstructionAux, path, existing.get());
+    syncAuxData(underConstructionAux, path, existing.get(), visualElementOverride);
     addVesVsDisplayItem(existing.get().displayItem.id, path);
     return existing;
   }
@@ -669,7 +971,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
   arrangeStats.new++;
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
   underConstructionCache.set(path, newElement);
-  syncAuxData(underConstructionAux, path, newElement.get());
+  syncAuxData(underConstructionAux, path, newElement.get(), visualElementOverride);
   addVesVsDisplayItem(newElement.get().displayItem.id, path);
   return newElement;
 }

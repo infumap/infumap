@@ -41,7 +41,7 @@ export function findDirectionFromLetterPrefix(prefix: string): FindDirection {
 }
 
 export function findDirectionFromKeyCode(code: string): FindDirection {
-  if (code ==  "ArrowLeft") { return FindDirection.Left; }
+  if (code == "ArrowLeft") { return FindDirection.Left; }
   if (code == "ArrowRight") { return FindDirection.Right; }
   if (code == "ArrowUp") { return FindDirection.Up; }
   if (code == "ArrowDown") { return FindDirection.Down; }
@@ -63,9 +63,8 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
       ? VesCache.getVirtual(parentPath)!.get()
       : VesCache.get(parentPath)!.get();
 
-    siblings = parentVe.childrenVes
-      ? parentVe.childrenVes.map(ves => ves.get())
-      : [];
+    siblings = VesCache.getChildrenVes(parentPath)()
+      .map(ves => ves.get());
   } else {
     siblings = (virtual ? VesCache.getSiblingsVirtual(path) : VesCache.getSiblings(path))
       .map(ves => ves.get());
@@ -82,8 +81,8 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
     for (let sibling of siblings) {
       const siblingBoundsPx = sibling.boundsPx;
       if (siblingBoundsPx.x + siblingBoundsPx.w - SLACK_PX > currentBoundsPx.x ||
-          siblingBoundsPx.y + SLACK_PX > currentBoundsPx.y + currentBoundsPx.h ||
-          siblingBoundsPx.y + siblingBoundsPx.h - SLACK_PX < currentBoundsPx.y) {
+        siblingBoundsPx.y + SLACK_PX > currentBoundsPx.y + currentBoundsPx.h ||
+        siblingBoundsPx.y + siblingBoundsPx.h - SLACK_PX < currentBoundsPx.y) {
         continue;
       }
       candidates.push(sibling);
@@ -93,8 +92,8 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
     for (let sibling of siblings) {
       const siblingBoundsPx = sibling.boundsPx;
       if (siblingBoundsPx.x < currentBoundsPx.x + currentBoundsPx.w - SLACK_PX ||
-          siblingBoundsPx.y + SLACK_PX > currentBoundsPx.y + currentBoundsPx.h ||
-          siblingBoundsPx.y + siblingBoundsPx.h - SLACK_PX < currentBoundsPx.y) {
+        siblingBoundsPx.y + SLACK_PX > currentBoundsPx.y + currentBoundsPx.h ||
+        siblingBoundsPx.y + siblingBoundsPx.h - SLACK_PX < currentBoundsPx.y) {
         continue;
       }
       candidates.push(sibling);
@@ -104,8 +103,8 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
     for (let sibling of siblings) {
       const siblingBoundsPx = sibling.boundsPx;
       if (siblingBoundsPx.y + siblingBoundsPx.h - SLACK_PX > currentBoundsPx.y ||
-          siblingBoundsPx.x + SLACK_PX > currentBoundsPx.x + currentBoundsPx.w ||
-          siblingBoundsPx.x + siblingBoundsPx.w - SLACK_PX < currentBoundsPx.x) {
+        siblingBoundsPx.x + SLACK_PX > currentBoundsPx.x + currentBoundsPx.w ||
+        siblingBoundsPx.x + siblingBoundsPx.w - SLACK_PX < currentBoundsPx.x) {
         continue;
       }
       candidates.push(sibling);
@@ -115,8 +114,8 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
     for (let sibling of siblings) {
       const siblingBoundsPx = sibling.boundsPx;
       if (siblingBoundsPx.y < currentBoundsPx.y + currentBoundsPx.h - SLACK_PX ||
-          siblingBoundsPx.x + SLACK_PX > currentBoundsPx.x + currentBoundsPx.w ||
-          siblingBoundsPx.x + siblingBoundsPx.w - SLACK_PX < currentBoundsPx.x) {
+        siblingBoundsPx.x + SLACK_PX > currentBoundsPx.x + currentBoundsPx.w ||
+        siblingBoundsPx.x + siblingBoundsPx.w - SLACK_PX < currentBoundsPx.x) {
         continue;
       }
       candidates.push(sibling);
@@ -133,7 +132,7 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
   const currentCenterPx = boundingBoxCenter(currentBoundsPx);
   let best = candidates[0];
   let bestDist = vectorDistance(currentCenterPx, boundingBoxCenter(candidates[0].boundsPx));
-  for (let i=1; i<candidates.length; ++i) {
+  for (let i = 1; i < candidates.length; ++i) {
     let dist = vectorDistance(currentCenterPx, boundingBoxCenter(candidates[i].boundsPx));
     if (dist < bestDist) {
       best = candidates[i];

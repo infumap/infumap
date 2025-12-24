@@ -19,6 +19,10 @@
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
 import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, GRID_SIZE } from "../../constants";
 import { VeFns, VisualElementFlags, VisualElement } from "../../layout/visual-element";
+import { VesCache } from "../../layout/ves-cache";
+
+
+
 import { useStore } from "../../store/StoreProvider";
 import { BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
 import { hexToRGBA } from "../../util/color";
@@ -178,7 +182,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     });
 
     // Traverse through selectedVes to find nested pages
-    let currentVes = props.visualElement.selectedVes;
+    let currentVes = VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))();
     let currentLeftPx = widthPx;
 
     while (currentVes != null && currentVes.get() != null) {
@@ -203,7 +207,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           });
           currentLeftPx += selectedWidthPx;
           // Continue traversing for list pages
-          currentVes = selectedVe.selectedVes;
+          currentVes = VesCache.getSelectedVes(VeFns.veToPath(selectedVe))();
         } else {
           // For non-list pages (spatial, document, etc.), add to result with remaining width
           // The width is the remaining space in the popup
@@ -315,8 +319,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       <For each={pageFns().desktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
-      <Show when={props.visualElement.selectedVes != null && props.visualElement.selectedVes.get() != null}>
-        <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
+      <Show when={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
+        <VisualElement_Desktop visualElement={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get()!} />
       </Show>
     </div>;
 
@@ -336,7 +340,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           `top: ${0}px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;`}>
-        <For each={props.visualElement.childrenVes}>{childVe =>
+        <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVe =>
+
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
@@ -442,7 +447,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             );
           }}</For>
 
-          <For each={props.visualElement.childrenVes}>{childVes =>
+          <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+
             <VisualElement_LineItem visualElement={childVes.get()} />
           }</For>
 

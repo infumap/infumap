@@ -18,6 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
+import { VesCache } from "../../layout/ves-cache";
 import { useStore } from "../../store/StoreProvider";
 import { ExpressionFns, asExpressionItem } from "../../items/expression-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
@@ -79,17 +80,17 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     }
     return ExpressionFns.calcSpatialDimensionsBl(expressionItem());
   };
-  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX*2;
+  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
-  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
-  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
+  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX * 2) / naturalWidthPx();
+  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
 
   const attachBoundsPx = (): BoundingBox => {
     return ({
-      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX - 2,
       y: 0,
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
@@ -106,10 +107,10 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
       x: boundsPx().w
-          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
-          - CONTAINER_IN_COMPOSITE_PADDING_PX,
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
@@ -185,67 +186,67 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
-                !(props.visualElement.flags & VisualElementFlags.DockItem)}>
+      !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
   const renderDetailed = () =>
     <>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-xs"
-             style={`left: 0px; top: 0px; ` +
-                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-                    `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          style={`left: 0px; top: 0px; ` +
+            `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
       <Switch>
         <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={"text-left"}
-                style={`position: absolute; ` +
-                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                       `width: ${naturalWidthPx()}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; `+
-                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                       `outline: 0px solid transparent;`}>
+            class={"text-left"}
+            style={`position: absolute; ` +
+              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+              `width: ${naturalWidthPx()}px; ` +
+              `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
+              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+              `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `outline: 0px solid transparent;`}>
             {appendNewlineIfEmpty(ExpressionFns.expressionFormatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format))}
           </span>
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={"text-left"}
-                style={`position: absolute; ` +
-                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                       `width: ${naturalWidthPx()}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; `+
-                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            class={"text-left"}
+            style={`position: absolute; ` +
+              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+              `width: ${naturalWidthPx()}px; ` +
+              `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
+              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+              `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `outline: 0px solid transparent;`}
+            contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {appendNewlineIfEmpty(expressionItem().title)}<span></span>
           </span>
         </Match>
       </Switch>
-      <For each={props.visualElement.attachmentsVes}>{attachment =>
+      <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
-                  (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                  !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
-                  showTriangleDetail()}>
+        (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+        !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
+        showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
       <Show when={!isInCompositeOrDocument() && showTriangleDetail()}>
@@ -253,13 +254,13 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
     </>;
 
@@ -267,9 +268,9 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     <>
       {renderShadowMaybe()}
       <div class={`${outerClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w-(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc ? 2 : 0)}px; height: ${boundsPx().h}px; ` +
-                  `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
-                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : 'background-color: #fff1e4;'}`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w - (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc ? 2 : 0)}px; height: ${boundsPx().h}px; ` +
+          `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
+          `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : 'background-color: #fff1e4;'}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>

@@ -23,6 +23,8 @@ import { fullArrange } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
 import { EMPTY_VEID, VeFns, VisualElementFlags } from "../layout/visual-element";
+
+
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
@@ -113,8 +115,8 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     ev.preventDefault();
     if (store.history.currentPopupSpec()) {
       store.history.popAllPopups();
-      const topRootVes = store.umbrellaVisualElement.get().childrenVes[0];
-      topRootVes.get().popupVes = null;
+      const topRootVes = VesCache.getChildrenVes(VeFns.veToPath(store.umbrellaVisualElement.get()))()[0];
+      VesCache.clearPopupVes(VeFns.veToPath(topRootVes.get()));
       topRootVes.set(topRootVes.get());
     }
   }
@@ -416,14 +418,15 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
   if (!tableVes) { return false; }
   const tableVe = tableVes.get();
 
-  const childRows = tableVe.childrenVes ?? [];
+  const childRows = VesCache.getChildrenVes(VeFns.veToPath(tableVe))() ?? [];
 
   let targetPath: string | null = null;
   let targetRow: number | null = null;
 
   for (const childSignal of childRows) {
     const childVe = childSignal.get();
-    if (childVe.row == null || !childVe.attachmentsVes) { continue; }
+    const atts = VesCache.getAttachmentsVes(VeFns.veToPath(childVe))();
+    if (childVe.row == null || !atts) { continue; }
 
     const childRow = childVe.row;
     let rowIsCandidate = false;
@@ -436,7 +439,8 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
 
     if (!rowIsCandidate) { continue; }
 
-    for (const attachmentSignal of childVe.attachmentsVes) {
+    const attachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(childVe))();
+    for (const attachmentSignal of attachmentsVes) {
       const attachmentVe = attachmentSignal.get();
       if (!(attachmentVe.flags & VisualElementFlags.Attachment)) { continue; }
       if (attachmentVe.col != columnIndex) { continue; }
@@ -482,12 +486,15 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
   // Case 1: On a table child (col=0), pressing Right -> go to first attachment
   if (!isAttachment && currentCol === 0 && direction === FindDirection.Right) {
     // currentVe is the table child, check its attachments
-    if (!currentVe.attachmentsVes || currentVe.attachmentsVes.length === 0) {
+    // currentVe is the table child, check its attachments
+    const currentAttachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(currentVe))();
+    if (!currentAttachmentsVes || currentAttachmentsVes.length === 0) {
       return false;
     }
 
     // Find the first attachment (col=1)
-    for (const attachmentSignal of currentVe.attachmentsVes) {
+    // Find the first attachment (col=1)
+    for (const attachmentSignal of currentAttachmentsVes) {
       const attachmentVe = attachmentSignal.get();
       if (attachmentVe.col === 1) {
         const targetPath = VeFns.veToPath(attachmentVe);
@@ -517,7 +524,9 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
         return true;
       } else if (currentCol > 1) {
         // Go to previous attachment
-        for (const attachmentSignal of rowVe.attachmentsVes) {
+        // Go to previous attachment
+        const rowAttachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(rowVe))();
+        for (const attachmentSignal of rowAttachmentsVes) {
           const attachmentVe = attachmentSignal.get();
           if (attachmentVe.col === currentCol - 1) {
             const targetPath = VeFns.veToPath(attachmentVe);
@@ -530,7 +539,9 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
       }
     } else if (direction === FindDirection.Right) {
       // Navigate to next attachment
-      for (const attachmentSignal of rowVe.attachmentsVes) {
+      // Navigate to next attachment
+      const rowAttachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(rowVe))();
+      for (const attachmentSignal of rowAttachmentsVes) {
         const attachmentVe = attachmentSignal.get();
         if (attachmentVe.col === currentCol + 1) {
           const targetPath = VeFns.veToPath(attachmentVe);
