@@ -382,9 +382,10 @@ export let VesCache = {
     resetArrangeStats();
   },
 
-  full_finalizeArrange: (store: StoreContextModel, umbrellaVeSpec: VisualElementSpec & VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
-    if (umbrellaVeSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
-    umbrellaVeSpec.displayItemFingerprint = ItemFns.getFingerprint(umbrellaVeSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
+  full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
+    if (umbrellaSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
+    umbrellaSpec.displayItemFingerprint = ItemFns.getFingerprint(umbrellaSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
+    const umbrellaVeSpec = { ...umbrellaSpec, ...umbrellaRelationships };
 
     if (virtualUmbrellaVes) {
       underConstructionCache.set(umbrellaPath, virtualUmbrellaVes);
@@ -511,33 +512,27 @@ export let VesCache = {
    * The entire cache should cleared on page change (since there will be little or no overlap anyway).
    * This is achieved using initFullArrange and finalizeFullArrange methods.
    */
-  full_createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec & VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
-    return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
+  full_createOrRecycleVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
+    return createOrRecycleVisualElementSignalImpl(spec, relationships, path);
   },
 
   /**
    * Create a new VisualElementSignal and insert it into the current cache.
    */
-  partial_create: (visualElementOverride: VisualElementSpec & VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
+  partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
+    const visualElementOverride = { ...spec, ...relationships };
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
     currentVesCache.set(path, newElement);
-    syncAuxData(currentAux, path, newElement.get(), visualElementOverride);
+    syncAuxData(currentAux, path, newElement.get(), relationships);
 
-    // Update reactive popup
-    updateReactivePopup(path, visualElementOverride.popupVes ?? null);
-    // Update reactive selected
-    updateReactiveSelected(path, visualElementOverride.selectedVes ?? null);
-    // Update reactive dock
-    updateReactiveDock(path, visualElementOverride.dockVes ?? null);
-    // Update reactive attachments
-    // Update reactive attachments
-    updateReactiveAttachments(path, visualElementOverride.attachmentsVes);
-    // Update reactive children
-    updateReactiveChildren(path, visualElementOverride.childrenVes);
-    // Update reactive focusedChild
+    updateReactivePopup(path, relationships.popupVes ?? null);
+    updateReactiveSelected(path, relationships.selectedVes ?? null);
+    updateReactiveDock(path, relationships.dockVes ?? null);
+    updateReactiveAttachments(path, relationships.attachmentsVes);
+    updateReactiveChildren(path, relationships.childrenVes);
     updateReactiveFocused(path, visualElementOverride.focusedChildItemMaybe ?? null);
-    // Update static tableVesRows
-    staticTableVesRows.set(path, visualElementOverride.tableVesRows ?? null);
+
+    staticTableVesRows.set(path, relationships.tableVesRows ?? null);
 
 
     if (isContainer(visualElementOverride.displayItem) &&
@@ -564,7 +559,8 @@ export let VesCache = {
    *
    * TODO (HIGH): should also delete children..., though this is never used
    */
-  partial_overwriteVisualElementSignal: (visualElementOverride: VisualElementSpec & VisualElementRelationships, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
+  partial_overwriteVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
+    const visualElementOverride = { ...spec, ...relationships };
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
 
@@ -612,21 +608,14 @@ export let VesCache = {
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
     currentVesCache.set(newPath, vesToOverwrite);
-    syncAuxData(currentAux, newPath, vesToOverwrite.get(), visualElementOverride);
+    syncAuxData(currentAux, newPath, vesToOverwrite.get(), relationships);
 
-    // Update reactive popup
-    updateReactivePopup(newPath, visualElementOverride.popupVes ?? null);
-    // Update reactive selected
-    updateReactiveSelected(newPath, visualElementOverride.selectedVes ?? null);
-    // Update reactive dock
-    updateReactiveDock(newPath, visualElementOverride.dockVes ?? null);
-    // Update reactive attachments
-    // Update reactive attachments
-    updateReactiveAttachments(newPath, visualElementOverride.attachmentsVes);
-    // Update reactive children
-    updateReactiveChildren(newPath, visualElementOverride.childrenVes);
-    // Update static tableVesRows
-    staticTableVesRows.set(newPath, visualElementOverride.tableVesRows ?? null);
+    updateReactivePopup(newPath, relationships.popupVes ?? null);
+    updateReactiveSelected(newPath, relationships.selectedVes ?? null);
+    updateReactiveDock(newPath, relationships.dockVes ?? null);
+    updateReactiveAttachments(newPath, relationships.attachmentsVes);
+    updateReactiveChildren(newPath, relationships.childrenVes);
+    staticTableVesRows.set(newPath, relationships.tableVesRows ?? null);
 
 
     if (isContainer(visualElementOverride.displayItem) &&
@@ -636,7 +625,7 @@ export let VesCache = {
       if (!underConstructionWatchContainerUidsByOrigin.has(origin)) {
         underConstructionWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
       }
-      underConstructionWatchContainerUidsByOrigin.get(origin)!.add(visualElementOverride.displayItem.id);
+      underConstructionWatchContainerUidsByOrigin.get(origin)!.add(spec.displayItem.id);
     }
 
     const displayItemId = VeFns.itemIdFromPath(newPath);
@@ -793,17 +782,19 @@ export let VesCache = {
 }
 
 
-function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualElementSpec & VisualElementRelationships, path: VisualElementPath): VisualElementSignal {
+function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal {
+  const visualElementOverride = { ...spec, ...relationships };
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
-  if (visualElementOverride.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
-  visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem); // TODO (LOW): Modifying the input object is a bit dirty.
+  if (spec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
+  spec.displayItemFingerprint = ItemFns.getFingerprint(spec.displayItem); // TODO (LOW): Modifying the input object is a bit dirty.
+  visualElementOverride.displayItemFingerprint = spec.displayItemFingerprint;
 
-  if (isContainer(visualElementOverride.displayItem) &&
-    (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
-    asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
-    const origin = visualElementOverride.displayItem.origin;
+  if (isContainer(spec.displayItem) &&
+    (spec.flags! & VisualElementFlags.ShowChildren) &&
+    asContainerItem(spec.displayItem).childrenLoaded) {
+    const origin = spec.displayItem.origin;
     if (!underConstructionWatchContainerUidsByOrigin.has(origin)) {
       underConstructionWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
     }
@@ -832,7 +823,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       logDirtyReason("fingerprint");
       underConstructionCache.set(path, existing);
-      syncAuxData(underConstructionAux, path, existing.get(), visualElementOverride);
+      syncAuxData(underConstructionAux, path, existing.get(), relationships);
       addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
     }
@@ -850,7 +841,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       arrangeStats.new++; // This creates a new signal rather than recycling
       const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
       underConstructionCache.set(path, newElement);
-      syncAuxData(underConstructionAux, path, newElement.get(), visualElementOverride);
+      syncAuxData(underConstructionAux, path, newElement.get(), relationships);
       addVesVsDisplayItem(newElement.get().displayItem.id, path);
       return newElement;
     }
@@ -945,7 +936,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       if (debug) { console.debug("not dirty:", path); }
       arrangeStats.recycled++;
       underConstructionCache.set(path, existing);
-      syncAuxData(underConstructionAux, path, existing.get(), visualElementOverride);
+      syncAuxData(underConstructionAux, path, existing.get(), relationships);
       addVesVsDisplayItem(existingVe.displayItem.id, path);
       return existing;
     }
@@ -955,7 +946,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
     // Recycle the existing visual element
     existing.set(VeFns.create(visualElementOverride));
     underConstructionCache.set(path, existing);
-    syncAuxData(underConstructionAux, path, existing.get(), visualElementOverride);
+    syncAuxData(underConstructionAux, path, existing.get(), relationships);
     addVesVsDisplayItem(existing.get().displayItem.id, path);
     return existing;
   }
@@ -964,7 +955,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
   arrangeStats.new++;
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
   underConstructionCache.set(path, newElement);
-  syncAuxData(underConstructionAux, path, newElement.get(), visualElementOverride);
+  syncAuxData(underConstructionAux, path, newElement.get(), relationships);
   addVesVsDisplayItem(newElement.get().displayItem.id, path);
   return newElement;
 }

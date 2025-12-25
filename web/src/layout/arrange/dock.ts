@@ -138,7 +138,7 @@ export const renderDockMaybe = (
   resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
   resizeBoundsPx.x = dockWidthPx - RESIZE_BOX_SIZE_PX;
 
-  const dockVisualElementSpec: VisualElementSpec & VisualElementRelationships = {
+  const dockSpec: VisualElementSpec = {
     displayItem: dockPage,
     linkItemMaybe: null,
     flags: VisualElementFlags.IsDock | VisualElementFlags.ShowChildren,
@@ -150,6 +150,9 @@ export const renderDockMaybe = (
       HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx),
     ],
     parentPath,
+  };
+
+  const dockRelationships: VisualElementRelationships = {
     childrenVes: dockChildren,
   };
 
@@ -164,11 +167,11 @@ export const renderDockMaybe = (
       h: trashHeightPx,
     }
     const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
-    const trashVisualElementSpec = {
+    const trashVisualElementSpec: VisualElementSpec = {
       displayItem: trashPage,
       linkItemMaybe: null,
       flags: VisualElementFlags.IsTrash,
-      arrangeItem: ArrangeItemFlags.None,
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       boundsPx: trashBoundsPx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
@@ -176,14 +179,15 @@ export const renderDockMaybe = (
       ],
       parentPath: dockPath,
     };
+    const trashRelationships: VisualElementRelationships = {};
 
     if (dockWidthPx > 25) {
       const trashPath = VeFns.addVeidToPath({ itemId: trashPage.id, linkIdMaybe: null }, dockPath);
-      dockChildren.push(VesCache.full_createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
+      dockChildren.push(VesCache.full_createOrRecycleVisualElementSignal(trashVisualElementSpec, trashRelationships, trashPath));
     }
   }
 
-  return VesCache.full_createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath);
+  return VesCache.full_createOrRecycleVisualElementSignal(dockSpec, dockRelationships, dockPath);
 }
 
 export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel, dockItem: PageItem, movingItem: Item, dockWidthPx: number, desktopYPx: number): IndexAndPosition {

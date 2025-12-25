@@ -44,32 +44,33 @@ export const arrangePageWithChildren = (
   geometry: ItemGeometry,
   flags: ArrangeItemFlags): VisualElementSignal => {
 
-  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
+  let pageSpec: VisualElementSpec;
+  let pageRelationships: VisualElementRelationships;
 
   const arrangeAlgOverride = linkItemMaybe_pageWithChildren?.overrideArrangeAlgorithm || null;
   const effectiveArrange = arrangeAlgOverride || displayItem_pageWithChildren.arrangeAlgorithm;
 
   switch (effectiveArrange) {
     case ArrangeAlgorithm.Grid:
-      pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_grid_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.Justified:
-      pageWithChildrenVisualElementSpec = arrange_justified_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_justified_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.Document:
-      pageWithChildrenVisualElementSpec = arrange_document_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_document_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.SpatialStretch:
-      pageWithChildrenVisualElementSpec = arrange_spatial_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_spatial_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.List:
-      pageWithChildrenVisualElementSpec = arrange_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.SingleCell:
-      pageWithChildrenVisualElementSpec = arrange_single_cell_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_single_cell_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.Calendar:
-      pageWithChildrenVisualElementSpec = arrange_calendar_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_calendar_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     default:
       panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
@@ -81,10 +82,10 @@ export const arrangePageWithChildren = (
   if (!(arrangeFlagIsRoot(flags))) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_pageWithChildren == null ? displayItem_pageWithChildren : linkItemMaybe_pageWithChildren);
     const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath);
-    pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
+    pageRelationships.attachmentsVes = attachments;
   }
 
-  const pageWithChildrenVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
+  const pageWithChildrenVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(pageSpec, pageRelationships, pageWithChildrenVePath);
   if (linkItemMaybe_pageWithChildren?.overrideTitle) {
     const ve = pageWithChildrenVisualElementSignal.get();
     ve.evaluatedTitle = linkItemMaybe_pageWithChildren.overrideTitle;
@@ -92,3 +93,4 @@ export const arrangePageWithChildren = (
   }
   return pageWithChildrenVisualElementSignal;
 }
+

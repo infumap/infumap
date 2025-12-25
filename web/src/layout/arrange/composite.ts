@@ -58,7 +58,7 @@ export const arrangeComposite = (
   };
   let childAreaBoundsPx = zeroBoundingBoxTopLeft(viewportBoundsPx);
 
-  const compositeVisualElementSpec: VisualElementSpec & VisualElementRelationships = {
+  const compositeSpec: VisualElementSpec = {
     displayItem: displayItem_Composite,
     linkItemMaybe: linkItemMaybe_Composite,
     actualLinkItemMaybe: actualLinkItemMaybe_Composite,
@@ -81,7 +81,7 @@ export const arrangeComposite = (
       const veid = VeFns.veidFromItems(displayItem_Composite, actualLinkItemMaybe_Composite);
       const isSelected = sel.some(v => v.itemId === veid.itemId && v.linkIdMaybe === veid.linkIdMaybe);
       if (isSelected) {
-        compositeVisualElementSpec.flags = (compositeVisualElementSpec.flags || VisualElementFlags.None) | VisualElementFlags.SelectionHighlighted;
+        compositeSpec.flags = (compositeSpec.flags || VisualElementFlags.None) | VisualElementFlags.SelectionHighlighted;
       }
     }
   }
@@ -115,9 +115,11 @@ export const arrangeComposite = (
     compositeVeChildren.push(compositeChildVeSignal);
   }
 
-  compositeVisualElementSpec.childrenVes = compositeVeChildren;
+  const compositeRelationships: VisualElementRelationships = {
+    childrenVes: compositeVeChildren,
+  };
 
-  const compositeVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeVisualElementSpec, compositeVePath);
+  const compositeVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeSpec, compositeRelationships, compositeVePath);
 
   return compositeVisualElementSignal;
 }
@@ -161,7 +163,7 @@ function arrangeCompositeChildItem(
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === compositeChildVePath;
 
-  const compositeChildVeSpec: VisualElementSpec & VisualElementRelationships = {
+  const compositeChildVeSpec: VisualElementSpec = {
     displayItem: displayItem_childItem,
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
@@ -181,18 +183,19 @@ function arrangeCompositeChildItem(
     blockSizePx,
   };
 
+  const compositeChildRelationships: VisualElementRelationships = {};
   if (isAttachmentsItem(displayItem_childItem)) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
     if (!isPage(displayItem_childItem) && !isImage(displayItem_childItem)) {
       parentItemSizeBl.w = compositeWidthBl;
     }
     const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath);
-    compositeChildVeSpec.attachmentsVes = attachments;
+    compositeChildRelationships.attachmentsVes = attachments;
   } else {
-    compositeChildVeSpec.attachmentsVes = [];
+    compositeChildRelationships.attachmentsVes = [];
   }
 
-  const compositeChildVeSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
+  const compositeChildVeSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildRelationships, compositeChildVePath);
 
   const sel = store.overlay.selectedVeids.get();
   if (sel && sel.length > 0) {

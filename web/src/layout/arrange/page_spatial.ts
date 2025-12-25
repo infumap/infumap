@@ -39,9 +39,7 @@ export function arrange_spatial_page(
   linkItemMaybe_pageWithChildren: LinkItem | null,
   actualLinkItemMaybe_pageWithChildren: LinkItem | null,
   geometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementSpec & VisualElementRelationships {
-
-  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
+  flags: ArrangeItemFlags): { spec: VisualElementSpec, relationships: VisualElementRelationships } {
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
@@ -87,7 +85,7 @@ export function arrange_spatial_page(
     return false;
   })();
 
-  pageWithChildrenVisualElementSpec = {
+  const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
@@ -110,6 +108,8 @@ export function arrange_spatial_page(
     parentPath,
   };
 
+  const pageRelationships: VisualElementRelationships = {};
+
   const childrenVes = [];
   for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
     const childId = displayItem_pageWithChildren.computed_children[i];
@@ -123,7 +123,7 @@ export function arrange_spatial_page(
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
     const itemGeometry = ItemFns.calcGeometry_Spatial(
       childItem,
-      zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
+      zeroBoundingBoxTopLeft(pageSpec.childAreaBoundsPx!),
       parentPageInnerDimensionsBl,
       parentIsPopup,
       emitHitboxes,
@@ -150,7 +150,7 @@ export function arrange_spatial_page(
       childrenVes.push(ves);
     }
   }
-  pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
+  pageRelationships.childrenVes = childrenVes;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
@@ -163,18 +163,19 @@ export function arrange_spatial_page(
           store,
           displayItem_pageWithChildren,
           currentPopupSpec.actualVeid,
-          pageWithChildrenVisualElementSpec.childAreaBoundsPx!
+          pageSpec.childAreaBoundsPx!
         );
 
-        pageWithChildrenVisualElementSpec.popupVes = arrangeItem(
+        pageRelationships.popupVes = arrangeItem(
           store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, linkItem, actualLinkItemMaybe, geometry,
           ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot);
 
       } else {
-        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
+        pageRelationships.popupVes = arrangeCellPopup(store);
       }
     }
   }
 
-  return pageWithChildrenVisualElementSpec;
+  return { spec: pageSpec, relationships: pageRelationships };
 }
+

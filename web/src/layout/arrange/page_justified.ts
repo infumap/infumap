@@ -42,9 +42,7 @@ export function arrange_justified_page(
   linkItemMaybe_pageWithChildren: LinkItem | null,
   actualLinkItemMaybe_pageWithChildren: LinkItem | null,
   geometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementSpec & VisualElementRelationships {
-
-  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
+  flags: ArrangeItemFlags): { spec: VisualElementSpec, relationships: VisualElementRelationships } {
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
@@ -104,7 +102,7 @@ export function arrange_justified_page(
     return false;
   })();
 
-  pageWithChildrenVisualElementSpec = {
+  const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
@@ -125,6 +123,8 @@ export function arrange_justified_page(
     childAreaBoundsPx,
     parentPath,
   };
+
+  const pageRelationships: VisualElementRelationships = {};
 
   const childrenVes = [];
 
@@ -158,16 +158,16 @@ export function arrange_justified_page(
     childrenVes.push(movingVes);
   }
 
-  pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
+  pageRelationships.childrenVes = childrenVes;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
+      pageRelationships.popupVes = arrangeCellPopup(store);
     }
   }
 
-  return pageWithChildrenVisualElementSpec;
+  return { spec: pageSpec, relationships: pageRelationships };
 }
 
 

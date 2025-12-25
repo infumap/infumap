@@ -52,14 +52,11 @@ export function arrange_list_page(
   linkItemMaybe_pageWithChildren: LinkItem | null,
   actualLinkItemMaybe_pageWithChildren: LinkItem | null,
   geometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementSpec & VisualElementRelationships {
+  flags: ArrangeItemFlags): { spec: VisualElementSpec, relationships: VisualElementRelationships } {
 
   if (flags & ArrangeItemFlags.IsDockRoot) {
     return arrange_dock_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
   }
-
-
-  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
@@ -156,11 +153,10 @@ export function arrange_list_page(
     h: 0  // TODO (LOW): better to calculate this, but it's not needed for anything.
   };
 
-  pageWithChildrenVisualElementSpec = {
+  const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
-    focusedChildItemMaybe,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
       (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
       (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
@@ -180,6 +176,10 @@ export function arrange_list_page(
     blockSizePx,
     hitboxes,
     parentPath,
+  };
+
+  const pageRelationships: VisualElementRelationships = {
+    focusedChildItemMaybe,
   };
 
   const selectedVeid = store.perItem.getSelectedListPageItem(
@@ -237,7 +237,8 @@ export function arrange_list_page(
       row: idx - skippedCount,
       blockSizePx,
     };
-    const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
+    const listItemRelationships: VisualElementRelationships = {};
+    const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
     listVeChildren.push(listItemVisualElementSignal);
 
     if (isExpression(childItem)) {
@@ -289,7 +290,7 @@ export function arrange_list_page(
     listVeChildren.push(ves);
   }
 
-  pageWithChildrenVisualElementSpec.childrenVes = listVeChildren;
+  pageRelationships.childrenVes = listVeChildren;
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
@@ -300,18 +301,18 @@ export function arrange_list_page(
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
     const canShiftLeft = selectedIsRoot;
-    pageWithChildrenVisualElementSpec.selectedVes =
+    pageRelationships.selectedVes =
       arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot);
   }
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
+      pageRelationships.popupVes = arrangeCellPopup(store);
     }
   }
 
-  return pageWithChildrenVisualElementSpec;
+  return { spec: pageSpec, relationships: pageRelationships };
 }
 
 
@@ -383,16 +384,14 @@ export function arrange_dock_list_page(
   linkItemMaybe_pageWithChildren: LinkItem | null,
   actualLinkItemMaybe_pageWithChildren: LinkItem | null,
   geometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementSpec & VisualElementRelationships {
-
-  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
+  flags: ArrangeItemFlags): { spec: VisualElementSpec, relationships: VisualElementRelationships } {
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   const hitboxes = geometry.hitboxes;
 
-  pageWithChildrenVisualElementSpec = {
+  const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
@@ -412,6 +411,7 @@ export function arrange_dock_list_page(
     parentPath,
   };
 
+  const pageRelationships: VisualElementRelationships = {};
 
   let listVeChildren: Array<VisualElementSignal> = [];
   for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
@@ -445,10 +445,11 @@ export function arrange_dock_list_page(
       row: idx,
       blockSizePx,
     };
-    const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
+    const listItemRelationships: VisualElementRelationships = {};
+    const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
     listVeChildren.push(listItemVisualElementSignal);
   }
-  pageWithChildrenVisualElementSpec.childrenVes = listVeChildren;
+  pageRelationships.childrenVes = listVeChildren;
 
-  return pageWithChildrenVisualElementSpec;
+  return { spec: pageSpec, relationships: pageRelationships };
 }

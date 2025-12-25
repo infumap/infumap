@@ -22,21 +22,21 @@ import { itemState } from "../../store/ItemState";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { getVePropertiesForItem } from "./util";
 import { ArrangeItemFlags } from "./item";
 import { Uid } from "../../util/uid";
 
 
 export function arrangeItemAttachments(
-    store: StoreContextModel,
-    attachmentIds: Array<Uid>,
-    parentItemSizeBl: Dimensions,
-    parentItemBoundsPx: BoundingBox,
-    parentItemVePath: VisualElementPath): Array<VisualElementSignal> {
+  store: StoreContextModel,
+  attachmentIds: Array<Uid>,
+  parentItemSizeBl: Dimensions,
+  parentItemBoundsPx: BoundingBox,
+  parentItemVePath: VisualElementPath): Array<VisualElementSignal> {
 
   const attachments: Array<VisualElementSignal> = [];
-  for (let i=0; i<attachmentIds.length; ++i) {
+  for (let i = 0; i < attachmentIds.length; ++i) {
     const attachmentId = attachmentIds[i];
     const attachmentItem = itemState.get(attachmentId)!;
     const { displayItem: attachmentDisplayItem, linkItemMaybe: attachmentLinkItemMaybe } = getVePropertiesForItem(store, attachmentItem);
@@ -58,11 +58,12 @@ export function arrangeItemAttachments(
       hitboxes: attachmentGeometry.hitboxes,
       parentPath: parentItemVePath,
       flags: VisualElementFlags.Attachment |
-             (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None) |
-             (isSelected ? VisualElementFlags.ZAbove : VisualElementFlags.None),
+        (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None) |
+        (isSelected ? VisualElementFlags.ZAbove : VisualElementFlags.None),
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     };
-    const attachmentVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(veSpec, attachmentVePath);
+    const veRelationships: VisualElementRelationships = {};
+    const attachmentVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(veSpec, veRelationships, attachmentVePath);
     attachments.push(attachmentVisualElementSignal);
   }
 

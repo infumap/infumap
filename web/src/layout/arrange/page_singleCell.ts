@@ -40,9 +40,7 @@ export function arrange_single_cell_page(
   linkItemMaybe_pageWithChildren: LinkItem | null,
   actualLinkItemMaybe_pageWithChildren: LinkItem | null,
   geometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementSpec & VisualElementRelationships {
-
-  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
+  flags: ArrangeItemFlags): { spec: VisualElementSpec, relationships: VisualElementRelationships } {
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
@@ -80,7 +78,7 @@ export function arrange_single_cell_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
-  pageWithChildrenVisualElementSpec = {
+  const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
@@ -102,6 +100,8 @@ export function arrange_single_cell_page(
     cellSizePx: { w: childAreaBoundsPx.w, h: childAreaBoundsPx.h },
     numRows: 1,
   };
+
+  const pageRelationships: VisualElementRelationships = {};
 
   const childrenVes = [];
   for (let i = 0; i < pageItem.computed_children.length; ++i) {
@@ -174,14 +174,14 @@ export function arrange_single_cell_page(
     childrenVes.push(ves);
   }
 
-  pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
+  pageRelationships.childrenVes = childrenVes;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
+      pageRelationships.popupVes = arrangeCellPopup(store);
     }
   }
 
-  return pageWithChildrenVisualElementSpec;
+  return { spec: pageSpec, relationships: pageRelationships };
 }

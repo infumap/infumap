@@ -73,7 +73,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   const umbrellaPageItem = PageFns.umbrellaPage();
   const umbrellaPath = umbrellaPageItem.id;
 
-  const umbrellaVeSpec: VisualElementSpec & VisualElementRelationships = {
+  const umbrellaSpec: VisualElementSpec = {
     displayItem: umbrellaPageItem,
     linkItemMaybe: null,
     actualLinkItemMaybe: null,
@@ -83,9 +83,11 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     viewportBoundsPx: store.desktopBoundsPx(),
   };
 
+  const umbrellaRelationships: VisualElementRelationships = {};
+
   const dockVesMaybe = renderDockMaybe(store, umbrellaPath);
   if (dockVesMaybe) {
-    umbrellaVeSpec.dockVes = dockVesMaybe;
+    umbrellaRelationships.dockVes = dockVesMaybe;
   }
 
   const childrenVes = [];
@@ -103,14 +105,15 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     actualLinkItemMaybe ? actualLinkItemMaybe : currentPage,
     actualLinkItemMaybe, itemGeometry, flags);
   childrenVes.push(pageVes);
-  umbrellaVeSpec.childrenVes = childrenVes;
+  umbrellaRelationships.childrenVes = childrenVes;
 
   if (virtualPageVeid) {
+    const umbrellaVeSpec = { ...umbrellaSpec, ...umbrellaRelationships };
     const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaVeSpec));
-    VesCache.full_finalizeArrange(store, umbrellaVeSpec, umbrellaPath, umbrellaVes);
+    VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
     evaluateExpressions(true);
   } else {
-    VesCache.full_finalizeArrange(store, umbrellaVeSpec, umbrellaPath);
+    VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
     VesCache.addWatchContainerUid(currentPage.id, currentPage.origin);
     evaluateExpressions(false);
   }

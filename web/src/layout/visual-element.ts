@@ -232,18 +232,6 @@ export interface VisualElement {
    */
   displayItemFingerprint: string,
 
-
-
-  // attachmentsVes: Array<VisualElementSignal>, // moved to VesCache
-  // popupVes is moved to VesCache
-  // selectedVes is moved to VesCache
-  // dockVes: VisualElementSignal | null, // moved to VesCache
-
-  // childrenVes is moved to VesCache
-  // tableVesRows is moved to VesCache
-  // focusedChildItemMaybe is moved to VesCache
-
-
   /**
    * The flags that were used during arrangement when creating the visual element. This gives
    * the required context for partial rearrangements. TODO (LOW): track this in a separate hash
@@ -277,12 +265,6 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   cellSizePx: null,
   numRows: null,
   hitboxes: [],
-
-
-  // attachmentsVes: [], // moved to VesCache
-  // dockVes: null, // moved to VesCache
-
-
 
   parentPath: null,
   evaluatedTitle: null,
@@ -365,11 +347,6 @@ export const VeFns = {
       cellSizePx: null,
       numRows: null,
       hitboxes: [],
-      // childrenVes: [],
-      // attachmentsVes: [], // moved to VesCache
-      // selectedVes: null, // moved to VesCache
-      // dockVes: null, // moved to VesCache
-      // tableVesRows: null,
 
       parentPath: null,
       evaluatedTitle: null,
@@ -406,8 +383,6 @@ export const VeFns = {
     ve.cellSizePx = null;
     ve.numRows = null;
     ve.hitboxes = [];
-    // ve.childrenVes = [];
-    // ve.tableVesRows = null;
 
     ve.parentPath = null;
     ve.evaluatedTitle = null;

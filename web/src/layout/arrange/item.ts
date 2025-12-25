@@ -149,7 +149,7 @@ export const arrangeItemNoChildren = (
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === currentVePath;
 
-  const itemVisualElement: VisualElementSpec & VisualElementRelationships = {
+  const itemVisualElementSpec: VisualElementSpec = {
     displayItem,
     linkItemMaybe,
     actualLinkItemMaybe,
@@ -176,19 +176,20 @@ export const arrangeItemNoChildren = (
     return false;
   })();
   if (isInOverlaySelection) {
-    itemVisualElement.flags = (itemVisualElement.flags || VisualElementFlags.None) | VisualElementFlags.SelectionHighlighted;
+    itemVisualElementSpec.flags = (itemVisualElementSpec.flags || VisualElementFlags.None) | VisualElementFlags.SelectionHighlighted;
   }
 
   // TODO (MEDIUM): reconcile, don't override.
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
+  const itemRelationships: VisualElementRelationships = {};
   if (isAttachmentsItem(displayItem)) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe == null ? displayItem : linkItemMaybe);
-    itemVisualElement.attachmentsVes = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath);
+    itemRelationships.attachmentsVes = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath);
   } else {
-    itemVisualElement.attachmentsVes = [];
+    itemRelationships.attachmentsVes = [];
   }
 
-  const itemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
+  const itemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(itemVisualElementSpec, itemRelationships, currentVePath);
 
   if (isExpression(displayItem)) {
     VesCache.markEvaluationRequired(VeFns.veToPath(itemVisualElementSignal.get()));

@@ -41,14 +41,13 @@ export const arrangeFlipCard = (
   actualLinkItemMaybe_flipCard: LinkItem | null,
   geometry: ItemGeometry,
   flags: ArrangeItemFlags): VisualElementSignal => {
-  let flipCardVisualElementSpec: VisualElementSpec & VisualElementRelationships;
 
   const flipCardVeid = VeFns.veidFromItems(displayItem_flipCard, linkItemMaybe_flipCard ? linkItemMaybe_flipCard : actualLinkItemMaybe_flipCard);
   const flipCardVePath = VeFns.addVeidToPath(flipCardVeid, parentPath);
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
 
-  flipCardVisualElementSpec = {
+  const flipCardSpec: VisualElementSpec = {
     displayItem: displayItem_flipCard,
     linkItemMaybe: linkItemMaybe_flipCard,
     actualLinkItemMaybe: actualLinkItemMaybe_flipCard,
@@ -61,6 +60,8 @@ export const arrangeFlipCard = (
     parentPath,
   };
 
+  const flipCardRelationships: VisualElementRelationships = {};
+
   if (displayItem_flipCard.computed_children.length == 2) {
     const side = store.perItem.getFlipCardVisibleSide(flipCardVeid);
     const visiblePageId = displayItem_flipCard.computed_children[side];
@@ -71,7 +72,7 @@ export const arrangeFlipCard = (
 
     const pageBoundsPx = zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!);
 
-    let pageVisualElementSpec: VisualElementSpec & VisualElementRelationships = {
+    const pageSpec: VisualElementSpec = {
       displayItem: visiblePage,
       linkItemMaybe: null,
       actualLinkItemMaybe: null,
@@ -99,7 +100,7 @@ export const arrangeFlipCard = (
       parentPageInnerDimensionsBl.h = Math.round(parentPageInnerDimensionsBl.h / displayItem_flipCard.scale);
       const itemGeometry = ItemFns.calcGeometry_Spatial(
         childItem,
-        zeroBoundingBoxTopLeft(flipCardVisualElementSpec.childAreaBoundsPx!),
+        zeroBoundingBoxTopLeft(flipCardSpec.childAreaBoundsPx!),
         parentPageInnerDimensionsBl,
         false,
         emitHitboxes,
@@ -116,9 +117,9 @@ export const arrangeFlipCard = (
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None));
       childrenVes.push(ves);
     }
-    pageVisualElementSpec.childrenVes = childrenVes;
-    const pageVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(pageVisualElementSpec, visiblePagePath);
-    flipCardVisualElementSpec.childrenVes = [pageVisualElementSignal];
+    const pageRelationships: VisualElementRelationships = { childrenVes };
+    const pageVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(pageSpec, pageRelationships, visiblePagePath);
+    flipCardRelationships.childrenVes = [pageVisualElementSignal];
 
   } else if (displayItem_flipCard.computed_children.length != 0) {
     console.warn(`expected flipcard item ${displayItem_flipCard.computed_children.length} to have 2 or 0 children`);
@@ -126,8 +127,8 @@ export const arrangeFlipCard = (
 
   const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_flipCard == null ? displayItem_flipCard : linkItemMaybe_flipCard);
   const attachments = arrangeItemAttachments(store, displayItem_flipCard.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, flipCardVePath);
-  flipCardVisualElementSpec.attachmentsVes = attachments;
+  flipCardRelationships.attachmentsVes = attachments;
 
-  const flipCardVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(flipCardVisualElementSpec, flipCardVePath);
+  const flipCardVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(flipCardSpec, flipCardRelationships, flipCardVePath);
   return flipCardVisualElementSignal;
 }

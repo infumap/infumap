@@ -47,9 +47,7 @@ export function arrange_calendar_page(
   linkItemMaybe_pageWithChildren: LinkItem | null,
   actualLinkItemMaybe_pageWithChildren: LinkItem | null,
   geometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementSpec & VisualElementRelationships {
-
-  let pageWithChildrenVisualElementSpec: VisualElementSpec & VisualElementRelationships;
+  flags: ArrangeItemFlags): { spec: VisualElementSpec, relationships: VisualElementRelationships } {
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
@@ -130,7 +128,7 @@ export function arrange_calendar_page(
     return false;
   })();
 
-  pageWithChildrenVisualElementSpec = {
+  const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
@@ -151,6 +149,8 @@ export function arrange_calendar_page(
     childAreaBoundsPx,
     parentPath,
   };
+
+  const pageRelationships: VisualElementRelationships = {};
 
   // Arrange child items in calendar grid layout (6 blocks wide)
   let calendarVeChildren: Array<VisualElementSignal> = [];
@@ -370,7 +370,8 @@ export function arrange_calendar_page(
         blockSizePx: blockSizePx,
       };
 
-      const calendarItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(calendarItemVeSpec, childPath);
+      const calendarItemRelationships: VisualElementRelationships = {};
+      const calendarItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(calendarItemVeSpec, calendarItemRelationships, childPath);
       calendarVeChildren.push(calendarItemVisualElementSignal);
 
       if (isExpression(childItem)) {
@@ -380,9 +381,8 @@ export function arrange_calendar_page(
   });
 
   // Attach overflow hitboxes to the page visual element
-  pageWithChildrenVisualElementSpec = pageWithChildrenVisualElementSpec || ({} as any);
-  pageWithChildrenVisualElementSpec.hitboxes = [
-    ...(pageWithChildrenVisualElementSpec.hitboxes || []),
+  pageSpec.hitboxes = [
+    ...(pageSpec.hitboxes || []),
     ...overflowHitboxes,
   ];
 
@@ -504,7 +504,8 @@ export function arrange_calendar_page(
       blockSizePx: blockSizePx,
     };
 
-    const movingItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(movingItemVeSpec, childPath);
+    const movingItemRelationships: VisualElementRelationships = {};
+    const movingItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(movingItemVeSpec, movingItemRelationships, childPath);
     calendarVeChildren.push(movingItemVisualElementSignal);
 
     if (isExpression(movingItemInThisPage)) {
@@ -512,14 +513,14 @@ export function arrange_calendar_page(
     }
   }
 
-  pageWithChildrenVisualElementSpec.childrenVes = calendarVeChildren;
+  pageRelationships.childrenVes = calendarVeChildren;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
+      pageRelationships.popupVes = arrangeCellPopup(store);
     }
   }
 
-  return pageWithChildrenVisualElementSpec;
+  return { spec: pageSpec, relationships: pageRelationships };
 }
