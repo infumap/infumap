@@ -219,12 +219,12 @@ function serveWaiting(networkStatus: NumberSignal) {
 }
 
 function constructCommandPromise(
-    host: string | null,
-    command: string,
-    payload: object,
-    base64data: string | null,
-    panicLogoutOnError: boolean,
-    networkStatus: NumberSignal): Promise<any> {
+  host: string | null,
+  command: string,
+  payload: object,
+  base64data: string | null,
+  panicLogoutOnError: boolean,
+  networkStatus: NumberSignal): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
       host, command, payload, base64data, panicLogoutOnError,
@@ -240,9 +240,9 @@ function constructCommandPromise(
 }
 
 function constructInternalCommandPromise(
-    command: string,
-    handler: () => Promise<any>,
-    networkStatus: NumberSignal): Promise<any> {
+  command: string,
+  handler: () => Promise<any>,
+  networkStatus: NumberSignal): Promise<any> {
   return new Promise((resolve, reject) => {
     const commandObj: ServerCommand = {
       host: null,
@@ -302,7 +302,7 @@ export const server = {
   },
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
-    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, { }, null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, {}, null, true, networkStatus);
   },
 
   modifiedCheck: async (requests: ModifiedCheck[], networkStatus: NumberSignal): Promise<ModifiedCheckResult[]> => {
@@ -390,12 +390,12 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
 }
 
 function constructCommandPromise_remote(
-    host: string | null,
-    command: string,
-    payload: object,
-    base64data: string | null,
-    panicLogoutOnError: boolean,
-    networkStatus: NumberSignal): Promise<any> {
+  host: string | null,
+  command: string,
+  payload: object,
+  base64data: string | null,
+  panicLogoutOnError: boolean,
+  networkStatus: NumberSignal): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
       host, command, payload, base64data, panicLogoutOnError,
@@ -511,7 +511,7 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
     const origin = container.origin;
 
     // Capture state before fetch to detect concurrent changes
-    const containerItem = asContainerItem(container);
+    const containerItemBeforeFetch = asContainerItem(container);
     const preFetchHashes = new Map<Uid, string>();
 
     // Hash the container itself and its attachments
@@ -520,7 +520,7 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
     }
 
     // Hash all current children and their attachments
-    for (const childId of containerItem.computed_children) {
+    for (const childId of containerItemBeforeFetch.computed_children) {
       const childItem = itemState.get(childId);
       if (childItem) {
         if (isAttachmentsItem(childItem)) {
@@ -535,12 +535,18 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
       : await sendCommand(origin, COMMAND_GET_ITEMS, { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false);
 
     if (fetchResult != null) {
+      // Re-fetch container after async operation - it may have changed during navigation
+      const containerAfterFetch = itemState.get(modifiedContainer.id);
+      if (!containerAfterFetch || !isContainer(containerAfterFetch)) {
+        continue;
+      }
+      const containerItem = asContainerItem(containerAfterFetch);
       if (mutationGenerationAtStart !== mutationGeneration) {
         return;
       }
       // Apply the same processing as in server.fetchItems
-      if (fetchResult.item && fetchResult.item.parentId == null) { 
-        fetchResult.item.parentId = EMPTY_UID; 
+      if (fetchResult.item && fetchResult.item.parentId == null) {
+        fetchResult.item.parentId = EMPTY_UID;
       }
       const result = {
         item: fetchResult.item,
