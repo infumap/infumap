@@ -255,7 +255,7 @@ export const Main: Component = () => {
 
   return (
     <div ref={mainDiv}
-      class="absolute top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden"
+      class="absolute top-0 left-0 right-0 bottom-0 select-none touch-pan-x touch-pan-y overflow-hidden"
       ontouchstart={touchListener}
       onmousedown={mouseDownListener}
       onmousemove={mouseMoveListener}
