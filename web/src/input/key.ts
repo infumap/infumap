@@ -22,7 +22,7 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { fullArrange } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
-import { EMPTY_VEID, VeFns, VisualElementFlags } from "../layout/visual-element";
+import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
 
 
 import { StoreContextModel } from "../store/StoreProvider";
@@ -200,6 +200,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
 
   if (handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
   if (handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
+  if (handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
 
   if (!store.history.currentPopupSpec()) {
     const parentVeid = store.history.peekPrevPageVeid()!;
@@ -303,6 +304,17 @@ function handleArrowKeyCalendarPageMaybe(store: StoreContextModel, ev: KeyboardE
  */
 function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
   const focusItem = store.history.getFocusItem();
+
+  // If the focus item is a grid or justified page, don't handle up/down arrows here.
+  // Let the grid/justified scroll handler process them instead.
+  if (isPage(focusItem)) {
+    const focusArrangeAlgorithm = asPageItem(focusItem).arrangeAlgorithm;
+    if ((focusArrangeAlgorithm == ArrangeAlgorithm.Grid || focusArrangeAlgorithm == ArrangeAlgorithm.Justified) &&
+      (ev.code == "ArrowUp" || ev.code == "ArrowDown")) {
+      return false;
+    }
+  }
+
   let handleListPageChange = isPage(focusItem) && asPageItem(focusItem).arrangeAlgorithm == ArrangeAlgorithm.List;
   const focusPath = store.history.getFocusPath();
   const focusVe = VesCache.get(focusPath)!.get();
@@ -384,6 +396,64 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
       }
     }
   }
+
+  return true;
+}
+
+/**
+ * If arrow keydown event is for scrolling a focussed grid or justified page, handle it and return true, else return false.
+ * This works both when the grid/justified page is the root page, and when it's nested as a selected item within a list page.
+ */
+function handleArrowKeyGridOrJustifiedPageScrollMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (store.history.currentPopupSpec()) { return false; }
+  if (ev.code != "ArrowUp" && ev.code != "ArrowDown") { return false; }
+
+  const focusItem = store.history.getFocusItem();
+  if (isPage(focusItem)) {
+    const arrangeAlgorithm = asPageItem(focusItem).arrangeAlgorithm;
+    if (arrangeAlgorithm == ArrangeAlgorithm.Grid || arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+      const focusVes = VesCache.get(store.history.getFocusPath());
+      if (focusVes && scrollGridOrJustifiedPageVe(store, focusVes.get(), ev.code)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Helper function to scroll a grid or justified page given its visual element.
+ * Returns true if scrolling was performed (or content fits viewport), false otherwise.
+ */
+function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualElement, keyCode: string): boolean {
+  if (!pageVe.childAreaBoundsPx || !pageVe.viewportBoundsPx) { return false; }
+
+  const contentHeight = pageVe.childAreaBoundsPx.h;
+  const viewportHeight = pageVe.viewportBoundsPx.h;
+
+  // If content fits within viewport, no scrolling needed but we handled the event
+  if (contentHeight <= viewportHeight) { return true; }
+
+  // Use the correct veid that matches how the rendering code reads scroll.
+  // When the page is a selected item in a list page (ListPageRoot flag), the rendering
+  // code uses getSelectedListPageItem to get the original item's veid.
+  let pageVeid = VeFns.veidFromVe(pageVe);
+  if (pageVe.flags & VisualElementFlags.ListPageRoot) {
+    const parentVeid = VeFns.veidFromPath(pageVe.parentPath!);
+    pageVeid = store.perItem.getSelectedListPageItem(parentVeid);
+  }
+
+  const currentScrollProp = store.perItem.getPageScrollYProp(pageVeid);
+  const scrollableDistance = contentHeight - viewportHeight;
+  const scrollStep = (viewportHeight * 0.2) / scrollableDistance;
+
+  const newScrollProp = keyCode == "ArrowUp"
+    ? Math.max(0, currentScrollProp - scrollStep)
+    : Math.min(1, currentScrollProp + scrollStep);
+
+  store.perItem.setPageScrollYProp(pageVeid, newScrollProp);
+  fullArrange(store);
 
   return true;
 }
