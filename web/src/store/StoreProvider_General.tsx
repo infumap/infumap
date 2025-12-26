@@ -39,6 +39,7 @@ interface LocalStorageData {
 export interface NetworkRequestInfo {
   command: string,
   description: string,
+  itemId?: string,
   errorMessage?: string,
 }
 

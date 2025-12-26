@@ -108,30 +108,44 @@ const COMMAND_EMPTY_TRASH = "empty-trash";
 const COMMAND_MODIFIED_CHECK = "modified-check";
 const COMMAND_AUTO_REFRESH = "auto-refresh";
 
-function getCommandDescription(command: string, payload: any): string {
+function getCommandDescription(command: string, payload: any): { description: string, itemId?: string } {
+  const itemId = payload.id || payload.itemId || undefined;
+
+  let description: string;
   switch (command) {
     case COMMAND_GET_ITEMS:
       if (payload.mode === GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY) {
-        return "Loading content";
+        description = "Loading content";
+      } else {
+        description = "Loading item";
       }
-      return "Loading item";
+      break;
     case COMMAND_ADD_ITEM:
-      return `Adding ${payload.itemType || 'item'}`;
+      description = `Adding ${payload.itemType || 'item'}`;
+      break;
     case COMMAND_UPDATE_ITEM:
-      return `Updating ${payload.itemType || 'item'}`;
+      description = `Updating ${payload.itemType || 'item'}`;
+      break;
     case COMMAND_DELETE_ITEM:
-      return "Deleting item";
+      description = "Deleting item";
+      break;
     case COMMAND_SEARCH:
-      return `Searching for "${payload.text}"`;
+      description = `Searching for "${payload.text}"`;
+      break;
     case COMMAND_EMPTY_TRASH:
-      return "Emptying trash";
+      description = "Emptying trash";
+      break;
     case COMMAND_MODIFIED_CHECK:
-      return "Checking for updates";
+      description = "Checking for updates";
+      break;
     case COMMAND_AUTO_REFRESH:
-      return "Auto-refreshing";
+      description = "Auto-refreshing";
+      break;
     default:
-      return command;
+      description = command;
   }
+
+  return { description, itemId };
 }
 
 
@@ -176,10 +190,14 @@ function serveWaiting(networkStatus: NumberSignal) {
 
   // Update queued requests tracking
   if (globalRequestTracker) {
-    const queued = commandQueue.map(cmd => ({
-      command: cmd.command,
-      description: getCommandDescription(cmd.command, cmd.payload)
-    }));
+    const queued = commandQueue.map(cmd => {
+      const { description, itemId } = getCommandDescription(cmd.command, cmd.payload);
+      return {
+        command: cmd.command,
+        description,
+        itemId
+      };
+    });
     globalRequestTracker.setQueuedNetworkRequests(queued);
   }
 
@@ -198,9 +216,11 @@ function serveWaiting(networkStatus: NumberSignal) {
 
       // Track current request
       if (globalRequestTracker) {
+        const { description, itemId } = getCommandDescription(command.command, command.payload);
         globalRequestTracker.setCurrentNetworkRequest({
           command: command.command,
-          description: getCommandDescription(command.command, command.payload)
+          description,
+          itemId
         });
       }
 
@@ -222,9 +242,11 @@ function serveWaiting(networkStatus: NumberSignal) {
             command.reject(error);
             networkStatus.set(NETWORK_STATUS_ERROR);
             if (globalRequestTracker) {
+              const { description, itemId } = getCommandDescription(command.command, command.payload);
               globalRequestTracker.addErroredNetworkRequest({
                 command: command.command,
-                description: getCommandDescription(command.command, command.payload),
+                description,
+                itemId,
                 errorMessage: error?.message || String(error)
               });
             }
@@ -239,9 +261,11 @@ function serveWaiting(networkStatus: NumberSignal) {
             command.reject(error);
             networkStatus.set(NETWORK_STATUS_ERROR);
             if (globalRequestTracker) {
+              const { description, itemId } = getCommandDescription(command.command, command.payload);
               globalRequestTracker.addErroredNetworkRequest({
                 command: command.command,
-                description: getCommandDescription(command.command, command.payload),
+                description,
+                itemId,
                 errorMessage: error?.message || String(error)
               });
             }
@@ -262,9 +286,11 @@ function serveWaiting(networkStatus: NumberSignal) {
 
     // Track current request if it's the first get-items
     if (globalRequestTracker && inProgressGetItems === 1 && !inProgressNonGet) {
+      const { description, itemId } = getCommandDescription(command.command, command.payload);
       globalRequestTracker.setCurrentNetworkRequest({
         command: command.command,
-        description: getCommandDescription(command.command, command.payload)
+        description,
+        itemId
       });
     }
 
@@ -286,9 +312,11 @@ function serveWaiting(networkStatus: NumberSignal) {
           command.reject(error);
           networkStatus.set(NETWORK_STATUS_ERROR);
           if (globalRequestTracker) {
+            const { description, itemId } = getCommandDescription(command.command, command.payload);
             globalRequestTracker.addErroredNetworkRequest({
               command: command.command,
-              description: getCommandDescription(command.command, command.payload),
+              description,
+              itemId,
               errorMessage: error?.message || String(error)
             });
           }
@@ -303,9 +331,11 @@ function serveWaiting(networkStatus: NumberSignal) {
           command.reject(error);
           networkStatus.set(NETWORK_STATUS_ERROR);
           if (globalRequestTracker) {
+            const { description, itemId } = getCommandDescription(command.command, command.payload);
             globalRequestTracker.addErroredNetworkRequest({
               command: command.command,
-              description: getCommandDescription(command.command, command.payload),
+              description,
+              itemId,
               errorMessage: error?.message || String(error)
             });
           }
