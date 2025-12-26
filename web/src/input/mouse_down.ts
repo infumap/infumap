@@ -25,7 +25,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElementFlags, VeFns, veFlagIsRoot } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { BoundingBox, boundingBoxFromDOMRect, isInside } from "../util/geometry";
@@ -208,8 +208,45 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
         serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
 
+        // When ending text edit via right-click, set focus to the innermost parent page.
+        // Walk up the VE hierarchy from the edited item to find the innermost page in topTitledPages.
+        // We need to find the path BEFORE setTextEditInfo is called, because setTextEditInfo
+        // internally calls setFocus(currentPagePath()) when info is null, which would overwrite focus.
+        let foundPagePath: string | null = null;
+        if (buttonNumber != MOUSE_LEFT) {
+          const topPagePaths = store.topTitledPages.get();
+          const focusVes = VesCache.get(editingItemPath);
+          if (focusVes) {
+            let ve: VisualElement | null = focusVes.get();
+            while (ve !== null && ve.parentPath !== null) {
+              const parentVes = VesCache.get(ve.parentPath);
+              if (!parentVes) break;
+              ve = parentVes.get();
+              if (isPage(ve.displayItem)) {
+                // Check if this page's item ID matches any topTitledPage
+                const veItemId = ve.displayItem.id;
+                for (let i = topPagePaths.length - 1; i >= 0; i--) {
+                  const topPageItemId = VeFns.itemIdFromPath(topPagePaths[i]);
+                  if (topPageItemId === veItemId) {
+                    foundPagePath = topPagePaths[i];
+                    break;
+                  }
+                }
+                if (foundPagePath) break;
+              }
+            }
+          }
+        }
+
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
+
+        // Set focus AFTER setTextEditInfo, because setTextEditInfo(null) internally calls
+        // setFocus(currentPagePath()) which would overwrite our desired focus.
+        if (foundPagePath) {
+          store.history.setFocus(foundPagePath);
+        }
+
         fullArrange(store);
         if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
         defaultResult = MouseEventActionFlags.None;
@@ -550,7 +587,39 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   const topPagePaths = store.topTitledPages.get();
   const focusPath = store.history.getFocusPath();
-  const focusPageIdx = topPagePaths.indexOf(focusPath);
+
+  // Find the index of the focus path or its containing page in topTitledPages.
+  // If focus is on a non-page item (note, table, etc.), we need to find its
+  // parent page that exists in topTitledPages.
+  // We compare by item ID because the path might have different link IDs
+  // (e.g., list page selection uses synthetic links).
+  let focusPageIdx = topPagePaths.indexOf(focusPath);
+
+  if (focusPageIdx === -1) {
+    // Focus is not directly on a top page. Walk up the VE hierarchy to find
+    // the innermost containing page that is in topTitledPages.
+    const focusVes = VesCache.get(focusPath);
+    if (focusVes) {
+      let ve: VisualElement | null = focusVes.get();
+      while (ve !== null && ve.parentPath !== null) {
+        const parentVes = VesCache.get(ve.parentPath);
+        if (!parentVes) break;
+        ve = parentVes.get();
+        if (isPage(ve.displayItem)) {
+          // Check if this page's item ID matches any topTitledPage
+          const veItemId = ve.displayItem.id;
+          for (let i = 0; i < topPagePaths.length; i++) {
+            const topPageItemId = VeFns.itemIdFromPath(topPagePaths[i]);
+            if (topPageItemId === veItemId) {
+              focusPageIdx = i;
+              break;
+            }
+          }
+          if (focusPageIdx !== -1) break;
+        }
+      }
+    }
+  }
 
   if (focusPageIdx > 0) {
     // Save the focused page before navigating up, so it can be restored when clicking back in.
