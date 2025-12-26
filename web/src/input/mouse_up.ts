@@ -284,7 +284,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleOpenPopupClick(activeVisualElement, store);
+        ItemFns.handleOpenPopupClick(activeVisualElement, store, false, MouseActionState.get().startPx);
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
         DoubleClickState.preventDoubleClick();

@@ -313,17 +313,21 @@ export const ItemFns = {
 
     // For pages, delegate to PageFns which has its own logic for list pages etc.
     if (isPage(item)) {
-      PageFns.handleOpenPopupClick(visualElement, store, isFromAttachment);
+      PageFns.handleOpenPopupClick(visualElement, store, false);
       return;
     }
 
     // For all other item types, calculate source position and create popup centrally
     const { sourcePositionGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, isFromAttachment, clickPosPx);
 
+    // Treat as attachment/spatial popup if explicitly requested OR if we successfully calculated a context from click position
+    // (except for Images which have their own logic unless they are strictly attachments)
+    const treatAsAttachment = isFromAttachment || (!!sourcePositionGr && !isImage(item));
+
     const popupSpec = {
       actualVeid: VeFns.actualVeidFromVe(visualElement),
       vePath: VeFns.veToPath(visualElement),
-      isFromAttachment,
+      isFromAttachment: treatAsAttachment,
       sourcePositionGr
     };
 
@@ -618,7 +622,7 @@ function calcAttachmentPopupContext(
   let sourcePositionGr: { x: number, y: number } | null = null;
   const parentVe = VesCache.get(visualElement.parentPath!)!.get();
 
-  if (isFromAttachment && clickPosPx) {
+  if ((isFromAttachment || clickPosPx) && clickPosPx) {
     // Traverse up to find the nearest Page ancestor to define the coordinate system
     let pageVe = parentVe;
     while (pageVe && !isPage(pageVe.displayItem)) {

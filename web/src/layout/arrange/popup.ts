@@ -44,6 +44,8 @@ export interface PopupGeometryResult {
   renderAsFixed: boolean;
   linkItem: LinkItem;
   actualLinkItemMaybe: LinkItem | null;
+  widthGr?: number;
+  heightGr?: number;
 }
 
 
@@ -267,7 +269,7 @@ export function calcSpatialPopupGeometry(
     store.smallScreenMode()
   );
 
-  return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe };
+  return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe, widthGr, heightGr };
 }
 
 

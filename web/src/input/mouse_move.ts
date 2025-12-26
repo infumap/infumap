@@ -41,6 +41,7 @@ import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
 import { itemState } from "../store/ItemState";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
+import { calcSpatialPopupGeometry } from "../layout/arrange/popup";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -272,7 +273,17 @@ function changeMouseActionStateMaybe(
       const parentPage = asPageItem(parentVe.displayItem);
       if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
         let popupPositionGr;
-        if (isPage(popupItem)) {
+
+        // Check for attachment popup
+        const currentPopupSpec = store.history.currentPopupSpec();
+        const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
+
+        if (isFromAttachment) {
+          const { linkItem, widthGr, heightGr } = calcSpatialPopupGeometry(store, parentPage, currentPopupSpec!.actualVeid, parentVe.childAreaBoundsPx!);
+          const centerX = linkItem.spatialPositionGr.x + (widthGr ?? 0) / 2.0;
+          const centerY = linkItem.spatialPositionGr.y + (heightGr ?? 0) / 2.0;
+          popupPositionGr = { x: centerX, y: centerY };
+        } else if (isPage(popupItem)) {
           popupPositionGr = PageFns.getPopupPositionGrForParent(parentPage, asPageItem(popupItem));
         } else if (isImage(popupItem)) {
           popupPositionGr = ImageFns.getPopupPositionGrForParent(parentPage, asImageItem(popupItem));
