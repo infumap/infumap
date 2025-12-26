@@ -48,12 +48,12 @@ export function asAttachmentsItem(item: ItemTypeMixin): AttachmentsItem {
 
 
 export function calcGeometryOfAttachmentItemImpl(
-    item: Measurable,
-    parentBoundsPx: BoundingBox,
-    parentInnerSizeBl: Dimensions,
-    index: number,
-    isSelected: boolean,
-    canPopup: boolean): ItemGeometry {
+  item: Measurable,
+  parentBoundsPx: BoundingBox,
+  parentInnerSizeBl: Dimensions,
+  index: number,
+  isSelected: boolean,
+  canPopup: boolean): ItemGeometry {
 
   if (isSelected) {
     return calcGeometryOfSelectedAttachmentItemImpl(item, parentBoundsPx, parentInnerSizeBl, index);
@@ -68,24 +68,24 @@ export function calcGeometryOfAttachmentItemImpl(
   if (itemSizeBl.w > itemSizeBl.h) {
     const wPx = scaleDownBlockSizePx;
     let hPx = scaleDownBlockSizePx * itemSizeBl.h / itemSizeBl.w;
-    if (hPx < scaleDownBlockSizePx / 5.0) { hPx = scaleDownBlockSizePx / 5.0; }
+    if (hPx < blockSizePx * 0.3) { hPx = blockSizePx * 0.3; }
     const marginH = (scaleDownBlockSizePx - hPx) / 2.0;
     const marginW = 0;
     boundsPx = {
-      x: parentBoundsPx.w - (blockSizePx * (index+1)) + marginW + scaleDownMarginPx,
-      y: -blockSizePx/2.0 + marginH + scaleDownMarginPx,
+      x: parentBoundsPx.w - (blockSizePx * (index + 1)) + marginW + scaleDownMarginPx,
+      y: -blockSizePx / 2.0 + marginH + scaleDownMarginPx,
       w: wPx,
       h: hPx,
     }
   } else {
     let wPx = scaleDownBlockSizePx * itemSizeBl.w / itemSizeBl.h;
-    if (wPx < scaleDownBlockSizePx / 5.0) { wPx = scaleDownBlockSizePx / 5.0; }
+    if (wPx < blockSizePx * 0.3) { wPx = blockSizePx * 0.3; }
     const hPx = scaleDownBlockSizePx;
     const marginH = 0;
     const marginW = (scaleDownBlockSizePx - wPx) / 2.0;
     boundsPx = {
-      x: parentBoundsPx.w - (blockSizePx * (index+1)) + marginW + scaleDownMarginPx,
-      y: -blockSizePx/2.0 + marginH + scaleDownMarginPx,
+      x: parentBoundsPx.w - (blockSizePx * (index + 1)) + marginW + scaleDownMarginPx,
+      y: -blockSizePx / 2.0 + marginH + scaleDownMarginPx,
       w: wPx,
       h: hPx,
     };
@@ -135,7 +135,8 @@ export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, paren
         x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX,
         y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX,
         w: RESIZE_BOX_SIZE_PX,
-        h: RESIZE_BOX_SIZE_PX }),
+        h: RESIZE_BOX_SIZE_PX
+      }),
     ],
   }
 }
