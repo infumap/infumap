@@ -109,8 +109,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const attachInsertBarPx = (): BoundingBox => {
     const blockSizePx = boundsPx().w / sizeBl().w;
     const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
+    // Special case for position 0: align with right edge of parent item
+    const xOffset = insertIndex === 0 ? -4 : -2;
     return ({
-      x: boundsPx().w - insertIndex * blockSizePx,
+      x: boundsPx().w - insertIndex * blockSizePx + xOffset,
       y: -blockSizePx / 2,
       w: 4,
       h: blockSizePx,

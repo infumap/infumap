@@ -117,8 +117,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const innerSizeBl = ItemFns.calcSpatialDimensionsBl(props.visualElement.displayItem);
       const blockSizePx = pageFns.boundsPx().w / innerSizeBl.w;
       const insertIndex = store.perVe.getMoveOverAttachmentIndex(pageFns.vePath());
+      // Special case for position 0: align with right edge of parent item
+      const xOffset = insertIndex === 0 ? -4 : -2;
       return {
-        x: pageFns.boundsPx().w - insertIndex * blockSizePx,
+        x: pageFns.boundsPx().w - insertIndex * blockSizePx + xOffset,
         y: -blockSizePx / 2,
         w: 4,
         h: blockSizePx,
