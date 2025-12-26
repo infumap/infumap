@@ -147,7 +147,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     selectionMarqueePx.set(null);
     selectedVeids.set([]);
     searchOverlayVisible.set(false);
-    networkOverlayVisible.set(false);
     findOverlayVisible.set(false);
     uploadOverlayInfo.set(null);
     remoteLoginInfo.set(null);

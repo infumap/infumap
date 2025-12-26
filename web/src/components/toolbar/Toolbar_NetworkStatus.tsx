@@ -67,9 +67,9 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
       <div class={`absolute rounded border-slate-500 border bg-white shadow-lg`}
         style={`top: 45px; right: 5px; min-width: 300px; max-width: 400px; ` +
           `padding: 12px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}`}>
-        <div class="flex justify-between items-center mb-2">
+        <div class="flex justify-between items-start mb-2">
           <div class="font-bold text-sm">Network Status</div>
-          <button onClick={handleClose} class="text-slate-500 hover:text-slate-700 text-lg leading-none">&times;</button>
+          <button onClick={handleClose} class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
         </div>
 
         <Show when={currentRequest()}>
