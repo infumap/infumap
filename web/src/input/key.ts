@@ -440,7 +440,9 @@ function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualEle
   // code uses getSelectedListPageItem to get the original item's veid.
   let pageVeid = VeFns.veidFromVe(pageVe);
   if (pageVe.flags & VisualElementFlags.ListPageRoot) {
-    const parentVeid = VeFns.veidFromPath(pageVe.parentPath!);
+    const parentVeid = VesCache.get(pageVe.parentPath!)
+      ? VeFns.actualVeidFromPath(pageVe.parentPath!)
+      : VeFns.veidFromPath(pageVe.parentPath!);
     pageVeid = store.perItem.getSelectedListPageItem(parentVeid);
   }
 
