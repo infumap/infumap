@@ -161,7 +161,7 @@ function calcCellPopupGeometry(
 /**
  * Calculates the geometry for a SpatialStretch popup.
  * This is the single source of truth for spatial popup geometry calculation.
- * Supports both page and image popups.
+ * Supports both page and image popups, as well as attachment popups.
  */
 export function calcSpatialPopupGeometry(
   store: StoreContextModel,
@@ -176,13 +176,50 @@ export function calcSpatialPopupGeometry(
   const popupPage = isPage(popupItem) ? asPageItem(popupItem) : null;
   const popupImage = isImage(popupItem) ? asImageItem(popupItem) : null;
 
+  // Check if this popup is from an attachment
+  const currentPopupSpec = store.history.currentPopupSpec();
+  const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
+
   let widthGr: number;
   let targetAspect: number;
-  let popupCenter;
+  let popupCenter: { x: number, y: number };
   let hasChildChanges: boolean;
   let hasDefaultChanges: boolean;
 
-  if (popupPage) {
+  if (isFromAttachment) {
+    // Attachment popup: use PopupSpec position and calculate width to match parent block size
+    // Calculate width so that one block in popup = one block in parent page
+    const popupItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(popupItem);
+    const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(currentPage);
+
+    // The popup width in Gr should make the popup's inner width in blocks equal to the popup item's width
+    // For 1:1 block scaling: popupWidthGr / popupInnerWidthGr = parentInnerWidthGr / parentSpatialWidthGr
+    // This means: popupWidthGr = popupItemDimensionsBl.w * (currentPage.innerSpatialWidthGr / parentInnerSizeBl.w)
+    widthGr = popupItemDimensionsBl.w * GRID_SIZE;
+
+    targetAspect = popupItemDimensionsBl.w / popupItemDimensionsBl.h;
+
+    // Use pending position if popup has been moved, otherwise use source position (attachment center)
+    if (currentPopupSpec?.pendingPositionGr) {
+      popupCenter = currentPopupSpec.pendingPositionGr;
+    } else if (currentPopupSpec?.sourcePositionGr) {
+      // Initial open: center on the attachment, then clamp to screen bounds
+      popupCenter = clampPopupPositionToScreen(
+        currentPopupSpec.sourcePositionGr,
+        widthGr,
+        widthGr / targetAspect,
+        currentPage,
+        childAreaBoundsPx
+      );
+    } else {
+      // Fallback to parent page default
+      popupCenter = currentPage.defaultPopupPositionGr;
+    }
+
+    // Attachment popups don't persist their position, so no "changes" indicators
+    hasChildChanges = false;
+    hasDefaultChanges = false;
+  } else if (popupPage) {
     widthGr = PageFns.getPopupWidthGrForParent(currentPage, popupPage);
     const popupIsCalendar = popupPage.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
     targetAspect = popupIsCalendar
@@ -231,6 +268,49 @@ export function calcSpatialPopupGeometry(
   );
 
   return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe };
+}
+
+
+/**
+ * Clamps a popup position to ensure it stays within the screen bounds.
+ * If the popup would go off-screen, adjusts the position to keep it visible.
+ */
+function clampPopupPositionToScreen(
+  centerGr: { x: number, y: number },
+  widthGr: number,
+  heightGr: number,
+  currentPage: PageItem,
+  childAreaBoundsPx: BoundingBox
+): { x: number, y: number } {
+  const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(currentPage);
+  const pageWidthGr = parentInnerSizeBl.w * GRID_SIZE;
+  const pageHeightGr = parentInnerSizeBl.h * GRID_SIZE;
+
+  const halfWidth = widthGr / 2.0;
+  const halfHeight = heightGr / 2.0;
+
+  // Calculate the popup bounds centered at centerGr
+  let left = centerGr.x - halfWidth;
+  let right = centerGr.x + halfWidth;
+  let top = centerGr.y - halfHeight;
+  let bottom = centerGr.y + halfHeight;
+
+  // Clamp to page bounds (with a small margin)
+  const margin = GRID_SIZE; // 1 block margin
+
+  if (left < margin) {
+    centerGr = { x: halfWidth + margin, y: centerGr.y };
+  } else if (right > pageWidthGr - margin) {
+    centerGr = { x: pageWidthGr - halfWidth - margin, y: centerGr.y };
+  }
+
+  if (top < margin) {
+    centerGr = { ...centerGr, y: halfHeight + margin };
+  } else if (bottom > pageHeightGr - margin) {
+    centerGr = { ...centerGr, y: pageHeightGr - halfHeight - margin };
+  }
+
+  return centerGr;
 }
 
 

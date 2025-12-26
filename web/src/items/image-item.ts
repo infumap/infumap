@@ -359,7 +359,7 @@ export const ImageFns = {
     }
   },
 
-  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
     store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
     fullArrange(store);
   },

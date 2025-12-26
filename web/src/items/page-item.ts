@@ -848,8 +848,26 @@ export const PageFns = {
     }
   },
 
-  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, isFromAttachment?: boolean): void => {
     const parentVe = VesCache.get(visualElement.parentPath!)!.get();
+
+    // Calculate source position for attachment popups (center of the attachment in parent page Gr coordinates)
+    let sourcePositionGr: { x: number, y: number } | null = null;
+    if (isFromAttachment && visualElement.boundsPx) {
+      // Get the parent page to convert to Gr coordinates
+      const parentPage = isPage(parentVe.displayItem) ? asPageItem(parentVe.displayItem) : null;
+      if (parentPage && parentVe.childAreaBoundsPx) {
+        const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
+        const pxToGrX = (parentInnerSizeBl.w * GRID_SIZE) / parentVe.childAreaBoundsPx.w;
+        const pxToGrY = (parentInnerSizeBl.h * GRID_SIZE) / parentVe.childAreaBoundsPx.h;
+
+        // Calculate attachment center in parent page Gr coordinates
+        sourcePositionGr = {
+          x: (visualElement.boundsPx.x + visualElement.boundsPx.w / 2) * pxToGrX,
+          y: (visualElement.boundsPx.y + visualElement.boundsPx.h / 2) * pxToGrY
+        };
+      }
+    }
 
     // line item in list page.
     const parentItem = parentVe.displayItem;
@@ -862,10 +880,16 @@ export const PageFns = {
         handleListPageLineItemClickMaybe(visualElement, store);
         return;
       }
+      const popupSpec = {
+        actualVeid: VeFns.actualVeidFromVe(visualElement),
+        vePath: VeFns.veToPath(visualElement),
+        isFromAttachment,
+        sourcePositionGr
+      };
       if (parentVe.flags & VisualElementFlags.Popup) {
-        store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+        store.history.pushPopup(popupSpec);
       } else {
-        store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+        store.history.replacePopup(popupSpec);
       }
       fullArrange(store);
       return;
@@ -878,13 +902,23 @@ export const PageFns = {
       if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
     }
     if (insidePopup) {
-      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      store.history.pushPopup({
+        actualVeid: VeFns.actualVeidFromVe(visualElement),
+        vePath: VeFns.veToPath(visualElement),
+        isFromAttachment,
+        sourcePositionGr
+      });
       fullArrange(store);
       return;
     }
 
     // not inside popup.
-    store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    store.history.replacePopup({
+      actualVeid: VeFns.actualVeidFromVe(visualElement),
+      vePath: VeFns.veToPath(visualElement),
+      isFromAttachment,
+      sourcePositionGr
+    });
     fullArrange(store);
   },
 

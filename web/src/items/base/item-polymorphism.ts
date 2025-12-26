@@ -26,7 +26,7 @@ import { asFileItem, isFile, FileFns } from '../file-item';
 import { asImageItem, isImage, ImageFns } from '../image-item';
 import { asLinkItem, isLink, LinkFns } from '../link-item';
 import { asNoteItem, isNote, NoteFns } from '../note-item';
-import { asPageItem, isPage, PageFns } from '../page-item';
+import { asPageItem, isPage, PageFns, ArrangeAlgorithm } from '../page-item';
 import { asRatingItem, isRating, RatingFns } from '../rating-item';
 import { asTableItem, isTable, TableFns } from '../table-item';
 import { EMPTY_ITEM, Item, Measurable, isEmptyItem } from './item';
@@ -36,11 +36,14 @@ import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
 import { calcGeometryOfEmptyItem_ListItem } from './item-common-fns';
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
 import { ExpressionFns, asExpressionItem, isExpression } from '../expression-item';
-import { LINE_HEIGHT_PX } from '../../constants';
+import { LINE_HEIGHT_PX, GRID_SIZE } from '../../constants';
 import { asFlipCardItem, FlipCardFns, isFlipCard } from '../flipcard-item';
 import { hashStringToUid, hashI64ToUid, hashF64ToUid, hashU8VecToUid, combineHashes } from '../../util/hash';
 import { Uid } from '../../util/uid';
 import { isContainer } from './container-item';
+import { fullArrange } from '../../layout/arrange';
+import { VesCache } from '../../layout/ves-cache';
+import { VisualElementFlags, VeFns } from '../../layout/visual-element';
 import { isPositionalItem } from './positional-item';
 import { isXSizableItem } from './x-sizeable-item';
 import { isYSizableItem } from './y-sizeable-item';
@@ -305,21 +308,31 @@ export const ItemFns = {
     else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
-  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, isFromAttachment?: boolean, clickPosPx?: Vector | null): void => {
     const item = visualElement.displayItem;
-    if (isPage(item)) { PageFns.handleOpenPopupClick(visualElement, store); }
-    else if (isTable(item)) { TableFns.handlePopupClick(visualElement, store); }
-    else if (isComposite(item)) { CompositeFns.handlePopupClick(visualElement, store); }
-    else if (isNote(item)) { NoteFns.handlePopupClick(visualElement, store); }
-    else if (isExpression(item)) { ExpressionFns.handlePopupClick(visualElement, store); }
-    else if (isImage(item)) { ImageFns.handleOpenPopupClick(visualElement, store); }
-    else if (isFile(item)) { FileFns.handlePopupClick(visualElement, store); }
-    else if (isPassword(item)) { PasswordFns.handlePopupClick(visualElement, store); }
-    else if (isRating(item)) { }
-    else if (isLink(item)) { }
-    else if (isPlaceholder(item)) { panic("handleOpenPopupClick: placeholder"); }
-    else if (isFlipCard(item)) { panic("handleOpenPopupClick: flipcard"); }
-    else { panic(`Unknown item type: ${item.itemType}`); }
+
+    // For pages, delegate to PageFns which has its own logic for list pages etc.
+    if (isPage(item)) {
+      PageFns.handleOpenPopupClick(visualElement, store, isFromAttachment);
+      return;
+    }
+
+    // For all other item types, calculate source position and create popup centrally
+    const { sourcePositionGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, isFromAttachment, clickPosPx);
+
+    const popupSpec = {
+      actualVeid: VeFns.actualVeidFromVe(visualElement),
+      vePath: VeFns.veToPath(visualElement),
+      isFromAttachment,
+      sourcePositionGr
+    };
+
+    if (insidePopup) {
+      store.history.pushPopup(popupSpec);
+    } else {
+      store.history.replacePopup(popupSpec);
+    }
+    fullArrange(store);
   },
 
   cloneMeasurableFields: (measurable: Measurable): Measurable => {
@@ -595,3 +608,52 @@ export const ItemFns = {
     return combineHashes(hashes);
   }
 };
+
+function calcAttachmentPopupContext(
+  visualElement: VisualElement,
+  store: StoreContextModel,
+  isFromAttachment?: boolean,
+  clickPosPx?: Vector | null
+): { sourcePositionGr: { x: number, y: number } | null, insidePopup: boolean } {
+  let sourcePositionGr: { x: number, y: number } | null = null;
+  const parentVe = VesCache.get(visualElement.parentPath!)!.get();
+
+  if (isFromAttachment && clickPosPx) {
+    // Traverse up to find the nearest Page ancestor to define the coordinate system
+    let pageVe = parentVe;
+    while (pageVe && !isPage(pageVe.displayItem)) {
+      if (!pageVe.parentPath) break;
+      pageVe = VesCache.get(pageVe.parentPath)!.get();
+    }
+
+    const pageItem = pageVe && isPage(pageVe.displayItem) ? asPageItem(pageVe.displayItem) : null;
+
+    if (pageItem && pageVe && pageVe.childAreaBoundsPx) {
+      const pageBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, pageVe);
+      const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(pageItem);
+
+      const pxToGrX = (parentInnerSizeBl.w * GRID_SIZE) / pageVe.childAreaBoundsPx.w;
+      const pxToGrY = (parentInnerSizeBl.h * GRID_SIZE) / pageVe.childAreaBoundsPx.h;
+
+      // Calculate position relative to the page's child area
+      // Global Click Px - Page Global TopLeft - Child Area Left Offset
+      const relativeX = clickPosPx.x - pageBoundsPx.x - pageVe.childAreaBoundsPx.x;
+      const relativeY = clickPosPx.y - pageBoundsPx.y - pageVe.childAreaBoundsPx.y;
+
+      sourcePositionGr = {
+        x: relativeX * pxToGrX,
+        y: relativeY * pxToGrY
+      };
+    }
+  }
+
+  let insidePopup = parentVe.flags & VisualElementFlags.Popup ? true : false;
+
+  // Logic to detect if we are inside a table which is inside a popup (special nested case)
+  if (isTable(parentVe.displayItem)) {
+    const parentParentVe = VesCache.get(parentVe.parentPath!)!.get();
+    if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
+  }
+
+  return { sourcePositionGr, insidePopup };
+}

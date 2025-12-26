@@ -270,7 +270,7 @@ export const ExpressionFns = {
     setCaretPosition(el, closestIdx);
   },
 
-  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });

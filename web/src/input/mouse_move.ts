@@ -721,6 +721,10 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   const parentVe = VesCache.get(popupVe.parentPath!)!.get();
   const parentPage = asPageItem(parentVe.displayItem);
 
+  // Check if this is an attachment popup
+  const currentPopupSpec = store.history.currentPopupSpec();
+  const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
+
   if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     const deltaBl = {
       x: Math.round(deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0) / 2.0,
@@ -731,7 +735,14 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       y: (MouseActionState.get().startPosBl!.y + deltaBl.y) * GRID_SIZE
     };
 
-    if (isPage(popupItem)) {
+    if (isFromAttachment) {
+      // For attachment popups, update the PopupSpec's pendingPositionGr
+      if (currentPopupSpec!.pendingPositionGr == null ||
+        compareVector(newPositionGr, currentPopupSpec!.pendingPositionGr!) != 0) {
+        currentPopupSpec!.pendingPositionGr = newPositionGr;
+        fullArrange(store);
+      }
+    } else if (isPage(popupItem)) {
       const pageItem = asPageItem(popupItem);
       if (pageItem.pendingPopupPositionGr == null ||
         compareVector(newPositionGr, pageItem.pendingPopupPositionGr!) != 0) {
