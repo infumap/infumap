@@ -19,7 +19,7 @@
 import { logout } from "./components/Main";
 import { Item } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK } from "./store/StoreProvider_General";
+import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { hashChildrenAndTheirAttachmentsOnlyAsync, hashItemAndAttachmentsOnly } from "./items/item";
@@ -32,6 +32,21 @@ import { fullArrange } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
 import { MouseActionState } from "./input/state";
 import { RemoteSessions, REMOTE_SESSION_HEADER } from "./store/RemoteSessions";
+
+// Global request tracking - will be set by store initialization
+let globalRequestTracker: {
+  setCurrentNetworkRequest: (request: NetworkRequestInfo | null) => void,
+  setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
+  addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
+} | null = null;
+
+export function setGlobalRequestTracker(tracker: {
+  setCurrentNetworkRequest: (request: NetworkRequestInfo | null) => void,
+  setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
+  addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
+}) {
+  globalRequestTracker = tracker;
+}
 
 
 export interface ItemsAndTheirAttachments {
@@ -93,6 +108,33 @@ const COMMAND_EMPTY_TRASH = "empty-trash";
 const COMMAND_MODIFIED_CHECK = "modified-check";
 const COMMAND_AUTO_REFRESH = "auto-refresh";
 
+function getCommandDescription(command: string, payload: any): string {
+  switch (command) {
+    case COMMAND_GET_ITEMS:
+      if (payload.mode === GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY) {
+        return "Loading content";
+      }
+      return "Loading item";
+    case COMMAND_ADD_ITEM:
+      return `Adding ${payload.itemType || 'item'}`;
+    case COMMAND_UPDATE_ITEM:
+      return `Updating ${payload.itemType || 'item'}`;
+    case COMMAND_DELETE_ITEM:
+      return "Deleting item";
+    case COMMAND_SEARCH:
+      return `Searching for "${payload.text}"`;
+    case COMMAND_EMPTY_TRASH:
+      return "Emptying trash";
+    case COMMAND_MODIFIED_CHECK:
+      return "Checking for updates";
+    case COMMAND_AUTO_REFRESH:
+      return "Auto-refreshing";
+    default:
+      return command;
+  }
+}
+
+
 const commandQueue: Array<ServerCommand> = [];
 let inProgressNonGet: ServerCommand | null = null; // any non-get-items command currently running
 let inProgressGetItems = 0; // number of get-items commands currently running
@@ -118,6 +160,10 @@ function serveWaiting(networkStatus: NumberSignal) {
   // If nothing is queued and nothing is running, mark idle.
   if (commandQueue.length == 0 && inProgressNonGet == null && inProgressGetItems == 0) {
     networkStatus.set(NETWORK_STATUS_OK);
+    if (globalRequestTracker) {
+      globalRequestTracker.setCurrentNetworkRequest(null);
+      globalRequestTracker.setQueuedNetworkRequests([]);
+    }
     return;
   }
 
@@ -126,6 +172,15 @@ function serveWaiting(networkStatus: NumberSignal) {
     if (commandQueue.length > 0 || inProgressNonGet != null || inProgressGetItems > 0) {
       networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
     }
+  }
+
+  // Update queued requests tracking
+  if (globalRequestTracker) {
+    const queued = commandQueue.map(cmd => ({
+      command: cmd.command,
+      description: getCommandDescription(cmd.command, cmd.payload)
+    }));
+    globalRequestTracker.setQueuedNetworkRequests(queued);
   }
 
   // Start as many leading get-items as possible; keep ordering otherwise.
@@ -140,6 +195,14 @@ function serveWaiting(networkStatus: NumberSignal) {
 
       const command = commandQueue.shift() as ServerCommand;
       inProgressNonGet = command;
+
+      // Track current request
+      if (globalRequestTracker) {
+        globalRequestTracker.setCurrentNetworkRequest({
+          command: command.command,
+          description: getCommandDescription(command.command, command.payload)
+        });
+      }
 
       const DEBUG = false;
       if (DEBUG) { console.debug(command.command, command.payload); }
@@ -158,6 +221,13 @@ function serveWaiting(networkStatus: NumberSignal) {
           .catch((error) => {
             command.reject(error);
             networkStatus.set(NETWORK_STATUS_ERROR);
+            if (globalRequestTracker) {
+              globalRequestTracker.addErroredNetworkRequest({
+                command: command.command,
+                description: getCommandDescription(command.command, command.payload),
+                errorMessage: error?.message || String(error)
+              });
+            }
           })
           .finally(finalizeCommand);
       } else {
@@ -168,6 +238,13 @@ function serveWaiting(networkStatus: NumberSignal) {
           .catch((error) => {
             command.reject(error);
             networkStatus.set(NETWORK_STATUS_ERROR);
+            if (globalRequestTracker) {
+              globalRequestTracker.addErroredNetworkRequest({
+                command: command.command,
+                description: getCommandDescription(command.command, command.payload),
+                errorMessage: error?.message || String(error)
+              });
+            }
           })
           .finally(finalizeCommand);
       }
@@ -182,6 +259,14 @@ function serveWaiting(networkStatus: NumberSignal) {
 
     const command = commandQueue.shift() as ServerCommand;
     inProgressGetItems++;
+
+    // Track current request if it's the first get-items
+    if (globalRequestTracker && inProgressGetItems === 1 && !inProgressNonGet) {
+      globalRequestTracker.setCurrentNetworkRequest({
+        command: command.command,
+        description: getCommandDescription(command.command, command.payload)
+      });
+    }
 
     const DEBUG = false;
     if (DEBUG) { console.debug(command.command, command.payload); }
@@ -200,6 +285,13 @@ function serveWaiting(networkStatus: NumberSignal) {
         .catch((error) => {
           command.reject(error);
           networkStatus.set(NETWORK_STATUS_ERROR);
+          if (globalRequestTracker) {
+            globalRequestTracker.addErroredNetworkRequest({
+              command: command.command,
+              description: getCommandDescription(command.command, command.payload),
+              errorMessage: error?.message || String(error)
+            });
+          }
         })
         .finally(finalizeCommand);
     } else {
@@ -210,6 +302,13 @@ function serveWaiting(networkStatus: NumberSignal) {
         .catch((error) => {
           command.reject(error);
           networkStatus.set(NETWORK_STATUS_ERROR);
+          if (globalRequestTracker) {
+            globalRequestTracker.addErroredNetworkRequest({
+              command: command.command,
+              description: getCommandDescription(command.command, command.payload),
+              errorMessage: error?.message || String(error)
+            });
+          }
         })
         .finally(finalizeCommand);
     }

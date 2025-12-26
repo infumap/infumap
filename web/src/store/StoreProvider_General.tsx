@@ -36,6 +36,12 @@ interface LocalStorageData {
   prefer2fa: boolean
 }
 
+export interface NetworkRequestInfo {
+  command: string,
+  description: string,
+  errorMessage?: string,
+}
+
 export interface GeneralStoreContextModel {
   installationState: Accessor<InstallationState | null>,
   retrieveInstallationState: () => Promise<void>,
@@ -45,15 +51,34 @@ export interface GeneralStoreContextModel {
   setPrefer2fa: (prefer2fa: boolean) => void,
 
   networkStatus: NumberSignal,
+  currentNetworkRequest: Accessor<NetworkRequestInfo | null>,
+  setCurrentNetworkRequest: (request: NetworkRequestInfo | null) => void,
+  queuedNetworkRequests: Accessor<NetworkRequestInfo[]>,
+  setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
+  erroredNetworkRequests: Accessor<NetworkRequestInfo[]>,
+  addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
+  clearErroredNetworkRequests: () => void,
 }
 
 
 export function makeGeneralStore(): GeneralStoreContextModel {
   const [localStorageDataString, setLocalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
 
-  const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, {equals: false });
+  const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, { equals: false });
 
   const networkStatus = createNumberSignal(NETWORK_STATUS_OK);
+
+  const [currentNetworkRequest, setCurrentNetworkRequest] = createSignal<NetworkRequestInfo | null>(null, { equals: false });
+  const [queuedNetworkRequests, setQueuedNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
+  const [erroredNetworkRequests, setErroredNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
+
+  const addErroredNetworkRequest = (request: NetworkRequestInfo) => {
+    setErroredNetworkRequests([...erroredNetworkRequests(), request]);
+  };
+
+  const clearErroredNetworkRequests = () => {
+    setErroredNetworkRequests([]);
+  };
 
   const retrieveInstallationState = async () => {
     try {
@@ -87,5 +112,8 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     installationState, retrieveInstallationState, clearInstallationState,
     prefer2fa, setPrefer2fa,
     networkStatus,
+    currentNetworkRequest, setCurrentNetworkRequest,
+    queuedNetworkRequests, setQueuedNetworkRequests,
+    erroredNetworkRequests, addErroredNetworkRequest, clearErroredNetworkRequests,
   };
 }

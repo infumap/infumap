@@ -31,6 +31,7 @@ import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Over
 import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
 import { PerVeStoreContextModel, makePerVeStore } from "./StoreProvider_PerVe";
 import { FindStoreContextModel, makeFindStore } from "./StoreProvider_Find";
+import { setGlobalRequestTracker } from "../server";
 
 
 export interface StoreContextModel {
@@ -62,7 +63,7 @@ export interface StoreContextModel {
   anItemIsMoving: InfuSignal<boolean>,
   mouseOverTableHeaderColumnNumber: InfuSignal<number | null>,
 
-  touchToolbar: () => void,  
+  touchToolbar: () => void,
   touchToolbarDependency: () => void,
 
   perVe: PerVeStoreContextModel,
@@ -204,6 +205,13 @@ export function StoreProvider(props: StoreContextProps) {
     user: userStore,
     find,
   };
+
+  // Initialize global request tracker for server.ts
+  setGlobalRequestTracker({
+    setCurrentNetworkRequest: value.general.setCurrentNetworkRequest,
+    setQueuedNetworkRequests: value.general.setQueuedNetworkRequests,
+    addErroredNetworkRequest: value.general.addErroredNetworkRequest,
+  });
 
   return (
     <StoreContext.Provider value={value}>
