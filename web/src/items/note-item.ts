@@ -159,9 +159,9 @@ export const NoteFns = {
         HitboxFns.create(HitboxFlags.ContentEditable, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
         HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
+          x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
+          w: innerBoundsPx.w,
           h: ATTACH_AREA_SIZE_PX,
         }),
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
@@ -198,9 +198,9 @@ export const NoteFns = {
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
         HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
+          x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
+          w: innerBoundsPx.w,
           h: ATTACH_AREA_SIZE_PX,
         }),
       ]

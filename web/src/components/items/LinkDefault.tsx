@@ -39,10 +39,10 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
       x: boundsPx().w
-          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
-          - CONTAINER_IN_COMPOSITE_PADDING_PX,
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
@@ -51,10 +51,10 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
 
   const attachCompositeBoundsPx = (): BoundingBox => {
     return ({
-      x: boundsPx().w / 4.0,
-      y: boundsPx().h - ATTACH_AREA_SIZE_PX,
-      w: boundsPx().w / 2.0,
-      h: ATTACH_AREA_SIZE_PX,
+      x: 0,
+      y: boundsPx().h - 1,
+      w: boundsPx().w - 2,
+      h: 1,
     });
   };
 
@@ -84,17 +84,16 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
 
   return (
     <div class={outerClass()}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0)}px; height: ${boundsPx().h}px;` +
-                `${backgroundStyle()}${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
+      style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0)}px; height: ${boundsPx().h}px;` +
+        `${backgroundStyle()}${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
       <Show when={showMoveOutOfCompositeArea()}>
         <div class={`absolute rounded-xs`}
-             style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+          style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+            `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
-        <div class={`absolute rounded-xs`}
-             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+        <div class={`absolute border border-black`}
+          style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />
       </Show>
     </div>
   );

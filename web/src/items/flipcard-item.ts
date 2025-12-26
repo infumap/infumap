@@ -60,7 +60,7 @@ export const FlipCardFns = {
       dateTime: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-      
+
 
       spatialWidthGr: 10.0 * GRID_SIZE,
 
@@ -90,7 +90,7 @@ export const FlipCardFns = {
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-      
+
 
       spatialWidthGr: o.spatialWidthGr,
 
@@ -131,8 +131,8 @@ export const FlipCardFns = {
   },
 
   calcGeometry_Spatial: (
-      page: FlipCardMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
-      _parentIsPopup: boolean, emitHitboxes: boolean, editing: boolean): ItemGeometry => {
+    page: FlipCardMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
+    _parentIsPopup: boolean, emitHitboxes: boolean, editing: boolean): ItemGeometry => {
 
     const sizeBl = FlipCardFns.calcSpatialDimensionsBl(page);
     const blockSizePx = {
@@ -236,10 +236,10 @@ export const FlipCardFns = {
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const moveBoundsPx = {
       x: innerBoundsPx.w
-          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-          - CONTAINER_IN_COMPOSITE_PADDING_PX
-          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
@@ -252,9 +252,9 @@ export const FlipCardFns = {
         // HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         // HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
         HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
+          x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
+          w: innerBoundsPx.w,
           h: ATTACH_AREA_SIZE_PX,
         }),
       ]
@@ -266,7 +266,7 @@ export const FlipCardFns = {
       itemType: flipcard.itemType,
       id: flipcard.id,
       spatialPositionGr: flipcard.spatialPositionGr,
-      
+
       spatialWidthGr: flipcard.spatialWidthGr,
       naturalAspect: flipcard.naturalAspect,
       childrenLoaded: flipcard.childrenLoaded,

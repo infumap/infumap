@@ -152,10 +152,10 @@ export const PasswordFns = {
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const moveBoundsPx = {
       x: innerBoundsPx.w
-          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-          - CONTAINER_IN_COMPOSITE_PADDING_PX
-          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
@@ -168,10 +168,10 @@ export const PasswordFns = {
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
         HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
+          x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
-          h: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+          w: innerBoundsPx.w,
+          h: ATTACH_AREA_SIZE_PX,
         }),
       ]
     };

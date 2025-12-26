@@ -153,7 +153,7 @@ export const CompositeFns = {
       bh += sizeBl.h + COMPOSITE_ITEM_GAP_BL;
     }
     bh -= COMPOSITE_ITEM_GAP_BL;
-    bh = Math.ceil(bh*2)/2;
+    bh = Math.ceil(bh * 2) / 2;
     return { w: composite.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
   },
 
@@ -180,9 +180,9 @@ export const CompositeFns = {
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
         HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
+          x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
+          w: innerBoundsPx.w,
           h: ATTACH_AREA_SIZE_PX,
         }),
       ]
@@ -319,7 +319,7 @@ export const CompositeFns = {
 
   getFingerprint: (compositeItem: CompositeItem): string => {
     return "~~~!@#~~~" + compositeItem.flags + "@#$" + compositeItem.computed_children.length;
-  }  
+  }
 };
 
 

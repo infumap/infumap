@@ -149,9 +149,9 @@ export const ExpressionFns = {
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
         HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
+          x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
+          w: innerBoundsPx.w,
           h: ATTACH_AREA_SIZE_PX,
         }),
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
@@ -172,10 +172,10 @@ export const ExpressionFns = {
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const moveBoundsPx = {
       x: innerBoundsPx.w
-          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-          - CONTAINER_IN_COMPOSITE_PADDING_PX
-          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
@@ -188,9 +188,9 @@ export const ExpressionFns = {
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
         HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
+          x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
+          w: innerBoundsPx.w,
           h: ATTACH_AREA_SIZE_PX,
         }),
       ]

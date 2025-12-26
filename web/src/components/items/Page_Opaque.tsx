@@ -86,9 +86,8 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const renderMovingOverAttachCompositeMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOverAttachComposite(pageFns().vePath())}>
-      <div class={`absolute rounded-xs`}
-        style={`left: ${pageFns().attachCompositeBoundsPx().x}px; top: ${pageFns().attachCompositeBoundsPx().y}px; width: ${pageFns().attachCompositeBoundsPx().w}px; height: ${pageFns().attachCompositeBoundsPx().h}px; ` +
-          `background-color: ${FEATURE_COLOR_DARK};`} />
+      <div class={`absolute border border-black`}
+        style={`left: ${pageFns().attachCompositeBoundsPx().x}px; top: ${pageFns().attachCompositeBoundsPx().y}px; width: ${pageFns().attachCompositeBoundsPx().w}px; height: ${pageFns().attachCompositeBoundsPx().h}px;`} />
     </Show>;
 
   const renderPopupSelectedOverlayMaybe = () =>

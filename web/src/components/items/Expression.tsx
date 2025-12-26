@@ -98,10 +98,10 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   };
   const attachCompositeBoundsPx = (): BoundingBox => {
     return ({
-      x: boundsPx().w / 4.0,
-      y: boundsPx().h - ATTACH_AREA_SIZE_PX,
-      w: boundsPx().w / 2.0,
-      h: ATTACH_AREA_SIZE_PX,
+      x: 0,
+      y: boundsPx().h - 1,
+      w: boundsPx().w - 2,
+      h: 1,
     });
   };
   const moveOutOfCompositeBox = (): BoundingBox => {
@@ -258,9 +258,8 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
             `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
-        <div class={`absolute rounded-xs`}
-          style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-            `background-color: ${FEATURE_COLOR};`} />
+        <div class={`absolute border border-black`}
+          style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />
       </Show>
     </>;
 

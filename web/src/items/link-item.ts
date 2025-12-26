@@ -192,7 +192,7 @@ export const LinkFns = {
     const result = ItemFns.calcGeometry_Spatial(measurableMaybe, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasChildChanges, hasDefaultChanges, editing, smallScreenMode);
 
     let insertPos = result.hitboxes.length;
-    if (result.hitboxes.length > 0 && result.hitboxes[result.hitboxes.length-1].type == HitboxFlags.Resize) {
+    if (result.hitboxes.length > 0 && result.hitboxes[result.hitboxes.length - 1].type == HitboxFlags.Resize) {
       insertPos = result.hitboxes.length - 1;
     }
     result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }))
@@ -211,10 +211,10 @@ export const LinkFns = {
       const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
       const moveBoundsPx = {
         x: innerBoundsPx.w
-            - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-            - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-            - CONTAINER_IN_COMPOSITE_PADDING_PX
-            - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
+          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+          - CONTAINER_IN_COMPOSITE_PADDING_PX
+          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
         y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
         w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
         h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
@@ -227,9 +227,9 @@ export const LinkFns = {
           HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }),
           HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
           HitboxFns.create(HitboxFlags.AttachComposite, {
-            x: innerBoundsPx.w / 4,
+            x: 0,
             y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-            w: innerBoundsPx.w / 2,
+            w: innerBoundsPx.w,
             h: ATTACH_AREA_SIZE_PX,
           }),
         ]
@@ -277,7 +277,7 @@ export const LinkFns = {
         ]
       };
     }
-  
+
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
@@ -356,7 +356,7 @@ export const LinkFns = {
     const linkedToItemMaybe = itemState.get(linkToId);
     if (linkedToItemMaybe == null) { return "_" + linkToId + "_"; }
     return linkToId + "_" + ItemFns.getFingerprint(linkedToItemMaybe!);
-  }  
+  }
 };
 
 

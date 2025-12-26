@@ -80,10 +80,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     attachCompositeBoundsPx: (): BoundingBox => {
       return {
-        x: pageFns.boundsPx().w / 4.0,
-        y: pageFns.boundsPx().h - ATTACH_AREA_SIZE_PX,
-        w: pageFns.boundsPx().w / 2.0,
-        h: ATTACH_AREA_SIZE_PX,
+        x: 0,
+        y: pageFns.boundsPx().h - 1,
+        w: pageFns.boundsPx().w - 2,
+        h: 1,
       }
     },
 

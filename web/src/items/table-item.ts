@@ -194,9 +194,9 @@ export const TableFns = {
     result.hitboxes.push(HitboxFns.create(HitboxFlags.Move, moveBoundsPx));
     result.hitboxes.push(
       HitboxFns.create(HitboxFlags.AttachComposite, {
-        x: innerBoundsPx.w / 4,
+        x: 0,
         y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-        w: innerBoundsPx.w / 2,
+        w: innerBoundsPx.w,
         h: ATTACH_AREA_SIZE_PX,
       }));
     result.hitboxes.push(resizeHb); // expected to be last.

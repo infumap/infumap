@@ -45,10 +45,10 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const attachCompositeBoundsPx = (): BoundingBox => {
     return {
-      x: boundsPx().w / 4.0,
-      y: boundsPx().h - ATTACH_AREA_SIZE_PX,
-      w: boundsPx().w / 2.0,
-      h: ATTACH_AREA_SIZE_PX,
+      x: 0,
+      y: boundsPx().h - 1,
+      w: boundsPx().w - 2,
+      h: 1,
     }
   };
 
@@ -109,9 +109,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
-          <div class={`absolute rounded-xs`}
-            style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-              `background-color: #ff0000;`} />
+          <div class={`absolute border border-black`}
+            style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
           !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&

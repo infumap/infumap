@@ -155,9 +155,9 @@ export const RatingFns = {
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
         HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
+          x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
+          w: innerBoundsPx.w,
           h: ATTACH_AREA_SIZE_PX,
         }),
       ]
@@ -219,7 +219,7 @@ export const RatingFns = {
     item.rating += 1;
     if (item.rating == 6) { item.rating = 0; }
     fullArrange(store);
-  
+
     function clickTimerHandler() {
       serverOrRemote.updateItem(item, store.general.networkStatus);
       clickTimer = null;
@@ -246,7 +246,7 @@ export const RatingFns = {
 
   getFingerprint: (ratingItem: RatingItem): string => {
     return "" + ratingItem.rating + ":" + ratingItem.ratingType;
-  } 
+  }
 };
 
 // for click handler
