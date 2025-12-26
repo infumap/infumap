@@ -298,10 +298,30 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   if (MouseActionState.get().moveOver_attachHitboxElement != null) {
     const ve = VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get();
     store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(ve), false);
+    store.perVe.setMoveOverAttachmentIndex(VeFns.veToPath(ve), -1);
   }
   if (hitInfo.hitboxType & HitboxFlags.Attach) {
-    store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(hitInfo.overVes!.get()), true);
-    MouseActionState.get().moveOver_attachHitboxElement = VeFns.veToPath(hitInfo.overVes!.get());
+    const attachVe = hitInfo.overVes!.get();
+    const attachVePath = VeFns.veToPath(attachVe);
+    store.perVe.setMovingItemIsOverAttach(attachVePath, true);
+    MouseActionState.get().moveOver_attachHitboxElement = attachVePath;
+
+    // Calculate which attachment slot the mouse is over
+    const attachItem = asAttachmentsItem(attachVe.displayItem);
+    const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
+    const innerSizeBl = ItemFns.calcSpatialDimensionsBl(attachVe.displayItem);
+    const blockSizePx = veBoundsPx.w / innerSizeBl.w;
+
+    // Mouse position relative to right edge of item
+    const mouseXFromRight = veBoundsPx.x + veBoundsPx.w - desktopPosPx.x;
+    // Calculate which slot (0 = rightmost, 1 = next, etc.)
+    // Add 0.5 blocks so the transition happens at the midpoint of each attachment slot
+    const slotIndex = Math.floor((mouseXFromRight + blockSizePx * 0.5) / blockSizePx);
+    // Clamp to reasonable range (0 to existing attachments count)
+    const maxIndex = attachItem.computed_attachments.length;
+    const clampedIndex = Math.max(0, Math.min(slotIndex, maxIndex));
+
+    store.perVe.setMoveOverAttachmentIndex(attachVePath, clampedIndex);
   } else {
     MouseActionState.get().moveOver_attachHitboxElement = null;
   }

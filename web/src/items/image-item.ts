@@ -165,7 +165,7 @@ export const ImageFns = {
     const hitboxes = !emitHitboxes ? [] : [
       HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-      HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+      HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }),
       HitboxFns.create(HitboxFlags.Resize, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: boundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
     ];
 

@@ -113,6 +113,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       }
     },
 
+    attachInsertBarPx: (): BoundingBox => {
+      const innerSizeBl = ItemFns.calcSpatialDimensionsBl(props.visualElement.displayItem);
+      const blockSizePx = pageFns.boundsPx().w / innerSizeBl.w;
+      const insertIndex = store.perVe.getMoveOverAttachmentIndex(pageFns.vePath());
+      return {
+        x: pageFns.boundsPx().w - insertIndex * blockSizePx,
+        y: -blockSizePx / 2,
+        w: 4,
+        h: blockSizePx,
+      };
+    },
+
     moveOutOfCompositeBox: (): BoundingBox => {
       return ({
         x: pageFns.boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,

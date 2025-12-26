@@ -446,7 +446,7 @@ export const PageFns = {
         result.hitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, popupClickBoundsPx));
         result.hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx));
       }
-      result.hitboxes.push(HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }));
+      result.hitboxes.push(HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }));
       result.hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
       return result;
     }

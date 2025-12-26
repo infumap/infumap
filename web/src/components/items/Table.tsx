@@ -220,11 +220,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <div class={`absolute border border-[#999] bg-slate-300 rounded-xs`}
             style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
         </Show>
-        <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
-          <div class={`absolute rounded-xs`}
-            style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-              `background-color: #ff0000;`} />
-        </Show>
+
         <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>

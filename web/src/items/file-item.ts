@@ -119,7 +119,7 @@ export const FileFns = {
       hitboxes: !emitHitboxes ? [] : [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+        HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }),
         HitboxFns.create(HitboxFlags.AttachComposite, {
           x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,

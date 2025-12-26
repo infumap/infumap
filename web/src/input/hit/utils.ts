@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { isPlaceholder } from "../../items/placeholder-item";
 import { HitboxFlags, HitboxMeta } from "../../layout/hitbox";
 import { VisualElement, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -72,6 +73,8 @@ export function findAttachmentHit(
     const attachmentVe = attachmentVes.get();
     if (!isInside(localPos, attachmentVe.boundsPx)) { continue; }
     if (isIgnored(attachmentVe.displayItem.id, ignoreItems)) { continue; }
+    // Skip placeholder items so mouse events pass through to parent (for attachment positioning)
+    if (isPlaceholder(attachmentVe.displayItem)) { continue; }
     const { flags, meta } = scanHitboxes(
       attachmentVe,
       localPos,
@@ -99,8 +102,10 @@ export function toTableChildAreaPos(
   const tableBlockHeightPx = tableChildVe.boundsPx.h;
   return vectorSubtract(
     parentBoundsLocalPos,
-    { x: tableVe.viewportBoundsPx!.x,
-      y: tableVe.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe)) * tableBlockHeightPx }
+    {
+      x: tableVe.viewportBoundsPx!.x,
+      y: tableVe.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe)) * tableBlockHeightPx
+    }
   );
 }
 

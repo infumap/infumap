@@ -54,6 +54,17 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       h: ATTACH_AREA_SIZE_PX,
     }
   };
+  const attachInsertBarPx = (): BoundingBox => {
+    const innerSizeBl = ImageFns.calcSpatialDimensionsBl(imageItem());
+    const blockSizePx = boundsPx().w / innerSizeBl.w;
+    const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
+    return {
+      x: boundsPx().w - insertIndex * blockSizePx,
+      y: -blockSizePx / 2,
+      w: 4,
+      h: blockSizePx,
+    };
+  };
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const isDetailed = () => { return (props.visualElement.flags & VisualElementFlags.Detailed) != 0; }
@@ -430,10 +441,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
               style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
                 `background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
-          <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
-            <div class="absolute rounded-xs"
-              style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
+          <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
+            store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>
+            <div class="absolute bg-black"
+              style={`left: ${attachInsertBarPx().x}px; top: ${attachInsertBarPx().y}px; ` +
+                `width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
           <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && !isInComposite()}>
             <div class="absolute"

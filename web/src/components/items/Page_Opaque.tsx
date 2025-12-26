@@ -78,10 +78,11 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     </Show>;
 
   const renderMovingOverAttachMaybe = () =>
-    <Show when={store.perVe.getMovingItemIsOverAttach(pageFns().vePath())}>
-      <div class={'absolute rounded-xs'}
-        style={`left: ${pageFns().attachBoundsPx().x}px; top: ${pageFns().attachBoundsPx().y}px; width: ${pageFns().attachBoundsPx().w}px; height: ${pageFns().attachBoundsPx().h}px; ` +
-          'background-color: #ff0000;'} />
+    <Show when={store.perVe.getMovingItemIsOverAttach(pageFns().vePath()) &&
+      store.perVe.getMoveOverAttachmentIndex(pageFns().vePath()) >= 0}>
+      <div class={'absolute bg-black'}
+        style={`left: ${pageFns().attachInsertBarPx().x}px; top: ${pageFns().attachInsertBarPx().y}px; ` +
+          `width: ${pageFns().attachInsertBarPx().w}px; height: ${pageFns().attachInsertBarPx().h}px;`} />
     </Show>;
 
   const renderMovingOverAttachCompositeMaybe = () =>

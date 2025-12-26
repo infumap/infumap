@@ -106,6 +106,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       h: ATTACH_AREA_SIZE_PX,
     });
   };
+  const attachInsertBarPx = (): BoundingBox => {
+    const blockSizePx = boundsPx().w / sizeBl().w;
+    const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
+    return ({
+      x: boundsPx().w - insertIndex * blockSizePx,
+      y: -blockSizePx / 2,
+      w: 4,
+      h: blockSizePx,
+    });
+  };
   const attachCompositeBoundsPx = (): BoundingBox => {
     return ({
       x: 0,
@@ -392,10 +402,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
         <InfuResizeTriangle />
       </Show>
-      <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
-        <div class={`absolute rounded-xs`}
-          style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-            `background-color: ${FEATURE_COLOR};`} />
+      <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
+        store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>
+        <div class={`absolute bg-black`}
+          style={`left: ${attachInsertBarPx().x}px; top: ${attachInsertBarPx().y}px; ` +
+            `width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px;`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute border border-black`}

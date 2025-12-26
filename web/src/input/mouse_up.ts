@@ -619,18 +619,87 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 
 function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeItem: PositionalItem) {
   const attachToVisualElement = VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get();
-  if (asAttachmentsItem(attachToVisualElement.displayItem).id == activeItem.id) {
+  const attachToPath = VeFns.veToPath(attachToVisualElement);
+  const displayedParent = asAttachmentsItem(attachToVisualElement.displayItem);
+
+  if (displayedParent.id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
     console.error("activeItem", activeItem);
     console.error("attachToVisualElement", attachToVisualElement);
     panic("mouseUpHandler_moving_hitboxAttachTo: Attempt was made to attach an item to itself.");
   }
 
-  store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(attachToVisualElement), false);
+  store.perVe.setMovingItemIsOverAttach(attachToPath, false);
+  const insertPosition = store.perVe.getMoveOverAttachmentIndex(attachToPath);
+  store.perVe.setMoveOverAttachmentIndex(attachToPath, -1);
   MouseActionState.get().moveOver_attachHitboxElement = null;
 
+  // Handle case when no specific position or position is at/past end
+  if (insertPosition < 0 || insertPosition >= displayedParent.computed_attachments.length) {
+    // Check if there's a placeholder at the previous position (insertPosition - 1)
+    // If inserting past end but previous position has a placeholder, replace it
+    if (insertPosition > 0 && insertPosition - 1 < displayedParent.computed_attachments.length) {
+      const prevAttachmentId = displayedParent.computed_attachments[insertPosition - 1];
+      const prevPlaceholderMaybe = itemState.get(prevAttachmentId)!;
+      if (isPlaceholder(prevPlaceholderMaybe)) {
+        const newOrdering = prevPlaceholderMaybe.ordering;
+        itemState.delete(prevPlaceholderMaybe.id);
+        server.deleteItem(prevPlaceholderMaybe.id, store.general.networkStatus);
+        activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+        itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
+        serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+        finalizeMouseUp(store);
+        fullArrange(store);
+        return;
+      }
+    }
+    activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+    const newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedParent.id, insertPosition >= 0 ? insertPosition : displayedParent.computed_attachments.length);
+    itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
+    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+    finalizeMouseUp(store);
+    fullArrange(store);
+    return;
+  }
+
+  // Check if there's a placeholder at the target position
+  const overAttachmentId = displayedParent.computed_attachments[insertPosition];
+  const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
+  if (isPlaceholder(placeholderToReplaceMaybe)) {
+    // Replace the placeholder
+    const newOrdering = placeholderToReplaceMaybe.ordering;
+    itemState.delete(placeholderToReplaceMaybe.id);
+    server.deleteItem(placeholderToReplaceMaybe.id, store.general.networkStatus);
+    activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+    itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
+    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+    finalizeMouseUp(store);
+    fullArrange(store);
+    return;
+  }
+
+  // Check if there's a placeholder at the previous position (insertPosition - 1)
+  // This handles inserting "after" a placeholder - should replace the placeholder
+  if (insertPosition > 0) {
+    const prevAttachmentId = displayedParent.computed_attachments[insertPosition - 1];
+    const prevPlaceholderMaybe = itemState.get(prevAttachmentId)!;
+    if (isPlaceholder(prevPlaceholderMaybe)) {
+      const newOrdering = prevPlaceholderMaybe.ordering;
+      itemState.delete(prevPlaceholderMaybe.id);
+      server.deleteItem(prevPlaceholderMaybe.id, store.general.networkStatus);
+      activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+      itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
+      serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+      finalizeMouseUp(store);
+      fullArrange(store);
+      return;
+    }
+  }
+
+  // Insert at specific position (shifts existing attachments)
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, RelationshipToParent.Attachment);
+  const newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedParent.id, insertPosition);
+  itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
   finalizeMouseUp(store);

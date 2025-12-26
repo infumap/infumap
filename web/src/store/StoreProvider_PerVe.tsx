@@ -54,6 +54,9 @@ export interface PerVeStoreContextModel {
   getMoveOverColAttachmentNumber: (vePath: VisualElementPath) => number,  // for tables only
   setMoveOverColAttachmentNumber: (vePath: VisualElementPath, colNumber: number) => void,
 
+  getMoveOverAttachmentIndex: (vePath: VisualElementPath) => number,  // for attachable items
+  setMoveOverAttachmentIndex: (vePath: VisualElementPath, index: number) => void,
+
   getIsExpanded: (vePath: VisualElementPath) => boolean,
   setIsExpanded: (vePath: VisualElementPath, isExpanded: boolean) => void,
 
@@ -77,6 +80,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const movingItemIsOverAttachComposite = new Map<string, BooleanSignal>();
   const moveOverRowNumber = new Map<string, NumberSignal>();
   const moveOverColAttachmentNumber = new Map<string, NumberSignal>();
+  const moveOverAttachmentIndex = new Map<string, NumberSignal>();
   const moveOverIndex = new Map<string, NumberSignal>();
   const moveOverIndexAndPosition = new Map<string, InfuSignal<IndexAndPosition>>();
   const isExpanded = new Map<string, BooleanSignal>();
@@ -218,6 +222,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
     moveOverColAttachmentNumber.get(vePath)!.set(colNumber);
   };
 
+  const getMoveOverAttachmentIndex = (vePath: VisualElementPath): number => {
+    if (!moveOverAttachmentIndex.get(vePath)) {
+      moveOverAttachmentIndex.set(vePath, createNumberSignal(-1));
+    }
+    return moveOverAttachmentIndex.get(vePath)!.get();
+  };
+
+  const setMoveOverAttachmentIndex = (vePath: VisualElementPath, index: number): void => {
+    if (!moveOverAttachmentIndex.get(vePath)) {
+      moveOverAttachmentIndex.set(vePath, createNumberSignal(-1));
+      return;
+    }
+    moveOverAttachmentIndex.get(vePath)!.set(index);
+  };
+
   const getIsExpanded = (vePath: VisualElementPath): boolean => {
     if (!isExpanded.get(vePath)) {
       isExpanded.set(vePath, createBooleanSignal(false));
@@ -290,6 +309,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getMoveOverColAttachmentNumber,
     setMoveOverColAttachmentNumber,
+
+    getMoveOverAttachmentIndex,
+    setMoveOverAttachmentIndex,
 
     getIsExpanded,
     setIsExpanded,
