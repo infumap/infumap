@@ -89,8 +89,9 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     <Show when={store.overlay.networkOverlayVisible.get()}>
       <div class={`absolute rounded border-slate-500 border bg-white shadow-lg`}
         style={`top: 45px; right: 5px; min-width: 300px; max-width: 400px; ` +
-          `padding: 12px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}`}
-        onMouseDown={(e: MouseEvent) => { e.stopPropagation(); }}>
+          `padding: 12px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+        onMouseDown={(e: MouseEvent) => { e.stopPropagation(); }}
+        onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>
         <div class="flex justify-between items-start mb-2">
           <div class="font-bold text-sm">Network Status</div>
           <button onClick={handleClose} class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
@@ -118,7 +119,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <div class="mb-2">
             <div class="text-xs text-slate-600 mb-1 flex justify-between items-center">
               <span>Errors ({erroredRequests().length}):</span>
-              <button onClick={handleClearErrors} class="text-xs text-blue-600 hover:text-blue-800">Clear</button>
+              <button onClick={handleClearErrors} class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Clear</button>
             </div>
             <For each={erroredRequests()}>
               {(request) => (

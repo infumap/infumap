@@ -109,8 +109,8 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   };
 
   if (popupType != ToolbarPopupType.PageColor &&
-      popupType != ToolbarPopupType.PageArrangeAlgorithm &&
-      popupType != ToolbarPopupType.RatingType) {
+    popupType != ToolbarPopupType.PageArrangeAlgorithm &&
+    popupType != ToolbarPopupType.RatingType) {
     const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
@@ -212,7 +212,7 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.Scale) {
       const fcItem = flipCardItem();
       fcItem.scale = parseFloat(textElement!.value) / 100.0;
-      for (let i=0; i<fcItem.computed_children.length; ++i) {
+      for (let i = 0; i < fcItem.computed_children.length; ++i) {
         const childPage = asPageItem(itemState.get(fcItem.computed_children[i])!);
         childPage.innerSpatialWidthGr = Math.round(flipCardItem().spatialWidthGr * flipCardItem().scale / GRID_SIZE) * GRID_SIZE;
       }
@@ -259,12 +259,12 @@ export const Toolbar_Popup: Component = () => {
     }
 
     if (overlayType() != ToolbarPopupType.PageColor &&
-        overlayType() != ToolbarPopupType.QrLink &&
-        overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
-        overlayType() != ToolbarPopupType.TableNumCols &&
-        overlayType() != ToolbarPopupType.PageNumCols &&
-        overlayType() != ToolbarPopupType.PageCalendarDayRowHeight &&
-        overlayType() != ToolbarPopupType.RatingType) {
+      overlayType() != ToolbarPopupType.QrLink &&
+      overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
+      overlayType() != ToolbarPopupType.TableNumCols &&
+      overlayType() != ToolbarPopupType.PageNumCols &&
+      overlayType() != ToolbarPopupType.PageCalendarDayRowHeight &&
+      overlayType() != ToolbarPopupType.RatingType) {
       textElement!.focus();
     }
   });
@@ -373,6 +373,7 @@ export const Toolbar_Popup: Component = () => {
   const aaCalendarClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Calendar; finalizeAAChange(); }
 
   const handleMouseDown = (e: MouseEvent) => { if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); } }
+  const handleMouseMove = (e: MouseEvent) => { e.stopPropagation(); }
 
   onMount(() => {
     const canvas = document.getElementById('qrcanvas');
@@ -408,8 +409,9 @@ export const Toolbar_Popup: Component = () => {
       <Switch>
         <Match when={overlayType() == ToolbarPopupType.PageColor}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
-               onMouseDown={handleMouseDown}>
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
             <div class="pt-[6px] pl-[4px]">
               <div class="inline-block pl-[2px]"><InfuColorButton col={0} onClick={handleColorClick} /></div>
               <div class="inline-block pl-[2px]"><InfuColorButton col={1} onClick={handleColorClick} /></div>
@@ -426,15 +428,16 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageArrangeAlgorithm}>
           <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
-               onMouseDown={handleMouseDown}>
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={aaSpatialClick}>
               Spatial
             </div>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaGridClick}>
               Grid
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]"  onClick={aaJustifiedClick}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaJustifiedClick}>
               Justified
             </div>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaListClick}>
@@ -455,8 +458,9 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={overlayType() == ToolbarPopupType.RatingType}>
           <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
-               onMouseDown={handleMouseDown}>
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={() => { ratingItem().ratingType = "Star"; fullArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
               Star
             </div>
@@ -473,8 +477,9 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={overlayType() == ToolbarPopupType.QrLink}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
-               onMouseDown={handleMouseDown}>
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
             <canvas id="qrcanvas" style="margin: auto; width: 200px; height: 200px; margin-top: 12px;" width="200" height="200" />
             <Show when={compositeItemMaybe() != null}>
               <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
@@ -513,44 +518,45 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={true}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
-               onMouseDown={handleMouseDown}>
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
             <Show when={label() != null}>
               {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageNumCols || overlayType() == ToolbarPopupType.PageCalendarDayRowHeight
                 ? <div class="flex items-center mt-[7px]">
-                    <div class="text-sm ml-2 mr-2">{label()}</div>
-                    <input ref={textElement}
-                          class="p-[2px] focus:outline-none"
-                          style={`width: ${inputWidthPx() - 50}px`}
-                          type="range"
-                          min={overlayType() == ToolbarPopupType.PageCalendarDayRowHeight ? "1" : "1"}
-                          max={overlayType() == ToolbarPopupType.PageCalendarDayRowHeight ? "8" : "20"}
-                          value={sliderValue()}
-                          onInput={handleSliderInput}
-                          onKeyDown={handleKeyDown}
-                          onKeyUp={handleKeyUp}
-                          onKeyPress={handleKeyPress}/>
-                    <span class="ml-1 text-sm font-mono w-6 text-center">{sliderValue()}</span>
-                  </div>
+                  <div class="text-sm ml-2 mr-2">{label()}</div>
+                  <input ref={textElement}
+                    class="p-[2px] focus:outline-none"
+                    style={`width: ${inputWidthPx() - 50}px`}
+                    type="range"
+                    min={overlayType() == ToolbarPopupType.PageCalendarDayRowHeight ? "1" : "1"}
+                    max={overlayType() == ToolbarPopupType.PageCalendarDayRowHeight ? "8" : "20"}
+                    value={sliderValue()}
+                    onInput={handleSliderInput}
+                    onKeyDown={handleKeyDown}
+                    onKeyUp={handleKeyUp}
+                    onKeyPress={handleKeyPress} />
+                  <span class="ml-1 text-sm font-mono w-6 text-center">{sliderValue()}</span>
+                </div>
                 : <div class="inline-block">
-                    <div class="text-sm ml-1 mr-2 inline-block">{label()}</div>
-                    <input ref={textElement}
-                          class="border border-slate-300 rounded mt-[3px] p-[2px]"
-                          style={`width: ${inputWidthPx()}px`}
-                          autocomplete="on"
-                          value={textEntryValue()!}
-                          type="text"
-                          onChange={handleTextChange}
-                          onKeyDown={handleKeyDown}
-                          onKeyUp={handleKeyUp}
-                          onKeyPress={handleKeyPress}/>
-                  </div>
+                  <div class="text-sm ml-1 mr-2 inline-block">{label()}</div>
+                  <input ref={textElement}
+                    class="border border-slate-300 rounded mt-[3px] p-[2px]"
+                    style={`width: ${inputWidthPx()}px`}
+                    autocomplete="on"
+                    value={textEntryValue()!}
+                    type="text"
+                    onChange={handleTextChange}
+                    onKeyDown={handleKeyDown}
+                    onKeyUp={handleKeyUp}
+                    onKeyPress={handleKeyPress} />
+                </div>
               }
             </Show>
             <Show when={showAutoButton()}>
               <button class="border border-slate-300 rounded mt-[3px] p-[2px] ml-[4px] hover:bg-slate-300"
-                      type="button"
-                      onClick={handleAutoClick}>
+                type="button"
+                onClick={handleAutoClick}>
                 auto
               </button>
             </Show>
