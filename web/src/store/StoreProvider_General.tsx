@@ -59,6 +59,7 @@ export interface GeneralStoreContextModel {
   erroredNetworkRequests: Accessor<NetworkRequestInfo[]>,
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
   clearErroredNetworkRequests: () => void,
+  clearErrorsByCommand: (command: string) => void,
 }
 
 
@@ -79,6 +80,11 @@ export function makeGeneralStore(): GeneralStoreContextModel {
 
   const clearErroredNetworkRequests = () => {
     setErroredNetworkRequests([]);
+  };
+
+  const clearErrorsByCommand = (command: string) => {
+    const filtered = erroredNetworkRequests().filter(req => req.command !== command);
+    setErroredNetworkRequests(filtered);
   };
 
   const retrieveInstallationState = async () => {
@@ -115,6 +121,6 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     networkStatus,
     currentNetworkRequest, setCurrentNetworkRequest,
     queuedNetworkRequests, setQueuedNetworkRequests,
-    erroredNetworkRequests, addErroredNetworkRequest, clearErroredNetworkRequests,
+    erroredNetworkRequests, addErroredNetworkRequest, clearErroredNetworkRequests, clearErrorsByCommand,
   };
 }

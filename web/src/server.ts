@@ -38,12 +38,14 @@ let globalRequestTracker: {
   setCurrentNetworkRequest: (request: NetworkRequestInfo | null) => void,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
+  clearErrorsByCommand: (command: string) => void,
 } | null = null;
 
 export function setGlobalRequestTracker(tracker: {
   setCurrentNetworkRequest: (request: NetworkRequestInfo | null) => void,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
+  clearErrorsByCommand: (command: string) => void,
 }) {
   globalRequestTracker = tracker;
 }
@@ -236,6 +238,10 @@ function serveWaiting(networkStatus: NumberSignal) {
       if (DEBUG) { console.debug(command.command, command.payload); }
 
       const finalizeCommand = () => {
+        // Clear current request tracker when this command completes
+        if (globalRequestTracker) {
+          globalRequestTracker.setCurrentNetworkRequest(null);
+        }
         inProgressNonGet = null;
         decrementPendingMutations(command.command);
         serveWaiting(networkStatus);
@@ -245,6 +251,14 @@ function serveWaiting(networkStatus: NumberSignal) {
         command.internalHandler()
           .then((resp: any) => {
             command.resolve(resp);
+            // Clear any previous errors for this command type on success
+            if (globalRequestTracker) {
+              const erroredRequests = store.general.erroredNetworkRequests();
+              const filteredErrors = erroredRequests.filter(req => req.command !== command.command);
+              if (filteredErrors.length !== erroredRequests.length) {
+                store.general.setErroredNetworkRequests(filteredErrors);
+              }
+            }
           })
           .catch((error) => {
             command.reject(error);
@@ -264,6 +278,14 @@ function serveWaiting(networkStatus: NumberSignal) {
         sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
           .then((resp: any) => {
             command.resolve(resp);
+            // Clear any previous errors for this command type on success
+            if (globalRequestTracker) {
+              const erroredRequests = store.general.erroredNetworkRequests();
+              const filteredErrors = erroredRequests.filter(req => req.command !== command.command);
+              if (filteredErrors.length !== erroredRequests.length) {
+                store.general.setErroredNetworkRequests(filteredErrors);
+              }
+            }
           })
           .catch((error) => {
             command.reject(error);
@@ -307,6 +329,10 @@ function serveWaiting(networkStatus: NumberSignal) {
 
     const finalizeCommand = () => {
       inProgressGetItems--;
+      // Clear current request tracker if this was the last GET command
+      if (globalRequestTracker && inProgressGetItems === 0 && !inProgressNonGet) {
+        globalRequestTracker.setCurrentNetworkRequest(null);
+      }
       decrementPendingMutations(command.command);
       serveWaiting(networkStatus);
     };

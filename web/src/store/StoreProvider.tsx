@@ -211,6 +211,7 @@ export function StoreProvider(props: StoreContextProps) {
     setCurrentNetworkRequest: value.general.setCurrentNetworkRequest,
     setQueuedNetworkRequests: value.general.setQueuedNetworkRequests,
     addErroredNetworkRequest: value.general.addErroredNetworkRequest,
+    clearErrorsByCommand: value.general.clearErrorsByCommand,
   });
 
   return (
