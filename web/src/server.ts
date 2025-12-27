@@ -253,11 +253,7 @@ function serveWaiting(networkStatus: NumberSignal) {
             command.resolve(resp);
             // Clear any previous errors for this command type on success
             if (globalRequestTracker) {
-              const erroredRequests = store.general.erroredNetworkRequests();
-              const filteredErrors = erroredRequests.filter(req => req.command !== command.command);
-              if (filteredErrors.length !== erroredRequests.length) {
-                store.general.setErroredNetworkRequests(filteredErrors);
-              }
+              globalRequestTracker.clearErrorsByCommand(command.command);
             }
           })
           .catch((error) => {
@@ -280,11 +276,7 @@ function serveWaiting(networkStatus: NumberSignal) {
             command.resolve(resp);
             // Clear any previous errors for this command type on success
             if (globalRequestTracker) {
-              const erroredRequests = store.general.erroredNetworkRequests();
-              const filteredErrors = erroredRequests.filter(req => req.command !== command.command);
-              if (filteredErrors.length !== erroredRequests.length) {
-                store.general.setErroredNetworkRequests(filteredErrors);
-              }
+              globalRequestTracker.clearErrorsByCommand(command.command);
             }
           })
           .catch((error) => {
