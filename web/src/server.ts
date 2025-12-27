@@ -139,7 +139,15 @@ function getCommandDescription(command: string, payload: any): { description: st
       description = "Checking for updates";
       break;
     case COMMAND_AUTO_REFRESH:
-      description = "Auto-refreshing";
+      if (payload.containerIds && payload.containerIds.length > 0) {
+        if (payload.containerIds.length === 1) {
+          description = "Auto-refreshing";
+        } else {
+          description = `Auto-refreshing (${payload.containerIds.length} containers)`;
+        }
+      } else {
+        description = "Auto-refreshing";
+      }
       break;
     default:
       description = command;
@@ -368,15 +376,17 @@ function constructCommandPromise(
   })
 }
 
+
 function constructInternalCommandPromise(
   command: string,
   handler: () => Promise<any>,
-  networkStatus: NumberSignal): Promise<any> {
+  networkStatus: NumberSignal,
+  payload: object = {}): Promise<any> {
   return new Promise((resolve, reject) => {
     const commandObj: ServerCommand = {
       host: null,
       command,
-      payload: {},
+      payload,
       base64data: null,
       panicLogoutOnError: false,
       resolve,
@@ -774,10 +784,16 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
 
   loadTestInterval = window.setInterval(async () => {
     try {
+      // Get the containers that are being watched before starting refresh
+      const watchedContainersByOrigin = VesCache.getCurrentWatchContainerUidsByOrigin();
+      const localContainers = watchedContainersByOrigin.get(null);
+      const containerIds = localContainers ? Array.from(localContainers) : [];
+
       await constructInternalCommandPromise(
         COMMAND_AUTO_REFRESH,
         () => performAutoRefresh(store),
-        store.general.networkStatus
+        store.general.networkStatus,
+        { containerIds }  // Pass container IDs in payload
       );
     } catch (error) {
       console.error("Container auto-refresh failed:", error);

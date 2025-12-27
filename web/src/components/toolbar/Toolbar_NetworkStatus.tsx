@@ -51,8 +51,31 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const store = useStore();
 
   const currentRequest = () => store.general.currentNetworkRequest();
-  const queuedRequests = () => store.general.queuedNetworkRequests();
+  const queuedRequests = () => {
+    const current = currentRequest();
+    const allQueued = store.general.queuedNetworkRequests();
+    // Filter out the current request from the queue to avoid duplication
+    // Compare by both command and itemId to ensure we filter the right one
+    if (!current) {
+      return allQueued;
+    }
+    return allQueued.filter(req => {
+      // If both have itemId, compare by itemId and command
+      if (req.itemId && current.itemId) {
+        return !(req.itemId === current.itemId && req.command === current.command);
+      }
+      // Otherwise compare by command and description
+      return !(req.command === current.command && req.description === current.description);
+    });
+  };
   const erroredRequests = () => store.general.erroredNetworkRequests();
+
+  const formatRequest = (req: { description: string, itemId?: string }) => {
+    if (req.itemId) {
+      return `${req.description} (${req.itemId.substring(0, 8)}...)`;
+    }
+    return req.description;
+  };
 
   const handleClearErrors = () => {
     store.general.clearErroredNetworkRequests();
@@ -75,7 +98,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
         <Show when={currentRequest()}>
           <div class="mb-3">
             <div class="text-xs text-slate-600 mb-1">Current:</div>
-            <div class="text-sm px-2 py-1 bg-slate-100 rounded">{currentRequest()!.description}</div>
+            <div class="text-sm px-2 py-1 bg-slate-100 rounded">{formatRequest(currentRequest()!)}</div>
           </div>
         </Show>
 
@@ -84,7 +107,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
             <div class="text-xs text-slate-600 mb-1">Queue ({queuedRequests().length}):</div>
             <For each={queuedRequests()}>
               {(request) => (
-                <div class="text-sm px-2 py-1 bg-yellow-100 rounded mb-1">{request.description}</div>
+                <div class="text-sm px-2 py-1 bg-yellow-100 rounded mb-1">{formatRequest(request)}</div>
               )}
             </For>
           </div>
@@ -99,7 +122,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
             <For each={erroredRequests()}>
               {(request) => (
                 <div class="text-sm px-2 py-1 bg-red-100 rounded mb-1">
-                  <div class="font-medium">{request.description}</div>
+                  <div class="font-medium">{formatRequest(request)}</div>
                   <Show when={request.errorMessage}>
                     <div class="text-xs text-red-700 mt-1">{request.errorMessage}</div>
                   </Show>
