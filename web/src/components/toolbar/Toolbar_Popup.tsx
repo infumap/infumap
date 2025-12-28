@@ -372,7 +372,10 @@ export const Toolbar_Popup: Component = () => {
   const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
   const aaCalendarClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Calendar; finalizeAAChange(); }
 
-  const handleMouseDown = (e: MouseEvent) => { if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); } }
+  const handleMouseDown = (e: MouseEvent) => {
+    e.stopPropagation();  // Prevent global handler from closing popup
+    if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); }
+  }
   const handleMouseMove = (e: MouseEvent) => { e.stopPropagation(); }
 
   onMount(() => {

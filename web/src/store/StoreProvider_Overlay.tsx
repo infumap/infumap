@@ -161,7 +161,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       contextMenuInfo.get() != null ||
       tableColumnContextMenuInfo.get() != null ||
       toolbarPopupInfoMaybe.get() != null ||
-      networkOverlayVisible.get() ||
+      // networkOverlayVisible.get() ||  // Allow keyboard navigation when network status is visible
       uploadOverlayInfo.get() != null ||
       remoteLoginInfo.get() != null
     );

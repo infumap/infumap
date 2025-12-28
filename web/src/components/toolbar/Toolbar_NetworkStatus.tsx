@@ -85,29 +85,13 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     store.overlay.networkOverlayVisible.set(false);
   };
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    // Allow arrow keys to pass through for navigation
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      return; // Don't stop propagation, let it reach the page
-    }
-    // Handle Escape to close
-    if (e.key === 'Escape') {
-      handleClose();
-      e.stopPropagation();
-      return;
-    }
-    // Stop other keys from affecting the page
-    e.stopPropagation();
-  };
-
   return (
     <Show when={store.overlay.networkOverlayVisible.get()}>
       <div class={`absolute rounded border-slate-500 border bg-white shadow-lg`}
         style={`top: 45px; right: 5px; min-width: 300px; max-width: 400px; ` +
           `padding: 12px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
         onMouseDown={(e: MouseEvent) => { e.stopPropagation(); }}
-        onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}
-        onKeyDown={handleKeyDown}>
+        onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>
         <div class="flex justify-between items-start mb-2">
           <div class="font-bold text-sm">Network Status</div>
           <button onClick={handleClose} class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
