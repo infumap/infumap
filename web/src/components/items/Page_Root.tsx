@@ -149,7 +149,21 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const bounds = pageFns().viewportBoundsPx();
     const dockWidthPx = store.getCurrentDockWidthPx();
 
-    const leftOffset = dockWidthPx;
+    // Accumulate x offsets from parent ListPageRoot items (nested list page selections)
+    let accumulatedX = pageFns().boundsPx().x;
+    let parentPath = props.visualElement.parentPath;
+    while (parentPath && parentPath !== UMBRELLA_PAGE_UID) {
+      const parentVes = VesCache.get(parentPath);
+      if (!parentVes) break;
+      const parentVe = parentVes.get();
+      // Only add offset from parents that are ListPageRoot (selected items in a list page)
+      if (parentVe.flags & VisualElementFlags.ListPageRoot) {
+        accumulatedX += parentVe.boundsPx.x;
+      }
+      parentPath = parentVe.parentPath;
+    }
+
+    const leftOffset = dockWidthPx + accumulatedX;
     const topOffset = store.topToolbarHeightPx() + (pageFns().boundsPx().h - bounds.h);
 
     return (
