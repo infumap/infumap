@@ -22,7 +22,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
-import { LINE_HEIGHT_PX, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { FEATURE_COLOR, linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";

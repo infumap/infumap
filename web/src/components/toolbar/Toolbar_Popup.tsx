@@ -19,7 +19,7 @@
 import { Component, Match, Show, Switch, createSignal, on, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
-import { asRatingItem, isRating } from "../../items/rating-item";
+import { asRatingItem } from "../../items/rating-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { fullArrange } from "../../layout/arrange";

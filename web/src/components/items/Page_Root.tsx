@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { Veid, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
+import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";

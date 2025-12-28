@@ -27,7 +27,6 @@ import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { hexToRGBA } from "../../util/color";
 import { Colors, SELECTED_DARK, SELECTED_LIGHT } from "../../style";
-import { HitboxFlags } from "../../layout/hitbox";
 import { cloneBoundingBox } from "../../util/geometry";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -88,56 +87,56 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       <Switch>
         <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
           <div class="absolute pointer-events-none"
-               style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                       `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                       `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
-                      `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+              `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+              `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
+              `z-index: ${Z_INDEX_HIGHLIGHT};`} />
         </Match>
         <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-               style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; ` +
-                      `width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px; ` +
-                      `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
-                      `background-color: #0044ff0a;`} />
+            style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +
+              `width: ${openPopupBoundsPx().w - 4}px; height: ${openPopupBoundsPx().h - 4}px; ` +
+              `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+              `background-color: #0044ff0a;`} />
           <Show when={lineHighlightBoundsPx() != null}>
             <div class="absolute border border-slate-300 rounded-xs"
-                 style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
-                        `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px; ` +
-                        `z-index: ${Z_INDEX_ITEMS_OVERLAY}; `} />
+              style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
+                `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px; ` +
+                `z-index: ${Z_INDEX_ITEMS_OVERLAY}; `} />
           </Show>
         </Match>
         <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-               style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
-                      `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px; ` +
-                      `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
-                      `background-color: #0044ff0a;`} />
+            style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
+              `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px; ` +
+              `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+              `background-color: #0044ff0a;`} />
           <Show when={lineHighlightBoundsPx() != null}>
             <div class="absolute border border-slate-300 rounded-xs"
-                 style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
-                        `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px; ` +
-                        `z-index: ${Z_INDEX_ITEMS_OVERLAY}; `} />
+              style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
+                `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px; ` +
+                `z-index: ${Z_INDEX_ITEMS_OVERLAY}; `} />
           </Show>
         </Match>
         <Match when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
           <div class="absolute"
-               style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-3}px; height: ${boundsPx().h}px; ` +
-                      `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
+            style={`left: ${boundsPx().x + 1}px; top: ${boundsPx().y}px; width: ${boundsPx().w - 3}px; height: ${boundsPx().h}px; ` +
+              `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
         </Match>
       </Switch>);
   };
 
   const renderThumbnail = () =>
     <div class="absolute border border-slate-700 rounded-xs shadow-xs"
-         style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` +
-                bgOpaqueVal()} />;
+      style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` +
+        bgOpaqueVal()} />;
 
   const renderExpandIcon = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment) && (props.visualElement.flags & VisualElementFlags.InsideTable)}>
       <div class="absolute text-center text-slate-400"
-           style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale() * 0.8}px; height: ${boundsPx().h / smallScale() * 0.8}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}>
+        style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx() * 0.85}px; top: ${boundsPx().y + boundsPx().h * PADDING_PROP}px; ` +
+          `width: ${oneBlockWidthPx() / smallScale() * 0.8}px; height: ${boundsPx().h / smallScale() * 0.8}px; ` +
+          `transform: scale(${smallScale()}); transform-origin: top left;`}>
         <i class={`fas ${store.perVe.getIsExpanded(vePath()) ? 'fa-minus' : 'fa-plus'}`} />
       </div>
     </Show>;
@@ -166,11 +165,11 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderText = () =>
     <div class="absolute overflow-hidden whitespace-nowrap"
-         style={`left: ${boundsPx().x + oneBlockWidthPx()}px; ` +
-                `top: ${boundsPx().y}px; ` +
-                `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; ` +
-                `height: ${boundsPx().h / scale()}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left;`}>
+      style={`left: ${boundsPx().x + oneBlockWidthPx()}px; ` +
+        `top: ${boundsPx().y}px; ` +
+        `width: ${(boundsPx().w - oneBlockWidthPx()) / scale()}px; ` +
+        `height: ${boundsPx().h / scale()}px; ` +
+        `transform: scale(${scale()}); transform-origin: top left;`}>
       <Switch>
         <Match when={(store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <a id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -185,11 +184,11 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                style={"outline: 0px solid transparent;"}
-                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            style={"outline: 0px solid transparent;"}
+            contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {appendNewlineIfEmpty(pageItem().title)}<span></span>
           </span>
         </Match>
@@ -198,11 +197,11 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderLinkMarkingMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
+      showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
     </Show>;

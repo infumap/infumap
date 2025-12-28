@@ -26,7 +26,6 @@ import { ImageFlags } from "../../../items/base/flags-item";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
 import { fullArrange } from "../../../layout/arrange";
-import { InfuButton } from "../../library/InfuButton";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
@@ -86,7 +85,7 @@ export const Toolbar_Image: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="grow-0" style="flex-order: 0">
+      class="grow-0" style="flex-order: 0">
       <div class="inline-block">
         <div class="pl-[4px] inline-block">
           <InfuIconButton icon="bi-crop" highlighted={shouldCropImage()} clickHandler={cropHandler} />

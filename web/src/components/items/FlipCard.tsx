@@ -25,7 +25,6 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 
 import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_MOVING, Z_INDEX_SHADOW } from "../../constants";
-import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 
 

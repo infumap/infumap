@@ -39,9 +39,6 @@ import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
 import { Page_FlipCard } from "./Page_FlipCard";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { asContainerItem } from "../../items/base/container-item";
-import createJustifiedLayout from "justified-layout";
-import { createJustifyOptions } from "../../layout/arrange/page_justified";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
