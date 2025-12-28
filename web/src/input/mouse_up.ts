@@ -326,15 +326,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           }
 
           // If we clicked on a page that is the selected item in a list page (ListPageRoot),
-          // switch to that page as the new root instead of the parent list page.
-          if (isPage(activeVisualElement.displayItem) &&
-            (activeVisualElement.flags & VisualElementFlags.ListPageRoot)) {
-            const clickedVeid = VeFns.actualVeidFromVe(activeVisualElement);
-            switchToPage(store, clickedVeid, true, false, false);
-          } else {
-            // If we clicked on a root element that is not the current page (e.g. a popup background
-            // or a nested list page), handle potential switching of the root page.
-            // Nested list pages in popups should make the outermost list page the root.
+          // just focus it (already done above) - don't switch to it as the root page.
+          // For other cases (e.g. a popup background or a nested list page), handle potential
+          // switching of the root page.
+          if (!(isPage(activeVisualElement.displayItem) &&
+            (activeVisualElement.flags & VisualElementFlags.ListPageRoot))) {
             PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
           }
         }
