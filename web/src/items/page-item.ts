@@ -129,6 +129,17 @@ export const PageFns = {
     }
     const targetVeid = VeFns.actualVeidFromVe(targetVe);
     const currentVeid = store.history.currentPageVeid();
+
+    // If we clicked on a page that is the selected item in a list page (ListPageRoot),
+    // switch to that page directly as the new root instead of the parent list page.
+    if (isPage(visualElement.displayItem) && (visualElement.flags & VisualElementFlags.ListPageRoot)) {
+      const clickedVeid = VeFns.actualVeidFromVe(visualElement);
+      if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
+        switchToPage(store, clickedVeid, true, false, false);
+        return;
+      }
+    }
+
     if (isPage(targetVe.displayItem) && (targetVeid.itemId !== currentVeid?.itemId || targetVeid.linkIdMaybe !== currentVeid?.linkIdMaybe)) {
       let focusPath = VeFns.computeFocusPathRelativeToRoot(visualElement, targetVeid);
 

@@ -145,7 +145,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <div ref={rootDiv}
         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
           `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
-        style={`overflow-y: auto; ` +
+        style={`overflow-y: auto; overflow-x: hidden; ` +
           `width: ${pageFns().viewportBoundsPx().w}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
           `background-color: #ffffff;` +

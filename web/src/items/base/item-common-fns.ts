@@ -20,20 +20,38 @@ import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
 import { fullArrange } from "../../layout/arrange";
 import { HitboxFns, HitboxFlags } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
+import { switchToPage } from "../../layout/navigation";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../page-item";
+import { PageFlags } from "./flags-item";
 import { Measurable } from "./item";
 
 
 export function handleListPageLineItemClickMaybe(visualElement: VisualElement, store: StoreContextModel): boolean {
   const parentVe = VesCache.get(visualElement.parentPath!)!.get();
+  const parentItem = parentVe.displayItem;
+
+  // For dock items with embedded interactive list pages containing page items,
+  // switch to the clicked child page as the new root.
   if (parentVe.flags & VisualElementFlags.DockItem) {
+    if ((visualElement.flags & VisualElementFlags.LineItem) &&
+      isPage(parentItem) &&
+      asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List &&
+      (asPageItem(parentItem).flags & PageFlags.EmbeddedInteractive) &&
+      isPage(visualElement.displayItem)) {
+      const clickedVeid = VeFns.actualVeidFromVe(visualElement);
+      const currentVeid = store.history.currentPageVeid();
+      if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
+        switchToPage(store, clickedVeid, true, false, false);
+        return true;
+      }
+    }
     return false;
   }
-  const parentItem = parentVe.displayItem;
+
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.actualVeidFromVe(parentVe);
     store.history.setFocus(VeFns.veToPath(parentVe));
