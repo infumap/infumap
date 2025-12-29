@@ -266,6 +266,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
+
   let ignoreIds = [activeVisualElement.displayItem.id];
   if (isComposite(activeVisualElement.displayItem)) {
     const compositeItem = asCompositeItem(activeVisualElement.displayItem);

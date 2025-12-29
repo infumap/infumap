@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { batch } from "solid-js";
 import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -100,11 +101,19 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 
   const parentArrangeAlgorithm = ArrangeAlgorithm.None;
   const flags = ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot;
-  const pageVes = arrangeItem(
-    store, umbrellaPath, parentArrangeAlgorithm,
-    actualLinkItemMaybe ? actualLinkItemMaybe : currentPage,
-    actualLinkItemMaybe, itemGeometry, flags);
-  childrenVes.push(pageVes);
+
+  // Use SolidJS batch() to defer all reactive signal updates during arrange.
+  // Without batching, each signal.set() call triggers immediate reactivity,
+  // causing ~2.5 second freezes when ~1000 items need position updates.
+  let pageVes: ReturnType<typeof arrangeItem>;
+  batch(() => {
+    pageVes = arrangeItem(
+      store, umbrellaPath, parentArrangeAlgorithm,
+      actualLinkItemMaybe ? actualLinkItemMaybe : currentPage,
+      actualLinkItemMaybe, itemGeometry, flags);
+  });
+
+  childrenVes.push(pageVes!);
   umbrellaRelationships.childrenVes = childrenVes;
 
   if (virtualPageVeid) {
