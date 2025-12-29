@@ -268,7 +268,7 @@ function deleteAuxData(aux: VesAuxData, path: VisualElementPath) {
 }
 
 // Diagnostic counters for performance analysis
-const LOG_ARRANGE_STATS = false;
+const LOG_ARRANGE_STATS = true;
 let arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
 function resetArrangeStats() {
   arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };

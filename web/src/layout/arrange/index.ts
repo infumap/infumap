@@ -56,6 +56,8 @@ import { createVisualElementSignal } from "../../util/signals";
  * @param virtualPageVeid the page to create the visual element tree for, if not the current page.
  */
 export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): void {
+  console.time("fullArrange-total");
+
   if (store.history.currentPageVeid() == null) { return; }
 
   if (getPanickedMessage() != null) {
@@ -105,6 +107,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   // Use SolidJS batch() to defer all reactive signal updates during arrange.
   // Without batching, each signal.set() call triggers immediate reactivity,
   // causing ~2.5 second freezes when ~1000 items need position updates.
+  console.time("fullArrange-arrangeItem");
   let pageVes: ReturnType<typeof arrangeItem>;
   batch(() => {
     pageVes = arrangeItem(
@@ -112,6 +115,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
       actualLinkItemMaybe ? actualLinkItemMaybe : currentPage,
       actualLinkItemMaybe, itemGeometry, flags);
   });
+  console.timeEnd("fullArrange-arrangeItem");
 
   childrenVes.push(pageVes!);
   umbrellaRelationships.childrenVes = childrenVes;
@@ -122,12 +126,15 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
     evaluateExpressions(true);
   } else {
+    console.time("fullArrange-finalizeArrange");
     VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
+    console.timeEnd("fullArrange-finalizeArrange");
     VesCache.addWatchContainerUid(currentPage.id, currentPage.origin);
     evaluateExpressions(false);
   }
 
   const hasUser = store.user.getUserMaybe() != null;
   mouseMove_handleNoButtonDown(store, hasUser);
+  console.timeEnd("fullArrange-total");
 }
 
