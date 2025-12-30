@@ -16,7 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { GRID_SIZE } from "../constants";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
+import { isImage } from "../items/image-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { fullArrange } from "../layout/arrange";
@@ -219,17 +221,65 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     return;
   }
 
-  const path = store.history.currentPopupSpec()!.vePath;
+  const currentPopupSpec = store.history.currentPopupSpec()!;
+  const path = currentPopupSpec.vePath;
   if (path == null) { return; }
   const direction = findDirectionFromKeyCode(ev.code);
   if (handleTableAttachmentPopupNavigation(store, path, direction)) { return; }
   if (handleTableItemPopupHorizontalNavigation(store, path, direction)) { return; }
-  const closest = findClosest(path, direction, false, false)!;
+  const closest = findClosest(path, direction, true, false)!;
   if (closest != null) {
     const closestVeid = VeFns.veidFromPath(closest);
+    const closestItem = itemState.get(closestVeid.itemId);
+    // Non-page/non-image items need isFromAttachment=true for correct popup sizing
+    const isNonPageNonImage = closestItem && !isPage(closestItem) && !isImage(closestItem);
+
+    let sourcePositionGr: { x: number, y: number } | undefined = undefined;
+    if (isNonPageNonImage) {
+      // Calculate sourcePositionGr from VE's center in desktop coordinates, like click handler does
+      const closestVes = VesCache.get(closest);
+      if (closestVes) {
+        const ve = closestVes.get();
+        const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, ve);
+        const centerPx = {
+          x: veBoundsPx.x + veBoundsPx.w / 2,
+          y: veBoundsPx.y + veBoundsPx.h / 2,
+        };
+
+        // Find the parent page to convert to Gr coordinates
+        const parentPath = VeFns.parentPath(closest);
+        if (parentPath) {
+          let pageVe = VesCache.get(parentPath)?.get();
+          while (pageVe && !isPage(pageVe.displayItem)) {
+            if (!pageVe.parentPath) break;
+            pageVe = VesCache.get(pageVe.parentPath)?.get();
+          }
+          if (pageVe && isPage(pageVe.displayItem) && pageVe.childAreaBoundsPx) {
+            const pageItem = asPageItem(pageVe.displayItem);
+            const pageBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, pageVe);
+            const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(pageItem);
+
+            const pxToGrX = (parentInnerSizeBl.w * GRID_SIZE) / pageVe.childAreaBoundsPx.w;
+            const pxToGrY = (parentInnerSizeBl.h * GRID_SIZE) / pageVe.childAreaBoundsPx.h;
+
+            // Convert center position to Gr relative to page's child area
+            const relativeX = centerPx.x - pageBoundsPx.x;
+            const relativeY = centerPx.y - pageBoundsPx.y;
+
+            sourcePositionGr = {
+              x: relativeX * pxToGrX,
+              y: relativeY * pxToGrY,
+            };
+          }
+        }
+      }
+    }
+
     store.history.replacePopup({
       vePath: closest,
       actualVeid: closestVeid,
+      isFromAttachment: isNonPageNonImage ? true : undefined,
+      sourcePositionGr,
     });
     fullArrange(store);
   } else {

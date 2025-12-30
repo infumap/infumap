@@ -320,9 +320,9 @@ export const ItemFns = {
     // For all other item types, calculate source position and create popup centrally
     const { sourcePositionGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, isFromAttachment, clickPosPx);
 
-    // Treat as attachment/spatial popup if explicitly requested OR if we successfully calculated a context from click position
-    // (except for Images which have their own logic unless they are strictly attachments)
-    const treatAsAttachment = isFromAttachment || (!!sourcePositionGr && !isImage(item));
+    // Treat as attachment/spatial popup for non-page/non-image items only
+    // Pages and images have their own popup sizing logic and should NOT use isFromAttachment
+    const treatAsAttachment = !isImage(item) && (isFromAttachment || !!sourcePositionGr);
 
     const popupSpec = {
       actualVeid: VeFns.actualVeidFromVe(visualElement),
