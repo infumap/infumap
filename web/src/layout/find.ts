@@ -18,6 +18,7 @@
 
 import { isImage } from "../items/image-item";
 import { isPage } from "../items/page-item";
+import { isPlaceholder } from "../items/placeholder-item";
 import { boundingBoxCenter, vectorDistance } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VesCache } from "./ves-cache";
@@ -72,6 +73,7 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
 
   siblings = siblings
     .filter(ve => !(ve.flags & VisualElementFlags.Popup))
+    .filter(ve => !isPlaceholder(ve.displayItem))
     .filter(ve => allItemTypes ? true : isPage(ve.displayItem) || isImage(ve.displayItem));
 
   const SLACK_PX = 2;
