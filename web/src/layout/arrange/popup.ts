@@ -249,7 +249,12 @@ export function calcSpatialPopupGeometry(
     hasDefaultChanges = false;
   }
 
-  const heightGr = Math.round((widthGr / targetAspect / GRID_SIZE) / 2.0) * 2.0 * GRID_SIZE;
+  let heightGr: number;
+  if (popupImage) {
+    heightGr = ((widthGr / GRID_SIZE) * popupImage.imageSizePx.h / popupImage.imageSizePx.w) * GRID_SIZE;
+  } else {
+    heightGr = widthGr / targetAspect;
+  }
   li.spatialWidthGr = widthGr;
 
   // Center positioning

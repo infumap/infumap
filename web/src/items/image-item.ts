@@ -18,7 +18,7 @@
 
 import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, PAGE_POPUP_TITLE_HEIGHT_BL, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
-import { BoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from "../util/geometry";
+import { BoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft, cloneBoundingBox } from "../util/geometry";
 import { panic } from "../util/lang";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
@@ -145,7 +145,7 @@ export const ImageFns = {
 
   calcSpatialDimensionsBl: (image: ImageMeasurable): Dimensions => {
     // half block quantization.
-    let heightBl = Math.round(((image.spatialWidthGr / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w) * 2.0) / 2.0;
+    let heightBl = ((image.spatialWidthGr / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w);
     return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
   },
 
@@ -281,9 +281,9 @@ export const ImageFns = {
     return result;
   },
 
-  calcGeometry_InCell: (image: ImageMeasurable, cellBoundsPx: BoundingBox, isPopup: boolean = false, hasChildChanges: boolean = false, hasDefaultChanges: boolean = false): ItemGeometry => {
+  calcGeometry_InCell: (image: ImageMeasurable, cellBoundsPx: BoundingBox, isPopup: boolean = false, hasChildChanges: boolean = false, hasDefaultChanges: boolean = false, maximize: boolean = false): ItemGeometry => {
     const sizeBl = ImageFns.calcSpatialDimensionsBl(image); // TODO (MEDIUM): inappropriate quantization.
-    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+    const boundsPx = maximize ? cloneBoundingBox(cellBoundsPx)! : calcBoundsInCell(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const blockSizePx = {
       w: boundsPx.w / sizeBl.w,
@@ -414,7 +414,7 @@ export const ImageFns = {
     }
     // Compute centered position based on parent page dimensions
     const innerWidthBl = parentPage.innerSpatialWidthGr / GRID_SIZE;
-    const innerHeightBl = innerWidthBl / parentPage.naturalAspect;
+    const innerHeightBl = Math.floor(innerWidthBl / parentPage.naturalAspect);
     return {
       x: (innerWidthBl / 2) * GRID_SIZE,
       y: (innerHeightBl / 2) * GRID_SIZE
@@ -431,13 +431,16 @@ export const ImageFns = {
     // Calculate default width with 5% margin on constraining dimension
     const imageAspect = imageItem.imageSizePx.w / imageItem.imageSizePx.h;
     const innerWidthBl = parentPage.innerSpatialWidthGr / GRID_SIZE;
-    const innerHeightBl = innerWidthBl / parentPage.naturalAspect;
+    const innerHeightBl = Math.floor(innerWidthBl / parentPage.naturalAspect);
     const pageAspect = parentPage.naturalAspect;
 
     // Determine constraining dimension and calculate width with 5% margin
     const marginFraction = 0.05;
     let widthBl: number;
-    if (imageAspect > pageAspect) {
+    // We use the effective aspect ratio from the floored height for comparison
+    const effectivePageAspect = innerWidthBl / innerHeightBl;
+
+    if (imageAspect > effectivePageAspect) {
       // Image is wider than page - width is constraining
       widthBl = innerWidthBl * (1 - 2 * marginFraction);
     } else {
