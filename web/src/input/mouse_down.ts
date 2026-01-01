@@ -208,43 +208,13 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
         serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
 
-        // When ending text edit via right-click, set focus to the innermost parent page.
-        // Walk up the VE hierarchy from the edited item to find the innermost page in topTitledPages.
-        // We need to find the path BEFORE setTextEditInfo is called, because setTextEditInfo
-        // internally calls setFocus(currentPagePath()) when info is null, which would overwrite focus.
-        let foundPagePath: string | null = null;
-        if (buttonNumber != MOUSE_LEFT) {
-          const topPagePaths = store.topTitledPages.get();
-          const focusVes = VesCache.get(editingItemPath);
-          if (focusVes) {
-            let ve: VisualElement | null = focusVes.get();
-            while (ve !== null && ve.parentPath !== null) {
-              const parentVes = VesCache.get(ve.parentPath);
-              if (!parentVes) break;
-              ve = parentVes.get();
-              if (isPage(ve.displayItem)) {
-                // Check if this page's item ID matches any topTitledPage
-                const veItemId = ve.displayItem.id;
-                for (let i = topPagePaths.length - 1; i >= 0; i--) {
-                  const topPageItemId = VeFns.itemIdFromPath(topPagePaths[i]);
-                  if (topPageItemId === veItemId) {
-                    foundPagePath = topPagePaths[i];
-                    break;
-                  }
-                }
-                if (foundPagePath) break;
-              }
-            }
-          }
-        }
-
+        // When ending text edit via right-click, keep focus on the item but exit edit mode.
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
 
-        // Set focus AFTER setTextEditInfo, because setTextEditInfo(null) internally calls
-        // setFocus(currentPagePath()) which would overwrite our desired focus.
-        if (foundPagePath) {
-          store.history.setFocus(foundPagePath);
+        // For right-click, keep focus on the item (it will show enhanced shadow via focusPath check)
+        if (buttonNumber != MOUSE_LEFT) {
+          store.history.setFocus(editingItemPath);
         }
 
         fullArrange(store);
@@ -582,6 +552,32 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
       store.perVe.setIsExpanded(itemPath, !store.perVe.getIsExpanded(itemPath));
       fullArrange(store);
       return;
+    }
+  }
+
+  // Focus non-page items on right-click (first right-click focuses, second moves focus to parent).
+  const hitVe = HitInfoFns.getHitVe(hi);
+  const hitItem = hitVe.displayItem;
+  const hitPath = VeFns.veToPath(hitVe);
+  if (!isPage(hitItem) && !veFlagIsRoot(hitVe.flags)) {
+    // Check if this item is not already focused
+    const currentFocusPath = store.history.getFocusPath();
+    const isAlreadyFocused = currentFocusPath === hitPath;
+
+    if (!isAlreadyFocused) {
+      // Focus this item (it will show enhanced shadow via focusPath check in the component)
+      store.history.setFocus(hitPath);
+      fullArrange(store);
+      return;
+    } else {
+      // Item is already focused. Move focus to parent page (container).
+      const parentPath = VeFns.parentPath(hitPath);
+      const parentVes = VesCache.get(parentPath);
+      if (parentVes && isPage(parentVes.get().displayItem)) {
+        store.history.setFocus(parentPath);
+        fullArrange(store);
+        return;
+      }
     }
   }
 

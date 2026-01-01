@@ -152,8 +152,16 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
+  // Check if this table is currently focused (via focusPath or textEditInfo)
+  const isFocused = () => {
+    const focusPath = store.history.getFocusPath();
+    const textEditInfo = store.overlay.textEditInfo();
+    return focusPath === vePath() || (textEditInfo != null && textEditInfo.itemPath === vePath());
+  };
+
   const shadowClass = () => {
-    if (isPopup()) {
+    // Enhanced shadow when item is a popup OR focused
+    if (isPopup() || isFocused()) {
       return `${positionClass()} border border-transparent rounded-xs shadow-xl blur-md bg-slate-700`;
     }
     return `${positionClass()} border border-transparent rounded-xs shadow-xl`;

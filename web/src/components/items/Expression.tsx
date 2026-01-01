@@ -130,8 +130,16 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     });
   };
 
+  // Check if this expression is currently focused (via focusPath or textEditInfo)
+  const isFocused = () => {
+    const focusPath = store.history.getFocusPath();
+    const textEditInfo = store.overlay.textEditInfo();
+    return focusPath === vePath() || (textEditInfo != null && textEditInfo.itemPath === vePath());
+  };
+
   const shadowOuterClass = () => {
-    if (isPopup()) {
+    // Enhanced shadow when item is a popup OR focused
+    if (isPopup() || isFocused()) {
       return `${positionClass()} border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (expressionItem().flags & NoteFlags.HideBorder) {

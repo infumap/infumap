@@ -204,7 +204,24 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
   if (handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
 
+  // Handle arrow keys when a non-page item has focus via focusPath but no popup
+  // This enables navigation from a focused (non-editable) item
   if (!store.history.currentPopupSpec()) {
+    const focusPath = store.history.getFocusPath();
+    const focusVes = VesCache.get(focusPath);
+    if (focusVes && !isPage(focusVes.get().displayItem)) {
+      // Focus is on a non-page item (like a note), navigate to closest item
+      const direction = findDirectionFromKeyCode(ev.code);
+      const closest = findClosest(focusPath, direction, true, false);
+      if (closest != null) {
+        // Update focus to the new item
+        store.history.setFocus(closest);
+        fullArrange(store);
+        return;
+      }
+    }
+
+    // Existing page navigation logic
     const parentVeid = store.history.peekPrevPageVeid()!;
     if (parentVeid) {
       fullArrange(store, parentVeid);
@@ -231,57 +248,68 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (closest != null) {
     const closestVeid = VeFns.veidFromPath(closest);
     const closestItem = itemState.get(closestVeid.itemId);
-    // Non-page/non-image items need isFromAttachment=true for correct popup sizing
-    const isNonPageNonImage = closestItem && !isPage(closestItem) && !isImage(closestItem);
+    if (!closestItem) { return; }
 
-    let sourcePositionGr: { x: number, y: number } | undefined = undefined;
-    if (isNonPageNonImage) {
-      // Calculate sourcePositionGr from VE's center in desktop coordinates, like click handler does
-      const closestVes = VesCache.get(closest);
-      if (closestVes) {
-        const ve = closestVes.get();
-        const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, ve);
-        const centerPx = {
-          x: veBoundsPx.x + veBoundsPx.w / 2,
-          y: veBoundsPx.y + veBoundsPx.h / 2,
-        };
+    // Check if destination item is a page/image (should become popup)
+    const isPageOrImage = isPage(closestItem) || isImage(closestItem);
+    // Check if destination item is actually an attachment (should become popup)
+    const isActualAttachment = closestItem.relationshipToParent === RelationshipToParent.Attachment;
 
-        // Find the parent page to convert to Gr coordinates
-        const parentPath = VeFns.parentPath(closest);
-        if (parentPath) {
-          let pageVe = VesCache.get(parentPath)?.get();
-          while (pageVe && !isPage(pageVe.displayItem)) {
-            if (!pageVe.parentPath) break;
-            pageVe = VesCache.get(pageVe.parentPath)?.get();
-          }
-          if (pageVe && isPage(pageVe.displayItem) && pageVe.childAreaBoundsPx) {
-            const pageItem = asPageItem(pageVe.displayItem);
-            const pageBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, pageVe);
-            const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(pageItem);
+    if (isPageOrImage || isActualAttachment) {
+      // Page/image or attachment items: use popup mechanism
+      let sourcePositionGr: { x: number, y: number } | undefined = undefined;
+      if (!isPageOrImage) {
+        // Calculate sourcePositionGr from VE's center for attachments
+        const closestVes = VesCache.get(closest);
+        if (closestVes) {
+          const ve = closestVes.get();
+          const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, ve);
+          const centerPx = {
+            x: veBoundsPx.x + veBoundsPx.w / 2,
+            y: veBoundsPx.y + veBoundsPx.h / 2,
+          };
 
-            const pxToGrX = (parentInnerSizeBl.w * GRID_SIZE) / pageVe.childAreaBoundsPx.w;
-            const pxToGrY = (parentInnerSizeBl.h * GRID_SIZE) / pageVe.childAreaBoundsPx.h;
+          // Find the parent page to convert to Gr coordinates
+          const parentPath = VeFns.parentPath(closest);
+          if (parentPath) {
+            let pageVe = VesCache.get(parentPath)?.get();
+            while (pageVe && !isPage(pageVe.displayItem)) {
+              if (!pageVe.parentPath) break;
+              pageVe = VesCache.get(pageVe.parentPath)?.get();
+            }
+            if (pageVe && isPage(pageVe.displayItem) && pageVe.childAreaBoundsPx) {
+              const pageItem = asPageItem(pageVe.displayItem);
+              const pageBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, pageVe);
+              const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(pageItem);
 
-            // Convert center position to Gr relative to page's child area
-            const relativeX = centerPx.x - pageBoundsPx.x;
-            const relativeY = centerPx.y - pageBoundsPx.y;
+              const pxToGrX = (parentInnerSizeBl.w * GRID_SIZE) / pageVe.childAreaBoundsPx.w;
+              const pxToGrY = (parentInnerSizeBl.h * GRID_SIZE) / pageVe.childAreaBoundsPx.h;
 
-            sourcePositionGr = {
-              x: relativeX * pxToGrX,
-              y: relativeY * pxToGrY,
-            };
+              const relativeX = centerPx.x - pageBoundsPx.x;
+              const relativeY = centerPx.y - pageBoundsPx.y;
+
+              sourcePositionGr = {
+                x: relativeX * pxToGrX,
+                y: relativeY * pxToGrY,
+              };
+            }
           }
         }
       }
-    }
 
-    store.history.replacePopup({
-      vePath: closest,
-      actualVeid: closestVeid,
-      isFromAttachment: isNonPageNonImage ? true : undefined,
-      sourcePositionGr,
-    });
-    fullArrange(store);
+      store.history.replacePopup({
+        vePath: closest,
+        actualVeid: closestVeid,
+        isFromAttachment: isActualAttachment ? true : undefined,
+        sourcePositionGr,
+      });
+      fullArrange(store);
+    } else {
+      // Non-attachment child items: just set focus, pop the popup
+      store.history.popPopup();
+      store.history.setFocus(closest);
+      fullArrange(store);
+    }
   } else {
     // for grid and justified pages, use ordering to wrap around to next or prev line.
     if (direction == FindDirection.Left || direction == FindDirection.Right) {

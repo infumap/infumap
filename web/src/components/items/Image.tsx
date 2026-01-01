@@ -230,13 +230,18 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
+  // Check if this image is currently focused (via focusPath)
+  const isFocused = () => {
+    const focusPath = store.history.getFocusPath();
+    return focusPath === vePath();
+  };
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Popup) &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
       !(props.visualElement.flags & VisualElementFlags.DockItem) &&
-      (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
-      <div class={`absolute border border-transparent rounded-xs shadow-xl bg-white`}
+      (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()) || isFocused())}>
+      <div class={`absolute border border-transparent rounded-xs shadow-xl ${isFocused() ? 'blur-md bg-slate-700' : 'bg-white'}`}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - 2}px; height: ${boundsPx().h - 2}px; ` +
           `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
