@@ -274,16 +274,16 @@ export const ItemFns = {
     panic(`toObject: Unknown item type: ${item.itemType}`);
   },
 
-  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, hitboxFlags: HitboxFlags, store: StoreContextModel): void => {
+  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, hitboxFlags: HitboxFlags, store: StoreContextModel, caretAtEnd: boolean = false): void => {
     const item = visualElementSignal.get().displayItem;
     if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), hitboxFlags, store); }
     else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, store); }
     else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), store); }
-    else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), store); }
-    else if (isExpression(item)) { ExpressionFns.handleClick(visualElementSignal.get(), store); }
+    else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
+    else if (isExpression(item)) { ExpressionFns.handleClick(visualElementSignal.get(), store, caretAtEnd); }
     else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), store); }
-    else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), store); }
-    else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), store); }
+    else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), store, caretAtEnd); }
+    else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), store, caretAtEnd); }
     else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal); }
     else if (isLink(item)) { }
     else if (isPlaceholder(item)) { panic("handleClick: placeholder."); }

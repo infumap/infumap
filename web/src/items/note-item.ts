@@ -268,7 +268,7 @@ export const NoteFns = {
     window.open(asNoteItem(visualElement.displayItem).url, '_blank');
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false): void => {
+  handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
@@ -276,12 +276,12 @@ export const NoteFns = {
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;
     el.focus();
-    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    const closestIdx = caretAtEnd ? el.innerText.length : closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     fullArrange(store);
     const freshEl = document.getElementById(editingDomId)!;
     if (freshEl) {
       freshEl.focus();
-      setCaretPosition(freshEl, closestIdx);
+      setCaretPosition(freshEl, caretAtEnd ? freshEl.innerText.length : closestIdx);
     }
   },
 

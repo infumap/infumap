@@ -40,6 +40,8 @@ import { ItemType } from "../items/base/item";
 import { HitInfoFns } from "./hit";
 import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { asContainerItem } from "../items/base/container-item";
+import { ItemFns } from "../items/base/item-polymorphism";
+import { HitboxFlags } from "../layout/hitbox";
 
 
 /**
@@ -139,6 +141,16 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       fullArrange(store);
       return;
     }
+
+    // If a non-page item has focus and we're not already editing, make it editable
+    const focusPath = store.history.getFocusPath();
+    const focusVes = VesCache.get(focusPath);
+    if (focusVes && !isPage(focusVes.get().displayItem) && !store.overlay.textEditInfo()) {
+      ev.preventDefault();
+      ItemFns.handleClick(focusVes, null, HitboxFlags.None, store, true); // caretAtEnd=true
+      return;
+    }
+
     const spec = store.history.currentPopupSpec();
     if (spec && itemState.get(spec.actualVeid.itemId)!.itemType == ItemType.Page) {
       switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false, false);

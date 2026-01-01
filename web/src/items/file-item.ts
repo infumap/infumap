@@ -236,20 +236,20 @@ export const FileFns = {
     window.open('/files/' + fileItem.id, '_blank');
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false): void => {
+  handleClick: (visualElement: VisualElement, store: StoreContextModel, caretAtEnd: boolean = false): void => {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
-    if (!forceEdit && handledByList) { return; }
+    if (handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.File });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;
     el.focus();
-    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    const closestIdx = caretAtEnd ? el.innerText.length : closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     fullArrange(store);
     const freshEl = document.getElementById(editingDomId)!;
     if (freshEl) {
       freshEl.focus();
-      setCaretPosition(freshEl, closestIdx);
+      setCaretPosition(freshEl, caretAtEnd ? freshEl.innerText.length : closestIdx);
     }
   },
 

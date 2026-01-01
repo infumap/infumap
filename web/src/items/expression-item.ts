@@ -258,16 +258,20 @@ export const ExpressionFns = {
     console.debug("TODO");
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleClick: (visualElement: VisualElement, store: StoreContextModel, caretAtEnd: boolean = false): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const itemPath = VeFns.veToPath(visualElement);
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Expression });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;
     el.focus();
-    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    const closestIdx = caretAtEnd ? el.innerText.length : closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     fullArrange(store);
-    setCaretPosition(el, closestIdx);
+    const freshEl = document.getElementById(editingDomId)!;
+    if (freshEl) {
+      freshEl.focus();
+      setCaretPosition(freshEl, caretAtEnd ? freshEl.innerText.length : closestIdx);
+    }
   },
 
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
