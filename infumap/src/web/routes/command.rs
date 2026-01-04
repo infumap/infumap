@@ -588,12 +588,14 @@ async fn handle_add_item(
     json_data: &str,
     base64_data_maybe: &Option<String>,
     session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
-  let mut db = db.lock().await;
 
   let session = match session_maybe {
     Some(session) => session,
     None => { return Err(format!("Session is required to add an item.").into()); }
   };
+
+  // Clone session user_id for use outside locked scope.
+  let session_user_id = session.user_id.clone();
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
@@ -610,130 +612,153 @@ async fn handle_add_item(
     item_map.insert("id".to_owned(), Value::String(new_uid().to_owned()));
   }
 
-  if !item_map.contains_key("parentId") {
-    item_map.insert("parentId".to_owned(),
-      Value::String(db.user.get(&session.user_id).ok_or(format!("No user with id '{}'.", &session.user_id))?.home_page_id.clone()));
-  }
+  // ========================================================================
+  // PHASE 1: Validation with database lock
+  // Perform all validation that requires database access, then release lock.
+  // ========================================================================
+  let (mut item, object_encryption_key_maybe): (Item, Option<String>) = {
+    let db = db.lock().await;
 
-  if !item_map.contains_key("ownerId") {
-    item_map.insert("ownerId".to_owned(), Value::String(session.user_id.to_owned()));
-  }
-
-  if !item_map.contains_key("relationshipToParent") {
-    item_map.insert("relationshipToParent".to_owned(), Value::String("child".to_owned()));
-  }
-
-  let unix_time_now = unix_now_secs_u64().unwrap();
-
-  if !item_map.contains_key("creationDate") {
-    item_map.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
-  }
-
-  if !item_map.contains_key("lastModifiedDate") {
-    item_map.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
-  }
-
-  if !item_map.contains_key("dateTime") {
-    item_map.insert("dateTime".to_owned(), Value::Number(unix_time_now.into()));
-  }
-
-  if !item_map.contains_key("spatialPositionGr") {
-    if is_positionable_type(ItemType::from_str(&item_type)?) {
-      item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
+    if !item_map.contains_key("parentId") {
+      item_map.insert("parentId".to_owned(),
+        Value::String(db.user.get(&session_user_id).ok_or(format!("No user with id '{}'.", &session_user_id))?.home_page_id.clone()));
     }
-  }
 
-  if item_type == ItemType::Image.as_str() && !item_map.contains_key("imageSizePx") {
-    item_map.insert("imageSizePx".to_owned(), json::dimensions_to_object(&Dimensions { w: -1, h: -1 }));
-  }
-
-  if item_type == ItemType::Image.as_str() && !item_map.contains_key("thumbnail") {
-    item_map.insert("thumbnail".to_owned(), Value::String("".to_owned()));
-  }
-
-  if is_format_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("format") {
-    item_map.insert("format".to_owned(), Value::String("".to_owned()));
-  }
-
-  if is_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("flags") {
-    item_map.insert("flags".to_owned(), Value::Number(0.into()));
-  }
-
-  if is_permission_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("permissionFlags") {
-    item_map.insert("permissionFlags".to_owned(), Value::Number(0.into()));
-  }
-
-  if !item_map.contains_key("ordering") {
-    let parent_id_value = item_map.get("parentId").unwrap(); // should always exist at this point.
-    let parent_id = parent_id_value.as_str()
-      .ok_or(format!("Attempt was made by user '{}' to add an item with a parentId that is not of type String", &session.user_id))?;
-    if !is_uid(parent_id) {
-      return Err(format!("Attempt was made by user '{}' to add an item with invalid parent id.", &session.user_id).into());
+    if !item_map.contains_key("ownerId") {
+      item_map.insert("ownerId".to_owned(), Value::String(session_user_id.clone()));
     }
-    let orderings = db.item.get_children(&parent_id.to_owned())?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
-    let ordering = new_ordering_at_end(orderings);
-    item_map.insert(String::from("ordering"), Value::Array(ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
-  }
 
-  // 4. TODO (MEDIUM): triage destinations.
+    if !item_map.contains_key("relationshipToParent") {
+      item_map.insert("relationshipToParent".to_owned(), Value::String("child".to_owned()));
+    }
 
-  let mut item: Item = Item::from_api_json(&item_map)?;
-  let parent_id = item_map.get("parentId").unwrap().as_str().unwrap(); // by this point, should never fail.
+    let unix_time_now = unix_now_secs_u64().unwrap();
 
-  if parent_id == EMPTY_UID {
-    return Err(format!("Attempt was made by user '{}' to add an item with an empty parent id.", &session.user_id).into());
-  }
+    if !item_map.contains_key("creationDate") {
+      item_map.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
+    }
 
-  let parent_item = db.item.get(&parent_id.to_owned())
-    .map_err(|_| format!("Cannot add child item to '{}' because an item with that id does not exist.", parent_id))?;
-  if &parent_item.owner_id != &session.user_id {
-    return Err(format!("Cannot add child item to '{}' because user '{}' is not the owner.", &parent_item.id, &session.user_id,).into());
-  }
+    if !item_map.contains_key("lastModifiedDate") {
+      item_map.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
+    }
 
-  match item.relationship_to_parent {
-    RelationshipToParent::Child => {
-      if !is_container_item_type(parent_item.item_type) {
-        return Err(format!("Attempt was made by user '{}' to add a child item to a non-container parent.", &session.user_id).into());
+    if !item_map.contains_key("dateTime") {
+      item_map.insert("dateTime".to_owned(), Value::Number(unix_time_now.into()));
+    }
+
+    if !item_map.contains_key("spatialPositionGr") {
+      if is_positionable_type(ItemType::from_str(&item_type)?) {
+        item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
       }
-    },
-    RelationshipToParent::Attachment => {
-      if !is_attachments_item_type(parent_item.item_type) {
-        return Err(format!("Attempt was made by user '{}' to add an attachment item to a non-attachments parent.", &session.user_id).into());
-      }
-    },
-    RelationshipToParent::NoParent => {
-      return Err(format!("Attempt was made by user '{}' to add a root level page.", &session.user_id).into());
     }
+
+    if item_type == ItemType::Image.as_str() && !item_map.contains_key("imageSizePx") {
+      item_map.insert("imageSizePx".to_owned(), json::dimensions_to_object(&Dimensions { w: -1, h: -1 }));
+    }
+
+    if item_type == ItemType::Image.as_str() && !item_map.contains_key("thumbnail") {
+      item_map.insert("thumbnail".to_owned(), Value::String("".to_owned()));
+    }
+
+    if is_format_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("format") {
+      item_map.insert("format".to_owned(), Value::String("".to_owned()));
+    }
+
+    if is_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("flags") {
+      item_map.insert("flags".to_owned(), Value::Number(0.into()));
+    }
+
+    if is_permission_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("permissionFlags") {
+      item_map.insert("permissionFlags".to_owned(), Value::Number(0.into()));
+    }
+
+    if !item_map.contains_key("ordering") {
+      let parent_id_value = item_map.get("parentId").unwrap(); // should always exist at this point.
+      let parent_id = parent_id_value.as_str()
+        .ok_or(format!("Attempt was made by user '{}' to add an item with a parentId that is not of type String", &session_user_id))?;
+      if !is_uid(parent_id) {
+        return Err(format!("Attempt was made by user '{}' to add an item with invalid parent id.", &session_user_id).into());
+      }
+      let orderings = db.item.get_children(&parent_id.to_owned())?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
+      let ordering = new_ordering_at_end(orderings);
+      item_map.insert(String::from("ordering"), Value::Array(ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
+    }
+
+    // 4. TODO (MEDIUM): triage destinations.
+
+    let item: Item = Item::from_api_json(&item_map)?;
+    let parent_id = item_map.get("parentId").unwrap().as_str().unwrap(); // by this point, should never fail.
+
+    if parent_id == EMPTY_UID {
+      return Err(format!("Attempt was made by user '{}' to add an item with an empty parent id.", &session_user_id).into());
+    }
+
+    let parent_item = db.item.get(&parent_id.to_owned())
+      .map_err(|_| format!("Cannot add child item to '{}' because an item with that id does not exist.", parent_id))?;
+    if &parent_item.owner_id != &session_user_id {
+      return Err(format!("Cannot add child item to '{}' because user '{}' is not the owner.", &parent_item.id, &session_user_id,).into());
+    }
+
+    match item.relationship_to_parent {
+      RelationshipToParent::Child => {
+        if !is_container_item_type(parent_item.item_type) {
+          return Err(format!("Attempt was made by user '{}' to add a child item to a non-container parent.", &session_user_id).into());
+        }
+      },
+      RelationshipToParent::Attachment => {
+        if !is_attachments_item_type(parent_item.item_type) {
+          return Err(format!("Attempt was made by user '{}' to add an attachment item to a non-attachments parent.", &session_user_id).into());
+        }
+      },
+      RelationshipToParent::NoParent => {
+        return Err(format!("Attempt was made by user '{}' to add a root level page.", &session_user_id).into());
+      }
+    };
+
+    if is_empty_uid(&item.id) {
+      return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", &session_user_id).into());
+    }
+
+    if &item.owner_id != &session_user_id {
+      return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, &session_user_id, item.id).into());
+    }
+
+    if db.item.get(&item.id).is_ok() {
+      return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
+    }
+
+    if item.ordering.len() == 0 {
+      return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", &session_user_id).into());
+    }
+
+    if item.item_type == ItemType::Placeholder && item.relationship_to_parent != RelationshipToParent::Attachment {
+      return Err(format!("Attempt was made to add a placeholder item where relationship to parent is not Attachment.").into());
+    }
+
+    // Get encryption key if needed for data items, clone it so we can use it outside the lock.
+    let encryption_key = if is_data_item_type(item.item_type) {
+      Some(db.user.get(&session_user_id).ok_or(format!("User '{}' not found.", &session_user_id))?.object_encryption_key.clone())
+    } else {
+      None
+    };
+
+    (item, encryption_key)
+    // Lock is released here when `db` goes out of scope.
   };
 
-  if is_empty_uid(&item.id) {
-    return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", &session.user_id).into());
-  }
-
-  if &item.owner_id != &session.user_id {
-    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, &session.user_id, item.id).into());
-  }
-
-  if db.item.get(&item.id).is_ok() {
-    return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
-  }
-
-  if item.ordering.len() == 0 {
-    return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", &session.user_id).into());
-  }
-
-  if item.item_type == ItemType::Placeholder && item.relationship_to_parent != RelationshipToParent::Attachment {
-    return Err(format!("Attempt was made to add a placeholder item where relationship to parent is not Attachment.").into());
-  }
-
+  // ========================================================================
+  // PHASE 2: I/O Operations without database lock
+  // These can be slow (especially object::put for large files) so we don't
+  // hold the lock during these operations.
+  // ========================================================================
   if is_data_item_type(item.item_type) {
     let base64_data = base64_data_maybe.as_ref().ok_or(format!("Add item request has no base64 data, when this is expected for item of type {}.", item.item_type))?;
     let decoded = general_purpose::STANDARD.decode(&base64_data).map_err(|e| format!("There was a problem decoding base64 data for new item '{}': {}", item.id, e))?;
     if decoded.len() != item.file_size_bytes.ok_or(format!("File size was not specified for new data item '{}'.", item.id))? as usize {
       return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
     }
-    let object_encryption_key = &db.user.get(&session.user_id).ok_or(format!("User '{}' not found.", &session.user_id))?.object_encryption_key;
-    object::put(object_store.clone(), &session.user_id, &item.id, &decoded, object_encryption_key).await?;
+    let object_encryption_key = object_encryption_key_maybe.as_ref().ok_or("Internal error: encryption key should have been set for data item.")?;
+    object::put(object_store.clone(), &session_user_id, &item.id, &decoded, object_encryption_key).await?;
 
     if is_image_item(&item) {
       let title = match &item.title {
@@ -758,7 +783,7 @@ async fn handle_add_item(
       let thumbnail_data = cursor.get_ref().to_vec();
       let thumbnail_base64 = general_purpose::STANDARD.encode(thumbnail_data);
       if item.thumbnail.unwrap() != "" {
-        return Err(format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", &session.user_id).into());
+        return Err(format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", &session_user_id).into());
       }
       item.thumbnail = Some(thumbnail_base64);
 
@@ -779,9 +804,23 @@ async fn handle_add_item(
 
   let serialized_item = serde_json::to_string(&item.to_api_json()?)?;
 
-  let item_id = item.id.clone();
-  db.item.add(item).await?;
-  debug!("Executed 'add-item' command for item '{}'.", item_id);
+  // ========================================================================
+  // PHASE 3: Database insert with lock
+  // Re-acquire lock and re-check the item doesn't already exist (in case
+  // of a race condition with another request using the same item ID).
+  // ========================================================================
+  {
+    let mut db = db.lock().await;
+
+    // Re-check that item ID still doesn't exist (race condition guard).
+    if db.item.get(&item.id).is_ok() {
+      return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
+    }
+
+    let item_id = item.id.clone();
+    db.item.add(item).await?;
+    debug!("Executed 'add-item' command for item '{}'.", item_id);
+  }
 
   Ok(Some(serialized_item))
 }
