@@ -178,7 +178,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let children = json.get("children").ok_or("Request for children yielded an unexpected result (no children property).")?;
   let container_children = children.as_array().ok_or("Request for children yielded an unexpected result (children property is not an array).")?;
   if container_children.len() != 0 && !resuming && !additional {
-    return Err(format!("Specified container '{}' is not empty. Either the 'additional' or 'resuming' flag must be set", container_id.clone()).into());
+    return Err(format!("Specified container '{}' is not empty. Either the 'additional' or 'resume' flag must be set", container_id.clone()).into());
   }
   let container_children_titles = container_children.iter().map(|child| -> InfuResult<String> {
     Ok(child
