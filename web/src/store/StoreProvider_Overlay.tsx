@@ -110,7 +110,7 @@ export interface OverlayStoreContextModel {
   remoteLoginInfo: InfuSignal<RemoteLoginInfo | null>,
 
   textEditInfo: () => TextEditInfo | null,
-  setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => void,
+  setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null, preserveFocus?: boolean) => void,
 
   isPanicked: InfuSignal<boolean>,
 
@@ -169,9 +169,12 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   const textEditInfo = (): TextEditInfo | null => textEditInfo_.get();
 
-  const setTextEditInfo = (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => {
+  const setTextEditInfo = (historyStore: HistoryStoreContextModel, info: TextEditInfo | null, preserveFocus?: boolean) => {
     if (info == null) {
-      if (historyStore.currentPopupSpec()) {
+      if (preserveFocus && textEditInfo_.get() != null) {
+        // Keep focus on the item that was being edited
+        historyStore.setFocus(textEditInfo_.get()!.itemPath);
+      } else if (historyStore.currentPopupSpec()) {
         historyStore.setFocus(historyStore.currentPopupSpec()!.vePath!);
       } else {
         historyStore.setFocus(historyStore.currentPagePath()!);

@@ -169,6 +169,12 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         ev.stopPropagation();
         enterKeyHandler();
         return;
+      case "Escape":
+        ev.preventDefault();
+        ev.stopPropagation();
+        store.overlay.setTextEditInfo(store.history, null, true);
+        fullArrange(store);
+        return;
     }
   }
 

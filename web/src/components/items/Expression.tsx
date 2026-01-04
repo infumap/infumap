@@ -202,6 +202,12 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
         ev.preventDefault();
         ev.stopPropagation();
         return;
+      case "Escape":
+        ev.preventDefault();
+        ev.stopPropagation();
+        store.overlay.setTextEditInfo(store.history, null, true);
+        fullArrange(store);
+        return;
     }
   }
 

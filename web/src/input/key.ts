@@ -91,9 +91,12 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   }
 
   if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-    // TODO (HIGH)
-    // event is fired before content is updated.
-    return;
+    // Allow Escape key to exit text editing mode
+    if (ev.code != "Escape") {
+      // TODO (HIGH)
+      // event is fired before content is updated.
+      return;
+    }
   }
 
   // input box is in toolbar.
@@ -117,6 +120,12 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   else if (ev.code == "Escape") {
     ev.preventDefault();
+    // Exit text edit mode while keeping focus on the item
+    if (store.overlay.textEditInfo()) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+      fullArrange(store);
+      return;
+    }
     if (store.history.currentPopupSpec()) {
       store.history.popAllPopups();
       const topRootVes = VesCache.getChildrenVes(VeFns.veToPath(store.umbrellaVisualElement.get()))()[0];

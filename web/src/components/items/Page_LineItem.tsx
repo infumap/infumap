@@ -160,6 +160,11 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
         ev.preventDefault();
         ev.stopPropagation();
         return;
+      case "Escape":
+        ev.preventDefault();
+        ev.stopPropagation();
+        store.overlay.setTextEditInfo(store.history, null, true);
+        return;
     }
   }
 

@@ -54,45 +54,45 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
     <Switch>
       <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; ` +
-                    `width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px; ` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
-                    `background-color: #0044ff0a;`} />
+          style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +
+            `width: ${openPopupBoundsPx().w - 4}px; height: ${openPopupBoundsPx().h - 4}px; ` +
+            `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+            `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
-                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+            style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
+              `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px;`} />
         </Show>
       </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
-                    `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px; ` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
-                    `background-color: #0044ff0a;`} />
+          style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
+            `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px; ` +
+            `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+            `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
-                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+            style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
+              `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px;`} />
         </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-3}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
+          style={`left: ${boundsPx().x + 1}px; top: ${boundsPx().y}px; width: ${boundsPx().w - 3}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
         <div class="absolute"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${FIND_HIGHLIGHT_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${FIND_HIGHLIGHT_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
       </Match>
     </Switch>;
 
   const renderIcon = () =>
     <div class="absolute text-center"
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                `transform: scale(${scale()}); transform-origin: top left;`}>
+      style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+        `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+        `transform: scale(${scale()}); transform-origin: top left;`}>
       <i class={`fas fa-image`} />
     </div>;
 
@@ -115,15 +115,20 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
         ev.preventDefault();
         ev.stopPropagation();
         return;
+      case "Escape":
+        ev.preventDefault();
+        ev.stopPropagation();
+        store.overlay.setTextEditInfo(store.history, null, true);
+        return;
     }
   }
 
   const renderText = () =>
     <div id={props.visualElement.displayItem.id}
-         class="absolute overflow-hidden whitespace-nowrap"
-         style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-                `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left;`}>
+      class="absolute overflow-hidden whitespace-nowrap"
+      style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+        `width: ${(boundsPx().w - oneBlockWidthPx()) / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+        `transform: scale(${scale()}); transform-origin: top left;`}>
       <Switch>
         <Match when={(store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <a id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -138,11 +143,11 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                style={"outline: 0px solid transparent;"}
-                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            style={"outline: 0px solid transparent;"}
+            contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {appendNewlineIfEmpty(imageItem().title)}<span></span>
           </span>
         </Match>
@@ -151,11 +156,11 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
 
   const renderLinkMarkingMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
+      showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
     </Show>

@@ -183,6 +183,12 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         ev.preventDefault();
         ev.stopPropagation();
         return;
+      case "Escape":
+        ev.preventDefault();
+        ev.stopPropagation();
+        store.overlay.setTextEditInfo(store.history, null, true);
+        fullArrange(store);
+        return;
     }
   }
 

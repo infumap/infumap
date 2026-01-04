@@ -66,29 +66,29 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     <Switch>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
-                    `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px; ` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
-                    `background-color: #0044ff0a;`} />
+          style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
+            `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px; ` +
+            `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+            `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
-                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+            style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
+              `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px;`} />
         </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-3}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
+          style={`left: ${boundsPx().x + 1}px; top: ${boundsPx().y}px; width: ${boundsPx().w - 3}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
       </Match>
     </Switch>;
 
   const renderIconMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
       <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-eye-slash`} />
       </div>
     </Show>;
@@ -103,35 +103,40 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
         ev.preventDefault();
         ev.stopPropagation();
         return;
+      case "Escape":
+        ev.preventDefault();
+        ev.stopPropagation();
+        store.overlay.setTextEditInfo(store.history, null, true);
+        return;
     }
   }
 
   const renderText = () =>
     <div class="absolute overflow-hidden whitespace-nowrap"
-         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left;`}>
+      style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+        `width: ${widthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+        `transform: scale(${scale()}); transform-origin: top left;`}>
       <Switch>
         <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class="text-slate-800"
-                style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px; outline: 0px solid transparent;`}
-                contentEditable={true}
-                spellcheck={false}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            class="text-slate-800"
+            style={`margin-left: ${oneBlockWidthPx() * PADDING_PROP}px; outline: 0px solid transparent;`}
+            contentEditable={true}
+            spellcheck={false}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {passwordItem().text}<span></span>
           </span>
         </Match>
         <Match when={!store.overlay.textEditInfo() || store.overlay.textEditInfo()?.itemPath != vePath()}>
           <Show when={isVisible()} fallback={
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                  class="text-slate-800"
-                  style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>••••••••••••</span>
+              class="text-slate-800"
+              style={`margin-left: ${oneBlockWidthPx() * PADDING_PROP}px`}>••••••••••••</span>
           }>
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                  class="text-slate-800"
-                  style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>{passwordItem().text}<span></span></span>
+              class="text-slate-800"
+              style={`margin-left: ${oneBlockWidthPx() * PADDING_PROP}px`}>{passwordItem().text}<span></span></span>
           </Show>
         </Match>
       </Switch>
@@ -139,33 +144,33 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
 
   const renderCopyIcon = () =>
     <div class="absolute text-center text-slate-600"
-         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
-                `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                `transform: scale(${smallScale()}); transform-origin: top left;`}
-         onmousedown={eatMouseEvent}
-         onmouseup={eatMouseEvent}
-         onclick={copyClickHandler}>
+      style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx() * 1.05}px; top: ${boundsPx().y + boundsPx().h * PADDING_PROP}px; ` +
+        `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h / smallScale()}px; ` +
+        `transform: scale(${smallScale()}); transform-origin: top left;`}
+      onmousedown={eatMouseEvent}
+      onmouseup={eatMouseEvent}
+      onclick={copyClickHandler}>
       <i class={`fas fa-copy cursor-pointer`} />
     </div>;
 
   const renderShowIcon = () =>
     <div class="absolute text-center text-slate-600"
-         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
-                `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                `transform: scale(${smallScale()}); transform-origin: top left;`}
-         onmousedown={eatMouseEvent}
-         onmouseup={eatMouseEvent}
-         onclick={VisibleClickHandler}>
+      style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx() * 1.8}px; top: ${boundsPx().y + boundsPx().h * PADDING_PROP}px; ` +
+        `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h / smallScale()}px; ` +
+        `transform: scale(${smallScale()}); transform-origin: top left;`}
+      onmousedown={eatMouseEvent}
+      onmouseup={eatMouseEvent}
+      onclick={VisibleClickHandler}>
       <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
     </div>;
 
   const renderLinkMarkingMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
+      showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                 `transform: scale(${scale()}); transform-origin: top left;`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
     </Show>

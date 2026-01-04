@@ -106,48 +106,48 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <Switch>
       <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
         <div class="absolute pointer-events-none"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
-                    `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+            `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Match>
       <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; ` +
-                    `width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
-                    `background-color: #0044ff0a;`} />
+          style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +
+            `width: ${openPopupBoundsPx().w - 4}px; height: ${openPopupBoundsPx().h - 4}px;` +
+            `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+            `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
-                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+            style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
+              `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px;`} />
         </Show>
       </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
-                    `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
-                    `background-color: #0044ff0a;`} />
+          style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
+            `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px;` +
+            `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+            `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
-                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+            style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
+              `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px;`} />
         </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-3}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
+          style={`left: ${boundsPx().x + 1}px; top: ${boundsPx().y}px; width: ${boundsPx().w - 3}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
       </Match>
     </Switch>;
 
   const renderIconMaybe = () =>
     <Show when={!shouldHideIcon()}>
       <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-sticky-note`} />
       </div>
     </Show>;
@@ -162,52 +162,57 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         ev.preventDefault();
         ev.stopPropagation();
         return;
+      case "Escape":
+        ev.preventDefault();
+        ev.stopPropagation();
+        store.overlay.setTextEditInfo(store.history, null, true);
+        return;
     }
   }
 
   const renderText = () =>
     <div class={`absolute overflow-hidden whitespace-nowrap ` +
-                ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) || isInCalendarPage() ? '' : `text-ellipsis `) +
-                `${infuTextStyle().alignClass} `}
-         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left; padding-right: 2px;`}>
+      ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) || isInCalendarPage() ? '' : `text-ellipsis `) +
+      `${infuTextStyle().alignClass} `}
+      style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+        `width: ${widthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+        `transform: scale(${scale()}); transform-origin: top left; padding-right: 2px;`}>
       <Switch>
         <Match when={NoteFns.hasUrl(noteItem()) &&
-                     (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
+          (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <a id={VeFns.veToPath(props.visualElement) + ":title"}
-             href={noteItem().url}
-             class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
-             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
-                    `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
-             onClick={aHrefClick}
-             onMouseDown={aHrefMouseDown}
-             onMouseUp={aHrefMouseUp}>
+            href={noteItem().url}
+            class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
+            style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
+              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
+            onClick={aHrefClick}
+            onMouseDown={aHrefMouseDown}
+            onMouseUp={aHrefMouseUp}>
             {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
           </a>
         </Match>
         <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
           {/* when editing, don't apply text formatting. */}
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+            style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+              `outline: 0px solid transparent;`}
+            contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {appendNewlineIfEmpty(noteItem().title)}<span></span>
           </span>
         </Match>
         <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
+            class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+            style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+              `outline: 0px solid transparent;`}
+            contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
             {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
           </span>
         </Match>
@@ -217,23 +222,23 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const renderCopyIconMaybe = () =>
     <Show when={showCopyIcon()}>
       <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x+boundsPx().w - 1*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
-           onmousedown={eatMouseEvent}
-           onmouseup={eatMouseEvent}
-           onclick={copyClickHandler}>
+        style={`left: ${boundsPx().x + boundsPx().w - 1 * oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h * PADDING_PROP}px; ` +
+          `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h / smallScale()}px; ` +
+          `transform: scale(${smallScale()}); transform-origin: top left;`}
+        onmousedown={eatMouseEvent}
+        onmouseup={eatMouseEvent}
+        onclick={copyClickHandler}>
         <i class={`fas fa-copy cursor-pointer`} />
       </div>
     </Show>;
 
   const renderLinkMarkingMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
+      showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
     </Show>

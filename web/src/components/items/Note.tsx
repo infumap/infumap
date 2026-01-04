@@ -209,6 +209,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         ev.stopPropagation();
         enterKeyHandler();
         return;
+      case "Escape":
+        ev.preventDefault();
+        ev.stopPropagation();
+        store.overlay.setTextEditInfo(store.history, null, true);
+        fullArrange(store);
+        return;
     }
   }
 
