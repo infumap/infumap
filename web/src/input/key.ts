@@ -315,7 +315,9 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     if (isPageOrImage || isActualAttachment) {
       // Page/image or attachment items: use popup mechanism
       let sourcePositionGr: { x: number, y: number } | undefined = undefined;
-      if (!isPageOrImage) {
+      // Only calculate sourcePositionGr for non-page/non-image attachments
+      // Pages and images have their own popup positioning (popupPositionGr) and should not use attachment positioning
+      if (isActualAttachment && !isPageOrImage) {
         // Calculate sourcePositionGr from VE's center for attachments
         const closestVes = VesCache.get(closest);
         if (closestVes) {
@@ -354,10 +356,14 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         }
       }
 
+      // Only set isFromAttachment for non-page/non-image attachments
+      // Pages and images should use their own popup positioning logic (popupPositionGr, etc.)
+      const treatAsAttachment = isActualAttachment && !isPageOrImage;
+
       store.history.replacePopup({
         vePath: closest,
         actualVeid: closestVeid,
-        isFromAttachment: isActualAttachment ? true : undefined,
+        isFromAttachment: treatAsAttachment ? true : undefined,
         sourcePositionGr,
       });
       fullArrange(store);
