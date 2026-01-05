@@ -103,9 +103,18 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
       <InfuLinkTriangle />
     </Show>;
 
+  const vePath = () => VeFns.veToPath(props.visualElement);
+
+  // Check if this page is currently focused (via focusPath or textEditInfo)
+  const isFocused = () => {
+    const focusPath = store.history.getFocusPath();
+    const textEditInfo = store.overlay.textEditInfo();
+    return focusPath === vePath() || (textEditInfo != null && textEditInfo.itemPath === vePath());
+  };
+
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`absolute border border-transparent rounded-xs shadow-xl overflow-hidden`}
+      <div class={`absolute border border-transparent rounded-xs overflow-hidden ${isFocused() ? 'shadow-xl blur-md bg-slate-700' : 'shadow-xl'}`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;

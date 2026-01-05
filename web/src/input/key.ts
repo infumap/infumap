@@ -225,35 +225,20 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
   if (handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
 
-  // Handle arrow keys when a non-page item has focus via focusPath but no popup
+  // Handle arrow keys when an item (including pages) has focus but no popup
   // This enables navigation from a focused (non-editable) item
   if (!store.history.currentPopupSpec()) {
     const focusPath = store.history.getFocusPath();
     const focusVes = VesCache.get(focusPath);
-    if (focusVes && !isPage(focusVes.get().displayItem)) {
-      // Focus is on a non-page item (like a note), navigate to closest item
+    if (focusVes) {
+      // Navigate to closest item from current focus
       const direction = findDirectionFromKeyCode(ev.code);
       const closest = findClosest(focusPath, direction, true, false);
       if (closest != null) {
-        // Update focus to the new item
+        // Just set focus to the new item - don't pop up pages
         store.history.setFocus(closest);
         fullArrange(store);
         return;
-      }
-    }
-
-    // Existing page navigation logic
-    const parentVeid = store.history.peekPrevPageVeid()!;
-    if (parentVeid) {
-      fullArrange(store, parentVeid);
-      const direction = findDirectionFromKeyCode(ev.code);
-      const closest = findClosest(store.history.getParentPageFocusPath()!, direction, false, true)!;
-      if (closest) {
-        const closestVe = VesCache.getVirtual(closest)!;
-        if (isPage(closestVe.get().displayItem)) {
-          store.history.changeParentPageFocusPath(closest);
-          switchToPage(store, VeFns.veidFromPath(closest), true, false, true);
-        }
       }
     }
     return;

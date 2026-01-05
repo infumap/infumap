@@ -105,7 +105,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderShadowMaybe = () =>
     <Show when={isEmbeddedInteractive()}>
-      <div class={`absolute border border-transparent rounded-xs pointer-events-none ${isFocused() ? 'shadow-xl blur-md bg-slate-700' : 'shadow-xl'}`}
+      <div class={`absolute border border-transparent rounded-xs pointer-events-none ${isFocused() ? 'shadow-xl blur-md bg-slate-700' : ''}`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `z-index: ${Z_INDEX_SHADOW};`} />

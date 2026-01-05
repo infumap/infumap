@@ -362,9 +362,19 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     ? ''
     : 'border border-[#777] hover:shadow-md';
 
-  const shadowClass = () => pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List
-    ? ''
-    : 'shadow-xl';
+  // Check if this page is currently focused (via focusPath or textEditInfo)
+  const isFocused = () => {
+    const focusPath = store.history.getFocusPath();
+    const textEditInfo = store.overlay.textEditInfo();
+    return focusPath === pageFns().vePath() || (textEditInfo != null && textEditInfo.itemPath === pageFns().vePath());
+  };
+
+  const shadowClass = () => {
+    if (pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List) {
+      return '';
+    }
+    return isFocused() ? 'shadow-xl blur-md bg-slate-700' : 'shadow-xl';
+  };
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
