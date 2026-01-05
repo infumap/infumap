@@ -33,6 +33,7 @@ import { itemState } from "../../store/ItemState";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { FEATURE_COLOR } from "../../style";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { fullArrange } from "../../layout/arrange";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -152,6 +153,15 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      store.overlay.setTextEditInfo(store.history, null, true);
+      fullArrange(store);
+    }
+  };
+
   // Check if this table is currently focused (via focusPath or textEditInfo)
   const isFocused = () => {
     const focusPath = store.history.getFocusPath();
@@ -219,7 +229,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             `overflow-wrap: break-word; ` +
             `outline: 0px solid transparent;`}
           contentEditable={store.overlay.textEditInfo() != null}
-          spellcheck={store.overlay.textEditInfo() != null}>
+          spellcheck={store.overlay.textEditInfo() != null}
+          onKeyDown={keyDownHandler}>
           {tableItem().title}
         </div>
         <div class={`absolute border border-[#999] rounded-xs pointer-events-none`}
@@ -261,7 +272,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 `transform: scale(${scale()}); transform-origin: top left;` +
                 `outline: 0px solid transparent;`}
               contentEditable={store.overlay.textEditInfo() != null}
-              spellcheck={store.overlay.textEditInfo() != null}>
+              spellcheck={store.overlay.textEditInfo() != null}
+              onKeyDown={keyDownHandler}>
               {spec.name}
               <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>
                 <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">

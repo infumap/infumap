@@ -163,6 +163,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         // Element was removed during rearrangement, clear text edit state
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
+
+        // For right-click, keep focus on the item (it will show enhanced shadow via focusPath check)
+        if (buttonNumber != MOUSE_LEFT) {
+          store.history.setFocus(editingItemPath);
+        }
+
         fullArrange(store);
         if (buttonNumber != MOUSE_LEFT) { return defaultResult; }
         defaultResult = MouseEventActionFlags.None;
