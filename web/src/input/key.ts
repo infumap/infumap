@@ -73,7 +73,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   if (document.activeElement!.id.includes('toolbarTitleDiv')) {
     const titleText = (document.activeElement! as HTMLElement).innerText;
-    if (ev.code == "Enter") {
+    if (ev.code == "Enter" || ev.code == "Escape") {
       (document.activeElement! as HTMLElement).blur();
       let selection = window.getSelection();
       if (selection != null) { selection.removeAllRanges(); }
