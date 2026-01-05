@@ -43,6 +43,7 @@ import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { asContainerItem } from "../items/base/container-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { HitboxFlags } from "../layout/hitbox";
+import { setCaretPosition } from "../util/caret";
 
 
 /**
@@ -185,11 +186,27 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     }
 
     // If an opaque/translucent page has focus (no popup showing), open the popup
+    // But for root pages, make the toolbar title editable instead
     if (focusVes && isPage(focusVes.get().displayItem) && !store.history.currentPopupSpec()) {
       const pageItem = asPageItem(focusVes.get().displayItem);
       if (!(pageItem.flags & PageFlags.EmbeddedInteractive)) {
         ev.preventDefault();
-        PageFns.handleOpenPopupClick(focusVes.get(), store, false);
+        // Check if this is a root page (in topTitledPages)
+        const topPages = store.topTitledPages.get();
+        const focusPageIdx = topPages.indexOf(focusPath);
+        if (focusPageIdx >= 0) {
+          // Root page: focus the toolbar title div to make it editable
+          const toolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${focusPageIdx}`);
+          if (toolbarTitleDiv) {
+            toolbarTitleDiv.focus();
+            // Set cursor at end of text
+            const textLength = toolbarTitleDiv.innerText.length;
+            setCaretPosition(toolbarTitleDiv, textLength);
+          }
+        } else {
+          // Non-root page: open popup
+          PageFns.handleOpenPopupClick(focusVes.get(), store, false);
+        }
         return;
       }
     }
