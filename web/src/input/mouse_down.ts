@@ -555,23 +555,15 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
   }
 
-  // Focus non-page items on right-click (first right-click focuses, second moves focus to parent).
-  const hitVe = HitInfoFns.getHitVe(hi);
-  const hitItem = hitVe.displayItem;
-  const hitPath = VeFns.veToPath(hitVe);
-  if (!isPage(hitItem) && !veFlagIsRoot(hitVe.flags)) {
-    // Check if this item is not already focused
-    const currentFocusPath = store.history.getFocusPath();
-    const isAlreadyFocused = currentFocusPath === hitPath;
-
-    if (!isAlreadyFocused) {
-      // Focus this item (it will show enhanced shadow via focusPath check in the component)
-      store.history.setFocus(hitPath);
-      fullArrange(store);
-      return;
-    } else {
-      // Item is already focused. Move focus to parent page (container).
-      const parentPath = VeFns.parentPath(hitPath);
+  // If a non-page item is focused, move focus to parent page before navigating.
+  const currentFocusPath = store.history.getFocusPath();
+  const currentFocusVes = VesCache.get(currentFocusPath);
+  if (currentFocusVes) {
+    const focusVe = currentFocusVes.get();
+    const focusItem = focusVe.displayItem;
+    if (!isPage(focusItem) && !veFlagIsRoot(focusVe.flags)) {
+      // Move focus to parent page (container) first.
+      const parentPath = VeFns.parentPath(currentFocusPath);
       const parentVes = VesCache.get(parentPath);
       if (parentVes && isPage(parentVes.get().displayItem)) {
         store.history.setFocus(parentPath);
