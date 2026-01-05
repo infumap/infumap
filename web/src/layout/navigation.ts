@@ -143,22 +143,8 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
         page.pendingPopupWidthGr = null;
         page.pendingCellPopupPositionNorm = null;
         page.pendingCellPopupWidthNorm = null;
-
-        // For list pages, pre-set focus to the innermost nested page.
-        // This allows focusedChildItemMaybe to be computed correctly in a single arrange.
-        // We use store.topTitledPages which was populated in the previous arrange.
-        const topPages = store.topTitledPages.get();
-        if (topPages.length > 0) {
-          if (page.arrangeAlgorithm === ArrangeAlgorithm.List) {
-            // For list pages, focus on the innermost nested page (last in topTitledPages)
-            const innermostPagePath = topPages[topPages.length - 1];
-            store.history.setFocus(innermostPagePath);
-          } else {
-            // For non-list pages, focus on the root page
-            const rootPagePath = topPages[0];
-            store.history.setFocus(rootPagePath);
-          }
-        }
+        // Focus is already set by popPopup() to the page that was popped up
+        // Don't override it here - let the page retain focus
       }
     }
     fullArrange(store);

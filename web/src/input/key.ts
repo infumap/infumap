@@ -128,10 +128,23 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       return;
     }
     if (store.history.currentPopupSpec()) {
-      store.history.popAllPopups();
+      store.history.popPopup();
       const topRootVes = VesCache.getChildrenVes(VeFns.veToPath(store.umbrellaVisualElement.get()))()[0];
       VesCache.clearPopupVes(VeFns.veToPath(topRootVes.get()));
       topRootVes.set(topRootVes.get());
+      fullArrange(store);
+      return;
+    }
+
+    // If a page is focused (not popped up), move focus to parent container
+    const focusPath = store.history.getFocusPath();
+    const focusVes = VesCache.get(focusPath);
+    if (focusVes && isPage(focusVes.get().displayItem)) {
+      const parentPath = VeFns.parentPath(focusPath);
+      if (parentPath && parentPath !== UMBRELLA_PAGE_UID && parentPath !== "") {
+        store.history.setFocus(parentPath);
+        fullArrange(store);
+      }
     }
   }
 

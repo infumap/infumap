@@ -210,26 +210,9 @@ export function makeHistoryStore(): HistoryStoreContextModel {
         panic("popPopup: vePath is null");
       }
 
-      const popupParentPath = VeFns.parentPath(popupSpec!.vePath!);
-
-      if (popupParentPath.startsWith("-") || popupParentPath.includes("--")) {
-        console.error("MALFORMED PATH DETECTION: popPopup calculated malformed parent path");
-        console.error("  popupParentPath:", popupParentPath);
-        console.error("  from vePath:", popupSpec!.vePath);
-        console.error("  popupSpec:", popupSpec);
-        console.error("  breadcrumb:", breadcrumb);
-        console.error("  Stack trace:");
-        console.trace();
-      }
-
-      // If parent is umbrella (top-level) or empty, focus should be set back to the current page root path
-      // instead of an invalid umbrella-only path.
-      if (popupParentPath === "" || popupParentPath === UMBRELLA_PAGE_UID) {
-        const currentPageRootPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
-        breadcrumb.focusPath = currentPageRootPath;
-      } else {
-        breadcrumb.focusPath = popupParentPath;
-      }
+      // Keep focus on the page that was popped up (not its parent)
+      // This ensures the page retains focus when closing its popup
+      breadcrumb.focusPath = popupSpec!.vePath;
     } else {
       const nextVePath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length - 1].vePath;
 

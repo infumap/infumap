@@ -29,6 +29,7 @@ import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot } from "../layou
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { BoundingBox, boundingBoxFromDOMRect, isInside } from "../util/geometry";
+import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { HitInfoFns } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
@@ -562,19 +563,22 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   }
 
   // If a non-page item is focused, move focus to parent page before navigating.
+  // If a page item is focused (not a root page) and no popup is open, move focus to parent container.
   const currentFocusPath = store.history.getFocusPath();
   const currentFocusVes = VesCache.get(currentFocusPath);
-  if (currentFocusVes) {
+  if (currentFocusVes && !store.history.currentPopupSpec()) {
     const focusVe = currentFocusVes.get();
     const focusItem = focusVe.displayItem;
-    if (!isPage(focusItem) && !veFlagIsRoot(focusVe.flags)) {
-      // Move focus to parent page (container) first.
+    if (!veFlagIsRoot(focusVe.flags)) {
+      // Move focus to parent container first.
       const parentPath = VeFns.parentPath(currentFocusPath);
-      const parentVes = VesCache.get(parentPath);
-      if (parentVes && isPage(parentVes.get().displayItem)) {
-        store.history.setFocus(parentPath);
-        fullArrange(store);
-        return;
+      if (parentPath && parentPath !== UMBRELLA_PAGE_UID && parentPath !== "") {
+        const parentVes = VesCache.get(parentPath);
+        if (parentVes) {
+          store.history.setFocus(parentPath);
+          fullArrange(store);
+          return;
+        }
       }
     }
   }
