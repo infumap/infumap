@@ -17,8 +17,9 @@
 */
 
 import { Component, For, Match, Show, Switch, onMount } from "solid-js";
-import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { fullArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
 import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
@@ -71,6 +72,25 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const titleScale = () => (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
+  const vePath = () => VeFns.veToPath(props.visualElement);
+
+  // Handler for Escape key when editing the title
+  const titleKeyDownHandler = (ev: KeyboardEvent) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      store.overlay.setTextEditInfo(store.history, null, true);
+      fullArrange(store);
+    }
+  };
+
+  // Check if this page is currently focused (via focusPath or textEditInfo)
+  const isFocused = () => {
+    const focusPath = store.history.getFocusPath();
+    const textEditInfo = store.overlay.textEditInfo();
+    return focusPath === vePath() || (textEditInfo != null && textEditInfo.itemPath === vePath());
+  };
+
   const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot);
 
   const isDockItem = () => !!(props.visualElement.flags & VisualElementFlags.DockItem);
@@ -82,6 +102,14 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     }
     return `border-width: 1px; border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
   }
+
+  const renderShadowMaybe = () =>
+    <Show when={isEmbeddedInteractive()}>
+      <div class={`absolute border border-transparent rounded-xs pointer-events-none ${isFocused() ? 'shadow-xl blur-md bg-slate-700' : 'shadow-xl'}`}
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+          `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+          `z-index: ${Z_INDEX_SHADOW};`} />
+    </Show>;
 
   const renderEmbeddedInteractiveBackground = () =>
     <div class="absolute w-full"
@@ -119,7 +147,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
             `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
             `outline: 0px solid transparent;`}
           spellcheck={store.overlay.textEditInfo() != null}
-          contentEditable={store.overlay.textEditInfo() != null}>
+          contentEditable={store.overlay.textEditInfo() != null}
+          onKeyDown={titleKeyDownHandler}>
           {pageFns().pageItem().title}
         </div>
       </div>
@@ -177,6 +206,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
         `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
         `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+        `background-color: #ffffff; ` +
         `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
       <div class="absolute"
         style={`left: 0px; top: 0px; ` +
@@ -206,9 +236,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   return (
     <>
+      {renderShadowMaybe()}
       <div class={`absolute`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `background-color: #ffffff;`}>
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
         {renderEmbeddedInteractiveBackground()}
         <Switch>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
