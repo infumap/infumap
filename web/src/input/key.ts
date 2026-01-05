@@ -18,6 +18,7 @@
 
 import { GRID_SIZE } from "../constants";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
+import { PageFlags } from "../items/base/flags-item";
 import { isImage } from "../items/image-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -158,6 +159,26 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       ev.preventDefault();
       ItemFns.handleClick(focusVes, null, HitboxFlags.None, store, true); // caretAtEnd=true
       return;
+    }
+
+    // If an embedded interactive page has focus (and title is not being edited), start title editing
+    if (focusVes && isPage(focusVes.get().displayItem) && !store.overlay.textEditInfo()) {
+      const pageItem = asPageItem(focusVes.get().displayItem);
+      if (pageItem.flags & PageFlags.EmbeddedInteractive) {
+        ev.preventDefault();
+        PageFns.handleEditTitleClick(focusVes.get(), store);
+        return;
+      }
+    }
+
+    // If an opaque/translucent page has focus (no popup showing), open the popup
+    if (focusVes && isPage(focusVes.get().displayItem) && !store.history.currentPopupSpec()) {
+      const pageItem = asPageItem(focusVes.get().displayItem);
+      if (!(pageItem.flags & PageFlags.EmbeddedInteractive)) {
+        ev.preventDefault();
+        PageFns.handleOpenPopupClick(focusVes.get(), store, false);
+        return;
+      }
     }
 
     const spec = store.history.currentPopupSpec();
