@@ -293,17 +293,26 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       }
       // If no visible sibling found and focus is on a page, try navigating in parent container
       if (isPage(focusVes.get().displayItem)) {
-        const parentVeid = store.history.peekPrevPageVeid();
-        if (parentVeid) {
-          fullArrange(store, parentVeid);
-          const parentFocusPath = store.history.getParentPageFocusPath();
-          if (parentFocusPath) {
-            const closestInParent = findClosest(parentFocusPath, direction, false, true);
-            if (closestInParent) {
-              const closestVe = VesCache.getVirtual(closestInParent);
-              if (closestVe && isPage(closestVe.get().displayItem)) {
-                store.history.changeParentPageFocusPath(closestInParent);
-                switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
+        // Get the current root page and its parent from the item hierarchy (not history)
+        const currentPageVeid = store.history.currentPageVeid();
+        if (currentPageVeid) {
+          const currentPageItem = itemState.get(currentPageVeid.itemId);
+          if (currentPageItem && currentPageItem.parentId) {
+            const parentItem = itemState.get(currentPageItem.parentId);
+            if (parentItem && isPage(parentItem)) {
+              // Do a virtual arrange on the parent page
+              const parentVeid = { itemId: currentPageItem.parentId, linkIdMaybe: null };
+              fullArrange(store, parentVeid);
+              // Construct the path to the current page within the virtual arrangement:
+              // umbrella -> parent -> current
+              const parentPagePath = VeFns.addVeidToPath(parentVeid, UMBRELLA_PAGE_UID);
+              const currentPagePath = VeFns.addVeidToPath(currentPageVeid, parentPagePath);
+              const closestInParent = findClosest(currentPagePath, direction, false, true);
+              if (closestInParent) {
+                const closestVe = VesCache.getVirtual(closestInParent);
+                if (closestVe && isPage(closestVe.get().displayItem)) {
+                  switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
+                }
               }
             }
           }
