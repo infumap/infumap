@@ -32,10 +32,10 @@ import { sanitizeOriginalCreationDate } from "./util/time";
 
 
 export async function handleUpload(
-    store: StoreContextModel,
-    dataTransfer: DataTransfer,
-    desktopPx: Vector,
-    parent: PageItem) {
+  store: StoreContextModel,
+  dataTransfer: DataTransfer,
+  desktopPx: Vector,
+  parent: PageItem) {
 
   // handle string type data.
   for (let item of dataTransfer.items) {
@@ -76,7 +76,7 @@ export async function handleUpload(
     });
   }
 
-  for (let i=0; i<files.length; ++i) {
+  for (let i = 0; i < files.length; ++i) {
     const file = files[i];
 
     store.overlay.uploadOverlayInfo.set({
@@ -104,15 +104,21 @@ export async function handleUpload(
         title: file.name,
         spatialPositionGr: posPx,
         spatialWidthGr: spatialWidthGr,
-        originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified/1000.0), `uploading image ${file.name}`),
+        originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified / 1000.0), `uploading image ${file.name}`),
         mimeType: file.type,
         fileSizeBytes: file.size,
       };
 
-      const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data, store.general.networkStatus);
-      // TODO (MEDIUM): immediately put an item in the UI, have image update later.
-      itemState.add(ItemFns.fromObject(returnedItem, null));
-      fullArrange(store);
+      try {
+        const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data, store.general.networkStatus);
+        // TODO (MEDIUM): immediately put an item in the UI, have image update later.
+        itemState.add(ItemFns.fromObject(returnedItem, null));
+        fullArrange(store);
+      } catch (error) {
+        console.warn(`Failed to add image ${file.name}:`, error);
+        // Error is already tracked in erroredNetworkRequests by serveWaiting()
+        // Continue processing remaining files
+      }
 
     } else {
       let spatialWidthGr = 8.0 * GRID_SIZE;
@@ -131,15 +137,21 @@ export async function handleUpload(
         title: file.name,
         spatialPositionGr: posPx,
         spatialWidthGr: spatialWidthGr,
-        originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified/1000.0), `uploading file ${file.name}`),
+        originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified / 1000.0), `uploading file ${file.name}`),
         mimeType: file.type,
         fileSizeBytes: file.size,
       };
 
-      const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data, store.general.networkStatus);
-      // TODO (MEDIUM): immediately put an item in the UI.
-      itemState.add(ItemFns.fromObject(returnedItem, null));
-      fullArrange(store);
+      try {
+        const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data, store.general.networkStatus);
+        // TODO (MEDIUM): immediately put an item in the UI.
+        itemState.add(ItemFns.fromObject(returnedItem, null));
+        fullArrange(store);
+      } catch (error) {
+        console.warn(`Failed to add file ${file.name}:`, error);
+        // Error is already tracked in erroredNetworkRequests by serveWaiting()
+        // Continue processing remaining files
+      }
     }
   }
 

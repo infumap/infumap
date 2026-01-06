@@ -439,11 +439,11 @@ export const server = {
   },
 
   addItemFromPartialObject: async (item: object, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data, false, networkStatus);
   },
 
   addItem: async (item: Item, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data, false, networkStatus);
   },
 
   updateItem: async (item: Item, networkStatus: NumberSignal): Promise<void> => {
