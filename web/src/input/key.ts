@@ -437,6 +437,9 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   const direction = findDirectionFromKeyCode(ev.code);
   if (handleTableAttachmentPopupNavigation(store, path, direction)) { return; }
   if (handleTableItemPopupHorizontalNavigation(store, path, direction)) { return; }
+  // Handle scrolling of grid/justified page that contains the popup.
+  // If at max scroll, this returns false and we continue to page switching logic.
+  if (handlePopupGridOrJustifiedPageScrollMaybe(store, path, ev)) { return; }
   const closest = findClosest(path, direction, true, false)!;
   if (closest != null) {
     const closestVeid = VeFns.veidFromPath(closest);
@@ -700,8 +703,53 @@ function handleArrowKeyGridOrJustifiedPageScrollMaybe(store: StoreContextModel, 
 }
 
 /**
+ * If arrow keydown event is for scrolling a grid/justified page popup, handle it and return true.
+ * Handles two cases:
+ * 1. The popup item itself is a grid/justified page that needs scrolling
+ * 2. The popup item is a child of a grid/justified page that needs scrolling
+ * Returns false if scrolling was not handled (not a grid/justified page, or at max scroll bounds).
+ */
+function handlePopupGridOrJustifiedPageScrollMaybe(store: StoreContextModel, popupPath: string, ev: KeyboardEvent): boolean {
+  if (ev.code != "ArrowUp" && ev.code != "ArrowDown") { return false; }
+
+  // First, check if the popup item itself is a grid/justified page
+  const popupVes = VesCache.get(popupPath);
+  if (popupVes) {
+    const popupItem = popupVes.get().displayItem;
+    if (isPage(popupItem)) {
+      const arrangeAlgorithm = asPageItem(popupItem).arrangeAlgorithm;
+      if (arrangeAlgorithm == ArrangeAlgorithm.Grid || arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+        if (scrollGridOrJustifiedPageVe(store, popupVes.get(), ev.code)) {
+          return true;
+        }
+        // If scrolling returned false (at max bounds), continue to fall through to page switching
+        return false;
+      }
+    }
+  }
+
+  // Otherwise, check if the popup's parent is a grid/justified page
+  const parentPath = VeFns.parentPath(popupPath);
+  if (!parentPath) { return false; }
+
+  const parentVes = VesCache.get(parentPath);
+  if (!parentVes) { return false; }
+
+  const parentItem = parentVes.get().displayItem;
+  if (!isPage(parentItem)) { return false; }
+
+  const arrangeAlgorithm = asPageItem(parentItem).arrangeAlgorithm;
+  if (arrangeAlgorithm != ArrangeAlgorithm.Grid && arrangeAlgorithm != ArrangeAlgorithm.Justified) {
+    return false;
+  }
+
+  return scrollGridOrJustifiedPageVe(store, parentVes.get(), ev.code);
+}
+
+/**
  * Helper function to scroll a grid or justified page given its visual element.
- * Returns true if scrolling was performed (or content fits viewport), false otherwise.
+ * Returns true if scrolling was performed, false if already at max scroll or no scrolling needed.
+ * When false is returned, arrow keys can fall through to page switching functionality.
  */
 function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualElement, keyCode: string): boolean {
   if (!pageVe.childAreaBoundsPx || !pageVe.viewportBoundsPx) { return false; }
@@ -709,8 +757,8 @@ function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualEle
   const contentHeight = pageVe.childAreaBoundsPx.h;
   const viewportHeight = pageVe.viewportBoundsPx.h;
 
-  // If content fits within viewport, no scrolling needed but we handled the event
-  if (contentHeight <= viewportHeight) { return true; }
+  // If content fits within viewport, no scrolling needed - allow fall through to page switching
+  if (contentHeight <= viewportHeight) { return false; }
 
   // Use the correct veid that matches how the rendering code reads scroll.
   // When the page is a selected item in a list page (ListPageRoot flag), the rendering
@@ -724,6 +772,11 @@ function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualEle
   }
 
   const currentScrollProp = store.perItem.getPageScrollYProp(pageVeid);
+
+  // If already at max scroll in the direction of the key, allow fall through to page switching
+  if (keyCode == "ArrowUp" && currentScrollProp <= 0) { return false; }
+  if (keyCode == "ArrowDown" && currentScrollProp >= 1) { return false; }
+
   const scrollableDistance = contentHeight - viewportHeight;
   const scrollStep = (viewportHeight * 0.2) / scrollableDistance;
 
