@@ -626,6 +626,9 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
       const closestVeid = VeFns.veidFromPath(closest);
       store.perItem.setSelectedListPageItem(focusPageVeid, closestVeid);
       fullArrange(store);
+    } else {
+      // At boundary (topmost/bottommost item) - fall through to parent context navigation
+      return false;
     }
   } else if (ev.code == "ArrowLeft") {
     const focusPagePath = store.history.getFocusPath();
