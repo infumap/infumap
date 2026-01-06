@@ -291,6 +291,24 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         fullArrange(store);
         return;
       }
+      // If no visible sibling found and focus is on a page, try navigating in parent container
+      if (isPage(focusVes.get().displayItem)) {
+        const parentVeid = store.history.peekPrevPageVeid();
+        if (parentVeid) {
+          fullArrange(store, parentVeid);
+          const parentFocusPath = store.history.getParentPageFocusPath();
+          if (parentFocusPath) {
+            const closestInParent = findClosest(parentFocusPath, direction, false, true);
+            if (closestInParent) {
+              const closestVe = VesCache.getVirtual(closestInParent);
+              if (closestVe && isPage(closestVe.get().displayItem)) {
+                store.history.changeParentPageFocusPath(closestInParent);
+                switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
+              }
+            }
+          }
+        }
+      }
     }
     return;
   }

@@ -73,6 +73,7 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
 
   siblings = siblings
     .filter(ve => !(ve.flags & VisualElementFlags.Popup))
+    .filter(ve => !(ve.flags & VisualElementFlags.IsDock))
     .filter(ve => !isPlaceholder(ve.displayItem))
     .filter(ve => allItemTypes ? true : isPage(ve.displayItem) || isImage(ve.displayItem));
 
