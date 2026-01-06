@@ -25,7 +25,7 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { fullArrange } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
-import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, isVeTranslucentPage } from "../layout/visual-element";
 
 
 import { StoreContextModel } from "../store/StoreProvider";
@@ -272,9 +272,15 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
 
+  // When a translucent page has focus, skip list page selection and grid/justified scroll handling.
+  // Arrow keys should apply to the parent context (navigating to sibling items) instead.
+  const focusPath = store.history.getFocusPath();
+  const focusVes = VesCache.get(focusPath);
+  const isTranslucentPageFocused = focusVes && isVeTranslucentPage(focusVes.get());
+
   if (handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
-  if (handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
-  if (handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
+  if (!isTranslucentPageFocused && handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
+  if (!isTranslucentPageFocused && handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
 
   // Handle arrow keys when an item (including pages) has focus but no popup
   // This enables navigation from a focused (non-editable) item
