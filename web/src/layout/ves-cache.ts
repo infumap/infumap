@@ -359,6 +359,20 @@ export let VesCache = {
     return result;
   },
 
+  /**
+   * Find all visual element signals in the virtual cache with the specified parent path.
+   * Used for finding children/attachments of a VE in the virtual arrangement.
+   */
+  getChildrenVirtual: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
+    const result: Array<VisualElementSignal> = [];
+    for (const kv of virtualCache.entries()) {
+      if (VeFns.parentPath(kv[0]) == parentPath) {
+        result.push(kv[1]);
+      }
+    }
+    return result;
+  },
+
   getPathsForDisplayId: (displayId: Uid): Array<VisualElementPath> => {
     return currentVessVsDisplayId.get(displayId)!;
   },
@@ -657,6 +671,24 @@ export let VesCache = {
     const result: Array<VisualElementSignal> = [];
     findImpl(underConstructionCache, result);
     findImpl(currentVesCache, result);
+    return result;
+  },
+
+  /**
+   * Find all visual element signals in the virtual cache with the specified veid.
+   * Used for keyboard navigation in parent container context.
+   */
+  findVirtual: (veid: Veid): Array<VisualElementSignal> => {
+    const result: Array<VisualElementSignal> = [];
+    for (let key of virtualCache.keys()) {
+      const v = VeFns.veidFromPath(key);
+      if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
+        const ves = virtualCache.get(key)!;
+        if (!result.find(r => r == ves)) {
+          result.push(ves);
+        }
+      }
+    }
     return result;
   },
 

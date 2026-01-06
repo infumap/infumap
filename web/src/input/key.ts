@@ -293,25 +293,128 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       }
       // If no visible sibling found and focus is on a page, try navigating in parent container
       if (isPage(focusVes.get().displayItem)) {
-        // Get the current root page and its parent from the item hierarchy (not history)
         const currentPageVeid = store.history.currentPageVeid();
-        if (currentPageVeid) {
-          const currentPageItem = itemState.get(currentPageVeid.itemId);
-          if (currentPageItem && currentPageItem.parentId) {
-            const parentItem = itemState.get(currentPageItem.parentId);
-            if (parentItem && isPage(parentItem)) {
-              // Do a virtual arrange on the parent page
-              const parentVeid = { itemId: currentPageItem.parentId, linkIdMaybe: null };
-              fullArrange(store, parentVeid);
-              // Construct the path to the current page within the virtual arrangement:
-              // umbrella -> parent -> current
-              const parentPagePath = VeFns.addVeidToPath(parentVeid, UMBRELLA_PAGE_UID);
-              const currentPagePath = VeFns.addVeidToPath(currentPageVeid, parentPagePath);
+        if (!currentPageVeid) return;
+
+        console.log("[DEBUG] Root page navigation - currentPageVeid:", currentPageVeid);
+
+        // Strategy 1: Use navigation history if available (works for tables and normal navigation)
+        const historyParentVeid = store.history.peekPrevPageVeid();
+        console.log("[DEBUG] Strategy 1 - historyParentVeid:", historyParentVeid);
+        if (historyParentVeid) {
+          fullArrange(store, historyParentVeid);
+          const parentFocusPath = store.history.getParentPageFocusPath();
+          console.log("[DEBUG] Strategy 1 - parentFocusPath:", parentFocusPath);
+          // Check if the path exists in the virtual cache (it might not if it includes a link ID from a popup)
+          if (parentFocusPath && VesCache.getVirtual(parentFocusPath)) {
+            const closestInParent = findClosest(parentFocusPath, direction, false, true);
+            console.log("[DEBUG] Strategy 1 - closestInParent:", closestInParent);
+            if (closestInParent) {
+              const closestVe = VesCache.getVirtual(closestInParent);
+              console.log("[DEBUG] Strategy 1 - closestVe:", closestVe ? "found" : "not found");
+              if (closestVe && isPage(closestVe.get().displayItem)) {
+                store.history.changeParentPageFocusPath(closestInParent);
+                switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
+                return;
+              }
+            }
+          }
+        }
+
+        // Strategy 2: Use item hierarchy if history doesn't have a parent (works for popup entry)
+        console.log("[DEBUG] Strategy 2 - trying item hierarchy");
+        const currentPageItem = itemState.get(currentPageVeid.itemId);
+        if (currentPageItem && currentPageItem.parentId) {
+          // Find the actual parent page (might need to traverse up through tables, etc.)
+          let parentId = currentPageItem.parentId;
+          let parentItem = itemState.get(parentId);
+          while (parentItem && !isPage(parentItem)) {
+            parentId = parentItem.parentId;
+            parentItem = parentId ? itemState.get(parentId) : null;
+          }
+          console.log("[DEBUG] Strategy 2 - found parent page:", parentId);
+          if (parentItem && isPage(parentItem)) {
+            const parentVeid = { itemId: parentId, linkIdMaybe: null };
+            fullArrange(store, parentVeid);
+            // Find the current page's path in the virtual cache (handles tables and other containers)
+            const virtualVesList = VesCache.findVirtual(currentPageVeid);
+            console.log("[DEBUG] Strategy 2 - virtualVesList length:", virtualVesList.length);
+            if (virtualVesList.length > 0) {
+              const virtualVe = virtualVesList[0].get();
+              const currentPagePath = VeFns.veToPath(virtualVe);
+              console.log("[DEBUG] Strategy 2 - currentPagePath:", currentPagePath);
               const closestInParent = findClosest(currentPagePath, direction, false, true);
+              console.log("[DEBUG] Strategy 2 - closestInParent:", closestInParent);
               if (closestInParent) {
                 const closestVe = VesCache.getVirtual(closestInParent);
                 if (closestVe && isPage(closestVe.get().displayItem)) {
                   switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
+                  return;
+                }
+              }
+
+              // Strategy 3: Table attachment navigation (when findClosest failed)
+              // If this is a table attachment, navigate up/down to attachments in other rows
+              if ((virtualVe.flags & VisualElementFlags.InsideTable) &&
+                (virtualVe.flags & VisualElementFlags.Attachment) &&
+                virtualVe.col != null && virtualVe.row != null && virtualVe.parentPath) {
+                console.log("[DEBUG] Strategy 3 - table attachment nav, col:", virtualVe.col, "row:", virtualVe.row);
+                if (direction == FindDirection.Up || direction == FindDirection.Down) {
+                  // Navigate between attachments in different table rows
+                  const rowVes = VesCache.getVirtual(virtualVe.parentPath);
+                  if (rowVes && rowVes.get().parentPath) {
+                    const tableVes = VesCache.getVirtual(rowVes.get().parentPath!);
+                    if (tableVes) {
+                      // Get sibling rows (other rows in the table)
+                      const siblingRows = VesCache.getSiblingsVirtual(virtualVe.parentPath);
+                      console.log("[DEBUG] Strategy 3 - siblingRows count:", siblingRows.length);
+
+                      let targetPath: string | null = null;
+                      let targetRow: number | null = null;
+                      const columnIndex = virtualVe.col;
+                      const currentRow = virtualVe.row;
+
+                      for (const rowSignal of siblingRows) {
+                        const rowVe = rowSignal.get();
+                        if (rowVe.row == null) continue;
+
+                        const childRow = rowVe.row;
+                        let rowIsCandidate = false;
+
+                        if (direction == FindDirection.Up) {
+                          rowIsCandidate = childRow < currentRow && (targetRow == null || childRow > targetRow);
+                        } else {
+                          rowIsCandidate = childRow > currentRow && (targetRow == null || childRow < targetRow);
+                        }
+
+                        if (!rowIsCandidate) continue;
+
+                        // Find attachments of this row using getChildrenVirtual
+                        const rowPath = VeFns.veToPath(rowVe);
+                        const rowChildren = VesCache.getChildrenVirtual(rowPath);
+                        console.log("[DEBUG] Strategy 3 - checking row", childRow, "children:", rowChildren.length);
+                        for (const attSignal of rowChildren) {
+                          const attVe = attSignal.get();
+                          if ((attVe.flags & VisualElementFlags.Attachment) && attVe.col === columnIndex) {
+                            console.log("[DEBUG] Strategy 3 - found matching attachment in row", childRow);
+                            // Only consider pages
+                            if (isPage(attVe.displayItem)) {
+                              targetPath = VeFns.veToPath(attVe);
+                              targetRow = childRow;
+                              break;
+                            }
+                          }
+                        }
+                      }
+
+                      if (targetPath) {
+                        console.log("[DEBUG] Strategy 3 - navigating to:", targetPath);
+                        const targetVeid = VeFns.veidFromPath(targetPath);
+                        switchToPage(store, targetVeid, true, false, true);
+                        return;
+                      }
+                    }
+                  }
                 }
               }
             }
