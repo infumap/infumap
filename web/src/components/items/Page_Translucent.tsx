@@ -115,6 +115,13 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const renderListPage = () =>
     <>
+      <div class={`absolute rounded-xs`}
+        style={`width: ${pageFns().boundsPx().w}px; ` +
+          `height: ${pageFns().boundsPx().h}px; ` +
+          `left: ${pageFns().boundsPx().x}px; ` +
+          `top: ${pageFns().boundsPx().y}px; ` +
+          `background-color: #ffffff; ` +
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       <div class={`absolute ${borderClass()}`}
         style={`overflow-y: auto; overflow-x: hidden; ` +
           `width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * pageFns().listViewScale()}px; ` +
