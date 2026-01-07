@@ -30,6 +30,7 @@ import { Toolbar } from "./toolbar/Toolbar";
 import { SearchOverlay } from "./overlay/SearchOverlay";
 import { FindOverlay } from "./overlay/FindOverlay";
 import { UploadOverlay } from "./overlay/UploadOverlay";
+import { EmptyTrashOverlay } from "./overlay/EmptyTrashOverlay";
 import { Toolbar_Popup } from "./toolbar/Toolbar_Popup";
 import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler, clearMouseOverState } from "../input/mouse_move";
@@ -292,6 +293,7 @@ export const Main: Component = () => {
       <Show when={store.overlay.remoteLoginInfo.get() != null}>
         <RemoteLoginOverlay />
       </Show>
+      <EmptyTrashOverlay />
 
     </div>
   );

@@ -86,12 +86,12 @@ export const Toolbar_Page: Component = () => {
     return pageItem().orderChildrenBy == "title[ASC]";
   }
 
-  const isPublic= () => {
+  const isPublic = () => {
     store.touchToolbarDependency();
     return !(!(pageItem().permissionFlags & PermissionFlags.Public));
   }
 
-  const isInteractive= () => {
+  const isInteractive = () => {
     store.touchToolbarDependency();
     return !(!(pageItem().flags & PageFlags.EmbeddedInteractive));
   }
@@ -99,8 +99,8 @@ export const Toolbar_Page: Component = () => {
   const showOrderByButton = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List ||
-           pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-           pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
+      pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+      pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
   const showGridButtons = () => {
@@ -215,10 +215,14 @@ export const Toolbar_Page: Component = () => {
     store.touchToolbar();
   }
 
-  const emptyTrashHandler = () => {
-    server.emptyTrash(store.general.networkStatus).then(r => {
+  const emptyTrashHandler = async () => {
+    store.overlay.emptyTrashInProgress.set(true);
+    try {
+      const r = await server.emptyTrash(store.general.networkStatus);
       console.debug(r);
-    })
+    } finally {
+      store.overlay.emptyTrashInProgress.set(false);
+    }
   };
 
   // Color
@@ -334,20 +338,20 @@ export const Toolbar_Page: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="grow-0" style="flex-order: 0;">
+      class="grow-0" style="flex-order: 0;">
       <Show when={showEmptyTrash()}>
         <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
-             style={`font-size: 13px;`}
-             onClick={emptyTrashHandler}>
+          style={`font-size: 13px;`}
+          onClick={emptyTrashHandler}>
           empty trash
         </div>
       </Show>
       <Show when={showInnerBlockWidthButton()}>
         <div ref={widthDiv}
-             class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-             style={`font-size: 13px;`}
-             onClick={handleWidthClick}
-             onMouseDown={handleWidthDown}>
+          class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+          style={`font-size: 13px;`}
+          onClick={handleWidthClick}
+          onMouseDown={handleWidthDown}>
           <i class="bi-arrows ml-[4px]" />
           <div class="inline-block w-[30px] pl-[6px] text-right">
             {widthText()}
@@ -355,10 +359,10 @@ export const Toolbar_Page: Component = () => {
         </div>
       </Show>
       <div ref={aspectDiv}
-           class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-           style={`font-size: 13px;`}
-           onClick={handleAspectClick}
-           onMouseDown={handleAspectDown}>
+        class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+        style={`font-size: 13px;`}
+        onClick={handleAspectClick}
+        onMouseDown={handleAspectDown}>
         <i class="bi-aspect-ratio ml-[4px]" />
         <div class="inline-block w-[40px] pl-[6px] text-right">
           {aspectText()}
@@ -366,20 +370,20 @@ export const Toolbar_Page: Component = () => {
       </div>
       <Show when={showGridButtons()}>
         <div ref={cellAspectDiv}
-             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-             style={`font-size: 13px;`}
-             onClick={handleCellAspectClick}
-             onMouseDown={handleCellAspectDown}>
+          class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+          style={`font-size: 13px;`}
+          onClick={handleCellAspectClick}
+          onMouseDown={handleCellAspectDown}>
           <i class="bi-aspect-ratio ml-[4px]" />
           <div class="inline-block w-[40px] pl-[6px] text-right">
             {cellAspectText()}
           </div>
         </div>
         <div ref={numColsDiv}
-             class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-             style={`font-size: 13px;`}
-             onClick={handleNumColsClick}
-             onMouseDown={handleNumColsDown}>
+          class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+          style={`font-size: 13px;`}
+          onClick={handleNumColsClick}
+          onMouseDown={handleNumColsDown}>
           <i class="bi-layout-three-columns ml-[4px]" />
           <div class="inline-block w-[20px] pl-[6px] text-right">
             {numColsText()}
@@ -388,10 +392,10 @@ export const Toolbar_Page: Component = () => {
       </Show>
       <Show when={showJustifiedButtons()}>
         <div ref={justifiedRowAspectDiv}
-             class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-             style={`font-size: 13px;`}
-             onClick={handleJustifiedRowAspectClick}
-             onMouseDown={handleJustifiedRowAspectDown}>
+          class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+          style={`font-size: 13px;`}
+          onClick={handleJustifiedRowAspectClick}
+          onMouseDown={handleJustifiedRowAspectDown}>
           <i class="bi-aspect-ratio ml-[4px]" />
           <div class="inline-block w-[25px] pl-[6px] text-right">
             {justifiedAspectText()}
@@ -400,31 +404,31 @@ export const Toolbar_Page: Component = () => {
       </Show>
       <Show when={showCalendarButtons()}>
         <div ref={calendarDayRowHeightDiv}
-             class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-             style={`font-size: 13px;`}
-             onClick={() => {
-               if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCalendarDayRowHeight) {
-                 store.overlay.toolbarPopupInfoMaybe.set(null);
-                 return;
-               }
-               store.overlay.toolbarPopupInfoMaybe.set(
-                 { topLeftPx: { x: calendarDayRowHeightDiv!.getBoundingClientRect().x, y: calendarDayRowHeightDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCalendarDayRowHeight });
-             }}
-             onMouseDown={() => {
-               ClickState.setButtonClickBoundsPx(calendarDayRowHeightDiv!.getBoundingClientRect());
-             }}>
+          class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+          style={`font-size: 13px;`}
+          onClick={() => {
+            if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCalendarDayRowHeight) {
+              store.overlay.toolbarPopupInfoMaybe.set(null);
+              return;
+            }
+            store.overlay.toolbarPopupInfoMaybe.set(
+              { topLeftPx: { x: calendarDayRowHeightDiv!.getBoundingClientRect().x, y: calendarDayRowHeightDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCalendarDayRowHeight });
+          }}
+          onMouseDown={() => {
+            ClickState.setButtonClickBoundsPx(calendarDayRowHeightDiv!.getBoundingClientRect());
+          }}>
           <i class="bi-calendar-week ml-[4px]" />
-                     <div class="inline-block w-[25px] pl-[6px] text-right">
-             {calendarDayRowHeightText()}
-           </div>
+          <div class="inline-block w-[25px] pl-[6px] text-right">
+            {calendarDayRowHeightText()}
+          </div>
         </div>
       </Show>
       <Show when={showDocumentButtons()}>
         <div ref={docWidthDiv}
-             class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-             style={`font-size: 13px;`}
-             onClick={handleDocWidthBlClick}
-             onMouseDown={handlePageDocWidthDown}>
+          class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+          style={`font-size: 13px;`}
+          onClick={handleDocWidthBlClick}
+          onMouseDown={handlePageDocWidthDown}>
           <i class="bi-arrows ml-[4px]" />
           <div class="inline-block w-[30px] pl-[6px] text-right">
             {docWidthBlText()}
@@ -437,11 +441,11 @@ export const Toolbar_Page: Component = () => {
         </div>
       </Show>
       <div ref={arrangeAlgoDiv}
-           class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
-           style={`font-size: 13px;`}>
+        class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
+        style={`font-size: 13px;`}>
         <div class="inline-block w-[74px] pl-[6px] hover:bg-slate-300"
-             onClick={handleArrangeAlgoClick}
-             onMouseDown={handleArrangeAlgoDown}>
+          onClick={handleArrangeAlgoClick}
+          onMouseDown={handleArrangeAlgoDown}>
           {arrangeAlgoText()}
         </div>
       </div>
@@ -453,7 +457,7 @@ export const Toolbar_Page: Component = () => {
         <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
       </Show>
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
-  
+
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
       <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 

@@ -108,6 +108,7 @@ export interface OverlayStoreContextModel {
   findOverlayVisible: InfuSignal<boolean>,
   uploadOverlayInfo: InfuSignal<UploadOverlayInfo | null>,
   remoteLoginInfo: InfuSignal<RemoteLoginInfo | null>,
+  emptyTrashInProgress: InfuSignal<boolean>,
 
   textEditInfo: () => TextEditInfo | null,
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null, preserveFocus?: boolean) => void,
@@ -136,6 +137,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const findOverlayVisible = createInfuSignal<boolean>(false);
   const uploadOverlayInfo = createInfuSignal<UploadOverlayInfo | null>(null);
   const remoteLoginInfo = createInfuSignal<RemoteLoginInfo | null>(null);
+  const emptyTrashInProgress = createInfuSignal<boolean>(false);
 
   function clear() {
     textEditInfo_.set(null);
@@ -150,6 +152,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     findOverlayVisible.set(false);
     uploadOverlayInfo.set(null);
     remoteLoginInfo.set(null);
+    emptyTrashInProgress.set(false);
   }
 
   function anOverlayIsVisible(): boolean {
@@ -163,7 +166,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       toolbarPopupInfoMaybe.get() != null ||
       // networkOverlayVisible.get() ||  // Allow keyboard navigation when network status is visible
       uploadOverlayInfo.get() != null ||
-      remoteLoginInfo.get() != null
+      remoteLoginInfo.get() != null ||
+      emptyTrashInProgress.get()
     );
   }
 
@@ -205,6 +209,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     findOverlayVisible,
     uploadOverlayInfo,
     remoteLoginInfo,
+    emptyTrashInProgress,
 
     clear,
     anOverlayIsVisible,
