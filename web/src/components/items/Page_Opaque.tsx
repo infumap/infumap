@@ -18,7 +18,7 @@
 
 import { Component, For, Show, createMemo } from "solid-js";
 import { FEATURE_COLOR_DARK, linearGradient } from "../../style";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElement_Desktop } from "../VisualElement";
@@ -112,6 +112,15 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     return focusPath === vePath() || (textEditInfo != null && textEditInfo.itemPath === vePath());
   };
 
+  // Check if this opaque page is inside a translucent page (child of translucent)
+  const isInsideTranslucentPage = () => {
+    const parentPath = props.visualElement.parentPath;
+    if (!parentPath) return false;
+    const parentVes = VesCache.get(parentPath);
+    if (!parentVes) return false;
+    return isVeTranslucentPage(parentVes.get());
+  };
+
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs overflow-hidden ${isFocused() ? 'shadow-xl blur-md bg-slate-700' : 'shadow-xl'}`}
@@ -137,7 +146,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           `top: ${pageFns().boundsPx().y}px; ` +
           `width: ${pageFns().boundsPx().w}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
-          `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.0)}; ` +
+          `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, isInsideTranslucentPage() ? 0.33 : 0.0)}; ` +
           `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderBoxTitle()}
