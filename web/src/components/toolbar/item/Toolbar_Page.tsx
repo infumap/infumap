@@ -220,6 +220,14 @@ export const Toolbar_Page: Component = () => {
     try {
       const r = await server.emptyTrash(store.general.networkStatus);
       console.debug(r);
+
+      // Clear trash page children from client-side state.
+      const trashPageId = store.user.getUser().trashPageId;
+      const trashPage = itemState.getAsContainerItem(trashPageId);
+      if (trashPage) {
+        trashPage.computed_children = [];
+        fullArrange(store);
+      }
     } finally {
       store.overlay.emptyTrashInProgress.set(false);
     }
