@@ -23,24 +23,25 @@ use infusdk::util::uid::Uid;
 use log::debug;
 use s3::creds::Credentials;
 use s3::{Bucket, Region};
+use tokio_stream::StreamExt;
 
 use crate::storage::db::item_db::ItemAndUserId;
 
 use super::object::IndividualObjectStore;
 
-/// Timeout for the HEAD request probe. This should complete quickly since HEAD
-/// returns only metadata. If it takes longer, the store is likely unreachable.
-const HEAD_PROBE_TIMEOUT_SECS: u64 = 10;
+/// Timeout for receiving the first byte from S3. If no data is received within this
+/// duration, the request is considered failed (likely a connectivity/routing issue).
+const FIRST_BYTE_TIMEOUT_SECS: u64 = 10;
 
-/// Full timeout for S3 requests. Used for GET/PUT operations and as the underlying
-/// request timeout for all buckets.
-const FULL_REQUEST_TIMEOUT_SECS: u64 = 120;
+/// Timeout for receiving subsequent chunks after the first byte. This is more generous
+/// since we know the connection is working at that point.
+const FULL_TRANSFER_TIMEOUT_SECS: u64 = 120;
 
 
 pub fn init_bucket(region: Option<&String>, endpoint: Option<&String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Bucket> {
   let credentials = Credentials::new(Some(key), Some(secret), None, None, None)
     .map_err(|e| format!("Could not initialize S3 credentials: {}", e))?;
-  let mut bucket = Bucket::new(
+  let mut bucket = *Bucket::new(
     bucket,
     if let Some(endpoint) = endpoint {
       Region::Custom {
@@ -55,7 +56,7 @@ pub fn init_bucket(region: Option<&String>, endpoint: Option<&String>, bucket: &
     },
     credentials
   ).map_err(|e| format!("Could not construct S3 bucket instance: {}", e))?;
-  bucket.set_request_timeout(Some(Duration::from_secs(FULL_REQUEST_TIMEOUT_SECS)));
+  bucket.set_request_timeout(Some(Duration::from_secs(FULL_TRANSFER_TIMEOUT_SECS)));
   Ok(bucket)
 }
 
@@ -76,44 +77,67 @@ pub fn new(region: Option<&String>, endpoint: Option<&String>, bucket: &str, key
 }
 
 
-/// Probes the S3 store by performing a HEAD request with a short timeout.
-/// This verifies connectivity without downloading the object body.
-/// Returns Ok(()) if the probe succeeds, Err if it fails or times out.
-pub async fn head_probe(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<()> {
+/// Fetches an object from S3 using streaming with first-byte timeout detection.
+/// This allows detecting connectivity issues quickly (within FIRST_BYTE_TIMEOUT_SECS)
+/// while still allowing large files to complete with the full timeout.
+pub async fn get_streaming(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<Vec<u8>> {
   let s3_path = format!("{}_{}", user_id, id);
 
-  let result = tokio::time::timeout(
-    Duration::from_secs(HEAD_PROBE_TIMEOUT_SECS),
-    s3_store.bucket.head_object(&s3_path)
-  ).await;
+  // Get the stream with a timeout on initiating the connection
+  let response_stream = tokio::time::timeout(
+    Duration::from_secs(FIRST_BYTE_TIMEOUT_SECS),
+    s3_store.bucket.get_object_stream(&s3_path)
+  ).await
+    .map_err(|_| format!("Timeout waiting for S3 stream to start for '{}'", s3_path))?
+    .map_err(|e| format!("Error getting S3 object stream for '{}': {}", s3_path, e))?;
 
-  match result {
-    Ok(Ok((_, status_code))) => {
-      if status_code == 200 {
-        debug!("HEAD probe succeeded for S3 object '{}'", s3_path);
-        Ok(())
-      } else {
-        Err(format!("HEAD probe for '{}' returned status code {}", s3_path, status_code).into())
+  // Check status code
+  if response_stream.status_code != 200 {
+    return Err(format!("Unexpected status code getting S3 object '{}': {}", s3_path, response_stream.status_code).into());
+  }
+
+  let mut stream = response_stream.bytes;
+  let mut buffer = Vec::new();
+  let mut first_chunk_received = false;
+
+  loop {
+    // Use short timeout for first chunk, longer timeout for subsequent chunks
+    let timeout_duration = if first_chunk_received {
+      Duration::from_secs(FULL_TRANSFER_TIMEOUT_SECS)
+    } else {
+      Duration::from_secs(FIRST_BYTE_TIMEOUT_SECS)
+    };
+
+    match tokio::time::timeout(timeout_duration, stream.next()).await {
+      Ok(Some(chunk_result)) => {
+        let chunk = chunk_result
+          .map_err(|e| format!("Error reading S3 stream chunk for '{}': {}", s3_path, e))?;
+        if !first_chunk_received {
+          debug!("First chunk received for S3 object '{}'", s3_path);
+          first_chunk_received = true;
+        }
+        buffer.extend_from_slice(&chunk);
+      },
+      Ok(None) => {
+        // Stream ended
+        break;
+      },
+      Err(_) => {
+        if first_chunk_received {
+          return Err(format!("Timeout during S3 transfer for '{}' (received {} bytes before timeout)", s3_path, buffer.len()).into());
+        } else {
+          return Err(format!("Timeout waiting for first byte from S3 for '{}'", s3_path).into());
+        }
       }
-    },
-    Ok(Err(e)) => {
-      Err(format!("HEAD probe failed for '{}': {}", s3_path, e).into())
-    },
-    Err(_) => {
-      Err(format!("HEAD probe timed out ({}s) for '{}'", HEAD_PROBE_TIMEOUT_SECS, s3_path).into())
     }
   }
+
+  Ok(buffer)
 }
 
 
 pub async fn get(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<Vec<u8>> {
-  let s3_path = format!("{}_{}", user_id, id);
-  let result = s3_store.bucket.get_object(s3_path).await
-    .map_err(|e| format!("Error occurred getting S3 object: {}", e))?;
-  if result.status_code() != 200 {
-    return Err(format!("Unexpected status code getting S3 object: {}", result.status_code()).into());
-  }
-  Ok(result.into())
+  get_streaming(s3_store, user_id, id).await
 }
 
 

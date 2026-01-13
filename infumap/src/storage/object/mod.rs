@@ -115,37 +115,21 @@ pub async fn get(object_store: Arc<ObjectStore>, user_id: Uid, id: Uid, encrypti
     return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
   }
 
-  // For S3 stores: first probe primary with HEAD request (quick connectivity check),
-  // then do full GET if probe succeeds. Falls back to secondary on any failure.
+  // For S3 stores: try primary with streaming first-byte timeout detection.
+  // Falls back to secondary on any failure (timeout or error).
   if let Some(s3_1_store) = &object_store.s3_1_data_store {
-    // Quick HEAD probe to verify connectivity
-    match storage_s3::head_probe(s3_1_store.clone(), user_id.clone(), id.clone()).await {
-      Ok(()) => {
-        // Probe succeeded, now do full GET with full timeout
-        match storage_s3::get(s3_1_store.clone(), user_id.clone(), id.clone()).await {
-          Ok(ciphertext) => {
-            return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
-          },
-          Err(get_err) => {
-            // GET failed after HEAD succeeded - try secondary if available
-            if let Some(s3_2_store) = &object_store.s3_2_data_store {
-              warn!("Primary S3 GET failed after HEAD succeeded ({}), falling back to secondary", get_err);
-              let ciphertext = storage_s3::get(s3_2_store.clone(), user_id.clone(), id.clone()).await?;
-              return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
-            } else {
-              return Err(get_err);
-            }
-          }
-        }
+    match storage_s3::get(s3_1_store.clone(), user_id.clone(), id.clone()).await {
+      Ok(ciphertext) => {
+        return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
       },
-      Err(probe_err) => {
-        // HEAD probe failed - try secondary if available
+      Err(s3_1_err) => {
+        // Primary S3 failed - try secondary if available
         if let Some(s3_2_store) = &object_store.s3_2_data_store {
-          warn!("Primary S3 HEAD probe failed ({}), falling back to secondary", probe_err);
+          warn!("Primary S3 store failed ({}), falling back to secondary", s3_1_err);
           let ciphertext = storage_s3::get(s3_2_store.clone(), user_id.clone(), id.clone()).await?;
           return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
         } else {
-          return Err(probe_err);
+          return Err(s3_1_err);
         }
       }
     }
