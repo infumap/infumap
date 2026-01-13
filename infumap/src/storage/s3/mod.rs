@@ -28,6 +28,14 @@ use crate::storage::db::item_db::ItemAndUserId;
 
 use super::object::IndividualObjectStore;
 
+/// Timeout for the HEAD request probe. This should complete quickly since HEAD
+/// returns only metadata. If it takes longer, the store is likely unreachable.
+const HEAD_PROBE_TIMEOUT_SECS: u64 = 10;
+
+/// Full timeout for S3 requests. Used for GET/PUT operations and as the underlying
+/// request timeout for all buckets.
+const FULL_REQUEST_TIMEOUT_SECS: u64 = 120;
+
 
 pub fn init_bucket(region: Option<&String>, endpoint: Option<&String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Bucket> {
   let credentials = Credentials::new(Some(key), Some(secret), None, None, None)
@@ -47,7 +55,7 @@ pub fn init_bucket(region: Option<&String>, endpoint: Option<&String>, bucket: &
     },
     credentials
   ).map_err(|e| format!("Could not construct S3 bucket instance: {}", e))?;
-  bucket.set_request_timeout(Some(Duration::from_secs(120)));
+  bucket.set_request_timeout(Some(Duration::from_secs(FULL_REQUEST_TIMEOUT_SECS)));
   Ok(bucket)
 }
 
@@ -65,6 +73,36 @@ impl S3Store {
 
 pub fn new(region: Option<&String>, endpoint: Option<&String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Arc<S3Store>> {
   Ok(Arc::new(S3Store::new(region, endpoint, bucket, key, secret)?))
+}
+
+
+/// Probes the S3 store by performing a HEAD request with a short timeout.
+/// This verifies connectivity without downloading the object body.
+/// Returns Ok(()) if the probe succeeds, Err if it fails or times out.
+pub async fn head_probe(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<()> {
+  let s3_path = format!("{}_{}", user_id, id);
+
+  let result = tokio::time::timeout(
+    Duration::from_secs(HEAD_PROBE_TIMEOUT_SECS),
+    s3_store.bucket.head_object(&s3_path)
+  ).await;
+
+  match result {
+    Ok(Ok((_, status_code))) => {
+      if status_code == 200 {
+        debug!("HEAD probe succeeded for S3 object '{}'", s3_path);
+        Ok(())
+      } else {
+        Err(format!("HEAD probe for '{}' returned status code {}", s3_path, status_code).into())
+      }
+    },
+    Ok(Err(e)) => {
+      Err(format!("HEAD probe failed for '{}': {}", s3_path, e).into())
+    },
+    Err(_) => {
+      Err(format!("HEAD probe timed out ({}s) for '{}'", HEAD_PROBE_TIMEOUT_SECS, s3_path).into())
+    }
+  }
 }
 
 

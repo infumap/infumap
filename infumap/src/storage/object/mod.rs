@@ -20,6 +20,7 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
+use log::warn;
 use tokio::task::JoinSet;
 
 use crate::storage::file as storage_file;
@@ -108,23 +109,54 @@ pub fn new(data_dir: &str, enable_local_object_storage: bool,
 }
 
 pub async fn get(object_store: Arc<ObjectStore>, user_id: Uid, id: Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
-  // If there is a problem reading from any one of the sources, take the view (for the moment)
-  // that it is better to error out than try from another source so as to alert the user there
-  // is a problem. TODO (MEDIUM): something else would be better.
+  // Local file store takes priority - no fallback needed since it's local
   if let Some(file_store) = &object_store.file_store {
     let ciphertext = storage_file::get(file_store.clone(), user_id.clone(), id.clone()).await?;
     return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
   }
-  // Assume that store #1 is the most cost effective to read from, and always use it in preference
-  // to store #2 if available.
+
+  // For S3 stores: first probe primary with HEAD request (quick connectivity check),
+  // then do full GET if probe succeeds. Falls back to secondary on any failure.
   if let Some(s3_1_store) = &object_store.s3_1_data_store {
-    let ciphertext = storage_s3::get(s3_1_store.clone(), user_id.clone(), id.clone()).await?;
-    return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
+    // Quick HEAD probe to verify connectivity
+    match storage_s3::head_probe(s3_1_store.clone(), user_id.clone(), id.clone()).await {
+      Ok(()) => {
+        // Probe succeeded, now do full GET with full timeout
+        match storage_s3::get(s3_1_store.clone(), user_id.clone(), id.clone()).await {
+          Ok(ciphertext) => {
+            return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
+          },
+          Err(get_err) => {
+            // GET failed after HEAD succeeded - try secondary if available
+            if let Some(s3_2_store) = &object_store.s3_2_data_store {
+              warn!("Primary S3 GET failed after HEAD succeeded ({}), falling back to secondary", get_err);
+              let ciphertext = storage_s3::get(s3_2_store.clone(), user_id.clone(), id.clone()).await?;
+              return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
+            } else {
+              return Err(get_err);
+            }
+          }
+        }
+      },
+      Err(probe_err) => {
+        // HEAD probe failed - try secondary if available
+        if let Some(s3_2_store) = &object_store.s3_2_data_store {
+          warn!("Primary S3 HEAD probe failed ({}), falling back to secondary", probe_err);
+          let ciphertext = storage_s3::get(s3_2_store.clone(), user_id.clone(), id.clone()).await?;
+          return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
+        } else {
+          return Err(probe_err);
+        }
+      }
+    }
   }
+
+  // No primary S3, try secondary directly
   if let Some(s3_2_store) = &object_store.s3_2_data_store {
     let ciphertext = storage_s3::get(s3_2_store.clone(), user_id.clone(), id.clone()).await?;
     return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
   }
+
   Err("No object store configured".into())
 }
 
