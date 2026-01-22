@@ -23,7 +23,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { MouseActionState } from "../../input/state";
 import { EMPTY_UID } from "../../util/uid";
-import { initiateLoadItemMaybe, initiateLoadItemFromRemoteMaybe, retryLinkIfVisible, RemoteLoadStatus, itemLoadFromRemoteStatus, linkIdToRemoteInfo } from "../load";
+import { initiateLoadItemMaybe, initiateLoadItemFromRemoteMaybe, retryLinkIfVisible, RemoteLoadStatus, itemLoadFromRemoteStatus, linkIdToRemoteInfo, itemLoadLastSessionId } from "../load";
 import { RemoteSessions } from "../../store/RemoteSessions";
 
 
@@ -61,41 +61,51 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
     if (isXSizableItem(displayItem)) {
       spatialWidthGr = linkItemMaybe.spatialWidthGr;
     }
+  } else {
+    if (linkItemMaybe.linkTo != EMPTY_UID && linkItemMaybe.linkTo != '') {
+      if (!linkItemMaybe.linkTo.startsWith("http")) {
+        const parentIdToSort = item.parentId;
+        initiateLoadItemMaybe(store, linkItemMaybe.linkTo, parentIdToSort);
       } else {
-        if (linkItemMaybe.linkTo != EMPTY_UID && linkItemMaybe.linkTo != '') {
-          if (!linkItemMaybe.linkTo.startsWith("http")) {
-            const parentIdToSort = item.parentId;
-            initiateLoadItemMaybe(store, linkItemMaybe.linkTo, parentIdToSort);
-          } else {
-            const lastIdx = linkItemMaybe.linkTo.lastIndexOf('/');
-            if (lastIdx != -1) {
-              const baseUrl = linkItemMaybe.linkTo.substring(0, lastIdx);
-              // baseUrl may not be the base URL of the infumap instance because identifiers
-              // in the form {user}/{id} are allowed. however, the server responds to all
-              // urls that end in /command (restricted to the user, if specified, else not).
-              const id = linkItemMaybe.linkTo.substring(lastIdx + 1);
-              const parentIdToSort = item.parentId;
-              const remoteInfo = linkIdToRemoteInfo[linkItemMaybe.id];
-              if (remoteInfo) {
-                const status = itemLoadFromRemoteStatus[remoteInfo.itemId];
-                if (status === RemoteLoadStatus.AuthRequired || status === RemoteLoadStatus.Failed) {
-                  const session = RemoteSessions.get(baseUrl);
-                  if (session) {
-                    initiateLoadItemFromRemoteMaybe(store, remoteInfo.itemId, remoteInfo.baseUrl, linkItemMaybe.id, parentIdToSort, true);
-                    return { displayItem, linkItemMaybe, spatialWidthGr };
-                  } else {
-                    return { displayItem, linkItemMaybe, spatialWidthGr };
-                  }
+        const lastIdx = linkItemMaybe.linkTo.lastIndexOf('/');
+        if (lastIdx != -1) {
+          const baseUrl = linkItemMaybe.linkTo.substring(0, lastIdx);
+          // baseUrl may not be the base URL of the infumap instance because identifiers
+          // in the form {user}/{id} are allowed. however, the server responds to all
+          // urls that end in /command (restricted to the user, if specified, else not).
+          const id = linkItemMaybe.linkTo.substring(lastIdx + 1);
+          const parentIdToSort = item.parentId;
+          const remoteInfo = linkIdToRemoteInfo[linkItemMaybe.id];
+          if (remoteInfo) {
+            const status = itemLoadFromRemoteStatus[remoteInfo.itemId];
+            if (status === RemoteLoadStatus.AuthRequired || status === RemoteLoadStatus.Failed) {
+              const session = RemoteSessions.get(baseUrl);
+              if (session) {
+                let sessionId: string | null = null;
+                try {
+                  const sessionData = JSON.parse(session.sessionDataString);
+                  sessionId = sessionData.sessionId;
+                } catch (_e) { }
+
+                if (sessionId && itemLoadLastSessionId[remoteInfo.itemId] === sessionId) {
+                  return { displayItem, linkItemMaybe, spatialWidthGr };
                 }
-              }
-              const currentStatus = itemLoadFromRemoteStatus[id];
-              if (currentStatus === undefined) {
-                initiateLoadItemFromRemoteMaybe(store, id, baseUrl, linkItemMaybe.id, parentIdToSort);
+
+                initiateLoadItemFromRemoteMaybe(store, remoteInfo.itemId, remoteInfo.baseUrl, linkItemMaybe.id, parentIdToSort, true);
+                return { displayItem, linkItemMaybe, spatialWidthGr };
+              } else {
+                return { displayItem, linkItemMaybe, spatialWidthGr };
               }
             }
           }
+          const currentStatus = itemLoadFromRemoteStatus[id];
+          if (currentStatus === undefined) {
+            initiateLoadItemFromRemoteMaybe(store, id, baseUrl, linkItemMaybe.id, parentIdToSort);
+          }
         }
       }
+    }
+  }
 
   return { displayItem, linkItemMaybe, spatialWidthGr };
 }

@@ -30,6 +30,7 @@ import { Veid, VeFns } from "./visual-element";
 import { TabularFns } from "../items/base/tabular-item";
 import { VesCache } from "./ves-cache";
 import { VisualElementSignal } from "../util/signals";
+import { RemoteSessions } from "../store/RemoteSessions";
 
 
 export function clearLoadState() {
@@ -44,6 +45,11 @@ export function clearLoadState() {
     }
   }
   itemLoadFromRemoteStatus = {};
+  for (let key in itemLoadLastSessionId) {
+    if (itemLoadLastSessionId.hasOwnProperty(key)) {
+      delete itemLoadLastSessionId[key];
+    }
+  }
 }
 
 export function markChildrenLoadAsInitiatedOrComplete(containerId: Uid) {
@@ -154,6 +160,7 @@ export enum RemoteLoadStatus {
   Failed = "failed"
 }
 export let itemLoadFromRemoteStatus: { [id: Uid]: RemoteLoadStatus } = {};
+export let itemLoadLastSessionId: { [id: Uid]: string } = {};
 export let linkIdToRemoteInfo: { [linkId: Uid]: { itemId: string, baseUrl: string } } = {};
 
 export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId: string, baseUrl: string, resolveId: string, containerToSortId?: Uid, forceRetry?: boolean) => {
@@ -173,6 +180,16 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
     if (currentStatus === RemoteLoadStatus.Failed) { return; }
   }
   itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Pending;
+
+  const session = RemoteSessions.get(baseUrl);
+  if (session) {
+    try {
+      const sessionData = JSON.parse(session.sessionDataString);
+      if (sessionData.sessionId) {
+        itemLoadLastSessionId[itemId] = sessionData.sessionId;
+      }
+    } catch (_e) { }
+  }
 
   remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
     .then(result => {
