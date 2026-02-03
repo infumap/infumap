@@ -15,7 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use bitflags::bitflags;
-use crate::util::geometry::{Dimensions, Vector};
+use crate::util::geometry::{Dimensions, Vector, GRID_SIZE};
 use crate::util::infu::{InfuError, InfuResult};
 use crate::util::time::unix_now_secs_i64;
 use crate::util::uid::{is_uid, new_uid, Uid, EMPTY_UID};
@@ -1846,6 +1846,88 @@ impl Item {
       doc_width_bl: None,
       justified_row_aspect: None,
       calendar_day_row_height_bl: None,
+      text: None,
+      image_size_px: None,
+      thumbnail: None,
+      rating: None,
+      rating_type: None,
+      scale: None,
+    }
+  }
+
+  pub fn new_page(
+      parent_id: Option<&Uid>,
+      ordering: Vec<u8>,
+      spatial_position_gr: Vector<i64>,
+      spatial_width_gr: i64,
+      relationship: RelationshipToParent,
+      title: &str,
+      order_children_by: &str,
+      background_color_index: i64,
+      permission_flags: i64,
+      flags: i64,
+      natural_aspect: f64,
+      inner_spatial_width_gr: i64,
+      arrange_algorithm: ArrangeAlgorithm,
+      grid_number_of_columns: i64,
+      grid_cell_aspect: f64,
+      doc_width_bl: i64,
+      justified_row_aspect: f64,
+      calendar_day_row_height_bl: f64,
+      table_columns: Vec<TableColumn>,
+      number_of_visible_columns: i64) -> Item {
+
+    let inner_spatial_width_br = inner_spatial_width_gr / GRID_SIZE;
+    let inner_spatial_height_br: i64 = (inner_spatial_width_br as f64 / natural_aspect) as i64;
+    let default_popup_width_gr = (inner_spatial_width_br / 2) * GRID_SIZE;
+    let default_popup_position_gr = Vector {
+      x: (inner_spatial_width_br / 2) * GRID_SIZE,
+      y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE
+    };
+
+    Item {
+      item_type: ItemType::Page,
+      owner_id: EMPTY_UID.to_owned(),
+      id: new_uid(),
+      parent_id: parent_id.map(|id| id.to_owned()),
+      relationship_to_parent: relationship,
+      creation_date: unix_now_secs_i64().unwrap(),
+      last_modified_date: unix_now_secs_i64().unwrap(),
+      datetime: unix_now_secs_i64().unwrap(),
+      ordering,
+      order_children_by: Some(order_children_by.to_owned()),
+      spatial_position_gr: Some(spatial_position_gr),
+      spatial_width_gr: Some(spatial_width_gr),
+      spatial_height_gr: None,
+      title: Some(title.to_owned()),
+      flags: Some(flags),
+      permission_flags: Some(permission_flags),
+      background_color_index: Some(background_color_index),
+      natural_aspect: Some(natural_aspect),
+      inner_spatial_width_gr: Some(inner_spatial_width_gr),
+      arrange_algorithm: Some(arrange_algorithm),
+      default_popup_position_gr: Some(default_popup_position_gr),
+      default_popup_width_gr: Some(default_popup_width_gr),
+      grid_number_of_columns: Some(grid_number_of_columns),
+      grid_cell_aspect: Some(grid_cell_aspect),
+      doc_width_bl: Some(doc_width_bl),
+      justified_row_aspect: Some(justified_row_aspect),
+      calendar_day_row_height_bl: Some(calendar_day_row_height_bl),
+      table_columns: Some(table_columns),
+      number_of_visible_columns: Some(number_of_visible_columns),
+
+      url: None,
+      format: None,
+      link_to: None,
+      original_creation_date: None,
+      mime_type: None,
+      file_size_bytes: None,
+      popup_position_gr: None,
+      popup_width_gr: None,
+      default_cell_popup_position_norm: None,
+      default_cell_popup_width_norm: None,
+      cell_popup_position_norm: None,
+      cell_popup_width_norm: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
