@@ -22,7 +22,9 @@ import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, isUid, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { NoteFlags } from "./base/flags-item";
 import { Measurable, ItemTypeMixin, Item, ItemType } from "./base/item";
+import { asNoteItem, isNote } from "./note-item";
 import { ItemFns } from "./base/item-polymorphism";
 import { PositionalMixin, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableMixin } from "./base/x-sizeable-item";
@@ -375,6 +377,10 @@ function constructLinkToMeasurable(link: LinkItem): Measurable | null {
   }
   if (isYSizableItem(linkedToMeasurableFields)) {
     (asYSizableItem(linkedToMeasurableFields)).spatialHeightGr = link.spatialHeightGr;
+  }
+  if (isNote(linkedToMeasurableFields)) {
+    (asNoteItem(linkedToMeasurableFields)).spatialHeightGr = link.spatialHeightGr;
+    (asNoteItem(linkedToMeasurableFields)).flags |= NoteFlags.ExplicitHeight;
   }
   if (link.aspectOverride != null && (linkedToMeasurableFields as any).naturalAspect !== undefined) {
     (linkedToMeasurableFields as any).naturalAspect = link.aspectOverride;

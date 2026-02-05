@@ -26,6 +26,8 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
+import { asNoteItem, isNote } from "../items/note-item";
+import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
@@ -118,8 +120,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         : MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr;
       if (xsized ||
         (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
+        (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight) && MouseActionState.get().startHeightBl! * GRID_SIZE != asNoteItem(activeItem).spatialHeightGr) ||
         // TODO (LOW): don't update if there are no changes.
-        (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) ||
+        (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem))) ||
         isFlipCard(activeItem) ||
         (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem))) {
         serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);

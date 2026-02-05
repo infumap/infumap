@@ -22,6 +22,8 @@ import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/ba
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
+import { asNoteItem, isNote, NoteItem } from "../items/note-item";
+import { NoteFlags } from "../items/base/flags-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
@@ -203,7 +205,7 @@ function changeMouseActionStateMaybe(
 
       if (isYSizableItem(activeItem)) {
         MouseActionState.get().startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
-      } else if (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
+      } else if (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem))) {
         MouseActionState.get().startHeightBl = asLinkItem(activeItem).spatialHeightGr / GRID_SIZE;
 
       } else if (isFlipCard(activeItem)) {
@@ -211,6 +213,8 @@ function changeMouseActionStateMaybe(
       } else if (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem)) {
         MouseActionState.get().startHeightBl = asXSizableItem(activeVisualElement.displayItem).spatialWidthGr / asFlipCardItem(activeVisualElement.displayItem).naturalAspect / GRID_SIZE;
 
+      } else if (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight)) {
+        MouseActionState.get().startHeightBl = asNoteItem(activeItem).spatialHeightGr / GRID_SIZE;
       } else {
         MouseActionState.get().startHeightBl = null;
       }
@@ -501,13 +505,25 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     }
     requireArrange = true;
   }
-  else if (isYSizableItem(activeItem) || (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem))) {
+  else if (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight)) {
+    let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
+    newHeightBl = Math.round(newHeightBl);
+
+    if (newHeightBl < 1) { newHeightBl = 1.0; }
+    const newHeightGr = newHeightBl * GRID_SIZE;
+
+    if (newHeightGr != asNoteItem(activeItem).spatialHeightGr) {
+      asNoteItem(activeItem).spatialHeightGr = newHeightGr;
+      requireArrange = true;
+    }
+  }
+  else if (isYSizableItem(activeItem) || (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem)))) {
     let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
     newHeightBl = Math.round(newHeightBl);
     if (newHeightBl < 1) { newHeightBl = 1.0; }
 
     const newHeightGr = newHeightBl * GRID_SIZE;
-    if (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
+    if (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem))) {
       if (newHeightGr != asLinkItem(activeItem).spatialHeightGr) {
         asLinkItem(activeItem).spatialHeightGr = newHeightGr;
         requireArrange = true;

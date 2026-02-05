@@ -266,7 +266,7 @@ pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Table || item_type == ItemType::Note
+  item_type == ItemType::Table
 }
 
 pub fn is_titled_item_type(item_type: ItemType) -> bool {
@@ -598,7 +598,7 @@ impl JsonLogSerializable<Item> for Item {
     // y-sizable
     if let Some(new_spatial_height_gr) = new.spatial_height_gr {
       if match old.spatial_height_gr { Some(o) => o != new_spatial_height_gr, None => { true } } {
-        if !is_y_sizeable_item_type(old.item_type) && !is_link_item(old) { cannot_modify_err("spatialHeightGr", &old.id)?; }
+        if !is_y_sizeable_item_type(old.item_type) && !is_link_item(old) && old.item_type != ItemType::Note { cannot_modify_err("spatialHeightGr", &old.id)?; }
         result.insert(String::from("spatialHeightGr"), Value::Number(new_spatial_height_gr.into()));
       }
     }
@@ -927,7 +927,7 @@ impl JsonLogSerializable<Item> for Item {
 
     // y-sizable
     if let Some(v) = json::get_integer_field(map, "spatialHeightGr")? {
-      if !is_y_sizeable_item_type(self.item_type) && !is_link_item(self) { not_applicable_err("spatialHeightGr", self.item_type, &self.id)?; }
+      if !is_y_sizeable_item_type(self.item_type) && !is_link_item(self) && self.item_type != ItemType::Note { not_applicable_err("spatialHeightGr", self.item_type, &self.id)?; }
       self.spatial_height_gr = Some(v);
     }
 
@@ -1162,7 +1162,7 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
 
   // y-sizable
   if let Some(spatial_height_gr) = item.spatial_height_gr {
-    if !is_y_sizeable_item_type(item.item_type) && !is_link_item(item) { unexpected_field_err("spatialHeightGr", &item.id, item.item_type)? }
+    if !is_y_sizeable_item_type(item.item_type) && !is_link_item(item) && item.item_type != ItemType::Note { unexpected_field_err("spatialHeightGr", &item.id, item.item_type)? }
     result.insert(String::from("spatialHeightGr"), Value::Number(spatial_height_gr.into()));
   }
 
@@ -1425,7 +1425,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
 
     // y-sizable
     spatial_height_gr: match json::get_integer_field(map, "spatialHeightGr")? {
-      Some(v) => { if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("spatialHeightGr", item_type, &id)) } },
+      Some(v) => { if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link || item_type == ItemType::Note { Ok(Some(v)) } else { Err(not_applicable_err("spatialHeightGr", item_type, &id)) } },
       None => { 
         if item_type == ItemType::Note { Ok(None) }
         else if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link { Err(expected_for_err("spatialHeightGr", item_type, &id)) }
@@ -1986,7 +1986,7 @@ impl Item {
     }
 
     // Y-sizeable properties
-    if is_y_sizeable_item_type(self.item_type) || is_link_item(self) {
+    if is_y_sizeable_item_type(self.item_type) || is_link_item(self) || self.item_type == ItemType::Note {
       if let Some(spatial_height_gr) = self.spatial_height_gr {
         hashes.push(hash_i64_to_uid(spatial_height_gr));
       }
