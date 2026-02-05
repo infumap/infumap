@@ -28,6 +28,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { getTextStyleForNote } from "../../layout/text";
+import { HitboxFlags } from "../../layout/hitbox";
 import { useStore } from "../../store/StoreProvider";
 import { CompositeFns, isComposite } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
@@ -88,16 +89,24 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (props.visualElement.linkItemMaybe != null) {
       return ItemFns.calcSpatialDimensionsBl(props.visualElement.linkItemMaybe!);
     }
-    return NoteFns.calcSpatialDimensionsBl(noteItem());
+    return NoteFns.calcSpatialDimensionsBl(noteItem(), isPopup());
   };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => (boundsPx().w - NOTE_PADDING_PX * 2) / naturalWidthPx();
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
-  const lineHeightScale = () => heightScale() / widthScale();
+  const lineHeightScale = () => isPopup() ? 1.0 : heightScale() / widthScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
-  const lineClamp = () => Math.floor(sizeBl().h);
+  const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
+  const showPopupHandle = () => store.perVe.getMouseIsOver(vePath());
+
+  const blockSize = () => {
+    return {
+      w: boundsPx().w / sizeBl().w,
+      h: boundsPx().h / sizeBl().h
+    };
+  };
 
   const attachBoundsPx = (): BoundingBox => {
     return ({
@@ -108,15 +117,14 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     });
   };
   const attachInsertBarPx = (): BoundingBox => {
-    const blockSizePx = boundsPx().w / sizeBl().w;
     const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
     // Special case for position 0: align with right edge of parent item
     const xOffset = insertIndex === 0 ? -4 : -2;
     return ({
-      x: boundsPx().w - insertIndex * blockSizePx + xOffset,
-      y: -blockSizePx / 2,
+      x: boundsPx().w - insertIndex * blockSize().w + xOffset,
+      y: -blockSize().w / 2,
       w: 4,
-      h: blockSizePx,
+      h: blockSize().w,
     });
   };
   const attachCompositeBoundsPx = (): BoundingBox => {
@@ -331,6 +339,13 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
             `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+      </Show>
+      <Show when={showPopupHandle()}>
+        <div class="absolute rounded-xs"
+          style={`left: 1px; top: 1px; width: ${blockSize().w - 2}px; height: ${blockSize().h - 2}px; ` +
+            `background-color: ${FEATURE_COLOR}; border: 1px solid ${FEATURE_COLOR}; ` +
+            `opacity: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? 0.4 : 0.2}; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT}; pointer-events: none; transition: opacity 0.1s;`} />
       </Show>
       <Switch>
         <Match when={NoteFns.hasUrl(noteItem()) &&

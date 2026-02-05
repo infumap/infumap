@@ -33,7 +33,7 @@ import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-eleme
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { measureLineCount } from '../layout/text';
+import { measureLineCount, getTextStyleForNote } from '../layout/text';
 import { fullArrange } from '../layout/arrange';
 import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -133,18 +133,23 @@ export const NoteFns = {
     });
   },
 
-  calcSpatialDimensionsBl: (note: NoteMeasurable): Dimensions => {
-    if ((note.flags & NoteFlags.ExplicitHeight) && note.spatialHeightGr > 0) {
+  calcSpatialDimensionsBl: (note: NoteMeasurable, ignoreExplicitHeight: boolean = false): Dimensions => {
+    if (!ignoreExplicitHeight && (note.flags & NoteFlags.ExplicitHeight) && note.spatialHeightGr > 0) {
       return { w: note.spatialWidthGr / GRID_SIZE, h: note.spatialHeightGr / GRID_SIZE };
     }
     const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
     let lineCount = measureLineCount(formattedTitle, note.spatialWidthGr / GRID_SIZE, note.flags);
     if (lineCount < 1) { lineCount = 1; }
-    return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
+
+    // Adjust height for text styles (e.g. headings)
+    const style = getTextStyleForNote(note.flags);
+    const heightBl = lineCount * style.lineHeightMultiplier;
+
+    return { w: note.spatialWidthGr / GRID_SIZE, h: heightBl };
   },
 
-  calcGeometry_Spatial: (note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
-    const sizeBl = NoteFns.calcSpatialDimensionsBl(note);
+  calcGeometry_Spatial: (note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean): ItemGeometry => {
+    const sizeBl = NoteFns.calcSpatialDimensionsBl(note, isPopup);
     const blockSizePx = {
       w: containerBoundsPx.w / containerInnerSizeBl.w,
       h: containerBoundsPx.h / containerInnerSizeBl.h
@@ -161,6 +166,7 @@ export const NoteFns = {
       viewportBoundsPx: null,
       blockSizePx,
       hitboxes: !emitHitboxes ? [] : [
+        HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.ContentEditable, innerBoundsPx),
