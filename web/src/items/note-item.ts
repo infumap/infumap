@@ -25,6 +25,7 @@ import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attach
 import { ItemType, ItemTypeMixin } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
+import { YSizableItem, YSizableMixin } from './base/y-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { FlagsItem, FlagsMixin, NoteFlags } from './base/flags-item';
@@ -41,11 +42,11 @@ import { VesCache } from '../layout/ves-cache';
 import { isNumeric } from '../util/math';
 
 
-export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
+export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, AttachmentsItem, TitledItem {
   url: string,
 }
 
-export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, FormatMixin {
+export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin {
 }
 
 
@@ -67,6 +68,7 @@ export const NoteFns = {
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 10.0 * GRID_SIZE,
+      spatialHeightGr: 0,
 
       flags: NoteFlags.None,
 
@@ -96,6 +98,7 @@ export const NoteFns = {
       spatialPositionGr: o.spatialPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
+      spatialHeightGr: o.spatialHeightGr || 0,
 
       flags: o.flags,
 
@@ -121,6 +124,7 @@ export const NoteFns = {
       spatialPositionGr: n.spatialPositionGr,
 
       spatialWidthGr: n.spatialWidthGr,
+      spatialHeightGr: n.spatialHeightGr,
 
       flags: n.flags,
 
@@ -130,6 +134,9 @@ export const NoteFns = {
   },
 
   calcSpatialDimensionsBl: (note: NoteMeasurable): Dimensions => {
+    if ((note.flags & NoteFlags.ExplicitHeight) && note.spatialHeightGr > 0) {
+      return { w: note.spatialWidthGr / GRID_SIZE, h: note.spatialHeightGr / GRID_SIZE };
+    }
     const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
     let lineCount = measureLineCount(formattedTitle, note.spatialWidthGr / GRID_SIZE, note.flags);
     if (lineCount < 1) { lineCount = 1; }
@@ -301,6 +308,7 @@ export const NoteFns = {
       itemType: note.itemType,
       spatialPositionGr: note.spatialPositionGr,
       spatialWidthGr: note.spatialWidthGr,
+      spatialHeightGr: note.spatialHeightGr,
       title: note.title,
       flags: note.flags,
       format: note.format,

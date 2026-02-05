@@ -97,6 +97,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
+  const lineClamp = () => Math.floor(sizeBl().h);
 
   const attachBoundsPx = (): BoundingBox => {
     return ({
@@ -343,7 +344,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
               `font-size: ${infuTextStyle().fontSize}px; ` +
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
-              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+              `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
               href={noteItem().url}
               class={`text-blue-800 hover:text-blue-600`}
@@ -390,7 +392,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `font-size: ${infuTextStyle().fontSize}px; ` +
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
               `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-              `outline: 0px solid transparent;`}
+              `outline: 0px solid transparent; ` +
+              `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}
             contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
@@ -436,7 +439,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       {renderShadowMaybe()}
       <div class={`${outerClass()}`}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
+          `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; overflow: hidden; ` +
           `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}

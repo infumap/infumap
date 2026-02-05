@@ -28,12 +28,13 @@ import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { fullArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
+import { GRID_SIZE } from "../../../constants";
 
 
 export const Toolbar_Note: Component = () => {
   const store = useStore();
 
-  let beforeFormatElement : HTMLDivElement | undefined;
+  let beforeFormatElement: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
   let formatDiv: HTMLDivElement | undefined;
   let urlDiv: HTMLDivElement | undefined;
@@ -96,6 +97,22 @@ export const Toolbar_Note: Component = () => {
       } else {
         noteItem().flags |= NoteFlags.HideBorder;
       }
+    }
+    fullArrange(store);
+  };
+
+  const explicitHeightEnabled = (): boolean => {
+    return (noteItem().flags & NoteFlags.ExplicitHeight) ? true : false;
+  }
+
+  const explicitHeightButtonHandler = (): void => {
+    if (noteItem().flags & NoteFlags.ExplicitHeight) {
+      noteItem().flags &= ~NoteFlags.ExplicitHeight;
+      noteItem().spatialHeightGr = 0;
+    } else {
+      const naturalDims = NoteFns.calcSpatialDimensionsBl(noteItem());
+      noteItem().flags |= NoteFlags.ExplicitHeight;
+      noteItem().spatialHeightGr = naturalDims.h * GRID_SIZE;
     }
     fullArrange(store);
   };
@@ -165,11 +182,11 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
         <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
         <div ref={formatDiv} class="inline-block"
-             onMouseDown={handleFormatDown}>
+          onMouseDown={handleFormatDown}>
           <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
         </div>
         <div ref={urlDiv} class="inline-block"
-             onMouseDown={handleUrlDown}>
+          onMouseDown={handleUrlDown}>
           <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
         </div>
         <Show when={isInTable()}>
@@ -177,6 +194,7 @@ export const Toolbar_Note: Component = () => {
         </Show>
         <Show when={!isInTable()}>
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          <InfuIconButton icon="fa fa-arrows-v" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} />
         </Show>
       </Show>
 
@@ -208,11 +226,11 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
         <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
         <div ref={formatDiv} class="inline-block"
-             onMouseDown={handleFormatDown}>
+          onMouseDown={handleFormatDown}>
           <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
         </div>
         <div ref={urlDiv} class="inline-block"
-             onMouseDown={handleUrlDown}>
+          onMouseDown={handleUrlDown}>
           <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
         </div>
         <Show when={isInTable()}>
@@ -237,7 +255,7 @@ export const Toolbar_Note: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="grow-0" style="flex-order: 0">
+      class="grow-0" style="flex-order: 0">
       <Switch>
         <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
         <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>

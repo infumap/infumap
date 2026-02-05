@@ -21,8 +21,8 @@ import { Item, ItemTypeMixin, ItemType } from "./item";
 
 
 export enum TableFlags {
-  None =           0x000,
-  ShowColHeader =  0x001,
+  None = 0x000,
+  ShowColHeader = 0x001,
 };
 
 export enum NoteFlags {
@@ -30,33 +30,34 @@ export enum NoteFlags {
   //   PlainText is implicit via lack of other text style flags.
   //   AlignLeft is implicit via lack of other alignment flags.
   // TODO (LOW): better group the flags together. Current ordering reflects implementation order.
-  None =                0x000,
-  Heading3 =            0x001,
-  ShowCopyIcon =        0x002,
-  Heading1 =            0x004,
-  Heading2 =            0x008,
-  Bullet1 =             0x010,
-  AlignCenter =         0x020,
-  AlignRight =          0x040,
-  AlignJustify =        0x080,
-  HideBorder =          0x100,
-  Code       =          0x200,
+  None = 0x000,
+  Heading3 = 0x001,
+  ShowCopyIcon = 0x002,
+  Heading1 = 0x004,
+  Heading2 = 0x008,
+  Bullet1 = 0x010,
+  AlignCenter = 0x020,
+  AlignRight = 0x040,
+  AlignJustify = 0x080,
+  HideBorder = 0x100,
+  Code = 0x200,
+  ExplicitHeight = 0x400,
 };
 
 export enum CompositeFlags {
-  None =                0x000,
-  HideBorder =          0x001,
+  None = 0x000,
+  HideBorder = 0x001,
 };
 
 export enum PageFlags {
-  None =                0x000,
+  None = 0x000,
   EmbeddedInteractive = 0x001,
 };
 
 export enum ImageFlags {
-  None =                0x000,
-  HideBorder =          0x001,
-  NoCrop =              0x002,
+  None = 0x000,
+  HideBorder = 0x001,
+  NoCrop = 0x002,
 }
 
 const ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image, ItemType.Expression];

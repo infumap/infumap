@@ -41,6 +41,7 @@ bitflags! {
     const AlignJustify =   0x080;
     const HideBorder =     0x100;
     const Code       =     0x200;
+    const ExplicitHeight = 0x400;
   }
 }
 
@@ -265,7 +266,7 @@ pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Table
+  item_type == ItemType::Table || item_type == ItemType::Note
 }
 
 pub fn is_titled_item_type(item_type: ItemType) -> bool {
@@ -1425,7 +1426,11 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     // y-sizable
     spatial_height_gr: match json::get_integer_field(map, "spatialHeightGr")? {
       Some(v) => { if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("spatialHeightGr", item_type, &id)) } },
-      None => { if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link { Err(expected_for_err("spatialHeightGr", item_type, &id)) } else { Ok(None) } }
+      None => { 
+        if item_type == ItemType::Note { Ok(None) }
+        else if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link { Err(expected_for_err("spatialHeightGr", item_type, &id)) }
+        else { Ok(None) } 
+      }
     }?,
 
     // titled

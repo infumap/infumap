@@ -20,7 +20,7 @@ import { panic } from "../../util/lang";
 import { Item, ItemType, ItemTypeMixin } from "./item";
 
 
-const ITEM_TYPES = [ItemType.Table];
+const ITEM_TYPES = [ItemType.Table, ItemType.Note];
 
 export interface YSizableMixin {
   spatialHeightGr: number
