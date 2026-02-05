@@ -99,7 +99,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const lineHeightScale = () => isPopup() ? 1.0 : heightScale() / widthScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
-  const showPopupHandle = () => store.perVe.getMouseIsOver(vePath());
+  const showPopupHandle = () => store.perVe.getMouseIsOver(vePath()) &&
+    (!store.overlay.textEditInfo() || store.overlay.textEditInfo()!.itemPath != vePath());
 
   const blockSize = () => {
     return {
@@ -333,90 +334,92 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderDetailed = () =>
     <>
-      <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-        <div class="absolute pointer-events-none rounded-xs"
-          style={`left: 0px; top: 0px; ` +
-            `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-            `z-index: ${Z_INDEX_HIGHLIGHT};`} />
-      </Show>
-      <Show when={showPopupHandle()}>
-        <div class="absolute rounded-xs"
-          style={`left: 1px; top: 1px; width: ${blockSize().w - 2}px; height: ${blockSize().h - 2}px; ` +
-            `background-color: ${FEATURE_COLOR}; border: 1px solid ${FEATURE_COLOR}; ` +
-            `opacity: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? 0.4 : 0.2}; ` +
-            `z-index: ${Z_INDEX_HIGHLIGHT}; pointer-events: none; transition: opacity 0.1s;`} />
-      </Show>
-      <Switch>
-        <Match when={NoteFns.hasUrl(noteItem()) &&
-          (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
-          <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
-            style={`position: absolute; ` +
-              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
-              `width: ${naturalWidthPx()}px; ` +
-              `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
-              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-              `font-size: ${infuTextStyle().fontSize}px; ` +
-              `overflow-wrap: break-word; white-space: pre-wrap; ` +
-              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-              `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}>
-            <a id={VeFns.veToPath(props.visualElement) + ":title"}
-              href={noteItem().url}
-              class={`text-blue-800 hover:text-blue-600`}
-              style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-              onClick={aHrefClickListener}
-              onMouseDown={aHrefMouseDownListener}
-              onMouseUp={aHrefMouseUpListener}>
-              {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
-            </a>
-          </div>
-        </Match>
-        <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
-          {/* when editing, don't apply text formatting. */}
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-              `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
-            style={`position: absolute; ` +
-              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
-              `width: ${naturalWidthPx()}px; ` +
-              `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
-              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-              `font-size: ${infuTextStyle().fontSize}px; ` +
-              `overflow-wrap: break-word; white-space: pre-wrap; ` +
-              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-              `outline: 0px solid transparent;`}
-            contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={store.overlay.textEditInfo() != null}
-            onKeyDown={keyDownHandler}
-            onInput={inputListener}>
-            {appendNewlineIfEmpty(noteItem().title)}<span></span>
-          </span>
-        </Match>
-        <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-              `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
-            style={`position: absolute; ` +
-              `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-              `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
-              `width: ${naturalWidthPx()}px; ` +
-              `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
-              `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-              `font-size: ${infuTextStyle().fontSize}px; ` +
-              `overflow-wrap: break-word; white-space: pre-wrap; ` +
-              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-              `outline: 0px solid transparent; ` +
-              `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}
-            contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={store.overlay.textEditInfo() != null}
-            onKeyDown={keyDownHandler}
-            onInput={inputListener}>
-            {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
-          </span>
-        </Match>
-      </Switch>
+      <div class="absolute inset-0 rounded-xs overflow-hidden">
+        <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+          <div class="absolute pointer-events-none rounded-xs"
+            style={`left: 0px; top: 0px; ` +
+              `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+              `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+              `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+        </Show>
+        <Show when={showPopupHandle()}>
+          <div class="absolute rounded-xs"
+            style={`left: 1px; top: 1px; width: ${blockSize().w - 2}px; height: ${blockSize().h - 2}px; ` +
+              `background-color: ${FEATURE_COLOR}; border: 1px solid ${FEATURE_COLOR}; ` +
+              `opacity: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? 0.4 : 0.2}; ` +
+              `z-index: ${Z_INDEX_HIGHLIGHT}; pointer-events: none; transition: opacity 0.1s;`} />
+        </Show>
+        <Switch>
+          <Match when={NoteFns.hasUrl(noteItem()) &&
+            (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
+            <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
+              style={`position: absolute; ` +
+                `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+                `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+                `width: ${naturalWidthPx()}px; ` +
+                `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+                `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                `font-size: ${infuTextStyle().fontSize}px; ` +
+                `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}>
+              <a id={VeFns.veToPath(props.visualElement) + ":title"}
+                href={noteItem().url}
+                class={`text-blue-800 hover:text-blue-600`}
+                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+                onClick={aHrefClickListener}
+                onMouseDown={aHrefMouseDownListener}
+                onMouseUp={aHrefMouseUpListener}>
+                {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
+              </a>
+            </div>
+          </Match>
+          <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
+            {/* when editing, don't apply text formatting. */}
+            <span id={VeFns.veToPath(props.visualElement) + ":title"}
+              class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
+                `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
+              style={`position: absolute; ` +
+                `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+                `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+                `width: ${naturalWidthPx()}px; ` +
+                `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+                `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                `font-size: ${infuTextStyle().fontSize}px; ` +
+                `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                `outline: 0px solid transparent;`}
+              contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
+              spellcheck={store.overlay.textEditInfo() != null}
+              onKeyDown={keyDownHandler}
+              onInput={inputListener}>
+              {appendNewlineIfEmpty(noteItem().title)}<span></span>
+            </span>
+          </Match>
+          <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
+            <span id={VeFns.veToPath(props.visualElement) + ":title"}
+              class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
+                `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
+              style={`position: absolute; ` +
+                `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+                `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+                `width: ${naturalWidthPx()}px; ` +
+                `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+                `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                `font-size: ${infuTextStyle().fontSize}px; ` +
+                `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                `outline: 0px solid transparent; ` +
+                `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}
+              contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
+              spellcheck={store.overlay.textEditInfo() != null}
+              onKeyDown={keyDownHandler}
+              onInput={inputListener}>
+              {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
+            </span>
+          </Match>
+        </Switch>
+      </div>
       <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
@@ -454,7 +457,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       {renderShadowMaybe()}
       <div class={`${outerClass()}`}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; overflow: hidden; ` +
+          `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
           `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
