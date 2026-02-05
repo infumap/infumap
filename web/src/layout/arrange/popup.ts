@@ -257,10 +257,10 @@ export function calcSpatialPopupGeometry(
   }
   li.spatialWidthGr = widthGr;
 
-  // Center positioning
+  // Center positioning, snapped to half-blocks
   li.spatialPositionGr = {
-    x: popupCenter.x - widthGr / 2.0,
-    y: popupCenter.y - heightGr / 2.0
+    x: Math.round((popupCenter.x - widthGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
+    y: Math.round((popupCenter.y - heightGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0)
   };
 
   const geometry = ItemFns.calcGeometry_Spatial(
