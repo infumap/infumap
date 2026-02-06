@@ -279,9 +279,9 @@ function logDirtyReason(reason: string) {
 }
 function logArrangeStats() {
   if (!LOG_ARRANGE_STATS) return;
-  console.log(`[VesCache] Arrange stats: recycled=${arrangeStats.recycled}, dirty=${arrangeStats.dirty}, new=${arrangeStats.new}`);
+  // console.log(`[VesCache] Arrange stats: recycled=${arrangeStats.recycled}, dirty=${arrangeStats.dirty}, new=${arrangeStats.new}`);
   if (arrangeStats.dirty > 0) {
-    console.log(`[VesCache] Dirty reasons:`, Object.fromEntries(arrangeStats.dirtyReasons));
+    // console.log(`[VesCache] Dirty reasons:`, Object.fromEntries(arrangeStats.dirtyReasons));
   }
 }
 

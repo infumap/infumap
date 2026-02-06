@@ -378,10 +378,10 @@ function constructLinkToMeasurable(link: LinkItem): Measurable | null {
   if (isYSizableItem(linkedToMeasurableFields)) {
     (asYSizableItem(linkedToMeasurableFields)).spatialHeightGr = link.spatialHeightGr;
   }
-  if (isNote(linkedToMeasurableFields)) {
+  if (isNote(linkedToMeasurableFields) && ((asNoteItem(linkedToMeasurableFields)).flags & NoteFlags.ExplicitHeight)) {
     (asNoteItem(linkedToMeasurableFields)).spatialHeightGr = link.spatialHeightGr;
-    (asNoteItem(linkedToMeasurableFields)).flags |= NoteFlags.ExplicitHeight;
   }
+
   if (link.aspectOverride != null && (linkedToMeasurableFields as any).naturalAspect !== undefined) {
     (linkedToMeasurableFields as any).naturalAspect = link.aspectOverride;
   }
