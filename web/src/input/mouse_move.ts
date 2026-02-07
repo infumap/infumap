@@ -646,7 +646,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
   if (isXSizableItem(popupDisplayItem)) {
     if (activeVeid.linkIdMaybe) {
-      asXSizableItem(itemState.get(activeVeid.linkIdMaybe)!).spatialWidthGr = newWidthGr;
+      asLinkItem(itemState.get(activeVeid.linkIdMaybe)!).spatialWidthGr = newWidthGr;
     } else {
       asXSizableItem(popupDisplayItem).spatialWidthGr = newWidthGr;
     }
@@ -678,7 +678,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
     if (newHeightBl < 3) { newHeightBl = 3.0; }
     const newHeightGr = newHeightBl * GRID_SIZE;
     if (activeVeid.linkIdMaybe) {
-      asYSizableItem(itemState.get(activeVeid.linkIdMaybe)!).spatialHeightGr = newHeightGr;
+      asLinkItem(itemState.get(activeVeid.linkIdMaybe)!).spatialHeightGr = newHeightGr;
     } else {
       asYSizableItem(popupDisplayItem).spatialHeightGr = newHeightGr;
     }

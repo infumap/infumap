@@ -190,13 +190,10 @@ export function calcSpatialPopupGeometry(
 
   if (isFromAttachment) {
     // Attachment popup: use PopupSpec position and calculate width to match parent block size
-    // Calculate width so that one block in popup = one block in parent page
-    const popupItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(popupItem);
-    const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(currentPage);
+    // Use the popup link dimensions (not the linked item) so link-backed popups resize from the link.
+    const popupItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(li);
 
-    // The popup width in Gr should make the popup's inner width in blocks equal to the popup item's width
-    // For 1:1 block scaling: popupWidthGr / popupInnerWidthGr = parentInnerWidthGr / parentSpatialWidthGr
-    // This means: popupWidthGr = popupItemDimensionsBl.w * (currentPage.innerSpatialWidthGr / parentInnerSizeBl.w)
+    // Use measured popup width directly in Gr so popup size tracks the link/item dimensions.
     widthGr = popupItemDimensionsBl.w * GRID_SIZE;
 
     targetAspect = popupItemDimensionsBl.w / popupItemDimensionsBl.h;
@@ -242,8 +239,9 @@ export function calcSpatialPopupGeometry(
     hasChildChanges = ImageFns.childPopupPositioningHasChanged(currentPage, popupImage);
     hasDefaultChanges = ImageFns.hasStoredPopupPositioning(popupImage);
   } else {
-    widthGr = currentPage.defaultPopupWidthGr;
-    targetAspect = currentPage.naturalAspect;
+    const popupItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(li);
+    widthGr = popupItemDimensionsBl.w * GRID_SIZE;
+    targetAspect = popupItemDimensionsBl.h > 0 ? popupItemDimensionsBl.w / popupItemDimensionsBl.h : currentPage.naturalAspect;
     popupCenter = currentPage.defaultPopupPositionGr;
     hasChildChanges = false;
     hasDefaultChanges = false;
