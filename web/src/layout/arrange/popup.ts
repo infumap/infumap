@@ -34,6 +34,8 @@ import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { ImageFns, asImageItem, isImage } from "../../items/image-item";
+import { asNoteItem, isNote } from "../../items/note-item";
+import { NoteFlags } from "../../items/base/flags-item";
 
 
 /**
@@ -58,19 +60,17 @@ function createPopupLinkItem(currentPage: PageItem, popupVeid: { itemId: string,
   li.id = POPUP_LINK_UID;
 
   if (popupVeid.linkIdMaybe) {
-    const linkItem = itemState.get(popupVeid.linkIdMaybe)!;
-    if (isXSizableItem(linkItem)) {
-      li.spatialWidthGr = asXSizableItem(linkItem).spatialWidthGr;
-    }
-    if (isYSizableItem(linkItem)) {
-      li.spatialHeightGr = asYSizableItem(linkItem).spatialHeightGr;
-    }
+    const linkItem = asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
+    li.spatialWidthGr = linkItem.spatialWidthGr;
+    li.spatialHeightGr = linkItem.spatialHeightGr;
   } else {
     const item = itemState.get(popupVeid.itemId)!;
     if (isXSizableItem(item)) {
       li.spatialWidthGr = asXSizableItem(item).spatialWidthGr;
     }
-    if (isYSizableItem(item)) {
+    if (isNote(item) && (asNoteItem(item).flags & NoteFlags.ExplicitHeight)) {
+      li.spatialHeightGr = asNoteItem(item).spatialHeightGr;
+    } else if (isYSizableItem(item)) {
       li.spatialHeightGr = asYSizableItem(item).spatialHeightGr;
     }
   }

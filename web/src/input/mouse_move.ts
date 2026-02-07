@@ -163,16 +163,23 @@ function changeMouseActionStateMaybe(
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
       const parentPage = asPageItem(parentVe.displayItem);
+      const popupItem = activeVisualElement.displayItem;
       if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
         MouseActionState.get().startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
-        if (activeVisualElement.linkItemMaybe!.spatialHeightGr) {
+
+        if (isNote(popupItem) && (asNoteItem(popupItem).flags & NoteFlags.ExplicitHeight)) {
+          if (activeVisualElement.actualLinkItemMaybe != null) {
+            MouseActionState.get().startHeightBl = activeVisualElement.actualLinkItemMaybe.spatialHeightGr / GRID_SIZE;
+          } else {
+            MouseActionState.get().startHeightBl = asNoteItem(popupItem).spatialHeightGr / GRID_SIZE;
+          }
+        } else if (activeVisualElement.linkItemMaybe!.spatialHeightGr) {
           MouseActionState.get().startHeightBl = activeVisualElement.linkItemMaybe!.spatialHeightGr / GRID_SIZE;
         } else {
           MouseActionState.get().startHeightBl = null;
         }
       } else {
         // Cell-based popup (grid, justified, calendar)
-        const popupItem = activeVisualElement.displayItem;
         if (isPage(popupItem)) {
           MouseActionState.get().startWidthBl = PageFns.getCellPopupWidthNormForParent(parentPage, asPageItem(popupItem));
         } else if (isImage(popupItem)) {
@@ -633,22 +640,36 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   const newWidthGr = newWidthBl * GRID_SIZE;
 
   const activeVeid = VeFns.veidFromItems(activeVe.displayItem, activeVe.actualLinkItemMaybe);
+  const popupDisplayItem = itemState.get(activeVeid.itemId)!;
 
   let requireArrange = false;
 
-  if (isXSizableItem(itemState.get(activeVeid.itemId)!)) {
+  if (isXSizableItem(popupDisplayItem)) {
     if (activeVeid.linkIdMaybe) {
       asXSizableItem(itemState.get(activeVeid.linkIdMaybe)!).spatialWidthGr = newWidthGr;
     } else {
-      asXSizableItem(itemState.get(activeVeid.itemId)!).spatialWidthGr = newWidthGr;
+      asXSizableItem(popupDisplayItem).spatialWidthGr = newWidthGr;
     }
     requireArrange = true;
   }
 
-  if (isYSizableItem(itemState.get(activeVeid.itemId)!)) {
+  if (isNote(popupDisplayItem) &&
+    (asNoteItem(popupDisplayItem).flags & NoteFlags.ExplicitHeight) &&
+    MouseActionState.get().startHeightBl != null) {
+    let newHeightBl = MouseActionState.get().startHeightBl! + deltaBl.y;
+    newHeightBl = Math.round(newHeightBl * 2.0) / 2.0;
+    if (newHeightBl < 1) { newHeightBl = 1.0; }
+    const newHeightGr = newHeightBl * GRID_SIZE;
+    if (activeVeid.linkIdMaybe) {
+      asLinkItem(itemState.get(activeVeid.linkIdMaybe)!).spatialHeightGr = newHeightGr;
+    } else {
+      asNoteItem(popupDisplayItem).spatialHeightGr = newHeightGr;
+    }
+    requireArrange = true;
+  } else if (isYSizableItem(popupDisplayItem)) {
     let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
 
-    if (isTable(itemState.get(activeVeid.itemId)!)) {
+    if (isTable(popupDisplayItem)) {
       newHeightBl = Math.round(newHeightBl);
     } else {
       newHeightBl = Math.round(newHeightBl * 2.0) / 2.0;
@@ -659,7 +680,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
     if (activeVeid.linkIdMaybe) {
       asYSizableItem(itemState.get(activeVeid.linkIdMaybe)!).spatialHeightGr = newHeightGr;
     } else {
-      asYSizableItem(itemState.get(activeVeid.itemId)!).spatialHeightGr = newHeightGr;
+      asYSizableItem(popupDisplayItem).spatialHeightGr = newHeightGr;
     }
     requireArrange = true;
   }

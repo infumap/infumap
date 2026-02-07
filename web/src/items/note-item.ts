@@ -149,7 +149,8 @@ export const NoteFns = {
   },
 
   calcGeometry_Spatial: (note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean): ItemGeometry => {
-    const sizeBl = NoteFns.calcSpatialDimensionsBl(note, isPopup);
+    const ignoreExplicitHeight = isPopup && !(note.flags & NoteFlags.ExplicitHeight);
+    const sizeBl = NoteFns.calcSpatialDimensionsBl(note, ignoreExplicitHeight);
     const blockSizePx = {
       w: containerBoundsPx.w / containerInnerSizeBl.w,
       h: containerBoundsPx.h / containerInnerSizeBl.h

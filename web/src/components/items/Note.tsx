@@ -89,7 +89,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (props.visualElement.linkItemMaybe != null) {
       return ItemFns.calcSpatialDimensionsBl(props.visualElement.linkItemMaybe!);
     }
-    return NoteFns.calcSpatialDimensionsBl(noteItem(), isPopup());
+    const ignoreExplicitHeight = isPopup() && !(noteItem().flags & NoteFlags.ExplicitHeight);
+    return NoteFns.calcSpatialDimensionsBl(noteItem(), ignoreExplicitHeight);
   };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
