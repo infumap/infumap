@@ -38,15 +38,35 @@ const FIRST_BYTE_TIMEOUT_SECS: u64 = 10;
 const FULL_TRANSFER_TIMEOUT_SECS: u64 = 120;
 
 
+fn validate_endpoint(endpoint: &str) -> InfuResult<String> {
+  let endpoint = endpoint.trim();
+  if endpoint.is_empty() {
+    return Err("S3 endpoint must not be empty.".into());
+  }
+
+  if let Some((scheme, _)) = endpoint.split_once("://") {
+    let scheme_lc = scheme.to_ascii_lowercase();
+    if scheme_lc != "https" {
+      return Err(format!(
+        "S3 endpoint '{}' uses insecure or unsupported scheme '{}'. Only 'https' is allowed.",
+        endpoint, scheme).into());
+    }
+  }
+
+  Ok(endpoint.to_owned())
+}
+
+
 pub fn init_bucket(region: Option<&String>, endpoint: Option<&String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Bucket> {
   let credentials = Credentials::new(Some(key), Some(secret), None, None, None)
     .map_err(|e| format!("Could not initialize S3 credentials: {}", e))?;
   let mut bucket = *Bucket::new(
     bucket,
     if let Some(endpoint) = endpoint {
+      let endpoint = validate_endpoint(endpoint)?;
       Region::Custom {
         region: if let Some(region) = region { region.to_owned() } else { "global".to_owned() },
-        endpoint: endpoint.clone()
+        endpoint
       }
     } else {
       match region {
@@ -58,6 +78,24 @@ pub fn init_bucket(region: Option<&String>, endpoint: Option<&String>, bucket: &
   ).map_err(|e| format!("Could not construct S3 bucket instance: {}", e))?;
   bucket.set_request_timeout(Some(Duration::from_secs(FULL_TRANSFER_TIMEOUT_SECS)));
   Ok(bucket)
+}
+
+
+#[cfg(test)]
+mod tests {
+  use super::validate_endpoint;
+
+  #[test]
+  fn validate_endpoint_allows_https_and_host_only() {
+    assert!(validate_endpoint("https://s3.example.com").is_ok());
+    assert!(validate_endpoint("s3.example.com").is_ok());
+  }
+
+  #[test]
+  fn validate_endpoint_rejects_http() {
+    assert!(validate_endpoint("http://s3.example.com").is_err());
+    assert!(validate_endpoint("HTTP://s3.example.com").is_err());
+  }
 }
 
 

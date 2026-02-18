@@ -87,6 +87,10 @@
 # to other configured object stores). If you are using AWS, you don't need to
 # specify an endpoint, only region. If you are using a compatible service, you
 # usually only need to specify the endpoint, not region.
+# Endpoint transport is HTTPS-only. You can specify either:
+# 1) a bare host like `s3.us-west-001.backblazeb2.com` (defaults to HTTPS), or
+# 2) an explicit `https://...` URL.
+# `http://...` endpoints are rejected.
 # Note: This issue: https://github.com/durch/rust-s3/issues/291 is a problem
 # with the default build. Backblaze and Wasabi work, but AWS S3 does not. If
 # you want to use AWS S3, you can change the rust-s3 dependency in Cargo.toml
@@ -103,6 +107,7 @@
 # primary object store by default - the secondary is only used as a backup in case
 # of error. For this reason, you should use the vendor with the lowest egress
 # cost for the primary store.
+# Endpoint transport is HTTPS-only, same as s3_1_endpoint.
 #enable_s3_2_object_storage = false
 #s3_2_region = 
 #s3_2_endpoint = 
@@ -119,6 +124,7 @@
 # backup_encryption_key must be a 32 byte hex encoded value. Infumap generates
 # a unique one automatically for you when it creates a default settings.toml file.
 # You can also generate a suitable one manually using the infumap keygen cli command.
+# Endpoint transport is HTTPS-only, same as s3_1_endpoint.
 #enable_s3_backup = false
 #backup_period_minutes = 60
 #backup_retention_period_days = 30
