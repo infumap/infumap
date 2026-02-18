@@ -365,7 +365,13 @@ pub struct UpdateTotpResponse {
 }
 
 pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
-  let mut db = db.lock().await;
+  let session = match get_and_validate_session(&req, db).await {
+    Some(s) => s,
+    None => {
+      warn!("Could not update totp: no valid session is present.");
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("auth")) } );
+    }
+  };
 
   let payload: UpdateTotpRequest = match incoming_json(req).await {
     Ok(p) => p,
@@ -375,9 +381,18 @@ pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming
     }
   };
 
-  let mut user = match db.user.get(&payload.user_id).ok_or(()) {
+  if payload.user_id != session.user_id {
+    warn!(
+      "Could not update totp: session user '{}' does not match request user '{}'.",
+      session.user_id, payload.user_id);
+    return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("auth")) } );
+  }
+
+  let mut db = db.lock().await;
+
+  let mut user = match db.user.get(&session.user_id).ok_or(()) {
     Err(_) => {
-      error!("User {} does not exist updating totp.", payload.user_id);
+      error!("User {} does not exist updating totp.", session.user_id);
       return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
     },
     Ok(u) => u
@@ -408,7 +423,7 @@ pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming
   }
 
   if let Err(e) = db.user.update(&user).await {
-    error!("User {}: failed to update totp: {}", payload.user_id, e);
+    error!("User {}: failed to update totp: {}", session.user_id, e);
     return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("server error")) } );
   };
 
