@@ -130,11 +130,31 @@ impl SessionDb {
   }
 
   pub fn get_session(&mut self, id: &Uid) -> InfuResult<Option<Session>> {
-    let user_id = self.user_id_by_session_id.get(id).ok_or(format!("Unknown session id '{}'.", id))?;
-    let store = &mut self.store_by_user_id.get_mut(user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
+    let user_id = match self.user_id_by_session_id.get(id) {
+      Some(user_id) => user_id.clone(),
+      None => return Ok(None),
+    };
+
+    let store = match self.store_by_user_id.get_mut(&user_id) {
+      Some(store) => store,
+      None => return Ok(None),
+    };
+
     match store.get(id) {
-      None => Ok(None),
-      Some(s) => Ok(Some(s.clone()))
+      None => {
+        // Session record disappeared from the store. Keep indices consistent.
+        self.user_id_by_session_id.remove(id);
+        Ok(None)
+      },
+      Some(s) => {
+        let now_unix_secs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
+        if s.expires <= now_unix_secs {
+          // Expired sessions must not be considered valid.
+          self.user_id_by_session_id.remove(id);
+          return Ok(None);
+        }
+        Ok(Some(s.clone()))
+      }
     }
   }
 
