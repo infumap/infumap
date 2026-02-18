@@ -1,6 +1,6 @@
 # Infumap
 
-Infumap is the platform I built to run my life off of.
+Infumap is the platform I built to run my life off.
 
 It’s a giant workspace that provides a powerful set of building blocks that can be pieced together to match a wide variety of needs.
 

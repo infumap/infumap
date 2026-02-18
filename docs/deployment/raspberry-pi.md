@@ -1,18 +1,19 @@
 
 ## Raspberry Pi / VPN
 
-If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them.
-In particular, it's theoretically possible for your hosting provider to take a snapshot of your running VPS instance, including any data currently
-in memory. There is no way to secure Infumap against this possibility.
+On a typical VPS, you must trust the hosting provider (and the underlying hardware and virtualization stack).
+A sufficiently privileged operator may be able to access your VM’s disk and, in some cases, its memory,
+potentially exposing secrets and plaintext.
 
-If this risk is unacceptable to you, your only option is to host Infumap on hardware that you control. A Raspberry Pi 5 connected to your
-home router is a good low-cost option for doing this. Unfortunately, most Internet service providers (ISPs) dynamically issue WLAN IPs from
-a private subnet. Consequently, in order to access your Raspberry Pi device from the internet, you will need to securely route traffic via
-a public IP address.
+If this risk is unacceptable, you can host Infumap on hardware you physically control. A Raspberry Pi 5 connected
+to your home router is a low-cost option. However, most ISPs assign dynamic public IP addresses, and home networks
+are typically behind NAT. As a result, making your Raspberry Pi accessible from the internet requires securely
+routing traffic through a stable public IP address.
 
-There are many ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the security implications
-of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel HTTPS
-traffic through the public IP of the VPS. This is the approach outlined in this document.
+There are several ways to do this. A Cloudflare Zero Trust Tunnel is one convenient option, though it requires
+running the `cloudflared` daemon and trusting Cloudflare’s infrastructure. Another approach is to establish a
+WireGuard VPN between a low-cost VPS and your Raspberry Pi, forwarding HTTPS traffic through the VPS’s public IP.
+This document outlines the latter approach.
 
 
 ### Initial Raspberry Pi Setup
