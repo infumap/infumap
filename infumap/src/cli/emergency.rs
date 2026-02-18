@@ -15,11 +15,14 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::env::temp_dir;
+use std::process::Command as ProcessCommand;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use config::Config;
 use infusdk::util::infu::InfuResult;
 use log::{error, info, warn};
+use time::format_description::well_known::Rfc3339;
+use time::{OffsetDateTime, UtcOffset};
 
 use crate::cli::restore::process_backup;
 use crate::setup::add_config_defaults;
@@ -127,6 +130,57 @@ pub fn make_clap_subcommand() -> Command {
 }
 
 
+fn format_local_system_time(unix_ts: u64) -> String {
+  let date_format = "+%Y-%m-%dT%H:%M:%S%z (%Z)";
+  let unix_ts_s = unix_ts.to_string();
+
+  // macOS / BSD `date`.
+  if let Ok(output) = ProcessCommand::new("date")
+    .args(["-r", &unix_ts_s, date_format])
+    .output() {
+    if output.status.success() {
+      if let Ok(s) = String::from_utf8(output.stdout) {
+        let s = s.trim().to_owned();
+        if !s.is_empty() {
+          return s;
+        }
+      }
+    }
+  }
+
+  // GNU `date`.
+  let gnu_timestamp_arg = format!("@{}", unix_ts);
+  if let Ok(output) = ProcessCommand::new("date")
+    .args(["-d", &gnu_timestamp_arg, date_format])
+    .output() {
+    if output.status.success() {
+      if let Ok(s) = String::from_utf8(output.stdout) {
+        let s = s.trim().to_owned();
+        if !s.is_empty() {
+          return s;
+        }
+      }
+    }
+  }
+
+  // Last-resort fallback (UTC), while making it explicit local timezone could not be determined.
+  let unix_ts_i64 = match i64::try_from(unix_ts) {
+    Ok(v) => v,
+    Err(_) => return format!("local system timezone unavailable for timestamp {} (UTC unavailable: unrepresentable timestamp)", unix_ts),
+  };
+
+  let utc_dt = match OffsetDateTime::from_unix_timestamp(unix_ts_i64) {
+    Ok(v) => v,
+    Err(_) => return format!("local system timezone unavailable for timestamp {} (UTC unavailable: invalid timestamp)", unix_ts),
+  };
+
+  match utc_dt.to_offset(UtcOffset::UTC).format(&Rfc3339) {
+    Ok(v) => format!("local system timezone unavailable; UTC {}", v),
+    Err(_) => format!("local system timezone unavailable for timestamp {} (UTC format error)", unix_ts),
+  }
+}
+
+
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let s3_backup_endpoint = sub_matches.get_one::<String>("s3_backup_endpoint");
   let s3_backup_region = sub_matches.get_one::<String>("s3_backup_region");
@@ -175,7 +229,10 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   timestamps_for_user.sort();
   let last_timestamp = *timestamps_for_user.last().unwrap();
   let backup_filename = crate::storage::backup::format_backup_filename(user_id, last_timestamp);
-  info!("retrieving latest backup file (timestamp {}) for user {}.", last_timestamp, user_id);
+  let local_system_time = format_local_system_time(last_timestamp);
+  info!(
+    "retrieving latest backup file (timestamp {} / local system time on this computer: {}) for user {}.",
+    last_timestamp, local_system_time, user_id);
   let backup_bytes = crate::storage::backup::get(bs.clone(), &user_id, last_timestamp).await?;
   info!("retrieved {} bytes.", backup_bytes.len());
 
