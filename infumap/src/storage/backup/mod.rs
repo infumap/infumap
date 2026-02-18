@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
 
 use infusdk::util::{infu::InfuResult, uid::Uid};
 use s3::Bucket;
@@ -40,19 +40,22 @@ pub fn new(s3_region: Option<&String>, s3_endpoint: Option<&String>, s3_bucket: 
 }
 
 
-pub async fn put(backup_store: Arc<BackupStore>, user_id: &str, backup_bytes: Vec<u8>) -> InfuResult<String> {
-  let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-  let s3_path = format!("{}_{}", user_id, timestamp);
-  let result = backup_store.bucket.put_object(s3_path.clone(), &backup_bytes.as_slice()).await
+pub fn format_backup_filename(user_id: &str, timestamp: u64) -> String {
+  format!("{}_{}", user_id, timestamp)
+}
+
+
+pub async fn put(backup_store: Arc<BackupStore>, backup_filename: &str, backup_bytes: Vec<u8>) -> InfuResult<()> {
+  let result = backup_store.bucket.put_object(backup_filename, &backup_bytes.as_slice()).await
     .map_err(|e| format!("Error occurred putting backup in S3: {}", e))?;
   if result.status_code() != 200 {
     return Err(format!("Unexpected status code putting backup in S3: {}", result.status_code()).into());
   }
-  Ok(s3_path)
+  Ok(())
 }
 
 pub async fn get(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) -> InfuResult<Vec<u8>> {
-  let s3_path = format!("{}_{}", user_id, timestamp);
+  let s3_path = format_backup_filename(user_id, timestamp);
   let result = backup_store.bucket.get_object(s3_path.clone()).await
     .map_err(|e| format!("Error occurred getting backup from S3: {}", e))?;
   if result.status_code() != 200 {
@@ -62,7 +65,7 @@ pub async fn get(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) 
 }
 
 pub async fn delete(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) -> InfuResult<()> {
-  let s3_path = format!("{}_{}", user_id, timestamp);
+  let s3_path = format_backup_filename(user_id, timestamp);
   let result = backup_store.bucket.delete_object(s3_path).await
     .map_err(|e| format!("Error occurred deleting backup S3 object: {}", e))?;
   if result.status_code() != 204 {
@@ -113,7 +116,7 @@ pub async fn get_latest_backup_filename_for_user(backup_store: Arc<BackupStore>,
   let backups = list(backup_store).await?;
   if let Some(timestamps) = backups.get(user_id) {
     if let Some(latest_timestamp) = timestamps.last() {
-      return Ok(Some(format!("{}_{}", user_id, latest_timestamp)));
+      return Ok(Some(format_backup_filename(user_id, *latest_timestamp)));
     }
   }
   Ok(None)

@@ -174,6 +174,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   };
   timestamps_for_user.sort();
   let last_timestamp = *timestamps_for_user.last().unwrap();
+  let backup_filename = crate::storage::backup::format_backup_filename(user_id, last_timestamp);
   info!("retrieving latest backup file (timestamp {}) for user {}.", last_timestamp, user_id);
   let backup_bytes = crate::storage::backup::get(bs.clone(), &user_id, last_timestamp).await?;
   info!("retrieved {} bytes.", backup_bytes.len());
@@ -207,7 +208,8 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     &items_json_path.to_str().ok_or(format!("could not interpret items.json path as str: {:?}", items_json_path))?,
     &user_json_path.to_str().ok_or(format!("could not interpret user.json path as str: {:?}", user_json_path))?,
     &encryption_key,
-    &user_id).await?;
+    &user_id,
+    &backup_filename).await?;
 
   info!("creating cache: {:?}", infumap_cache_dir);
   let num_created = ensure_256_subdirs(&infumap_cache_dir).await?;

@@ -58,12 +58,12 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
   tokio::io::AsyncReadExt::read_exact(&mut f, &mut buffer).await?;
 
-  process_backup(&buffer, "items.json", "user.json", encryption_key, user_id).await
+  process_backup(&buffer, "items.json", "user.json", encryption_key, user_id, filename).await
 }
 
 
-pub async fn process_backup(buffer: &Vec<u8>, items_path: &str, user_path: &str, encryption_key: &str, user_id: &str) -> InfuResult<()> {
-  let unencrypted = decrypt_file_data(&encryption_key, &buffer, user_id)?;
+pub async fn process_backup(buffer: &Vec<u8>, items_path: &str, user_path: &str, encryption_key: &str, user_id: &str, backup_filename: &str) -> InfuResult<()> {
+  let unencrypted = decrypt_file_data(&encryption_key, &buffer, backup_filename)?;
 
   let (compression_type, compressed_data) = if unencrypted.len() > 4 && &unencrypted[0..4] == b"IMZ1" {
     (1u8, &unencrypted[4..])

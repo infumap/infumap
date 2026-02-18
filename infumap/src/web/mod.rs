@@ -308,13 +308,24 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           }
         };
 
-        // This doesn't require enough CPU to bother spawning.
-        debug!("Encrypting backup data for user '{}'.", user_id);
-        let encrypted = match encrypt_file_data(&encryption_key, &compressed, &user_id) {
+        let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+          Ok(duration) => duration.as_secs(),
+          Err(e) => {
+            error!("Failed to create backup timestamp for user '{}': {}", user_id, e);
+            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "4").await;
+            METRIC_BACKUPS_FAILED_TOTAL.inc();
+            continue;
+          }
+        };
+        let backup_filename = storage_backup::format_backup_filename(&user_id, timestamp);
+
+        // Bind ciphertext to the exact backup object name to prevent replay/rename attacks.
+        debug!("Encrypting backup data for user '{}' with backup filename '{}'.", user_id, backup_filename);
+        let encrypted = match encrypt_file_data(&encryption_key, &compressed, backup_filename.as_str()) {
           Ok(bytes) => bytes,
           Err(e) => {
             error!("Failed to encrypt database logs for user '{}': {}", user_id, e);
-            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "4").await;
+            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "5").await;
             METRIC_BACKUPS_FAILED_TOTAL.inc();
             continue;
           }
@@ -322,11 +333,11 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 
         info!("Finished creating database log backup for user '{}' with size {} bytes.", user_id, encrypted.len());
 
-        match storage_backup::put(backup_store_ref.clone(), &user_id, encrypted).await {
-          Ok(s3_filename) => {
-            info!("Backed up database logs for user '{}' to '{}'.", user_id, s3_filename);
+        match storage_backup::put(backup_store_ref.clone(), &backup_filename, encrypted).await {
+          Ok(_) => {
+            info!("Backed up database logs for user '{}' to '{}'.", user_id, backup_filename);
 
-            match crate::util::fs::write_last_backup_filename(&data_dir, &user_id, &s3_filename).await {
+            match crate::util::fs::write_last_backup_filename(&data_dir, &user_id, &backup_filename).await {
               Ok(_) => {
                 info!("Updated last backup tracking file for user '{}'.", user_id);
               },
@@ -335,11 +346,11 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
               }
             }
 
-            update_backup_status(db.clone(), &user_id, BackupStatus::Succeeded, "5").await;
+            update_backup_status(db.clone(), &user_id, BackupStatus::Succeeded, "6").await;
           },
           Err(e) => {
             error!("Database log backup failed for user '{}': {}", user_id, e);
-            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "6").await;
+            update_backup_status(db.clone(), &user_id, BackupStatus::Failed, "7").await;
             METRIC_BACKUPS_FAILED_TOTAL.inc();
           }
         }
@@ -429,9 +440,10 @@ async fn process_and_restore_backup(
   backup_bytes: &[u8],
   data_dir: &str,
   user_id: &str,
-  encryption_key: &str
+  encryption_key: &str,
+  backup_filename: &str
 ) -> InfuResult<()> {
-  let unencrypted = decrypt_file_data(encryption_key, backup_bytes, user_id)?;
+  let unencrypted = decrypt_file_data(encryption_key, backup_bytes, backup_filename)?;
 
   let (compression_type, compressed_data) = if unencrypted.len() > 4 && &unencrypted[0..4] == b"IMZ1" {
     (1u8, &unencrypted[4..])
@@ -519,7 +531,7 @@ async fn validate_backup_tracking(data_dir: &str, backup_store: Arc<BackupStore>
                   .map_err(|e| format!("Failed to retrieve backup '{}' for user '{}': {}", s3, user_id, e))?;
 
                 let encryption_key = config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY).map_err(|e| e.to_string())?;
-                process_and_restore_backup(&backup_bytes, data_dir, &user_id, &encryption_key).await
+                process_and_restore_backup(&backup_bytes, data_dir, &user_id, &encryption_key, &s3).await
                   .map_err(|e| format!("Failed to restore backup for user '{}': {}", user_id, e))?;
 
                 crate::util::fs::write_last_backup_filename(data_dir, &user_id, &s3).await
