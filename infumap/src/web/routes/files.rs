@@ -62,6 +62,32 @@ const LABEL_FAILED: &'static str = "failed";
 // TODO (LOW): Make this configurable.
 const JPEG_QUALITY: u8 = 80;
 
+fn is_safe_inline_mime(mime_type: &str) -> bool {
+  matches!(
+    mime_type.to_ascii_lowercase().as_str(),
+    "image/jpeg" | "image/jpg" | "image/png" | "image/webp" | "image/gif"
+  )
+}
+
+fn content_disposition_header(uid: &str, inline: bool) -> String {
+  let mode = if inline { "inline" } else { "attachment" };
+  format!("{}; filename=\"{}\"", mode, uid)
+}
+
+fn response_content_headers(uid: &str, mime_type: &str) -> (String, String) {
+  if is_safe_inline_mime(mime_type) {
+    (
+      mime_type.to_owned(),
+      content_disposition_header(uid, true)
+    )
+  } else {
+    (
+      "application/octet-stream".to_owned(),
+      content_disposition_header(uid, false)
+    )
+  }
+}
+
 
 pub async fn serve_files_route(
     config: Arc<Config>,
@@ -158,8 +184,11 @@ async fn get_cached_resized_img(
               debug!("Responding with cached image '{}' (unmodified original).", candidate);
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
               let data = storage_cache::get(image_cache, &owner_id, candidate).await?.unwrap();
+              let (content_type, content_disposition) = response_content_headers(&uid, &original_mime_type_string);
               return Ok(Response::builder()
-                .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
+                .header(hyper::header::CONTENT_TYPE, content_type)
+                .header("Content-Disposition", content_disposition)
+                .header("X-Content-Type-Options", "nosniff")
                 .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
                 .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                 .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
@@ -209,6 +238,8 @@ async fn get_cached_resized_img(
           let data = storage_cache::get(image_cache, &owner_id, best_candidate.0).await?.unwrap();
           return Ok(Response::builder()
             .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+            .header("Content-Disposition", content_disposition_header(&uid, true))
+            .header("X-Content-Type-Options", "nosniff")
             .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
             .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
@@ -226,13 +257,16 @@ async fn get_cached_resized_img(
   let original_file_bytes = object::get(object_store, owner_id.clone(), String::from(&uid), &object_encryption_key).await?;
 
   if respond_with_cached_original {
-    let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Original };
+    let cache_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Original };
     debug!("Caching then returning image '{}' (unmodified original).", cache_key);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
     // it is possible there was more than one request for this, and another request won inserting into cache.
     storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, original_file_bytes.clone()).await?;
+    let (content_type, content_disposition) = response_content_headers(&uid, &original_mime_type_string);
     return Ok(Response::builder()
-      .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
+      .header(hyper::header::CONTENT_TYPE, content_type)
+      .header("Content-Disposition", content_disposition)
+      .header("X-Content-Type-Options", "nosniff")
       .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
       .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
       .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
@@ -279,6 +313,8 @@ async fn get_cached_resized_img(
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
       Ok(Response::builder()
         .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+        .header("Content-Disposition", content_disposition_header(&uid, true))
+        .header("X-Content-Type-Options", "nosniff")
         .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
         .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
@@ -322,8 +358,12 @@ async fn get_file(
 
   METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FULL]).inc();
 
+  let (content_type, content_disposition) = response_content_headers(uid, mime_type_string);
+
   Ok(Response::builder()
-    .header(hyper::header::CONTENT_TYPE, mime_type_string)
+    .header(hyper::header::CONTENT_TYPE, content_type)
+    .header("Content-Disposition", content_disposition)
+    .header("X-Content-Type-Options", "nosniff")
     .header(hyper::header::CACHE_CONTROL, calc_cache_control(browser_cache_max_age_seconds))
     .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
     .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
