@@ -11,8 +11,8 @@ are typically behind NAT. As a result, making your Raspberry Pi accessible from 
 routing traffic through a stable public IP address.
 
 There are several ways to do this. A Cloudflare Zero Trust Tunnel is one convenient option, though it requires
-running the `cloudflared` daemon and trusting Cloudflare’s infrastructure. Another approach is to establish a
-WireGuard VPN between a low-cost VPS and your Raspberry Pi, forwarding HTTPS traffic through the VPS’s public IP.
+running the `cloudflared` daemon and trusting Cloudflare’s infrastructure. A more secure approach is to establish
+a WireGuard VPN between a low-cost VPS and your Raspberry Pi, forwarding HTTPS traffic through the VPS’s public IP.
 This document outlines the latter approach.
 
 
