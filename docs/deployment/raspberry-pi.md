@@ -334,14 +334,8 @@ You can unmount and close the LUKS container with:
     sudo umount /mnt/infudata
     sudo cryptsetup luksClose infuvol
 
-You need to manually open the LUKS container and mount the volume on every system reboot:
-
-    sudo cryptsetup luksOpen enc_volume.img infuvol
-    sudo mount /dev/mapper/infuvol /mnt/infudata
-
-You will be prompted for a password each time you open the LUKS volume. It is possible to automate this on startup, but doing so
-would defeat the purpose of using the encrypted drive as as someone with access to the physical device would be able to mount the
-volume.
+If you use a LUKS volume for Infumap data, you must manually unlock and mount it after each reboot.
+This is covered in the `Periodic Admin Maintenance` section below.
 
 
 ### Configure and Run Infumap:
@@ -468,3 +462,55 @@ Note your WLAN IP from router the router configuration page.
 Remove power from your router for about 5 minutes. Then turn it back on, and see if everything recovers.
 
 Note the new public and WLAN IPs and whether they changed.
+
+
+### Periodic Admin Maintenance
+
+Apply operating system security updates and perform a basic health check on a regular schedule (monthly is a good default).
+
+On Raspberry Pi:
+
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt autoremove -y
+    sudo apt autoclean
+
+On VPS:
+
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt autoremove -y
+    sudo apt autoclean
+
+If a reboot is required on either host:
+
+    test -f /var/run/reboot-required && echo "reboot required"
+    sudo reboot
+
+If your Infumap data is on a LUKS volume, after the Raspberry Pi reboots:
+
+    sudo cryptsetup luksOpen enc_volume.img infuvol
+    sudo mount /dev/mapper/infuvol /mnt/infudata
+
+You will be prompted for the LUKS passphrase. This manual step is intentional: automating unlock reduces protection against physical device access.
+
+After updates/reboots, verify service health.
+
+On Raspberry Pi:
+
+    sudo systemctl is-active wg-quick@wg0
+    sudo systemctl is-active wg-monitor.service
+    sudo systemctl is-active caddy
+    sudo wg show wg0
+    sudo tail -n 100 /var/log/wg-monitor.log
+
+On VPS:
+
+    sudo systemctl is-active wg-quick@wg0
+    sudo systemctl is-active nftables
+    sudo wg show wg0
+
+Check storage usage:
+
+    df -h
+    sudo journalctl --disk-usage
