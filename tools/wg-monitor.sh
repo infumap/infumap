@@ -35,9 +35,9 @@ restart_wireguard_service() {
 }
 
 log() {
-    local log_file="$1"
-    local msg="$2"
-    echo "$("$DATE_BIN" '+%Y-%m-%d %H:%M:%S') - ${msg}" | "$TEE_BIN" -a "$log_file" > /dev/null
+    local target_log_file="$1"
+    local message="$2"
+    echo "$("$DATE_BIN" '+%Y-%m-%d %H:%M:%S') - ${message}" | "$TEE_BIN" -a "$target_log_file" > /dev/null
 }
 
 if [ "$#" -ne 2 ]; then
