@@ -229,35 +229,61 @@ Verify it's up:
 
 ### Setup A WireGuard Monitoring Service
 
-With the above setup, I observe a periodic issue whereby the Raspberry Pi device becomes unreachable over
-the WireGuard network. I have not identified the exact cause, though I suspect it is likely due to my ISP
-changing the WLAN or public IP address. In order to work around this issue, I use a simple script to monitor
-whether the VPS server is reachable from the Raspberry Pi, and restart the WireGuard service on the Raspberry
-Pi device if it is not.
+With the above setup, the Raspberry Pi may occasionally become unreachable over the WireGuard network.
+To reduce downtime, use a small watchdog script that monitors reachability to the VPS over `wg0`
+and restarts the WireGuard service when required.
 
-Copy the `infumap/tools/wg-monitor.sh` script to `/usr/local/bin/`.
+Install `infumap/tools/wg-monitor.sh` as a root-owned executable:
+
+    sudo install -o root -g root -m 0755 ~/git/infumap/tools/wg-monitor.sh /usr/local/bin/wg-monitor.sh
+
+Create and lock down a log file:
+
+    sudo touch /var/log/wg-monitor.log
+    sudo chown root:root /var/log/wg-monitor.log
+    sudo chmod 0600 /var/log/wg-monitor.log
 
 Create a file `/etc/systemd/system/wg-monitor.service` with the following text:
 
     [Unit]
     Description=Monitor WireGuard Service
-    After=network.target
+    Wants=network-online.target
+    After=network-online.target wg-quick@wg0.service
 
     [Service]
     Type=simple
-    User=pi
+    User=root
+    Group=root
     ExecStart=/usr/local/bin/wg-monitor.sh 10.0.0.1 /var/log/wg-monitor.log
     Restart=always
     RestartSec=10
+    NoNewPrivileges=yes
+    PrivateTmp=yes
+    ProtectSystem=full
+    ProtectHome=yes
+    ProtectControlGroups=yes
+    ProtectKernelModules=yes
+    ProtectKernelTunables=yes
+    ProtectKernelLogs=yes
+    RestrictSUIDSGID=yes
+    LockPersonality=yes
+    MemoryDenyWriteExecute=yes
+    RestrictRealtime=yes
+    SystemCallArchitectures=native
 
     [Install]
     WantedBy=multi-user.target
 
-Reload systemd, start, and enable. 
+Reload systemd, enable, and start:
 
     sudo systemctl daemon-reload
     sudo systemctl enable wg-monitor.service
     sudo systemctl start wg-monitor.service
+
+Check status and recent logs:
+
+    sudo systemctl status wg-monitor.service
+    sudo tail -n 100 /var/log/wg-monitor.log
 
 
 ### Setup Encrypted drive

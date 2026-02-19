@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -euo pipefail
+PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+
 # Copyright (C) The Infumap Authors
 # This file is part of Infumap.
 #
@@ -17,14 +20,24 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+readonly PING_BIN="$(command -v ping)"
+readonly SYSTEMCTL_BIN="$(command -v systemctl)"
+readonly DATE_BIN="$(command -v date)"
+readonly TEE_BIN="$(command -v tee)"
+
 ping_server() {
     local server="$1"
-    ping -c 1 "$server" > /dev/null 2>&1
-    return $?
+    "$PING_BIN" -c 1 -W 5 "$server" > /dev/null 2>&1
 }
 
 restart_wireguard_service() {
-    sudo systemctl restart wg-quick@wg0
+    "$SYSTEMCTL_BIN" restart wg-quick@wg0
+}
+
+log() {
+    local log_file="$1"
+    local msg="$2"
+    echo "$("$DATE_BIN" '+%Y-%m-%d %H:%M:%S') - ${msg}" | "$TEE_BIN" -a "$log_file" > /dev/null
 }
 
 if [ "$#" -ne 2 ]; then
@@ -34,17 +47,17 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-server="$1"
-log_file="$2"
+readonly server="$1"
+readonly log_file="$2"
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Command executed: $0 $*" | sudo tee -a "$log_file" > /dev/null
+log "$log_file" "Command executed: $0 $*"
 
 while true; do
     sleep 60
     # I encountered a high CPU issue that was bad enough to prevent ssh access. I used the commented out command here to help debug that.
     # top -b -c -n 1 -d 1 -w 160 | head -n 18 > /home/pi/top-log/top-$(date "+%Y-%m-%d_%H-%M-%S")
     if ! ping_server "$server"; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping to $server failed. Restarting WireGuard service." | sudo tee -a "$log_file" > /dev/null
+        log "$log_file" "Ping to $server failed. Restarting WireGuard service."
         restart_wireguard_service
         sleep 240
     fi
