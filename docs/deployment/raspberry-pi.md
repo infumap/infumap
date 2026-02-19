@@ -229,9 +229,9 @@ Verify it's up:
 
 ### Setup A WireGuard Monitoring Service
 
-With the above setup, the Raspberry Pi may occasionally become unreachable over the WireGuard network.
-To reduce downtime, use a small watchdog script that monitors reachability to the VPS over `wg0`
-and restarts the WireGuard service when required.
+With the above setup, the Raspberry Pi may occasionally become unreachable over the WireGuard network,
+sometimes indefinitely until manual intervention. As a workaround, use a small watchdog script that
+monitors reachability to the VPS over `wg0` and restarts the WireGuard service when required.
 
 Install `infumap/tools/wg-monitor.sh` as a root-owned executable:
 
