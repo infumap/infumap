@@ -29,6 +29,12 @@ called the LAN hosts page) in the router admin interface. Then:
 
     ssh pi@<ip address>
 
+Install prerequisites:
+
+    sudo apt update
+    sudo apt upgrade
+    sudo apt install tmux ufw wireguard
+
 (optional) Disable additional services commonly unnecessary for a headless Infumap host:
 
     sudo systemctl disable --now avahi-daemon.service avahi-daemon.socket 2>/dev/null || true
@@ -36,9 +42,12 @@ called the LAN hosts page) in the router admin interface. Then:
     sudo systemctl disable --now ModemManager.service 2>/dev/null || true
     sudo systemctl disable --now cups.service cups-browsed.service 2>/dev/null || true
 
-(optional, Ethernet-only) Disable Wi-Fi userspace management:
+(optional, if installed) Disable and remove Raspberry Pi Connect (cloud remote access):
 
-    sudo systemctl disable --now wpa_supplicant.service 2>/dev/null || true
+    sudo systemctl disable --now rpi-connect.service 2>/dev/null || true
+    sudo apt purge -y rpi-connect || true
+    sudo apt purge -y rpi-connect-lite || true
+    sudo apt autoremove -y
 
 (optional) Configure `journald` for RAM-only logs. This keeps diagnostics available for live troubleshooting
 while avoiding persistent log growth on disk:
@@ -59,11 +68,14 @@ Then restart and verify:
     dtoverlay=disable-wifi
     dtparam=audio=off
 
-Install prerequisites:
+Apply related service-level disables:
 
-    sudo apt update
-    sudo apt upgrade
-    sudo apt install tmux ufw wireguard
+    sudo systemctl disable --now wpa_supplicant.service 2>/dev/null || true
+    sudo systemctl disable --now bluetooth.service hciuart.service 2>/dev/null || true
+
+Because `/boot/firmware/config.txt` changes apply only after reboot, reboot now and reconnect over Ethernet SSH:
+
+    sudo reboot
 
 ### Raspberry Pi Firewall and SSH Access Policy
 
