@@ -24,7 +24,8 @@ Use the Raspberry Pi Imager to install a clean OS image.
 - Enable the SSH service and use public-key authentication as this is more secure than password authentication.
 - Turn off telemetry.
 
-To figure out the IP address of your Raspberry Pi you can typically log into your router admin webpage and inspect the LAN host information page.
+After first boot, find the Raspberry Pi's LAN IP address by checking your router's DHCP client/lease table (sometimes
+called the LAN hosts page) in the router admin interface. Then:
 
     ssh pi@<ip address>
 
