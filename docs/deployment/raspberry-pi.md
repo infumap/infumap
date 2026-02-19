@@ -20,7 +20,7 @@ This document outlines the latter approach.
 
 Use the Raspberry Pi Imager to install a clean OS image.
 
-- Select Raspberry Pi OS (64 bit).
+- Select `Raspberry Pi OS Lite (64-bit)` (in Imager this is under `Raspberry Pi OS (other)`).
 - Enable the SSH service and use public-key authentication as this is more secure than password authentication.
 - Turn off telemetry.
 
@@ -28,11 +28,16 @@ To figure out the IP address of your Raspberry Pi you can typically log into you
 
     ssh pi@<ip address>
 
-(optional) Disable some irrelevant services to conserve resources:
+(optional) Disable additional services commonly unnecessary for a headless Infumap host:
 
-    sudo systemctl disable --global pipewire
-    sudo systemctl disable --global pulseaudio
-    sudo systemctl disable --global pipewire-pulse
+    sudo systemctl disable --now avahi-daemon.service avahi-daemon.socket 2>/dev/null || true
+    sudo systemctl disable --now triggerhappy.service 2>/dev/null || true
+    sudo systemctl disable --now ModemManager.service 2>/dev/null || true
+    sudo systemctl disable --now cups.service cups-browsed.service 2>/dev/null || true
+
+(optional, Ethernet-only) Disable Wi-Fi userspace management:
+
+    sudo systemctl disable --now wpa_supplicant.service 2>/dev/null || true
 
 (optional) Update `/etc/systemd/journald.conf` to limit the disk space used by `journalctl`:
 
@@ -41,10 +46,11 @@ To figure out the IP address of your Raspberry Pi you can typically log into you
     SystemMaxFileSize=100M     # Maximum size of individual journal files
     Compress=yes               # Enable compression
 
-(optional) Disable bluetooth and wifi (only if you are using `eth0` for networking obviously) by adding the following to `/boot/firmware/config.txt`:
+(optional, Ethernet-only and no audio use) Reduce hardware/software attack surface by adding the following to `/boot/firmware/config.txt`:
 
     dtoverlay=disable-bt
     dtoverlay=disable-wifi
+    dtparam=audio=off
 
 Install prerequisites:
 
