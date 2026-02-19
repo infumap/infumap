@@ -65,7 +65,14 @@ Install prerequisites:
     sudo apt upgrade
     sudo apt install tmux ufw wireguard
 
-Setup firewall:
+### Raspberry Pi Firewall and SSH Access Policy
+
+Use UFW to deny all inbound traffic by default, then explicitly allow required ports.
+
+Note: This assumes you will be setting up your wireguard network interface on 10.0.0.0/24. If this clashes with your router,
+or some other local network configuration, you will need to change it to something that doesn't.
+
+Simple SSH policy (allows SSH from anywhere):
 
     sudo ufw reset
     sudo ufw default deny incoming
@@ -74,24 +81,29 @@ Setup firewall:
     sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
     sudo ufw enable
 
-Note: This assumes you will be setting up your wireguard network interface on 10.0.0.0/24. If this clashes with your router,
-or some other local network configuration, you will need to change it to something that doesn't.
+Note: apply the simple policy now. The VPN-specific SSH allowlist rule should be applied later, after WireGuard
+peer IP assignments are complete and your admin host has a stable VPN IP.
 
-For additional security, you might consider restricting ssh port access to devices on your local router subnet, making
-`sshd` inaccessible from the internet. To do this, use the following rule for port 22 instead:
+Recommended tighter SSH policy (LAN + one admin host on VPN subnet):
 
+    sudo ufw reset
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
     sudo ufw allow from YOUR_LOCAL_SUBNET to any port 22 proto tcp
+    sudo ufw allow from ADMIN_VPN_HOST_IP/32 to any port 22 proto tcp
+    sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
+    sudo ufw enable
 
-Where YOUR_LOCAL_SUBNET is your local subnet in CIDR notation, as determined by your router configuration - e.g. 192.168.0.0/16
+Where:
 
-The tradeoff of course is that there is now no way for you to access your Infumap installation without being physically
-present in your home. The main implication of this comes if you decide to use an encrypted volume to store your infumap data
-(which is highly recommended). In the event of a power outage, you will need to manually enter your password to re-mount the
-encrypted volume. If you have locked down ssh access, you won't be able to do this remotely.
+- `YOUR_LOCAL_SUBNET` is your local LAN in CIDR notation (e.g. `192.168.0.0/16`).
+- `ADMIN_VPN_HOST_IP` is the WireGuard IP assigned to your admin laptop/workstation (e.g. `10.0.0.10`).
 
-Your predicament is not as bad as it first seems though - if you have Infumap backups configured (which you should), you can use the
-`infumap emergency` command to quickly pull backup information locally and start up a temporary instance - you won't be
-locked out of access to your information.
+With the tighter policy, remote administration is still possible from that specific VPN host, including after reboot when a LUKS
+volume must be unlocked. Because SSH is allowlisted to the admin host IP (and not the full VPN subnet), compromise of the VPS
+or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
+
+### Infumap Install
 
 After setting up the firewall, build infumap from source.
 
