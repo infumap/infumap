@@ -264,6 +264,54 @@ Verify it's up:
     wg show wg0
 
 
+### Setup a macOS WireGuard Admin Client (Full VPN Access)
+
+Set up your admin Mac laptop to join the same WireGuard VPN and reach all VPN peers (for example `10.0.0.1` VPS and
+`10.0.0.2` Raspberry Pi).
+The same model also works for other WireGuard client platforms (Windows, Linux, iOS, Android), but only macOS is documented here.
+
+Install the [WireGuard macOS app](https://www.wireguard.com/install/) and create a new tunnel from scratch.
+In the tunnel editor, click **Generate** for the interface private key.
+
+Use the generated interface public key as `YOUR_MAC_PUBLIC_KEY` in the VPS peer config below.
+Use `YOUR_SERVER_PUBLIC_KEY` from the VPS file `/etc/wireguard/keys/server.key.pub`.
+Keep the generated private key on your Mac (do not copy it to the VPS).
+
+Use a config like:
+
+    [Interface]
+    PrivateKey = {GENERATED_BY_WIREGUARD_MAC_APP}
+    Address = 10.0.0.10/24
+    SaveConfig = false
+
+    [Peer]
+    PublicKey = {YOUR_SERVER_PUBLIC_KEY}
+    AllowedIPs = 10.0.0.0/24
+    Endpoint = {YOUR_SERVER_INTERNET_IP}:51820
+    PersistentKeepalive = 25
+
+Now add the Mac as a peer on the VPS (`/etc/wireguard/wg0.conf`):
+
+    [Peer]
+    PublicKey = {YOUR_MAC_PUBLIC_KEY}
+    AllowedIPs = 10.0.0.10/32
+
+Restart WireGuard on the VPS:
+
+    sudo systemctl restart wg-quick@wg0
+
+Bring the tunnel up on macOS and verify:
+
+    ping 10.0.0.1
+    ping 10.0.0.2
+    ssh pi@10.0.0.2
+
+If `10.0.0.1` works but `10.0.0.2` does not, ensure IP forwarding is enabled on the VPS (`net.ipv4.ip_forward=1`).
+That setting is also configured later in the "Expose Infumap on VPS" section.
+
+Use the same `10.0.0.10` value as `ADMIN_VPN_HOST_IP` in the tighter SSH firewall policy above.
+
+
 ### Setup A WireGuard Monitoring Service
 
 With the above setup, the Raspberry Pi may occasionally become unreachable over the WireGuard network,

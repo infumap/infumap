@@ -8,8 +8,6 @@ A safe, secure and accessible home for all of your information.
 - [Integrations](integrations.md)
 - Deployment
   - [Raspberry Pi](deployment/raspberry-pi.md)
-  - [Basic VPS Setup](deployment/simple.md)
 - [Security](security.md)
 - [Data](data.md)
 - [Roadmap](roadmap.md)
-
