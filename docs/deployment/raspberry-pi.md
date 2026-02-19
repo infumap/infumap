@@ -415,12 +415,10 @@ Key tmux commands to be aware of:
 
 ### Install Caddy on Your Raspberry Pi
 
-In order to serve infumap over HTTPS, you'll need to use a reverse proxy. You can run this on either your VPS instance
-or Raspberry Pi. An advantage of running it on the VPS is isolation from the `infumap` processes, particularly if you've
-disabled `ssh` access to your Raspberry Pi over the WireGuard network. It is also easier to set up. However, a significant
-downside is that unencrypted data from your Infumap instance will be exposed to the VPS as requests are served. This data
-is partial and transient, so the security implications are not as big as if the entire data set were available on the
-VPS at rest. Still, it is preferable to avoid this.
+In order to serve Infumap over HTTPS, you need a reverse proxy to terminate TLS. You can terminate TLS on either the VPS
+or the Raspberry Pi. This guide uses Caddy on the Raspberry Pi and uses the VPS only for WireGuard and packet forwarding.
+That keeps decrypted HTTP traffic off the VPS and reduces trust in VPS infrastructure. Terminating TLS on the VPS can be
+operationally simpler, but it allows the VPS to inspect plaintext request/response traffic.
 
 We will use [Caddy](https://caddyserver.com/) for the reverse proxy because it is very easy to use - automatically provisions
 the TLS certificate and keeps it renewed.
