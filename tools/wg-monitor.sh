@@ -24,6 +24,16 @@ readonly PING_BIN="$(command -v ping)"
 readonly SYSTEMCTL_BIN="$(command -v systemctl)"
 readonly DATE_BIN="$(command -v date)"
 readonly TEE_BIN="$(command -v tee)"
+readonly WC_BIN="$(command -v wc)"
+readonly TAIL_BIN="$(command -v tail)"
+readonly CAT_BIN="$(command -v cat)"
+readonly RM_BIN="$(command -v rm)"
+readonly MKTEMP_BIN="$(command -v mktemp)"
+
+# Bound log growth by trimming the oldest entries once the file exceeds the
+# high watermark.
+readonly LOG_TRIM_TRIGGER_BYTES=$((1200 * 1024))
+readonly LOG_RETAIN_BYTES=$((800 * 1024))
 
 ping_server() {
     local server="$1"
@@ -34,9 +44,30 @@ restart_wireguard_service() {
     "$SYSTEMCTL_BIN" restart wg-quick@wg0
 }
 
+trim_log_if_needed() {
+    local target_log_file="$1"
+
+    if [ ! -f "$target_log_file" ]; then
+        return
+    fi
+
+    local current_size_bytes
+    current_size_bytes=$("$WC_BIN" -c < "$target_log_file")
+    if [ "$current_size_bytes" -le "$LOG_TRIM_TRIGGER_BYTES" ]; then
+        return
+    fi
+
+    local temp_file
+    temp_file="$("$MKTEMP_BIN")"
+    "$TAIL_BIN" -c "$LOG_RETAIN_BYTES" "$target_log_file" > "$temp_file"
+    "$CAT_BIN" "$temp_file" > "$target_log_file"
+    "$RM_BIN" -f "$temp_file"
+}
+
 log() {
     local target_log_file="$1"
     local message="$2"
+    trim_log_if_needed "$target_log_file"
     echo "$("$DATE_BIN" '+%Y-%m-%d %H:%M:%S') - ${message}" | "$TEE_BIN" -a "$target_log_file" > /dev/null
 }
 
