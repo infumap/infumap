@@ -479,7 +479,12 @@ Contents of `/etc/caddy/Caddyfile`:
 
     {
         log {
-            output file /var/log/caddy/access.log
+            output file /var/log/caddy/access.log {
+                mode 0600
+                roll_size 10MiB
+                roll_keep 5
+                roll_keep_for 168h
+            }
             format json
         }
     }
