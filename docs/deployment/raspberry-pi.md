@@ -274,6 +274,11 @@ Create a file `/etc/systemd/system/wg-monitor.service` with the following text:
     [Install]
     WantedBy=multi-user.target
 
+Set ownership and permissions on the systemd unit file:
+
+    sudo chown root:root /etc/systemd/system/wg-monitor.service
+    sudo chmod 0644 /etc/systemd/system/wg-monitor.service
+
 Reload systemd, enable, and start:
 
     sudo systemctl daemon-reload
