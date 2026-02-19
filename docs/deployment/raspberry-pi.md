@@ -39,12 +39,18 @@ To figure out the IP address of your Raspberry Pi you can typically log into you
 
     sudo systemctl disable --now wpa_supplicant.service 2>/dev/null || true
 
-(optional) Update `/etc/systemd/journald.conf` to limit the disk space used by `journalctl`:
+(optional) Configure `journald` for RAM-only logs. This keeps diagnostics available for live troubleshooting
+while avoiding persistent log growth on disk:
 
-    SystemMaxUse=500M          # Maximum disk space for persistent logs
-    SystemKeepFree=10%         # Minimum free disk space to maintain
-    SystemMaxFileSize=100M     # Maximum size of individual journal files
-    Compress=yes               # Enable compression
+    # in /etc/systemd/journald.conf
+    Storage=volatile
+    RuntimeMaxUse=8M
+    Compress=yes
+
+Then restart and verify:
+
+    sudo systemctl restart systemd-journald
+    journalctl --disk-usage
 
 (optional, Ethernet-only and no audio use) Reduce hardware/software attack surface by adding the following to `/boot/firmware/config.txt`:
 
