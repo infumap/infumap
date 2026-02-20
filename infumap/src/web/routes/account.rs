@@ -36,7 +36,6 @@ use crate::storage::db::users_extra::UserExtra;
 use crate::storage::db::Db;
 use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
-use crate::web::cookie::get_session_cookie_maybe;
 use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
 use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response, cors_response};
 use crate::web::session::get_and_validate_session;
@@ -186,28 +185,28 @@ pub struct LogoutResponse {
 }
 
 pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
-  let mut db = db.lock().await;
-
-  let session_cookie = match get_session_cookie_maybe(&req) {
+  let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
     None => {
-      debug!("Could not log out user session: No session cookie is present.");
+      debug!("Could not log out user session: no valid session is present.");
       return json_response(&LogoutResponse { success: false });
     }
   };
 
-  match db.session.delete_session(&session_cookie.session_id).await {
+  let mut db = db.lock().await;
+
+  match db.session.delete_session(&session.id).await {
     Err(e) => {
       warn!(
         "Could not delete session '{}' for user '{}': {}",
-        session_cookie.session_id, session_cookie.user_id, e);
+        session.id, session.user_id, e);
       return json_response(&LogoutResponse { success: false });
     },
     Ok(user_id) => {
-      if user_id != session_cookie.user_id {
+      if user_id != session.user_id {
         error!(
           "Unexpected user_id '{}' deleting session '{}'. Session is associated with user: '{}'",
-          session_cookie.user_id, session_cookie.session_id, user_id);
+          session.user_id, session.id, user_id);
         return json_response(&LogoutResponse { success: false });
       }
     }
