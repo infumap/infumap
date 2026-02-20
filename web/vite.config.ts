@@ -34,6 +34,10 @@ export default defineConfig(({ command, mode }) => {
           target: `http://${host}:8000`,
           changeOrigin: true
         },
+        '/ingest': {
+          target: `http://${host}:8000`,
+          changeOrigin: true
+        },
         '/files': {
           target: `http://${host}:8000`,
           changeOrigin: true
