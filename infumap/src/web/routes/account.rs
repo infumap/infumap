@@ -37,7 +37,7 @@ use uuid::Uuid;
 use crate::config::CONFIG_BYPASS_TOTP_CHECK;
 use crate::storage::db::users_extra::UserExtra;
 use crate::storage::db::Db;
-use crate::storage::db::user::{User, ROOT_USER_NAME};
+use crate::storage::db::user::{PasswordVerification, User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
 use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
@@ -151,7 +151,7 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
     db.user.get_by_username_case_insensitive(&payload.username).cloned()
   };
 
-  let user = match user {
+  let mut user = match user {
     Some(user) => user,
     None => {
       info!("A login was attempted for a user '{}' that does not exist.", payload.username);
@@ -160,12 +160,22 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
     }
   };
 
-  let test_hash = User::compute_password_hash(&user.password_salt, &payload.password);
-  if test_hash != user.password_hash {
-    info!("A login attempt for user '{}' failed due to incorrect password.", payload.username);
-    record_login_failure(&client_ip_key, &username_key).await;
-    return failed_response("credentials incorrect").await;
-  }
+  let password_verification = match User::verify_password(&user.password_salt, &user.password_hash, &payload.password) {
+    Ok(v) => v,
+    Err(e) => {
+      error!("An error occurred verifying password hash for user '{}': {}", payload.username, e);
+      return failed_response("server error").await;
+    }
+  };
+  let needs_password_rehash = match password_verification {
+    PasswordVerification::Valid => false,
+    PasswordVerification::ValidNeedsRehash => true,
+    PasswordVerification::Invalid => {
+      info!("A login attempt for user '{}' failed due to incorrect password.", payload.username);
+      record_login_failure(&client_ip_key, &username_key).await;
+      return failed_response("credentials incorrect").await;
+    }
+  };
 
   // TOTP validation - skipped if bypass_totp_check is enabled
   if !bypass_totp_check {
@@ -200,12 +210,39 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
     info!("TOTP check bypassed for user '{}' due to configuration.", payload.username);
   }
 
+  let upgraded_password_hash_maybe = if needs_password_rehash {
+    match User::hash_password(&payload.password) {
+      Ok(argon2_hash) => Some(argon2_hash),
+      Err(e) => {
+        error!("Could not upgrade legacy password hash for user '{}': {}", user.username, e);
+        return failed_response("server error").await;
+      }
+    }
+  } else {
+    None
+  };
+
   let created_session = {
     let mut db = db.lock().await;
-    db.session.create_session(&user.id, &user.username).await
+    if let Some(argon2_hash) = upgraded_password_hash_maybe {
+      user.password_hash = argon2_hash;
+      user.password_salt = new_uid();
+      if let Err(e) = db.user.update(&user).await {
+        error!("Could not persist upgraded password hash for user '{}': {}", user.username, e);
+        None
+      } else {
+        Some(db.session.create_session(&user.id, &user.username).await)
+      }
+    } else {
+      Some(db.session.create_session(&user.id, &user.username).await)
+    }
   };
 
   match created_session {
+    None => {
+      return failed_response("server error").await;
+    },
+    Some(creation_result) => match creation_result {
     Ok(session) => {
       clear_login_failures_for_username(&username_key).await;
       let result = LoginResponse {
@@ -225,6 +262,7 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
     Err(e) => {
       error!("Failed to create session for user '{}': {}.", payload.username, e);
       return failed_response("server error").await;
+    }
     }
   }
 }
@@ -352,11 +390,18 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   let trash_page_id = new_uid();
   let dock_page_id = new_uid();
   let password_salt = new_uid();
+  let password_hash = match User::hash_password(&payload.password) {
+    Ok(hash) => hash,
+    Err(e) => {
+      error!("Error hashing password for new user '{}': {}", payload.username, e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+    }
+  };
 
   let user = User {
     id: user_id.clone(),
     username: payload.username.clone(),
-    password_hash: User::compute_password_hash(&password_salt, &payload.password),
+    password_hash,
     password_salt,
     totp_secret: payload.totp_secret.clone(),
     home_page_id: home_page_id.clone(),

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 aes-gcm = "0.10.3"
+argon2 = "0.5.3"
 async-recursion = "1.1.1"
 async-trait = "0.1.80"
 base64 = "0.22.1"

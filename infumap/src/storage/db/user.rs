@@ -14,6 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use argon2::{
+  password_hash::{
+    Error as PasswordHashError,
+    PasswordHash,
+    PasswordHasher,
+    PasswordVerifier,
+    SaltString,
+    rand_core::OsRng,
+  },
+  Argon2,
+};
 use infusdk::{db::kv_store::JsonLogSerializable, util::json};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
@@ -45,7 +56,42 @@ pub struct User {
   pub object_encryption_key: String,
 }
 
+pub enum PasswordVerification {
+  Valid,
+  ValidNeedsRehash,
+  Invalid,
+}
+
 impl User {
+  pub fn hash_password(password: &str) -> InfuResult<String> {
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    Ok(
+      argon2
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|e| format!("Could not hash password using Argon2id: {}", e))?
+        .to_string())
+  }
+
+  pub fn verify_password(password_salt: &str, password_hash: &str, password: &str) -> InfuResult<PasswordVerification> {
+    if password_hash.starts_with("$argon2") {
+      let parsed = PasswordHash::new(password_hash)
+        .map_err(|e| format!("Stored Argon2 password hash could not be parsed: {}", e))?;
+
+      return match Argon2::default().verify_password(password.as_bytes(), &parsed) {
+        Ok(_) => Ok(PasswordVerification::Valid),
+        Err(PasswordHashError::Password) => Ok(PasswordVerification::Invalid),
+        Err(e) => Err(format!("Could not verify Argon2 password hash: {}", e).into()),
+      };
+    }
+
+    if Self::compute_password_hash(password_salt, password) == password_hash {
+      Ok(PasswordVerification::ValidNeedsRehash)
+    } else {
+      Ok(PasswordVerification::Invalid)
+    }
+  }
+
   pub fn compute_password_hash(password_salt: &str, password: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(format!("{}-{}", password, password_salt));
