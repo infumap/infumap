@@ -16,7 +16,7 @@
 
 use hyper::header::COOKIE;
 use hyper::Request;
-use infusdk::util::uid::Uid;
+use infusdk::util::uid::{is_uid, Uid};
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +56,7 @@ pub fn get_session_header_maybe(request: &Request<hyper::body::Incoming>) -> Opt
   }
 }
 
-pub fn get_session_cookie_maybe(request: &Request<hyper::body::Incoming>) -> Option<InfuSession> {
+pub fn get_session_cookie_session_id_maybe(request: &Request<hyper::body::Incoming>) -> Option<Uid> {
   match request.headers().get(COOKIE) {
     Some(cookies) => {
       match cookies.to_str() {
@@ -67,13 +67,11 @@ pub fn get_session_cookie_maybe(request: &Request<hyper::body::Incoming>) -> Opt
               Ok(cookie) => {
                 let (name, val) = cookie.name_value();
                 if name == SESSION_COOKIE_NAME {
-                  return match serde_json::from_str::<InfuSession>(val) {
-                    Ok(s) => Some(s),
-                    Err(e) => {
-                      warn!("Session cookie could not be parsed: {}", e);
-                      return None;
-                    }
+                  if !is_uid(val) {
+                    warn!("Session cookie has invalid session id value.");
+                    return None;
                   }
+                  return Some(val.to_owned());
                 }
               },
               Err(_) => {}

@@ -17,6 +17,7 @@
 use bytes::Bytes;
 use config::Config;
 use http_body_util::combinators::BoxBody;
+use hyper::header::{HOST, SET_COOKIE};
 use hyper::{Request, Response, Method};
 use infusdk::util::geometry::Dimensions;
 use infusdk::util::infu::InfuResult;
@@ -38,6 +39,7 @@ use crate::storage::db::users_extra::UserExtra;
 use crate::storage::db::Db;
 use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
+use crate::web::cookie::SESSION_COOKIE_NAME;
 use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
 use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response, cors_response};
 use crate::web::session::get_and_validate_session;
@@ -55,8 +57,9 @@ const LOGIN_RATE_MAX_ATTEMPTS_PER_USERNAME: u32 = 8;
 const LOGIN_RATE_KEY_MAX_LEN: usize = 80;
 const UNKNOWN_LOGIN_PRINCIPAL: &str = "unknown";
 
-const MIN_PASSWORD_LENGTH: usize = 8;
-const MAX_PASSWORD_LENGTH: usize = 32;
+const MIN_PASSWORD_LENGTH: usize = 10;
+const MAX_PASSWORD_LENGTH: usize = 256;
+const SESSION_COOKIE_MAX_AGE_SECS: i64 = 60 * 60 * 24 * 30;
 
 #[derive(Clone)]
 struct LoginRateLimitEntry {
@@ -118,6 +121,7 @@ pub struct LoginResponse {
 pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   let bypass_totp_check = config.get_bool(CONFIG_BYPASS_TOTP_CHECK).unwrap_or(false);
   let client_ip_key = client_ip_rate_limit_key(&req);
+  let secure_cookie = should_use_secure_cookie(&req);
 
   async fn failed_response(msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
     sleep(Duration::from_millis(250)).await;
@@ -206,7 +210,7 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
       clear_login_failures_for_username(&username_key).await;
       let result = LoginResponse {
         success: true,
-        session_id: Some(session.id),
+        session_id: Some(session.id.clone()),
         user_id: Some(user.id),
         home_page_id: Some(user.home_page_id),
         trash_page_id: Some(user.trash_page_id),
@@ -214,7 +218,9 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
         has_totp: user.totp_secret.is_some(),
         err: None
       };
-      return json_response(&result);
+      let mut response = json_response(&result);
+      set_cookie_header(&mut response, build_session_cookie_value(&session.id, secure_cookie));
+      return response;
     },
     Err(e) => {
       error!("Failed to create session for user '{}': {}.", payload.username, e);
@@ -230,11 +236,14 @@ pub struct LogoutResponse {
 }
 
 pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let secure_cookie = should_use_secure_cookie(&req);
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
     None => {
       debug!("Could not log out user session: no valid session is present.");
-      return json_response(&LogoutResponse { success: false });
+      let mut response = json_response(&LogoutResponse { success: false });
+      set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
+      return response;
     }
   };
 
@@ -245,19 +254,25 @@ pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) ->
       warn!(
         "Could not delete session '{}' for user '{}': {}",
         session.id, session.user_id, e);
-      return json_response(&LogoutResponse { success: false });
+      let mut response = json_response(&LogoutResponse { success: false });
+      set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
+      return response;
     },
     Ok(user_id) => {
       if user_id != session.user_id {
         error!(
           "Unexpected user_id '{}' deleting session '{}'. Session is associated with user: '{}'",
           session.user_id, session.id, user_id);
-        return json_response(&LogoutResponse { success: false });
+        let mut response = json_response(&LogoutResponse { success: false });
+        set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
+        return response;
       }
     }
   };
 
-  json_response(&LogoutResponse { success: true })
+  let mut response = json_response(&LogoutResponse { success: true });
+  set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
+  response
 }
 
 
@@ -490,6 +505,55 @@ fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
   Ok(token == totp_token)
 }
 
+fn should_use_secure_cookie(req: &Request<hyper::body::Incoming>) -> bool {
+  if let Some(xfp) = req.headers().get("x-forwarded-proto").and_then(|v| v.to_str().ok()) {
+    if let Some(proto) = xfp.split(',').next() {
+      return proto.trim().eq_ignore_ascii_case("https");
+    }
+  }
+
+  if let Some(host) = req.headers().get(HOST).and_then(|v| v.to_str().ok()) {
+    let host = host.split(':').next().unwrap_or(host).to_ascii_lowercase();
+    if host == "localhost" || host == "127.0.0.1" || host == "[::1]" {
+      return false;
+    }
+  }
+
+  true
+}
+
+fn build_session_cookie_value(session_id: &str, secure: bool) -> String {
+  let mut cookie = format!(
+    "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+    SESSION_COOKIE_NAME,
+    session_id,
+    SESSION_COOKIE_MAX_AGE_SECS
+  );
+  if secure {
+    cookie.push_str("; Secure");
+  }
+  cookie
+}
+
+fn build_clear_session_cookie_value(secure: bool) -> String {
+  let mut cookie = format!("{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0", SESSION_COOKIE_NAME);
+  if secure {
+    cookie.push_str("; Secure");
+  }
+  cookie
+}
+
+fn set_cookie_header(response: &mut Response<BoxBody<Bytes, hyper::Error>>, value: String) {
+  match hyper::header::HeaderValue::from_str(&value) {
+    Ok(header_value) => {
+      response.headers_mut().append(SET_COOKIE, header_value);
+    },
+    Err(e) => {
+      warn!("Could not set session cookie header: {}", e);
+    }
+  }
+}
+
 fn validate_password_policy(password: &str) -> Result<(), &'static str> {
   if password.len() < MIN_PASSWORD_LENGTH {
     return Err("password must be 10 or more characters");
@@ -694,12 +758,65 @@ pub fn create_totp() -> Response<BoxBody<Bytes, hyper::Error>> {
 #[derive(Serialize)]
 pub struct ValidateResponse {
   pub success: bool,
+  #[serde(rename="username")]
+  pub username: Option<String>,
+  #[serde(rename="userId")]
+  pub user_id: Option<String>,
+  #[serde(rename="homePageId")]
+  pub home_page_id: Option<String>,
+  #[serde(rename="trashPageId")]
+  pub trash_page_id: Option<String>,
+  #[serde(rename="dockPageId")]
+  pub dock_page_id: Option<String>,
+  #[serde(rename="hasTotp")]
+  pub has_totp: Option<bool>,
 }
 
 pub async fn validate(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
-  match get_and_validate_session(&req, db).await {
-    Some(_session) => json_response(&ValidateResponse { success: true }),
-    None => { json_response(&ValidateResponse { success: false }) }
+  let session = match get_and_validate_session(&req, db).await {
+    Some(s) => s,
+    None => {
+      return json_response(&ValidateResponse {
+        success: false,
+        username: None,
+        user_id: None,
+        home_page_id: None,
+        trash_page_id: None,
+        dock_page_id: None,
+        has_totp: None,
+      });
+    }
+  };
+
+  let user = {
+    let db = db.lock().await;
+    db.user.get(&session.user_id).cloned()
+  };
+
+  match user {
+    None => {
+      warn!("Session '{}' references unknown user '{}'.", session.id, session.user_id);
+      json_response(&ValidateResponse {
+        success: false,
+        username: None,
+        user_id: None,
+        home_page_id: None,
+        trash_page_id: None,
+        dock_page_id: None,
+        has_totp: None,
+      })
+    },
+    Some(user) => {
+      json_response(&ValidateResponse {
+        success: true,
+        username: Some(user.username),
+        user_id: Some(user.id),
+        home_page_id: Some(user.home_page_id),
+        trash_page_id: Some(user.trash_page_id),
+        dock_page_id: Some(user.dock_page_id),
+        has_totp: Some(user.totp_secret.is_some()),
+      })
+    }
   }
 }
 

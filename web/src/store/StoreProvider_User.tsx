@@ -17,18 +17,25 @@
 */
 
 import { createSignal } from "solid-js";
-import { eraseCookie, getCookie, setCookie } from "../util/cookies";
 import { post } from "../server";
 import { panic } from "../util/lang";
 import { LoginResult, LogoutResult, User } from "../util/accountTypes";
 
 
-const SESSION_COOKIE_NAME = "infusession";
-const EXPIRE_DAYS = 30;
+interface ValidateSessionResponse {
+  success: boolean,
+  username?: string | null,
+  userId?: string | null,
+  homePageId?: string | null,
+  trashPageId?: string | null,
+  dockPageId?: string | null,
+  hasTotp?: boolean | null,
+}
 
 export interface UserStoreContextModel {
   login: (username: string, password: string, totpToken: string | null) => Promise<LoginResult>,
   logout: () => Promise<LogoutResult>,
+  hydrateFromServer: () => Promise<void>,
   getUserMaybe: () => User | null,
   getUser: () => User,
   clear: () => void,
@@ -37,7 +44,34 @@ export interface UserStoreContextModel {
 
 
 export function makeUserStore(): UserStoreContextModel {
-  const [sessionDataString, setSessionDataString] = createSignal<string | null>(getCookie(SESSION_COOKIE_NAME), { equals: false });
+  const [sessionDataString, setSessionDataString] = createSignal<string | null>(null, { equals: false });
+
+  const userFromResponse = (response: any, usernameMaybe: string | null): User | null => {
+    const responseObj = response as ValidateSessionResponse;
+    if (
+      responseObj.userId == null ||
+      responseObj.homePageId == null ||
+      responseObj.trashPageId == null ||
+      responseObj.dockPageId == null ||
+      responseObj.hasTotp == null
+    ) {
+      return null;
+    }
+
+    const username = responseObj.username ?? usernameMaybe;
+    if (username == null || username.trim() === "") {
+      return null;
+    }
+
+    return {
+      username,
+      userId: responseObj.userId,
+      homePageId: responseObj.homePageId,
+      trashPageId: responseObj.trashPageId,
+      dockPageId: responseObj.dockPageId,
+      hasTotp: responseObj.hasTotp,
+    };
+  };
 
   const value: UserStoreContextModel = {
     login: async (username: string, password: string, totpToken: string | null): Promise<LoginResult> => {
@@ -46,32 +80,22 @@ export function makeUserStore(): UserStoreContextModel {
         '/account/login',
         totpToken == null ? { username, password } : { username, password, totpToken });
       if (!r.success) {
-        eraseCookie(SESSION_COOKIE_NAME);
         setSessionDataString(null);
         return { success: false, err: r.err };
       }
-      const cookiePayload = JSON.stringify({
-        username,
-        userId: r.userId,
-        homePageId: r.homePageId,
-        trashPageId: r.trashPageId,
-        dockPageId: r.dockPageId,
-        sessionId: r.sessionId,
-        hasTotp: r.hasTotp,
-      });
-      setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
-      setSessionDataString(cookiePayload);
+
+      const user = userFromResponse(r, username);
+      if (user == null) {
+        setSessionDataString(null);
+        return { success: false, err: "server error" };
+      }
+
+      setSessionDataString(JSON.stringify(user));
       return { success: true, err: null };
     },
 
     logout: async (): Promise<LogoutResult> => {
-      const data = sessionDataString();
-      if (data == null) {
-        return { success: false, err: "not logged in" };
-      };
-      const user: User = JSON.parse(data);
-      let r: any = await post(null, '/account/logout', { "userId": user.userId, "sessionId": user.sessionId });
-      eraseCookie(SESSION_COOKIE_NAME);
+      let r: any = await post(null, '/account/logout', {});
       setSessionDataString(null);
       if (!r.success) {
         return { success: false, err: r.err };
@@ -79,40 +103,45 @@ export function makeUserStore(): UserStoreContextModel {
       return { success: true, err: null };
     },
 
+    hydrateFromServer: async (): Promise<void> => {
+      try {
+        const response: ValidateSessionResponse = await post(null, '/account/validate-session', {});
+        if (!response.success) {
+          setSessionDataString(null);
+          return;
+        }
+        const user = userFromResponse(response, null);
+        if (user == null) {
+          setSessionDataString(null);
+          return;
+        }
+        setSessionDataString(JSON.stringify(user));
+      } catch (_e) {
+        setSessionDataString(null);
+      }
+    },
+
     getUserMaybe: (): (User | null) => {
       const data = sessionDataString();
       if (data == null) { return null };
-      if (getCookie(SESSION_COOKIE_NAME) == null) {
-        // Session cookie has expired. Update SolidJS state to reflect this.
-        console.error("Session cookie has expired.");
-        setSessionDataString(null);
-        return null;
-      }
       return JSON.parse(data!);
     },
 
     getUser: (): User => {
       const data = sessionDataString();
       if (data == null) { panic("no session data string."); };
-      if (getCookie(SESSION_COOKIE_NAME) == null) {
-        // Session cookie has expired. Update SolidJS state to reflect this.
-        console.error("Session cookie has expired.");
-        setSessionDataString(null);
-        panic("session cookie has expired");
-      }
       return JSON.parse(data!);
     },
 
     updateHasTotp: (hasTotp: boolean) => {
-      const user = JSON.parse(sessionDataString()!);
+      const current = sessionDataString();
+      if (current == null) { return; }
+      const user = JSON.parse(current);
       user.hasTotp = hasTotp;
-      const cookiePayload = JSON.stringify(user);
-      setSessionDataString(cookiePayload);
-      setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
+      setSessionDataString(JSON.stringify(user));
     },
 
     clear: (): void => {
-      eraseCookie(SESSION_COOKIE_NAME);
       setSessionDataString(null);
     }
   };

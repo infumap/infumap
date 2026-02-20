@@ -32,6 +32,7 @@ const App: Component = () => {
 
   onMount(async () => {
     store.currentUrlPath.set(window.location.pathname);
+    await store.user.hydrateFromServer();
     await store.general.retrieveInstallationState();
     window.addEventListener('popstate', windowPopStateListener);
   });
