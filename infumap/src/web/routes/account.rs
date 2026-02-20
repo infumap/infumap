@@ -85,6 +85,7 @@ pub async fn serve_account_route(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: 
     (&Method::POST, "/account/register") => register(db, req).await,
     (&Method::POST, "/account/create-totp") => create_totp(),
     (&Method::POST, "/account/update-totp") => update_totp(db, req).await,
+    (&Method::POST, "/account/change-password") => change_password(db, req).await,
     (&Method::POST, "/account/validate-session") => validate(db, req).await,
     (&Method::POST, "/account/extra") => extra(db, req).await,
     _ => not_found_response()
@@ -440,6 +441,22 @@ pub struct UpdateTotpResponse {
   err: Option<String>
 }
 
+#[derive(Deserialize)]
+pub struct ChangePasswordRequest {
+  #[serde(rename="userId")]
+  user_id: String,
+  #[serde(rename="currentPassword")]
+  current_password: String,
+  #[serde(rename="newPassword")]
+  new_password: String,
+}
+
+#[derive(Serialize)]
+pub struct ChangePasswordResponse {
+  success: bool,
+  err: Option<String>
+}
+
 pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
@@ -504,6 +521,91 @@ pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming
   };
 
   json_response(&UpdateTotpResponse { success: true, err: None })
+}
+
+pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let session = match get_and_validate_session(&req, db).await {
+    Some(s) => s,
+    None => {
+      warn!("Could not change password: no valid session is present.");
+      return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("auth")) });
+    }
+  };
+
+  let payload: ChangePasswordRequest = match incoming_json(req).await {
+    Ok(p) => p,
+    Err(e) => {
+      error!("Could not parse change password request: {}", e);
+      return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("application error")) });
+    }
+  };
+
+  if payload.user_id != session.user_id {
+    warn!(
+      "Could not change password: session user '{}' does not match request user '{}'.",
+      session.user_id, payload.user_id);
+    return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("auth")) });
+  }
+
+  if payload.current_password == payload.new_password {
+    return json_response(&ChangePasswordResponse {
+      success: false,
+      err: Some(String::from("new password must be different")),
+    });
+  }
+
+  if let Err(msg) = validate_password_policy(&payload.new_password) {
+    return json_response(&ChangePasswordResponse {
+      success: false,
+      err: Some(String::from(msg)),
+    });
+  }
+
+  let user = {
+    let db = db.lock().await;
+    db.user.get(&session.user_id).cloned()
+  };
+
+  let user = match user {
+    Some(u) => u,
+    None => {
+      error!("User {} does not exist changing password.", session.user_id);
+      return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("application error")) });
+    }
+  };
+
+  let current_password_ok = match User::verify_password(&user.password_hash, &payload.current_password) {
+    Ok(v) => v,
+    Err(e) => {
+      error!("An error occurred verifying current password hash for user '{}': {}", user.username, e);
+      return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("server error")) });
+    }
+  };
+  if !current_password_ok {
+    sleep(Duration::from_millis(250)).await;
+    return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("current password incorrect")) });
+  }
+
+  let new_password_hash = match User::hash_password(&payload.new_password) {
+    Ok(v) => v,
+    Err(e) => {
+      error!("Error hashing new password for user '{}': {}", user.username, e);
+      return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("server error")) });
+    }
+  };
+  let new_password_salt = new_uid();
+
+  let update_result = {
+    let mut db = db.lock().await;
+    db.user.update_password_hash_and_salt(&session.user_id, &new_password_hash, &new_password_salt).await
+  };
+
+  if let Err(e) = update_result {
+    error!("User {}: failed to update password hash: {}", session.user_id, e);
+    return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("server error")) });
+  };
+
+  json_response(&ChangePasswordResponse { success: true, err: None })
 }
 
 fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {

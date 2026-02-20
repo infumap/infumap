@@ -30,6 +30,11 @@ export interface UpdateTotpResponse {
   err: string | null
 }
 
+export interface ChangePasswordResponse {
+  success: boolean,
+  err: string | null
+}
+
 export interface RegisterResponse {
   success: boolean,
   err: string | null

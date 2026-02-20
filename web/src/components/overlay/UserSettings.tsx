@@ -24,7 +24,7 @@ import { InfuButton } from "../library/InfuButton";
 import { createInfuSignal, createNumberSignal } from "../../util/signals";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { post } from "../../server";
-import { Totp, UpdateTotpResponse } from "../../util/accountTypes";
+import { ChangePasswordResponse, Totp, UpdateTotpResponse } from "../../util/accountTypes";
 import { RemoteSessions, RemoteSession } from "../../store/RemoteSessions";
 
 
@@ -55,7 +55,7 @@ interface IngestSessionsResponse extends IngestSimpleResponse {
 
 const DIALOG_WIDTH_PX = 510;
 
-export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 640 };
+export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 662 };
 
 export function initialEditUserSettingsBounds(store: StoreContextModel) {
   let posPx = {
@@ -80,6 +80,11 @@ export const EditUserSettings: Component = () => {
   const ingestPairingCodeSignal = createInfuSignal<string | null>(null);
   const ingestPairingCodeExpirySignal = createNumberSignal(0);
   const ingestErrorSignal = createInfuSignal<string | null>(null);
+  const currentPasswordSignal = createInfuSignal<string>("");
+  const newPasswordSignal = createInfuSignal<string>("");
+  const confirmPasswordSignal = createInfuSignal<string>("");
+  const passwordChangeErrorSignal = createInfuSignal<string | null>(null);
+  const passwordChangeSuccessSignal = createInfuSignal<string | null>(null);
 
   function humanReadableTime(unixTimeSeconds: number): string {
     if (unixTimeSeconds == -1) { return ""; }
@@ -184,6 +189,7 @@ export const EditUserSettings: Component = () => {
   };
 
   const addTotpVisibleSignal = createInfuSignal<boolean>(false);
+  const passwordChangeVisibleSignal = createInfuSignal<boolean>(false);
   const errorSignal = createInfuSignal<String | null>("");
 
   const posPx = () => getBoundingBoxTopLeft(store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx);
@@ -200,6 +206,13 @@ export const EditUserSettings: Component = () => {
 
   const handleShowCreateTotp = (ev: MouseEvent) => {
     ev.preventDefault();
+    if (passwordChangeVisibleSignal.get()) {
+      passwordChangeVisibleSignal.set(false);
+      currentPasswordSignal.set("");
+      newPasswordSignal.set("");
+      confirmPasswordSignal.set("");
+      passwordChangeErrorSignal.set(null);
+    }
     addTotpVisibleSignal.set(true);
     errorSignal.set(null);
   }
@@ -235,6 +248,57 @@ export const EditUserSettings: Component = () => {
     ev.preventDefault();
     addTotpVisibleSignal.set(false);
   }
+
+  const handleShowChangePassword = (ev: MouseEvent) => {
+    ev.preventDefault();
+    if (addTotpVisibleSignal.get()) {
+      addTotpVisibleSignal.set(false);
+      errorSignal.set(null);
+    }
+    passwordChangeVisibleSignal.set(true);
+    passwordChangeErrorSignal.set(null);
+    passwordChangeSuccessSignal.set(null);
+  };
+
+  const handleCancelChangePassword = (ev: MouseEvent) => {
+    ev.preventDefault();
+    passwordChangeVisibleSignal.set(false);
+    currentPasswordSignal.set("");
+    newPasswordSignal.set("");
+    confirmPasswordSignal.set("");
+    passwordChangeErrorSignal.set(null);
+  };
+
+  const handleChangePassword = async (ev?: MouseEvent) => {
+    ev?.preventDefault();
+    passwordChangeErrorSignal.set(null);
+    passwordChangeSuccessSignal.set(null);
+
+    if (newPasswordSignal.get() != confirmPasswordSignal.get()) {
+      passwordChangeErrorSignal.set("new passwords do not match");
+      return;
+    }
+
+    try {
+      const response: ChangePasswordResponse = await post(null, "/account/change-password", {
+        userId: store.user.getUser().userId,
+        currentPassword: currentPasswordSignal.get(),
+        newPassword: newPasswordSignal.get(),
+      });
+
+      if (response.success) {
+        currentPasswordSignal.set("");
+        newPasswordSignal.set("");
+        confirmPasswordSignal.set("");
+        passwordChangeVisibleSignal.set(false);
+        passwordChangeSuccessSignal.set("password updated");
+      } else {
+        passwordChangeErrorSignal.set(response.err ?? "failed changing password");
+      }
+    } catch (e: any) {
+      passwordChangeErrorSignal.set(e?.message ?? "failed changing password");
+    }
+  };
 
   return (
     <>
@@ -293,6 +357,69 @@ export const EditUserSettings: Component = () => {
                   <div class="inline-block text-right mr-[6px]" style="width: 150px;">username:</div>
                   <div class="font-bold inline-block">{store.user.getUser().username}</div>
                 </div>
+                <div>
+                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">password:</div>
+                  <div class="inline-block">
+                    <span class="font-mono">......</span>
+                    <Show when={!passwordChangeVisibleSignal.get()}>
+                      <a class="ml-3" style="color: #00a;" href="" onClick={handleShowChangePassword}>change</a>
+                    </Show>
+                  </div>
+                </div>
+                <Show when={passwordChangeVisibleSignal.get()}>
+                  <div class="mb-[2px]">
+                    <div class="inline-block text-right mr-[6px] align-top" style="width: 150px;"></div>
+                    <div class="inline-block">
+                      <div class="mb-[6px]">
+                        <div class="inline-block text-sm text-slate-700 mr-[6px]" style="width: 90px;">current:</div>
+                        <InfuTextInput
+                          type="password"
+                          value={currentPasswordSignal.get()}
+                          onInput={(v) => {
+                            currentPasswordSignal.set(v);
+                            passwordChangeErrorSignal.set(null);
+                            passwordChangeSuccessSignal.set(null);
+                          }}
+                        />
+                      </div>
+                      <div class="mb-[6px]">
+                        <div class="inline-block text-sm text-slate-700 mr-[6px]" style="width: 90px;">new:</div>
+                        <InfuTextInput
+                          type="password"
+                          value={newPasswordSignal.get()}
+                          onInput={(v) => {
+                            newPasswordSignal.set(v);
+                            passwordChangeErrorSignal.set(null);
+                            passwordChangeSuccessSignal.set(null);
+                          }}
+                        />
+                      </div>
+                      <div class="mb-[8px]">
+                        <div class="inline-block text-sm text-slate-700 mr-[6px]" style="width: 90px;">confirm:</div>
+                        <InfuTextInput
+                          type="password"
+                          value={confirmPasswordSignal.get()}
+                          onInput={(v) => {
+                            confirmPasswordSignal.set(v);
+                            passwordChangeErrorSignal.set(null);
+                            passwordChangeSuccessSignal.set(null);
+                          }}
+                          onEnterKeyDown={handleChangePassword}
+                        />
+                      </div>
+                      <div class="mt-[8px] mb-[15px]">
+                        <a class="ml-6" style="color: #00a;" href="" onClick={handleChangePassword}>update</a>
+                        <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelChangePassword}>cancel</a>
+                      </div>
+                    </div>
+                  </div>
+                </Show>
+                <Show when={passwordChangeErrorSignal.get() != null}>
+                  <div class="text-red-700 ml-[156px] mt-[2px]">{passwordChangeErrorSignal.get()!}</div>
+                </Show>
+                <Show when={passwordChangeSuccessSignal.get() != null}>
+                  <div class="text-green-700 ml-[156px] mt-[2px]">{passwordChangeSuccessSignal.get()!}</div>
+                </Show>
                 <div>
                   <div class="inline-block text-right mr-[6px]" style="width: 150px;">id:</div>
                   <div class="text-slate-800 text-sm inline-block">

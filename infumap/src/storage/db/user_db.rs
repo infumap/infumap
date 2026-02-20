@@ -174,6 +174,38 @@ impl UserDb {
     store.update(user.clone()).await
   }
 
+  pub async fn update_password_hash_and_salt(
+    &mut self,
+    user_id: &Uid,
+    password_hash: &str,
+    password_salt: &str) -> InfuResult<()> {
+    let old_user = self.get(user_id)
+      .ok_or(format!("Request was made to update password for user '{}', but such a user does not exist.", user_id))?
+      .clone();
+
+    let mut new_user = old_user.clone();
+    new_user.password_hash = String::from(password_hash);
+    new_user.password_salt = String::from(password_salt);
+
+    let update_json_map = User::create_json_update(&old_user, &new_user)?;
+    if update_json_map.len() == 2 {
+      // "__recordType" and "id" and nothing else.
+      debug!("Request was made to update password for user '{}', but nothing has changed.", user_id);
+      return Ok(());
+    }
+
+    if update_json_map.len() != 4 ||
+       !update_json_map.contains_key("passwordHash") ||
+       !update_json_map.contains_key("passwordSalt") {
+      warn!("Currently, only updating user password hash and salt is supported by this method.");
+      return Err("Currently, only updating user password hash and salt is supported by this method.".into());
+    }
+
+    let store = self.store_by_id.get_mut(user_id).ok_or("unknown user")?;
+
+    store.update(new_user).await
+  }
+
   pub fn all_user_ids(&self) -> Vec<String> {
     self.store_by_id.iter().map(|u| u.0.clone()).collect::<Vec<String>>()
   }
