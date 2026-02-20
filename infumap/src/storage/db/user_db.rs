@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::path::PathBuf;
 use infusdk::db::kv_store::KVStore;
 use infusdk::db::kv_store::JsonLogSerializable;
@@ -165,24 +164,9 @@ impl UserDb {
       return Ok(());
     }
 
-    let allowed_update_fields: HashSet<&str> = HashSet::from([
-      "__recordType",
-      "id",
-      "totpSecret",
-      "passwordHash",
-      "passwordSalt",
-    ]);
-
-    if update_json_map.keys().any(|key| !allowed_update_fields.contains(key.as_str())) {
-      warn!("Attempt was made to update unsupported user fields.");
-      return Err("Attempt was made to update unsupported user fields.".into());
-    }
-
-    let has_password_hash_update = update_json_map.contains_key("passwordHash");
-    let has_password_salt_update = update_json_map.contains_key("passwordSalt");
-    if has_password_hash_update != has_password_salt_update {
-      warn!("Password hash and salt must be updated together.");
-      return Err("Password hash and salt must be updated together.".into());
+    if update_json_map.len() != 3 || !update_json_map.contains_key("totpSecret") {
+      warn!("Currently, only updating user totp secret is supported.");
+      return Err("Currently, only updating user totp secret is supported.".into());
     }
 
     let store = self.store_by_id.get_mut(&user.id).ok_or("unknown user")?;
