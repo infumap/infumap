@@ -10,11 +10,10 @@
   "permissions": [
     "tabs",
     "activeTab",
-    "contextMenus",
-    "cookies",
     "storage"
   ],
   "host_permissions": [
+    "http://*/",
     "https://*/"
   ],
   "icons": {

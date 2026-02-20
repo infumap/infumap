@@ -321,6 +321,10 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
       error!("Error creating session store for user '{}': {}", user.id, e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
+    if let Err(e) = db.ingest_session.create(&user.id).await {
+      error!("Error creating ingest session store for user '{}': {}", user.id, e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+    }
     let home_page = default_home_page(user_id.as_str(), &payload.username, home_page_id, page_width_bl, natural_aspect);
     if let Err(e) = db.item.add(home_page).await {
       error!("Error adding default page: {}", e);

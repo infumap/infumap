@@ -18,6 +18,7 @@ use infusdk::{item::{ArrangeAlgorithm, Item, RelationshipToParent, TableColumn},
 
 pub mod account;
 pub mod admin;
+pub mod ingest;
 pub mod command;
 pub mod files;
 

@@ -20,12 +20,85 @@
 <html>
   <head>
     <title>Infumap Options</title>
+    <style>
+      body {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        margin: 16px;
+        color: #111827;
+      }
+
+      .section {
+        margin-bottom: 18px;
+        padding: 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+      }
+
+      .field-row {
+        margin-bottom: 8px;
+      }
+
+      label {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+        color: #374151;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px;
+      }
+
+      button {
+        margin-right: 8px;
+        padding: 8px 12px;
+      }
+
+      #sessionSummary {
+        white-space: pre-line;
+        font-family: monospace;
+        font-size: 12px;
+      }
+
+      #status {
+        min-height: 20px;
+        font-size: 13px;
+      }
+    </style>
   </head>
   <body>
-    <div>Base URL:</div>
-    <input type="text" id="baseUrl" />
+    <div class="section">
+      <div class="field-row">
+        <label for="baseUrl">Infumap Base URL</label>
+        <input type="text" id="baseUrl" />
+      </div>
+      <button id="save">Save URL</button>
+    </div>
+
+    <div class="section">
+      <div style="margin-bottom: 8px;">
+        In Infumap, open User Settings → Ingest and mint a one-time pairing code.
+      </div>
+      <div class="field-row">
+        <label for="deviceName">Device name (optional)</label>
+        <input type="text" id="deviceName" placeholder="Work laptop Chrome" />
+      </div>
+      <div class="field-row">
+        <label for="pairingCode">Pairing code</label>
+        <input type="text" id="pairingCode" placeholder="ABCD-EFGH-IJKL" />
+      </div>
+      <button id="pair">Pair Extension</button>
+      <button id="disconnect">Disconnect</button>
+    </div>
+
+    <div class="section">
+      <div style="font-weight: bold; margin-bottom: 6px;">Current ingest session</div>
+      <div id="sessionSummary"></div>
+    </div>
+
     <div id="status"></div>
-    <button id="save">Save</button>
     <script src="options.js"></script>
   </body>
 </html>

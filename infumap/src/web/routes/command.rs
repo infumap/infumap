@@ -594,8 +594,17 @@ async fn handle_add_item(
     None => { return Err(format!("Session is required to add an item.").into()); }
   };
 
-  // Clone session user_id for use outside locked scope.
-  let session_user_id = session.user_id.clone();
+  add_item_for_user(db, object_store, json_data, base64_data_maybe, &session.user_id).await
+}
+
+pub async fn add_item_for_user(
+    db: &Arc<tokio::sync::Mutex<Db>>,
+    object_store: Arc<object::ObjectStore>,
+    json_data: &str,
+    base64_data_maybe: &Option<String>,
+    session_user_id: &str) -> InfuResult<Option<String>> {
+
+  let session_user_id = session_user_id.to_owned();
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();

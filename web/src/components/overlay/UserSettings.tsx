@@ -28,6 +28,31 @@ import { Totp, UpdateTotpResponse } from "../../util/accountTypes";
 import { RemoteSessions, RemoteSession } from "../../store/RemoteSessions";
 
 
+interface IngestSessionInfo {
+  id: string,
+  deviceName: string,
+  createdAt: number,
+  lastUsedAt: number,
+  accessExpires: number,
+  refreshExpires: number,
+  revoked: boolean,
+}
+
+interface IngestSimpleResponse {
+  success: boolean,
+  err: string | null,
+}
+
+interface IngestPairingCodeResponse extends IngestSimpleResponse {
+  pairingCode: string | null,
+  expiresAt: number | null,
+}
+
+interface IngestSessionsResponse extends IngestSimpleResponse {
+  sessions: IngestSessionInfo[] | null,
+}
+
+
 const DIALOG_WIDTH_PX = 510;
 
 export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 640 };
@@ -45,12 +70,16 @@ export const EditUserSettings: Component = () => {
 
   let editUserSettingsDiv: HTMLDivElement | undefined;
 
-  const [activeTab, setActiveTab] = createSignal<"local" | "remote">("local");
+  const [activeTab, setActiveTab] = createSignal<"local" | "remote" | "ingest">("local");
   const [remoteSessionsList, setRemoteSessionsList] = createSignal<RemoteSession[]>([]);
+  const [ingestSessionsList, setIngestSessionsList] = createSignal<IngestSessionInfo[]>([]);
 
   const totpSignal = createInfuSignal<Totp | null>(null);
   const lastBackupTime = createNumberSignal(-1);
   const lastFailedBackupTime = createNumberSignal(-1);
+  const ingestPairingCodeSignal = createInfuSignal<string | null>(null);
+  const ingestPairingCodeExpirySignal = createNumberSignal(0);
+  const ingestErrorSignal = createInfuSignal<string | null>(null);
 
   function humanReadableTime(unixTimeSeconds: number): string {
     if (unixTimeSeconds == -1) { return ""; }
@@ -68,6 +97,7 @@ export const EditUserSettings: Component = () => {
   }
 
   let totpToken: string = "";
+  let ingestDeviceName: string = "";
 
   onMount(async () => {
     const json: any = await post(null, "/account/create-totp", {});
@@ -80,10 +110,27 @@ export const EditUserSettings: Component = () => {
     lastBackupTime.set(extra_json.lastBackupTime);
     lastFailedBackupTime.set(extra_json.lastFailedBackupTime);
     updateRemoteSessionsList();
+    await updateIngestSessionsList();
   });
 
   const updateRemoteSessionsList = () => {
     setRemoteSessionsList(RemoteSessions.getAll());
+  };
+
+  const updateIngestSessionsList = async () => {
+    try {
+      const response: IngestSessionsResponse = await post(null, "/ingest/sessions/list", {});
+      if (response.success) {
+        setIngestSessionsList(response.sessions ?? []);
+        ingestErrorSignal.set(null);
+      } else {
+        setIngestSessionsList([]);
+        ingestErrorSignal.set(response.err);
+      }
+    } catch (e: any) {
+      setIngestSessionsList([]);
+      ingestErrorSignal.set(e?.message ?? "failed loading ingest sessions");
+    }
   };
 
   const handleRemoteLogout = async (host: string) => {
@@ -100,6 +147,39 @@ export const EditUserSettings: Component = () => {
       }
       RemoteSessions.clear(host);
       updateRemoteSessionsList();
+    }
+  };
+
+  const handleMintIngestPairingCode = async () => {
+    ingestErrorSignal.set(null);
+    try {
+      const response: IngestPairingCodeResponse = await post(null, "/ingest/pairing/create", {
+        deviceName: ingestDeviceName.trim() == "" ? null : ingestDeviceName.trim(),
+      });
+      if (response.success && response.pairingCode != null && response.expiresAt != null) {
+        ingestPairingCodeSignal.set(response.pairingCode);
+        ingestPairingCodeExpirySignal.set(response.expiresAt);
+      } else {
+        ingestPairingCodeSignal.set(null);
+        ingestErrorSignal.set(response.err ?? "failed minting pairing code");
+      }
+    } catch (e: any) {
+      ingestPairingCodeSignal.set(null);
+      ingestErrorSignal.set(e?.message ?? "failed minting pairing code");
+    }
+  };
+
+  const handleRevokeIngestSession = async (sessionId: string) => {
+    ingestErrorSignal.set(null);
+    try {
+      const response: IngestSimpleResponse = await post(null, "/ingest/sessions/revoke", { sessionId });
+      if (response.success) {
+        await updateIngestSessionsList();
+      } else {
+        ingestErrorSignal.set(response.err ?? "failed revoking ingest session");
+      }
+    } catch (e: any) {
+      ingestErrorSignal.set(e?.message ?? "failed revoking ingest session");
     }
   };
 
@@ -190,6 +270,19 @@ export const EditUserSettings: Component = () => {
               }}
             >
               Remote
+            </button>
+            <button
+              class={`px-4 py-2 font-medium ${
+                activeTab() === "ingest"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-slate-600 hover:text-slate-800"
+              }`}
+              onClick={() => {
+                setActiveTab("ingest");
+                updateIngestSessionsList();
+              }}
+            >
+              Ingest
             </button>
           </div>
 
@@ -286,6 +379,72 @@ export const EditUserSettings: Component = () => {
                   </div>
                 }>
                   <div class="text-slate-600">No remote sessions active.</div>
+                </Show>
+              </div>
+            </Match>
+
+            <Match when={activeTab() === "ingest"}>
+              <div>
+                <div class="text-sm text-slate-700 mb-3">
+                  Pair ingest clients with one-time codes. Ingest sessions are isolated from normal login sessions and can be revoked independently.
+                </div>
+
+                <div class="mb-2">
+                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">device name:</div>
+                  <InfuTextInput
+                    onInput={(v) => {
+                      ingestDeviceName = v;
+                      ingestErrorSignal.set(null);
+                    }}
+                  />
+                </div>
+                <div class="mb-4 ml-[155px]">
+                  <InfuButton text="mint pairing code" onClick={handleMintIngestPairingCode} />
+                </div>
+
+                <Show when={ingestPairingCodeSignal.get() != null}>
+                  <div class="mb-4 p-3 rounded border border-slate-300 bg-slate-50">
+                    <div class="text-sm text-slate-600">Pairing code (one-time):</div>
+                    <div class="mt-1 font-mono text-lg text-slate-900 tracking-wider">
+                      {ingestPairingCodeSignal.get()!}
+                      <i
+                        class="ml-[8px] fa fa-copy cursor-pointer text-slate-500"
+                        onclick={() => { navigator.clipboard.writeText(ingestPairingCodeSignal.get()!); }}
+                      />
+                    </div>
+                    <div class="mt-1 text-sm text-slate-600">
+                      Expires: {humanReadableTime(ingestPairingCodeExpirySignal.get())}
+                    </div>
+                  </div>
+                </Show>
+
+                <div class="text-sm text-slate-600 mb-2">Ingest sessions:</div>
+                <Show when={ingestSessionsList().length === 0} fallback={
+                  <div>
+                    <For each={ingestSessionsList()}>
+                      {(session) => (
+                        <div class="mb-3 p-2 border border-slate-300 rounded">
+                          <div class="flex items-center justify-between">
+                            <div>
+                              <div class="font-medium">{session.deviceName}</div>
+                              <div class="text-sm text-slate-600">Created: {humanReadableTime(session.createdAt)}</div>
+                              <div class="text-sm text-slate-600">Last used: {humanReadableTime(session.lastUsedAt)}</div>
+                              <div class="text-sm text-slate-600">Refresh expires: {humanReadableTime(session.refreshExpires)}</div>
+                            </div>
+                            <Show when={!session.revoked} fallback={<div class="text-xs text-red-700">Revoked</div>}>
+                              <InfuButton text="Revoke" onClick={() => handleRevokeIngestSession(session.id)} />
+                            </Show>
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                }>
+                  <div class="text-slate-600">No ingest sessions active.</div>
+                </Show>
+
+                <Show when={ingestErrorSignal.get() != null}>
+                  <div class="mt-2 text-red-700">{ingestErrorSignal.get()!}</div>
                 </Show>
               </div>
             </Match>

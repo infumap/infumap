@@ -142,6 +142,10 @@ pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
         error!("Error creating session store for user '{}': {}", pending_user.id, e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
+      if let Err(e) = db.ingest_session.create(&pending_user.id).await {
+        error!("Error creating ingest session store for user '{}': {}", pending_user.id, e);
+        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
+      }
       // TODO (MEDIUM): get and store user specific values when the pending user request is created.
       let page_width_bl = 60;
       let natural_aspect = 2.0;

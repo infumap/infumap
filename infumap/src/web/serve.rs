@@ -34,6 +34,7 @@ use crate::web::dist_handlers::serve_index;
 use super::dist_handlers::serve_dist_routes;
 use super::routes::account::serve_account_route;
 use super::routes::admin::serve_admin_route;
+use super::routes::ingest::serve_ingest_route;
 use super::routes::command::serve_command_route;
 use super::routes::files::serve_files_route;
 
@@ -49,6 +50,7 @@ pub async fn http_serve(
   Ok(
     if req.uri().path() == "/command" { serve_command_route(&db, &object_store, image_cache.clone(), req).await }
     else if req.uri().path().starts_with("/account/") { serve_account_route(config.clone(), &db, req).await }
+    else if req.uri().path().starts_with("/ingest/") { serve_ingest_route(&db, &object_store, req).await }
     else if req.uri().path().starts_with("/files/") { serve_files_route(config, &db, object_store, image_cache.clone(), &req).await }
     else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, dev_feature_flag, req).await }
     else if let Some(response) = serve_dist_routes(&req) { response }
