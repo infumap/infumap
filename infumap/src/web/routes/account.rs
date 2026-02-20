@@ -20,10 +20,12 @@ use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Method};
 use infusdk::util::geometry::Dimensions;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::time::unix_now_secs_u64;
+use infusdk::util::time::{unix_now_secs_i64, unix_now_secs_u64};
 use infusdk::util::uid::{is_uid, new_uid};
 use log::{info, error, debug, warn};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::str;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -45,6 +47,28 @@ const TOTP_ALGORITHM: Algorithm = Algorithm::SHA1; // The most broadly compatibl
 const TOTP_NUM_DIGITS: usize = 6; // 6 digit OTP is pretty standard.
 const TOTP_SKEW: u8 = 1; // OTP is valid for this number of time intervals in the past/future.
 const TOTP_STEP: u64 = 30; // Time step interval of 30 seconds is pretty standard.
+
+const LOGIN_RATE_WINDOW_SECS: i64 = 60 * 10;
+const LOGIN_RATE_LOCKOUT_SECS: i64 = 60 * 10;
+const LOGIN_RATE_MAX_ATTEMPTS_PER_IP: u32 = 20;
+const LOGIN_RATE_MAX_ATTEMPTS_PER_USERNAME: u32 = 8;
+const LOGIN_RATE_KEY_MAX_LEN: usize = 80;
+const UNKNOWN_LOGIN_PRINCIPAL: &str = "unknown";
+
+const MIN_PASSWORD_LENGTH: usize = 8;
+const MAX_PASSWORD_LENGTH: usize = 32;
+
+#[derive(Clone)]
+struct LoginRateLimitEntry {
+  window_started_at: i64,
+  failed_attempts: u32,
+  blocked_until: i64,
+}
+
+static LOGIN_RATE_LIMIT_BY_IP: Lazy<Mutex<HashMap<String, LoginRateLimitEntry>>> =
+  Lazy::new(|| Mutex::new(HashMap::new()));
+static LOGIN_RATE_LIMIT_BY_USERNAME: Lazy<Mutex<HashMap<String, LoginRateLimitEntry>>> =
+  Lazy::new(|| Mutex::new(HashMap::new()));
 
 
 pub async fn serve_account_route(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -92,12 +116,10 @@ pub struct LoginResponse {
 }
 
 pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
-  let mut db = db.lock().await;
-
   let bypass_totp_check = config.get_bool(CONFIG_BYPASS_TOTP_CHECK).unwrap_or(false);
+  let client_ip_key = client_ip_rate_limit_key(&req);
 
   async fn failed_response(msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
-    // TODO (LOW): rate limit login requests properly.
     sleep(Duration::from_millis(250)).await;
     return json_response(&LoginResponse {
       success: false, session_id: None, user_id: None, home_page_id: None, trash_page_id: None, dock_page_id: None, has_totp: false,
@@ -109,21 +131,35 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
     Ok(p) => p,
     Err(e) => {
       error!("Could not parse login request: {}", e);
+      record_login_failure(&client_ip_key, UNKNOWN_LOGIN_PRINCIPAL).await;
       return failed_response("server error").await;
     }
   };
 
-  let user = match db.user.get_by_username_case_insensitive(&payload.username) {
+  let username_key = username_rate_limit_key(&payload.username);
+  if is_login_rate_limited(&client_ip_key, &username_key).await {
+    info!("Blocking login attempt due to rate limit. ip='{}', user='{}'.", client_ip_key, username_key);
+    return failed_response("credentials incorrect").await;
+  }
+
+  let user = {
+    let db = db.lock().await;
+    db.user.get_by_username_case_insensitive(&payload.username).cloned()
+  };
+
+  let user = match user {
     Some(user) => user,
     None => {
       info!("A login was attempted for a user '{}' that does not exist.", payload.username);
+      record_login_failure(&client_ip_key, &username_key).await;
       return failed_response("credentials incorrect").await;
     }
-  }.clone();
+  };
 
   let test_hash = User::compute_password_hash(&user.password_salt, &payload.password);
   if test_hash != user.password_hash {
     info!("A login attempt for user '{}' failed due to incorrect password.", payload.username);
+    record_login_failure(&client_ip_key, &username_key).await;
     return failed_response("credentials incorrect").await;
   }
 
@@ -139,17 +175,20 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
           Ok(v) => {
             if !v {
               info!("A login attempt for user '{}' failed due to an incorrect TOTP.", payload.username);
+              record_login_failure(&client_ip_key, &username_key).await;
               return failed_response("credentials incorrect").await;
             }
           }
         };
       } else {
         info!("A login attempt for user '{}' failed because a TOTP was not specified.", payload.username);
+        record_login_failure(&client_ip_key, &username_key).await;
         return failed_response("credentials incorrect").await;
       }
     } else {
       if payload.totp_token.is_some() {
         info!("A login attempt for user '{}' failed because a TOTP token was specified, but this is not expected.", payload.username);
+        record_login_failure(&client_ip_key, &username_key).await;
         return failed_response("credentials incorrect").await;
       }
     }
@@ -157,8 +196,14 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
     info!("TOTP check bypassed for user '{}' due to configuration.", payload.username);
   }
 
-  match db.session.create_session(&user.id, &user.username).await {
+  let created_session = {
+    let mut db = db.lock().await;
+    db.session.create_session(&user.id, &user.username).await
+  };
+
+  match created_session {
     Ok(session) => {
+      clear_login_failures_for_username(&username_key).await;
       let result = LoginResponse {
         success: true,
         session_id: Some(session.id),
@@ -268,8 +313,8 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   if payload.username.len() < 3 {
     return json_response(&RegisterResponse { success: false, err: Some(String::from("username must be 3 or more characters")) } )
   }
-  if payload.password.len() < 4 {
-    return json_response(&RegisterResponse { success: false, err: Some(String::from("password must be 4 or more characters")) } )
+  if let Err(msg) = validate_password_policy(&payload.password) {
+    return json_response(&RegisterResponse { success: false, err: Some(String::from(msg)) } )
   }
   if let Some(totp_secret) = &payload.totp_secret {
     if let Some(totp_token) = &payload.totp_token {
@@ -443,6 +488,153 @@ fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
   let token = totp.generate(unix_now_secs_u64().unwrap());
 
   Ok(token == totp_token)
+}
+
+fn validate_password_policy(password: &str) -> Result<(), &'static str> {
+  if password.len() < MIN_PASSWORD_LENGTH {
+    return Err("password must be 10 or more characters");
+  }
+  if password.len() > MAX_PASSWORD_LENGTH {
+    return Err("password must be 256 or fewer characters");
+  }
+  if password.chars().any(|c| c.is_control()) {
+    return Err("password contains invalid characters");
+  }
+  if !password.chars().any(|c| c.is_ascii_alphabetic()) || !password.chars().any(|c| c.is_ascii_digit()) {
+    return Err("password must include at least one letter and one number");
+  }
+  Ok(())
+}
+
+fn sanitize_rate_limit_key(raw: &str) -> String {
+  raw.chars()
+    .filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == ':' || *c == '-' || *c == '_')
+    .take(LOGIN_RATE_KEY_MAX_LEN)
+    .collect::<String>()
+}
+
+fn username_rate_limit_key(username: &str) -> String {
+  let normalized = sanitize_rate_limit_key(&username.trim().to_ascii_lowercase());
+  if normalized.is_empty() {
+    UNKNOWN_LOGIN_PRINCIPAL.to_owned()
+  } else {
+    normalized
+  }
+}
+
+fn client_ip_rate_limit_key(req: &Request<hyper::body::Incoming>) -> String {
+  let from_forwarded_for = req.headers().get("x-forwarded-for")
+    .and_then(|v| v.to_str().ok())
+    .and_then(|v| v.split(',').next())
+    .map(|v| sanitize_rate_limit_key(v.trim()))
+    .filter(|v| !v.is_empty());
+
+  if let Some(v) = from_forwarded_for {
+    return format!("xff:{}", v);
+  }
+
+  let from_real_ip = req.headers().get("x-real-ip")
+    .and_then(|v| v.to_str().ok())
+    .map(|v| sanitize_rate_limit_key(v.trim()))
+    .filter(|v| !v.is_empty());
+
+  if let Some(v) = from_real_ip {
+    return format!("xri:{}", v);
+  }
+
+  UNKNOWN_LOGIN_PRINCIPAL.to_owned()
+}
+
+fn now_for_rate_limit() -> i64 {
+  match unix_now_secs_i64() {
+    Ok(now) => now,
+    Err(e) => {
+      warn!("Could not read wall clock for login rate limiting: {}", e);
+      0
+    }
+  }
+}
+
+fn prune_rate_limit_entries(map: &mut HashMap<String, LoginRateLimitEntry>, now: i64) {
+  map.retain(|_, entry| {
+    if entry.blocked_until > now {
+      return true;
+    }
+    entry.window_started_at + LOGIN_RATE_WINDOW_SECS > now
+  });
+}
+
+fn is_entry_limited(entry_maybe: Option<&LoginRateLimitEntry>, now: i64, max_attempts: u32) -> bool {
+  match entry_maybe {
+    None => false,
+    Some(entry) => {
+      if entry.blocked_until > now {
+        return true;
+      }
+      entry.window_started_at + LOGIN_RATE_WINDOW_SECS > now && entry.failed_attempts >= max_attempts
+    }
+  }
+}
+
+fn add_login_failure(map: &mut HashMap<String, LoginRateLimitEntry>, key: &str, max_attempts: u32, now: i64) {
+  let entry = map.entry(key.to_owned()).or_insert(LoginRateLimitEntry {
+    window_started_at: now,
+    failed_attempts: 0,
+    blocked_until: 0,
+  });
+
+  if entry.window_started_at + LOGIN_RATE_WINDOW_SECS <= now {
+    entry.window_started_at = now;
+    entry.failed_attempts = 0;
+    entry.blocked_until = 0;
+  }
+
+  if entry.blocked_until > now {
+    return;
+  }
+
+  entry.failed_attempts += 1;
+  if entry.failed_attempts >= max_attempts {
+    entry.blocked_until = now + LOGIN_RATE_LOCKOUT_SECS;
+  }
+}
+
+async fn is_login_rate_limited(client_ip_key: &str, username_key: &str) -> bool {
+  let now = now_for_rate_limit();
+
+  if client_ip_key != UNKNOWN_LOGIN_PRINCIPAL {
+    let ip_limited = {
+      let mut by_ip = LOGIN_RATE_LIMIT_BY_IP.lock().await;
+      prune_rate_limit_entries(&mut by_ip, now);
+      is_entry_limited(by_ip.get(client_ip_key), now, LOGIN_RATE_MAX_ATTEMPTS_PER_IP)
+    };
+    if ip_limited {
+      return true;
+    }
+  }
+
+  let mut by_username = LOGIN_RATE_LIMIT_BY_USERNAME.lock().await;
+  prune_rate_limit_entries(&mut by_username, now);
+  is_entry_limited(by_username.get(username_key), now, LOGIN_RATE_MAX_ATTEMPTS_PER_USERNAME)
+}
+
+async fn record_login_failure(client_ip_key: &str, username_key: &str) {
+  let now = now_for_rate_limit();
+
+  if client_ip_key != UNKNOWN_LOGIN_PRINCIPAL {
+    let mut by_ip = LOGIN_RATE_LIMIT_BY_IP.lock().await;
+    prune_rate_limit_entries(&mut by_ip, now);
+    add_login_failure(&mut by_ip, client_ip_key, LOGIN_RATE_MAX_ATTEMPTS_PER_IP, now);
+  }
+
+  let mut by_username = LOGIN_RATE_LIMIT_BY_USERNAME.lock().await;
+  prune_rate_limit_entries(&mut by_username, now);
+  add_login_failure(&mut by_username, username_key, LOGIN_RATE_MAX_ATTEMPTS_PER_USERNAME, now);
+}
+
+async fn clear_login_failures_for_username(username_key: &str) {
+  let mut by_username = LOGIN_RATE_LIMIT_BY_USERNAME.lock().await;
+  by_username.remove(username_key);
 }
 
 fn sanitize_page_size(w_px: i64, h_px: i64) -> Dimensions<i64> {
