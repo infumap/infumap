@@ -6,18 +6,21 @@ There are various ways of getting data in and out of Infumap.
 
 Note: This is an MVP. More / better functionality is planned.
 
-The Chrome extension allows you to bookmark pages by clicking a button in the Chrome toolbar. Doing so will create a note item in the top left of your home level page. The button will only work if you are logged in.
+The Chrome extension lets you add the current page from the Chrome toolbar. It creates a note item in the top-left of your home level page, with the page title and URL.
 
 This extension is not (yet) available in the Chrome Web Store.
 
 You can install it as follows:
-1. Obtain the Infumap source from github.
-2. Copy the Chrome folder from the git repo somewhere else.
-3. Edit the `option.js` and `background.js` files to point to your Infumap instance. By default, they point to the default `localhost:8000` endpoint.
-4. Navigate to "Settings / Extensions" in Chrome.
-5. Enable "Developer mode" (top right).
-6. Click "Load unpacked" and add the extension.
-7. Edit the extension details and select "Pin to toolbar"
+1. Obtain the Infumap source from GitHub.
+2. Navigate to "Settings / Extensions" in Chrome.
+3. Enable "Developer mode" (top right).
+4. Click "Load unpacked" and select the `chrome` folder from the Infumap repo.
+5. Open the extension options page and set your Infumap base URL (for example `https://myserver.example/`).
+6. In Infumap, while logged in, open `User Settings -> Ingest` and mint a one-time pairing code.
+7. In extension options, paste the pairing code (and optional device name), then click "Pair Extension".
+8. Pin the extension to the toolbar.
+
+You can disconnect from extension options ("Disconnect") or revoke sessions in `User Settings -> Ingest`.
 
 
 ## iOS
