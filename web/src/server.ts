@@ -873,5 +873,27 @@ export async function post(host: string | null, path: string, json: any) {
     headers,
     body
   });
+
+  if (host != null) {
+    const rotatedSessionHeader = fetchResult.headers.get(REMOTE_SESSION_HEADER);
+    if (rotatedSessionHeader) {
+      try {
+        const rotatedSession = JSON.parse(rotatedSessionHeader);
+        if (rotatedSession.sessionId) {
+          const existing = RemoteSessions.get(host);
+          if (existing) {
+            const existingData = JSON.parse(existing.sessionDataString);
+            const mergedSessionData = JSON.stringify({ ...existingData, ...rotatedSession });
+            const nextUsername = typeof rotatedSession.username === "string" && rotatedSession.username.length > 0
+              ? rotatedSession.username
+              : existing.username;
+            RemoteSessions.set({ host, sessionDataString: mergedSessionData, username: nextUsername });
+          }
+        }
+      } catch (e) {
+        console.warn("Could not process rotated remote session header:", e);
+      }
+    }
+  }
   return await fetchResult.json();
 }

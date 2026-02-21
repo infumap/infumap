@@ -123,6 +123,7 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
   let bypass_totp_check = config.get_bool(CONFIG_BYPASS_TOTP_CHECK).unwrap_or(false);
   let client_ip_key = client_ip_rate_limit_key(&req);
   let secure_cookie = should_use_secure_cookie(&req);
+  let existing_session_id_maybe = get_and_validate_session(&req, db).await.map(|s| s.id);
 
   async fn failed_response(msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
     sleep(Duration::from_millis(250)).await;
@@ -209,7 +210,20 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
 
   let created_session = {
     let mut db = db.lock().await;
-    db.session.create_session(&user.id, &user.username).await
+    let new_session_result = db.session.create_session(&user.id, &user.username).await;
+    if let (Ok(new_session), Some(existing_session_id)) = (&new_session_result, &existing_session_id_maybe) {
+      if existing_session_id != &new_session.id {
+        if let Err(e) = db.session.delete_session(existing_session_id).await {
+          warn!(
+            "Could not delete prior session '{}' after successful login for user '{}': {}",
+            existing_session_id,
+            user.id,
+            e
+          );
+        }
+      }
+    }
+    new_session_result
   };
 
   match created_session {
@@ -524,6 +538,7 @@ pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming
 }
 
 pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let secure_cookie = should_use_secure_cookie(&req);
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
     None => {
@@ -605,7 +620,36 @@ pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
     return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("server error")) });
   };
 
-  json_response(&ChangePasswordResponse { success: true, err: None })
+  let rotated_session = {
+    let mut db = db.lock().await;
+    let created = db.session.create_session(&user.id, &user.username).await;
+    match created {
+      Ok(new_session) => {
+        if let Err(e) = db.session.delete_session(&session.id).await {
+          warn!(
+            "Password changed for user '{}' but old session '{}' could not be deleted: {}",
+            user.id,
+            session.id,
+            e
+          );
+        }
+        Ok(new_session)
+      },
+      Err(e) => Err(e),
+    }
+  };
+
+  let rotated_session = match rotated_session {
+    Ok(s) => s,
+    Err(e) => {
+      error!("User {}: failed to rotate session after password change: {}", session.user_id, e);
+      return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("server error")) });
+    }
+  };
+
+  let mut response = json_response(&ChangePasswordResponse { success: true, err: None });
+  set_cookie_header(&mut response, build_session_cookie_value(&rotated_session.id, secure_cookie));
+  response
 }
 
 fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
@@ -620,7 +664,7 @@ fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
   Ok(token == totp_token)
 }
 
-fn should_use_secure_cookie(req: &Request<hyper::body::Incoming>) -> bool {
+pub(crate) fn should_use_secure_cookie(req: &Request<hyper::body::Incoming>) -> bool {
   if let Some(xfp) = req.headers().get("x-forwarded-proto").and_then(|v| v.to_str().ok()) {
     if let Some(proto) = xfp.split(',').next() {
       return proto.trim().eq_ignore_ascii_case("https");
@@ -637,7 +681,7 @@ fn should_use_secure_cookie(req: &Request<hyper::body::Incoming>) -> bool {
   true
 }
 
-fn build_session_cookie_value(session_id: &str, secure: bool) -> String {
+pub(crate) fn build_session_cookie_value(session_id: &str, secure: bool) -> String {
   let mut cookie = format!(
     "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
     SESSION_COOKIE_NAME,
@@ -650,7 +694,7 @@ fn build_session_cookie_value(session_id: &str, secure: bool) -> String {
   cookie
 }
 
-fn build_clear_session_cookie_value(secure: bool) -> String {
+pub(crate) fn build_clear_session_cookie_value(secure: bool) -> String {
   let mut cookie = format!("{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0", SESSION_COOKIE_NAME);
   if secure {
     cookie.push_str("; Secure");
@@ -658,7 +702,7 @@ fn build_clear_session_cookie_value(secure: bool) -> String {
   cookie
 }
 
-fn set_cookie_header(response: &mut Response<BoxBody<Bytes, hyper::Error>>, value: String) {
+pub(crate) fn set_cookie_header(response: &mut Response<BoxBody<Bytes, hyper::Error>>, value: String) {
   match hyper::header::HeaderValue::from_str(&value) {
     Ok(header_value) => {
       response.headers_mut().append(SET_COOKIE, header_value);

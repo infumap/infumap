@@ -15,7 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use std::collections::HashMap;
 use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
@@ -27,6 +27,8 @@ use super::session::Session;
 
 pub const CURRENT_SESSIONS_LOG_VERSION: i64 = 1;
 const SESSION_LOG_FILENAME: &str = "sessions.json";
+pub const SESSION_LIFETIME_SECS: i64 = 60 * 60 * 24 * 30;
+pub const SESSION_ROTATION_INTERVAL_SECS: i64 = 60 * 60 * 24;
 
 
 /// Db for managing Session instances, assuming the mandated data folder hierarchy.
@@ -105,17 +107,61 @@ impl SessionDb {
   }
 
   pub async fn create_session(&mut self, user_id: &str, username: &str) -> InfuResult<Session> {
-    const THIRTY_DAYS_AS_SECONDS: u64 = 60*60*24*30;
+    let now_unix_secs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
     let session = Session {
       id: new_uid(),
       user_id: String::from(user_id),
-      expires: (SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)? + Duration::from_secs(THIRTY_DAYS_AS_SECONDS)).as_secs() as i64,
+      expires: now_unix_secs + SESSION_LIFETIME_SECS,
+      issued_at: now_unix_secs,
       username: String::from(username)
     };
     let store = self.store_by_user_id.get_mut(user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
     store.add(session.clone()).await?;
     self.user_id_by_session_id.insert(session.id.clone(), String::from(user_id));
     Ok(session)
+  }
+
+  pub async fn rotate_session_if_due(&mut self, id: &Uid, min_age_secs: i64) -> InfuResult<Option<Session>> {
+    let user_id = match self.user_id_by_session_id.get(id) {
+      Some(user_id) => user_id.clone(),
+      None => return Ok(None),
+    };
+
+    let store = match self.store_by_user_id.get_mut(&user_id) {
+      Some(store) => store,
+      None => return Ok(None),
+    };
+
+    let existing = match store.get(id) {
+      Some(s) => s.clone(),
+      None => {
+        self.user_id_by_session_id.remove(id);
+        return Ok(None);
+      }
+    };
+
+    let now_unix_secs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
+    if existing.expires <= now_unix_secs {
+      self.user_id_by_session_id.remove(id);
+      return Ok(None);
+    }
+    if now_unix_secs - existing.issued_at < min_age_secs {
+      return Ok(None);
+    }
+
+    let rotated = Session {
+      id: new_uid(),
+      user_id: existing.user_id.clone(),
+      expires: existing.expires,
+      issued_at: now_unix_secs,
+      username: existing.username.clone(),
+    };
+
+    store.add(rotated.clone()).await?;
+    self.user_id_by_session_id.insert(rotated.id.clone(), user_id);
+    self.user_id_by_session_id.remove(id);
+    store.remove(id).await?;
+    Ok(Some(rotated))
   }
 
   pub async fn delete_session(&mut self, id: &str) -> InfuResult<String> {

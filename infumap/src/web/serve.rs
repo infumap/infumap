@@ -18,8 +18,9 @@ use bytes::Bytes;
 use config::Config;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::{Request, Response, StatusCode, Method};
+use hyper::header::HeaderValue;
 use infusdk::util::infu::InfuResult;
-use log::{error, debug};
+use log::{error, debug, warn};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::str;
@@ -28,11 +29,13 @@ use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
 use crate::storage::cache::ImageCache;
+use crate::storage::db::session_db::SESSION_ROTATION_INTERVAL_SECS;
 use crate::storage::object::ObjectStore;
 use crate::web::dist_handlers::serve_index;
+use crate::web::cookie::{get_session_cookie_session_id_maybe, get_session_header_maybe, InfuSession, SESSION_HEADER_NAME};
 
 use super::dist_handlers::serve_dist_routes;
-use super::routes::account::serve_account_route;
+use super::routes::account::{build_session_cookie_value, serve_account_route, set_cookie_header, should_use_secure_cookie};
 use super::routes::admin::serve_admin_route;
 use super::routes::ingest::serve_ingest_route;
 use super::routes::command::serve_command_route;
@@ -47,7 +50,16 @@ pub async fn http_serve(
     dev_feature_flag: bool,
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
   debug!("Serving: {} ({})", req.uri().path(), req.method());
-  Ok(
+  let req_path = req.uri().path().to_string();
+  let secure_cookie = should_use_secure_cookie(&req);
+  let incoming_cookie_session_id_maybe = get_session_cookie_session_id_maybe(&req);
+  let incoming_header_session_maybe = if incoming_cookie_session_id_maybe.is_some() {
+    None
+  } else {
+    get_session_header_maybe(&req)
+  };
+
+  let mut response =
     if req.uri().path() == "/command" { serve_command_route(&db, &object_store, image_cache.clone(), req).await }
     else if req.uri().path().starts_with("/account/") { serve_account_route(config.clone(), &db, req).await }
     else if req.uri().path().starts_with("/ingest/") { serve_ingest_route(&db, &object_store, req).await }
@@ -61,8 +73,80 @@ pub async fn http_serve(
       serve_index()
     } else {
       not_found_response()
+    };
+
+  maybe_rotate_primary_session(
+    &db,
+    &req_path,
+    secure_cookie,
+    incoming_cookie_session_id_maybe,
+    incoming_header_session_maybe,
+    &mut response).await;
+
+  Ok(response)
+}
+
+async fn maybe_rotate_primary_session(
+  db: &Arc<Mutex<Db>>,
+  req_path: &str,
+  secure_cookie: bool,
+  incoming_cookie_session_id_maybe: Option<String>,
+  incoming_header_session_maybe: Option<InfuSession>,
+  response: &mut Response<BoxBody<Bytes, hyper::Error>>) {
+  if !response.status().is_success() {
+    return;
+  }
+
+  if req_path == "/account/login" || req_path == "/account/logout" {
+    return;
+  }
+
+  let session_id = match (&incoming_cookie_session_id_maybe, &incoming_header_session_maybe) {
+    (Some(session_id), _) => session_id.clone(),
+    (None, Some(session_header)) => session_header.session_id.clone(),
+    (None, None) => return,
+  };
+
+  let rotated_result = {
+    let mut db = db.lock().await;
+    db.session.rotate_session_if_due(&session_id, SESSION_ROTATION_INTERVAL_SECS).await
+  };
+
+  let rotated = match rotated_result {
+    Ok(Some(rotated)) => rotated,
+    Ok(None) => return,
+    Err(e) => {
+      warn!("Could not rotate session '{}': {}", session_id, e);
+      return;
     }
-  )
+  };
+
+  if incoming_cookie_session_id_maybe.is_some() {
+    set_cookie_header(response, build_session_cookie_value(&rotated.id, secure_cookie));
+    return;
+  }
+
+  if let Some(session_header) = incoming_header_session_maybe {
+    let rotated_header = InfuSession {
+      username: rotated.username,
+      user_id: rotated.user_id,
+      session_id: rotated.id,
+    };
+    match serde_json::to_string(&rotated_header)
+      .ok()
+      .and_then(|header_str| HeaderValue::from_str(&header_str).ok()) {
+      Some(header_value) => {
+        response.headers_mut().insert(SESSION_HEADER_NAME, header_value);
+      },
+      None => {
+        warn!(
+          "Could not set rotated session header for user '{}' session '{}'.",
+          session_header.user_id,
+          session_id
+        );
+      }
+    }
+  }
 }
 
 pub fn empty_body() -> BoxBody<Bytes, hyper::Error> {

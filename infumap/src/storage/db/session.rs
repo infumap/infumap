@@ -18,12 +18,14 @@ use infusdk::{db::kv_store::JsonLogSerializable, util::{infu::InfuResult, json, 
 use serde_json::{Map, Value};
 
 
-const ALL_JSON_FIELDS: [&'static str; 5] = ["__recordType", "id", "userId", "expires", "username"];
+const ALL_JSON_FIELDS: [&'static str; 6] = ["__recordType", "id", "userId", "expires", "issuedAt", "username"];
+const LEGACY_SESSION_LIFETIME_SECS: i64 = 60 * 60 * 24 * 30;
 
 pub struct Session {
   pub id: Uid,
   pub user_id: Uid,
   pub expires: i64,
+  pub issued_at: i64,
   pub username: String,
 }
 
@@ -33,6 +35,7 @@ impl Clone for Session {
       id: self.id.clone(),
       user_id: self.user_id.clone(),
       expires: self.expires.clone(),
+      issued_at: self.issued_at.clone(),
       username: self.username.clone(),
     }
   }
@@ -54,6 +57,7 @@ impl JsonLogSerializable<Session> for Session {
     result.insert(String::from("id"), Value::String(self.id.clone()));
     result.insert(String::from("userId"), Value::String(self.user_id.clone()));
     result.insert(String::from("expires"), Value::Number(self.expires.into()));
+    result.insert(String::from("issuedAt"), Value::Number(self.issued_at.into()));
     result.insert(String::from("username"), Value::String(self.username.clone()));
     Ok(result)
   }
@@ -61,13 +65,17 @@ impl JsonLogSerializable<Session> for Session {
   fn from_json(map: &Map<String, Value>) -> InfuResult<Session> {
     json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
     let id = json::get_string_field(map, "id")?.ok_or("'id' field was missing in a session entry record.")?;
+    let expires = json::get_integer_field(map, "expires")?
+      .ok_or(format!("'expires' field was missing in an entry for session '{}'.", id))?;
+    let issued_at = json::get_integer_field(map, "issuedAt")?
+      .unwrap_or((expires - LEGACY_SESSION_LIFETIME_SECS).max(0));
 
     Ok(Session {
       id: id.clone(),
       user_id: json::get_string_field(map, "userId")?
         .ok_or(format!("'userId' field was missing in an entry for session '{}'.", id))?,
-      expires: json::get_integer_field(map, "expires")?
-        .ok_or(format!("'expires' field was missing in an entry for session '{}'.", id))?,
+      expires,
+      issued_at,
       username: json::get_string_field(map, "username")?
         .ok_or(format!("'username' field was missing in an entry for session '{}'.", id))?,
     })
