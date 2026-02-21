@@ -196,7 +196,9 @@ impl JsonLogSerializable<User> for User {
     if let Some(u) = json::get_string_field(map, "username")? { self.username = u; }
     if let Some(u) = json::get_string_field(map, "passwordHash")? { self.password_hash = u; }
     if let Some(u) = json::get_string_field(map, "passwordSalt")? { self.password_salt = u; }
-    self.totp_secret = json::get_string_field(map, "totpSecret")?;
+    if let Some(_) = map.get("totpSecret") {
+      self.totp_secret = json::get_string_field(map, "totpSecret")?;
+    }
     if let Some(u) = json::get_string_field(map, "homePageId")? { self.home_page_id = u; }
     if let Some(u) = json::get_string_field(map, "trashPageId")? { self.trash_page_id = u; }
     if let Some(u) = json::get_string_field(map, "dockPageId")? { self.dock_page_id = u; }
