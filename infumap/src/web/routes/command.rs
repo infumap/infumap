@@ -50,8 +50,13 @@ use crate::util::item::hash_children_and_their_attachments_only;
 use crate::util::item::hash_item_and_attachments_only;
 use crate::util::item::hash_item_attachments_children_and_their_attachments;
 use crate::util::ordering::new_ordering_at_end;
-use crate::web::serve::{json_response, incoming_json, cors_response};
+use crate::web::serve::{json_response, incoming_json_with_limit, cors_response};
 use crate::web::session::get_and_validate_session;
+
+
+// Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
+// 190+ MiB raw files while remaining bounded.
+const COMMAND_REQUEST_MAX_BYTES: usize = 256 * 1024 * 1024;
 
 
 pub static METRIC_COMMAND_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
@@ -122,7 +127,7 @@ pub async fn serve_command_route(
 
   let session_maybe = get_and_validate_session(&request, db).await;
 
-  let request: CommandRequest = match incoming_json(request).await {
+  let request: CommandRequest = match incoming_json_with_limit(request, COMMAND_REQUEST_MAX_BYTES).await {
     Ok(r) => r,
     Err(e) => {
       error!("An error occurred parsing command payload for user: {}", e);

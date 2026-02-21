@@ -42,6 +42,9 @@ use super::routes::command::serve_command_route;
 use super::routes::files::serve_files_route;
 
 
+pub const DEFAULT_JSON_BODY_MAX_BYTES: usize = 1024 * 1024;
+
+
 pub async fn http_serve(
     db: Arc<Mutex<Db>>,
     object_store: Arc<ObjectStore>,
@@ -169,6 +172,7 @@ pub fn json_response<T>(v: &T) -> Response<BoxBody<Bytes, hyper::Error>> where T
       .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
       .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
       .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
+      .header(hyper::header::ACCESS_CONTROL_EXPOSE_HEADERS, SESSION_HEADER_NAME)
       .body(full_body(result_str)) {
     Ok(r) => r,
     Err(_) => {
@@ -205,13 +209,46 @@ pub fn not_found_response() -> Response<BoxBody<Bytes, hyper::Error>> {
   Response::builder().status(StatusCode::NOT_FOUND).body(empty_body()).unwrap()
 }
 
+pub async fn incoming_json_with_limit<T>(request: Request<hyper::body::Incoming>, max_bytes: usize) -> InfuResult<T> where T: DeserializeOwned {
+  let content_length_maybe = request.headers().get(hyper::header::CONTENT_LENGTH)
+    .and_then(|v| v.to_str().ok())
+    .and_then(|v| v.parse::<usize>().ok());
+
+  if let Some(content_length) = content_length_maybe {
+    if content_length > max_bytes {
+      return Err(format!("Request body exceeds max size ({} > {}).", content_length, max_bytes).into());
+    }
+  }
+
+  let mut body = request.into_body();
+  let mut body_bytes = Vec::new();
+  if let Some(content_length) = content_length_maybe {
+    body_bytes.reserve(content_length.min(max_bytes));
+  }
+
+  while let Some(frame_result) = body.frame().await {
+    let frame = frame_result.map_err(|e| format!("Could not read request body: {}", e))?;
+    let data = match frame.into_data() {
+      Ok(data) => data,
+      Err(_) => continue,
+    };
+
+    let next_len = body_bytes.len().saturating_add(data.len());
+    if next_len > max_bytes {
+      return Err(format!("Request body exceeds max size (>{} bytes).", max_bytes).into());
+    }
+
+    body_bytes.extend_from_slice(&data);
+  }
+
+  let body = String::from_utf8(body_bytes)
+    .map_err(|e| format!("Request body is not valid UTF-8: {}", e))?;
+
+  Ok(serde_json::from_str::<T>(&body)?)
+}
+
 pub async fn incoming_json<T>(request: Request<hyper::body::Incoming>) -> InfuResult<T> where T: DeserializeOwned {
-  // TODO (LOW): Improve efficiency. This method is bad in a couple of ways.
-  Ok(serde_json::from_str::<T>(
-    &String::from_utf8(
-      request.collect().await.unwrap().to_bytes().iter().cloned().collect::<Vec<u8>>()
-    )?
-  )?)
+  incoming_json_with_limit(request, DEFAULT_JSON_BODY_MAX_BYTES).await
 }
 
 pub fn cors_response() -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -221,5 +258,6 @@ pub fn cors_response() -> Response<BoxBody<Bytes, hyper::Error>> {
     .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
     .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
     .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
+    .header(hyper::header::ACCESS_CONTROL_EXPOSE_HEADERS, SESSION_HEADER_NAME)
     .body(empty_body()).unwrap()
 }

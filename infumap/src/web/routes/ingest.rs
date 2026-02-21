@@ -33,7 +33,7 @@ use crate::storage::db::ingest_session::IngestSession;
 use crate::storage::db::Db;
 use crate::storage::object;
 use crate::web::routes::command::add_item_for_user;
-use crate::web::serve::{cors_response, incoming_json, json_response, not_found_response};
+use crate::web::serve::{cors_response, incoming_json, incoming_json_with_limit, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{new_uid, Uid};
@@ -48,6 +48,10 @@ const ACCESS_TOKEN_TTL_SECS: i64 = 60 * 10;
 const REFRESH_TOKEN_TTL_SECS: i64 = 60 * 60 * 24 * 180;
 
 const DEFAULT_DEVICE_NAME: &str = "Chrome extension";
+// Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
+// 190+ MiB raw files while remaining bounded.
+const INGEST_ADD_ITEM_REQUEST_MAX_BYTES: usize = 256 * 1024 * 1024;
+
 #[derive(Clone)]
 struct PairingCode {
   user_id: Uid,
@@ -641,7 +645,7 @@ async fn add_item(
     }
   };
 
-  let payload: AddItemRequest = match incoming_json(req).await {
+  let payload: AddItemRequest = match incoming_json_with_limit(req, INGEST_ADD_ITEM_REQUEST_MAX_BYTES).await {
     Ok(p) => p,
     Err(e) => {
       warn!("Could not parse add-item request: {}", e);
