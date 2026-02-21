@@ -29,6 +29,7 @@ pub const CURRENT_SESSIONS_LOG_VERSION: i64 = 1;
 const SESSION_LOG_FILENAME: &str = "sessions.json";
 pub const SESSION_LIFETIME_SECS: i64 = 60 * 60 * 24 * 30;
 pub const SESSION_ROTATION_INTERVAL_SECS: i64 = 60 * 60 * 24;
+const SESSION_ROTATION_GRACE_SECS: i64 = 60 * 2;
 
 
 /// Db for managing Session instances, assuming the mandated data folder hierarchy.
@@ -149,6 +150,16 @@ impl SessionDb {
       return Ok(None);
     }
 
+    // Keep the old session id valid briefly so in-flight parallel requests using the prior
+    // cookie/header don't start failing immediately after one request rotates successfully.
+    let grace_existing = Session {
+      id: existing.id.clone(),
+      user_id: existing.user_id.clone(),
+      expires: (now_unix_secs + SESSION_ROTATION_GRACE_SECS).min(existing.expires),
+      issued_at: now_unix_secs,
+      username: existing.username.clone(),
+    };
+
     let rotated = Session {
       id: new_uid(),
       user_id: existing.user_id.clone(),
@@ -157,10 +168,9 @@ impl SessionDb {
       username: existing.username.clone(),
     };
 
+    store.update(grace_existing).await?;
     store.add(rotated.clone()).await?;
     self.user_id_by_session_id.insert(rotated.id.clone(), user_id);
-    self.user_id_by_session_id.remove(id);
-    store.remove(id).await?;
     Ok(Some(rotated))
   }
 

@@ -81,11 +81,40 @@ impl JsonLogSerializable<Session> for Session {
     })
   }
 
-  fn create_json_update(_old: &Session, _new: &Session) -> InfuResult<Map<String, Value>> {
-    return Err("Attempt was made to create a Session update record, but sessions cannot be updated.".into());
+  fn create_json_update(old: &Session, new: &Session) -> InfuResult<Map<String, Value>> {
+    if old.id != new.id {
+      return Err("Attempt was made to create a Session update record from instances with non-matching ids.".into());
+    }
+    if old.user_id != new.user_id {
+      return Err(format!("Attempt was made to change user_id for session '{}', but this is not allowed.", old.id).into());
+    }
+
+    let mut result: Map<String, Value> = Map::new();
+    result.insert(String::from("__recordType"), Value::String("update".to_string()));
+    result.insert(String::from("id"), Value::String(new.id.clone()));
+
+    if old.expires != new.expires {
+      result.insert(String::from("expires"), Value::Number(new.expires.into()));
+    }
+    if old.issued_at != new.issued_at {
+      result.insert(String::from("issuedAt"), Value::Number(new.issued_at.into()));
+    }
+    if old.username != new.username {
+      result.insert(String::from("username"), Value::String(new.username.clone()));
+    }
+
+    Ok(result)
   }
 
-  fn apply_json_update(&mut self, _map: &Map<String, Value>) -> InfuResult<()> {
-    return Err("Attempt was made to update a Session, but sessions cannot be updated.".into());
+  fn apply_json_update(&mut self, map: &Map<String, Value>) -> InfuResult<()> {
+    json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
+    if let Some(user_id) = json::get_string_field(map, "userId")? {
+      return Err(format!("Encountered an update record for session '{}' with user_id='{}', but this is not allowed.", self.id, user_id).into());
+    }
+
+    if let Some(expires) = json::get_integer_field(map, "expires")? { self.expires = expires; }
+    if let Some(issued_at) = json::get_integer_field(map, "issuedAt")? { self.issued_at = issued_at; }
+    if let Some(username) = json::get_string_field(map, "username")? { self.username = username; }
+    Ok(())
   }
 }
