@@ -190,10 +190,6 @@ async fn get_cached_resized_img(
                 .header("Content-Disposition", content_disposition)
                 .header("X-Content-Type-Options", "nosniff")
                 .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-                .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
-                .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
-                .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
                 .body(full_body(data)).unwrap());
             } else {
               // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
@@ -241,10 +237,6 @@ async fn get_cached_resized_img(
             .header("Content-Disposition", content_disposition_header(&uid, true))
             .header("X-Content-Type-Options", "nosniff")
             .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-            .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
-            .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
-            .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
             .body(full_body(data)).unwrap());
         },
         None => {
@@ -268,10 +260,6 @@ async fn get_cached_resized_img(
       .header("Content-Disposition", content_disposition)
       .header("X-Content-Type-Options", "nosniff")
       .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-      .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-      .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
-      .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
-      .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
       .body(full_body(original_file_bytes)).unwrap());
   }
 
@@ -316,10 +304,6 @@ async fn get_cached_resized_img(
         .header("Content-Disposition", content_disposition_header(&uid, true))
         .header("X-Content-Type-Options", "nosniff")
         .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-        .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
-        .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
-        .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
         .body(full_body(data)).unwrap())
     },
 
@@ -365,10 +349,6 @@ async fn get_file(
     .header("Content-Disposition", content_disposition)
     .header("X-Content-Type-Options", "nosniff")
     .header(hyper::header::CACHE_CONTROL, calc_cache_control(browser_cache_max_age_seconds))
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
-    .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
     .body(full_body(data)).unwrap())
 }
 

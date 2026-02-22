@@ -15,7 +15,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use hyper::Request;
+use hyper::header::{HOST, ORIGIN};
+use hyper::http::uri::Authority;
 use log::{debug, error, warn};
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -24,15 +27,68 @@ use crate::storage::db::{Db, session::Session};
 use super::cookie::{get_session_cookie_session_id_maybe, get_session_header_maybe};
 
 
+fn is_cross_origin_request(request: &Request<hyper::body::Incoming>) -> bool {
+  let origin_str = match request.headers().get(ORIGIN).and_then(|v| v.to_str().ok()) {
+    Some(v) => v,
+    None => return false
+  };
+
+  let origin_url = match reqwest::Url::parse(origin_str) {
+    Ok(v) => v,
+    Err(_) => return true
+  };
+
+  let origin_host = match origin_url.host_str() {
+    Some(v) => v.to_ascii_lowercase(),
+    None => return true
+  };
+  let origin_port = origin_url.port_or_known_default();
+
+  let host_str = match request.headers().get(HOST).and_then(|v| v.to_str().ok()) {
+    Some(v) => v,
+    None => return true
+  };
+  let host_authority = match Authority::from_str(host_str) {
+    Ok(v) => v,
+    Err(_) => return true
+  };
+
+  if host_authority.host().to_ascii_lowercase() != origin_host {
+    return true;
+  }
+
+  match host_authority.port_u16() {
+    Some(host_port) => Some(host_port) != origin_port,
+    None => false
+  }
+}
+
 pub async fn get_and_validate_session(request: &Request<hyper::body::Incoming>, db: &Arc<Mutex<Db>>) -> Option<Session> {
   let mut db = db.lock().await;
-  let (session_id, session_header_maybe) = match get_session_cookie_session_id_maybe(request) {
-    Some(cookie_session_id) => (cookie_session_id, None),
-    None => match get_session_header_maybe(request) {
+  let cross_origin = is_cross_origin_request(request);
+  let session_header_maybe = get_session_header_maybe(request);
+  let cookie_session_id_maybe = get_session_cookie_session_id_maybe(request);
+
+  let (session_id, session_header_maybe) = if cross_origin {
+    if cookie_session_id_maybe.is_some() {
+      debug!("Ignoring session cookie for cross-origin request.");
+    }
+    match session_header_maybe {
       Some(header_session) => (header_session.session_id.clone(), Some(header_session)),
       None => {
-        debug!("No session cookie or header is present.");
+        debug!("Cross-origin request did not include a session header.");
         return None;
+      }
+    }
+  } else {
+    match cookie_session_id_maybe {
+      Some(cookie_session_id) => (cookie_session_id, None),
+      None => match session_header_maybe {
+        Some(header_session) => (header_session.session_id.clone(), Some(header_session)),
+        None => {
+          debug!("No session cookie or header is present.");
+          return None;
+        }
       }
     }
   };

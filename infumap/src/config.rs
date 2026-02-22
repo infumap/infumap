@@ -27,6 +27,9 @@ pub const CONFIG_ADDRESS_DEFAULT: &'static str = "127.0.0.1";
 pub const CONFIG_PORT: &'static str = "port";
 pub const CONFIG_PORT_DEFAULT: &'static str = "8000";
 
+pub const CONFIG_ALLOW_CROSS_INSTANCE_EMBED: &'static str = "allow_cross_instance_embed";
+pub const CONFIG_ALLOW_CROSS_INSTANCE_EMBED_DEFAULT: bool = false;
+
 pub const CONFIG_ENABLE_PROMETHEUS_METRICS: &'static str = "enable_prometheus_metrics";
 pub const CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT: bool = false;
 

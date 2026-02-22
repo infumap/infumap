@@ -31,7 +31,7 @@ import { TabularFns } from "./items/base/tabular-item";
 import { fullArrange } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
 import { MouseActionState } from "./input/state";
-import { RemoteSessions, REMOTE_SESSION_HEADER } from "./store/RemoteSessions";
+import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./util/remoteSession";
 
 // Global request tracking - will be set by store initialization
 let globalRequestTracker: {
@@ -863,10 +863,7 @@ export async function post(host: string | null, path: string, json: any) {
   };
 
   if (host != null) {
-    const session = RemoteSessions.get(host);
-    if (session) {
-      headers[REMOTE_SESSION_HEADER] = session.sessionDataString;
-    }
+    appendRemoteSessionHeader(host, headers);
   }
   const fetchResult = await fetch(url, {
     method: 'POST',
@@ -875,25 +872,7 @@ export async function post(host: string | null, path: string, json: any) {
   });
 
   if (host != null) {
-    const rotatedSessionHeader = fetchResult.headers.get(REMOTE_SESSION_HEADER);
-    if (rotatedSessionHeader) {
-      try {
-        const rotatedSession = JSON.parse(rotatedSessionHeader);
-        if (rotatedSession.sessionId) {
-          const existing = RemoteSessions.get(host);
-          if (existing) {
-            const existingData = JSON.parse(existing.sessionDataString);
-            const mergedSessionData = JSON.stringify({ ...existingData, ...rotatedSession });
-            const nextUsername = typeof rotatedSession.username === "string" && rotatedSession.username.length > 0
-              ? rotatedSession.username
-              : existing.username;
-            RemoteSessions.set({ host, sessionDataString: mergedSessionData, username: nextUsername });
-          }
-        }
-      } catch (e) {
-        console.warn("Could not process rotated remote session header:", e);
-      }
-    }
+    applyRotatedRemoteSessionHeader(host, fetchResult);
   }
   return await fetchResult.json();
 }

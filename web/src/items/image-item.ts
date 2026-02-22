@@ -36,6 +36,7 @@ import { ItemFns } from "./base/item-polymorphism";
 import { FlagsMixin } from "./base/flags-item";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { CursorEventState } from "../input/state";
+import { openRemoteFileInNewTab } from "../util/remoteFile";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -339,7 +340,16 @@ export const ImageFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (visualElement.flags & VisualElementFlags.Popup) {
-      window.open('/files/' + visualElement.displayItem.id, '_blank');
+      if (visualElement.displayItem.origin == null) {
+        window.open('/files/' + visualElement.displayItem.id, '_blank');
+      } else {
+        const host = visualElement.displayItem.origin;
+        const itemId = visualElement.displayItem.id;
+        void openRemoteFileInNewTab(host, itemId)
+          .catch((e) => {
+            console.error(`Could not open remote file '${itemId}' from '${host}':`, e);
+          });
+      }
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);

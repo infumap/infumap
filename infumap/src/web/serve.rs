@@ -29,6 +29,7 @@ use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
 use crate::storage::cache::ImageCache;
+use crate::config::CONFIG_ALLOW_CROSS_INSTANCE_EMBED;
 use crate::storage::db::session_db::SESSION_ROTATION_INTERVAL_SECS;
 use crate::storage::object::ObjectStore;
 use crate::web::dist_handlers::serve_index;
@@ -43,6 +44,15 @@ use super::routes::files::serve_files_route;
 
 
 pub const DEFAULT_JSON_BODY_MAX_BYTES: usize = 1024 * 1024;
+const CORS_ALLOW_METHODS: &str = "GET, POST, OPTIONS";
+const CORS_ALLOW_HEADERS: &str = "content-type, x-infusession, authorization";
+const CORS_MAX_AGE_SECS: &str = "86400";
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum CorsPolicy {
+  Disabled,
+  EmbedAllowed,
+}
 
 
 pub async fn http_serve(
@@ -54,6 +64,10 @@ pub async fn http_serve(
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
   debug!("Serving: {} ({})", req.uri().path(), req.method());
   let req_path = req.uri().path().to_string();
+  let req_origin = req.headers()
+    .get(hyper::header::ORIGIN)
+    .and_then(|v| v.to_str().ok())
+    .map(|v| v.to_owned());
   let secure_cookie = should_use_secure_cookie(&req);
   let incoming_cookie_session_id_maybe = get_session_cookie_session_id_maybe(&req);
   let incoming_header_session_maybe = if incoming_cookie_session_id_maybe.is_some() {
@@ -62,20 +76,32 @@ pub async fn http_serve(
     get_session_header_maybe(&req)
   };
 
-  let mut response =
-    if req.uri().path() == "/command" { serve_command_route(&db, &object_store, image_cache.clone(), req).await }
-    else if req.uri().path().starts_with("/account/") { serve_account_route(config.clone(), &db, req).await }
-    else if req.uri().path().starts_with("/ingest/") { serve_ingest_route(&db, &object_store, req).await }
-    else if req.uri().path().starts_with("/files/") { serve_files_route(config, &db, object_store, image_cache.clone(), &req).await }
-    else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, dev_feature_flag, req).await }
-    else if let Some(response) = serve_dist_routes(&req) { response }
+  let (mut response, cors_policy) =
+    if req.uri().path() == "/command" {
+      (serve_command_route(&db, &object_store, image_cache.clone(), req).await, CorsPolicy::EmbedAllowed)
+    }
+    else if req.uri().path().starts_with("/account/") {
+      (serve_account_route(config.clone(), &db, req).await, CorsPolicy::EmbedAllowed)
+    }
+    else if req.uri().path().starts_with("/ingest/") {
+      (serve_ingest_route(&db, &object_store, req).await, CorsPolicy::EmbedAllowed)
+    }
+    else if req.uri().path().starts_with("/files/") {
+      (serve_files_route(config.clone(), &db, object_store, image_cache.clone(), &req).await, CorsPolicy::EmbedAllowed)
+    }
+    else if req.uri().path().starts_with("/admin/") {
+      (serve_admin_route(&db, dev_feature_flag, req).await, CorsPolicy::Disabled)
+    }
+    else if let Some(response) = serve_dist_routes(&req) {
+      (response, CorsPolicy::Disabled)
+    }
     else if req.method() == Method::GET { // &&
       // TODO (MEDIUM): explicit support only for /{item_id}, /{username} and /{username}/{label}
       //       req.uri().path().len() > 32 &&
       //       is_uid(&req.uri().path()[req.uri().path().len()-32..]) {
-      serve_index()
+      (serve_index(), CorsPolicy::Disabled)
     } else {
-      not_found_response()
+      (not_found_response(), CorsPolicy::Disabled)
     };
 
   maybe_rotate_primary_session(
@@ -85,6 +111,8 @@ pub async fn http_serve(
     incoming_cookie_session_id_maybe,
     incoming_header_session_maybe,
     &mut response).await;
+
+  apply_cors_headers(&config, cors_policy, req_origin.as_deref(), &mut response);
 
   Ok(response)
 }
@@ -168,11 +196,6 @@ pub fn json_response<T>(v: &T) -> Response<BoxBody<Bytes, hyper::Error>> where T
   let result_str = serde_json::to_string(&v).unwrap();
   match Response::builder()
       .header(hyper::header::CONTENT_TYPE, "text/javascript")
-      .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-      .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
-      .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
-      .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
-      .header(hyper::header::ACCESS_CONTROL_EXPOSE_HEADERS, SESSION_HEADER_NAME)
       .body(full_body(result_str)) {
     Ok(r) => r,
     Err(_) => {
@@ -251,13 +274,80 @@ pub async fn incoming_json<T>(request: Request<hyper::body::Incoming>) -> InfuRe
   incoming_json_with_limit(request, DEFAULT_JSON_BODY_MAX_BYTES).await
 }
 
+fn normalize_origin(origin: &str) -> Option<String> {
+  let normalized = origin.trim().trim_end_matches('/').to_ascii_lowercase();
+  if normalized.is_empty() || normalized == "null" {
+    return None;
+  }
+  if !normalized.starts_with("https://") && !normalized.starts_with("http://") {
+    return None;
+  }
+  Some(normalized)
+}
+
+fn allow_cross_instance_embed(config: &Config) -> bool {
+  config.get_bool(CONFIG_ALLOW_CROSS_INSTANCE_EMBED).unwrap_or(false)
+}
+
+fn apply_cors_headers(
+  config: &Config,
+  cors_policy: CorsPolicy,
+  req_origin_maybe: Option<&str>,
+  response: &mut Response<BoxBody<Bytes, hyper::Error>>) {
+
+  if cors_policy != CorsPolicy::EmbedAllowed {
+    return;
+  }
+
+  let headers = response.headers_mut();
+  headers.remove(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN);
+  headers.remove(hyper::header::ACCESS_CONTROL_ALLOW_METHODS);
+  headers.remove(hyper::header::ACCESS_CONTROL_MAX_AGE);
+  headers.remove(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS);
+  headers.remove(hyper::header::ACCESS_CONTROL_EXPOSE_HEADERS);
+
+  let request_origin = match req_origin_maybe.and_then(normalize_origin) {
+    Some(origin) => origin,
+    None => return
+  };
+
+  if !allow_cross_instance_embed(config) {
+    return;
+  }
+
+  let origin_header_value = match HeaderValue::from_str(&request_origin) {
+    Ok(v) => v,
+    Err(_) => {
+      warn!("Could not set CORS origin header value '{}'.", request_origin);
+      return;
+    }
+  };
+
+  headers.insert(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin_header_value);
+  headers.insert(
+    hyper::header::ACCESS_CONTROL_ALLOW_METHODS,
+    HeaderValue::from_static(CORS_ALLOW_METHODS));
+  headers.insert(
+    hyper::header::ACCESS_CONTROL_MAX_AGE,
+    HeaderValue::from_static(CORS_MAX_AGE_SECS));
+  headers.insert(
+    hyper::header::ACCESS_CONTROL_ALLOW_HEADERS,
+    HeaderValue::from_static(CORS_ALLOW_HEADERS));
+  headers.insert(
+    hyper::header::ACCESS_CONTROL_EXPOSE_HEADERS,
+    HeaderValue::from_static(SESSION_HEADER_NAME));
+
+  let vary_has_origin = headers
+    .get_all(hyper::header::VARY)
+    .iter()
+    .any(|v| v.as_bytes().eq_ignore_ascii_case(b"origin"));
+  if !vary_has_origin {
+    headers.append(hyper::header::VARY, HeaderValue::from_static("Origin"));
+  }
+}
+
 pub fn cors_response() -> Response<BoxBody<Bytes, hyper::Error>> {
   Response::builder()
     .status(StatusCode::NO_CONTENT)
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
-    .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
-    .header(hyper::header::ACCESS_CONTROL_EXPOSE_HEADERS, SESSION_HEADER_NAME)
     .body(empty_body()).unwrap()
 }

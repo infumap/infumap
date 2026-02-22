@@ -173,7 +173,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (currentImgSrc != imgSrc() && !store.anItemIsResizing.get()) {
       if (isDetailed_OnLoad) {
         if (!isMounting) {
-          releaseImage(currentImgSrc);
+          releaseImage(currentImgSrc, imgOriginOnLoad);
         }
         isMounting = false;
         currentImgSrc = imgSrc();
@@ -216,7 +216,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   onCleanup(() => {
     if (isDetailed_OnLoad) {
-      releaseImage(currentImgSrc);
+      releaseImage(currentImgSrc, imgOriginOnLoad);
     }
   });
 

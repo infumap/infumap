@@ -33,6 +33,13 @@
 #address = "127.0.0.1"
 #port = 8000
 
+# Whether this instance can serve API/file responses to other browser origins
+# (for embedding content into other Infumap instances). If true, CORS is enabled
+# for command/account/ingest/files endpoints and any origin is allowed.
+# Cross-origin requests must use the x-infusession header for auth; session
+# cookies are ignored.
+#allow_cross_instance_embed = false
+
 
 # Prometheus metrics endpoint configuration. Should not be exposed to the
 # public internet. Refer to the "operations.md" doc file for more information.

@@ -37,6 +37,7 @@ import { VesCache } from '../layout/ves-cache';
 import { fullArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
+import { downloadRemoteFile } from '../util/remoteFile';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -233,7 +234,14 @@ export const FileFns = {
 
   handleLinkClick: (visualElement: VisualElement): void => {
     const fileItem = asFileItem(visualElement.displayItem);
-    window.open('/files/' + fileItem.id, '_blank');
+    if (fileItem.origin == null) {
+      window.open('/files/' + fileItem.id, '_blank');
+      return;
+    }
+    void downloadRemoteFile(fileItem.origin, fileItem.id, fileItem.title)
+      .catch((e) => {
+        console.error(`Could not download remote file '${fileItem.id}' from '${fileItem.origin}':`, e);
+      });
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, caretAtEnd: boolean = false): void => {
