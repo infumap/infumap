@@ -148,28 +148,72 @@ And copy to somewhere on the current `PATH`:
 
 ### Initial VPS Setup
 
-Create a VPS running Debian 12 x64 using your vendor of choice. Select a region as physically close to your Raspberry
+Create a VPS running Debian 13 x64 using your vendor of choice. Select a region as physically close to your Raspberry
 Pi device as possible.
 
 A cheap/small instance size will suffice since we will not use the VPS instance for anything other than forwarding
 through HTTPS web traffic to/from the Raspberry Pi device.
 
-Use public-key authentication, with a different key to your Raspberry Pi.
+On your admin machine, generate a new dedicated SSH keypair for this VPS (run locally, not on the VPS):
 
-Install prerequisites:
+    ssh-keygen -t ed25519 -a 100 -f ~/.ssh/infumap_vps_ed25519 -C "infumap-vps-admin"
 
-    apt update && sudo apt upgrade
-    apt install wireguard
+Display the public key so you can copy it:
+
+    cat ~/.ssh/infumap_vps_ed25519.pub
+
+You will paste this value as `YOUR_ADMIN_PUBLIC_KEY` in the user setup step below.
+
+Using a new key here lowers risk from leaked bootstrap credentials or provider account compromise, although it does not
+remove the need to trust the VPS provider.
+
+Install only the packages used by this guide:
+
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt install --no-install-recommends wireguard-tools nftables
+
+Create a non-root admin user for ongoing administration:
+
+    sudo adduser --gecos "" infumap
+    sudo usermod -aG sudo infumap
+    sudo install -d -m 700 -o infumap -g infumap /home/infumap/.ssh
+    echo "{YOUR_ADMIN_PUBLIC_KEY}" | sudo tee /home/infumap/.ssh/authorized_keys > /dev/null
+    sudo chown infumap:infumap /home/infumap/.ssh/authorized_keys
+    sudo chmod 600 /home/infumap/.ssh/authorized_keys
+
+Set a strong password for `infumap` when prompted. This is for local `sudo` only; SSH password login is disabled later.
+
+Where `YOUR_ADMIN_PUBLIC_KEY` is a full public key line from your admin machine (for example: `ssh-ed25519 AAAA... you@laptop`).
+
+Verify login in a new terminal before continuing:
+
+    ssh -i ~/.ssh/infumap_vps_ed25519 infumap@{YOUR_SERVER_INTERNET_IP}
+    sudo -v
+
+After confirming `infumap` works, remove provider bootstrap root credentials:
+
+    sudo truncate -s 0 /root/.ssh/authorized_keys
+    sudo passwd -l root
 
 We will use wireguard to create a secure, persistent, reliable network between our VPS instance and Raspberry Pi.
 
 Generate the VPS wireguard keys:
 
-    sudo mkdir -p /etc/wireguard/keys; wg genkey | sudo tee /etc/wireguard/keys/server.key | wg pubkey > /etc/wireguard/keys/server.key.pub
+    sudo install -d -m 700 /etc/wireguard/keys
+    wg genkey | sudo tee /etc/wireguard/keys/server.key | wg pubkey | sudo tee /etc/wireguard/keys/server.key.pub > /dev/null
+
+Read the generated private key value:
+
+    sudo cat /etc/wireguard/keys/server.key
+
+To copy it to your Mac clipboard from your admin machine:
+
+    ssh -i ~/.ssh/infumap_vps_ed25519 infumap@{YOUR_SERVER_INTERNET_IP} 'sudo cat /etc/wireguard/keys/server.key' | tr -d '\n' | pbcopy
 
 Create the wireguard config file:
 
-    nano /etc/wireguard/wg0.conf
+    sudoedit /etc/wireguard/wg0.conf
 
     [Interface]
     Address = 10.0.0.1/32
@@ -177,23 +221,27 @@ Create the wireguard config file:
     PrivateKey = {YOUR_SERVER_PRIVATE_KEY}
     SaveConfig = false
 
-Lock down the permissions of the server private key and config:
+Lock down the permissions of the server keys and config:
 
     sudo chmod 600 /etc/wireguard/wg0.conf /etc/wireguard/keys/server.key
+    sudo chmod 644 /etc/wireguard/keys/server.key.pub
 
-Disable ssh password based login:
+After confirming `infumap` login works, lock down SSH:
     
-    sudo vi /etc/ssh/sshd_config
+    sudoedit /etc/ssh/sshd_config
   
 and set:
 
     PasswordAuthentication no
-    UsePAM no
+    KbdInteractiveAuthentication no
+    PermitRootLogin no
+    UsePAM yes
 
 Also check for config files in `/etc/ssh/sshd_config.d` that may override `/etc/ssh/sshd_config` and update if required.
 
-Restart SSH server
+Validate and reload SSH server:
 
+    sudo sshd -t
     sudo systemctl reload ssh
 
 ### Raspberry Pi Wireguard Setup
