@@ -54,13 +54,15 @@ while avoiding persistent log growth on disk:
 
     # in /etc/systemd/journald.conf
     Storage=volatile
-    RuntimeMaxUse=8M
+    RuntimeMaxUse=4M
     Compress=yes
 
 Then restart and verify:
 
     sudo systemctl restart systemd-journald
     journalctl --disk-usage
+
+Recovery note: for severe or unclear failures, rebuild the Pi and restore from backup.
 
 (optional, Ethernet-only and no audio use) Reduce hardware/software attack surface by adding the following to `/boot/firmware/config.txt`:
 
@@ -148,52 +150,151 @@ And copy to somewhere on the current `PATH`:
 
 ### Initial VPS Setup
 
-Create a VPS running Debian 12 x64 using your vendor of choice. Select a region as physically close to your Raspberry
+Create a VPS running Debian 13 x64 using your vendor of choice. Select a region as physically close to your Raspberry
 Pi device as possible.
 
 A cheap/small instance size will suffice since we will not use the VPS instance for anything other than forwarding
-through HTTPS web traffic to/from the Raspberry Pi device.
+HTTPS web traffic.
 
-Use public-key authentication, with a different key to your Raspberry Pi.
+Install required packages:
 
-Install prerequisites:
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt install --no-install-recommends wireguard-tools nftables
 
-    apt update && sudo apt upgrade
-    apt install wireguard
+(optional) If prompted, use `sudo apt autoremove` to remove any packages marked as no longer required.
+
+(optional, if UFW is active on your VPS image) Allow WireGuard and SSH:
+
+    sudo ufw allow 22/tcp
+    sudo ufw allow 51820/udp
+    sudo ufw reload
+    sudo ufw status verbose
+
+(optional) Add disk-usage limits on logs/core dumps to conserve disk space:
+
+Note: This is mainly for operators using spare VPS capacity for additional non-core tasks. If you do this, be sure to
+review the security impact of every extra service you install and run.
+
+Edit `/etc/systemd/journald.conf`:
+
+    sudoedit /etc/systemd/journald.conf
+
+and set:
+
+    Storage=volatile
+    RuntimeMaxUse=4M
+    Compress=yes
+
+Create `/etc/systemd/coredump.conf.d/99-infumap.conf`:
+
+    sudo install -d -m 755 /etc/systemd/coredump.conf.d
+    sudoedit /etc/systemd/coredump.conf.d/99-infumap.conf
+
+with:
+
+    [Coredump]
+    Storage=none
+    ProcessSizeMax=0
+
+Disable apt package cache retention and apply the changes:
+
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "false";' | sudo tee /etc/apt/apt.conf.d/99infumap-no-cache > /dev/null
+    sudo apt clean
+    sudo systemctl restart systemd-journald
+    sudo journalctl --rotate
+    sudo journalctl --vacuum-size=4M
+    journalctl --disk-usage
+
+Remove old persistent journal files created before `Storage=volatile`:
+
+    sudo rm -rf /var/log/journal
+    sudo systemctl restart systemd-journald
+    journalctl --disk-usage
+
+(optional, if installed) Disable `rsyslog` to avoid duplicate on-disk log streams:
+
+    sudo systemctl disable --now rsyslog.service 2>/dev/null || true
+
+On your admin machine, generate a new dedicated SSH keypair for this VPS (run locally, not on the VPS):
+
+    ssh-keygen -t ed25519 -a 100 -f ~/.ssh/infumap_vps_ed25519 -C "infumap-vps"
+
+Display the public key so you can copy it:
+
+    cat ~/.ssh/infumap_vps_ed25519.pub
+
+You will paste this value as `YOUR_ADMIN_PUBLIC_KEY` in the user setup step below.
+
+Using a new key here lowers risk from leaked bootstrap credentials or provider account compromise, although it does not
+remove the need to trust the VPS provider.
+
+Create a non-root admin user for ongoing administration:
+
+    sudo adduser --gecos "" infumap
+    sudo usermod -aG sudo infumap
+    sudo install -d -m 700 -o infumap -g infumap /home/infumap/.ssh
+    echo "{YOUR_ADMIN_PUBLIC_KEY}" | sudo tee /home/infumap/.ssh/authorized_keys > /dev/null
+    sudo chown infumap:infumap /home/infumap/.ssh/authorized_keys
+    sudo chmod 600 /home/infumap/.ssh/authorized_keys
+
+Where `YOUR_ADMIN_PUBLIC_KEY` is a full public key line from your admin machine (for example: `ssh-ed25519 AAAA... you@laptop`).
+
+Set a strong password for `infumap` when prompted. This password is for `sudo` and console recovery; SSH password
+authentication is disabled later.
+
+Verify login in a new terminal before continuing:
+
+    ssh -i ~/.ssh/infumap_vps_ed25519 infumap@{YOUR_SERVER_INTERNET_IP}
+    sudo -v
+
+After confirming `infumap` works, remove provider bootstrap root credentials:
+
+    sudo truncate -s 0 /root/.ssh/authorized_keys
+    sudo passwd -l root
 
 We will use wireguard to create a secure, persistent, reliable network between our VPS instance and Raspberry Pi.
 
 Generate the VPS wireguard keys:
 
-    sudo mkdir -p /etc/wireguard/keys; wg genkey | sudo tee /etc/wireguard/keys/server.key | wg pubkey > /etc/wireguard/keys/server.key.pub
+    sudo install -d -m 700 /etc/wireguard/keys
+    wg genkey | sudo tee /etc/wireguard/keys/server.key | wg pubkey | sudo tee /etc/wireguard/keys/server.key.pub > /dev/null
 
 Create the wireguard config file:
 
-    nano /etc/wireguard/wg0.conf
+    sudoedit /etc/wireguard/wg0.conf
 
     [Interface]
     Address = 10.0.0.1/32
     ListenPort = 51820
-    PrivateKey = {YOUR_SERVER_PRIVATE_KEY}
+    PrivateKey = {contents of /etc/wireguard/keys/server.key}
     SaveConfig = false
 
-Lock down the permissions of the server private key and config:
+Lock down the permissions of the server keys and config:
 
     sudo chmod 600 /etc/wireguard/wg0.conf /etc/wireguard/keys/server.key
+    sudo chmod 644 /etc/wireguard/keys/server.key.pub
 
-Disable ssh password based login:
+After confirming `infumap` login works, lock down SSH:
     
-    sudo vi /etc/ssh/sshd_config
+    sudoedit /etc/ssh/sshd_config
   
 and set:
 
     PasswordAuthentication no
-    UsePAM no
+    KbdInteractiveAuthentication no
+    PermitRootLogin no
+    X11Forwarding no
+    UsePAM yes
 
 Also check for config files in `/etc/ssh/sshd_config.d` that may override `/etc/ssh/sshd_config` and update if required.
 
-Restart SSH server
+If present, keep `AcceptEnv LANG LC_* COLORTERM NO_COLOR` so locale/color environment variables can pass through SSH.
+Also keep the existing `Subsystem sftp ...` entry so `scp` continues to work.
 
+Validate and reload SSH server:
+
+    sudo sshd -t
     sudo systemctl reload ssh
 
 ### Raspberry Pi Wireguard Setup
@@ -239,12 +340,12 @@ Start wg0 up now:
 
 Now, on the VPS, add your Raspberry Pi as a peer:
 
-    nano /etc/wireguard/wg0.conf
+    sudoedit /etc/wireguard/wg0.conf
 
     [Interface]
     Address = 10.0.0.1/32
     ListenPort = 51820
-    PrivateKey = {YOUR_SERVER_PRIVATE_KEY}
+    PrivateKey = {contents of /etc/wireguard/keys/server.key}
     SaveConfig = false
 
     [Peer]
@@ -253,15 +354,15 @@ Now, on the VPS, add your Raspberry Pi as a peer:
 
 Automatically bring up the `wg0` VPN interface on boot:
 
-    systemctl enable wg-quick@wg0
+    sudo systemctl enable wg-quick@wg0
 
 And start `wg0` now:
 
-    systemctl start wg-quick@wg0
+    sudo systemctl start wg-quick@wg0
 
 Verify it's up:
 
-    wg show wg0
+    sudo wg show wg0
 
 
 ### Setup a macOS WireGuard Admin Client (Full VPN Access)
