@@ -24,15 +24,24 @@ use crate::util::crypto::generate_key;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde, path_exists};
 
 
+async fn resolve_settings_file_path(path: &String) -> InfuResult<String> {
+  let mut path = expand_tilde(path).ok_or("Could not expand settings path.")?;
+  if path_exists(&path).await && path.is_dir() {
+    path.push("settings.toml");
+  }
+  if !path_exists(&path).await {
+    return Err(format!("The specified settings file path '{:?}' does not exist.", path).into());
+  }
+  if path.is_dir() {
+    return Err(format!("The specified settings path '{:?}' is a directory; expected a settings.toml file.", path).into());
+  }
+  path.into_os_string().into_string().map_err(|_| "Unsupported settings.toml file path.".into())
+}
+
+
 pub async fn get_config(settings_path_maybe: Option<&String>) -> InfuResult<Config> {
   let settings_path_maybe = match settings_path_maybe {
-    Some(path) => {
-      let path = expand_tilde(&path).ok_or("Could not expand settings path.")?;
-      if !path_exists(&std::path::PathBuf::from(&path)).await {
-        return Err(format!("The specified settings file path '{:?}' does not exist.", path).into());
-      }
-      Some(path.into_os_string().into_string().map_err(|_| "Unsupported settings.toml file path.")?)
-    },
+    Some(path) => Some(resolve_settings_file_path(path).await?),
 
     None => {
       let env_only_config = match Config::builder()
@@ -85,13 +94,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
   let mut info_messages = vec![];
 
   let settings_path_maybe = match settings_path_maybe {
-    Some(path) => {
-      let path = expand_tilde(&path).ok_or("Could not expand settings path.")?;
-      if !path_exists(&std::path::PathBuf::from(&path)).await {
-        return Err(format!("The specified settings file path '{:?}' does not exist.", path).into());
-      }
-      Some(path.into_os_string().into_string().map_err(|_| "Unsupported settings.toml file path.")?)
-    },
+    Some(path) => Some(resolve_settings_file_path(path).await?),
 
     None => {
       let env_only_config = match Config::builder()

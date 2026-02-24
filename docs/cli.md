@@ -19,7 +19,7 @@ For more information on configuring the Infumap web server, refer to [configurat
 
 
 Options:
-- **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
+- **-s --settings (optional):** Path to a toml settings configuration file, or a directory containing `settings.toml`. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
 - **--dev (optional):** Enable experimental in-development features.
 
 ### keygen
@@ -95,11 +95,12 @@ Options:
 
 ### emergency
 
-Automates pulling the latest backup file for a specific user and bringing up a temporary local Infumap instance
-based on this. Use this command in the event there is a problem with your server that you can't resolve quickly
+Automates pulling the latest backup file for a specific user and preparing a recovery directory
+based on this, in a user-specified directory. Use this command in the event there is a problem with your server that you can't resolve quickly
 and you need to urgently access information in Infumap. This command is also useful as simple a disaster
 recovery test. Since there are a lot of parameters, it's a good idea to have a simple shell script set up so
-that you can act quickly if/when the time comes.
+that you can act quickly if/when the time comes. This command does not start the web server; after setup, run:
+`infumap web --settings <directory>`.
 
 - **--s3-backup-endpoint:** As per your Infumap settings.
 - **--s3-backup-region:** As per your Infumap settings.
@@ -113,10 +114,10 @@ that you can act quickly if/when the time comes.
 - **--s3-secret (optional):** As per your Infumap settings.
 - **--user-id:** The user id to retrieve the backup file for.
 - **--encryption-key:** As per your Infumap settings.
-- **--keep:** If specified, the data files are not deleted on exit.
-- **--port (optional):** Port to bind the web server to (default: 8042).
-- **--enable-backup (optional):** Enable backup to S3 during the emergency session. You will need to manually restore the backup using the `restore` command to use it with your main instance.
-- **--backup-period-minutes (optional):** Backup period in minutes (default: 1). Be sure to wait for the backup to complete before exiting the emergency session.
+- **--recovery-dir:** Directory where `settings.toml`, `data`, and `cache` should be created/updated.
+- **--port (optional):** Port to write into generated `settings.toml` (default: 8042).
+- **--enable-backup (optional):** Enable backup to S3 in generated `settings.toml`. You will need to manually restore the backup using the `restore` command to use it with your main instance.
+- **--backup-period-minutes (optional):** Backup period in minutes to write into generated `settings.toml` (default: 1).
 - **--dev (optional):** Enable experimental in-development features.
 
 

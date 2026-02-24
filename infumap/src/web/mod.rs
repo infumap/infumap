@@ -93,7 +93,8 @@ pub fn make_clap_subcommand() -> Command {
     .arg(Arg::new("settings_path")
       .short('s')
       .long("settings")
-      .help(concat!("Path to a toml settings configuration file. If not specified and the env_only config is not defined ",
+      .help(concat!("Path to a toml settings configuration file, or a directory containing settings.toml. ",
+                    "If not specified and the env_only config is not defined ",
                     "via env vars, ~/.infumap/settings.toml will be used. If it does not exist, it will created with default ",
                     "values. On-disk data directories will also be created in ~/.infumap."))
       .num_args(1)
