@@ -24,12 +24,52 @@ For a quick local override on macOS:
 
 In Namecheap, go to `Profile -> Tools -> API Access` and enable API access.
 
-Whitelist the public IPv4 address that will make Namecheap API calls. If Caddy runs on the Raspberry Pi, this is your
-home network egress IP:
+Whitelist the public IPv4 address that Namecheap will see for API calls:
+
+- Direct mode (no proxy): whitelist your home network egress IP from the Raspberry Pi:
 
     curl -4 ifconfig.me
 
-If your home public IP changes, update the Namecheap API whitelist and the Caddy environment value below.
+- VPS-proxy mode (recommended when home IP is dynamic): whitelist your VPS public IPv4.
+
+If you use direct mode and your home public IP changes, update both the Namecheap whitelist and the Caddy
+`NAMECHEAP_CLIENT_IP` value.
+
+### (Optional, recommended for dynamic home IP) Route only Caddy egress via VPS
+
+This keeps normal Raspberry Pi internet traffic direct. Only outbound HTTP(S) from the `caddy` service is proxied
+through the VPS.
+
+On VPS, install and configure a small HTTP CONNECT proxy bound to WireGuard:
+
+    sudo apt update
+    sudo apt install -y tinyproxy
+    sudoedit /etc/tinyproxy/tinyproxy.conf
+
+Set at least:
+
+    Port 3128
+    Listen 10.0.0.1
+    Allow 10.0.0.2
+
+If UFW is active on the VPS, allow proxy access only from the Raspberry Pi WireGuard IP:
+
+    sudo ufw allow from 10.0.0.2 to any port 3128 proto tcp
+
+Enable and start:
+
+    sudo systemctl enable tinyproxy
+    sudo systemctl restart tinyproxy
+    sudo systemctl status tinyproxy
+
+On Raspberry Pi, test through the VPS proxy:
+
+    curl -I --proxy http://10.0.0.1:3128 https://api.namecheap.com/xml.response
+
+When using this mode:
+
+- Set `NAMECHEAP_CLIENT_IP` to your VPS public IPv4.
+- Keep that VPS public IPv4 whitelisted in Namecheap API Access.
 
 ### Install Caddy with the Namecheap DNS module
 
@@ -64,14 +104,27 @@ Set:
     NAMECHEAP_API_USER=YOUR_NAMECHEAP_USERNAME
     NAMECHEAP_CLIENT_IP=YOUR_WHITELISTED_PUBLIC_IP
 
+Use `NAMECHEAP_CLIENT_IP` as follows:
+
+- Direct mode: your home network public IPv4.
+- VPS-proxy mode: your VPS public IPv4.
+
 Create a systemd override to load that file:
 
     sudo systemctl edit caddy
 
-Use:
+For direct mode, use:
 
     [Service]
     EnvironmentFile=/etc/caddy/namecheap.env
+
+For VPS-proxy mode, use:
+
+    [Service]
+    EnvironmentFile=/etc/caddy/namecheap.env
+    Environment="HTTPS_PROXY=http://10.0.0.1:3128"
+    Environment="HTTP_PROXY=http://10.0.0.1:3128"
+    Environment="NO_PROXY=127.0.0.1,localhost,10.0.0.0/24"
 
 Now configure `/etc/caddy/Caddyfile`:
 
@@ -130,7 +183,8 @@ If TLS issuance fails, check Caddy logs:
 
 ### Profile-specific maintenance
 
-- If your home public IP changes, update Namecheap API whitelist and `NAMECHEAP_CLIENT_IP`.
+- Direct mode: if your home public IP changes, update Namecheap API whitelist and `NAMECHEAP_CLIENT_IP`.
+- VPS-proxy mode: keep the VPS public IP whitelisted in Namecheap; no home-IP updates are needed.
 - Restart Caddy after changes:
 
     sudo systemctl restart caddy
