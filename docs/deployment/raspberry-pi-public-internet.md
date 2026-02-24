@@ -1,5 +1,5 @@
 
-## Raspberry Pi / VPN (Common Setup)
+## Raspberry Pi / VPN
 
 On a typical VPS, you must trust the hosting provider (and the underlying hardware and virtualization stack).
 A sufficiently privileged operator may be able to access your VM’s disk and, in some cases, its memory,
@@ -407,9 +407,8 @@ Bring the tunnel up on macOS and verify:
     ping 10.0.0.2
     ssh pi@10.0.0.2
 
-If `10.0.0.1` works but `10.0.0.2` does not, ensure IP forwarding is enabled on the VPS (`net.ipv4.ip_forward=1`):
-
-    sudo sysctl -w net.ipv4.ip_forward=1
+If `10.0.0.1` works but `10.0.0.2` does not, ensure IP forwarding is enabled on the VPS (`net.ipv4.ip_forward=1`).
+That setting is also configured later in the "Expose Infumap on VPS" section.
 
 Use the same `10.0.0.10` value as `ADMIN_VPN_HOST_IP` in the tighter SSH firewall policy above.
 
@@ -522,7 +521,7 @@ You can unmount and close the LUKS container with:
     sudo cryptsetup luksClose infuvol
 
 If you use a LUKS volume for Infumap data, you must manually unlock and mount it after each reboot.
-Include this in your periodic maintenance runbook.
+This is covered in the `Periodic Admin Maintenance` section below.
 
 
 ### Configure and Run Infumap:
@@ -563,10 +562,144 @@ Key tmux commands to be aware of:
     Ctrl-b-a (attach)
 
 
+### Install Caddy on Your Raspberry Pi
 
-### Choose a deployment profile
+In order to serve Infumap over HTTPS, you need a reverse proxy to terminate TLS. You can terminate TLS on either the VPS
+or the Raspberry Pi. This guide uses Caddy on the Raspberry Pi and uses the VPS only for WireGuard and packet forwarding.
+That keeps decrypted HTTP traffic off the VPS and reduces trust in VPS infrastructure. Terminating TLS on the VPS can be
+operationally simpler, but it allows the VPS to inspect plaintext request/response traffic.
 
-At this point, the shared baseline setup is complete. Continue with one of the profile guides:
+We will use [Caddy](https://caddyserver.com/) for the reverse proxy because it is very easy to use - automatically provisions
+the TLS certificate and keeps it renewed.
 
-- [Public internet-facing deployment](raspberry-pi-public-internet.md)
-- [VPN-only deployment with HTTPS (Namecheap DNS challenge)](raspberry-pi-vpn-only.md)
+On your Raspberry Pi device:
+
+    sudo apt install caddy
+
+Contents of `/etc/caddy/Caddyfile`:
+
+    {
+        log {
+            output file /var/log/caddy/access.log {
+                mode 0600
+                roll_size 10MiB
+                roll_keep 5
+                roll_keep_for 168h
+            }
+            format json
+        }
+    }
+
+    YOUR_DOMAIN_NAME {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+Where YOUR_DOMAIN_NAME is your domain name, e.g. `example.com` or `infumap.example.com`.
+
+Enable and start:
+
+    systemctl enable caddy
+    systemctl start caddy
+
+If you are extra paranoid, you might consider running `caddy` on a separate physical device (a second Raspberry Pi) or
+via `docker` / `gvisor` for better isolation.
+
+
+### Expose Infumap on VPS
+
+First enable IP forwarding on your server to allow it to route packets between interfaces. Edit `/etc/sysctl.conf` and uncomment the line:
+
+    net.ipv4.ip_forward=1
+
+Then
+
+    sysctl -p
+
+Now edit `/etc/nftables.conf` and set the contents to:
+
+    #!/usr/sbin/nft -f
+
+    flush ruleset
+
+    table ip nat {
+        chain prerouting {
+            type nat hook prerouting priority -100; policy accept;
+            tcp dport 443 dnat to 10.0.0.2
+            tcp dport 80 dnat to 10.0.0.2
+        }
+
+        chain postrouting {
+            type nat hook postrouting priority 100; policy accept;
+            ip daddr 10.0.0.2 masquerade
+        }
+    }
+
+Enable and start the nftables service:
+
+    systemctl enable nftables
+    systemctl start nftables
+
+
+### Network Robustness Test
+
+Note the public IP of your home network. From your Raspberry Pi:
+
+    curl -4 ifconfig.me
+
+Note your WLAN IP from router the router configuration page.
+
+Remove power from your router for about 5 minutes. Then turn it back on, and see if everything recovers.
+
+Note the new public and WLAN IPs and whether they changed.
+
+
+### Periodic Admin Maintenance
+
+Apply operating system security updates and perform a basic health check on a regular schedule (monthly is a good default).
+
+On Raspberry Pi:
+
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt autoremove -y
+    sudo apt autoclean
+
+On VPS:
+
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt autoremove -y
+    sudo apt autoclean
+
+If a reboot is required on either host:
+
+    test -f /var/run/reboot-required && echo "reboot required"
+    sudo reboot
+
+If your Infumap data is on a LUKS volume, after the Raspberry Pi reboots:
+
+    sudo cryptsetup luksOpen enc_volume.img infuvol
+    sudo mount /dev/mapper/infuvol /mnt/infudata
+
+You will be prompted for the LUKS passphrase. This manual step is intentional: automating unlock reduces protection against physical device access.
+
+After updates/reboots, verify service health.
+
+On Raspberry Pi:
+
+    sudo systemctl is-active wg-quick@wg0
+    sudo systemctl is-active wg-monitor.service
+    sudo systemctl is-active caddy
+    sudo wg show wg0
+    sudo tail -n 100 /var/log/wg-monitor.log
+
+On VPS:
+
+    sudo systemctl is-active wg-quick@wg0
+    sudo systemctl is-active nftables
+    sudo wg show wg0
+
+Check storage usage:
+
+    df -h
+    sudo journalctl --disk-usage
