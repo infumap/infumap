@@ -57,16 +57,15 @@ If UFW is enabled on the VPS, allow DNS only from the WireGuard subnet:
     sudo ufw allow from 10.0.0.0/24 to 10.0.0.1 port 53 proto udp
     sudo ufw allow from 10.0.0.0/24 to 10.0.0.1 port 53 proto tcp
 
-Configure iPhone and laptop to use VPS DNS with a public fallback:
+Configure iPhone and laptop to use VPS DNS over WireGuard:
 
-- iPhone: open the WireGuard app, edit the tunnel, and set `DNS Servers` to `10.0.0.1, 1.1.1.1`.
-- macOS laptop: edit the WireGuard tunnel and set `DNS Servers` to `10.0.0.1, 1.1.1.1` (or add `DNS = 10.0.0.1, 1.1.1.1` under `[Interface]` in the tunnel config).
+- iPhone: open the WireGuard app, edit the tunnel, and set `DNS Servers` to `10.0.0.1`.
+- macOS laptop: edit the WireGuard tunnel and set `DNS Servers` to `10.0.0.1` (or add `DNS = 10.0.0.1` under `[Interface]` in the tunnel config).
 - Ensure each client tunnel `AllowedIPs` includes your WireGuard subnet (for example `10.0.0.0/24`).
 - Reconnect the tunnel, then browse to `https://infumap.yourdomain.tld`.
 
-With this setup, if `10.0.0.1` is down, general DNS can fall back to `1.1.1.1`.
-If your Infumap hostname is under a domain you do not control, fallback public DNS could resolve it to an external host.
-Use a hostname under a domain you own/control to avoid that risk.
+If `10.0.0.1` is down while the tunnel is up, DNS lookups through the tunnel will fail.
+For temporary general internet access, disable the WireGuard tunnel (or temporarily switch tunnel DNS to a working resolver) until VPS DNS is restored.
 
 ### Run HTTPS with your own CA on the Raspberry Pi
 
