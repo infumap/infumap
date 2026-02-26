@@ -1,9 +1,8 @@
 
 ## Raspberry Pi / VPN (Common Setup)
 
-On a typical VPS, you must trust the hosting provider (and the underlying hardware and virtualization stack).
-A sufficiently privileged operator may be able to access your VM’s disk and, in some cases, its memory,
-potentially exposing secrets and plaintext.
+On a typical VPS, you must trust the hosting provider. A sufficiently privileged operator may be able to access your
+VM’s disk and, in some cases, its memory.
 
 If this risk is unacceptable, you can host Infumap on hardware you physically control. A Raspberry Pi 5 connected
 to your home router is a low-cost option. However, most ISPs assign dynamic public IP addresses, and home networks
@@ -12,8 +11,8 @@ routing traffic through a stable public IP address.
 
 There are several ways to do this. A Cloudflare Zero Trust Tunnel is one convenient option, though it requires
 running the `cloudflared` daemon and trusting Cloudflare’s infrastructure. A more secure approach is to establish
-a WireGuard VPN between a low-cost VPS and your Raspberry Pi, forwarding HTTPS traffic through the VPS’s public IP.
-This document outlines the latter approach.
+a WireGuard VPN between a low-cost VPS and your Raspberry Pi, forwarding HTTPS traffic unmodified through the VPS’s
+public IP. This document outlines the latter approach.
 
 
 ### Initial Raspberry Pi Setup
@@ -562,6 +561,57 @@ Key tmux commands to be aware of:
     Ctrl-b-d (detach)
     Ctrl-b-a (attach)
 
+
+### Periodic Admin Maintenance
+
+Apply operating system security updates and perform a basic health check on a regular schedule (monthly is a good default).
+
+On Raspberry Pi:
+
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt autoremove -y
+    sudo apt autoclean
+
+On VPS:
+
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt autoremove -y
+    sudo apt autoclean
+
+If a reboot is required on either host:
+
+    test -f /var/run/reboot-required && echo "reboot required"
+    sudo reboot
+
+If your Infumap data is on a LUKS volume, after the Raspberry Pi reboots:
+
+    sudo cryptsetup luksOpen enc_volume.img infuvol
+    sudo mount /dev/mapper/infuvol /mnt/infudata
+
+You will be prompted for the LUKS passphrase. This manual step is intentional: automating unlock reduces protection against physical device access.
+
+After updates/reboots, verify service health.
+
+On Raspberry Pi:
+
+    sudo systemctl is-active wg-quick@wg0
+    sudo systemctl is-active wg-monitor.service
+    sudo systemctl is-active caddy
+    sudo wg show wg0
+    sudo tail -n 100 /var/log/wg-monitor.log
+
+On VPS:
+
+    sudo systemctl is-active wg-quick@wg0
+    sudo systemctl is-active nftables
+    sudo wg show wg0
+
+Check storage usage:
+
+    df -h
+    sudo journalctl --disk-usage
 
 
 ### Choose a deployment profile
