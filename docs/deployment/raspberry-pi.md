@@ -406,11 +406,11 @@ Bring the tunnel up on macOS and verify:
     ping 10.0.0.2
     ssh pi@10.0.0.2
 
-If `10.0.0.1` works but `10.0.0.2` does not, ensure IP forwarding is enabled on the VPS (`net.ipv4.ip_forward=1`):
+If `10.0.0.1` works but `10.0.0.2` does not, add routed WireGuard peer-to-peer allow rules from `wg0` to `wg0`
+for SSH and HTTPS from the VPN subnet:
 
-    sudo sysctl -w net.ipv4.ip_forward=1
-
-Use the same `10.0.0.10` value as `ADMIN_VPN_HOST_IP` in the tighter SSH firewall policy above.
+    sudo ufw route allow in on wg0 out on wg0 from 10.0.0.0/24 to 10.0.0.2 port 22 proto tcp
+    sudo ufw route allow in on wg0 out on wg0 from 10.0.0.0/24 to 10.0.0.2 port 443 proto tcp
 
 
 ### Setup A WireGuard Monitoring Service
