@@ -1,6 +1,7 @@
 ## Raspberry Pi / VPN + Public Internet
 
-Complete the shared [Raspberry Pi / VPN common setup](raspberry-pi.md) before following this profile. The shared guide covers the Raspberry Pi and VPS bootstrap, WireGuard VPN, encryption, Infumap installation, and the periodic maintenance checklist. This document only covers the extra steps that expose Infumap to the public internet through your VPS.
+Complete the shared [Raspberry Pi / VPN common setup](raspberry-pi.md) guide first. This covers the Raspberry Pi and VPS bootstrap, WireGuard VPN, encryption, Infumap installation, and the periodic maintenance checklist. This document only covers the extra steps required to expose Infumap to the public internet via your VPS.
+
 
 ### Install Caddy on Your Raspberry Pi
 
