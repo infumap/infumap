@@ -150,24 +150,26 @@ And copy to somewhere on the current `PATH`:
 ### Initial VPS Setup
 
 Create a VPS running Debian 13 x64 using your vendor of choice. Select a region as physically close to your Raspberry
-Pi device as possible.
-
-A cheap/small instance size will suffice since we will not use the VPS instance for anything other than forwarding
-HTTPS web traffic.
+Pi device as possible. A cheap/small instance size will suffice since we will not use the VPS instance for anything
+other than forwarding HTTPS web traffic.
 
 Install required packages:
 
     sudo apt update
     sudo apt upgrade -y
-    sudo apt install --no-install-recommends wireguard-tools nftables
+    sudo apt install --no-install-recommends wireguard-tools nftables ufw
 
 (optional) If prompted, use `sudo apt autoremove` to remove any packages marked as no longer required.
 
-(optional, if UFW is active on your VPS image) Allow WireGuard and SSH:
+Configure and enable the VPS firewall:
 
+    sudo ufw --force reset
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+    sudo ufw default deny routed
     sudo ufw allow 22/tcp
     sudo ufw allow 51820/udp
-    sudo ufw reload
+    sudo ufw --force enable
     sudo ufw status verbose
 
 (optional) Add disk-usage limits on logs/core dumps to conserve disk space:
