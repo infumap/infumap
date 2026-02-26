@@ -1,6 +1,6 @@
-## Raspberry Pi / VPN-Only HTTPS (Namecheap DNS Challenge)
+## Raspberry Pi / VPN-Only HTTPS (local CA)
 
-This profile keeps Infumap reachable only to WireGuard peers. There is no public internet exposure on ports `80/443`.
+This guide keeps Infumap reachable only to WireGuard peers. There is no public internet exposure on ports `80/443`.
 
 Complete the shared baseline guide first:
 
@@ -8,125 +8,141 @@ Complete the shared baseline guide first:
 
 ### Domain and DNS model
 
-Pick a domain name for Infumap, for example `infumap.example.com`.
+Pick a stable hostname for Infumap under a domain you own/control (for example `infumap.yourdomain.tld`).
+What matters in this profile is:
 
-Because this deployment is VPN-only, clients must resolve that name to the Raspberry Pi WireGuard IP (for example
-`10.0.0.2`). Use one of these approaches:
+- Clients can resolve that hostname over WireGuard.
+- The hostname matches the certificate `subjectAltName` you issue below.
 
-- Add a host override on each admin client.
-- Use an internal DNS server reachable over WireGuard.
+Because this deployment is VPN-only, clients must resolve that hostname to the Raspberry Pi WireGuard IP (for example `10.0.0.2`).
+This guide uses a DNS resolver on the VPS WireGuard IP (`10.0.0.1`), and clients query it through WireGuard.
 
-For a quick local override on macOS:
+#### Local DNS on VPS over WireGuard
 
-    echo "10.0.0.2 infumap.example.com" | sudo tee -a /etc/hosts
+Run `dnsmasq` on the VPS WireGuard address (`10.0.0.1`) and publish a private record for Infumap.
+If your WireGuard interface is not `wg0`, substitute your interface name in the config below.
 
-### Enable Namecheap API access
-
-In Namecheap, go to `Profile -> Tools -> API Access` and enable API access.
-
-Whitelist the public IPv4 address that Namecheap will see for API calls:
-
-- Direct mode (no proxy): whitelist your home network egress IP from the Raspberry Pi:
-
-    curl -4 ifconfig.me
-
-- VPS-proxy mode (recommended when home IP is dynamic): whitelist your VPS public IPv4.
-
-If you use direct mode and your home public IP changes, update both the Namecheap whitelist and the Caddy
-`NAMECHEAP_CLIENT_IP` value.
-
-### (Optional, recommended for dynamic home IP) Route only Caddy egress via VPS
-
-This keeps normal Raspberry Pi internet traffic direct. Only outbound HTTP(S) from the `caddy` service is proxied
-through the VPS.
-
-On VPS, install and configure a small HTTP CONNECT proxy bound to WireGuard:
+On VPS (`10.0.0.1`):
 
     sudo apt update
-    sudo apt install -y tinyproxy
-    sudoedit /etc/tinyproxy/tinyproxy.conf
+    sudo apt install -y dnsmasq
 
-Set at least:
+Create `/etc/dnsmasq.d/infumap-vpn.conf`:
 
-    Port 3128
-    Listen 10.0.0.1
-    Allow 10.0.0.2
+    interface=wg0
+    bind-interfaces
+    listen-address=10.0.0.1
+    domain-needed
+    bogus-priv
+    no-resolv
+    local-ttl=300
+    server=1.1.1.1
+    server=1.0.0.1
+    address=/infumap.yourdomain.tld/10.0.0.2
 
-If UFW is active on the VPS, allow proxy access only from the Raspberry Pi WireGuard IP:
+`1.1.1.1` and `1.0.0.1` are Cloudflare public DNS resolvers. They are used here as upstream DNS for all non-`infumap.yourdomain.tld`
+lookups because they are widely available, fast, and give simple redundancy. You can replace them with your preferred upstream resolvers
+(for example Quad9 or Google Public DNS). `local-ttl=300` tells clients to cache the local `infumap.yourdomain.tld` mapping for about 5
+minutes, reducing repeat DNS lookups from both iPhone and laptop.
 
-    sudo ufw allow from 10.0.0.2 to any port 3128 proto tcp
+Start and verify on the VPS:
 
-Enable and start:
+    sudo systemctl enable dnsmasq
+    sudo systemctl restart dnsmasq
+    sudo systemctl status dnsmasq
+    nslookup infumap.yourdomain.tld 10.0.0.1
 
-    sudo systemctl enable tinyproxy
-    sudo systemctl restart tinyproxy
-    sudo systemctl status tinyproxy
+If UFW is enabled on the VPS, allow DNS only from the WireGuard subnet:
 
-On Raspberry Pi, test through the VPS proxy:
+    sudo ufw allow from 10.0.0.0/24 to 10.0.0.1 port 53 proto udp
+    sudo ufw allow from 10.0.0.0/24 to 10.0.0.1 port 53 proto tcp
 
-    curl -I --proxy http://10.0.0.1:3128 https://api.namecheap.com/xml.response
+Configure iPhone and laptop to use VPS DNS with a public fallback:
 
-When using this mode:
+- iPhone: open the WireGuard app, edit the tunnel, and set `DNS Servers` to `10.0.0.1, 1.1.1.1`.
+- macOS laptop: edit the WireGuard tunnel and set `DNS Servers` to `10.0.0.1, 1.1.1.1` (or add `DNS = 10.0.0.1, 1.1.1.1` under `[Interface]` in the tunnel config).
+- Ensure each client tunnel `AllowedIPs` includes your WireGuard subnet (for example `10.0.0.0/24`).
+- Reconnect the tunnel, then browse to `https://infumap.yourdomain.tld`.
 
-- Set `NAMECHEAP_CLIENT_IP` to your VPS public IPv4.
-- Keep that VPS public IPv4 whitelisted in Namecheap API Access.
+With this setup, if `10.0.0.1` is down, general DNS can fall back to `1.1.1.1`.
+If your Infumap hostname is under a domain you do not control, fallback public DNS could resolve it to an external host.
+Use a hostname under a domain you own/control to avoid that risk.
 
-### Install Caddy with the Namecheap DNS module
+### Run HTTPS with your own CA on the Raspberry Pi
 
-The Debian `caddy` package does not include the Namecheap DNS provider module by default, so build Caddy with
-`github.com/caddy-dns/namecheap`.
+Because `infumap` is only reachable through WireGuard, you can run your own CA on the Raspberry Pi and issue certificates locally. This avoids enabling domain registrar API access (and storing associated high-privilege credentials on your systems), while still giving trusted clients valid HTTPS for `infumap.yourdomain.tld`.
 
-On Raspberry Pi:
+#### Generate a root CA and leaf certificate
+
+In the commands below, replace `infumap.yourdomain.tld` with your chosen hostname.
+
+On the Pi:
+
+    sudo mkdir -p /etc/infumap/ca /etc/infumap/tls
+    sudo chown root:root /etc/infumap /etc/infumap/ca
+    sudo chown root:caddy /etc/infumap/tls
+    sudo chmod 700 /etc/infumap/ca
+    sudo chmod 750 /etc/infumap/tls
+
+Create the root CA private key with a passphrase. Do not grant Caddy access to this key:
+
+    sudo openssl genpkey -algorithm RSA -out /etc/infumap/ca/root.key.pem -aes256 -pkeyopt rsa_keygen_bits:4096
+
+Generate the self-signed root certificate:
+
+    sudo openssl req -x509 -new -key /etc/infumap/ca/root.key.pem \
+      -sha256 -days 3650 -out /etc/infumap/ca/root.cert.pem \
+      -subj "/CN=Infumap VPN CA" \
+      -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+      -addext "keyUsage=critical,keyCertSign,cRLSign" \
+      -addext "subjectKeyIdentifier=hash"
+
+Create an unencrypted server key for Caddy and a CSR:
+
+    sudo openssl genpkey -algorithm RSA -out /etc/infumap/tls/infumap.key.pem \
+      -pkeyopt rsa_keygen_bits:2048
+
+    sudo openssl req -new -sha256 -key /etc/infumap/tls/infumap.key.pem \
+      -out /etc/infumap/tls/infumap.csr \
+      -subj "/CN=infumap.yourdomain.tld"
+
+Write leaf certificate extensions including SAN:
+
+    cat <<'EOF' | sudo tee /etc/infumap/tls/infumap.ext >/dev/null
+    basicConstraints=critical,CA:FALSE
+    keyUsage=critical,digitalSignature,keyEncipherment
+    extendedKeyUsage=serverAuth
+    subjectAltName=DNS:infumap.yourdomain.tld
+    authorityKeyIdentifier=keyid,issuer
+    EOF
+
+Issue the leaf certificate signed by your root:
+
+    sudo openssl x509 -req -in /etc/infumap/tls/infumap.csr \
+      -CA /etc/infumap/ca/root.cert.pem -CAkey /etc/infumap/ca/root.key.pem \
+      -CAcreateserial -sha256 -days 397 \
+      -extfile /etc/infumap/tls/infumap.ext \
+      -out /etc/infumap/tls/infumap.cert.pem
+
+Set permissions so Caddy can read only the leaf key, never the root key:
+
+    sudo chown root:root /etc/infumap/ca/root.key.pem /etc/infumap/ca/root.cert.pem
+    sudo chmod 600 /etc/infumap/ca/root.key.pem
+    sudo chmod 644 /etc/infumap/ca/root.cert.pem
+    sudo chown root:caddy /etc/infumap/tls/infumap.key.pem /etc/infumap/tls/infumap.cert.pem /etc/infumap/tls/infumap.csr /etc/infumap/tls/infumap.ext
+    sudo chmod 640 /etc/infumap/tls/infumap.key.pem
+    sudo chmod 644 /etc/infumap/tls/infumap.cert.pem /etc/infumap/tls/infumap.csr /etc/infumap/tls/infumap.ext
+
+Keep the root key off any laptop/phone: only the Pi should hold it.
+
+#### Configure Caddy for the local cert
+
+Install Caddy normally from Debian:
 
     sudo apt update
-    sudo apt install -y caddy golang-go
-    go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
-    ~/go/bin/xcaddy build --with github.com/caddy-dns/namecheap
+    sudo apt install -y caddy
 
-Replace the packaged binary and verify module presence:
-
-    sudo systemctl stop caddy
-    sudo install -m 0755 ./caddy /usr/bin/caddy
-    caddy list-modules | grep dns.providers.namecheap
-
-Note: future `apt` upgrades of `caddy` may overwrite `/usr/bin/caddy`. Rebuild/reinstall the module-enabled binary if
-the `namecheap` module disappears.
-
-### Configure Caddy for DNS challenge
-
-Create environment variables file:
-
-    sudoedit /etc/caddy/namecheap.env
-
-Set:
-
-    NAMECHEAP_API_KEY=YOUR_NAMECHEAP_API_KEY
-    NAMECHEAP_API_USER=YOUR_NAMECHEAP_USERNAME
-    NAMECHEAP_CLIENT_IP=YOUR_WHITELISTED_PUBLIC_IP
-
-Use `NAMECHEAP_CLIENT_IP` as follows:
-
-- Direct mode: your home network public IPv4.
-- VPS-proxy mode: your VPS public IPv4.
-
-Create a systemd override to load that file:
-
-    sudo systemctl edit caddy
-
-For direct mode, use:
-
-    [Service]
-    EnvironmentFile=/etc/caddy/namecheap.env
-
-For VPS-proxy mode, use:
-
-    [Service]
-    EnvironmentFile=/etc/caddy/namecheap.env
-    Environment="HTTPS_PROXY=http://10.0.0.1:3128"
-    Environment="HTTP_PROXY=http://10.0.0.1:3128"
-    Environment="NO_PROXY=127.0.0.1,localhost,10.0.0.0/24"
-
-Now configure `/etc/caddy/Caddyfile`:
+Create or update `/etc/caddy/Caddyfile`:
 
     {
         log {
@@ -140,24 +156,33 @@ Now configure `/etc/caddy/Caddyfile`:
         }
     }
 
-    infumap.example.com {
-        tls {
-            dns namecheap {
-                api_key {env.NAMECHEAP_API_KEY}
-                user {env.NAMECHEAP_API_USER}
-                api_endpoint https://api.namecheap.com/xml.response
-                client_ip {env.NAMECHEAP_CLIENT_IP}
-            }
-        }
+    infumap.yourdomain.tld {
+        tls /etc/infumap/tls/infumap.cert.pem /etc/infumap/tls/infumap.key.pem
         reverse_proxy 127.0.0.1:8000
     }
 
-Start and verify:
+Reload and enable Caddy:
 
     sudo systemctl daemon-reload
     sudo systemctl enable caddy
     sudo systemctl restart caddy
     sudo systemctl status caddy
+
+#### Distribute the root certificate to clients
+
+Copy `/etc/infumap/ca/root.cert.pem` to each trusted machine and device. On macOS:
+
+  - Double-click the file to open Keychain Access.
+  - Import it into the `System` or `login` keychain, then open the certificate, expand `Trust`, and set `When using this certificate` to `Always Trust`.
+  - Quit/reopen browsers so they pick up the trusted root.
+
+On iPhone:
+
+  - AirDrop the cert to the phone (use `.crt` if your client tools prefer that extension).
+  - Open the cert from Files and install it via `Settings -> General -> VPN & Device Management`.
+  - In `Settings -> General -> About -> Certificate Trust Settings`, enable full trust for that root certificate.
+
+You must perform these steps for each device that needs to hit `infumap.yourdomain.tld`. Keep the root cert public but never export the private key.
 
 ### Keep access VPN-only
 
@@ -173,22 +198,101 @@ If you previously configured public forwarding rules, remove them and restart `n
 
 From a VPN-connected admin client:
 
-    ping infumap.example.com
-    curl -I https://infumap.example.com
+    ping infumap.yourdomain.tld
+    curl -I https://infumap.yourdomain.tld
     ssh pi@10.0.0.2
 
-If TLS issuance fails, check Caddy logs:
+If HTTPS fails, check Caddy logs:
 
     sudo journalctl -u caddy -n 200 --no-pager
 
-### Profile-specific maintenance
+### Automate leaf renewal with cron
 
-- Direct mode: if your home public IP changes, update Namecheap API whitelist and `NAMECHEAP_CLIENT_IP`.
-- VPS-proxy mode: keep the VPS public IP whitelisted in Namecheap; no home-IP updates are needed.
-- Restart Caddy after changes:
+The commands below automate leaf renewal on the Pi without any client changes (as long as the same root CA is used).
 
-    sudo systemctl restart caddy
+Store the root CA passphrase in a root-only file for non-interactive signing:
 
-- Re-check certificate and HTTPS reachability from a VPN client:
+    sudo sh -c 'umask 077; printf "%s\n" "YOUR_ROOT_CA_PASSPHRASE" > /etc/infumap/ca/root.passphrase'
+    sudo chown root:root /etc/infumap/ca/root.passphrase
+    sudo chmod 600 /etc/infumap/ca/root.passphrase
 
-    curl -I https://infumap.example.com
+Create `/usr/local/sbin/infumap-renew-leaf.sh`:
+
+    sudoedit /usr/local/sbin/infumap-renew-leaf.sh
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+HOSTNAME_FQDN="${1:-infumap.yourdomain.tld}"
+CA_DIR="/etc/infumap/ca"
+TLS_DIR="/etc/infumap/tls"
+PASS_FILE="$CA_DIR/root.passphrase"
+SERIAL_FILE="$CA_DIR/root.cert.srl"
+TMP_DIR="$(mktemp -d)"
+
+cleanup() { rm -rf "$TMP_DIR"; }
+trap cleanup EXIT
+
+test -r "$PASS_FILE"
+test -r "$CA_DIR/root.cert.pem"
+test -r "$CA_DIR/root.key.pem"
+test -r "$TLS_DIR/infumap.key.pem"
+
+openssl req -new -sha256 \
+  -key "$TLS_DIR/infumap.key.pem" \
+  -out "$TMP_DIR/infumap.csr" \
+  -subj "/CN=$HOSTNAME_FQDN"
+
+cat > "$TMP_DIR/infumap.ext" <<EOF
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:$HOSTNAME_FQDN
+authorityKeyIdentifier=keyid,issuer
+EOF
+
+if [ -f "$SERIAL_FILE" ]; then
+  SERIAL_ARGS=(-CAserial "$SERIAL_FILE")
+else
+  SERIAL_ARGS=(-CAcreateserial)
+fi
+
+openssl x509 -req \
+  -in "$TMP_DIR/infumap.csr" \
+  -CA "$CA_DIR/root.cert.pem" \
+  -CAkey "$CA_DIR/root.key.pem" \
+  -passin "file:$PASS_FILE" \
+  "${SERIAL_ARGS[@]}" \
+  -sha256 -days 397 \
+  -extfile "$TMP_DIR/infumap.ext" \
+  -out "$TMP_DIR/infumap.cert.pem"
+
+install -o root -g caddy -m 0644 "$TMP_DIR/infumap.cert.pem" "$TLS_DIR/infumap.cert.pem"
+systemctl reload caddy
+```
+
+Set script permissions and run once manually:
+
+    sudo chown root:root /usr/local/sbin/infumap-renew-leaf.sh
+    sudo chmod 0750 /usr/local/sbin/infumap-renew-leaf.sh
+    sudo /usr/local/sbin/infumap-renew-leaf.sh infumap.yourdomain.tld
+
+Schedule monthly renewal as root:
+
+    sudo crontab -e
+
+Add:
+
+    0 3 1 * * /usr/local/sbin/infumap-renew-leaf.sh infumap.yourdomain.tld >> /var/log/infumap-cert-renew.log 2>&1
+
+Verify the updated certificate:
+
+    openssl x509 -in /etc/infumap/tls/infumap.cert.pem -noout -dates -subject
+
+### Maintenance
+
+- Automate leaf renewal on the Pi (see section above) and keep the renewal job running.
+- Leaf renewals are transparent to clients as long as they are still signed by the same root CA; laptop/iPhone do not need certificate updates for leaf rotations.
+- If you ever regenerate the root CA (for example after suspected compromise), copy the new `/etc/infumap/ca/root.cert.pem` to each client and remove the old root from their trust stores.
+- Whenever you change the cert/key pair, verify reachability with `curl -I https://infumap.yourdomain.tld`.

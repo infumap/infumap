@@ -31,7 +31,7 @@ Contents of `/etc/caddy/Caddyfile`:
         reverse_proxy 127.0.0.1:8000
     }
 
-Where YOUR_DOMAIN_NAME is your domain name, e.g. `example.com` or `infumap.example.com`.
+Where YOUR_DOMAIN_NAME is your domain name (e.g. `example.com` or `infumap.example.com`).
 
 Enable and start:
 
