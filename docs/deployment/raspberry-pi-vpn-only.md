@@ -167,6 +167,61 @@ Reload and enable Caddy:
     sudo systemctl restart caddy
     sudo systemctl status caddy
 
+#### Expose Grafana on a VPN-only domain (optional)
+
+If you installed Grafana in the common guide and want it reachable at a dedicated VPN-only hostname
+(for example `grafana.yourdomain.tld`), add DNS, issue a Grafana leaf cert, and add a Caddy site block.
+
+On VPS (`10.0.0.1`), add a DNS record in `/etc/dnsmasq.d/infumap-vpn.conf`:
+
+    address=/grafana.yourdomain.tld/10.0.0.2
+
+Then reload and verify:
+
+    sudo systemctl restart dnsmasq
+    nslookup grafana.yourdomain.tld 10.0.0.1
+
+On the Pi, issue a separate leaf certificate for Grafana using the same root CA:
+
+    sudo openssl genpkey -algorithm RSA -out /etc/infumap/tls/grafana.key.pem \
+      -pkeyopt rsa_keygen_bits:2048
+
+    sudo openssl req -new -sha256 -key /etc/infumap/tls/grafana.key.pem \
+      -out /etc/infumap/tls/grafana.csr \
+      -subj "/CN=grafana.yourdomain.tld"
+
+    cat <<'EOF' | sudo tee /etc/infumap/tls/grafana.ext >/dev/null
+    basicConstraints=critical,CA:FALSE
+    keyUsage=critical,digitalSignature,keyEncipherment
+    extendedKeyUsage=serverAuth
+    subjectAltName=DNS:grafana.yourdomain.tld
+    authorityKeyIdentifier=keyid,issuer
+    EOF
+
+    sudo openssl x509 -req -in /etc/infumap/tls/grafana.csr \
+      -CA /etc/infumap/ca/root.cert.pem -CAkey /etc/infumap/ca/root.key.pem \
+      -CAserial /etc/infumap/ca/root.cert.srl -sha256 -days 397 \
+      -extfile /etc/infumap/tls/grafana.ext \
+      -out /etc/infumap/tls/grafana.cert.pem
+
+    sudo chown root:caddy /etc/infumap/tls/grafana.key.pem /etc/infumap/tls/grafana.cert.pem /etc/infumap/tls/grafana.csr /etc/infumap/tls/grafana.ext
+    sudo chmod 640 /etc/infumap/tls/grafana.key.pem
+    sudo chmod 644 /etc/infumap/tls/grafana.cert.pem /etc/infumap/tls/grafana.csr /etc/infumap/tls/grafana.ext
+
+Add a Caddy site block:
+
+    grafana.yourdomain.tld {
+        tls /etc/infumap/tls/grafana.cert.pem /etc/infumap/tls/grafana.key.pem
+        reverse_proxy 127.0.0.1:3000
+    }
+
+Reload Caddy and verify:
+
+    sudo systemctl reload caddy
+    curl -I https://grafana.yourdomain.tld
+
+Clients that already trust `/etc/infumap/ca/root.cert.pem` do not need extra trust-store changes for this hostname.
+
 #### Distribute the root certificate to clients
 
 Copy `/etc/infumap/ca/root.cert.pem` to each trusted machine and device. On macOS:
@@ -181,7 +236,7 @@ On iPhone:
 - Open the cert from Files and install it via `Settings -> General -> VPN & Device Management`.
 - In `Settings -> General -> About -> Certificate Trust Settings`, enable full trust for that root certificate.
 
-You must perform these steps for each device that needs to hit `infumap.yourdomain.tld`. Keep the root cert public but never export the private key.
+You must perform these steps for each device that needs to hit `infumap.yourdomain.tld` (and `grafana.yourdomain.tld` if enabled). Keep the root cert public but never export the private key.
 
 ### Keep access VPN-only
 
@@ -200,6 +255,7 @@ From a VPN-connected admin client:
 
     ping infumap.yourdomain.tld
     curl -I https://infumap.yourdomain.tld
+    curl -I https://grafana.yourdomain.tld   # if enabled
     ssh pi@10.0.0.2
 
 If HTTPS fails, check Caddy logs:
@@ -293,6 +349,7 @@ Verify the updated certificate:
 ### Maintenance
 
 - Automate leaf renewal on the Pi (see section above) and keep the renewal job running.
+- If you enabled `grafana.yourdomain.tld`, renew its leaf cert on the same cadence (`397`-day max validity) and reload Caddy after renewal.
 - Leaf renewals are transparent to clients as long as they are still signed by the same root CA; laptop/iPhone do not need certificate updates for leaf rotations.
 - If you ever regenerate the root CA (for example after suspected compromise), copy the new `/etc/infumap/ca/root.cert.pem` to each client and remove the old root from their trust stores.
 - Whenever you change the cert/key pair, verify reachability with `curl -I https://infumap.yourdomain.tld`.

@@ -82,36 +82,19 @@ Use UFW to deny all inbound traffic by default, then explicitly allow required p
 Note: This assumes you will be setting up your WireGuard network interface on 10.0.0.0/24. If this clashes with your router,
 or some other local network configuration, you will need to change it to something that doesn't.
 
-Simple SSH policy (allows SSH from anywhere):
-
-    sudo ufw reset
-    sudo ufw default deny incoming
-    sudo ufw default allow outgoing
-    sudo ufw allow 22
-    sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
-    sudo ufw enable
-
-Note: apply the simple policy now. Apply that VPN-specific SSH allowlist rule below later, after WireGuard
-peer IP assignments are complete and your admin host has a stable VPN IP.
-
-Recommended tighter SSH policy (LAN + one admin host on VPN subnet):
+Baseline SSH policy (LAN only):
 
     sudo ufw reset
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
     sudo ufw allow from YOUR_LOCAL_SUBNET to any port 22 proto tcp
-    sudo ufw allow from ADMIN_VPN_HOST_IP/32 to any port 22 proto tcp
     sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
     sudo ufw enable
 
-Where:
+Where `YOUR_LOCAL_SUBNET` is your local LAN in CIDR notation (e.g. `192.168.0.0/16`).
 
-- `YOUR_LOCAL_SUBNET` is your local LAN in CIDR notation (e.g. `192.168.0.0/16`).
-- `ADMIN_VPN_HOST_IP` is the WireGuard IP assigned to your admin laptop/workstation (e.g. `10.0.0.10`).
-
-With the tighter policy, remote administration is still possible from your specific admin VPN host, including after reboot for the
-purposes of unlocking the LUKS encrypted volume. Because SSH is allowlisted to the admin host IP (and not the full VPN subnet),
-compromise of the VPS or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
+Apply this baseline policy now. After WireGuard peer IP assignments are complete and your admin host has a stable VPN IP,
+add the admin VPN SSH allow rule in the admin client setup section.
 
 ### Infumap Install
 
@@ -402,6 +385,17 @@ Restart WireGuard on the VPS:
 
     sudo systemctl restart wg-quick@wg0
 
+Now add SSH access for the admin VPN host on the Raspberry Pi:
+
+    sudo ufw allow from ADMIN_VPN_HOST_IP/32 to any port 22 proto tcp
+    sudo ufw status verbose
+
+Where `ADMIN_VPN_HOST_IP` is the WireGuard IP assigned to your admin laptop/workstation (e.g. `10.0.0.10`).
+
+With this policy, remote administration is possible from your specific admin VPN host, including after reboot for the purposes
+of unlocking the LUKS encrypted volume. Because SSH is allowlisted to the admin host IP (and not the full VPN subnet), compromise
+of the VPS or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
+
 Because the VPS firewall baseline is `sudo ufw default deny routed`, add explicit `wg0` -> `wg0` routed allow rules
 for admin access to the Raspberry Pi:
 
@@ -580,6 +574,106 @@ Key tmux commands to be aware of:
     Ctrl-b then s (list sessions)
     Ctrl-b then d (detach)
     Ctrl-b then a (attach)
+
+
+### Install Prometheus and Scrape Infumap Metrics
+
+Enable Infumap's Prometheus endpoint in `/mnt/infudata/settings.toml`:
+
+    enable_prometheus_metrics = true
+    prometheus_address = "127.0.0.1"
+    prometheus_port = 9091
+
+Use `9091` for Infumap metrics so it does not conflict with Prometheus's own default port (`9090`).
+
+Restart Infumap in your `tmux` session so the metrics listener comes up (`Ctrl-C`, then run again):
+
+    ~/run-infumap-web.sh
+
+Verify that Infumap metrics are available locally:
+
+    curl -s http://127.0.0.1:9091/metrics | head
+
+Install Prometheus on the Raspberry Pi:
+
+    sudo apt update
+    sudo apt install -y prometheus
+
+Add an Infumap scrape job in `/etc/prometheus/prometheus.yml` under `scrape_configs`:
+
+    sudoedit /etc/prometheus/prometheus.yml
+
+    - job_name: 'infumap'
+      static_configs:
+        - targets: ['127.0.0.1:9091']
+
+Validate the Prometheus config:
+
+    sudo promtool check config /etc/prometheus/prometheus.yml
+
+Limit Prometheus disk usage (recommended on Raspberry Pi) by adding TSDB retention flags to the service args:
+
+    sudoedit /etc/default/prometheus
+
+Append these flags to `ARGS`:
+
+    --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=1GB --storage.tsdb.wal-compression
+
+`retention.time` and `retention.size` are both enforced; Prometheus keeps data only while both limits are satisfied.
+Adjust `7d` and `1GB` based on your disk budget and required history depth.
+
+Start Prometheus:
+
+    sudo systemctl enable prometheus
+    sudo systemctl restart prometheus
+    sudo systemctl status prometheus
+
+Check that Prometheus can scrape Infumap:
+
+    curl -s http://127.0.0.1:9090/api/v1/targets | grep -E 'infumap|health'
+
+
+### Install Grafana and Connect It to Prometheus
+
+Install Grafana on the Raspberry Pi:
+
+    sudo apt update
+    sudo apt install -y grafana
+
+Bind Grafana to localhost only (do not expose port `3000` directly):
+
+    sudoedit /etc/grafana/grafana.ini
+
+Set:
+
+    [server]
+    http_addr = 127.0.0.1
+    http_port = 3000
+
+Optional but recommended:
+
+    [users]
+    allow_sign_up = false
+
+Start Grafana:
+
+    sudo systemctl enable grafana-server
+    sudo systemctl restart grafana-server
+    sudo systemctl status grafana-server
+
+Verify local Grafana reachability:
+
+    curl -I http://127.0.0.1:3000/login
+
+Sign in to Grafana and add Prometheus as a data source:
+
+- URL: `http://127.0.0.1:9090`
+- Access: `Server` (default)
+
+Domain exposure for Grafana is profile-specific:
+
+- Public internet profile: see [Raspberry Pi / VPN + Public Internet](raspberry-pi-public-internet.md).
+- VPN-only profile: see [Raspberry Pi / VPN-Only HTTPS (Local CA)](raspberry-pi-vpn-only.md).
 
 
 ### Periodic Admin Maintenance

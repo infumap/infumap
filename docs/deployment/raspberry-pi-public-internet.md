@@ -41,6 +41,30 @@ Enable and start:
 
 If you are extra paranoid, you might consider running `caddy` on a separate physical device (a second Raspberry Pi) or via `docker` / `gvisor` for better isolation.
 
+### Expose Grafana at a Public Domain (Optional)
+
+If you installed Grafana in the common guide and want it reachable on a dedicated public hostname (for example
+`grafana.example.com`):
+
+1. Create a public DNS record for that hostname pointing to your VPS public IP.
+2. Add a second site block in `/etc/caddy/Caddyfile`:
+
+       GRAFANA_DOMAIN_NAME {
+           reverse_proxy 127.0.0.1:3000
+       }
+
+3. Reload Caddy:
+
+       sudo systemctl reload caddy
+
+4. Verify:
+
+       curl -I https://GRAFANA_DOMAIN_NAME
+
+Replace `GRAFANA_DOMAIN_NAME` with your actual Grafana hostname.
+No additional VPS forwarding rules are required beyond the existing public `80/443` forwarding.
+
+
 ### Expose Infumap on VPS
 
 First enable IP forwarding on your server so it can route packets between interfaces. Edit `/etc/sysctl.conf` and uncomment the line:
