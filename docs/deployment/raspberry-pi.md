@@ -1,10 +1,10 @@
 ## Raspberry Pi / VPN (Common Setup)
 
 Running Infumap on a typical VPS means trusting the hosting provider. A sufficiently privileged operator may be able to
-access your VM’s disk and, in some cases, its memory. If this risk is unacceptable, you can host Infumap on hardware
-you physically control, such as a Raspberry Pi 5 on your home network. The main challenge is connectivity: most ISPs
-assign dynamic public IP addresses, and home networks are usually behind NAT. To make your Raspberry Pi reachable from
-the internet, route traffic securely through a host with a stable public IP address.
+access your VM’s disk and, in some cases, its memory. If you do not want to place that level of trust in a VPS provider,
+you can host Infumap on hardware you physically control, such as a Raspberry Pi 5 on your home network. The main challenge
+is connectivity: most ISPs assign dynamic public IP addresses, and home networks are usually behind NAT. To make your
+Raspberry Pi reachable from the internet, you need to route traffic securely through a host with a stable public IP address.
 
 There are several ways to do this. A Cloudflare Zero Trust Tunnel is one convenient option, though it requires
 running the `cloudflared` daemon and trusting Cloudflare’s infrastructure. A more secure approach is to establish
@@ -673,7 +673,7 @@ Sign in to Grafana and add Prometheus as a data source:
 Domain exposure for Grafana is profile-specific:
 
 - Public internet profile: see [Raspberry Pi / VPN + Public Internet](raspberry-pi-public-internet.md).
-- VPN-only profile: see [Raspberry Pi / VPN-Only HTTPS (Local CA)](raspberry-pi-vpn-only.md).
+- VPN-only profile: see [Raspberry Pi / VPN-Only HTTPS (Caddy Internal CA)](raspberry-pi-vpn-only.md).
 
 
 ### Periodic Admin Maintenance
@@ -733,4 +733,4 @@ Check storage usage:
 At this point, the shared baseline setup is complete. Continue with one of the profile guides:
 
 - [Public internet-facing deployment](raspberry-pi-public-internet.md)
-- [VPN-only deployment with HTTPS (local CA)](raspberry-pi-vpn-only.md)
+- [VPN-only deployment with HTTPS (Caddy internal CA)](raspberry-pi-vpn-only.md)
