@@ -1,6 +1,6 @@
 ## Raspberry Pi / VPN-Only HTTPS (Local CA)
 
-This guide keeps Infumap reachable only to WireGuard peers. There is no public internet exposure on ports `80/443`.
+In this setup, Infumap is reachable only from WireGuard peers. It is not exposed to the public internet.
 
 Complete the shared baseline guide first:
 
@@ -9,20 +9,13 @@ Complete the shared baseline guide first:
 ### Domain and DNS model
 
 Pick a stable hostname for Infumap under a domain you own/control (for example `infumap.yourdomain.tld`).
-What matters in this profile is:
 
-- Clients can resolve that hostname over WireGuard.
-- The hostname matches the certificate `subjectAltName` you issue below.
-
-Because this deployment is VPN-only, clients must resolve that hostname to the Raspberry Pi WireGuard IP (for example `10.0.0.2`).
-This guide uses a DNS resolver on the VPS WireGuard IP (`10.0.0.1`), and clients query it through WireGuard.
 
 #### Local DNS on VPS over WireGuard
 
 Run `dnsmasq` on the VPS WireGuard address (`10.0.0.1`) and publish a private record for Infumap.
-If your WireGuard interface is not `wg0`, substitute your interface name in the config below.
 
-On VPS (`10.0.0.1`):
+On the VPS (`10.0.0.1`):
 
     sudo apt update
     sudo apt install -y dnsmasq
@@ -60,7 +53,7 @@ If UFW is enabled on the VPS, allow DNS only from the WireGuard subnet:
 Configure iPhone and laptop to use VPS DNS over WireGuard:
 
 - iPhone: open the WireGuard app, edit the tunnel, and set `DNS Servers` to `10.0.0.1`.
-- macOS laptop: edit the WireGuard tunnel and set `DNS Servers` to `10.0.0.1` (or add `DNS = 10.0.0.1` under `[Interface]` in the tunnel config).
+- macOS laptop: edit the WireGuard tunnel config: add `DNS = 10.0.0.1` under `[Interface]`.
 - Ensure each client tunnel `AllowedIPs` includes your WireGuard subnet (for example `10.0.0.0/24`).
 - Reconnect the tunnel, then browse to `https://infumap.yourdomain.tld`.
 
