@@ -57,11 +57,21 @@ If UFW is enabled on the VPS, allow DNS only from the WireGuard subnet:
     sudo ufw allow from 10.0.0.0/24 to 10.0.0.1 port 53 proto udp
     sudo ufw allow from 10.0.0.0/24 to 10.0.0.1 port 53 proto tcp
 
-Configure iPhone and laptop to use VPS DNS over WireGuard:
+Configure name resolution for iPhone and macOS clients:
 
-- iPhone: open the WireGuard app, edit the tunnel, and set `DNS Servers` to `10.0.0.1`.
-- macOS laptop: edit the WireGuard tunnel config and add `DNS = 10.0.0.1` under `[Interface]`.
-- Ensure each client tunnel `AllowedIPs` includes your WireGuard subnet (for example `10.0.0.0/24`).
+- iPhone: open the WireGuard app, edit the tunnel, and set `DNS Servers` to `10.0.0.1` (this is the only practical option on iPhone).
+- macOS: prefer `/etc/hosts` entries for the VPN-only hostnames instead of tunnel DNS. You can also set `DNS = 10.0.0.1` in the wireguard config, however note that every lookup adds an extra hop to the VPS DNS resolver and introduces a dependency on `10.0.0.1` availability
+
+On macOS:
+
+    sudoedit /etc/hosts
+
+Add:
+
+    10.0.0.2 infumap.yourdomain.tld
+    # Optional Grafana hostname:
+    #10.0.0.2 grafana.yourdomain.tld
+
 
 ### Run HTTPS with Caddy Internal CA
 

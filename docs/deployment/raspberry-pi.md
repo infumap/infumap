@@ -1,7 +1,7 @@
 ## Raspberry Pi / VPN (Common Setup)
 
 Running Infumap on a typical VPS means trusting the hosting provider. A sufficiently privileged operator may be able to
-access your VM’s disk and, in some cases, its memory. If you do not want to place that level of trust in a VPS provider,
+access your VM’s disk and, in many cases, its memory. If you do not want to place that level of trust in a VPS provider,
 you can host Infumap on hardware you physically control, such as a Raspberry Pi 5 on your home network. The main challenge
 is connectivity: most ISPs assign dynamic public IP addresses, and home networks are usually behind NAT. To make your
 Raspberry Pi reachable from the internet, you need to route traffic securely through a host with a stable public IP address.
@@ -30,8 +30,6 @@ Install prerequisites:
     sudo apt update
     sudo apt upgrade
     sudo apt install ufw wireguard
-
-### Raspberry Pi Account and Sudo Hardening
 
 Raspberry Pi OS ships with a default `pi` account and passwordless `sudo`. Replace this with a dedicated admin
 account (`infumap`) and disable SSH access for `pi`.
@@ -72,7 +70,11 @@ Open a new terminal and verify admin login before closing the original session:
     sudo -k
     sudo true
 
-After confirmation, lock and disable interactive shell for `pi`:
+After successful verification, remove the copied key material from the old `pi` account:
+
+    sudo rm -f /home/pi/.ssh/authorized_keys
+
+And lock and disable interactive shell for `pi`:
 
     sudo passwd -l pi
     sudo usermod -s /usr/sbin/nologin pi
@@ -104,7 +106,7 @@ while avoiding persistent log growth on disk:
 This global `journald` limit applies to most services. Infumap can still keep longer on-disk logs via a dedicated log file
 configured later in this guide.
 
-Then restart and verify:
+Now restart and verify:
 
     sudo systemctl restart systemd-journald
     journalctl --disk-usage
@@ -162,7 +164,6 @@ Now clone the Infumap repo:
     cd git
     git clone https://github.com/infumap/infumap.git
     cd infumap
-    git checkout v0.3.0
 
 Find the latest `nvm` release at https://github.com/nvm-sh/nvm (for example `v0.40.1`) and install similarly:
 
@@ -182,8 +183,8 @@ Install the release binary to a stable, root-owned path:
 ### Initial VPS Setup
 
 Create a VPS running Debian 13 x64 using your vendor of choice. Select a region as physically close to your Raspberry
-Pi device as possible. A cheap/small instance size will suffice since we will not use the VPS instance for anything
-other than forwarding HTTPS web traffic.
+Pi device as possible. A cheap/small instance size will suffice as the VPS is not used for anything other than forwarding
+HTTPS web traffic.
 
 Install required packages:
 
@@ -208,12 +209,13 @@ This guide uses `43821/udp` for WireGuard instead of the common default `51820/u
 default-port scanning noise. Choose any unused high UDP port in `1024-65535`, then use that same port consistently in:
 VPS UFW rules, VPS `ListenPort`, and every client `Endpoint`.
 
-Keep `sudo ufw default deny routed` as the secure default baseline. If you later choose the public internet-facing profile,
-add explicit routed allow rules only for forwarded `80/443` traffic to `10.0.0.2` in that profile guide.
+`sudo ufw default deny routed` is set here as a secure default baseline. `wg0` -> `wg0` routed allow rules for VPN peer
+access are added in a later section. If you later choose the public internet-facing profile, explicit routed allow
+rules for forwarded `80/443` traffic to `10.0.0.2` will be added there.
 
 (optional) Add disk-usage limits on logs/core dumps to conserve disk space:
 
-Note: This is mainly for operators using spare VPS capacity for additional non-core tasks. If you do this, be sure to
+Note: This is mainly useful if you are using spare VPS capacity for additional non-core tasks. If you do this, be sure to
 review the security impact of every extra service you install and run.
 
 Edit `/etc/systemd/journald.conf`:
