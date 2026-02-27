@@ -1,10 +1,10 @@
 ## Raspberry Pi / VPN (Common Setup)
 
-Running Infumap on a typical VPS means trusting the hosting provider - a sufficiently privileged operator may be able to
+Running Infumap on a typical VPS means trusting the hosting provider. A sufficiently privileged operator may be able to
 access your VM’s disk and, in some cases, its memory. If this risk is unacceptable, you can host Infumap on hardware
-you physically control, such as a Raspberry Pi 5 on your home network. The challenge is connectivity - most ISPs assign
-dynamic public IP addresses, and home networks are usually behind NAT. To make your Raspberry Pi reachable from the
-internet, you need to route traffic securely through a stable public IP address.
+you physically control, such as a Raspberry Pi 5 on your home network. The main challenge is connectivity: most ISPs
+assign dynamic public IP addresses, and home networks are usually behind NAT. To make your Raspberry Pi reachable from
+the internet, route traffic securely through a host with a stable public IP address.
 
 There are several ways to do this. A Cloudflare Zero Trust Tunnel is one convenient option, though it requires
 running the `cloudflared` daemon and trusting Cloudflare’s infrastructure. A more secure approach is to establish
@@ -168,6 +168,9 @@ Configure and enable the VPS firewall:
     sudo ufw allow 51820/udp
     sudo ufw --force enable
     sudo ufw status verbose
+
+Keep `sudo ufw default deny routed` as the secure default baseline. If you later choose the public internet-facing profile,
+add explicit routed allow rules only for forwarded `80/443` traffic to `10.0.0.2` in that profile guide.
 
 (optional) Add disk-usage limits on logs/core dumps to conserve disk space:
 
@@ -399,17 +402,24 @@ Restart WireGuard on the VPS:
 
     sudo systemctl restart wg-quick@wg0
 
+Because the VPS firewall baseline is `sudo ufw default deny routed`, add explicit `wg0` -> `wg0` routed allow rules
+for admin access to the Raspberry Pi:
+
+    sudo ufw route allow in on wg0 out on wg0 from 10.0.0.10/32 to 10.0.0.2 port 22 proto tcp
+    sudo ufw route allow in on wg0 out on wg0 from 10.0.0.0/24 to 10.0.0.2 port 443 proto tcp
+    sudo ufw status verbose
+
+Replace `10.0.0.10/32` with your admin client WireGuard IP in CIDR notation.
+The HTTPS rule intentionally allows all VPN peers (`10.0.0.0/24`) to reach the Raspberry Pi web service.
+
 Bring the tunnel up on macOS and verify:
 
     ping 10.0.0.1
     ping 10.0.0.2
     ssh pi@10.0.0.2
 
-If `10.0.0.1` works but `10.0.0.2` does not, add routed WireGuard peer-to-peer allow rules from `wg0` to `wg0`
-for SSH and HTTPS from the VPN subnet:
-
-    sudo ufw route allow in on wg0 out on wg0 from 10.0.0.0/24 to 10.0.0.2 port 22 proto tcp
-    sudo ufw route allow in on wg0 out on wg0 from 10.0.0.0/24 to 10.0.0.2 port 443 proto tcp
+If `10.0.0.1` works but `10.0.0.2` does not, confirm these routed allow rules are present and that the source IP matches
+your admin client tunnel IP.
 
 
 ### Set Up a WireGuard Monitoring Service

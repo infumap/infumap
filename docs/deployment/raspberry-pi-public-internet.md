@@ -75,7 +75,17 @@ Enable and start the nftables service:
     sudo systemctl enable nftables
     sudo systemctl start nftables
 
-If `curl -I https://` to your public IP succeeds but you cannot reach the Raspberry Pi over the VPN (`10.0.0.2`), double-check that IP forwarding remains enabled (`net.ipv4.ip_forward`), that WireGuard is up on both ends, and that the nftables rules are loaded.
+Because the common guide sets `sudo ufw default deny routed` on the VPS, explicitly allow only forwarded web traffic to the Pi:
+
+    ip -o -4 route show to default
+    sudo ufw route allow in on PUBLIC_IFACE out on wg0 to 10.0.0.2 port 80 proto tcp
+    sudo ufw route allow in on PUBLIC_IFACE out on wg0 to 10.0.0.2 port 443 proto tcp
+    sudo ufw status verbose
+
+Replace `PUBLIC_IFACE` with your VPS internet interface (often `eth0` or `ens3`).
+If your WireGuard interface is not `wg0`, replace that as well.
+
+If `curl -I https://` to your public IP succeeds but you cannot reach the Raspberry Pi over the VPN (`10.0.0.2`), double-check that IP forwarding remains enabled (`net.ipv4.ip_forward`), that WireGuard is up on both ends, that the nftables rules are loaded, and that the UFW routed allow rules above are present.
 
 ### Network Robustness Test
 

@@ -192,6 +192,7 @@ On Raspberry Pi, keep inbound `443/tcp` restricted to the WireGuard subnet (as c
 On VPS, do not configure DNAT forwarding for `80/443` to the Raspberry Pi.
 
 If you previously configured public forwarding rules, remove them and restart `nftables`.
+Also remove any VPS UFW routed allow rules that forward public `80/443` traffic to `10.0.0.2`.
 
 ### Verification
 
