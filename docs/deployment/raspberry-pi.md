@@ -91,7 +91,7 @@ Simple SSH policy (allows SSH from anywhere):
     sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
     sudo ufw enable
 
-Note: apply the simple policy now. The VPN-specific SSH allowlist rule should be applied later, after WireGuard
+Note: apply the simple policy now. Apply that VPN-specific SSH allowlist rule below later, after WireGuard
 peer IP assignments are complete and your admin host has a stable VPN IP.
 
 Recommended tighter SSH policy (LAN + one admin host on VPN subnet):
@@ -109,9 +109,9 @@ Where:
 - `YOUR_LOCAL_SUBNET` is your local LAN in CIDR notation (e.g. `192.168.0.0/16`).
 - `ADMIN_VPN_HOST_IP` is the WireGuard IP assigned to your admin laptop/workstation (e.g. `10.0.0.10`).
 
-With the tighter policy, remote administration is still possible from that specific VPN host, including after reboot when a LUKS
-volume must be unlocked. Because SSH is allowlisted to the admin host IP (and not the full VPN subnet), compromise of the VPS
-or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
+With the tighter policy, remote administration is still possible from your specific admin VPN host, including after reboot for the
+purposes of unlocking the LUKS encrypted volume. Because SSH is allowlisted to the admin host IP (and not the full VPN subnet),
+compromise of the VPS or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
 
 ### Infumap Install
 
@@ -139,9 +139,9 @@ Finally build Infumap:
 
     ./build.sh
 
-And copy to somewhere on the current `PATH`:
+The Infumap binary is produced at:
 
-    sudo cp ~/git/infumap/infumap/target/release/infumap /usr/local/bin/
+    ~/git/infumap/infumap/target/release/infumap
 
 
 ### Initial VPS Setup
@@ -535,9 +535,9 @@ Include this in your periodic maintenance runbook.
 
 ### Configure and Run Infumap
 
-The easiest way to create a default settings file is to simply run infumap:
+The easiest way to create a default settings file is to run the Infumap binary once:
 
-    infumap web
+    ~/git/infumap/infumap/target/release/infumap web
     Ctrl-C
 
 The settings file will be created in `~/.infumap`. Move this into the encrypted drive:
@@ -556,13 +556,24 @@ information, refer to the [configuration](../configuration.md) guide.
 Since the encrypted drive used by Infumap needs to be manually mounted on reboot, there is little benefit to creating a
 service to manage Infumap. I just run it in a `tmux` session.
 
+Create `~/run-infumap-web.sh`:
+
+    cat > ~/run-infumap-web.sh <<'EOF'
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    "$HOME/git/infumap/infumap/target/release/infumap" web --settings /mnt/infudata/settings.toml
+    EOF
+
+    chmod 700 ~/run-infumap-web.sh
+
 Start a new `tmux` session:
 
     tmux
 
 Run Infumap:
 
-    infumap web --settings /mnt/infudata/settings.toml
+    ~/run-infumap-web.sh
 
 Key tmux commands to be aware of:
 
