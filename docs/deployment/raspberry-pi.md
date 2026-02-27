@@ -200,9 +200,13 @@ Configure and enable the VPS firewall:
     sudo ufw default allow outgoing
     sudo ufw default deny routed
     sudo ufw allow 22/tcp
-    sudo ufw allow 51820/udp
+    sudo ufw allow 43821/udp
     sudo ufw --force enable
     sudo ufw status verbose
+
+This guide uses `43821/udp` for WireGuard instead of the common default `51820/udp` to reduce opportunistic
+default-port scanning noise. Choose any unused high UDP port in `1024-65535`, then use that same port consistently in:
+VPS UFW rules, VPS `ListenPort`, and every client `Endpoint`.
 
 Keep `sudo ufw default deny routed` as the secure default baseline. If you later choose the public internet-facing profile,
 add explicit routed allow rules only for forwarded `80/443` traffic to `10.0.0.2` in that profile guide.
@@ -302,7 +306,7 @@ Create the WireGuard config file:
 
     [Interface]
     Address = 10.0.0.1/32
-    ListenPort = 51820
+    ListenPort = 43821
     PrivateKey = {contents of /etc/wireguard/keys/server.key}
     SaveConfig = false
 
@@ -356,7 +360,7 @@ Create the wg0 interface config:
     [Peer]
     PublicKey = {YOUR_SERVER_PUBLIC_KEY}
     AllowedIPs = 10.0.0.0/24
-    Endpoint = {YOUR_SERVER_INTERNET_IP}:51820
+    Endpoint = {YOUR_SERVER_INTERNET_IP}:43821
     PersistentKeepalive = 25
 
 Lock down the permissions of the client private key and config:
@@ -380,7 +384,7 @@ Now, on the VPS, add your Raspberry Pi as a peer:
 
     [Interface]
     Address = 10.0.0.1/32
-    ListenPort = 51820
+    ListenPort = 43821
     PrivateKey = {contents of /etc/wireguard/keys/server.key}
     SaveConfig = false
 
@@ -424,7 +428,7 @@ Use a config like:
     [Peer]
     PublicKey = {YOUR_SERVER_PUBLIC_KEY}
     AllowedIPs = 10.0.0.0/24
-    Endpoint = {YOUR_SERVER_INTERNET_IP}:51820
+    Endpoint = {YOUR_SERVER_INTERNET_IP}:43821
     PersistentKeepalive = 25
 
 Now add the Mac as a peer on the VPS (`/etc/wireguard/wg0.conf`):
