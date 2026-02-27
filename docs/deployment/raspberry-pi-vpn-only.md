@@ -142,9 +142,9 @@ From a VPN-connected admin client:
     ping infumap.yourdomain.tld
     curl -I https://infumap.yourdomain.tld
     curl -I https://grafana.yourdomain.tld   # if enabled
-    ssh pi@10.0.0.2
+    ssh infumap@10.0.0.2
 
-If HTTPS fails, check Caddy logs:
+If HTTPS fails, check Caddy logs:q
 
     sudo journalctl -u caddy -n 200 --no-pager
 

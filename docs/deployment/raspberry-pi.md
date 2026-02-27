@@ -29,7 +29,55 @@ Install prerequisites:
 
     sudo apt update
     sudo apt upgrade
-    sudo apt install tmux ufw wireguard
+    sudo apt install ufw wireguard
+
+### Raspberry Pi Account and Sudo Hardening
+
+Raspberry Pi OS ships with a default `pi` account and passwordless `sudo`. Replace this with a dedicated admin
+account (`infumap`) and disable SSH access for `pi`.
+
+On the Raspberry Pi (while still logged in as `pi`), create the `infumap` user:
+
+    sudo adduser --gecos "" infumap
+    sudo usermod -aG sudo infumap
+    sudo install -d -m 700 -o infumap -g infumap /home/infumap/.ssh
+    sudo cp /home/pi/.ssh/authorized_keys /home/infumap/.ssh/authorized_keys
+    sudo chown infumap:infumap /home/infumap/.ssh/authorized_keys
+    sudo chmod 600 /home/infumap/.ssh/authorized_keys
+
+Disable passwordless sudo for `pi` (if `/etc/sudoers.d/010_pi-nopasswd` exists):
+
+    sudoedit /etc/sudoers.d/010_pi-nopasswd
+
+replace its contents with:
+
+    pi ALL=(ALL:ALL) ALL
+
+Restrict SSH login to the admin user:
+
+    sudoedit /etc/ssh/sshd_config.d/99-admin-users.conf
+
+with:
+
+    AllowUsers infumap
+
+Validate and reload SSH:
+
+    sudo sshd -t
+    sudo systemctl reload ssh
+
+Open a new terminal and verify admin login before closing the original session:
+
+    ssh infumap@<ip address>
+    sudo -k
+    sudo true
+
+After confirmation, lock and disable interactive shell for `pi`:
+
+    sudo passwd -l pi
+    sudo usermod -s /usr/sbin/nologin pi
+
+Continue the rest of this guide as `infumap`.
 
 (optional) Disable additional services commonly unnecessary for a headless Infumap host:
 
@@ -52,6 +100,9 @@ while avoiding persistent log growth on disk:
     Storage=volatile
     RuntimeMaxUse=4M
     Compress=yes
+
+This global `journald` limit applies to most services. Infumap can still keep longer on-disk logs via a dedicated log file
+configured later in this guide.
 
 Then restart and verify:
 
@@ -122,9 +173,10 @@ Finally build Infumap:
 
     ./build.sh
 
-The Infumap binary is produced at:
+Install the release binary to a stable, root-owned path:
 
-    ~/git/infumap/infumap/target/release/infumap
+    sudo install -d -m 0755 /opt/infumap/bin
+    sudo install -m 0755 ~/git/infumap/infumap/target/release/infumap /opt/infumap/bin/infumap
 
 
 ### Initial VPS Setup
@@ -410,7 +462,7 @@ Bring the tunnel up on macOS and verify:
 
     ping 10.0.0.1
     ping 10.0.0.2
-    ssh pi@10.0.0.2
+    ssh infumap@10.0.0.2
 
 If `10.0.0.1` works but `10.0.0.2` does not, confirm these routed allow rules are present and that the source IP matches
 your admin client tunnel IP.
@@ -494,17 +546,17 @@ Check available bytes:
     df -k
 
 The Raspberry Pi 5 kit comes with a 32 GB flash drive. If you are using this, a 16 GB encrypted volume is appropriate.
-In `/home/pi`, create this file with random data:
+In `/home/infumap`, create this file with random data:
 
-    sudo dd if=/dev/urandom of=/home/pi/enc_volume.img bs=1M count=16384 status=progress
+    sudo dd if=/dev/urandom of=/home/infumap/enc_volume.img bs=1M count=16384 status=progress
 
 Format this file as a LUKS container:
 
-    sudo cryptsetup luksFormat /home/pi/enc_volume.img
+    sudo cryptsetup luksFormat /home/infumap/enc_volume.img
 
 Open the container:
 
-    sudo cryptsetup luksOpen /home/pi/enc_volume.img infuvol
+    sudo cryptsetup luksOpen /home/infumap/enc_volume.img infuvol
 
 Create a filesystem:
 
@@ -529,14 +581,20 @@ Include this in your periodic maintenance runbook.
 
 ### Configure and Run Infumap
 
+Create a dedicated unprivileged service user for the Infumap process:
+
+    sudo adduser --system --group --home /var/lib/infumapd infumapd
+
 The easiest way to create a default settings file is to run the Infumap binary once:
 
-    ~/git/infumap/infumap/target/release/infumap web
+    /opt/infumap/bin/infumap web
     Ctrl-C
 
 The settings file will be created in `~/.infumap`. Move this into the encrypted drive:
 
     sudo mv ~/.infumap/. /mnt/infudata/
+    sudo chown -R infumapd:infumapd /mnt/infudata
+    sudo chmod 750 /mnt/infudata
 
 Update [settings.toml](../configuration.md) as desired. At a minimum, update the data and cache dirs and max cache size:
 
@@ -547,33 +605,94 @@ Update [settings.toml](../configuration.md) as desired. At a minimum, update the
 A cache size of about 12 GB is appropriate if you use an object store, rather than local disk for data storage. For more
 information, refer to the [configuration](../configuration.md) guide.
 
-Since the encrypted drive used by Infumap needs to be manually mounted on reboot, there is little benefit to creating a
-service to manage Infumap. I just run it in a `tmux` session.
+Create a systemd service `/etc/systemd/system/infumap-web.service`:
 
-Create `~/run-infumap-web.sh`:
+    sudoedit /etc/systemd/system/infumap-web.service
 
-    cat > ~/run-infumap-web.sh <<'EOF'
+with:
+
+    [Unit]
+    Description=Infumap Web Server
+    Wants=network-online.target
+    After=network-online.target
+    RequiresMountsFor=/mnt/infudata
+
+    [Service]
+    Type=simple
+    User=infumapd
+    Group=infumapd
+    ExecStart=/opt/infumap/bin/infumap web --settings /mnt/infudata/settings.toml
+    StandardOutput=append:/var/log/infumap/infumap.log
+    StandardError=append:/var/log/infumap/infumap.log
+    Restart=on-failure
+    RestartSec=3
+
+    [Install]
+    WantedBy=multi-user.target
+
+Create the dedicated Infumap log file and rotation policy:
+
+    sudo install -d -m 0755 /var/log/infumap
+    sudo touch /var/log/infumap/infumap.log
+    sudo chown root:root /var/log/infumap/infumap.log
+    sudo chmod 0640 /var/log/infumap/infumap.log
+
+    sudoedit /etc/logrotate.d/infumap
+
+with:
+
+    /var/log/infumap/infumap.log {
+        daily
+        rotate 60
+        size 20M
+        compress
+        delaycompress
+        missingok
+        notifempty
+        copytruncate
+    }
+
+Optional dry-run check:
+
+    sudo logrotate -d /etc/logrotate.d/infumap
+
+Enable and start the service:
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable infumap-web
+    sudo systemctl start infumap-web
+    sudo systemctl status infumap-web
+
+Create `~/deploy-infumap.sh`:
+
+    cat > ~/deploy-infumap.sh <<'EOF'
     #!/usr/bin/env bash
     set -euo pipefail
-
-    "$HOME/git/infumap/infumap/target/release/infumap" web --settings /mnt/infudata/settings.toml
+    cd "$HOME/git/infumap"
+    ./build.sh --no-minify
+    sudo install -m 0755 "$HOME/git/infumap/infumap/target/release/infumap" /opt/infumap/bin/infumap
+    sudo chown root:root /opt/infumap/bin/infumap
+    sudo systemctl restart infumap-web
+    sudo systemctl --no-pager --full status infumap-web
     EOF
 
-    chmod 700 ~/run-infumap-web.sh
+    chmod 700 ~/deploy-infumap.sh
 
-Start a new `tmux` session:
+Run deploys with:
 
-    tmux
+    ~/deploy-infumap.sh
 
-Run Infumap:
+Watch live logs:
 
-    ~/run-infumap-web.sh
+    sudo tail -f /var/log/infumap/infumap.log
 
-Key tmux commands to be aware of:
+Check recent service lifecycle events (start/restart/crash):
 
-    Ctrl-b then s (list sessions)
-    Ctrl-b then d (detach)
-    Ctrl-b then a (attach)
+    sudo journalctl -u infumap-web -n 100 --no-pager
+
+Confirm it is running under the unprivileged `infumapd` user:
+
+    pgrep -a -u infumapd infumap
 
 
 ### Install Prometheus and Scrape Infumap Metrics
@@ -586,9 +705,9 @@ Enable Infumap's Prometheus endpoint in `/mnt/infudata/settings.toml`:
 
 Use `9091` for Infumap metrics so it does not conflict with Prometheus's own default port (`9090`).
 
-Restart Infumap in your `tmux` session so the metrics listener comes up (`Ctrl-C`, then run again):
+Restart Infumap so the metrics listener comes up:
 
-    ~/run-infumap-web.sh
+    sudo systemctl restart infumap-web
 
 Verify that Infumap metrics are available locally:
 
@@ -701,8 +820,9 @@ If a reboot is required on either host:
 
 If your Infumap data is on a LUKS volume, after the Raspberry Pi reboots:
 
-    sudo cryptsetup luksOpen /home/pi/enc_volume.img infuvol
+    sudo cryptsetup luksOpen /home/infumap/enc_volume.img infuvol
     sudo mount /dev/mapper/infuvol /mnt/infudata
+    sudo systemctl restart infumap-web
 
 You will be prompted for the LUKS passphrase. This manual step is intentional: automating unlock reduces protection against physical device access.
 
@@ -713,6 +833,8 @@ On Raspberry Pi:
     sudo systemctl is-active wg-quick@wg0
     sudo systemctl is-active wg-monitor.service
     sudo systemctl is-active caddy
+    sudo systemctl is-active infumap-web
+    pgrep -a -u infumapd infumap
     sudo wg show wg0
     sudo tail -n 100 /var/log/wg-monitor.log
 
@@ -725,6 +847,7 @@ On VPS:
 Check storage usage:
 
     df -h
+    sudo du -sh /var/log/infumap
     sudo journalctl --disk-usage
 
 
