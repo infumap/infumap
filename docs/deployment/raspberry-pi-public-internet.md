@@ -5,13 +5,14 @@ Complete the shared [Raspberry Pi / VPN common setup](raspberry-pi.md) guide fir
 
 ### Install Caddy on Your Raspberry Pi
 
-In order to serve Infumap over HTTPS, you need a reverse proxy to terminate TLS. You can terminate TLS on either the VPS or the Raspberry Pi. This guide uses Caddy on the Raspberry Pi and uses the VPS only for WireGuard and packet forwarding. That keeps decrypted HTTP traffic off the VPS and reduces trust in VPS infrastructure. Terminating TLS on the VPS can be operationally simpler, but it allows the VPS to inspect plaintext request/response traffic.
+To serve Infumap over HTTPS, you need a reverse proxy to terminate TLS. You can terminate TLS on either the VPS or the Raspberry Pi. This guide uses Caddy on the Raspberry Pi and uses the VPS only for WireGuard and packet forwarding. That keeps decrypted HTTP traffic off the VPS and reduces trust in VPS infrastructure. Terminating TLS on the VPS can be operationally simpler, but it allows the VPS to inspect plaintext request/response traffic.
 
-We will use [Caddy](https://caddyserver.com/) for the reverse proxy because it is very easy to use - it automatically provisions TLS certificates and keeps them renewed.
+This guide uses [Caddy](https://caddyserver.com/) for the reverse proxy because it is simple to operate and automatically provisions and renews TLS certificates.
 
 On your Raspberry Pi device:
 
-    sudo apt install caddy
+    sudo apt update
+    sudo apt install -y caddy
 
 Contents of `/etc/caddy/Caddyfile`:
 
@@ -31,12 +32,12 @@ Contents of `/etc/caddy/Caddyfile`:
         reverse_proxy 127.0.0.1:8000
     }
 
-Where YOUR_DOMAIN_NAME is your domain name (e.g. `example.com` or `infumap.example.com`).
+Where `YOUR_DOMAIN_NAME` is your domain name (e.g. `example.com` or `infumap.example.com`).
 
 Enable and start:
 
-    systemctl enable caddy
-    systemctl start caddy
+    sudo systemctl enable caddy
+    sudo systemctl start caddy
 
 If you are extra paranoid, you might consider running `caddy` on a separate physical device (a second Raspberry Pi) or via `docker` / `gvisor` for better isolation.
 
@@ -48,7 +49,7 @@ First enable IP forwarding on your server so it can route packets between interf
 
 Then apply the change:
 
-    sysctl -p
+    sudo sysctl -p
 
 Now edit `/etc/nftables.conf` and set the contents to:
 
@@ -71,8 +72,8 @@ Now edit `/etc/nftables.conf` and set the contents to:
 
 Enable and start the nftables service:
 
-    systemctl enable nftables
-    systemctl start nftables
+    sudo systemctl enable nftables
+    sudo systemctl start nftables
 
 If `curl -I https://` to your public IP succeeds but you cannot reach the Raspberry Pi over the VPN (`10.0.0.2`), double-check that IP forwarding remains enabled (`net.ipv4.ip_forward`), that WireGuard is up on both ends, and that the nftables rules are loaded.
 

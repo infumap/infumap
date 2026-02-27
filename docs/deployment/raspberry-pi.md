@@ -1,13 +1,10 @@
-
 ## Raspberry Pi / VPN (Common Setup)
 
-On a typical VPS, you must trust the hosting provider. A sufficiently privileged operator may be able to access your
-VM’s disk and, in some cases, its memory.
-
-If this risk is unacceptable, you can host Infumap on hardware you physically control. A Raspberry Pi 5 connected
-to your home router is a low-cost option. However, most ISPs assign dynamic public IP addresses, and home networks
-are typically behind NAT. As a result, making your Raspberry Pi accessible from the internet requires securely
-routing traffic through a stable public IP address.
+Running Infumap on a typical VPS means trusting the hosting provider - a sufficiently privileged operator may be able to
+access your VM’s disk and, in some cases, its memory. If this risk is unacceptable, you can host Infumap on hardware
+you physically control, such as a Raspberry Pi 5 on your home network. The challenge is connectivity - most ISPs assign
+dynamic public IP addresses, and home networks are usually behind NAT. To make your Raspberry Pi reachable from the
+internet, you need to route traffic securely through a stable public IP address.
 
 There are several ways to do this. A Cloudflare Zero Trust Tunnel is one convenient option, though it requires
 running the `cloudflared` daemon and trusting Cloudflare’s infrastructure. A more secure approach is to establish
@@ -82,7 +79,7 @@ Because `/boot/firmware/config.txt` changes apply only after reboot, reboot now 
 
 Use UFW to deny all inbound traffic by default, then explicitly allow required ports.
 
-Note: This assumes you will be setting up your wireguard network interface on 10.0.0.0/24. If this clashes with your router,
+Note: This assumes you will be setting up your WireGuard network interface on 10.0.0.0/24. If this clashes with your router,
 or some other local network configuration, you will need to change it to something that doesn't.
 
 Simple SSH policy (allows SSH from anywhere):
@@ -118,13 +115,13 @@ or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
 
 ### Infumap Install
 
-After setting up the firewall, build infumap from source.
+After setting up the firewall, build Infumap from source.
 
-First install rust:
+First install Rust:
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-Now clone the infumap repo:
+Now clone the Infumap repo:
 
     cd ~
     mkdir git
@@ -133,7 +130,7 @@ Now clone the infumap repo:
     cd infumap
     git checkout v0.3.0
 
-Determine the latest version of `nvm` here https://github.com/nvm-sh/nvm (at the time of writing 0.40.1) and install similar to:
+Find the latest `nvm` release at https://github.com/nvm-sh/nvm (for example `v0.40.1`) and install similarly:
 
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
     nvm install node
@@ -254,14 +251,14 @@ After confirming `infumap` works, remove provider bootstrap root credentials:
     sudo truncate -s 0 /root/.ssh/authorized_keys
     sudo passwd -l root
 
-We will use wireguard to create a secure, persistent, reliable network between our VPS instance and Raspberry Pi.
+We will use WireGuard to create a secure, persistent, reliable network between our VPS instance and Raspberry Pi.
 
-Generate the VPS wireguard keys:
+Generate the VPS WireGuard keys:
 
     sudo install -d -m 700 /etc/wireguard/keys
     wg genkey | sudo tee /etc/wireguard/keys/server.key | wg pubkey | sudo tee /etc/wireguard/keys/server.key.pub > /dev/null
 
-Create the wireguard config file:
+Create the WireGuard config file:
 
     sudoedit /etc/wireguard/wg0.conf
 
@@ -298,20 +295,20 @@ Validate and reload SSH server:
     sudo sshd -t
     sudo systemctl reload ssh
 
-### Raspberry Pi Wireguard Setup
+### Raspberry Pi WireGuard Setup
 
-Install wireguard:
+Install WireGuard:
 
-    apt update
-    apt install openresolv net-tools wireguard
+    sudo apt update
+    sudo apt install -y openresolv net-tools wireguard
 
-Generate wireguard keys for your Raspberry PI instance:
+Generate WireGuard keys for your Raspberry Pi instance:
 
     sudo mkdir -p /etc/wireguard/keys; wg genkey | sudo tee /etc/wireguard/keys/client.key | wg pubkey | sudo tee /etc/wireguard/keys/client.key.pub > /dev/null
 
 Create the wg0 interface config:
 
-    sudo nano /etc/wireguard/wg0.conf
+    sudoedit /etc/wireguard/wg0.conf
 
     [Interface]
     PrivateKey = {YOUR_CLIENT_PRIVATE_KEY}
@@ -415,7 +412,7 @@ for SSH and HTTPS from the VPN subnet:
     sudo ufw route allow in on wg0 out on wg0 from 10.0.0.0/24 to 10.0.0.2 port 443 proto tcp
 
 
-### Setup A WireGuard Monitoring Service
+### Set Up a WireGuard Monitoring Service
 
 With the above setup, the Raspberry Pi may occasionally become unreachable over the WireGuard network,
 sometimes indefinitely until manual intervention. As a workaround, use a small watchdog script that
@@ -479,7 +476,7 @@ Check status and recent logs:
     sudo tail -n 100 /var/log/wg-monitor.log
 
 
-### Setup Encrypted drive
+### Set Up an Encrypted Drive
 
 Create an encrypted volume on your Raspberry Pi to ensure that even if an attacker gains physical access to it,
 they cannot read your Infumap instance data.
@@ -492,18 +489,18 @@ Check available bytes:
 
     df -k
 
-The Raspberry Pi 5 kit comes with a 32 Gb flash drive. If you are using this, a 16Gb encrypted volume is appropriate.
-In `/root`, create this file with random data:
+The Raspberry Pi 5 kit comes with a 32 GB flash drive. If you are using this, a 16 GB encrypted volume is appropriate.
+In `/home/pi`, create this file with random data:
 
-    dd if=/dev/urandom of=enc_volume.img bs=1M count=16384 status=progress
+    sudo dd if=/dev/urandom of=/home/pi/enc_volume.img bs=1M count=16384 status=progress
 
 Format this file as a LUKS container:
 
-    sudo cryptsetup luksFormat enc_volume.img
+    sudo cryptsetup luksFormat /home/pi/enc_volume.img
 
 Open the container:
 
-    sudo cryptsetup luksOpen enc_volume.img infuvol
+    sudo cryptsetup luksOpen /home/pi/enc_volume.img infuvol
 
 Create a filesystem:
 
@@ -526,7 +523,7 @@ If you use a LUKS volume for Infumap data, you must manually unlock and mount it
 Include this in your periodic maintenance runbook.
 
 
-### Configure and Run Infumap:
+### Configure and Run Infumap
 
 The easiest way to create a default settings file is to simply run infumap:
 
@@ -535,7 +532,7 @@ The easiest way to create a default settings file is to simply run infumap:
 
 The settings file will be created in `~/.infumap`. Move this into the encrypted drive:
 
-    sudo mv ~/.infumap/* /mnt/infudata
+    sudo mv ~/.infumap/. /mnt/infudata/
 
 Update [settings.toml](../configuration.md) as desired. At a minimum, update the data and cache dirs and max cache size:
 
@@ -543,7 +540,7 @@ Update [settings.toml](../configuration.md) as desired. At a minimum, update the
     cache_dir = "/mnt/infudata/cache"
     cache_max_mb = 12000
 
-A cache size of about 12Gb is appropriate if you use an object store, rather than local disk for data storage. For more
+A cache size of about 12 GB is appropriate if you use an object store, rather than local disk for data storage. For more
 information, refer to the [configuration](../configuration.md) guide.
 
 Since the encrypted drive used by Infumap needs to be manually mounted on reboot, there is little benefit to creating a
@@ -559,9 +556,9 @@ Run Infumap:
 
 Key tmux commands to be aware of:
 
-    Ctrl-b-s (list sessions)
-    Ctrl-b-d (detach)
-    Ctrl-b-a (attach)
+    Ctrl-b then s (list sessions)
+    Ctrl-b then d (detach)
+    Ctrl-b then a (attach)
 
 
 ### Periodic Admin Maintenance
@@ -589,7 +586,7 @@ If a reboot is required on either host:
 
 If your Infumap data is on a LUKS volume, after the Raspberry Pi reboots:
 
-    sudo cryptsetup luksOpen enc_volume.img infuvol
+    sudo cryptsetup luksOpen /home/pi/enc_volume.img infuvol
     sudo mount /dev/mapper/infuvol /mnt/infudata
 
 You will be prompted for the LUKS passphrase. This manual step is intentional: automating unlock reduces protection against physical device access.
@@ -621,4 +618,4 @@ Check storage usage:
 At this point, the shared baseline setup is complete. Continue with one of the profile guides:
 
 - [Public internet-facing deployment](raspberry-pi-public-internet.md)
-- [VPN-only deployment with HTTPS (Namecheap DNS challenge)](raspberry-pi-vpn-only.md)
+- [VPN-only deployment with HTTPS (local CA)](raspberry-pi-vpn-only.md)

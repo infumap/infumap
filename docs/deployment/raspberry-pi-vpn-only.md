@@ -1,4 +1,4 @@
-## Raspberry Pi / VPN-Only HTTPS (local CA)
+## Raspberry Pi / VPN-Only HTTPS (Local CA)
 
 This guide keeps Infumap reachable only to WireGuard peers. There is no public internet exposure on ports `80/443`.
 
@@ -171,15 +171,15 @@ Reload and enable Caddy:
 
 Copy `/etc/infumap/ca/root.cert.pem` to each trusted machine and device. On macOS:
 
-  - Double-click the file to open Keychain Access.
-  - Import it into the `System` or `login` keychain, then open the certificate, expand `Trust`, and set `When using this certificate` to `Always Trust`.
-  - Quit/reopen browsers so they pick up the trusted root.
+- Double-click the file to open Keychain Access.
+- Import it into the `System` or `login` keychain, then open the certificate, expand `Trust`, and set `When using this certificate` to `Always Trust`.
+- Quit and reopen browsers so they pick up the trusted root.
 
 On iPhone:
 
-  - AirDrop the cert to the phone (use `.crt` if your client tools prefer that extension).
-  - Open the cert from Files and install it via `Settings -> General -> VPN & Device Management`.
-  - In `Settings -> General -> About -> Certificate Trust Settings`, enable full trust for that root certificate.
+- AirDrop the cert to the phone (use `.crt` if your client tools prefer that extension).
+- Open the cert from Files and install it via `Settings -> General -> VPN & Device Management`.
+- In `Settings -> General -> About -> Certificate Trust Settings`, enable full trust for that root certificate.
 
 You must perform these steps for each device that needs to hit `infumap.yourdomain.tld`. Keep the root cert public but never export the private key.
 
