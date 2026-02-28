@@ -476,6 +476,20 @@ Verify it's up:
 
     sudo wg show wg0
 
+After both ends are up, verify the WireGuard handshake from both hosts:
+
+On the Raspberry Pi:
+
+    sudo wg show wg0
+
+On the VPS:
+
+    sudo wg show wg0
+
+Within about 25-30 seconds, you should see a recent `latest handshake` timestamp for the peer and non-zero `transfer` counters. This verifies that the encrypted tunnel is established without requiring either host to store the other host's SSH private key.
+
+Do not expect SSH from the VPS to the Raspberry Pi to work at this stage. The Raspberry Pi firewall intentionally does not yet allow `10.0.0.1` to reach port `22`; that is added later for the specific admin WireGuard client instead. End-to-end SSH testing happens in the admin client setup section.
+
 
 ### Set Up a macOS WireGuard Admin Client (Full VPN Access)
 
