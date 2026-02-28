@@ -167,9 +167,14 @@ Apply this baseline policy now. After WireGuard peer IP assignments are complete
 
 After setting up the firewall, build Infumap from source.
 
-First install Rust:
+Before executing any third-party bootstrap script, download it first and inspect it locally. This does not remove supply-chain risk, but it is better than `curl ... | sh` because you get a stable artifact to review and can rerun the exact same file you inspected.
 
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+First install Rust by downloading the official `rustup` bootstrap script, inspecting it, then running it manually:
+
+    curl --proto '=https' --tlsv1.2 -fsSLo /tmp/rustup-init.sh https://sh.rustup.rs
+    less /tmp/rustup-init.sh
+    sh /tmp/rustup-init.sh
+    rm /tmp/rustup-init.sh
 
 Now clone the Infumap repo:
 
@@ -179,9 +184,14 @@ Now clone the Infumap repo:
     git clone https://github.com/infumap/infumap.git
     cd infumap
 
-Find the latest `nvm` release at https://github.com/nvm-sh/nvm (for example, `v0.40.1`) and install it:
+Cloning downloads the source without executing it. If you want a review point before the build, inspect project scripts such as `build.sh`.
 
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+Find the exact `nvm` release you want to install at https://github.com/nvm-sh/nvm (for example, `v0.40.1`), then download that specific installer, inspect it, and run it:
+
+    curl -fsSLo /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh
+    less /tmp/nvm-install.sh
+    bash /tmp/nvm-install.sh
+    rm /tmp/nvm-install.sh
     nvm install node
 
 Finally build Infumap:
