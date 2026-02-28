@@ -130,7 +130,7 @@ This global `journald` limit applies to most services. Infumap can still keep lo
 Now restart and verify:
 
     sudo systemctl restart systemd-journald
-    journalctl --disk-usage
+    sudo journalctl --disk-usage
 
 Recovery note: for severe or unclear failures, rebuild the Pi and restore from backup.
 
@@ -282,13 +282,13 @@ Disable apt package cache retention and apply the changes:
     sudo systemctl restart systemd-journald
     sudo journalctl --rotate
     sudo journalctl --vacuum-size=4M
-    journalctl --disk-usage
+    sudo journalctl --disk-usage
 
 Remove old persistent journal files created before `Storage=volatile`:
 
     sudo rm -rf /var/log/journal
     sudo systemctl restart systemd-journald
-    journalctl --disk-usage
+    sudo journalctl --disk-usage
 
 (optional, if installed) Disable `rsyslog` to avoid duplicate on-disk log streams:
 
