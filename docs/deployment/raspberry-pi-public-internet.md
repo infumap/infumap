@@ -66,15 +66,7 @@ No additional VPS forwarding rules are required beyond the existing public `80/4
 
 ### Expose Infumap on VPS
 
-First enable IP forwarding on the VPS so it can route packets between interfaces. Edit `/etc/sysctl.conf` and uncomment this line:
-
-    net.ipv4.ip_forward=1
-
-Then apply the change:
-
-    sudo sysctl -p
-
-Now add NAT rules under UFW control so public `80/443` traffic is forwarded to the Raspberry Pi over WireGuard:
+The common guide already enables IPv4 forwarding on the VPS. Now add NAT rules under UFW control so public `80/443` traffic is forwarded to the Raspberry Pi over WireGuard:
 
     sudoedit /etc/ufw/before.rules
 

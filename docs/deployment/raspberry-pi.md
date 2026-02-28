@@ -205,6 +205,18 @@ VPS UFW rules, VPS `ListenPort`, and every client `Endpoint`.
 
 `sudo ufw default deny routed` is set as a secure baseline. `wg0` -> `wg0` routed allow rules for VPN peer access are added in a later section. If you later choose the public internet-facing profile, explicit routed allow rules for forwarded `80/443` traffic to `10.0.0.2` are added there.
 
+Enable IPv4 forwarding on the VPS now so it can route traffic between WireGuard peers and, if needed later, between the public interface and `wg0`:
+
+    sudoedit /etc/sysctl.conf
+
+Uncomment or add:
+
+    net.ipv4.ip_forward=1
+
+Then apply the change:
+
+    sudo sysctl -p
+
 (optional) Add disk-usage limits on logs/core dumps to conserve disk space:
 
 Note: This is mainly useful if you use spare VPS capacity for additional non-core tasks. If you do, review the security impact of every extra service you install and run.
