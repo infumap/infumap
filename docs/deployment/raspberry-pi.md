@@ -16,14 +16,20 @@ public IP. This document outlines the latter approach.
 
 Use the Raspberry Pi Imager to install a clean OS image.
 
+- On your admin machine, generate a dedicated SSH keypair for the Raspberry Pi:
+
+      ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_infumap_pi_ed25519 -C "infumap-pi"
+
+  When Raspberry Pi Imager asks for an authorized key for SSH, paste the contents of `~/.ssh/infumap_pi_ed25519.pub`.
 - Select `Raspberry Pi OS Lite (64-bit)` (in Imager this is under `Raspberry Pi OS (other)`).
+- Set the hostname to `infumap-pi`.
 - Enable SSH and use public-key authentication (more secure than password authentication).
 - Turn off telemetry.
 
 After first boot, find the Raspberry Pi's LAN IP address by checking your router's DHCP client/lease table (sometimes
 called the LAN hosts page) in the router admin interface. Then:
 
-    ssh pi@<ip address>
+    ssh -i ~/.ssh/id_infumap_pi_ed25519 pi@<ip address>
 
 Install prerequisites:
 
@@ -80,11 +86,11 @@ Validate and reload SSH:
 
 Open a new terminal and verify admin login before closing the original session:
 
-    ssh infumap@<ip address>
+    ssh -i ~/.ssh/infumap_pi_ed25519 infumap@<ip address>
     sudo -k
     sudo true
 
-SSH should succeed with your key only. If `ssh infumap@<ip address>` offers password or keyboard-interactive login, stop and re-check the SSH drop-in files before continuing.
+SSH should succeed with your key only. If `ssh -i ~/.ssh/infumap_pi_ed25519 infumap@<ip address>` offers password or keyboard-interactive login, stop and re-check the SSH drop-in files before continuing.
 
 After successful verification, remove the copied key material from the old `pi` account:
 
