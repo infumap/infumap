@@ -8,13 +8,13 @@ Complete the shared baseline guide first:
 
 ### Domain and DNS model
 
-Pick a stable hostname for Infumap under a domain you control (for example `infumap.yourdomain.tld`).
+Choose a stable hostname for Infumap under a domain you control (for example, `infumap.yourdomain.tld`).
 
-If you also want VPN-only Grafana, pick a second hostname (for example `grafana.yourdomain.tld`).
+If you also want VPN-only Grafana, choose a second hostname (for example, `grafana.yourdomain.tld`).
 
 #### Local DNS on VPS over WireGuard
 
-Run `dnsmasq` on the VPS WireGuard address (`10.0.0.1`) and publish private DNS records that point to the Pi WireGuard IP (`10.0.0.2`).
+Run `dnsmasq` on the VPS WireGuard address (`10.0.0.1`) and publish private DNS records that point to the Raspberry Pi WireGuard IP (`10.0.0.2`).
 
 On the VPS (`10.0.0.1`):
 
@@ -36,10 +36,10 @@ Create `/etc/dnsmasq.d/infumap-vpn.conf`:
     # Optional Grafana hostname:
     #address=/grafana.yourdomain.tld/10.0.0.2
 
-`1.1.1.1` and `1.0.0.1` are Cloudflare public DNS resolvers. They are used here as upstream DNS for all non-local
+`1.1.1.1` and `1.0.0.1` are Cloudflare public DNS resolvers. They are used here as upstream resolvers for all non-local
 lookups because they are widely available, fast, and provide simple redundancy. You can replace them with your preferred
-upstream resolvers (for example Quad9 or Google Public DNS). `local-ttl=300` tells clients to cache local DNS mappings
-for about 5 minutes, reducing repeat lookups from iPhone and laptop clients.
+upstream resolvers (for example, Quad9 or Google Public DNS). `local-ttl=300` tells clients to cache local DNS mappings
+for about five minutes, reducing repeated lookups from iPhone and laptop clients.
 
 Start and verify on the VPS:
 
@@ -59,8 +59,8 @@ If UFW is enabled on the VPS, allow DNS only from the WireGuard subnet:
 
 Configure name resolution for iPhone and macOS clients:
 
-- iPhone: open the WireGuard app, edit the tunnel, and set `DNS Servers` to `10.0.0.1` (this is the only practical option on iPhone).
-- macOS: prefer `/etc/hosts` entries for the VPN-only hostnames instead of tunnel DNS. You can also set `DNS = 10.0.0.1` in the wireguard config, however note that every lookup adds an extra hop to the VPS DNS resolver and introduces a dependency on `10.0.0.1` availability
+- iPhone: Open the WireGuard app, edit the tunnel, and set `DNS Servers` to `10.0.0.1` (this is the only practical option on iPhone).
+- macOS: Prefer `/etc/hosts` entries for VPN-only hostnames instead of tunnel DNS. You can also set `DNS = 10.0.0.1` in the WireGuard config, but every lookup adds an extra hop to the VPS DNS resolver and introduces a dependency on `10.0.0.1` being available.
 
 On macOS:
 
@@ -114,11 +114,11 @@ Reload and enable Caddy:
 
 ### Trust Caddy's Root Certificate on Clients
 
-Caddy's internal CA root certificate is stored on the Pi at:
+Caddy's internal CA root certificate is stored on the Raspberry Pi at:
 
     /var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt
 
-Copy that `root.crt` file to each trusted client device.
+Copy that `root.crt` file to each trusted client.
 
 On macOS:
 
@@ -128,19 +128,19 @@ On macOS:
 
 On iPhone:
 
-- AirDrop the cert to the phone (rename to `.crt` if needed).
+- AirDrop the certificate to the phone (rename it to `.crt` if needed).
 - Install it via `Settings -> General -> VPN & Device Management`.
 - Enable full trust via `Settings -> General -> About -> Certificate Trust Settings`.
 
-Any hostname issued by this Caddy internal CA (for example `infumap.yourdomain.tld` and `grafana.yourdomain.tld`) will be trusted once this root is installed.
+Any hostname issued by this Caddy internal CA (for example, `infumap.yourdomain.tld` and `grafana.yourdomain.tld`) will be trusted once this root is installed.
 
 ### Keep Access VPN-Only
 
-On Raspberry Pi, keep inbound `443/tcp` restricted to the WireGuard subnet (as configured in the common guide):
+On the Raspberry Pi, keep inbound `443/tcp` restricted to the WireGuard subnet, as configured in the common guide:
 
     sudo ufw status verbose
 
-On VPS, do not configure DNAT forwarding for `80/443` to the Raspberry Pi.
+On the VPS, do not configure DNAT forwarding for `80/443` to the Raspberry Pi.
 
 If you previously configured public forwarding rules, remove them and restart `nftables`.
 Also remove any VPS UFW routed allow rules that forward public `80/443` traffic to `10.0.0.2`.
@@ -154,7 +154,7 @@ From a VPN-connected admin client:
     curl -I https://grafana.yourdomain.tld   # if enabled
     ssh infumap@10.0.0.2
 
-If HTTPS fails, check Caddy logs:q
+If HTTPS fails, check the Caddy logs:
 
     sudo journalctl -u caddy -n 200 --no-pager
 

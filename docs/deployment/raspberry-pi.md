@@ -17,7 +17,7 @@ public IP. This document outlines the latter approach.
 Use the Raspberry Pi Imager to install a clean OS image.
 
 - Select `Raspberry Pi OS Lite (64-bit)` (in Imager this is under `Raspberry Pi OS (other)`).
-- Enable the SSH service and use public-key authentication as this is more secure than password authentication.
+- Enable SSH and use public-key authentication (more secure than password authentication).
 - Turn off telemetry.
 
 After first boot, find the Raspberry Pi's LAN IP address by checking your router's DHCP client/lease table (sometimes
@@ -47,7 +47,7 @@ Disable passwordless sudo for `pi` (if `/etc/sudoers.d/010_pi-nopasswd` exists):
 
     sudoedit /etc/sudoers.d/010_pi-nopasswd
 
-replace its contents with:
+Replace its contents with:
 
     pi ALL=(ALL:ALL) ALL
 
@@ -55,7 +55,7 @@ Restrict SSH login to the admin user:
 
     sudoedit /etc/ssh/sshd_config.d/99-admin-users.conf
 
-with:
+Add:
 
     AllowUsers infumap
 
@@ -74,14 +74,14 @@ After successful verification, remove the copied key material from the old `pi` 
 
     sudo rm -f /home/pi/.ssh/authorized_keys
 
-And lock and disable interactive shell for `pi`:
+Then lock `pi` and disable its interactive shell:
 
     sudo passwd -l pi
     sudo usermod -s /usr/sbin/nologin pi
 
 Continue the rest of this guide as `infumap`.
 
-(optional) Disable additional services commonly unnecessary for a headless Infumap host:
+(optional) Disable additional services that are usually unnecessary on a headless Infumap host:
 
     sudo systemctl disable --now avahi-daemon.service avahi-daemon.socket 2>/dev/null || true
     sudo systemctl disable --now triggerhappy.service 2>/dev/null || true
@@ -95,16 +95,15 @@ Continue the rest of this guide as `infumap`.
     sudo apt purge -y rpi-connect-lite || true
     sudo apt autoremove -y
 
-(optional) Configure `journald` for RAM-only logs. This keeps diagnostics available for live troubleshooting
-while avoiding persistent log growth on disk:
+(optional) Configure `journald` for RAM-only logs. This keeps diagnostics for live troubleshooting
+while avoiding persistent on-disk log growth:
 
     # in /etc/systemd/journald.conf
     Storage=volatile
     RuntimeMaxUse=4M
     Compress=yes
 
-This global `journald` limit applies to most services. Infumap can still keep longer on-disk logs via a dedicated log file
-configured later in this guide.
+This global `journald` limit applies to most services. Infumap can still keep longer on-disk logs through a dedicated log file configured later in this guide.
 
 Now restart and verify:
 
@@ -113,7 +112,7 @@ Now restart and verify:
 
 Recovery note: for severe or unclear failures, rebuild the Pi and restore from backup.
 
-(optional, Ethernet-only and no audio use) Reduce hardware/software attack surface by adding the following to `/boot/firmware/config.txt`:
+(optional, Ethernet-only and no audio use) Reduce the hardware/software attack surface by adding the following to `/boot/firmware/config.txt`:
 
     dtoverlay=disable-bt
     dtoverlay=disable-wifi
@@ -132,8 +131,7 @@ Because `/boot/firmware/config.txt` changes apply only after reboot, reboot now 
 
 Use UFW to deny all inbound traffic by default, then explicitly allow required ports.
 
-Note: This assumes you will be setting up your WireGuard network interface on 10.0.0.0/24. If this clashes with your router,
-or some other local network configuration, you will need to change it to something that doesn't.
+Note: This guide assumes your WireGuard network is `10.0.0.0/24`. If that conflicts with your router or another local network, use a different private subnet.
 
 Baseline SSH policy (LAN only):
 
@@ -146,8 +144,7 @@ Baseline SSH policy (LAN only):
 
 Where `YOUR_LOCAL_SUBNET` is your local LAN in CIDR notation (e.g. `192.168.0.0/16`).
 
-Apply this baseline policy now. After WireGuard peer IP assignments are complete and your admin host has a stable VPN IP,
-add the admin VPN SSH allow rule in the admin client setup section.
+Apply this baseline policy now. After WireGuard peer IP assignments are complete and your admin host has a stable VPN IP, add the admin VPN SSH allow rule in the admin client setup section.
 
 ### Infumap Install
 
@@ -165,7 +162,7 @@ Now clone the Infumap repo:
     git clone https://github.com/infumap/infumap.git
     cd infumap
 
-Find the latest `nvm` release at https://github.com/nvm-sh/nvm (for example `v0.40.1`) and install similarly:
+Find the latest `nvm` release at https://github.com/nvm-sh/nvm (for example, `v0.40.1`) and install it:
 
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
     nvm install node
@@ -182,9 +179,7 @@ Install the release binary to a stable, root-owned path:
 
 ### Initial VPS Setup
 
-Create a VPS running Debian 13 x64 using your vendor of choice. Select a region as physically close to your Raspberry
-Pi device as possible. A cheap/small instance size will suffice as the VPS is not used for anything other than forwarding
-HTTPS web traffic.
+Create a Debian 13 x64 VPS from your preferred vendor. Choose a region physically close to your Raspberry Pi. A small, low-cost instance is enough because the VPS is only forwarding HTTPS traffic.
 
 Install required packages:
 
@@ -192,7 +187,7 @@ Install required packages:
     sudo apt upgrade -y
     sudo apt install --no-install-recommends wireguard-tools nftables ufw
 
-(optional) If prompted, use `sudo apt autoremove` to remove any packages marked as no longer required.
+(optional) If prompted, run `sudo apt autoremove` to remove packages marked as no longer required.
 
 Configure and enable the VPS firewall:
 
@@ -205,18 +200,14 @@ Configure and enable the VPS firewall:
     sudo ufw --force enable
     sudo ufw status verbose
 
-This guide uses `43821/udp` for WireGuard instead of the common default `51820/udp` to reduce opportunistic
-default-port scanning noise. Choose any unused high UDP port in `1024-65535`, then use that same port consistently in:
+This guide uses `43821/udp` for WireGuard instead of the common default `51820/udp` to reduce opportunistic default-port scan noise. Choose any unused high UDP port in `1024-65535`, then use the same port consistently in:
 VPS UFW rules, VPS `ListenPort`, and every client `Endpoint`.
 
-`sudo ufw default deny routed` is set here as a secure default baseline. `wg0` -> `wg0` routed allow rules for VPN peer
-access are added in a later section. If you later choose the public internet-facing profile, explicit routed allow
-rules for forwarded `80/443` traffic to `10.0.0.2` will be added there.
+`sudo ufw default deny routed` is set as a secure baseline. `wg0` -> `wg0` routed allow rules for VPN peer access are added in a later section. If you later choose the public internet-facing profile, explicit routed allow rules for forwarded `80/443` traffic to `10.0.0.2` are added there.
 
 (optional) Add disk-usage limits on logs/core dumps to conserve disk space:
 
-Note: This is mainly useful if you are using spare VPS capacity for additional non-core tasks. If you do this, be sure to
-review the security impact of every extra service you install and run.
+Note: This is mainly useful if you use spare VPS capacity for additional non-core tasks. If you do, review the security impact of every extra service you install and run.
 
 Edit `/etc/systemd/journald.conf`:
 
@@ -268,8 +259,7 @@ Display the public key so you can copy it:
 
 You will paste this value as `YOUR_ADMIN_PUBLIC_KEY` in the user setup step below.
 
-Using a new key here lowers risk from leaked bootstrap credentials or provider account compromise, although it does not
-remove the need to trust the VPS provider.
+Using a new key here lowers risk from leaked bootstrap credentials or provider account compromise, though it does not remove the need to trust the VPS provider.
 
 Create a non-root admin user for ongoing administration:
 
@@ -282,8 +272,7 @@ Create a non-root admin user for ongoing administration:
 
 Where `YOUR_ADMIN_PUBLIC_KEY` is a full public key line from your admin machine (for example: `ssh-ed25519 AAAA... you@laptop`).
 
-Set a strong password for `infumap` when prompted. This password is for `sudo` and console recovery; SSH password
-authentication is disabled later.
+Set a strong password for `infumap` when prompted. This password is for `sudo` and console recovery; SSH password authentication is disabled later.
 
 Verify login in a new terminal before continuing:
 
@@ -295,7 +284,7 @@ After confirming `infumap` works, remove provider bootstrap root credentials:
     sudo truncate -s 0 /root/.ssh/authorized_keys
     sudo passwd -l root
 
-We will use WireGuard to create a secure, persistent, reliable network between our VPS instance and Raspberry Pi.
+Use WireGuard to create a secure, persistent link between the VPS and Raspberry Pi.
 
 Generate the VPS WireGuard keys:
 
@@ -317,7 +306,7 @@ Lock down the permissions of the server keys and config:
     sudo chmod 600 /etc/wireguard/wg0.conf /etc/wireguard/keys/server.key
     sudo chmod 644 /etc/wireguard/keys/server.key.pub
 
-After confirming `infumap` login works, lock down SSH:
+After confirming `infumap` login works, harden SSH:
     
     sudoedit /etc/ssh/sshd_config
   
@@ -331,8 +320,8 @@ and set:
 
 Also check for config files in `/etc/ssh/sshd_config.d` that may override `/etc/ssh/sshd_config` and update if required.
 
-If present, keep `AcceptEnv LANG LC_* COLORTERM NO_COLOR` so locale/color environment variables can pass through SSH.
-Also keep the existing `Subsystem sftp ...` entry so `scp` continues to work.
+If present, keep `AcceptEnv LANG LC_* COLORTERM NO_COLOR` so locale and color environment variables can pass through SSH.
+Also keep the existing `Subsystem sftp ...` entry so `scp` keeps working.
 
 Validate and reload SSH server:
 
@@ -346,7 +335,7 @@ Install WireGuard:
     sudo apt update
     sudo apt install -y openresolv net-tools wireguard
 
-Generate WireGuard keys for your Raspberry Pi instance:
+Generate WireGuard keys for the Raspberry Pi:
 
     sudo mkdir -p /etc/wireguard/keys; wg genkey | sudo tee /etc/wireguard/keys/client.key | wg pubkey | sudo tee /etc/wireguard/keys/client.key.pub > /dev/null
 
@@ -373,7 +362,7 @@ Automatically bring up the wg0 VPN interface on boot:
 
     sudo systemctl enable wg-quick@wg0
 
-Start wg0 up now:
+Start `wg0` now:
 
     sudo systemctl start wg-quick@wg0
 
@@ -407,11 +396,10 @@ Verify it's up:
     sudo wg show wg0
 
 
-### Setup a macOS WireGuard Admin Client (Full VPN Access)
+### Set Up a macOS WireGuard Admin Client (Full VPN Access)
 
-Set up your admin Mac laptop to join the same WireGuard VPN and reach all VPN peers (for example `10.0.0.1` VPS and
-`10.0.0.2` Raspberry Pi).
-The same model also works for other WireGuard client platforms (Windows, Linux, iOS, Android), but only macOS is documented here.
+Set up your admin Mac to join the same WireGuard VPN and reach all peers (for example, `10.0.0.1` on the VPS and `10.0.0.2` on the Raspberry Pi).
+The same model works on other WireGuard client platforms (Windows, Linux, iOS, Android), but this guide documents only macOS.
 
 Install the [WireGuard macOS app](https://www.wireguard.com/install/) and create a new tunnel from scratch.
 In the tunnel editor, click **Generate** for the interface private key.
@@ -450,9 +438,7 @@ Now add SSH access for the admin VPN host on the Raspberry Pi:
 
 Where `ADMIN_VPN_HOST_IP` is the WireGuard IP assigned to your admin laptop/workstation (e.g. `10.0.0.10`).
 
-With this policy, remote administration is possible from your specific admin VPN host, including after reboot for the purposes
-of unlocking the LUKS encrypted volume. Because SSH is allowlisted to the admin host IP (and not the full VPN subnet), compromise
-of the VPS or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
+With this policy, remote administration is possible from your specific admin VPN host, including after reboot when you need to unlock the LUKS volume. Because SSH is allowlisted to the admin host IP (not the full VPN subnet), compromise of the VPS or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
 
 Because the VPS firewall baseline is `sudo ufw default deny routed`, add explicit `wg0` -> `wg0` routed allow rules
 for admin access to the Raspberry Pi:
@@ -470,15 +456,12 @@ Bring the tunnel up on macOS and verify:
     ping 10.0.0.2
     ssh infumap@10.0.0.2
 
-If `10.0.0.1` works but `10.0.0.2` does not, confirm these routed allow rules are present and that the source IP matches
-your admin client tunnel IP.
+If `10.0.0.1` works but `10.0.0.2` does not, confirm these routed allow rules are present and that the source IP matches your admin tunnel IP.
 
 
 ### Set Up a WireGuard Monitoring Service
 
-With the above setup, the Raspberry Pi may occasionally become unreachable over the WireGuard network,
-sometimes indefinitely until manual intervention. As a workaround, use a small watchdog script that
-monitors reachability to the VPS over `wg0` and restarts the WireGuard service when required.
+With this setup, the Raspberry Pi may occasionally become unreachable over WireGuard, sometimes until manual intervention. As a workaround, use a small watchdog script that monitors reachability to the VPS over `wg0` and restarts WireGuard when needed.
 
 Install `infumap/tools/wg-monitor.sh` as a root-owned executable:
 
@@ -540,18 +523,17 @@ Check status and recent logs:
 
 ### Set Up an Encrypted Drive
 
-Create an encrypted volume on your Raspberry Pi to ensure that even if an attacker gains physical access to it,
-they cannot read your Infumap instance data.
+Create an encrypted volume on your Raspberry Pi so that even if an attacker gains physical access, they still cannot read your Infumap data.
 
 On your Raspberry Pi:
 
     sudo apt-get install cryptsetup
 
-Check available bytes:
+Check available disk space:
 
     df -k
 
-The Raspberry Pi 5 kit comes with a 32 GB flash drive. If you are using this, a 16 GB encrypted volume is appropriate.
+The Raspberry Pi 5 kit often includes 32 GB of storage. If you are using that size, a 16 GB encrypted volume is a reasonable default.
 In `/home/infumap`, create this file with random data:
 
     sudo dd if=/dev/urandom of=/home/infumap/enc_volume.img bs=1M count=16384 status=progress
@@ -572,7 +554,7 @@ Create a mount point:
 
     sudo mkdir /mnt/infudata
 
-And finally mount:
+Then mount it:
 
     sudo mount /dev/mapper/infuvol /mnt/infudata
 
@@ -596,20 +578,19 @@ The easiest way to create a default settings file is to run the Infumap binary o
     /opt/infumap/bin/infumap web
     Ctrl-C
 
-The settings file will be created in `~/.infumap`. Move this into the encrypted drive:
+The settings file is created in `~/.infumap`. Move it to the encrypted drive:
 
     sudo mv ~/.infumap/. /mnt/infudata/
     sudo chown -R infumapd:infumapd /mnt/infudata
     sudo chmod 750 /mnt/infudata
 
-Update [settings.toml](../configuration.md) as desired. At a minimum, update the data and cache dirs and max cache size:
+Update [settings.toml](../configuration.md) as needed. At minimum, set the data and cache directories and max cache size:
 
     data_dir = "/mnt/infudata/data"
     cache_dir = "/mnt/infudata/cache"
     cache_max_mb = 12000
 
-A cache size of about 12 GB is appropriate if you use an object store, rather than local disk for data storage. For more
-information, refer to the [configuration](../configuration.md) guide.
+A cache size of about 12 GB is appropriate when you use an object store instead of local disk for data storage. For details, see the [configuration](../configuration.md) guide.
 
 Create a systemd service `/etc/systemd/system/infumap-web.service`:
 
@@ -736,7 +717,7 @@ Validate the Prometheus config:
 
     sudo promtool check config /etc/prometheus/prometheus.yml
 
-Limit Prometheus disk usage (recommended on Raspberry Pi) by adding TSDB retention flags to the service args:
+Limit Prometheus disk usage (recommended on Raspberry Pi) by adding TSDB retention flags to the service arguments:
 
     sudoedit /etc/default/prometheus
 
@@ -803,7 +784,7 @@ Domain exposure for Grafana is profile-specific:
 
 ### Periodic Admin Maintenance
 
-Apply operating system security updates and perform a basic health check on a regular schedule (monthly is a good default).
+Apply operating system security updates and run a basic health check on a regular schedule (monthly is a good default).
 
 On Raspberry Pi:
 
@@ -832,7 +813,7 @@ If your Infumap data is on a LUKS volume, after the Raspberry Pi reboots:
 
 You will be prompted for the LUKS passphrase. This manual step is intentional: automating unlock reduces protection against physical device access.
 
-After updates/reboots, verify service health.
+After updates or reboots, verify service health.
 
 On Raspberry Pi:
 
