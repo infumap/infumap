@@ -35,7 +35,7 @@ Install prerequisites:
 
     sudo apt update
     sudo apt upgrade
-    sudo apt install ufw wireguard
+    sudo apt install git ufw wireguard
 
 Raspberry Pi OS ships with a default `pi` account and passwordless `sudo`. Replace this with a dedicated admin
 account (`infumap`) and disable SSH access for `pi`.
@@ -202,6 +202,11 @@ Find the exact `nvm` release you want to install at https://github.com/nvm-sh/nv
     less /tmp/nvm-install.sh
     bash /tmp/nvm-install.sh
     rm /tmp/nvm-install.sh
+
+Log out and log back in so your shell picks up the `nvm` initialization added by the installer. Then install Node.js:
+
+    exit
+    ssh -i ~/.ssh/infumap_pi_ed25519 infumap@<ip address>
     nvm install node
 
 Finally build Infumap:
