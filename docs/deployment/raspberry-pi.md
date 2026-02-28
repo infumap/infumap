@@ -185,7 +185,7 @@ Install required packages:
 
     sudo apt update
     sudo apt upgrade -y
-    sudo apt install --no-install-recommends wireguard-tools nftables ufw
+    sudo apt install --no-install-recommends wireguard-tools ufw
 
 (optional) If prompted, run `sudo apt autoremove` to remove packages marked as no longer required.
 
@@ -580,7 +580,7 @@ The easiest way to create a default settings file is to run the Infumap binary o
 
 The settings file is created in `~/.infumap`. Move it to the encrypted drive:
 
-    sudo mv ~/.infumap/. /mnt/infudata/
+    sudo mv ~/.infumap/* /mnt/infudata
     sudo chown -R infumapd:infumapd /mnt/infudata
     sudo chmod 750 /mnt/infudata
 
@@ -828,7 +828,6 @@ On Raspberry Pi:
 On VPS:
 
     sudo systemctl is-active wg-quick@wg0
-    sudo systemctl is-active nftables
     sudo wg show wg0
 
 Check storage usage:

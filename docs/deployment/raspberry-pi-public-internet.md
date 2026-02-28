@@ -74,33 +74,31 @@ Then apply the change:
 
     sudo sysctl -p
 
-Now edit `/etc/nftables.conf` and set it to:
+Now add NAT rules under UFW control so public `80/443` traffic is forwarded to the Raspberry Pi over WireGuard:
 
-    #!/usr/sbin/nft -f
+    sudoedit /etc/ufw/before.rules
 
-    flush ruleset
+Add this block before the `*filter` section:
 
-    table ip nat {
-        chain prerouting {
-            type nat hook prerouting priority -100; policy accept;
-            tcp dport 443 dnat to 10.0.0.2
-            tcp dport 80 dnat to 10.0.0.2
-        }
+    *nat
+    :PREROUTING ACCEPT [0:0]
+    :POSTROUTING ACCEPT [0:0]
+    -A PREROUTING -i PUBLIC_IFACE -p tcp --dport 80 -j DNAT --to-destination 10.0.0.2:80
+    -A PREROUTING -i PUBLIC_IFACE -p tcp --dport 443 -j DNAT --to-destination 10.0.0.2:443
+    -A POSTROUTING -o wg0 -p tcp -d 10.0.0.2 --dport 80 -j MASQUERADE
+    -A POSTROUTING -o wg0 -p tcp -d 10.0.0.2 --dport 443 -j MASQUERADE
+    COMMIT
 
-        chain postrouting {
-            type nat hook postrouting priority 100; policy accept;
-            ip daddr 10.0.0.2 masquerade
-        }
-    }
+On the Raspberry Pi, allow forwarded `80/443` traffic from the WireGuard subnet so Caddy can receive both HTTPS requests and HTTP ACME/redirect traffic:
 
-Enable and start the nftables service:
-
-    sudo systemctl enable nftables
-    sudo systemctl start nftables
+    sudo ufw allow from 10.0.0.0/24 to any port 80 proto tcp
+    sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
+    sudo ufw status verbose
 
 Because the common guide sets `sudo ufw default deny routed` on the VPS, explicitly allow only forwarded web traffic to the Raspberry Pi:
 
     ip -o -4 route show to default
+    sudo ufw reload
     sudo ufw route allow in on PUBLIC_IFACE out on wg0 to 10.0.0.2 port 80 proto tcp
     sudo ufw route allow in on PUBLIC_IFACE out on wg0 to 10.0.0.2 port 443 proto tcp
     sudo ufw status verbose
@@ -108,7 +106,8 @@ Because the common guide sets `sudo ufw default deny routed` on the VPS, explici
 Replace `PUBLIC_IFACE` with your VPS internet-facing interface (often `eth0` or `ens3`).
 If your WireGuard interface is not `wg0`, replace that as well.
 
-If `curl -I https://` to your public IP succeeds but you still cannot reach the Raspberry Pi over the VPN (`10.0.0.2`), double-check that IP forwarding is still enabled (`net.ipv4.ip_forward`), that WireGuard is up on both ends, that the `nftables` rules are loaded, and that the UFW routed allow rules above are present.
+If `curl -I https://` to your public IP succeeds but you still cannot reach the Raspberry Pi over the VPN (`10.0.0.2`), double-check that IP forwarding is still enabled (`net.ipv4.ip_forward`), that WireGuard is up on both ends, that the UFW NAT rules in `/etc/ufw/before.rules` are present, and that the UFW routed allow rules above are present.
+
 
 ### Network Robustness Test
 
