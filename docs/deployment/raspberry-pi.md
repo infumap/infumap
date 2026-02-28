@@ -117,20 +117,38 @@ Continue the rest of this guide as `infumap`.
     sudo apt purge -y rpi-connect-lite || true
     sudo apt autoremove -y
 
-(optional) Configure `journald` for RAM-only logs. This keeps diagnostics for live troubleshooting
-while avoiding persistent on-disk log growth:
+(optional) Add disk-usage limits on logs/core dumps to conserve space on the Raspberry Pi:
 
-    # in /etc/systemd/journald.conf
+Edit `/etc/systemd/journald.conf`:
+
+    sudoedit /etc/systemd/journald.conf
+
+and set:
+
     Storage=volatile
     RuntimeMaxUse=4M
     Compress=yes
 
-This global `journald` limit applies to most services. Infumap can still keep longer on-disk logs through a dedicated log file configured later in this guide.
+Disable apt package cache retention and apply the changes:
 
-Now restart and verify:
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "false";' | sudo tee /etc/apt/apt.conf.d/99infumap-no-cache > /dev/null
+    sudo apt clean
+    sudo systemctl restart systemd-journald
+    sudo journalctl --rotate
+    sudo journalctl --vacuum-size=4M
+    sudo journalctl --disk-usage
 
+Remove old persistent journal files created before `Storage=volatile`:
+
+    sudo rm -rf /var/log/journal
     sudo systemctl restart systemd-journald
     sudo journalctl --disk-usage
+
+This global `journald` limit applies to most services. Infumap can still keep longer on-disk logs through a dedicated log file configured later in this guide.
+
+(optional, if installed) Disable `rsyslog` to avoid duplicate on-disk log streams:
+
+    sudo systemctl disable --now rsyslog.service 2>/dev/null || true
 
 Recovery note: for severe or unclear failures, rebuild the Pi and restore from backup.
 
