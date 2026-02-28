@@ -134,7 +134,11 @@ Now restart and verify:
 
 Recovery note: for severe or unclear failures, rebuild the Pi and restore from backup.
 
-(optional, Ethernet-only and no audio use) Reduce the hardware/software attack surface by adding the following to `/boot/firmware/config.txt`:
+(optional, Ethernet-only and no audio use) Reduce the hardware/software attack surface by editing `/boot/firmware/config.txt`:
+
+    sudoedit /boot/firmware/config.txt
+
+Append the following lines near the end of the file. If the file already has section headers such as `[all]`, put these lines under the final `[all]` section rather than inside a model-specific section like `[pi4]`:
 
     dtoverlay=disable-bt
     dtoverlay=disable-wifi
