@@ -59,6 +59,20 @@ Add:
 
     AllowUsers infumap
 
+Require public-key authentication for SSH on the Raspberry Pi:
+
+    sudoedit /etc/ssh/sshd_config.d/99-auth-hardening.conf
+
+Add:
+
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    PermitRootLogin no
+    PubkeyAuthentication yes
+    X11Forwarding no
+
+If Raspberry Pi OS ships additional files in `/etc/ssh/sshd_config.d`, make sure none of them override these settings.
+
 Validate and reload SSH:
 
     sudo sshd -t
@@ -69,6 +83,8 @@ Open a new terminal and verify admin login before closing the original session:
     ssh infumap@<ip address>
     sudo -k
     sudo true
+
+SSH should succeed with your key only. If `ssh infumap@<ip address>` offers password or keyboard-interactive login, stop and re-check the SSH drop-in files before continuing.
 
 After successful verification, remove the copied key material from the old `pi` account:
 
@@ -145,6 +161,7 @@ Baseline SSH policy (LAN only):
 Where `YOUR_LOCAL_SUBNET` is your local LAN in CIDR notation (e.g. `192.168.0.0/16`).
 
 Apply this baseline policy now. After WireGuard peer IP assignments are complete and your admin host has a stable VPN IP, add the admin VPN SSH allow rule in the admin client setup section.
+
 
 ### Infumap Install
 
