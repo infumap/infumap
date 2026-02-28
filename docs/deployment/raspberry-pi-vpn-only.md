@@ -126,9 +126,13 @@ Copy that `root.crt` file to each trusted client.
 
 On macOS:
 
-- Open Keychain Access and import `root.crt` into the `System` or `login` keychain.
-- Open the certificate, expand `Trust`, and set `When using this certificate` to `Always Trust`.
-- Quit and reopen browsers.
+- Copy `root.crt` to your Mac, then double-click it. Keychain Access should open an import dialog.
+- In `Add Certificates`, choose the `login` keychain for the current user. Use `System` only if you want all users on the Mac to trust it and are prepared to enter an administrator password.
+- After import, open `Keychain Access`, select the same keychain (`login` or `System`), then click the `Certificates` category in the sidebar.
+- Find the imported certificate. It is usually named something like `Caddy Local Authority - <year> ECC Root`.
+- Double-click the certificate, expand the `Trust` section, and set `When using this certificate` to `Always Trust`.
+- Close the certificate window. If macOS prompts for your password, enter it to save the trust change.
+- Quit and reopen your browser, then retry `https://infumap.yourdomain.tld`.
 
 On iPhone:
 
