@@ -638,24 +638,24 @@ Format this file as a LUKS container:
 
 Open the container:
 
-    sudo cryptsetup luksOpen /home/infumap/enc_volume.img infuvol
+    sudo cryptsetup luksOpen /home/infumap/enc_volume.img encvol
 
 Create a filesystem:
 
-    sudo mkfs.ext4 /dev/mapper/infuvol
+    sudo mkfs.ext4 /dev/mapper/encvol
 
 Create a mount point:
 
-    sudo mkdir /mnt/infudata
+    sudo mkdir /mnt/enc
 
 Then mount it:
 
-    sudo mount /dev/mapper/infuvol /mnt/infudata
+    sudo mount /dev/mapper/encvol /mnt/enc
 
 You can unmount and close the LUKS container with:
 
-    sudo umount /mnt/infudata
-    sudo cryptsetup luksClose infuvol
+    sudo umount /mnt/enc
+    sudo cryptsetup luksClose encvol
 
 If you use a LUKS volume for Infumap data, you must manually unlock and mount it after each reboot.
 Include this in your periodic maintenance runbook.
@@ -674,14 +674,14 @@ The easiest way to create a default settings file is to run the Infumap binary o
 
 The settings file is created in `~/.infumap`. Move it to the encrypted drive:
 
-    sudo mv ~/.infumap/* /mnt/infudata
-    sudo chown -R infumapd:infumapd /mnt/infudata
-    sudo chmod 750 /mnt/infudata
+    sudo install -d -m 0750 -o infumapd -g infumapd /mnt/enc/infudata
+    sudo mv ~/.infumap/* /mnt/enc/infudata
+    sudo chown -R infumapd:infumapd /mnt/enc/infudata
 
 Update [settings.toml](../configuration.md) as needed. At minimum, set the data and cache directories and max cache size:
 
-    data_dir = "/mnt/infudata/data"
-    cache_dir = "/mnt/infudata/cache"
+    data_dir = "/mnt/enc/infudata/data"
+    cache_dir = "/mnt/enc/infudata/cache"
     cache_max_mb = 12000
 
 A cache size of about 12 GB is appropriate when you use an object store instead of local disk for data storage. For details, see the [configuration](../configuration.md) guide.
@@ -696,13 +696,13 @@ with:
     Description=Infumap Web Server
     Wants=network-online.target
     After=network-online.target
-    RequiresMountsFor=/mnt/infudata
+    RequiresMountsFor=/mnt/enc
 
     [Service]
     Type=simple
     User=infumapd
     Group=infumapd
-    ExecStart=/opt/infumap/bin/infumap web --settings /mnt/infudata/settings.toml
+    ExecStart=/opt/infumap/bin/infumap web --settings /mnt/enc/infudata/settings.toml
     StandardOutput=append:/var/log/infumap/infumap.log
     StandardError=append:/var/log/infumap/infumap.log
     Restart=on-failure
@@ -778,7 +778,7 @@ Confirm it is running under the unprivileged `infumapd` user:
 
 ### Install Prometheus and Scrape Infumap Metrics
 
-Enable Infumap's Prometheus endpoint in `/mnt/infudata/settings.toml`:
+Enable Infumap's Prometheus endpoint in `/mnt/enc/infudata/settings.toml`:
 
     enable_prometheus_metrics = true
     prometheus_address = "127.0.0.1"
@@ -801,9 +801,9 @@ Install Prometheus on the Raspberry Pi:
 
 Create a TSDB directory for Prometheus on the encrypted volume:
 
-    sudo mkdir -p /mnt/infudata/prometheus
-    sudo chown prometheus:prometheus /mnt/infudata/prometheus
-    sudo chmod 750 /mnt/infudata/prometheus
+    sudo mkdir -p /mnt/enc/prometheus
+    sudo chown prometheus:prometheus /mnt/enc/prometheus
+    sudo chmod 750 /mnt/enc/prometheus
 
 Add an Infumap scrape job in `/etc/prometheus/prometheus.yml` under `scrape_configs`:
 
@@ -823,20 +823,20 @@ Store Prometheus data on the encrypted volume and limit disk usage by adding TSD
 
 Append these flags to `ARGS`:
 
-    --storage.tsdb.path=/mnt/infudata/prometheus --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=1GB --storage.tsdb.wal-compression
+    --storage.tsdb.path=/mnt/enc/prometheus --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=1GB --storage.tsdb.wal-compression
 
 `retention.time` and `retention.size` are both enforced; Prometheus keeps data only while both limits are satisfied.
 Adjust `7d` and `1GB` based on your disk budget and required history depth.
 `storage.tsdb.path` keeps Prometheus blocks and WAL files on the encrypted volume instead of the default `/var/lib/prometheus`.
 
-Prevent Prometheus from starting before `/mnt/infudata` is mounted, otherwise it may recreate the TSDB path on the unencrypted root filesystem after reboot:
+Prevent Prometheus from starting before `/mnt/enc` is mounted, otherwise it may recreate the TSDB path on the unencrypted root filesystem after reboot:
 
     sudo install -d -m 755 /etc/systemd/system/prometheus.service.d
-    sudoedit /etc/systemd/system/prometheus.service.d/infudata.conf
+    sudoedit /etc/systemd/system/prometheus.service.d/enc.conf
 
     [Unit]
-    RequiresMountsFor=/mnt/infudata
-    ConditionPathIsMountPoint=/mnt/infudata
+    RequiresMountsFor=/mnt/enc
+    ConditionPathIsMountPoint=/mnt/enc
 
 Start Prometheus:
 
@@ -933,8 +933,8 @@ If a reboot is required on either host:
 
 If your Infumap data is on a LUKS volume, after the Raspberry Pi reboots:
 
-    sudo cryptsetup luksOpen /home/infumap/enc_volume.img infuvol
-    sudo mount /dev/mapper/infuvol /mnt/infudata
+    sudo cryptsetup luksOpen /home/infumap/enc_volume.img encvol
+    sudo mount /dev/mapper/encvol /mnt/enc
     sudo systemctl restart infumap-web prometheus
 
 You will be prompted for the LUKS passphrase. This manual step is intentional: automating unlock reduces protection against physical device access.
