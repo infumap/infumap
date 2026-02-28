@@ -364,7 +364,27 @@ After confirming `infumap` works, remove provider bootstrap root credentials:
     sudo truncate -s 0 /root/.ssh/authorized_keys
     sudo passwd -l root
 
-Continue the rest of the VPS setup while logged in as `infumap`.
+After confirming `infumap` login works, harden SSH:
+    
+    sudoedit /etc/ssh/sshd_config
+  
+and set:
+
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    PermitRootLogin no
+    X11Forwarding no
+    UsePAM yes
+
+Also check for config files in `/etc/ssh/sshd_config.d` that may override `/etc/ssh/sshd_config` and update if required.
+
+If present, keep `AcceptEnv LANG LC_* COLORTERM NO_COLOR` so locale and color environment variables can pass through SSH.
+Also keep the existing `Subsystem sftp ...` entry so `scp` keeps working.
+
+Validate and reload SSH server:
+
+    sudo sshd -t
+    sudo systemctl reload ssh
 
 Use WireGuard to create a secure, persistent link between the VPS and Raspberry Pi.
 
@@ -388,27 +408,6 @@ Lock down the permissions of the server keys and config:
     sudo chmod 600 /etc/wireguard/wg0.conf /etc/wireguard/keys/server.key
     sudo chmod 644 /etc/wireguard/keys/server.key.pub
 
-After confirming `infumap` login works, harden SSH:
-    
-    sudoedit /etc/ssh/sshd_config
-  
-and set:
-
-    PasswordAuthentication no
-    KbdInteractiveAuthentication no
-    PermitRootLogin no
-    X11Forwarding no
-    UsePAM yes
-
-Also check for config files in `/etc/ssh/sshd_config.d` that may override `/etc/ssh/sshd_config` and update if required.
-
-If present, keep `AcceptEnv LANG LC_* COLORTERM NO_COLOR` so locale and color environment variables can pass through SSH.
-Also keep the existing `Subsystem sftp ...` entry so `scp` keeps working.
-
-Validate and reload SSH server:
-
-    sudo sshd -t
-    sudo systemctl reload ssh
 
 ### Raspberry Pi WireGuard Setup
 
