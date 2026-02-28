@@ -2,6 +2,8 @@
 
 In this setup, Infumap is reachable only from WireGuard peers. It is not exposed to the public internet.
 
+This is the more secure deployment profile because the Infumap and optional Grafana endpoints are not reachable from the public internet at all. The tradeoff is that every client must first join the WireGuard network.
+
 Complete the shared baseline guide first:
 
 - [Raspberry Pi / VPN common setup](raspberry-pi.md)

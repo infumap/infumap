@@ -2,6 +2,8 @@
 
 Complete the shared [Raspberry Pi / VPN common setup](raspberry-pi.md) guide first. It covers the Raspberry Pi and VPS bootstrap, the WireGuard VPN, encryption, Infumap installation, and the periodic maintenance checklist. This document covers only the additional steps required to expose Infumap to the public internet through your VPS.
 
+This profile is less secure than the VPN-only profile because Caddy is intentionally exposed on public ports `80/443`. It is appropriate when direct public access is worth the additional internet-facing attack surface.
+
 
 ### Install Caddy on Your Raspberry Pi
 
