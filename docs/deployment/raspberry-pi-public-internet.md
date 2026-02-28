@@ -33,6 +33,7 @@ Contents of `/etc/caddy/Caddyfile`:
     }
 
 Replace `YOUR_DOMAIN_NAME` with your domain name (for example, `example.com` or `infumap.example.com`).
+Create a public DNS record for that hostname pointing to your VPS public IP before starting Caddy, otherwise public name resolution and ACME certificate issuance will fail.
 
 Enable and start:
 
