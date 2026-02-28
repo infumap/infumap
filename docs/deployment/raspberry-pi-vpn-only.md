@@ -10,7 +10,7 @@ Complete the shared baseline guide first:
 
 ### Domain and DNS model
 
-Choose a stable hostname for Infumap under a domain you control (for example, `infumap.yourdomain.tld`).
+Choose a stable hostname for Infumap under a domain you control (for example, `infumap.yourdomain.tld`). Although not technically required, using a name you control reduces the risk of accidentally connecting to infrastructure controlled by someone else.
 
 If you also want VPN-only Grafana, choose a second hostname (for example, `grafana.yourdomain.tld`).
 
