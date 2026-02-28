@@ -797,8 +797,23 @@ Check that Prometheus can scrape Infumap:
 
 ### Install Grafana and Connect It to Prometheus
 
-Install Grafana on the Raspberry Pi:
+Install Grafana from [Grafana Labs' official APT repository](https://apt.grafana.com/):
 
+    sudo apt update
+    sudo apt install -y ca-certificates gnupg wget
+    wget -O /tmp/grafana.gpg.key https://apt.grafana.com/gpg.key
+    gpg --show-keys --fingerprint /tmp/grafana.gpg.key
+
+Verify that the downloaded key shows the Grafana Labs fingerprint published at `https://apt.grafana.com`:
+
+    B53AE77BADB630A683046005963FA27710458545
+
+Then install the key and repository, update APT metadata, and install Grafana:
+
+    sudo install -d -m 0755 /etc/apt/keyrings
+    gpg --dearmor < /tmp/grafana.gpg.key | sudo tee /etc/apt/keyrings/grafana.gpg > /dev/null
+    echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list > /dev/null
+    rm /tmp/grafana.gpg.key
     sudo apt update
     sudo apt install -y grafana
 
