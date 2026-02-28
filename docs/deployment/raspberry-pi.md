@@ -313,11 +313,11 @@ Remove old persistent journal files created before `Storage=volatile`:
 
 On your admin machine, generate a new dedicated SSH keypair for this VPS (run locally, not on the VPS):
 
-    ssh-keygen -t ed25519 -a 100 -f ~/.ssh/infumap_vps_ed25519 -C "infumap-vps"
+    ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_infumap_vps -C "infumap-vps"
 
 Display the public key so you can copy it:
 
-    cat ~/.ssh/infumap_vps_ed25519.pub
+    cat ~/.ssh/id_infumap_vps.pub
 
 You will paste this value as `YOUR_ADMIN_PUBLIC_KEY` in the user setup step below.
 
@@ -338,13 +338,15 @@ Set a strong password for `infumap` when prompted. This password is for `sudo` a
 
 Verify login in a new terminal before continuing:
 
-    ssh -i ~/.ssh/infumap_vps_ed25519 infumap@{YOUR_SERVER_INTERNET_IP}
+    ssh -i ~/.ssh/id_infumap_vps infumap@{YOUR_SERVER_INTERNET_IP}
     sudo -v
 
 After confirming `infumap` works, remove provider bootstrap root credentials:
 
     sudo truncate -s 0 /root/.ssh/authorized_keys
     sudo passwd -l root
+
+Continue the rest of the VPS setup while logged in as `infumap`.
 
 Use WireGuard to create a secure, persistent link between the VPS and Raspberry Pi.
 
