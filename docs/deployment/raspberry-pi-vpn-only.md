@@ -114,6 +114,8 @@ Reload and enable Caddy:
     sudo systemctl restart caddy
     sudo systemctl status caddy
 
+If `sudo systemctl status caddy` shows a warning about the `caddy` user not being in `sudoers` while trying to install its local root CA into the system trust store, that is expected when Caddy runs as an unprivileged systemd service. It does not prevent Caddy from serving HTTPS with `tls internal`; you still distribute `root.crt` to trusted clients manually in the next step.
+
 ### Trust Caddy's Root Certificate on Clients
 
 Caddy's internal CA root certificate is stored on the Raspberry Pi at:
