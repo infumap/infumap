@@ -34,12 +34,41 @@ done
 
 pushd "$(dirname "$0")"
 
-if ! command -v npm >/dev/null 2>&1; then
-  echo "Error: npm is required to build web assets. Install Node.js (which includes npm) and ensure it is on your PATH."
+EXPECTED_NODE_VERSION="$(tr -d '[:space:]' < ../.nvmrc)"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "Error: Node.js is required to build web assets. From the repo root, run 'nvm install && nvm use'."
   exit 1
 fi
+
+PACKAGE_NODE_VERSION="$(node -p "const pkg = require('./package.json'); pkg.engines && pkg.engines.node ? pkg.engines.node : ''")"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "Error: npm is required to build web assets. From the repo root, install the pinned Node.js version with 'nvm install' and ensure it is on your PATH."
+  exit 1
+fi
+
+ACTIVE_NODE_VERSION="$(node --version | sed 's/^v//')"
+
+if [[ -z "$PACKAGE_NODE_VERSION" ]]; then
+  echo "Error: web/package.json is missing engines.node."
+  exit 1
+fi
+
+if [[ "$PACKAGE_NODE_VERSION" != "$EXPECTED_NODE_VERSION" ]]; then
+  echo "Error: .nvmrc specifies Node.js $EXPECTED_NODE_VERSION but web/package.json engines.node is $PACKAGE_NODE_VERSION."
+  echo "Update them together before building."
+  exit 1
+fi
+
+if [[ "$ACTIVE_NODE_VERSION" != "$EXPECTED_NODE_VERSION" ]]; then
+  echo "Error: expected Node.js $EXPECTED_NODE_VERSION from .nvmrc, but found $ACTIVE_NODE_VERSION."
+  echo "From the repo root, run 'nvm install && nvm use', then retry the build."
+  exit 1
+fi
+
 rm -rf ./dist
-npm install
+npm ci --no-audit --no-fund
 
 # Build with appropriate settings
 if [ "$NO_MINIFY" = true ]; then

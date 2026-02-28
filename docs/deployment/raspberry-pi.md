@@ -189,25 +189,33 @@ First install Rust by downloading the official `rustup` bootstrap script, inspec
 Now clone the Infumap repo:
 
     cd ~
-    mkdir git
+    mkdir -p git
     cd git
     git clone https://github.com/infumap/infumap.git
     cd infumap
 
 Cloning downloads the source without executing it. If you want a review point before the build, inspect project scripts such as `build.sh`.
 
-Find the exact `nvm` release you want to install at https://github.com/nvm-sh/nvm (for example, `v0.40.1`), then download that specific installer, inspect it, and run it:
+Find the exact `nvm` release you want to install at https://github.com/nvm-sh/nvm (for example, `v0.40.4`), then download that specific installer, inspect it, and run it:
 
     curl -fsSLo /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh
     less /tmp/nvm-install.sh
     bash /tmp/nvm-install.sh
     rm /tmp/nvm-install.sh
 
-Log out and log back in so your shell picks up the `nvm` initialization added by the installer. Then install Node.js:
+Log out and log back in so your shell picks up the `nvm` initialization added by the installer. Then install and use the repo-pinned Node.js version from `.nvmrc`:
 
     exit
     ssh -i ~/.ssh/infumap_pi_ed25519 infumap@<ip address>
-    nvm install node
+    cd ~/git/infumap
+    nvm install
+    nvm use
+
+If you want to check current npm advisories explicitly, do it as a separate step instead of relying on build-time install output:
+
+    cd ~/git/infumap/web
+    npm audit
+    cd ~/git/infumap
 
 Finally build Infumap:
 

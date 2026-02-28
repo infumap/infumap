@@ -11,6 +11,10 @@
     "serve": "vite preview"
   },
   "license": "AGPL 3.0",
+  "engines": {
+    "node": "25.7.0",
+    "npm": ">=11 <12"
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
     "@types/justified-layout": "^4.1.4",

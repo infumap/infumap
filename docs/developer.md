@@ -61,25 +61,39 @@ Explicitly build it rather than use the image on docker hub to:
 1. Ensure the latest version of rust is used.
 2. Be extra confident it's malware free.
 
-Install node:
+Install node with `nvm`, then use the repo-pinned version from `.nvmrc`:
 
 ```
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+cd ~/git/infumap
+curl -fsSLo /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh
+less /tmp/nvm-install.sh
+bash /tmp/nvm-install.sh
+rm /tmp/nvm-install.sh
 
-nvm install node
+# Open a new login shell, then:
+cd ~/git/infumap
+nvm install
+nvm use
 ```
 
 Install web project dependencies:
 
 ```
 cd ~/git/infumap/web
-npm install
+npm ci --no-audit --no-fund
+```
+
+Check current npm advisories explicitly:
+
+```
+cd ~/git/infumap/web
+npm audit
 ```
 
 Set permissions so the docker image can write the release build:
 
 ```
-ce ~/git/infumap
+cd ~/git/infumap
 chmod a+w infumap
 ```
 
@@ -126,4 +140,3 @@ npm run start
 ```
 
 This will start a vite development server listening on port `3000`, serving the current state of `web`, with hot reload. Requests to the API (but not requests for client resources) will be forwarded to port `8000`.
-
