@@ -275,15 +275,16 @@ VPS UFW rules, VPS `ListenPort`, and every client `Endpoint`.
 
 Enable IPv4 forwarding on the VPS now so it can route traffic between WireGuard peers and, if needed later, between the public interface and `wg0`:
 
-    sudoedit /etc/sysctl.conf
+    sudoedit /etc/sysctl.d/99-infumap.conf
 
-Uncomment or add:
+Add:
 
     net.ipv4.ip_forward=1
 
 Then apply the change:
 
-    sudo sysctl -p
+    sudo sysctl --system
+    sysctl net.ipv4.ip_forward
 
 (optional) Add disk-usage limits on logs/core dumps to conserve disk space:
 
@@ -508,7 +509,6 @@ Use a config like:
     [Interface]
     PrivateKey = {GENERATED_BY_WIREGUARD_MAC_APP}
     Address = 10.0.0.10/24
-    SaveConfig = false
 
     [Peer]
     PublicKey = {YOUR_SERVER_PUBLIC_KEY}
@@ -526,12 +526,11 @@ Restart WireGuard on the VPS:
 
     sudo systemctl restart wg-quick@wg0
 
-Now add SSH access for the admin VPN host on the Raspberry Pi:
+Now add SSH access for the admin VPN host on the **Raspberry Pi**:
 
-    sudo ufw allow from ADMIN_VPN_HOST_IP/32 to any port 22 proto tcp
+    sudo ufw allow from 10.0.0.10/32 to any port 22 proto tcp
     sudo ufw status verbose
 
-Where `ADMIN_VPN_HOST_IP` is the WireGuard IP assigned to your admin laptop/workstation (e.g. `10.0.0.10`).
 
 With this policy, remote administration is possible from your specific admin VPN host, including after reboot when you need to unlock the LUKS volume. Because SSH is allowlisted to the admin host IP (not the full VPN subnet), compromise of the VPS or another VPN peer does not by itself grant SSH access to the Raspberry Pi.
 
