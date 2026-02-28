@@ -717,6 +717,12 @@ Install Prometheus on the Raspberry Pi:
     sudo apt update
     sudo apt install -y prometheus
 
+Create a TSDB directory for Prometheus on the encrypted volume:
+
+    sudo mkdir -p /mnt/infudata/prometheus
+    sudo chown prometheus:prometheus /mnt/infudata/prometheus
+    sudo chmod 750 /mnt/infudata/prometheus
+
 Add an Infumap scrape job in `/etc/prometheus/prometheus.yml` under `scrape_configs`:
 
     sudoedit /etc/prometheus/prometheus.yml
@@ -729,19 +735,30 @@ Validate the Prometheus config:
 
     sudo promtool check config /etc/prometheus/prometheus.yml
 
-Limit Prometheus disk usage (recommended on Raspberry Pi) by adding TSDB retention flags to the service arguments:
+Store Prometheus data on the encrypted volume and limit disk usage by adding TSDB flags to the service arguments:
 
     sudoedit /etc/default/prometheus
 
 Append these flags to `ARGS`:
 
-    --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=1GB --storage.tsdb.wal-compression
+    --storage.tsdb.path=/mnt/infudata/prometheus --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=1GB --storage.tsdb.wal-compression
 
 `retention.time` and `retention.size` are both enforced; Prometheus keeps data only while both limits are satisfied.
 Adjust `7d` and `1GB` based on your disk budget and required history depth.
+`storage.tsdb.path` keeps Prometheus blocks and WAL files on the encrypted volume instead of the default `/var/lib/prometheus`.
+
+Prevent Prometheus from starting before `/mnt/infudata` is mounted, otherwise it may recreate the TSDB path on the unencrypted root filesystem after reboot:
+
+    sudo install -d -m 755 /etc/systemd/system/prometheus.service.d
+    sudoedit /etc/systemd/system/prometheus.service.d/infudata.conf
+
+    [Unit]
+    RequiresMountsFor=/mnt/infudata
+    ConditionPathIsMountPoint=/mnt/infudata
 
 Start Prometheus:
 
+    sudo systemctl daemon-reload
     sudo systemctl enable prometheus
     sudo systemctl restart prometheus
     sudo systemctl status prometheus
@@ -821,7 +838,7 @@ If your Infumap data is on a LUKS volume, after the Raspberry Pi reboots:
 
     sudo cryptsetup luksOpen /home/infumap/enc_volume.img infuvol
     sudo mount /dev/mapper/infuvol /mnt/infudata
-    sudo systemctl restart infumap-web
+    sudo systemctl restart infumap-web prometheus
 
 You will be prompted for the LUKS passphrase. This manual step is intentional: automating unlock reduces protection against physical device access.
 
