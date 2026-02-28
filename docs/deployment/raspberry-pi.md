@@ -268,6 +268,8 @@ Configure and enable the VPS firewall:
     sudo ufw --force enable
     sudo ufw status verbose
 
+The public `22/tcp` rule is a bootstrap rule so you can finish the initial VPS setup before your admin WireGuard client exists. After the admin WireGuard client is working, you can remove public SSH access and restrict VPS SSH to your admin VPN IP instead.
+
 This guide uses `43821/udp` for WireGuard instead of the common default `51820/udp` to reduce opportunistic default-port scan noise. Choose any unused high UDP port in `1024-65535`, then use the same port consistently in:
 VPS UFW rules, VPS `ListenPort`, and every client `Endpoint`.
 
@@ -525,6 +527,16 @@ Now add the Mac as a peer on the VPS (`/etc/wireguard/wg0.conf`):
 Restart WireGuard on the VPS:
 
     sudo systemctl restart wg-quick@wg0
+
+If you want VPS administration to be VPN-only as well, first verify that you can reach the VPS over WireGuard:
+
+    ssh -i ~/.ssh/id_infumap_vps infumap@10.0.0.1
+
+After that succeeds, tighten the VPS SSH policy to your admin VPN IP only:
+
+    sudo ufw delete allow 22/tcp
+    sudo ufw allow from 10.0.0.10/32 to any port 22 proto tcp
+    sudo ufw status verbose
 
 Now add SSH access for the admin VPN host on the **Raspberry Pi**:
 
