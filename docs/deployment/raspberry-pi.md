@@ -711,6 +711,7 @@ with:
     Wants=network-online.target
     After=network-online.target
     RequiresMountsFor=/mnt/enc
+    ConditionPathIsMountPoint=/mnt/enc
 
     [Service]
     Type=simple
@@ -757,6 +758,9 @@ Enable and start the service:
     sudo systemctl enable infumap-web
     sudo systemctl start infumap-web
     sudo systemctl status infumap-web
+
+`RequiresMountsFor=/mnt/enc` is not sufficient on its own here because `/mnt/enc` also exists as a plain directory on the root filesystem.
+`ConditionPathIsMountPoint=/mnt/enc` prevents `infumap-web` from starting before you manually unlock and mount the LUKS volume after reboot.
 
 Create `~/deploy-infumap.sh`:
 
