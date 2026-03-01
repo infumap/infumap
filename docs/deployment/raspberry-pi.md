@@ -20,9 +20,9 @@ Use the Raspberry Pi Imager to install a clean OS image.
 
 - On your admin machine, generate a dedicated SSH keypair for the Raspberry Pi:
 
-      ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_infumap_pi_ed25519 -C "infumap-pi"
+      ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_infumap_pi -C "infumap-pi"
 
-  When Raspberry Pi Imager asks for an authorized key for SSH, paste the contents of `~/.ssh/infumap_pi_ed25519.pub`.
+  When Raspberry Pi Imager asks for an authorized key for SSH, paste the contents of `~/.ssh/id_infumap_pi.pub`.
 - Select `Raspberry Pi OS Lite (64-bit)` (in Imager this is under `Raspberry Pi OS (other)`).
 - Set the hostname to `infumap-pi`.
 - Enable SSH and use public-key authentication (more secure than password authentication).
@@ -31,7 +31,7 @@ Use the Raspberry Pi Imager to install a clean OS image.
 After first boot, find the Raspberry Pi's LAN IP address by checking your router's DHCP client/lease table (sometimes
 called the LAN hosts page) in the router admin interface. Then:
 
-    ssh -i ~/.ssh/id_infumap_pi_ed25519 pi@<ip address>
+    ssh -i ~/.ssh/id_infumap_pi pi@<ip address>
 
 Install prerequisites:
 
@@ -88,11 +88,11 @@ Validate and reload SSH:
 
 Open a new terminal and verify admin login before closing the original session:
 
-    ssh -i ~/.ssh/infumap_pi_ed25519 infumap@<ip address>
+    ssh -i ~/.ssh/id_infumap_pi infumap@<ip address>
     sudo -k
     sudo true
 
-SSH should succeed with your key only. If `ssh -i ~/.ssh/infumap_pi_ed25519 infumap@<ip address>` offers password or keyboard-interactive login, stop and re-check the SSH drop-in files before continuing.
+SSH should succeed with your key only. If `ssh -i ~/.ssh/id_infumap_pi infumap@<ip address>` offers password or keyboard-interactive login, stop and re-check the SSH drop-in files before continuing.
 
 After successful verification, remove the copied key material from the old `pi` account:
 
@@ -226,7 +226,7 @@ Find the exact `nvm` release you want to install at https://github.com/nvm-sh/nv
 Log out and log back in so your shell picks up the `nvm` initialization added by the installer. Then install and use the repo-pinned Node.js version from `.nvmrc`:
 
     exit
-    ssh -i ~/.ssh/infumap_pi_ed25519 infumap@<ip address>
+    ssh -i ~/.ssh/id_infumap_pi infumap@<ip address>
     cd ~/git/infumap
     nvm install
     nvm use
@@ -255,7 +255,7 @@ Install required packages:
 
     sudo apt update
     sudo apt upgrade -y
-    sudo apt install --no-install-recommends wireguard-tools ufw
+    sudo apt install --no-install-recommends git wireguard-tools ufw
 
 (optional) If prompted, run `sudo apt autoremove` to remove packages marked as no longer required.
 
@@ -499,7 +499,7 @@ Do not expect SSH from the VPS to the Raspberry Pi to work at this stage. The Ra
 ### Set Up a macOS WireGuard Admin Client (Full VPN Access)
 
 Set up your admin Mac to join the same WireGuard VPN and reach all peers (for example, `10.0.0.1` on the VPS and `10.0.0.2` on the Raspberry Pi).
-The same model works on other WireGuard client platforms (Windows, Linux, iOS, Android), but this guide documents only macOS.
+The same model works on other WireGuard client platforms. The simplest iPhone setup is documented below using a QR code import.
 
 Install the [WireGuard macOS app](https://www.wireguard.com/install/) and create a new tunnel from scratch.
 In the tunnel editor, click **Generate** for the interface private key.
@@ -565,6 +565,58 @@ Bring the tunnel up on macOS and verify:
     ssh infumap@10.0.0.2
 
 If `10.0.0.1` works but `10.0.0.2` does not, confirm these routed allow rules are present and that the source IP matches your admin tunnel IP.
+
+#### Optional: Set Up an iPhone WireGuard Client (QR Code from the Raspberry Pi)
+
+Note: This procedure keeps the iPhone private key off `infumap-vps`, which prevents the possibility of a VPS compromise stealing that key and impersonating your phone on the VPN.
+
+The Raspberry Pi generates the iPhone config and QR code locally, and the VPS receives only the iPhone public key.
+
+On the VPS, clone the Infumap repo into `~/git`:
+
+    mkdir -p ~/git
+    cd ~/git
+    git clone https://github.com/infumap/infumap.git
+
+If `~/git/infumap` already exists on the VPS, reuse that checkout.
+
+On the Raspberry Pi, install `qrencode` and the QR helper from the checked-out Infumap repo:
+
+    sudo apt update
+    sudo apt install -y qrencode
+    sudo install -o root -g root -m 0755 ~/git/infumap/tools/wg-peer-qr.sh /usr/local/bin/wg-peer-qr.sh
+
+On the VPS, install the peer-add helper from the checked-out Infumap repo:
+
+    sudo install -o root -g root -m 0755 ~/git/infumap/tools/wg-peer-add.sh /usr/local/bin/wg-peer-add.sh
+
+Display the VPS WireGuard server public key on your admin machine:
+
+    ssh -i ~/.ssh/id_infumap_vps infumap@{YOUR_SERVER_INTERNET_IP} 'sudo cat /etc/wireguard/keys/server.key.pub'
+
+On the Raspberry Pi, generate the iPhone config and QR code. This example uses `10.0.0.11`; choose any unused WireGuard IP:
+
+    /usr/local/bin/wg-peer-qr.sh iphone 10.0.0.11 {YOUR_SERVER_INTERNET_IP}
+
+When the script prompts, paste the VPS server public key you just displayed.
+The script prints the iPhone public key and the exact `wg-peer-add.sh` command you should run next on the VPS.
+
+On the iPhone, install the WireGuard app, tap **Add a Tunnel** -> **Create from QR Code**, and scan the QR code from your terminal window.
+
+After the tunnel is imported on iPhone, run the printed add-peer command on the VPS. It will append the new peer to `/etc/wireguard/wg0.conf` and restart `wg-quick@wg0`.
+
+If you later add another phone or replace this peer, use a different peer name and IP, or remove the old peer block from `/etc/wireguard/wg0.conf` first.
+
+Turn the iPhone tunnel on and verify on the VPS:
+
+    sudo wg show wg0
+
+You should see a recent handshake for the new peer within about 25-30 seconds.
+
+If you later follow the VPN-only HTTPS profile, edit the imported iPhone tunnel in the WireGuard app and set `DNS Servers` to `10.0.0.1` as described in that guide.
+
+No additional Raspberry Pi firewall changes are required for the later HTTPS deployment profiles because the routed `443/tcp` rule already allows the full `10.0.0.0/24` WireGuard subnet.
+SSH remains restricted to the Mac admin client by default; keep it that way unless you explicitly want SSH from a mobile terminal app.
 
 
 ### Set Up a WireGuard Monitoring Service
