@@ -22,9 +22,11 @@ My goals in developing Infumap, in order, are:
 2. Explore new ideas that I think are valuable.
 3. Hopefully end up with something that other people want to use as well.
 
-The first two goals mean that I've often been more inclined to add features than completely polish existing ones. As a result, there are many things that are currently a bit broken or not completely implemented. But nothing you can't work around. Also, I haven't cut corners in places where corners cannot be cut (in particular security) - the current implementation is more than just a demo.
+The first two goals mean that I've often been more inclined to add features than completely polish existing ones. As a result, there are many things that are currently a bit broken or not completely implemented. But nothing you can't work around.
 
 Going forward, I will continue to add features and polish existing ones as this aligns with my own needs. If I start to see other people finding value here (the simplest way you can demonstrate your interest is give the project a github star!), I'll be motivated to give the project a lot more time and prioritize more general purpose goals in addition to my own.
+
+*If you choose to use Infumap, please review [LICENSE.txt](/home/debian/git/infumap/LICENSE.txt).*
 
 
 ## Running
