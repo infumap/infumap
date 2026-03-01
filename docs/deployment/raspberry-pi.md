@@ -1,5 +1,7 @@
 ## Raspberry Pi / VPN (Common Setup)
 
+*Disclaimer: I am not a security professional. Nothing in this guide should be taken as expert security advice, a formal audit, or a guarantee that this setup is secure. Validate it against your own threat model before relying on it.*
+
 Running Infumap on a typical VPS means trusting the hosting provider. A sufficiently privileged operator may be able to
 access your VM’s disk and, in many cases, its memory. If you do not want to place that level of trust in a VPS provider,
 you can host Infumap on hardware you physically control, such as a Raspberry Pi 5 on your home network. The main challenge
