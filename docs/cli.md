@@ -86,7 +86,7 @@ infumap reconcile orphaned -o s3_2
 
 ### restore
 
-Decrypt / unpack a user backup file. A backup file includes the user.json and item.json log files. These will be output to the current directory, and you need to move them manually into the relevant user folder in the configured Infumap data directory.
+Decrypt / unpack a user backup file. A backup file includes the `user.json` and `items.json` log files. These will be output to the current directory, and you need to move them manually into the relevant user folder in the configured Infumap data directory.
 
 Options:
 - **-b --backup-file (required):** Path to the backup file.
