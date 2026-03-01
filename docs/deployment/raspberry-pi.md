@@ -590,9 +590,9 @@ On the VPS, install the peer-add helper from the checked-out Infumap repo:
 
     sudo install -o root -g root -m 0755 ~/git/infumap/tools/wg-peer-add.sh /usr/local/bin/wg-peer-add.sh
 
-Display the VPS WireGuard server public key on your admin machine:
+On the VPS, display the WireGuard server public key:
 
-    ssh -i ~/.ssh/id_infumap_vps infumap@{YOUR_SERVER_INTERNET_IP} 'sudo cat /etc/wireguard/keys/server.key.pub'
+    sudo cat /etc/wireguard/keys/server.key.pub
 
 On the Raspberry Pi, generate the iPhone config and QR code. This example uses `10.0.0.11`; choose any unused WireGuard IP:
 
@@ -616,6 +616,7 @@ You should see a recent handshake for the new peer within about 25-30 seconds.
 If you later follow the VPN-only HTTPS profile, edit the imported iPhone tunnel in the WireGuard app and set `DNS Servers` to `10.0.0.1` as described in that guide.
 
 No additional Raspberry Pi firewall changes are required for the later HTTPS deployment profiles because the routed `443/tcp` rule already allows the full `10.0.0.0/24` WireGuard subnet.
+
 SSH remains restricted to the Mac admin client by default; keep it that way unless you explicitly want SSH from a mobile terminal app.
 
 
@@ -891,9 +892,9 @@ Store Prometheus data on the encrypted volume and limit disk usage by adding TSD
 
     sudoedit /etc/default/prometheus
 
-Append these flags to `ARGS`:
+Set `ARGS` to include these flags. For example, if the file currently contains `ARGS=""`, replace it with:
 
-    --storage.tsdb.path=/mnt/enc/prometheus --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=1GB --storage.tsdb.wal-compression
+    ARGS="--storage.tsdb.path=/mnt/enc/prometheus --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=1GB --storage.tsdb.wal-compression"
 
 `retention.time` and `retention.size` are both enforced; Prometheus keeps data only while both limits are satisfied.
 Adjust `7d` and `1GB` based on your disk budget and required history depth.
