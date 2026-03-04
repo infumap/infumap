@@ -65,6 +65,13 @@ pub fn make_clap_subcommand() -> Command {
 }
 
 
+fn settings_path_from_matches<'a>(sub_matches: &'a ArgMatches) -> Option<&'a String> {
+  sub_matches.try_get_one::<String>("settings_path").ok().flatten()
+    .or_else(|| sub_matches.subcommand()
+      .and_then(|(_, child_matches)| child_matches.try_get_one::<String>("settings_path").ok().flatten()))
+}
+
+
 fn make_missing_subcommand() -> Command {
   Command::new("missing")
     .arg(Arg::new("settings_path")
@@ -91,7 +98,7 @@ fn make_missing_subcommand() -> Command {
       .help("If specified, missing items will be copied to the destination, else they will just be listed.")
       .num_args(0)
       .action(ArgAction::SetTrue)
-      .required(true)) // TODO: with other commands implemented, this will be false.
+      .required(false))
 }
 
 
@@ -112,7 +119,7 @@ fn make_orphaned_subcommand() -> Command {
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
+  let config = get_config(settings_path_from_matches(sub_matches)).await?;
 
   match sub_matches.subcommand() {
     Some(("missing", arg_sub_matches)) => {
@@ -231,10 +238,6 @@ pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuR
 
 
 pub async fn execute_orphaned(sub_matches: &ArgMatches, config: &Config) -> InfuResult<()> {
-  if sub_matches.get_flag("copy") {
-    return Err("--copy flag is not valid for use with the \"orphaned\" command".into());
-  }
-  
   let o = match sub_matches.get_one::<String>("o") {
     Some(a) => match ObjectStoreName::from_str(a) {
       Ok(v) => v,
