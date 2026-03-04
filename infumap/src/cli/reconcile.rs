@@ -224,8 +224,9 @@ pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuR
     if !destination_files.contains(&s_file) {
       cnt += 1;
       if copying {
-        println!("Copying {}/{}: {}_{}", cnt, missing_cnt, s_file.user_id, s_file.item_id);
-        let val = Arc::new(source_store.get(s_file.user_id.clone(), s_file.item_id.clone()).await?);
+        let val = source_store.get(s_file.user_id.clone(), s_file.item_id.clone()).await?;
+        println!("Copying {}/{}: {}_{} [{} bytes]", cnt, missing_cnt, s_file.user_id, s_file.item_id, val.len());
+        let val = Arc::new(val);
         destination_store.put(s_file.user_id.clone(), s_file.item_id.clone(), val).await?;
       } else {
         println!("{}_{}", s_file.user_id, s_file.item_id);
