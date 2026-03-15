@@ -1692,10 +1692,12 @@ pub fn migrate_record_v28_to_v29(
     "descriptor" => migrate_descriptor(kvs, 28),
     "entry" => {
       let mut result = kvs.clone();
-      maybe_fix_mime_type_from_title(&mut result, None, None, stats, "entry")?;
       let item_id = json::get_string_field(&result, "id")?.ok_or("Entry record is missing id.")?;
       let item_type = json::get_string_field(&result, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
       let item_type = ItemType::from_str(&item_type)?;
+      if is_data_item_type(item_type) {
+        maybe_fix_mime_type_from_title(&mut result, None, None, stats, "entry")?;
+      }
       state_by_id.insert(item_id, mime_type_migration_state_from_entry(&result, item_type)?);
       Ok(result)
     }
@@ -1743,6 +1745,11 @@ fn maybe_fix_mime_type_from_title(
   let current_mime_type = json::get_string_field(kvs, "mimeType")?
     .or_else(|| previous_mime_type_maybe.map(|s| s.to_owned()))
     .map(|mime_type| normalized_mime_type(&mime_type));
+  if let Some(current_mime_type) = current_mime_type.as_deref() {
+    if current_mime_type.starts_with("image/") && derived_mime_type.starts_with("image/") {
+      return Ok(());
+    }
+  }
   if current_mime_type.as_deref() != Some(derived_mime_type.as_str()) {
     kvs.insert("mimeType".to_owned(), Value::String(derived_mime_type.clone()));
     stats.record_change(&item_id, record_type, current_mime_type.as_deref(), &derived_mime_type);
@@ -1853,6 +1860,73 @@ mod tests {
     assert_eq!(
       state_by_id.get("FILE2").unwrap().mime_type.as_deref().unwrap(),
       "application/pdf"
+    );
+  }
+
+  #[test]
+  fn does_not_change_image_mime_type_when_title_implies_different_image_type() {
+    let mut entry = Map::new();
+    entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    entry.insert("id".to_owned(), Value::String("FILE3".to_owned()));
+    entry.insert("itemType".to_owned(), Value::String("image".to_owned()));
+    entry.insert("title".to_owned(), Value::String("Camera Upload.png".to_owned()));
+    entry.insert("mimeType".to_owned(), Value::String("image/jpeg".to_owned()));
+
+    let mut state_by_id = HashMap::new();
+    let mut stats = MimeTypeMigrationStats::default();
+    let migrated = migrate_record_v28_to_v29(&entry, &mut state_by_id, &mut stats).unwrap();
+
+    assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "image/jpeg");
+    assert_eq!(
+      state_by_id.get("FILE3").unwrap().mime_type.as_deref().unwrap(),
+      "image/jpeg"
+    );
+    assert_eq!(
+      stats.render_summary(),
+      vec![
+        "Scanned 1 item records.".to_owned(),
+        "Changed MIME type on 0 records across 0 items.".to_owned(),
+      ]
+    );
+
+    let mut entry = Map::new();
+    entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    entry.insert("id".to_owned(), Value::String("FILE4".to_owned()));
+    entry.insert("itemType".to_owned(), Value::String("image".to_owned()));
+    entry.insert("title".to_owned(), Value::String("Thumbnail.jpg".to_owned()));
+    entry.insert("mimeType".to_owned(), Value::String("image/webp".to_owned()));
+
+    let mut state_by_id = HashMap::new();
+    let mut stats = MimeTypeMigrationStats::default();
+    let migrated = migrate_record_v28_to_v29(&entry, &mut state_by_id, &mut stats).unwrap();
+
+    assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "image/webp");
+    assert_eq!(
+      state_by_id.get("FILE4").unwrap().mime_type.as_deref().unwrap(),
+      "image/webp"
+    );
+  }
+
+  #[test]
+  fn does_not_add_mime_type_to_note_entries() {
+    let mut entry = Map::new();
+    entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    entry.insert("id".to_owned(), Value::String("NOTE1".to_owned()));
+    entry.insert("itemType".to_owned(), Value::String("note".to_owned()));
+    entry.insert("title".to_owned(), Value::String("Meeting notes.pdf".to_owned()));
+
+    let mut state_by_id = HashMap::new();
+    let mut stats = MimeTypeMigrationStats::default();
+    let migrated = migrate_record_v28_to_v29(&entry, &mut state_by_id, &mut stats).unwrap();
+
+    assert!(migrated.get("mimeType").is_none());
+    assert!(state_by_id.get("NOTE1").unwrap().mime_type.is_none());
+    assert_eq!(
+      stats.render_summary(),
+      vec![
+        "Scanned 1 item records.".to_owned(),
+        "Changed MIME type on 0 records across 0 items.".to_owned(),
+      ]
     );
   }
 }
