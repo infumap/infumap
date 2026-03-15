@@ -35,11 +35,12 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use crate::util::fs::{expand_tilde, path_exists};
+use crate::util::mime::normalized_mime_type;
 
 use super::user::User;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 27;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 28;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -1408,6 +1409,67 @@ pub fn migrate_record_v26_to_v27(kvs: &Map<String, Value>) -> InfuResult<Map<Str
     unexpected_record_type => {
       return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
     }
+  }
+}
+
+pub fn migrate_record_v27_to_v28(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 27);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      migrate_mime_type_field(&mut result)?;
+      return Ok(result);
+    },
+
+    "update" => {
+      let mut result = kvs.clone();
+      migrate_mime_type_field(&mut result)?;
+      return Ok(result);
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+fn migrate_mime_type_field(kvs: &mut Map<String, Value>) -> InfuResult<()> {
+  if let Some(mime_type) = json::get_string_field(kvs, "mimeType")? {
+    kvs.insert(String::from("mimeType"), Value::String(normalized_mime_type(&mime_type)));
+  }
+  Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::migrate_record_v27_to_v28;
+  use serde_json::{Map, Value};
+
+  #[test]
+  fn migrates_mime_type_aliases_in_entry_records() {
+    let mut entry = Map::new();
+    entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    entry.insert("mimeType".to_owned(), Value::String("Image/JPG".to_owned()));
+
+    let migrated = migrate_record_v27_to_v28(&entry).unwrap();
+    assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "image/jpeg");
+  }
+
+  #[test]
+  fn migrates_invalid_mime_types_to_octet_stream() {
+    let mut entry = Map::new();
+    entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    entry.insert("mimeType".to_owned(), Value::String("not mime".to_owned()));
+
+    let migrated = migrate_record_v27_to_v28(&entry).unwrap();
+    assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "application/octet-stream");
   }
 }
 
