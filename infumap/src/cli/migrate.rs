@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::any::Any;
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use infusdk::item::Item;
 use infusdk::db::kv_store::JsonLogSerializable;
@@ -55,7 +54,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 async fn migrate_log(log_path: &str) -> InfuResult<()> {
   let expanded_log_path = expand_tilde(log_path).ok_or("Could not interpret log path.")?;
 
-  let (from_version, mime_stats) = {
+  let from_version = {
     let f = BufReader::new(File::open(&expanded_log_path)?);
     let deserializer = serde_json::Deserializer::from_reader(f);
     let mut iterator = deserializer.into_iter::<serde_json::Value>();
@@ -70,16 +69,15 @@ async fn migrate_log(log_path: &str) -> InfuResult<()> {
     };
 
     // TODO (LOW): it would be better if the two migrate log functions were consolidated.
-    let mime_stats = if value_type == Item::value_type_identifier() {
+    if value_type == Item::value_type_identifier() {
       migrate_item_log(&expanded_log_path, from_version, updated_descriptor, &mut iterator)?
     } else if value_type == User::value_type_identifier() {
-      migrate_user_log(&expanded_log_path, from_version, updated_descriptor, &mut iterator)?;
-      None
+      migrate_user_log(&expanded_log_path, from_version, updated_descriptor, &mut iterator)?
     } else {
       return Err(format!("Unexpected value type {}", value_type).into());
     };
 
-    (from_version, mime_stats)
+    from_version
   };
 
   if path_exists(&expanded_log_path.with_extension(format!("v{}", from_version))).await {
@@ -89,15 +87,11 @@ async fn migrate_log(log_path: &str) -> InfuResult<()> {
   rename(&expanded_log_path, &expanded_log_path.with_extension(format!("v{}", from_version))).await?;
   rename(&expanded_log_path.with_extension("new"), &expanded_log_path).await?;
 
-  if let Some(mime_stats) = mime_stats {
-    mime_stats.print();
-  }
-
   Ok(())
 }
 
 
-fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: Map<String, Value>, iterator: &mut StreamDeserializer<IoRead<BufReader<File>>, Value>) -> InfuResult<Option<MimeMigrationStats>> {
+fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: Map<String, Value>, iterator: &mut StreamDeserializer<IoRead<BufReader<File>>, Value>) -> InfuResult<()> {
   if from_version == CURRENT_ITEM_LOG_VERSION {
     return Err("Item log is already at the latest version.".into());
   }
@@ -107,7 +101,6 @@ fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: M
 
   let file = File::create(log_path.with_extension("new"))?;
   let mut writer = BufWriter::new(file);
-  let mut mime_stats = if from_version == 27 { Some(MimeMigrationStats::new()) } else { None };
 
   writer.write_all(serde_json::to_string(&updated_descriptor)?.as_bytes())?;
   writer.write_all("\n".as_bytes())?;
@@ -145,9 +138,6 @@ fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: M
           27 => crate::storage::db::item_db::migrate_record_v27_to_v28(&kvs)?,
           _ => { return Err(format!("Unexpected item log version: {}.", from_version).into()); }
         };
-        if let Some(stats) = mime_stats.as_mut() {
-          stats.record(&kvs, &migrated)?;
-        }
         writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
         writer.write_all("\n".as_bytes())?;
       },
@@ -158,7 +148,7 @@ fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: M
   }
   writer.flush()?;
 
-  Ok(mime_stats)
+  Ok(())
 }
 
 
@@ -208,44 +198,4 @@ fn process_descriptor(kvs: &Map<String, Value>) -> InfuResult<(i64, String, Map<
 
   // TODO (LOW): Returning the migrated descriptor here smells bad.
   Ok((descriptor_version, value_type, updated_descriptor))
-}
-
-struct MimeMigrationStats {
-  transition_counts: BTreeMap<(String, String), usize>,
-}
-
-impl MimeMigrationStats {
-  fn new() -> Self {
-    Self { transition_counts: BTreeMap::new() }
-  }
-
-  fn record(&mut self, before: &Map<String, Value>, after: &Map<String, Value>) -> InfuResult<()> {
-    let before_mime = json::get_string_field(before, "mimeType")?;
-    let after_mime = json::get_string_field(after, "mimeType")?;
-    match (before_mime, after_mime) {
-      (Some(before), Some(after)) => {
-        *self.transition_counts.entry((before, after)).or_insert(0) += 1;
-      },
-      (Some(before), None) => {
-        *self.transition_counts.entry((before, "<missing>".to_owned())).or_insert(0) += 1;
-      },
-      (None, Some(after)) => {
-        *self.transition_counts.entry(("<missing>".to_owned(), after)).or_insert(0) += 1;
-      },
-      (None, None) => {}
-    }
-    Ok(())
-  }
-
-  fn print(&self) {
-    let total: usize = self.transition_counts.values().sum();
-    println!("MIME migration statistics:");
-    println!("  Records with mimeType inspected: {}", total);
-    if total == 0 {
-      return;
-    }
-    for ((before, after), count) in &self.transition_counts {
-      println!("  {} -> {}: {}", before, after, count);
-    }
-  }
 }
