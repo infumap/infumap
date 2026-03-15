@@ -3,3 +3,5 @@ node_modules
 dist
 Settings.toml
 dist_handlers.rs
+__pycache__/
+tools/pdf_to_md/.venv/
