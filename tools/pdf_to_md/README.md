@@ -1,4 +1,4 @@
-# Marker Service
+# PDF To MD
 
 This is a small ad-hoc HTTP wrapper around [Marker](https://github.com/datalab-to/marker) for converting uploaded files to markdown.
 
@@ -13,8 +13,8 @@ It is intended for burst use:
 
 - accepts multipart file uploads at `POST /convert`
 - returns markdown and Marker metadata as JSON
-- also supports `POST /convert-path` for files already present on the machine running the service
 - loads Marker models once when the service starts
+- uses a fixed extraction policy chosen by the tool
 
 ## Start The Service
 
@@ -57,7 +57,11 @@ TORCH_DEVICE=cpu ./tools/pdf_to_md/run.sh
 TORCH_DEVICE=cuda MARKER_SERVICE_PORT=9000 ./tools/pdf_to_md/run.sh
 ```
 
-If you want Marker to use its higher-quality LLM mode, set `GOOGLE_API_KEY` before starting the service and pass `use_llm=true` in the request.
+The service uses a fixed extraction policy:
+
+- `force_ocr=false`
+- `paginate_output=true`
+- `use_llm=true` only when `GOOGLE_API_KEY` is present in the environment at startup
 
 ## Access Over SSH
 
@@ -79,17 +83,6 @@ curl -sS \
   http://127.0.0.1:8787/convert
 ```
 
-Example with extra options:
-
-```bash
-curl -sS \
-  -F "file=@/path/to/document.pdf" \
-  -F "force_ocr=true" \
-  -F "paginate_output=true" \
-  -F "use_llm=true" \
-  http://127.0.0.1:8787/convert
-```
-
 Print only the markdown:
 
 ```bash
@@ -99,20 +92,10 @@ curl -sS \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["markdown"])'
 ```
 
-Convert a file already on the host:
-
-```bash
-curl -sS \
-  -H "Content-Type: application/json" \
-  -d '{"filepath":"/path/to/document.pdf","force_ocr":false}' \
-  http://127.0.0.1:8787/convert-path
-```
-
 ## Endpoints
 
 - `GET /`
 - `GET /healthz`
 - `POST /convert`
-- `POST /convert-path`
 
 Interactive API docs are available at `http://127.0.0.1:8787/docs`.

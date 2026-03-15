@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from marker.config.parser import ConfigParser
@@ -15,17 +16,6 @@ from marker.models import create_model_dict
 from marker.output import text_from_rendered
 
 APP_STATE: dict[str, Any] = {}
-
-
-class ConvertOptions(BaseModel):
-    page_range: str | None = None
-    force_ocr: bool = False
-    paginate_output: bool = False
-    use_llm: bool = False
-
-
-class ConvertPathRequest(ConvertOptions):
-    filepath: str
 
 
 class ConvertResponse(BaseModel):
@@ -44,17 +34,20 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Infumap Marker Service",
+    title="Infumap PDF to MD Service",
     version="0.1.0",
     lifespan=lifespan,
 )
 
 
-def build_config(options: ConvertOptions) -> dict[str, Any]:
-    config = options.model_dump(exclude_none=True)
-    config["output_format"] = "markdown"
-    config["pdftext_workers"] = 1
-    return config
+def build_config() -> dict[str, Any]:
+    return {
+        "force_ocr": False,
+        "paginate_output": True,
+        "use_llm": bool(os.environ.get("GOOGLE_API_KEY")),
+        "output_format": "markdown",
+        "pdftext_workers": 1,
+    }
 
 
 def metadata_to_dict(metadata: Any) -> dict[str, Any]:
@@ -68,9 +61,9 @@ def metadata_to_dict(metadata: Any) -> dict[str, Any]:
     return {"value": metadata}
 
 
-def convert_file(file_path: str, file_name: str, options: ConvertOptions) -> ConvertResponse:
+def convert_file(file_path: str, file_name: str) -> ConvertResponse:
     started_at = time.perf_counter()
-    config_parser = ConfigParser(build_config(options))
+    config_parser = ConfigParser(build_config())
     converter = PdfConverter(
         config=config_parser.generate_config_dict(),
         artifact_dict=APP_STATE["models"],
@@ -105,7 +98,7 @@ def store_upload(upload: UploadFile) -> str:
 @app.get("/")
 async def root() -> dict[str, str]:
     return {
-        "service": "infumap-marker-service",
+        "service": "infumap-pdf-to-md",
         "docs": "/docs",
         "health": "/healthz",
     }
@@ -117,41 +110,14 @@ async def healthz() -> dict[str, bool]:
 
 
 @app.post("/convert", response_model=ConvertResponse)
-async def convert_upload(
-    file: Annotated[UploadFile, File(...)],
-    page_range: Annotated[str | None, Form()] = None,
-    force_ocr: Annotated[bool, Form()] = False,
-    paginate_output: Annotated[bool, Form()] = False,
-    use_llm: Annotated[bool, Form()] = False,
-) -> ConvertResponse:
+async def convert_upload(file: UploadFile = File(...)) -> ConvertResponse:
     temp_path = store_upload(file)
     file_name = Path(file.filename or "upload").name
 
     try:
-        return convert_file(
-            temp_path,
-            file_name,
-            ConvertOptions(
-                page_range=page_range,
-                force_ocr=force_ocr,
-                paginate_output=paginate_output,
-                use_llm=use_llm,
-            ),
-        )
+        return convert_file(temp_path, file_name)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     finally:
         Path(temp_path).unlink(missing_ok=True)
         await file.close()
-
-
-@app.post("/convert-path", response_model=ConvertResponse)
-async def convert_path(request: ConvertPathRequest) -> ConvertResponse:
-    path = Path(request.filepath).expanduser().resolve()
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-
-    try:
-        return convert_file(str(path), path.name, request)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
