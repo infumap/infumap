@@ -212,11 +212,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       continue;
     }
 
-    let mime_type = match mime_guess::from_path(filename).first_raw() {
-      Some(mime_type) => mime_type,
-      None => "application/octet-stream"
-    };
-
     let mut f = File::open(&path).await?;
     let metadata = tokio::fs::metadata(&path).await?;
     let mut buffer = vec![0; metadata.len() as usize];
@@ -230,7 +225,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     let raw_creation_time = metadata.created().map_err(|e| e.to_string())?.duration_since(UNIX_EPOCH)?.as_secs() as i64;
     let sanitized_creation_time = infusdk::util::time::sanitize_original_creation_date(raw_creation_time, &format!("uploading file {}", filename));
     item.insert("originalCreationDate".to_owned(), Value::Number(sanitized_creation_time.into()));
-    item.insert("mimeType".to_owned(), Value::String(mime_type.to_owned()));
     item.insert("fileSizeBytes".to_owned(), Value::Number(metadata.len().into()));
 
     if filename.to_lowercase().ends_with(".png") || filename.to_lowercase().ends_with(".jpg") || filename.to_lowercase().ends_with(".jpeg") {

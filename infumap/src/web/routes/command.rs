@@ -49,6 +49,7 @@ use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation
 use crate::util::item::hash_children_and_their_attachments_only;
 use crate::util::item::hash_item_and_attachments_only;
 use crate::util::item::hash_item_attachments_children_and_their_attachments;
+use crate::util::mime::detect_mime_type;
 use crate::util::ordering::new_ordering_at_end;
 use crate::web::serve::{json_response, incoming_json_with_limit, cors_response};
 use crate::web::session::get_and_validate_session;
@@ -674,6 +675,11 @@ pub async fn add_item_for_user(
       item_map.insert("thumbnail".to_owned(), Value::String("".to_owned()));
     }
 
+    // Temporary placeholder so item parsing succeeds before server-side MIME detection overwrites it.
+    if is_data_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("mimeType") {
+      item_map.insert("mimeType".to_owned(), Value::String("application/octet-stream".to_owned()));
+    }
+
     if is_format_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("format") {
       item_map.insert("format".to_owned(), Value::String("".to_owned()));
     }
@@ -771,6 +777,7 @@ pub async fn add_item_for_user(
     if decoded.len() != item.file_size_bytes.ok_or(format!("File size was not specified for new data item '{}'.", item.id))? as usize {
       return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
     }
+    item.mime_type = Some(detect_mime_type(&decoded));
     let object_encryption_key = object_encryption_key_maybe.as_ref().ok_or("Internal error: encryption key should have been set for data item.")?;
     object::put(object_store.clone(), &session_user_id, &item.id, &decoded, object_encryption_key).await?;
 

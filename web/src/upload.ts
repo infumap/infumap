@@ -105,7 +105,6 @@ export async function handleUpload(
         spatialPositionGr: posPx,
         spatialWidthGr: spatialWidthGr,
         originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified / 1000.0), `uploading image ${file.name}`),
-        mimeType: file.type,
         fileSizeBytes: file.size,
       };
 
@@ -138,7 +137,6 @@ export async function handleUpload(
         spatialPositionGr: posPx,
         spatialWidthGr: spatialWidthGr,
         originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified / 1000.0), `uploading file ${file.name}`),
-        mimeType: file.type,
         fileSizeBytes: file.size,
       };
 
