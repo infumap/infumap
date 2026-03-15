@@ -62,22 +62,87 @@ const LABEL_FAILED: &'static str = "failed";
 const JPEG_QUALITY: u8 = 80;
 
 fn is_safe_inline_mime(mime_type: &str) -> bool {
+  let mime_type = mime_type.to_ascii_lowercase();
+  if mime_type == "image/svg+xml" {
+    return false;
+  }
+  if mime_type.starts_with("image/") {
+    return true;
+  }
   matches!(
-    mime_type.to_ascii_lowercase().as_str(),
-    "image/jpeg" | "image/jpg" | "image/png" | "image/webp" | "image/gif"
+    mime_type.as_str(),
+    "application/pdf"
+      | "application/json"
+      | "text/plain"
+      | "text/markdown"
+      | "text/csv"
+      | "audio/mpeg"
+      | "audio/mp4"
+      | "audio/ogg"
+      | "audio/wav"
+      | "audio/webm"
+      | "video/mp4"
+      | "video/ogg"
+      | "video/webm"
   )
 }
 
-fn content_disposition_header(uid: &str, inline: bool) -> String {
-  let mode = if inline { "inline" } else { "attachment" };
-  format!("{}; filename=\"{}\"", mode, uid)
+fn response_filename(uid: &str, title_maybe: Option<&str>) -> String {
+  match title_maybe.map(str::trim).filter(|title| !title.is_empty()) {
+    Some(title) => title.to_owned(),
+    None => uid.to_owned(),
+  }
 }
 
-fn response_content_headers(uid: &str, mime_type: &str) -> (String, String) {
+fn sanitize_ascii_filename(filename: &str) -> String {
+  let sanitized: String = filename
+    .chars()
+    .map(|c| match c {
+      'a'..='z' | 'A'..='Z' | '0'..='9' | ' ' | '.' | '-' | '_' | '(' | ')' | '[' | ']' => c,
+      _ => '_',
+    })
+    .collect();
+  let sanitized = sanitized.trim();
+  if sanitized.is_empty() { "download".to_owned() } else { sanitized.to_owned() }
+}
+
+fn encode_rfc5987_value(value: &str) -> String {
+  let mut encoded = String::new();
+  for byte in value.as_bytes() {
+    match byte {
+      b'a'..=b'z'
+      | b'A'..=b'Z'
+      | b'0'..=b'9'
+      | b'!'
+      | b'#'
+      | b'$'
+      | b'&'
+      | b'+'
+      | b'-'
+      | b'.'
+      | b'^'
+      | b'_'
+      | b'`'
+      | b'|'
+      | b'~' => encoded.push(*byte as char),
+      _ => encoded.push_str(&format!("%{:02X}", byte)),
+    }
+  }
+  encoded
+}
+
+fn content_disposition_header(filename: &str, inline: bool) -> String {
+  let mode = if inline { "inline" } else { "attachment" };
+  let ascii_filename = sanitize_ascii_filename(filename);
+  let utf8_filename = encode_rfc5987_value(filename);
+  format!("{}; filename=\"{}\"; filename*=UTF-8''{}", mode, ascii_filename, utf8_filename)
+}
+
+fn response_content_headers(filename: &str, mime_type: &str) -> (String, String) {
   if is_safe_inline_mime(mime_type) {
-    (mime_type.to_owned(), content_disposition_header(uid, true))
+    (mime_type.to_owned(), content_disposition_header(filename, true))
   } else {
-    ("application/octet-stream".to_owned(), content_disposition_header(uid, false))
+    ("application/octet-stream".to_owned(), content_disposition_header(filename, false))
   }
 }
 
@@ -153,11 +218,13 @@ async fn get_cached_resized_img(
   let original_dimensions_px;
   let original_mime_type_string; // TODO (LOW): validation.
   let owner_id;
+  let title_maybe;
   {
     let db = db.lock().await;
     let item = db.item.get(&String::from(&uid))?;
     authorize_item(&db, item, session_user_id_maybe, 0)?;
     owner_id = item.owner_id.clone();
+    title_maybe = item.title.clone();
 
     object_encryption_key =
       db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
@@ -165,6 +232,7 @@ async fn get_cached_resized_img(
       item.image_size_px.as_ref().ok_or("Image item does not have image dimensions set.")?.clone();
     original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime type set.")?.clone();
   }
+  let filename = response_filename(&uid, title_maybe.as_deref());
 
   // Never want to upscale original image. Instead, want to respond with the original image without modification.
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
@@ -179,7 +247,7 @@ async fn get_cached_resized_img(
               debug!("Responding with cached image '{}' (unmodified original).", candidate);
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
               let data = storage_cache::get(image_cache, &owner_id, candidate).await?.unwrap();
-              let (content_type, content_disposition) = response_content_headers(&uid, &original_mime_type_string);
+              let (content_type, content_disposition) = response_content_headers(&filename, &original_mime_type_string);
               return Ok(
                 Response::builder()
                   .header(hyper::header::CONTENT_TYPE, content_type)
@@ -255,7 +323,7 @@ async fn get_cached_resized_img(
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
     // it is possible there was more than one request for this, and another request won inserting into cache.
     storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, original_file_bytes.clone()).await?;
-    let (content_type, content_disposition) = response_content_headers(&uid, &original_mime_type_string);
+    let (content_type, content_disposition) = response_content_headers(&filename, &original_mime_type_string);
     return Ok(
       Response::builder()
         .header(hyper::header::CONTENT_TYPE, content_type)
@@ -340,6 +408,7 @@ async fn get_file(
   };
 
   let mime_type_string = item.mime_type.as_ref().ok_or(format!("Mime type is not available for item '{}'.", uid))?;
+  let filename = response_filename(uid, item.title.as_deref());
 
   // TODO (MEDIUM): Consider putting non-image files in the cache. Not highest priority though since
   // by default, configuration is such that these are cached browser side.
@@ -350,7 +419,7 @@ async fn get_file(
 
   METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FULL]).inc();
 
-  let (content_type, content_disposition) = response_content_headers(uid, mime_type_string);
+  let (content_type, content_disposition) = response_content_headers(&filename, mime_type_string);
 
   Ok(
     Response::builder()
@@ -365,4 +434,45 @@ async fn get_file(
 
 fn calc_cache_control(max_age: i64) -> String {
   if max_age == 0 { "no-cache".to_owned() } else { format!("private, max-age={}", max_age) }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{content_disposition_header, is_safe_inline_mime, response_filename};
+
+  #[test]
+  fn allows_inline_for_documents_media_and_safe_text() {
+    assert!(is_safe_inline_mime("application/pdf"));
+    assert!(is_safe_inline_mime("video/mp4"));
+    assert!(is_safe_inline_mime("video/webm"));
+    assert!(is_safe_inline_mime("audio/mpeg"));
+    assert!(is_safe_inline_mime("audio/ogg"));
+    assert!(is_safe_inline_mime("text/plain"));
+    assert!(is_safe_inline_mime("application/json"));
+  }
+
+  #[test]
+  fn keeps_active_content_as_attachment() {
+    assert!(!is_safe_inline_mime("image/svg+xml"));
+    assert!(!is_safe_inline_mime("text/html"));
+    assert!(!is_safe_inline_mime("application/xml"));
+    assert!(!is_safe_inline_mime("video/quicktime"));
+    assert!(!is_safe_inline_mime("audio/aac"));
+  }
+
+  #[test]
+  fn prefers_title_for_response_filename() {
+    assert_eq!(response_filename("ABC123", Some("Quarterly Report.pdf")), "Quarterly Report.pdf");
+    assert_eq!(response_filename("ABC123", Some("  ")), "ABC123");
+    assert_eq!(response_filename("ABC123", None), "ABC123");
+  }
+
+  #[test]
+  fn emits_ascii_and_utf8_filename_parameters() {
+    let header = content_disposition_header("report \"final\".pdf", false);
+    assert_eq!(
+      header,
+      "attachment; filename=\"report _final_.pdf\"; filename*=UTF-8''report%20%22final%22.pdf"
+    );
+  }
 }
