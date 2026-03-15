@@ -110,6 +110,9 @@ fn migrate_item_log(
   writer.write_all(serde_json::to_string(&updated_descriptor)?.as_bytes())?;
   writer.write_all("\n".as_bytes())?;
 
+  let mut mime_type_migration_state_by_id = std::collections::HashMap::new();
+  let mut mime_type_migration_stats = crate::storage::db::item_db::MimeTypeMigrationStats::default();
+
   for item in iterator {
     match item? {
       Object(kvs) => {
@@ -141,6 +144,11 @@ fn migrate_item_log(
           25 => crate::storage::db::item_db::migrate_record_v25_to_v26(&kvs)?,
           26 => crate::storage::db::item_db::migrate_record_v26_to_v27(&kvs)?,
           27 => crate::storage::db::item_db::migrate_record_v27_to_v28(&kvs)?,
+          28 => crate::storage::db::item_db::migrate_record_v28_to_v29(
+            &kvs,
+            &mut mime_type_migration_state_by_id,
+            &mut mime_type_migration_stats,
+          )?,
           _ => {
             return Err(format!("Unexpected item log version: {}.", from_version).into());
           }
@@ -156,6 +164,12 @@ fn migrate_item_log(
     }
   }
   writer.flush()?;
+
+  if from_version == 28 {
+    for line in mime_type_migration_stats.render_summary() {
+      println!("{}", line);
+    }
+  }
 
   Ok(())
 }

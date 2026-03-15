@@ -17,6 +17,7 @@
 use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::db::kv_store::KVStore;
 use infusdk::item::TableColumn;
+use infusdk::item::is_data_item_type;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
 use infusdk::item::is_positionable_type;
@@ -29,17 +30,68 @@ use infusdk::util::time::unix_now_secs_i64;
 use infusdk::util::uid::Uid;
 use log::{debug, info, warn};
 use serde_json::{Map, Number, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, BufReader};
 
 use crate::util::fs::{expand_tilde, path_exists};
-use crate::util::mime::normalized_mime_type;
+use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 28;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 29;
+
+#[derive(Clone, Default)]
+pub struct MimeTypeMigrationState {
+  pub is_data_item: bool,
+  pub title: Option<String>,
+  pub mime_type: Option<String>,
+}
+
+#[derive(Default)]
+pub struct MimeTypeMigrationStats {
+  scanned_records: usize,
+  changed_records: usize,
+  changed_entry_records: usize,
+  changed_update_records: usize,
+  changed_item_ids: HashSet<String>,
+  changed_mime_types: BTreeMap<(String, String), usize>,
+}
+
+impl MimeTypeMigrationStats {
+  pub fn record_change(&mut self, item_id: &str, record_type: &str, from: Option<&str>, to: &str) {
+    self.changed_records += 1;
+    self.changed_item_ids.insert(item_id.to_owned());
+    *self.changed_mime_types.entry((from.unwrap_or("<missing>").to_owned(), to.to_owned())).or_insert(0) += 1;
+    match record_type {
+      "entry" => self.changed_entry_records += 1,
+      "update" => self.changed_update_records += 1,
+      _ => {}
+    }
+  }
+
+  pub fn render_summary(&self) -> Vec<String> {
+    let mut lines = vec![
+      format!("Scanned {} item records.", self.scanned_records),
+      format!(
+        "Changed MIME type on {} records across {} items.",
+        self.changed_records,
+        self.changed_item_ids.len()
+      ),
+    ];
+    if self.changed_records > 0 {
+      lines.push(format!(
+        "Changed entry records: {}. Changed update records: {}.",
+        self.changed_entry_records, self.changed_update_records
+      ));
+      for ((from, to), count) in &self.changed_mime_types {
+        lines.push(format!("{} -> {}: {}", from, to, count));
+      }
+    }
+    lines
+  }
+}
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -1628,10 +1680,105 @@ fn migrate_mime_type_field(kvs: &mut Map<String, Value>) -> InfuResult<()> {
   Ok(())
 }
 
+pub fn migrate_record_v28_to_v29(
+  kvs: &Map<String, Value>,
+  state_by_id: &mut HashMap<String, MimeTypeMigrationState>,
+  stats: &mut MimeTypeMigrationStats,
+) -> InfuResult<Map<String, Value>> {
+  stats.scanned_records += 1;
+
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 28),
+    "entry" => {
+      let mut result = kvs.clone();
+      maybe_fix_mime_type_from_title(&mut result, None, None, stats, "entry")?;
+      let item_id = json::get_string_field(&result, "id")?.ok_or("Entry record is missing id.")?;
+      let item_type = json::get_string_field(&result, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      let item_type = ItemType::from_str(&item_type)?;
+      state_by_id.insert(item_id, mime_type_migration_state_from_entry(&result, item_type)?);
+      Ok(result)
+    }
+    "update" => {
+      let mut result = kvs.clone();
+      let item_id = json::get_string_field(kvs, "id")?.ok_or("Update record does not have 'id' field.")?;
+      let previous_state =
+        state_by_id.get(&item_id).ok_or(format!("Update record has id '{}', but this is unknown.", item_id))?.clone();
+      if previous_state.is_data_item {
+        maybe_fix_mime_type_from_title(
+          &mut result,
+          previous_state.title.as_deref(),
+          previous_state.mime_type.as_deref(),
+          stats,
+          "update",
+        )?;
+      }
+      let updated_state = apply_mime_type_migration_update(&previous_state, &result)?;
+      state_by_id.insert(item_id, updated_state);
+      Ok(result)
+    }
+    "delete" => {
+      let item_id = json::get_string_field(kvs, "id")?.ok_or("Delete record does not have 'id' field.")?;
+      state_by_id.remove(&item_id);
+      Ok(kvs.clone())
+    }
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
+fn maybe_fix_mime_type_from_title(
+  kvs: &mut Map<String, Value>,
+  previous_title_maybe: Option<&str>,
+  previous_mime_type_maybe: Option<&str>,
+  stats: &mut MimeTypeMigrationStats,
+  record_type: &str,
+) -> InfuResult<()> {
+  let item_id = json::get_string_field(kvs, "id")?.ok_or(format!("{} record does not have 'id' field.", record_type))?;
+  let title_maybe = json::get_string_field(kvs, "title")?;
+  let title = title_maybe.as_deref().or(previous_title_maybe);
+  let derived_mime_type = match title.and_then(|title| mime_type_from_title_extension(title)) {
+    Some(mime_type) => mime_type,
+    None => return Ok(()),
+  };
+  let current_mime_type = json::get_string_field(kvs, "mimeType")?
+    .or_else(|| previous_mime_type_maybe.map(|s| s.to_owned()))
+    .map(|mime_type| normalized_mime_type(&mime_type));
+  if current_mime_type.as_deref() != Some(derived_mime_type.as_str()) {
+    kvs.insert("mimeType".to_owned(), Value::String(derived_mime_type.clone()));
+    stats.record_change(&item_id, record_type, current_mime_type.as_deref(), &derived_mime_type);
+  }
+  Ok(())
+}
+
+fn mime_type_migration_state_from_entry(kvs: &Map<String, Value>, item_type: ItemType) -> InfuResult<MimeTypeMigrationState> {
+  Ok(MimeTypeMigrationState {
+    is_data_item: is_data_item_type(item_type),
+    title: json::get_string_field(kvs, "title")?,
+    mime_type: json::get_string_field(kvs, "mimeType")?.map(|mime_type| normalized_mime_type(&mime_type)),
+  })
+}
+
+fn apply_mime_type_migration_update(
+  previous_state: &MimeTypeMigrationState,
+  kvs: &Map<String, Value>,
+) -> InfuResult<MimeTypeMigrationState> {
+  let mut next_state = previous_state.clone();
+  if let Some(title) = json::get_string_field(kvs, "title")? {
+    next_state.title = Some(title);
+  }
+  if let Some(mime_type) = json::get_string_field(kvs, "mimeType")? {
+    next_state.mime_type = Some(normalized_mime_type(&mime_type));
+  }
+  Ok(next_state)
+}
+
 #[cfg(test)]
 mod tests {
-  use super::migrate_record_v27_to_v28;
+  use super::{
+    MimeTypeMigrationStats, MimeTypeMigrationState, migrate_record_v27_to_v28, migrate_record_v28_to_v29,
+  };
   use serde_json::{Map, Value};
+  use std::collections::HashMap;
 
   #[test]
   fn migrates_mime_type_aliases_in_entry_records() {
@@ -1651,5 +1798,61 @@ mod tests {
 
     let migrated = migrate_record_v27_to_v28(&entry).unwrap();
     assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "application/octet-stream");
+  }
+
+  #[test]
+  fn migrates_pdf_mime_type_from_entry_title() {
+    let mut entry = Map::new();
+    entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    entry.insert("id".to_owned(), Value::String("FILE1".to_owned()));
+    entry.insert("itemType".to_owned(), Value::String("file".to_owned()));
+    entry.insert("title".to_owned(), Value::String("Quarterly Report.pdf".to_owned()));
+    entry.insert("mimeType".to_owned(), Value::String("application/octet-stream".to_owned()));
+
+    let mut state_by_id = HashMap::new();
+    let mut stats = MimeTypeMigrationStats::default();
+    let migrated = migrate_record_v28_to_v29(&entry, &mut state_by_id, &mut stats).unwrap();
+
+    assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "application/pdf");
+    assert_eq!(
+      state_by_id.get("FILE1").unwrap().mime_type.as_deref().unwrap(),
+      "application/pdf"
+    );
+    assert_eq!(
+      stats.render_summary(),
+      vec![
+        "Scanned 1 item records.".to_owned(),
+        "Changed MIME type on 1 records across 1 items.".to_owned(),
+        "Changed entry records: 1. Changed update records: 0.".to_owned(),
+        "application/octet-stream -> application/pdf: 1".to_owned(),
+      ]
+    );
+  }
+
+  #[test]
+  fn migrates_title_only_update_to_include_matching_mime_type() {
+    let mut update = Map::new();
+    update.insert("__recordType".to_owned(), Value::String("update".to_owned()));
+    update.insert("id".to_owned(), Value::String("FILE2".to_owned()));
+    update.insert("title".to_owned(), Value::String("Renamed.pdf".to_owned()));
+
+    let mut state_by_id = HashMap::new();
+    state_by_id.insert(
+      "FILE2".to_owned(),
+      MimeTypeMigrationState {
+        is_data_item: true,
+        title: Some("Renamed.bin".to_owned()),
+        mime_type: Some("application/octet-stream".to_owned()),
+      },
+    );
+    let mut stats = MimeTypeMigrationStats::default();
+    let migrated = migrate_record_v28_to_v29(&update, &mut state_by_id, &mut stats).unwrap();
+
+    assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "application/pdf");
+    assert_eq!(state_by_id.get("FILE2").unwrap().title.as_deref().unwrap(), "Renamed.pdf");
+    assert_eq!(
+      state_by_id.get("FILE2").unwrap().mime_type.as_deref().unwrap(),
+      "application/pdf"
+    );
   }
 }

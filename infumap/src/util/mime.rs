@@ -1,4 +1,5 @@
 use mime_sniffer::MimeTypeSniffer;
+use std::path::Path;
 
 const APPLICATION_OCTET_STREAM: &str = "application/octet-stream";
 const TEXT_PLAIN: &str = "text/plain";
@@ -45,6 +46,37 @@ pub fn normalized_mime_type(raw: &str) -> String {
     Ok(parsed) => parsed.essence_str().to_owned(),
     Err(_) => APPLICATION_OCTET_STREAM.to_owned(),
   }
+}
+
+pub fn mime_type_from_title_extension(title: &str) -> Option<String> {
+  let extension = Path::new(title.trim()).extension()?.to_str()?.to_ascii_lowercase();
+  let mime_type = match extension.as_str() {
+    "aac" => "audio/aac",
+    "avi" => "video/x-msvideo",
+    "csv" => "text/csv",
+    "gif" => "image/gif",
+    "gz" => "application/gzip",
+    "jpeg" | "jpg" => "image/jpeg",
+    "json" => "application/json",
+    "m4a" => "audio/mp4",
+    "m4v" | "mp4" => "video/mp4",
+    "md" | "markdown" => "text/markdown",
+    "mkv" => "video/x-matroska",
+    "mov" | "qt" => "video/quicktime",
+    "mp3" => "audio/mpeg",
+    "ogg" => "audio/ogg",
+    "pdf" => "application/pdf",
+    "png" => "image/png",
+    "svg" => "image/svg+xml",
+    "txt" => "text/plain",
+    "wav" => "audio/wav",
+    "webm" => "video/webm",
+    "webp" => "image/webp",
+    "xml" => "application/xml",
+    "zip" => "application/zip",
+    _ => return None,
+  };
+  Some(mime_type.to_owned())
 }
 
 fn looks_like_text(data: &[u8]) -> bool {
@@ -175,7 +207,7 @@ fn has_text_bom(data: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-  use super::{detect_mime_type, normalized_mime_type};
+  use super::{detect_mime_type, mime_type_from_title_extension, normalized_mime_type};
 
   #[test]
   fn normalizes_common_aliases_and_parameters() {
@@ -226,6 +258,14 @@ mod tests {
   #[test]
   fn detects_pdf_signature() {
     assert_eq!(detect_mime_type(b"%PDF-1.5"), "application/pdf");
+  }
+
+  #[test]
+  fn derives_mime_type_from_title_extension() {
+    assert_eq!(mime_type_from_title_extension("Quarterly Report.PDF").unwrap(), "application/pdf");
+    assert_eq!(mime_type_from_title_extension("photo.jpg").unwrap(), "image/jpeg");
+    assert_eq!(mime_type_from_title_extension("movie.webm").unwrap(), "video/webm");
+    assert!(mime_type_from_title_extension("README").is_none());
   }
 
   #[test]
