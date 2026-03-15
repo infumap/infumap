@@ -16,32 +16,35 @@
 
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
-use hyper::{Request, Response, Method};
+use hyper::{Method, Request, Response};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
-use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
-use crate::web::serve::{json_response, not_found_response, forbidden_response, incoming_json};
 use crate::storage::db::user::ROOT_USER_NAME;
+use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
+use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
-
 
 const REASON_CLIENT: &str = "client";
 const REASON_SERVER: &str = "server";
 
 #[derive(Serialize)]
 pub struct InstallationStateResponse {
-  #[serde(rename="hasRootUser")]
+  #[serde(rename = "hasRootUser")]
   pub has_root_user: bool,
 
-  #[serde(rename="devFeatureFlag")]
+  #[serde(rename = "devFeatureFlag")]
   pub dev_feature_flag: bool,
 }
 
-pub async fn serve_admin_route(db: &Arc<Mutex<Db>>, dev_feature_flag: bool, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn serve_admin_route(
+  db: &Arc<Mutex<Db>>,
+  dev_feature_flag: bool,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   match (req.method(), req.uri().path()) {
     (&Method::POST, "/admin/installation-state") => installation_state(db, dev_feature_flag).await,
     (&Method::POST, "/admin/list-pending") => list_pending(db, req).await,
@@ -57,17 +60,21 @@ pub async fn installation_state(db: &Arc<Mutex<Db>>, dev_feature_flag: bool) -> 
   })
 }
 
-
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ListPendingUsersResponse {
   pub usernames: Vec<String>,
 }
 
-pub async fn list_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn list_pending(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session_maybe = get_and_validate_session(&req, db).await;
   let session = match session_maybe {
-    None => { return forbidden_response(); }
-    Some(s) => s
+    None => {
+      return forbidden_response();
+    }
+    Some(s) => s,
   };
 
   if session.username != ROOT_USER_NAME {
@@ -85,7 +92,6 @@ pub async fn list_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incomin
   json_response(&response)
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ApprovePendingUserRequest {
   pub username: String,
@@ -97,11 +103,16 @@ pub struct ApprovePendingUserResponse {
   pub err: Option<String>,
 }
 
-pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn approve_pending(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session_maybe = get_and_validate_session(&req, db).await;
   let session = match session_maybe {
-    None => { return forbidden_response(); }
-    Some(s) => s
+    None => {
+      return forbidden_response();
+    }
+    Some(s) => s,
   };
 
   if session.username != ROOT_USER_NAME {
@@ -128,7 +139,7 @@ pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
   match db.user.add(pending_user.clone()).await {
     Ok(_) => {
       match db.pending_user.remove(&pending_user.id).await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
           error!("An error occurred removing pending user from pending list: {}", e);
           return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
@@ -149,22 +160,28 @@ pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
       // TODO (MEDIUM): get and store user specific values when the pending user request is created.
       let page_width_bl = 60;
       let natural_aspect = 2.0;
-      let home_page = default_home_page(pending_user.id.as_str(), &pending_user.username, pending_user.home_page_id, page_width_bl, natural_aspect);
+      let home_page = default_home_page(
+        pending_user.id.as_str(),
+        &pending_user.username,
+        pending_user.home_page_id,
+        page_width_bl,
+        natural_aspect,
+      );
       if let Err(e) = db.item.add(home_page).await {
         error!("Error adding default page: {}", e);
-        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );
+        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
       let trash_page = default_trash_page(pending_user.id.as_str(), pending_user.trash_page_id, natural_aspect);
       if let Err(e) = db.item.add(trash_page).await {
         error!("Error adding default trash page: {}", e);
-        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );
+        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
       let dock_page = default_dock_page(pending_user.id.as_str(), pending_user.dock_page_id, natural_aspect);
       if let Err(e) = db.item.add(dock_page).await {
         error!("Error adding default trash page: {}", e);
-        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );
+        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
-    },
+    }
     Err(e) => {
       error!("An error occurred adding pending user: {}", e);
       return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });

@@ -21,27 +21,24 @@ use infusdk::util::uid::Uid;
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-
-const ALL_JSON_FIELDS: [&'static str; 4] = ["__recordType",
-  "id", "lastBackupTime", "lastFailedBackupTime"];
+const ALL_JSON_FIELDS: [&'static str; 4] = ["__recordType", "id", "lastBackupTime", "lastFailedBackupTime"];
 
 #[derive(Debug, PartialEq)]
 pub enum BackupStatus {
   Failed,
-  Succeeded
+  Succeeded,
 }
 
 #[derive(Serialize)]
 pub struct UserExtra {
   pub id: Uid,
-  #[serde(rename="lastBackupTime")]
+  #[serde(rename = "lastBackupTime")]
   pub last_backup_time: i64,
-  #[serde(rename="lastFailedBackupTime")]
+  #[serde(rename = "lastFailedBackupTime")]
   pub last_failed_backup_time: i64,
 }
 
-impl UserExtra {
-}
+impl UserExtra {}
 
 impl Clone for UserExtra {
   fn clone(&self) -> Self {
@@ -102,8 +99,12 @@ impl JsonLogSerializable<UserExtra> for UserExtra {
 
   fn apply_json_update(&mut self, map: &Map<String, Value>) -> InfuResult<()> {
     json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
-    if let Some(u) = json::get_integer_field(map, "lastBackupTime")? { self.last_backup_time = u; }
-    if let Some(u) = json::get_integer_field(map, "lastFailedBackupTime")? { self.last_failed_backup_time = u; }
+    if let Some(u) = json::get_integer_field(map, "lastBackupTime")? {
+      self.last_backup_time = u;
+    }
+    if let Some(u) = json::get_integer_field(map, "lastFailedBackupTime")? {
+      self.last_failed_backup_time = u;
+    }
     Ok(())
   }
 }

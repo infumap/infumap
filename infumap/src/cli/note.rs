@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use clap::{Command, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use infusdk::item::ItemType;
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::InfuResult;
@@ -22,10 +22,9 @@ use infusdk::util::uid::is_uid;
 use serde_json::Map;
 use serde_json::Value;
 
+use crate::cli::NamedInfuSession;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
-use crate::cli::NamedInfuSession;
-
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("note")
@@ -55,7 +54,8 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let note = sub_matches.get_one::<String>("note").unwrap();
   let session_name = sub_matches.get_one::<String>("session").unwrap();
 
-  let named_session = NamedInfuSession::get(session_name).await
+  let named_session = NamedInfuSession::get(session_name)
+    .await
     .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
     .ok_or("Session does not exist - use the login CLI command to create one.")?;
 
@@ -66,22 +66,23 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
         return Err(format!("Invalid container id: '{}'.", uid_maybe).into());
       }
       Some(uid_maybe)
-    },
-    None => { None }
+    }
+    None => None,
   };
 
   let session_cookie_value = serde_json::to_string(&named_session.session)?;
   let mut request_headers = reqwest::header::HeaderMap::new();
   request_headers.insert(
     reqwest::header::COOKIE,
-    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
+    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
+  );
 
   let mut item: Map<String, Value> = Map::new();
   item.insert("itemType".to_owned(), Value::String(ItemType::Note.as_str().to_owned()));
   match container_id_maybe {
     Some(container_id) => {
       item.insert("parentId".to_owned(), Value::String(container_id.clone()));
-    },
+    }
     None => {}
   }
   item.insert("title".to_owned(), Value::String(note.to_owned()));
@@ -89,20 +90,20 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   item.insert("url".to_owned(), Value::String("".to_owned()));
 
   let add_item_request = serde_json::to_string(&item)?;
-  let send_request = CommandRequest {
-    command: "add-item".to_owned(),
-    json_data: add_item_request,
-    base64_data: None,
-  };
+  let send_request = CommandRequest { command: "add-item".to_owned(), json_data: add_item_request, base64_data: None };
 
   let add_item_response: CommandResponse = reqwest::ClientBuilder::new()
-    .default_headers(request_headers.clone()).build().unwrap()
+    .default_headers(request_headers.clone())
+    .build()
+    .unwrap()
     .post(named_session.command_url()?.clone())
     .json(&send_request)
     .send()
-    .await.map_err(|e| format!("{}", e))?
+    .await
+    .map_err(|e| format!("{}", e))?
     .json()
-    .await.map_err(|e| format!("{}", e))?;
+    .await
+    .map_err(|e| format!("{}", e))?;
 
   if !add_item_response.success {
     println!("Infumap rejected the add-item command. Has your session expired?");

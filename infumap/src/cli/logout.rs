@@ -14,24 +14,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use clap::{Command, ArgMatches, Arg};
+use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
 
 use crate::web::routes::account::LogoutResponse;
 
 use super::NamedInfuSession;
 
-
 pub fn make_clap_subcommand() -> Command {
   Command::new("logout")
     .about("Logout of an Infumap session. If a session name is not specified, '\"default\"' will be assumed.")
-    .arg(Arg::new("session")
-      .short('s')
-      .long("session")
-      .help("The session name.")
-      .num_args(1)
-      .default_value("default")
-      .required(false))
+    .arg(
+      Arg::new("session")
+        .short('s')
+        .long("session")
+        .help("The session name.")
+        .num_args(1)
+        .default_value("default")
+        .required(false),
+    )
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
@@ -62,34 +63,38 @@ pub async fn logout(session_name: &str) -> InfuResult<()> {
   let mut request_headers = reqwest::header::HeaderMap::new();
   request_headers.insert(
     reqwest::header::COOKIE,
-    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
+    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
+  );
 
   let logout_url = named_session.logout_url()?;
 
   let error_msg = match reqwest::ClientBuilder::new()
-      .default_headers(request_headers.clone()).build().unwrap()
-      .post(logout_url)
-      .send()
-      .await.map_err(|e| e.to_string()) {
+    .default_headers(request_headers.clone())
+    .build()
+    .unwrap()
+    .post(logout_url)
+    .send()
+    .await
+    .map_err(|e| e.to_string())
+  {
     Ok(r) => {
       let logout_response: Result<LogoutResponse, String> = r.json().await.map_err(|e| e.to_string());
       match logout_response {
         Ok(rr) => {
-          if rr.success { None } else { Some(format!("There was a server side error logging out user {}", named_session.session.username)) }
-        },
-        Err(e) => {
-          Some(format!("An error occurred getting the logout response JSON content: {}", e))
+          if rr.success {
+            None
+          } else {
+            Some(format!("There was a server side error logging out user {}", named_session.session.username))
+          }
         }
+        Err(e) => Some(format!("An error occurred getting the logout response JSON content: {}", e)),
       }
-    },
-    Err(e) => {
-      Some(format!("There was a problem sending the logout server request: {}", e))
     }
+    Err(e) => Some(format!("There was a problem sending the logout server request: {}", e)),
   };
 
   // Even if there was a problem logging the user out remotely, remove the session locally.
-  let remaining_sessions = sessions.iter()
-    .filter(|s| s.name != session_name).collect::<Vec<&NamedInfuSession>>();
+  let remaining_sessions = sessions.iter().filter(|s| s.name != session_name).collect::<Vec<&NamedInfuSession>>();
   NamedInfuSession::write_sessions(&remaining_sessions).await?;
 
   if let Some(msg) = error_msg {

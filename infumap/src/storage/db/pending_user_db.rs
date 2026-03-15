@@ -17,23 +17,22 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
 
-use infusdk::db::kv_store::KVStore;
 use infusdk::db::kv_store::JsonLogSerializable;
+use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::uid::Uid;
 use serde_json::{Map, Value};
 
-use crate::util::fs::expand_tilde;
 use super::user::User;
 use super::user_db::CURRENT_USER_LOG_VERSION;
-
+use crate::util::fs::expand_tilde;
 
 /// Db for User instances.
 /// Not thread safe.
 pub struct PendingUserDb {
   store: KVStore<User>,
-  id_by_lowercase_username: HashMap<String, String>
+  id_by_lowercase_username: HashMap<String, String>,
 }
 
 impl PendingUserDb {
@@ -73,45 +72,49 @@ impl PendingUserDb {
   pub fn get_by_username_case_insensitive(&self, username: &str) -> Option<&User> {
     match self.id_by_lowercase_username.get(&username.to_lowercase()) {
       None => None,
-      Some(id) => self.store.get(id)
+      Some(id) => self.store.get(id),
     }
   }
 }
 
-
 pub fn migrate_record_v1_to_v2(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
-  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
     "descriptor" => {
-      let descriptor_version = json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
+      let descriptor_version =
+        json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
       if descriptor_version != 1 {
         return Err(format!("Descriptor version is {}, but 1 was expected.", descriptor_version).into());
       }
-      let value_type = json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
+      let value_type =
+        json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
       if value_type != User::value_type_identifier() {
-        return Err(format!("Descriptor value_type is '{}', expecting '{}'.", &value_type, User::value_type_identifier()).into());
+        return Err(
+          format!("Descriptor value_type is '{}', expecting '{}'.", &value_type, User::value_type_identifier()).into(),
+        );
       }
       let mut result = kvs.clone();
       result.insert(String::from("version"), Value::Number((2 as i64).into()));
       return Ok(result);
-    },
+    }
 
     "entry" => {
       let mut result = kvs.clone();
       result.remove(&String::from("__version"));
       return Ok(result);
-    },
+    }
 
     "update" => {
       let mut result = kvs.clone();
       result.remove(&String::from("__version"));
       return Ok(result);
-    },
+    }
 
     "delete" => {
       let mut result = kvs.clone();
       result.remove(&String::from("__version"));
       return Ok(result);
-    },
+    }
 
     unexpected_record_type => {
       return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());

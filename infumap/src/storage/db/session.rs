@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use infusdk::{db::kv_store::JsonLogSerializable, util::{infu::InfuResult, json, uid::Uid}};
+use infusdk::{
+  db::kv_store::JsonLogSerializable,
+  util::{infu::InfuResult, json, uid::Uid},
+};
 use serde_json::{Map, Value};
-
 
 const ALL_JSON_FIELDS: [&'static str; 6] = ["__recordType", "id", "userId", "expires", "issuedAt", "username"];
 const LEGACY_SESSION_LIFETIME_SECS: i64 = 60 * 60 * 24 * 30;
@@ -40,7 +42,6 @@ impl Clone for Session {
     }
   }
 }
-
 
 impl JsonLogSerializable<Session> for Session {
   fn value_type_identifier() -> &'static str {
@@ -67,8 +68,8 @@ impl JsonLogSerializable<Session> for Session {
     let id = json::get_string_field(map, "id")?.ok_or("'id' field was missing in a session entry record.")?;
     let expires = json::get_integer_field(map, "expires")?
       .ok_or(format!("'expires' field was missing in an entry for session '{}'.", id))?;
-    let issued_at = json::get_integer_field(map, "issuedAt")?
-      .unwrap_or((expires - LEGACY_SESSION_LIFETIME_SECS).max(0));
+    let issued_at =
+      json::get_integer_field(map, "issuedAt")?.unwrap_or((expires - LEGACY_SESSION_LIFETIME_SECS).max(0));
 
     Ok(Session {
       id: id.clone(),
@@ -86,7 +87,9 @@ impl JsonLogSerializable<Session> for Session {
       return Err("Attempt was made to create a Session update record from instances with non-matching ids.".into());
     }
     if old.user_id != new.user_id {
-      return Err(format!("Attempt was made to change user_id for session '{}', but this is not allowed.", old.id).into());
+      return Err(
+        format!("Attempt was made to change user_id for session '{}', but this is not allowed.", old.id).into(),
+      );
     }
 
     let mut result: Map<String, Value> = Map::new();
@@ -109,12 +112,24 @@ impl JsonLogSerializable<Session> for Session {
   fn apply_json_update(&mut self, map: &Map<String, Value>) -> InfuResult<()> {
     json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
     if let Some(user_id) = json::get_string_field(map, "userId")? {
-      return Err(format!("Encountered an update record for session '{}' with user_id='{}', but this is not allowed.", self.id, user_id).into());
+      return Err(
+        format!(
+          "Encountered an update record for session '{}' with user_id='{}', but this is not allowed.",
+          self.id, user_id
+        )
+        .into(),
+      );
     }
 
-    if let Some(expires) = json::get_integer_field(map, "expires")? { self.expires = expires; }
-    if let Some(issued_at) = json::get_integer_field(map, "issuedAt")? { self.issued_at = issued_at; }
-    if let Some(username) = json::get_string_field(map, "username")? { self.username = username; }
+    if let Some(expires) = json::get_integer_field(map, "expires")? {
+      self.expires = expires;
+    }
+    if let Some(issued_at) = json::get_integer_field(map, "issuedAt")? {
+      self.issued_at = issued_at;
+    }
+    if let Some(username) = json::get_string_field(map, "username")? {
+      self.username = username;
+    }
     Ok(())
   }
 }

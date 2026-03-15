@@ -14,29 +14,28 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::io::Cursor;
-use byteorder::{WriteBytesExt, BigEndian};
+use byteorder::{BigEndian, WriteBytesExt};
 use infusdk::util::infu::InfuResult;
-use log::debug;
 use ingest_session_db::IngestSessionDb;
+use log::debug;
+use std::io::Cursor;
 use users_extra_db::UsersExtraDb;
 
 use self::item_db::ItemDb;
+use self::pending_user_db::PendingUserDb;
 use self::session_db::SessionDb;
 use self::user_db::UserDb;
-use self::pending_user_db::PendingUserDb;
 
+pub mod ingest_session;
+pub mod ingest_session_db;
+pub mod item_db;
+pub mod pending_user_db;
+pub mod session;
+pub mod session_db;
 pub mod user;
 pub mod user_db;
 pub mod users_extra;
 pub mod users_extra_db;
-pub mod pending_user_db;
-pub mod session;
-pub mod session_db;
-pub mod ingest_session;
-pub mod ingest_session_db;
-pub mod item_db;
-
 
 pub struct Db {
   pub user: UserDb,
@@ -50,15 +49,16 @@ pub struct Db {
 impl Db {
   pub async fn new(data_dir: &str) -> InfuResult<Db> {
     Ok(Db {
-      user: UserDb::init(data_dir).await
-        .map_err(|e| format!("Failed to initialize UserDb: {}", e))?,
-      pending_user: PendingUserDb::init(data_dir).await
+      user: UserDb::init(data_dir).await.map_err(|e| format!("Failed to initialize UserDb: {}", e))?,
+      pending_user: PendingUserDb::init(data_dir)
+        .await
         .map_err(|e| format!("Failed to initialize Pending UserDb: {}", e))?,
-      user_extra: UsersExtraDb::init(data_dir).await
+      user_extra: UsersExtraDb::init(data_dir)
+        .await
         .map_err(|e| format!("Failed to initialize UsersExtraDb: {}", e))?,
-      session: SessionDb::init(data_dir).await
-        .map_err(|e| format!("Failed to initialize SessionDb: {}", e))?,
-      ingest_session: IngestSessionDb::init(data_dir).await
+      session: SessionDb::init(data_dir).await.map_err(|e| format!("Failed to initialize SessionDb: {}", e))?,
+      ingest_session: IngestSessionDb::init(data_dir)
+        .await
         .map_err(|e| format!("Failed to initialize IngestSessionDb: {}", e))?,
       item: ItemDb::init(data_dir),
     })
@@ -77,15 +77,20 @@ impl Db {
 
     let mut wtr = Cursor::new(&mut buf[0..8]);
     wtr.write_u64::<BigEndian>(item_log_size_bytes as u64)?;
-    self.item.backup_user(&user_id, &mut buf[8..(8+item_log_size_bytes)]).await
+    self
+      .item
+      .backup_user(&user_id, &mut buf[8..(8 + item_log_size_bytes)])
+      .await
       .map_err(|e| format!("Failed to get user database log for user {}: {}", user_id, e))?;
 
-    let mut wtr = Cursor::new(&mut buf[(8+item_log_size_bytes)..(16+item_log_size_bytes)]);
+    let mut wtr = Cursor::new(&mut buf[(8 + item_log_size_bytes)..(16 + item_log_size_bytes)]);
     wtr.write_u64::<BigEndian>(user_log_size_bytes as u64)?;
-    self.user.backup_user(&user_id, &mut buf[(16+item_log_size_bytes)..(16+item_log_size_bytes+user_log_size_bytes)]).await
+    self
+      .user
+      .backup_user(&user_id, &mut buf[(16 + item_log_size_bytes)..(16 + item_log_size_bytes + user_log_size_bytes)])
+      .await
       .map_err(|e| format!("Failed to get item database log for user {}: {}", user_id, e))?;
 
     Ok(buf)
   }
-
 }

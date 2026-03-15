@@ -14,17 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use super::str::{decode_hex, encode_hex};
 use aes_gcm::Aes256Gcm;
-use aes_gcm::aead::{Aead, KeyInit, OsRng, rand_core::RngCore, Payload};
+use aes_gcm::aead::{Aead, KeyInit, OsRng, Payload, rand_core::RngCore};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::time::unix_now_secs_u64;
 use std::io::{Read, Write};
-use super::str::{encode_hex, decode_hex};
-
 
 const INFUMAP_ENCRYPTED_FILE_VERSION: u8 = 0;
 const INFUMAP_ENCRYPTED_FILE_IDENTIFIER: &[u8; 4] = b"infu";
-
 
 fn generate_nonce() -> [u8; 12] {
   let mut nonce = [0u8; 12];
@@ -44,11 +42,13 @@ fn generate_nonce() -> [u8; 12] {
     match u32::try_from(time_u64) {
       Ok(v) => {
         break v;
-      },
+      }
       Err(_) => {
         time_u64 -= u32::MAX as u64;
         cnt += 1;
-        if cnt > 10 { panic!(); }
+        if cnt > 10 {
+          panic!();
+        }
       }
     }
   };
@@ -60,20 +60,18 @@ fn generate_nonce() -> [u8; 12] {
   nonce
 }
 
-
 pub fn generate_key() -> String {
   let key = Aes256Gcm::generate_key(&mut OsRng);
   let key_slice = key.as_slice();
   encode_hex(key_slice)
 }
 
-
 pub fn encrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
-  let key = decode_hex(key)
-    .map_err(|e| format!("Invalid hex encoded encryption key: {}.", e))?;
+  let key = decode_hex(key).map_err(|e| format!("Invalid hex encoded encryption key: {}.", e))?;
   let cipher = Aes256Gcm::new(key.as_slice().into());
   let nonce = generate_nonce();
-  let ciphertext = cipher.encrypt(&nonce.into(), Payload { msg: data, aad: filename.as_bytes() })
+  let ciphertext = cipher
+    .encrypt(&nonce.into(), Payload { msg: data, aad: filename.as_bytes() })
     .map_err(|e| format!("Could not encrypt data: {}", e))?;
   let mut out = Vec::new();
   out.write_all(INFUMAP_ENCRYPTED_FILE_IDENTIFIER)?;
@@ -83,10 +81,8 @@ pub fn encrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<V
   Ok(out)
 }
 
-
 pub fn decrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
-  let key = decode_hex(key)
-    .map_err(|e| format!("Invalid hex encoded encryption key: {}.", e))?;
+  let key = decode_hex(key).map_err(|e| format!("Invalid hex encoded encryption key: {}.", e))?;
   let cipher = Aes256Gcm::new(key.as_slice().into());
 
   use std::io::Cursor;
@@ -94,8 +90,7 @@ pub fn decrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<V
 
   let mut file_id = [0u8; 4];
   databuf.read_exact(&mut file_id)?;
-  let str = String::from_utf8(file_id.into())
-    .map_err(|_e| format!("Invalid encrypted file identifier."))?;
+  let str = String::from_utf8(file_id.into()).map_err(|_e| format!("Invalid encrypted file identifier."))?;
   if String::from(str) != String::from_utf8(INFUMAP_ENCRYPTED_FILE_IDENTIFIER.as_slice().into()).unwrap() {
     return Err("Unexpected encrypted file identifier (expecting 'infu').".into());
   }
@@ -107,10 +102,12 @@ pub fn decrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<V
   let mut ciphertext = vec![];
   databuf.read_to_end(&mut ciphertext)?;
 
-  Ok(cipher.decrypt(&nonce.into(), Payload { msg: &ciphertext, aad: filename.as_bytes() })
-    .map_err(|e| format!("Could not decrypt data: {}", e))?)
+  Ok(
+    cipher
+      .decrypt(&nonce.into(), Payload { msg: &ciphertext, aad: filename.as_bytes() })
+      .map_err(|e| format!("Could not decrypt data: {}", e))?,
+  )
 }
-
 
 fn _encrypt_string(_password: String, _key: &str, _data: &str) -> InfuResult<String> {
   // combine the user password with the users randomly generated encryption key,
@@ -118,7 +115,6 @@ fn _encrypt_string(_password: String, _key: &str, _data: &str) -> InfuResult<Str
   // https://kerkour.com/rust-file-encryption-chacha20poly1305-argon2
   panic!();
 }
-
 
 fn _decrypt_string(_password: String, _key: &str, _data: &str) -> InfuResult<String> {
   panic!();

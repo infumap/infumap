@@ -15,28 +15,30 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use argon2::{
-  password_hash::{
-    PasswordHash,
-    PasswordHasher,
-    PasswordVerifier,
-    SaltString,
-    rand_core::OsRng,
-  },
   Argon2,
+  password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
-use infusdk::{db::kv_store::JsonLogSerializable, util::json};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
-use serde_json::{Map, Value, Number};
-
+use infusdk::{db::kv_store::JsonLogSerializable, util::json};
+use serde_json::{Map, Number, Value};
 
 pub const ROOT_USER_NAME: &'static str = "root";
 
-
-const ALL_JSON_FIELDS: [&'static str; 12] = ["__recordType",
-  "id", "username", "passwordHash", "passwordSalt", "totpSecret",
-  "homePageId", "defaultPageWidthBl", "defaultPageNaturalAspect",
-  "objectEncryptionKey", "trashPageId", "dockPageId"];
+const ALL_JSON_FIELDS: [&'static str; 12] = [
+  "__recordType",
+  "id",
+  "username",
+  "passwordHash",
+  "passwordSalt",
+  "totpSecret",
+  "homePageId",
+  "defaultPageWidthBl",
+  "defaultPageNaturalAspect",
+  "objectEncryptionKey",
+  "trashPageId",
+  "dockPageId",
+];
 
 pub struct User {
   pub id: Uid,
@@ -60,7 +62,8 @@ impl User {
       argon2
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| format!("Could not hash password using Argon2id: {}", e))?
-        .to_string())
+        .to_string(),
+    )
   }
 
   pub fn verify_password(password_hash: &str, password: &str) -> InfuResult<bool> {
@@ -83,7 +86,7 @@ impl Clone for User {
       dock_page_id: self.dock_page_id.clone(),
       default_page_width_bl: self.default_page_width_bl,
       default_page_natural_aspect: self.default_page_natural_aspect,
-      object_encryption_key: self.object_encryption_key.clone()
+      object_encryption_key: self.object_encryption_key.clone(),
     }
   }
 }
@@ -113,8 +116,11 @@ impl JsonLogSerializable<User> for User {
     result.insert(String::from("defaultPageWidthBl"), Value::Number(self.default_page_width_bl.into()));
     result.insert(
       String::from("defaultPageNaturalAspect"),
-      Value::Number(Number::from_f64(self.default_page_natural_aspect)
-        .ok_or(format!("default_page_natural_aspect for user '{}' is not a number", self.id))?));
+      Value::Number(
+        Number::from_f64(self.default_page_natural_aspect)
+          .ok_or(format!("default_page_natural_aspect for user '{}' is not a number", self.id))?,
+      ),
+    );
     result.insert(String::from("objectEncryptionKey"), Value::String(self.object_encryption_key.clone()));
     Ok(result)
   }
@@ -143,7 +149,7 @@ impl JsonLogSerializable<User> for User {
       default_page_natural_aspect: json::get_float_field(map, "defaultPageNaturalAspect")?
         .ok_or(format!("'defaultPageNaturalAspect' field was missing in an entry for user '{}'.", id))?,
       object_encryption_key: json::get_string_field(map, "objectEncryptionKey")?
-        .ok_or(format!("'objectEncryptionKey' was missing in entry for user '{}'.", id))?
+        .ok_or(format!("'objectEncryptionKey' was missing in entry for user '{}'.", id))?,
     })
   }
 
@@ -162,7 +168,10 @@ impl JsonLogSerializable<User> for User {
       result.insert(String::from("passwordSalt"), Value::String(new.password_salt.to_string()));
     }
     if let Some(new_totp_secret) = &new.totp_secret {
-      if match &old.totp_secret { Some(o) => o != new_totp_secret, None => { true } } {
+      if match &old.totp_secret {
+        Some(o) => o != new_totp_secret,
+        None => true,
+      } {
         result.insert(String::from("totpSecret"), Value::String(new_totp_secret.clone()));
       }
     } else {
@@ -186,24 +195,43 @@ impl JsonLogSerializable<User> for User {
       result.insert(String::from("defaultPageNaturalAspect"), Value::Number(new.default_page_width_bl.into()));
     }
     if old.object_encryption_key != new.object_encryption_key {
-      return Err(format!("Attempt was made to update object encryption key for item '{}', but this is not allowed.", old.id).into());
+      return Err(
+        format!("Attempt was made to update object encryption key for item '{}', but this is not allowed.", old.id)
+          .into(),
+      );
     }
     Ok(result)
   }
 
   fn apply_json_update(&mut self, map: &Map<String, Value>) -> InfuResult<()> {
     json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
-    if let Some(u) = json::get_string_field(map, "username")? { self.username = u; }
-    if let Some(u) = json::get_string_field(map, "passwordHash")? { self.password_hash = u; }
-    if let Some(u) = json::get_string_field(map, "passwordSalt")? { self.password_salt = u; }
+    if let Some(u) = json::get_string_field(map, "username")? {
+      self.username = u;
+    }
+    if let Some(u) = json::get_string_field(map, "passwordHash")? {
+      self.password_hash = u;
+    }
+    if let Some(u) = json::get_string_field(map, "passwordSalt")? {
+      self.password_salt = u;
+    }
     if let Some(_) = map.get("totpSecret") {
       self.totp_secret = json::get_string_field(map, "totpSecret")?;
     }
-    if let Some(u) = json::get_string_field(map, "homePageId")? { self.home_page_id = u; }
-    if let Some(u) = json::get_string_field(map, "trashPageId")? { self.trash_page_id = u; }
-    if let Some(u) = json::get_string_field(map, "dockPageId")? { self.dock_page_id = u; }
-    if let Some(u) = json::get_integer_field(map, "defaultPageWidthBl")? { self.default_page_width_bl = u; }
-    if let Some(u) = json::get_float_field(map, "defaultPageNaturalAspect")? { self.default_page_natural_aspect = u; }
+    if let Some(u) = json::get_string_field(map, "homePageId")? {
+      self.home_page_id = u;
+    }
+    if let Some(u) = json::get_string_field(map, "trashPageId")? {
+      self.trash_page_id = u;
+    }
+    if let Some(u) = json::get_string_field(map, "dockPageId")? {
+      self.dock_page_id = u;
+    }
+    if let Some(u) = json::get_integer_field(map, "defaultPageWidthBl")? {
+      self.default_page_width_bl = u;
+    }
+    if let Some(u) = json::get_float_field(map, "defaultPageNaturalAspect")? {
+      self.default_page_natural_aspect = u;
+    }
     if let Some(_) = json::get_string_field(map, "objectEncryptionKey")? {
       return Err(format!("Encountered an update record for user '{}' with an object encryption key specified, but this is not allowed.", self.id).into());
     }

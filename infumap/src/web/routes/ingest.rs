@@ -29,15 +29,14 @@ use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::storage::db::ingest_session::IngestSession;
 use crate::storage::db::Db;
+use crate::storage::db::ingest_session::IngestSession;
 use crate::storage::object;
 use crate::web::routes::command::add_item_for_user;
 use crate::web::serve::{cors_response, incoming_json, incoming_json_with_limit, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{new_uid, Uid};
-
+use infusdk::util::uid::{Uid, new_uid};
 
 const REASON_AUTH: &str = "auth";
 const REASON_CLIENT: &str = "client";
@@ -61,11 +60,11 @@ struct PairingCode {
 
 static PAIRING_CODES: Lazy<Mutex<HashMap<String, PairingCode>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
-
 pub async fn serve_ingest_route(
-    db: &Arc<Mutex<Db>>,
-    object_store: &Arc<object::ObjectStore>,
-    req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  db: &Arc<Mutex<Db>>,
+  object_store: &Arc<object::ObjectStore>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   if req.method() == Method::OPTIONS {
     return cors_response();
   }
@@ -78,10 +77,9 @@ pub async fn serve_ingest_route(
     (&Method::POST, "/ingest/sessions/list") => list_sessions(db, req).await,
     (&Method::POST, "/ingest/sessions/revoke") => revoke_session(db, req).await,
     (&Method::POST, "/ingest/add-item") => add_item(db, object_store.clone(), req).await,
-    _ => not_found_response()
+    _ => not_found_response(),
   }
 }
-
 
 #[derive(Serialize)]
 struct IngestSimpleResponse {
@@ -105,7 +103,10 @@ struct CreatePairingCodeRequest {
   device_name: Option<String>,
 }
 
-async fn create_pairing_code(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+async fn create_pairing_code(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
     None => {
@@ -172,11 +173,10 @@ async fn create_pairing_code(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
     });
   }
 
-  pairing_codes.insert(pairing_code_hash, PairingCode {
-    user_id: session.user_id.clone(),
-    device_name: Some(sanitized_device_name),
-    expires_at,
-  });
+  pairing_codes.insert(
+    pairing_code_hash,
+    PairingCode { user_id: session.user_id.clone(), device_name: Some(sanitized_device_name), expires_at },
+  );
 
   json_response(&CreatePairingCodeResponse {
     success: true,
@@ -185,7 +185,6 @@ async fn create_pairing_code(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
     expires_at: Some(expires_at),
   })
 }
-
 
 #[derive(Deserialize)]
 struct RedeemPairingCodeRequest {
@@ -213,7 +212,10 @@ struct RedeemPairingCodeResponse {
   refresh_expires: Option<i64>,
 }
 
-async fn redeem_pairing_code(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+async fn redeem_pairing_code(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let payload: RedeemPairingCodeRequest = match incoming_json(req).await {
     Ok(p) => p,
     Err(e) => {
@@ -301,9 +303,7 @@ async fn redeem_pairing_code(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
   let ingest_session_id = new_uid();
   let access_token = generate_secret_token("ibat");
   let refresh_token = generate_secret_token("ibrt");
-  let device_name = sanitize_device_name(payload.device_name
-    .as_deref()
-    .or(pairing_code.device_name.as_deref()));
+  let device_name = sanitize_device_name(payload.device_name.as_deref().or(pairing_code.device_name.as_deref()));
   let access_expires = now_unix_secs + ACCESS_TOKEN_TTL_SECS;
   let refresh_expires = now_unix_secs + REFRESH_TOKEN_TTL_SECS;
 
@@ -349,7 +349,6 @@ async fn redeem_pairing_code(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
   })
 }
 
-
 #[derive(Deserialize)]
 struct RefreshTokenRequest {
   #[serde(rename = "refreshToken")]
@@ -372,7 +371,10 @@ struct RefreshTokenResponse {
   refresh_expires: Option<i64>,
 }
 
-async fn refresh_token(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+async fn refresh_token(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let payload: RefreshTokenRequest = match incoming_json(req).await {
     Ok(p) => p,
     Err(e) => {
@@ -458,22 +460,21 @@ async fn refresh_token(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>)
   })
 }
 
-
 #[derive(Deserialize)]
 struct RevokeTokenRequest {
   #[serde(rename = "refreshToken")]
   refresh_token: String,
 }
 
-async fn revoke_token(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+async fn revoke_token(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let payload: RevokeTokenRequest = match incoming_json(req).await {
     Ok(p) => p,
     Err(e) => {
       warn!("Could not parse revoke token request: {}", e);
-      return json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_CLIENT.to_owned()),
-      });
+      return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_CLIENT.to_owned()) });
     }
   };
 
@@ -481,10 +482,7 @@ async fn revoke_token(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     Ok(t) => t,
     Err(e) => {
       error!("Could not revoke token due to clock issue: {}", e);
-      return json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_SERVER.to_owned()),
-      });
+      return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
     }
   };
 
@@ -494,10 +492,7 @@ async fn revoke_token(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   let mut ingest_session = match db.ingest_session.get_active_by_refresh_hash(&refresh_token_hash) {
     Some(s) => s,
     None => {
-      return json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_AUTH.to_owned()),
-      });
+      return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_AUTH.to_owned()) });
     }
   };
 
@@ -508,17 +503,13 @@ async fn revoke_token(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     Ok(_) => {
       info!("Revoked ingest session '{}' via refresh token.", ingest_session.id);
       json_response(&IngestSimpleResponse { success: true, err: None })
-    },
+    }
     Err(e) => {
       error!("Could not revoke ingest session '{}': {}", ingest_session.id, e);
-      json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_SERVER.to_owned()),
-      })
+      json_response(&IngestSimpleResponse { success: false, err: Some(REASON_SERVER.to_owned()) })
     }
   }
 }
-
 
 #[derive(Serialize)]
 struct IngestSessionSummary {
@@ -543,7 +534,10 @@ struct ListSessionsResponse {
   sessions: Option<Vec<IngestSessionSummary>>,
 }
 
-async fn list_sessions(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+async fn list_sessions(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
     None => {
@@ -559,7 +553,8 @@ async fn list_sessions(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>)
   let mut sessions = db.ingest_session.list_sessions_for_user(&session.user_id);
   sessions.sort_by(|a, b| b.last_used_at.cmp(&a.last_used_at));
 
-  let summaries = sessions.iter()
+  let summaries = sessions
+    .iter()
     .map(|s| IngestSessionSummary {
       id: s.id.clone(),
       device_name: s.device_name.clone(),
@@ -571,13 +566,8 @@ async fn list_sessions(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>)
     })
     .collect::<Vec<_>>();
 
-  json_response(&ListSessionsResponse {
-    success: true,
-    err: None,
-    sessions: Some(summaries),
-  })
+  json_response(&ListSessionsResponse { success: true, err: None, sessions: Some(summaries) })
 }
-
 
 #[derive(Deserialize)]
 struct RevokeSessionRequest {
@@ -585,14 +575,14 @@ struct RevokeSessionRequest {
   session_id: String,
 }
 
-async fn revoke_session(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+async fn revoke_session(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
     None => {
-      return json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_AUTH.to_owned()),
-      });
+      return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_AUTH.to_owned()) });
     }
   };
 
@@ -600,10 +590,7 @@ async fn revoke_session(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>
     Ok(p) => p,
     Err(e) => {
       warn!("Could not parse revoke ingest session request: {}", e);
-      return json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_CLIENT.to_owned()),
-      });
+      return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_CLIENT.to_owned()) });
     }
   };
 
@@ -613,17 +600,13 @@ async fn revoke_session(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>
     Ok(_) => {
       info!("Revoked ingest session '{}' for user '{}'.", payload.session_id, session.user_id);
       json_response(&IngestSimpleResponse { success: true, err: None })
-    },
+    }
     Err(e) => {
       warn!("Could not revoke ingest session '{}': {}", payload.session_id, e);
-      json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_AUTH.to_owned()),
-      })
+      json_response(&IngestSimpleResponse { success: false, err: Some(REASON_AUTH.to_owned()) })
     }
   }
 }
-
 
 #[derive(Deserialize)]
 struct AddItemRequest {
@@ -634,16 +617,14 @@ struct AddItemRequest {
 }
 
 async fn add_item(
-    db: &Arc<Mutex<Db>>,
-    object_store: Arc<object::ObjectStore>,
-    req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  db: &Arc<Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let access_token = match parse_bearer_token(&req) {
     Some(t) => t,
     None => {
-      return json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_AUTH.to_owned()),
-      });
+      return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_AUTH.to_owned()) });
     }
   };
 
@@ -651,10 +632,7 @@ async fn add_item(
     Ok(p) => p,
     Err(e) => {
       warn!("Could not parse add-item request: {}", e);
-      return json_response(&IngestSimpleResponse {
-        success: false,
-        err: Some(REASON_CLIENT.to_owned()),
-      });
+      return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_CLIENT.to_owned()) });
     }
   };
 
@@ -664,10 +642,7 @@ async fn add_item(
     let ingest_session = match db.ingest_session.get_active_by_access_hash(&access_token_hash) {
       Some(session) => session,
       None => {
-        return json_response(&IngestSimpleResponse {
-          success: false,
-          err: Some(REASON_AUTH.to_owned()),
-        });
+        return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_AUTH.to_owned()) });
       }
     };
 
@@ -677,10 +652,7 @@ async fn add_item(
   let add_result = add_item_for_user(db, object_store, &payload.json_data, &payload.base64_data, &ingest_user_id).await;
   if let Err(e) = add_result {
     warn!("Could not add ingest item: {}", e);
-    return json_response(&IngestSimpleResponse {
-      success: false,
-      err: Some(REASON_SERVER.to_owned()),
-    });
+    return json_response(&IngestSimpleResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
   }
 
   if let Ok(now_unix_secs) = now_unix_secs() {
@@ -695,12 +667,8 @@ async fn add_item(
     }
   }
 
-  json_response(&IngestSimpleResponse {
-    success: true,
-    err: None,
-  })
+  json_response(&IngestSimpleResponse { success: true, err: None })
 }
-
 
 fn parse_bearer_token(request: &Request<hyper::body::Incoming>) -> Option<String> {
   let header = request.headers().get(AUTHORIZATION)?;
@@ -737,22 +705,10 @@ fn generate_secret_token(prefix: &str) -> String {
 }
 
 fn normalize_pairing_code(code: &str) -> String {
-  code.chars()
-    .filter(|c| c.is_ascii_alphanumeric())
-    .map(|c| c.to_ascii_uppercase())
-    .collect::<String>()
+  code.chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_uppercase()).collect::<String>()
 }
 
 fn sanitize_device_name(device_name: Option<&str>) -> String {
-  let sanitized = device_name.unwrap_or("")
-    .trim()
-    .chars()
-    .filter(|c| !c.is_control())
-    .take(80)
-    .collect::<String>();
-  if sanitized.is_empty() {
-    DEFAULT_DEVICE_NAME.to_owned()
-  } else {
-    sanitized
-  }
+  let sanitized = device_name.unwrap_or("").trim().chars().filter(|c| !c.is_control()).take(80).collect::<String>();
+  if sanitized.is_empty() { DEFAULT_DEVICE_NAME.to_owned() } else { sanitized }
 }

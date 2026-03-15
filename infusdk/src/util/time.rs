@@ -36,9 +36,5 @@ pub fn unix_now_secs_u64() -> InfuResult<u64> {
 /// If the value is outside the reasonable range (< 0 or after year 2200),
 /// returns 0 and logs a warning.
 pub fn sanitize_original_creation_date(value: i64, _context: &str) -> i64 {
-  if value < MIN_REASONABLE_UNIX_TIMESTAMP || value > MAX_REASONABLE_UNIX_TIMESTAMP {
-    0
-  } else {
-    value
-  }
+  if value < MIN_REASONABLE_UNIX_TIMESTAMP || value > MAX_REASONABLE_UNIX_TIMESTAMP { 0 } else { value }
 }

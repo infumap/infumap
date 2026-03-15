@@ -14,21 +14,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use infusdk::db::kv_store::JsonLogSerializable;
+use infusdk::db::kv_store::KVStore;
+use infusdk::util::infu::InfuResult;
+use infusdk::util::uid::{Uid, is_uid};
+use log::{debug, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use infusdk::db::kv_store::KVStore;
-use infusdk::db::kv_store::JsonLogSerializable;
-use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{is_uid, Uid};
-use log::{warn, debug};
 use tokio::fs::File;
-use tokio::io::{BufReader, AsyncReadExt};
+use tokio::io::{AsyncReadExt, BufReader};
 
-use crate::util::fs::expand_tilde;
 use super::user::User;
+use crate::util::fs::expand_tilde;
 
 pub const CURRENT_USER_LOG_VERSION: i64 = 4;
-
 
 /// Db for managing User instances, assuming the mandated data folder hierarchy.
 /// Not thread safe.
@@ -84,7 +83,7 @@ impl UserDb {
         None => {
           warn!("User store {} contains no users, one expected.", log_path_str);
           continue;
-        },
+        }
         Some((uid, user)) => {
           if uid != dir_userid {
             warn!("Unexpected user '{}' encountered in log: '{}'. Ignoring.", uid, log_path_str);
@@ -102,11 +101,11 @@ impl UserDb {
 
       store_by_user_id.insert(String::from(dir_userid), store);
     }
-    
+
     Ok(UserDb {
       data_dir: expanded_data_path,
       store_by_id: store_by_user_id,
-      id_by_lowercase_username: user_id_by_username
+      id_by_lowercase_username: user_id_by_username,
     })
   }
 
@@ -138,29 +137,25 @@ impl UserDb {
   pub fn get_by_username_case_insensitive(&self, username: &str) -> Option<&User> {
     match self.id_by_lowercase_username.get(&username.to_lowercase()) {
       None => None,
-      Some(uid) => {
-        match self.store_by_id.get(uid) {
-          None => None,
-          Some(store) => {
-            store.get(uid)
-          }
-        }
-      }
+      Some(uid) => match self.store_by_id.get(uid) {
+        None => None,
+        Some(store) => store.get(uid),
+      },
     }
   }
 
   pub fn get(&self, uid: &Uid) -> Option<&User> {
     match self.store_by_id.get(uid) {
       None => None,
-      Some(store) => {
-        store.get(uid)
-      }
+      Some(store) => store.get(uid),
     }
   }
 
   pub async fn update(&mut self, user: &User) -> InfuResult<()> {
-    let old_user = self.get(&user.id)
-      .ok_or(format!("Request was made to update user with id '{}', but such a user does not exist.", user.id))?.clone();
+    let old_user = self
+      .get(&user.id)
+      .ok_or(format!("Request was made to update user with id '{}', but such a user does not exist.", user.id))?
+      .clone();
 
     let update_json_map = User::create_json_update(&old_user, user)?;
     if update_json_map.len() == 2 {
@@ -183,8 +178,10 @@ impl UserDb {
     &mut self,
     user_id: &Uid,
     password_hash: &str,
-    password_salt: &str) -> InfuResult<()> {
-    let old_user = self.get(user_id)
+    password_salt: &str,
+  ) -> InfuResult<()> {
+    let old_user = self
+      .get(user_id)
       .ok_or(format!("Request was made to update password for user '{}', but such a user does not exist.", user_id))?
       .clone();
 
@@ -199,9 +196,10 @@ impl UserDb {
       return Ok(());
     }
 
-    if update_json_map.len() != 4 ||
-       !update_json_map.contains_key("passwordHash") ||
-       !update_json_map.contains_key("passwordSalt") {
+    if update_json_map.len() != 4
+      || !update_json_map.contains_key("passwordHash")
+      || !update_json_map.contains_key("passwordSalt")
+    {
       warn!("Currently, only updating user password hash and salt is supported by this method.");
       return Err("Currently, only updating user password hash and salt is supported by this method.".into());
     }

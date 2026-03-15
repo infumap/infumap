@@ -14,19 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+mod cli;
 mod config;
+mod setup;
 mod storage;
+mod tokiort;
 mod util;
 mod web;
-mod cli;
-mod setup;
-mod tokiort;
 use std::str::FromStr;
 
 use clap::Command;
 use infusdk::util::infu::InfuResult;
 use std::env;
-
 
 #[tokio::main]
 async fn main() {
@@ -49,57 +48,27 @@ async fn main() {
     .get_matches();
 
   let command_result = match arg_matches.subcommand() {
-    Some(("web", arg_sub_matches)) => {
-      web::execute(&arg_sub_matches).await
-    },
-    Some((command, arg_sub_matches)) => {
-      match init_logger(None) {
-        Err(e) => Err(e),
-        Ok(()) => {
-          match command {
-            "compact" => {
-              cli::compact::execute(&arg_sub_matches).await
-            },
-            "emergency" => {
-              cli::emergency::execute(&arg_sub_matches).await
-            },
-            "keygen" => {
-              cli::keygen::execute(&arg_sub_matches)
-            },
-            "login" => {
-              cli::login::execute(&arg_sub_matches).await
-            },
-            "logout" => {
-              cli::logout::execute(&arg_sub_matches).await
-            },
-            "ls" => {
-              cli::ls::execute(&arg_sub_matches).await
-            },
-            "migrate" => {
-              cli::migrate::execute(&arg_sub_matches).await
-            },
-            "note" => {
-              cli::note::execute(&arg_sub_matches).await
-            },
-            "pending" => {
-              cli::pending::execute(&arg_sub_matches).await
-            },
-            "reconcile" => {
-              cli::reconcile::execute(&arg_sub_matches).await
-            },
-            "restore" => {
-              cli::restore::execute(&arg_sub_matches).await
-            },
-            "upload" => {
-              cli::upload::execute(&arg_sub_matches).await
-            },
-            _ => {
-              println!(".. --help for help.");
-              Ok(())
-            }
-          }
+    Some(("web", arg_sub_matches)) => web::execute(&arg_sub_matches).await,
+    Some((command, arg_sub_matches)) => match init_logger(None) {
+      Err(e) => Err(e),
+      Ok(()) => match command {
+        "compact" => cli::compact::execute(&arg_sub_matches).await,
+        "emergency" => cli::emergency::execute(&arg_sub_matches).await,
+        "keygen" => cli::keygen::execute(&arg_sub_matches),
+        "login" => cli::login::execute(&arg_sub_matches).await,
+        "logout" => cli::logout::execute(&arg_sub_matches).await,
+        "ls" => cli::ls::execute(&arg_sub_matches).await,
+        "migrate" => cli::migrate::execute(&arg_sub_matches).await,
+        "note" => cli::note::execute(&arg_sub_matches).await,
+        "pending" => cli::pending::execute(&arg_sub_matches).await,
+        "reconcile" => cli::reconcile::execute(&arg_sub_matches).await,
+        "restore" => cli::restore::execute(&arg_sub_matches).await,
+        "upload" => cli::upload::execute(&arg_sub_matches).await,
+        _ => {
+          println!(".. --help for help.");
+          Ok(())
         }
-      }
+      },
     },
     _ => {
       println!(".. --help for help.");
@@ -108,14 +77,13 @@ async fn main() {
   };
 
   match command_result {
-    Ok(_) => {},
+    Ok(_) => {}
     Err(e) => {
       // Not using logger here, as the error may have been in initializing the logger.
       println!("{}", e);
     }
   }
 }
-
 
 fn init_logger(level: Option<String>) -> InfuResult<()> {
   // pretty_env_logger::init();
@@ -125,7 +93,7 @@ fn init_logger(level: Option<String>) -> InfuResult<()> {
     let key = "INFUMAP_LOG_LEVEL";
     let log_level_str = match env::var(key) {
       Err(_) => "info".to_owned(),
-      Ok(v) => v
+      Ok(v) => v,
     };
     log::LevelFilter::from_str(&log_level_str).map_err(|e| format!("Could not parse log level: {}", e))?
   };

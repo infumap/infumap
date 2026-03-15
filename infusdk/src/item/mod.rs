@@ -14,19 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use bitflags::bitflags;
-use crate::util::geometry::{Dimensions, Vector, GRID_SIZE};
+use crate::util::geometry::{Dimensions, GRID_SIZE, Vector};
+use crate::util::hash::{combine_hashes, hash_f64_to_uid, hash_i64_to_uid, hash_string_to_uid, hash_u8_vec_to_uid};
 use crate::util::infu::{InfuError, InfuResult};
-use crate::util::time::unix_now_secs_i64;
-use crate::util::uid::{is_uid, new_uid, Uid, EMPTY_UID};
 use crate::util::json;
-use crate::util::hash::{hash_string_to_uid, hash_i64_to_uid, hash_f64_to_uid, hash_u8_vec_to_uid, combine_hashes};
+use crate::util::time::unix_now_secs_i64;
+use crate::util::uid::{EMPTY_UID, Uid, is_uid, new_uid};
 use crate::web::WebApiJsonSerializable;
-use serde::{Serialize, Deserialize};
-use serde_json::{Value, Map, Number};
+use bitflags::bitflags;
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Number, Value};
 
 use crate::db::kv_store::JsonLogSerializable;
-
 
 bitflags! {
   pub struct  NoteFlags: i64 {
@@ -52,20 +51,18 @@ bitflags! {
   }
 }
 
-
 #[derive(Debug, PartialEq)]
 pub enum PermissionFlags {
   #[allow(dead_code)]
-  None =           0x000,
-  Public =         0x001,
+  None = 0x000,
+  Public = 0x001,
 }
-
 
 #[derive(Debug, PartialEq)]
 pub enum RelationshipToParent {
   NoParent,
   Child,
-  Attachment
+  Attachment,
 }
 
 impl RelationshipToParent {
@@ -73,7 +70,7 @@ impl RelationshipToParent {
     match self {
       RelationshipToParent::Attachment => "attachment",
       RelationshipToParent::Child => "child",
-      RelationshipToParent::NoParent => "no-parent"
+      RelationshipToParent::NoParent => "no-parent",
     }
   }
 
@@ -82,7 +79,7 @@ impl RelationshipToParent {
       "attachment" => Ok(RelationshipToParent::Attachment),
       "child" => Ok(RelationshipToParent::Child),
       "no-parent" => Ok(RelationshipToParent::NoParent),
-      other => Err(format!("Invalid RelationshipToParent value: '{}'.", other).into())
+      other => Err(format!("Invalid RelationshipToParent value: '{}'.", other).into()),
     }
   }
 }
@@ -96,7 +93,6 @@ impl Clone for RelationshipToParent {
     }
   }
 }
-
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ArrangeAlgorithm {
@@ -134,19 +130,17 @@ impl ArrangeAlgorithm {
       "single-cell" => Ok(ArrangeAlgorithm::SingleCell),
       // "gallery" => Ok(ArrangeAlgorithm::Gallery),
       "calendar" => Ok(ArrangeAlgorithm::Calendar),
-      other => Err(format!("Invalid ArrangeAlgorithm value: '{}'.", other).into())
+      other => Err(format!("Invalid ArrangeAlgorithm value: '{}'.", other).into()),
     }
   }
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct TableColumn {
-  #[serde(rename="widthGr")]
+  #[serde(rename = "widthGr")]
   pub width_gr: i64,
   pub name: String,
 }
-
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum RatingType {
@@ -172,11 +166,10 @@ impl RatingType {
       "Star" => Ok(RatingType::Star),
       "HorizontalBar" => Ok(RatingType::HorizontalBar),
       "VerticalBar" => Ok(RatingType::VerticalBar),
-      other => Err(format!("Invalid RatingType value: '{}'.", other).into())
+      other => Err(format!("Invalid RatingType value: '{}'.", other).into()),
     }
   }
 }
-
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ItemType {
@@ -226,7 +219,7 @@ impl ItemType {
       "placeholder" => Ok(ItemType::Placeholder),
       "expression" => Ok(ItemType::Expression),
       "flipcard" => Ok(ItemType::FlipCard),
-      other => Err(format!("Invalid ItemType value: '{}'.", other).into())
+      other => Err(format!("Invalid ItemType value: '{}'.", other).into()),
     }
   }
 }
@@ -242,15 +235,20 @@ pub fn is_positionable_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_attachments_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::File || item_type == ItemType::Note ||
-  item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Image || item_type == ItemType::Password ||
-  item_type == ItemType::FlipCard
+  item_type == ItemType::File
+    || item_type == ItemType::Note
+    || item_type == ItemType::Page
+    || item_type == ItemType::Table
+    || item_type == ItemType::Image
+    || item_type == ItemType::Password
+    || item_type == ItemType::FlipCard
 }
 
 pub fn is_container_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Composite || item_type == ItemType::FlipCard
+  item_type == ItemType::Page
+    || item_type == ItemType::Table
+    || item_type == ItemType::Composite
+    || item_type == ItemType::FlipCard
 }
 
 pub fn is_data_item_type(item_type: ItemType) -> bool {
@@ -258,11 +256,15 @@ pub fn is_data_item_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::File || item_type == ItemType::Note ||
-  item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Image || item_type == ItemType::Password ||
-  item_type == ItemType::Composite || item_type == ItemType::Expression ||
-  item_type == ItemType::FlipCard
+  item_type == ItemType::File
+    || item_type == ItemType::Note
+    || item_type == ItemType::Page
+    || item_type == ItemType::Table
+    || item_type == ItemType::Image
+    || item_type == ItemType::Password
+    || item_type == ItemType::Composite
+    || item_type == ItemType::Expression
+    || item_type == ItemType::FlipCard
 }
 
 pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
@@ -270,9 +272,12 @@ pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_titled_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::File || item_type == ItemType::Note ||
-  item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Image || item_type == ItemType::Expression
+  item_type == ItemType::File
+    || item_type == ItemType::Note
+    || item_type == ItemType::Page
+    || item_type == ItemType::Table
+    || item_type == ItemType::Image
+    || item_type == ItemType::Expression
 }
 
 pub fn is_tabular_item_type(item_type: ItemType) -> bool {
@@ -312,9 +317,12 @@ pub fn is_flipcard_item(item: &Item) -> bool {
 }
 
 pub fn is_flags_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Table || item_type == ItemType::Note ||
-  item_type == ItemType::Composite || item_type == ItemType::Page ||
-  item_type == ItemType::Image || item_type == ItemType::Expression
+  item_type == ItemType::Table
+    || item_type == ItemType::Note
+    || item_type == ItemType::Composite
+    || item_type == ItemType::Page
+    || item_type == ItemType::Image
+    || item_type == ItemType::Expression
 }
 
 pub fn is_format_item_type(item_type: ItemType) -> bool {
@@ -329,21 +337,56 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 48] = ["__recordType",
-  "itemType", "ownerId", "id", "parentId", "relationshipToParent",
-  "creationDate", "lastModifiedDate", "dateTime", "ordering", "title",
-  "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
-  "naturalAspect", "backgroundColorIndex", "defaultPopupPositionGr",
-  "defaultPopupWidthGr", "popupPositionGr", "popupWidthGr",
-  "defaultCellPopupPositionNorm", "defaultCellPopupWidthNorm",
-  "cellPopupPositionNorm", "cellPopupWidthNorm", "arrangeAlgorithm",
-  "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
-  "thumbnail", "mimeType", "fileSizeBytes", "rating", "ratingType", "tableColumns",
-  "linkTo", "gridNumberOfColumns", "orderChildrenBy", "text",
-  "flags", "permissionFlags", "format", "docWidthBl",
-  "gridCellAspect", "justifiedRowAspect", "calendarDayRowHeightBl", "numberOfVisibleColumns",
-  "scale"];
-
+const ALL_JSON_FIELDS: [&'static str; 48] = [
+  "__recordType",
+  "itemType",
+  "ownerId",
+  "id",
+  "parentId",
+  "relationshipToParent",
+  "creationDate",
+  "lastModifiedDate",
+  "dateTime",
+  "ordering",
+  "title",
+  "spatialPositionGr",
+  "spatialWidthGr",
+  "innerSpatialWidthGr",
+  "naturalAspect",
+  "backgroundColorIndex",
+  "defaultPopupPositionGr",
+  "defaultPopupWidthGr",
+  "popupPositionGr",
+  "popupWidthGr",
+  "defaultCellPopupPositionNorm",
+  "defaultCellPopupWidthNorm",
+  "cellPopupPositionNorm",
+  "cellPopupWidthNorm",
+  "arrangeAlgorithm",
+  "url",
+  "originalCreationDate",
+  "spatialHeightGr",
+  "imageSizePx",
+  "thumbnail",
+  "mimeType",
+  "fileSizeBytes",
+  "rating",
+  "ratingType",
+  "tableColumns",
+  "linkTo",
+  "gridNumberOfColumns",
+  "orderChildrenBy",
+  "text",
+  "flags",
+  "permissionFlags",
+  "format",
+  "docWidthBl",
+  "gridCellAspect",
+  "justifiedRowAspect",
+  "calendarDayRowHeightBl",
+  "numberOfVisibleColumns",
+  "scale",
+];
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
 /// The implementation is largely hand-rolled - e.g. doesn't leverage the default Rust
@@ -506,7 +549,6 @@ impl Clone for Item {
   }
 }
 
-
 impl WebApiJsonSerializable<Item> for Item {
   fn to_api_json(&self) -> InfuResult<Map<String, Value>> {
     to_json(self)
@@ -516,7 +558,6 @@ impl WebApiJsonSerializable<Item> for Item {
     from_json(map)
   }
 }
-
 
 impl JsonLogSerializable<Item> for Item {
   fn value_type_identifier() -> &'static str {
@@ -539,14 +580,21 @@ impl JsonLogSerializable<Item> for Item {
 
   fn create_json_update(old: &Item, new: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>> {
     fn nan_err(field_name: &str, item_id: &str) -> String {
-      format!("Could not serialize the '{}' field of item '{}' to an update record because it is not a number.", field_name, item_id)
+      format!(
+        "Could not serialize the '{}' field of item '{}' to an update record because it is not a number.",
+        field_name, item_id
+      )
     }
     fn cannot_modify_err(field_name: &str, item_id: &str) -> InfuResult<()> {
       Err(format!("An attempt was made to create an item update that modifies the field '{}' of item '{}', but this is not allowed.", field_name, item_id).into())
     }
 
-    if old.id != new.id { return Err("An attempt was made to create an item update from instances with non-matching ids.".into()); }
-    if old.owner_id != new.owner_id { return Err("An attempt was made to create an item update from instances with non-matching owner_ids.".into()); }
+    if old.id != new.id {
+      return Err("An attempt was made to create an item update from instances with non-matching ids.".into());
+    }
+    if old.owner_id != new.owner_id {
+      return Err("An attempt was made to create an item update from instances with non-matching owner_ids.".into());
+    }
 
     let mut result = Map::new();
     result.insert(String::from("__recordType"), Value::String(String::from("update")));
@@ -565,48 +613,87 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
 
-    if old.relationship_to_parent != new.relationship_to_parent { result.insert(String::from("relationshipToParent"), Value::String(String::from(new.relationship_to_parent.as_str()))); }
-    if old.creation_date != new.creation_date { cannot_modify_err("creationDate", &old.id)?; }
-    if old.last_modified_date != new.last_modified_date { result.insert(String::from("lastModifiedDate"), Value::Number(new.last_modified_date.into())); }
-    if old.datetime != new.datetime { result.insert(String::from("dateTime"), Value::Number(new.datetime.into())); }
-    if old.ordering != new.ordering { result.insert(String::from("ordering"), Value::Array(new.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>())); }
+    if old.relationship_to_parent != new.relationship_to_parent {
+      result
+        .insert(String::from("relationshipToParent"), Value::String(String::from(new.relationship_to_parent.as_str())));
+    }
+    if old.creation_date != new.creation_date {
+      cannot_modify_err("creationDate", &old.id)?;
+    }
+    if old.last_modified_date != new.last_modified_date {
+      result.insert(String::from("lastModifiedDate"), Value::Number(new.last_modified_date.into()));
+    }
+    if old.datetime != new.datetime {
+      result.insert(String::from("dateTime"), Value::Number(new.datetime.into()));
+    }
+    if old.ordering != new.ordering {
+      result.insert(
+        String::from("ordering"),
+        Value::Array(new.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()),
+      );
+    }
 
     // container
     if let Some(new_order_children_by) = &new.order_children_by {
-      if match &old.order_children_by { Some(o) => o != new_order_children_by, None => { true } } {
-        if !is_container_item_type(old.item_type) { cannot_modify_err("orderChildrenBy", &old.id)?; }
+      if match &old.order_children_by {
+        Some(o) => o != new_order_children_by,
+        None => true,
+      } {
+        if !is_container_item_type(old.item_type) {
+          cannot_modify_err("orderChildrenBy", &old.id)?;
+        }
         result.insert(String::from("orderChildrenBy"), Value::String(new_order_children_by.clone()));
       }
     }
 
     // positionable
     if let Some(new_spatial_position_gr) = &new.spatial_position_gr {
-      if match &old.spatial_position_gr { Some(o) => o.x != new_spatial_position_gr.x || o.y != new_spatial_position_gr.y, None => { true } } {
-        if !is_positionable_type(old.item_type) { cannot_modify_err("spatialPositionGr", &old.id)?; }
+      if match &old.spatial_position_gr {
+        Some(o) => o.x != new_spatial_position_gr.x || o.y != new_spatial_position_gr.y,
+        None => true,
+      } {
+        if !is_positionable_type(old.item_type) {
+          cannot_modify_err("spatialPositionGr", &old.id)?;
+        }
         result.insert(String::from("spatialPositionGr"), json::vector_to_object(&new_spatial_position_gr));
       }
     }
 
     // x-sizable
     if let Some(new_spatial_width_gr) = new.spatial_width_gr {
-      if match old.spatial_width_gr { Some(o) => o != new_spatial_width_gr, None => { true } } {
-        if !is_x_sizeable_item_type(old.item_type) && !is_link_item(old) { cannot_modify_err("spatialWidthGr", &old.id)?; }
+      if match old.spatial_width_gr {
+        Some(o) => o != new_spatial_width_gr,
+        None => true,
+      } {
+        if !is_x_sizeable_item_type(old.item_type) && !is_link_item(old) {
+          cannot_modify_err("spatialWidthGr", &old.id)?;
+        }
         result.insert(String::from("spatialWidthGr"), Value::Number(new_spatial_width_gr.into()));
       }
     }
 
     // y-sizable
     if let Some(new_spatial_height_gr) = new.spatial_height_gr {
-      if match old.spatial_height_gr { Some(o) => o != new_spatial_height_gr, None => { true } } {
-        if !is_y_sizeable_item_type(old.item_type) && !is_link_item(old) && old.item_type != ItemType::Note { cannot_modify_err("spatialHeightGr", &old.id)?; }
+      if match old.spatial_height_gr {
+        Some(o) => o != new_spatial_height_gr,
+        None => true,
+      } {
+        if !is_y_sizeable_item_type(old.item_type) && !is_link_item(old) && old.item_type != ItemType::Note {
+          cannot_modify_err("spatialHeightGr", &old.id)?;
+        }
         result.insert(String::from("spatialHeightGr"), Value::Number(new_spatial_height_gr.into()));
       }
     }
 
     // titled
     if let Some(new_title) = &new.title {
-      if match &old.title { Some(o) => o != new_title, None => { true } } {
-        if !is_titled_item_type(old.item_type) { cannot_modify_err("title", &old.id)?; }
+      if match &old.title {
+        Some(o) => o != new_title,
+        None => true,
+      } {
+        if !is_titled_item_type(old.item_type) {
+          cannot_modify_err("title", &old.id)?;
+        }
         result.insert(String::from("title"), Value::String(new_title.clone()));
       }
     }
@@ -614,191 +701,336 @@ impl JsonLogSerializable<Item> for Item {
     // data
     // Like the data file, all these fields are immutable.
     if let Some(new_original_creation_date) = new.original_creation_date {
-      if match old.original_creation_date { Some(o) => o != new_original_creation_date, None => { true } } {
+      if match old.original_creation_date {
+        Some(o) => o != new_original_creation_date,
+        None => true,
+      } {
         cannot_modify_err("originalCreationDate", &old.id)?;
       }
     }
     if let Some(new_mime_type) = &new.mime_type {
-      if match &old.mime_type { Some(o) => o != new_mime_type, None => { true } } {
+      if match &old.mime_type {
+        Some(o) => o != new_mime_type,
+        None => true,
+      } {
         cannot_modify_err("mimeType", &old.id)?;
       }
     }
     if let Some(new_file_size_bytes) = &new.file_size_bytes {
-      if match &old.file_size_bytes { Some(o) => o != new_file_size_bytes, None => { true } } {
+      if match &old.file_size_bytes {
+        Some(o) => o != new_file_size_bytes,
+        None => true,
+      } {
         cannot_modify_err("fileSizeBytes", &old.id)?;
       }
     }
 
     // tabular
     if let Some(new_table_columns) = &new.table_columns {
-      if match &old.table_columns { Some(o) => o != new_table_columns, None => { true } } {
-        if !is_tabular_item_type(old.item_type) { cannot_modify_err("tableColumns", &old.id)?; }
+      if match &old.table_columns {
+        Some(o) => o != new_table_columns,
+        None => true,
+      } {
+        if !is_tabular_item_type(old.item_type) {
+          cannot_modify_err("tableColumns", &old.id)?;
+        }
         result.insert(String::from("tableColumns"), json::table_columns_to_array(&new_table_columns));
       }
     }
     if let Some(new_number_of_visible_columns) = new.number_of_visible_columns {
-      if match old.number_of_visible_columns { Some(o) => o != new_number_of_visible_columns, None => { true } } {
-        if !is_tabular_item_type(old.item_type) { cannot_modify_err("numberOfVisibleColumns", &old.id)?; }
+      if match old.number_of_visible_columns {
+        Some(o) => o != new_number_of_visible_columns,
+        None => true,
+      } {
+        if !is_tabular_item_type(old.item_type) {
+          cannot_modify_err("numberOfVisibleColumns", &old.id)?;
+        }
         result.insert(String::from("numberOfVisibleColumns"), Value::Number(new_number_of_visible_columns.into()));
       }
     }
 
     // flags
     if let Some(new_flags) = new.flags {
-      if match old.flags { Some(o) => o != new_flags, None => { true } } {
-        if !is_flags_item_type(old.item_type) { cannot_modify_err("flags", &old.id)?; }
+      if match old.flags {
+        Some(o) => o != new_flags,
+        None => true,
+      } {
+        if !is_flags_item_type(old.item_type) {
+          cannot_modify_err("flags", &old.id)?;
+        }
         result.insert(String::from("flags"), Value::Number(new_flags.into()));
       }
     }
 
     // format
     if let Some(new_format) = &new.format {
-      if match &old.format { Some(o) => o != new_format, None => { true } } {
-        if !is_format_item_type(old.item_type) { cannot_modify_err("format", &old.id)?; }
+      if match &old.format {
+        Some(o) => o != new_format,
+        None => true,
+      } {
+        if !is_format_item_type(old.item_type) {
+          cannot_modify_err("format", &old.id)?;
+        }
         result.insert(String::from("format"), Value::String(new_format.clone()));
       }
     }
 
     // permission flags
     if let Some(new_permission_flags) = new.permission_flags {
-      if match old.permission_flags { Some(o) => o != new_permission_flags, None => { true } } {
-        if !is_permission_flags_item_type(old.item_type) { cannot_modify_err("permissionFlags", &old.id)?; }
+      if match old.permission_flags {
+        Some(o) => o != new_permission_flags,
+        None => true,
+      } {
+        if !is_permission_flags_item_type(old.item_type) {
+          cannot_modify_err("permissionFlags", &old.id)?;
+        }
         result.insert(String::from("permissionFlags"), Value::Number(new_permission_flags.into()));
       }
     }
 
     // colorable
     if let Some(new_background_color_index) = new.background_color_index {
-      if match old.background_color_index { Some(o) => o != new_background_color_index, None => { true } } {
-        if !is_colorable_item_type(old.item_type) { cannot_modify_err("backgroundColorIndex", &old.id)?; }
+      if match old.background_color_index {
+        Some(o) => o != new_background_color_index,
+        None => true,
+      } {
+        if !is_colorable_item_type(old.item_type) {
+          cannot_modify_err("backgroundColorIndex", &old.id)?;
+        }
         result.insert(String::from("backgroundColorIndex"), Value::Number(new_background_color_index.into()));
       }
     }
 
     // aspect
     if let Some(new_natural_aspect) = new.natural_aspect {
-      if match old.natural_aspect { Some(o) => o != new_natural_aspect, None => { true } } {
-        if !is_aspect_item_type(old.item_type) { cannot_modify_err("naturalAspect", &old.id)?; }
-        result.insert(String::from("naturalAspect"), Value::Number(Number::from_f64(new_natural_aspect).ok_or(nan_err("naturalAspect", &old.id))?));
+      if match old.natural_aspect {
+        Some(o) => o != new_natural_aspect,
+        None => true,
+      } {
+        if !is_aspect_item_type(old.item_type) {
+          cannot_modify_err("naturalAspect", &old.id)?;
+        }
+        result.insert(
+          String::from("naturalAspect"),
+          Value::Number(Number::from_f64(new_natural_aspect).ok_or(nan_err("naturalAspect", &old.id))?),
+        );
       }
     }
 
     // page
     if let Some(new_inner_spatial_width_gr) = new.inner_spatial_width_gr {
-      if match old.inner_spatial_width_gr { Some(o) => o != new_inner_spatial_width_gr, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("innerSpatialWidthGr", &old.id)?; }
+      if match old.inner_spatial_width_gr {
+        Some(o) => o != new_inner_spatial_width_gr,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("innerSpatialWidthGr", &old.id)?;
+        }
         result.insert(String::from("innerSpatialWidthGr"), Value::Number(new_inner_spatial_width_gr.into()));
       }
     }
     if let Some(new_arrange_algorithm) = &new.arrange_algorithm {
-      if match &old.arrange_algorithm { Some(o) => o != new_arrange_algorithm, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("arrangeAlgorithm", &old.id)?; }
+      if match &old.arrange_algorithm {
+        Some(o) => o != new_arrange_algorithm,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("arrangeAlgorithm", &old.id)?;
+        }
         result.insert(String::from("arrangeAlgorithm"), Value::String(String::from(new_arrange_algorithm.as_str())));
       }
     }
     if let Some(new_default_popup_position_gr) = &new.default_popup_position_gr {
-      if match &old.default_popup_position_gr { Some(o) => o != new_default_popup_position_gr, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("defaultPopupPositionGr", &old.id)?; }
+      if match &old.default_popup_position_gr {
+        Some(o) => o != new_default_popup_position_gr,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("defaultPopupPositionGr", &old.id)?;
+        }
         result.insert(String::from("defaultPopupPositionGr"), json::vector_to_object(&new_default_popup_position_gr));
       }
     }
     if let Some(new_default_popup_width_gr) = new.default_popup_width_gr {
-      if match old.default_popup_width_gr { Some(o) => o != new_default_popup_width_gr, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("defaultPopupWidthGr", &old.id)?; }
+      if match old.default_popup_width_gr {
+        Some(o) => o != new_default_popup_width_gr,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("defaultPopupWidthGr", &old.id)?;
+        }
         result.insert(String::from("defaultPopupWidthGr"), Value::Number(new_default_popup_width_gr.into()));
       }
     }
     match (&old.popup_position_gr, &new.popup_position_gr) {
       (Some(_), None) => {
-        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("popupPositionGr", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) {
+          cannot_modify_err("popupPositionGr", &old.id)?;
+        }
         result.insert(String::from("popupPositionGr"), Value::Null);
-      },
+      }
       (o, n @ Some(_)) if o != n => {
-        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("popupPositionGr", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) {
+          cannot_modify_err("popupPositionGr", &old.id)?;
+        }
         result.insert(String::from("popupPositionGr"), json::vector_to_object(n.as_ref().unwrap()));
-      },
+      }
       _ => {}
     }
     match (old.popup_width_gr, new.popup_width_gr) {
       (Some(_), None) => {
-        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("popupWidthGr", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) {
+          cannot_modify_err("popupWidthGr", &old.id)?;
+        }
         result.insert(String::from("popupWidthGr"), Value::Null);
-      },
+      }
       (o, n @ Some(_)) if o != n => {
-        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("popupWidthGr", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) {
+          cannot_modify_err("popupWidthGr", &old.id)?;
+        }
         result.insert(String::from("popupWidthGr"), Value::Number(n.unwrap().into()));
-      },
+      }
       _ => {}
     }
     if let Some(new_default_cell_popup_position_norm) = &new.default_cell_popup_position_norm {
-      if match &old.default_cell_popup_position_norm { Some(o) => o != new_default_cell_popup_position_norm, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("defaultCellPopupPositionNorm", &old.id)?; }
-        result.insert(String::from("defaultCellPopupPositionNorm"), json::float_vector_to_object(&new_default_cell_popup_position_norm));
+      if match &old.default_cell_popup_position_norm {
+        Some(o) => o != new_default_cell_popup_position_norm,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("defaultCellPopupPositionNorm", &old.id)?;
+        }
+        result.insert(
+          String::from("defaultCellPopupPositionNorm"),
+          json::float_vector_to_object(&new_default_cell_popup_position_norm),
+        );
       }
     }
     if let Some(new_default_cell_popup_width_norm) = new.default_cell_popup_width_norm {
-      if match old.default_cell_popup_width_norm { Some(o) => o != new_default_cell_popup_width_norm, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("defaultCellPopupWidthNorm", &old.id)?; }
-        result.insert(String::from("defaultCellPopupWidthNorm"), Value::Number(Number::from_f64(new_default_cell_popup_width_norm).ok_or(nan_err("defaultCellPopupWidthNorm", &old.id))?));
+      if match old.default_cell_popup_width_norm {
+        Some(o) => o != new_default_cell_popup_width_norm,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("defaultCellPopupWidthNorm", &old.id)?;
+        }
+        result.insert(
+          String::from("defaultCellPopupWidthNorm"),
+          Value::Number(
+            Number::from_f64(new_default_cell_popup_width_norm).ok_or(nan_err("defaultCellPopupWidthNorm", &old.id))?,
+          ),
+        );
       }
     }
     match (&old.cell_popup_position_norm, &new.cell_popup_position_norm) {
       (Some(_), None) => {
-        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("cellPopupPositionNorm", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) {
+          cannot_modify_err("cellPopupPositionNorm", &old.id)?;
+        }
         result.insert(String::from("cellPopupPositionNorm"), Value::Null);
-      },
+      }
       (o, n @ Some(_)) if o != n => {
-        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("cellPopupPositionNorm", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) {
+          cannot_modify_err("cellPopupPositionNorm", &old.id)?;
+        }
         result.insert(String::from("cellPopupPositionNorm"), json::float_vector_to_object(n.as_ref().unwrap()));
-      },
+      }
       _ => {}
     }
     match (old.cell_popup_width_norm, new.cell_popup_width_norm) {
       (Some(_), None) => {
-        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("cellPopupWidthNorm", &old.id)?; }
+        if !is_popup_positionable_item_type(old.item_type) {
+          cannot_modify_err("cellPopupWidthNorm", &old.id)?;
+        }
         result.insert(String::from("cellPopupWidthNorm"), Value::Null);
-      },
+      }
       (o, n @ Some(_)) if o != n => {
-        if !is_popup_positionable_item_type(old.item_type) { cannot_modify_err("cellPopupWidthNorm", &old.id)?; }
-        result.insert(String::from("cellPopupWidthNorm"), Value::Number(Number::from_f64(n.unwrap()).ok_or(nan_err("cellPopupWidthNorm", &old.id))?));
-      },
+        if !is_popup_positionable_item_type(old.item_type) {
+          cannot_modify_err("cellPopupWidthNorm", &old.id)?;
+        }
+        result.insert(
+          String::from("cellPopupWidthNorm"),
+          Value::Number(Number::from_f64(n.unwrap()).ok_or(nan_err("cellPopupWidthNorm", &old.id))?),
+        );
+      }
       _ => {}
     }
     if let Some(grid_number_of_columns) = new.grid_number_of_columns {
-      if match old.grid_number_of_columns { Some(o) => o != grid_number_of_columns, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("gridNumberOfColumns", &old.id)?; }
+      if match old.grid_number_of_columns {
+        Some(o) => o != grid_number_of_columns,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("gridNumberOfColumns", &old.id)?;
+        }
         result.insert(String::from("gridNumberOfColumns"), Value::Number(grid_number_of_columns.into()));
       }
     }
     if let Some(new_grid_cell_aspect) = new.grid_cell_aspect {
-      if match old.grid_cell_aspect { Some(o) => o != new_grid_cell_aspect, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("gridCellAspect", &old.id)?; }
-        result.insert(String::from("gridCellAspect"), Value::Number(Number::from_f64(new_grid_cell_aspect).ok_or(nan_err("gridCellAspect", &old.id))?));
+      if match old.grid_cell_aspect {
+        Some(o) => o != new_grid_cell_aspect,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("gridCellAspect", &old.id)?;
+        }
+        result.insert(
+          String::from("gridCellAspect"),
+          Value::Number(Number::from_f64(new_grid_cell_aspect).ok_or(nan_err("gridCellAspect", &old.id))?),
+        );
       }
     }
     if let Some(doc_width_bl) = new.doc_width_bl {
-      if match old.doc_width_bl { Some(o) => o != doc_width_bl, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("docWidthBl", &old.id)?; }
+      if match old.doc_width_bl {
+        Some(o) => o != doc_width_bl,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("docWidthBl", &old.id)?;
+        }
         result.insert(String::from("docWidthBl"), Value::Number(doc_width_bl.into()));
       }
     }
     if let Some(new_justified_row_aspect) = new.justified_row_aspect {
-      if match old.justified_row_aspect { Some(o) => o != new_justified_row_aspect, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("justifiedRowAspect", &old.id)?; }
-        result.insert(String::from("justifiedRowAspect"), Value::Number(Number::from_f64(new_justified_row_aspect).ok_or(nan_err("justifiedRowAspect", &old.id))?));
+      if match old.justified_row_aspect {
+        Some(o) => o != new_justified_row_aspect,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("justifiedRowAspect", &old.id)?;
+        }
+        result.insert(
+          String::from("justifiedRowAspect"),
+          Value::Number(Number::from_f64(new_justified_row_aspect).ok_or(nan_err("justifiedRowAspect", &old.id))?),
+        );
       }
     }
     if let Some(new_calendar_day_row_height_bl) = new.calendar_day_row_height_bl {
-      if match old.calendar_day_row_height_bl { Some(o) => o != new_calendar_day_row_height_bl, None => { true } } {
-        if old.item_type != ItemType::Page { cannot_modify_err("calendarDayRowHeightBl", &old.id)?; }
-        result.insert(String::from("calendarDayRowHeightBl"), Value::Number(Number::from_f64(new_calendar_day_row_height_bl).ok_or(nan_err("calendarDayRowHeightBl", &old.id))?));
+      if match old.calendar_day_row_height_bl {
+        Some(o) => o != new_calendar_day_row_height_bl,
+        None => true,
+      } {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("calendarDayRowHeightBl", &old.id)?;
+        }
+        result.insert(
+          String::from("calendarDayRowHeightBl"),
+          Value::Number(
+            Number::from_f64(new_calendar_day_row_height_bl).ok_or(nan_err("calendarDayRowHeightBl", &old.id))?,
+          ),
+        );
       }
     }
 
     // note
     if let Some(new_url) = &new.url {
-      if match &old.url { Some(o) => o != new_url, None => { true } } {
-        if old.item_type != ItemType::Note { cannot_modify_err("url", &old.id)?; }
+      if match &old.url {
+        Some(o) => o != new_url,
+        None => true,
+      } {
+        if old.item_type != ItemType::Note {
+          cannot_modify_err("url", &old.id)?;
+        }
         result.insert(String::from("url"), Value::String(new_url.clone()));
       }
     }
@@ -807,8 +1039,13 @@ impl JsonLogSerializable<Item> for Item {
 
     // password
     if let Some(new_text) = &new.text {
-      if match &old.text { Some(o) => o != new_text, None => { true } } {
-        if old.item_type != ItemType::Password { cannot_modify_err("text", &old.id)?; }
+      if match &old.text {
+        Some(o) => o != new_text,
+        None => true,
+      } {
+        if old.item_type != ItemType::Password {
+          cannot_modify_err("text", &old.id)?;
+        }
         result.insert(String::from("text"), Value::String(new_text.clone()));
       }
     }
@@ -817,36 +1054,61 @@ impl JsonLogSerializable<Item> for Item {
 
     // image
     if let Some(new_image_size_px) = &new.image_size_px {
-      if match &old.image_size_px { Some(o) => o != new_image_size_px, None => { true } } {
-        if old.item_type != ItemType::Image { cannot_modify_err("imageSizePx", &old.id)?; }
+      if match &old.image_size_px {
+        Some(o) => o != new_image_size_px,
+        None => true,
+      } {
+        if old.item_type != ItemType::Image {
+          cannot_modify_err("imageSizePx", &old.id)?;
+        }
         result.insert(String::from("imageSizePx"), json::dimensions_to_object(&new_image_size_px));
       }
     }
     if let Some(new_thumbnail) = &new.thumbnail {
-      if match &old.thumbnail { Some(o) => o != new_thumbnail, None => { true } } {
-        if old.item_type != ItemType::Image { cannot_modify_err("thumbnail", &old.id)?; }
+      if match &old.thumbnail {
+        Some(o) => o != new_thumbnail,
+        None => true,
+      } {
+        if old.item_type != ItemType::Image {
+          cannot_modify_err("thumbnail", &old.id)?;
+        }
         result.insert(String::from("thumbnail"), Value::String(new_thumbnail.clone()));
       }
     }
 
     // rating
     if let Some(new_rating) = new.rating {
-      if match old.rating { Some(o) => o != new_rating, None => { true } } {
-        if old.item_type != ItemType::Rating { cannot_modify_err("rating", &old.id)?; }
+      if match old.rating {
+        Some(o) => o != new_rating,
+        None => true,
+      } {
+        if old.item_type != ItemType::Rating {
+          cannot_modify_err("rating", &old.id)?;
+        }
         result.insert(String::from("rating"), Value::Number(new_rating.into()));
       }
     }
     if let Some(new_rating_type) = &new.rating_type {
-      if match &old.rating_type { Some(o) => o != new_rating_type, None => { true } } {
-        if old.item_type != ItemType::Rating { cannot_modify_err("ratingType", &old.id)?; }
+      if match &old.rating_type {
+        Some(o) => o != new_rating_type,
+        None => true,
+      } {
+        if old.item_type != ItemType::Rating {
+          cannot_modify_err("ratingType", &old.id)?;
+        }
         result.insert(String::from("ratingType"), Value::String(String::from(new_rating_type.as_str())));
       }
     }
 
     // link
     if let Some(new_link_to) = &new.link_to {
-      if match &old.link_to { Some(o) => o != new_link_to, None => { true } } {
-        if old.item_type != ItemType::Link { cannot_modify_err("linkTo", &old.id)?; }
+      if match &old.link_to {
+        Some(o) => o != new_link_to,
+        None => true,
+      } {
+        if old.item_type != ItemType::Link {
+          cannot_modify_err("linkTo", &old.id)?;
+        }
         result.insert(String::from("linkTo"), Value::String(String::from(new_link_to)));
       }
     }
@@ -855,9 +1117,15 @@ impl JsonLogSerializable<Item> for Item {
 
     // flipcard
     if let Some(new_scale) = new.scale {
-      if match old.scale { Some(o) => o != new_scale, None => { true } } {
-        if old.item_type != ItemType::FlipCard { cannot_modify_err("scale", &old.id)?; }
-        result.insert(String::from("scale"), Value::Number(Number::from_f64(new_scale).ok_or(nan_err("scale", &old.id))?));
+      if match old.scale {
+        Some(o) => o != new_scale,
+        None => true,
+      } {
+        if old.item_type != ItemType::FlipCard {
+          cannot_modify_err("scale", &old.id)?;
+        }
+        result
+          .insert(String::from("scale"), Value::Number(Number::from_f64(new_scale).ok_or(nan_err("scale", &old.id))?));
       }
     }
 
@@ -866,142 +1134,230 @@ impl JsonLogSerializable<Item> for Item {
 
   fn apply_json_update(&mut self, map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<()> {
     fn cannot_update_err(field_name: &str, item_id: &str) -> InfuResult<()> {
-      Err(format!("An attempt was made to apply an update to the '{}' field of item '{}', but this is not allowed.", field_name, item_id).into())
+      Err(
+        format!(
+          "An attempt was made to apply an update to the '{}' field of item '{}', but this is not allowed.",
+          field_name, item_id
+        )
+        .into(),
+      )
     }
     fn not_applicable_err(field_name: &str, item_type: ItemType, item_id: &str) -> InfuResult<()> {
-      Err(format!("'{}' field is not valid for item type '{}' - cannot update item '{}'.", field_name, item_type, item_id).into())
+      Err(
+        format!(
+          "'{}' field is not valid for item type '{}' - cannot update item '{}'.",
+          field_name, item_type, item_id
+        )
+        .into(),
+      )
     }
 
     json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
 
-    if json::get_string_field(map, "itemType")?.is_some() { cannot_update_err("itemType", &self.id)?; }
-    if json::get_string_field(map, "ownerId")?.is_some() { cannot_update_err("ownerId", &self.id)?; }
+    if json::get_string_field(map, "itemType")?.is_some() {
+      cannot_update_err("itemType", &self.id)?;
+    }
+    if json::get_string_field(map, "ownerId")?.is_some() {
+      cannot_update_err("ownerId", &self.id)?;
+    }
 
     let parent_id_maybe = json::get_string_field(map, "parentId")?;
     if let Some(parent_id) = &parent_id_maybe {
       if !is_uid(&parent_id) {
-        return Err(format!("An attempt was made to apply an update with invalid parent_id '{}' to item '{}'.", parent_id, &self.id).into());
+        return Err(
+          format!(
+            "An attempt was made to apply an update with invalid parent_id '{}' to item '{}'.",
+            parent_id, &self.id
+          )
+          .into(),
+        );
       }
     }
     if self.parent_id.is_none() && parent_id_maybe.is_some() {
       return Err(format!("An attempt was made to apply an update to item '{}' that sets the 'parentId' field, where this was not previously set, but this is not allowed.", self.id).into());
     }
-    let map_value_is_null = match map.get("parentId") { Some(v) => v.is_null(), None => false }; // get_string_field doesn't differentiate between null and unset.
+    let map_value_is_null = match map.get("parentId") {
+      Some(v) => v.is_null(),
+      None => false,
+    }; // get_string_field doesn't differentiate between null and unset.
     if self.parent_id.is_some() && map_value_is_null {
       return Err(format!("An attempt was made to apply an update to item '{}' that unsets the 'parentId' field where this was previously set, but this is not allowed.", self.id).into());
     }
-    if parent_id_maybe.is_some() { self.parent_id = parent_id_maybe; }
+    if parent_id_maybe.is_some() {
+      self.parent_id = parent_id_maybe;
+    }
 
-    if let Some(u) = json::get_string_field(map, "relationshipToParent")? { self.relationship_to_parent = RelationshipToParent::from_str(&u)?; }
-    if json::get_integer_field(map, "creationDate")?.is_some() { cannot_update_err("creationDate", &self.id)?; }
-    if let Some(u) = json::get_integer_field(map, "lastModifiedDate")? { self.last_modified_date = u; }
-    if let Some(u) = json::get_integer_field(map, "dateTime")? { self.datetime = u; }
+    if let Some(u) = json::get_string_field(map, "relationshipToParent")? {
+      self.relationship_to_parent = RelationshipToParent::from_str(&u)?;
+    }
+    if json::get_integer_field(map, "creationDate")?.is_some() {
+      cannot_update_err("creationDate", &self.id)?;
+    }
+    if let Some(u) = json::get_integer_field(map, "lastModifiedDate")? {
+      self.last_modified_date = u;
+    }
+    if let Some(u) = json::get_integer_field(map, "dateTime")? {
+      self.datetime = u;
+    }
     if map.contains_key("ordering") {
-      self.ordering = map.get("ordering")
+      self.ordering = map
+        .get("ordering")
         .unwrap()
         .as_array()
         .ok_or(format!("'ordering' field for item '{}' is not an array.", self.id))?
-        .iter().map(|v| match v.as_i64() {
-          Some(v) => if v >= 0 && v <= 255 { Some(v as u8) } else { None },
-          None => None })
-        .collect::<Option<Vec<_>>>().ok_or(format!("One or more element of the 'ordering' field in an update for item '{}' was invalid.", &self.id))?;
+        .iter()
+        .map(|v| match v.as_i64() {
+          Some(v) => {
+            if v >= 0 && v <= 255 {
+              Some(v as u8)
+            } else {
+              None
+            }
+          }
+          None => None,
+        })
+        .collect::<Option<Vec<_>>>()
+        .ok_or(format!(
+          "One or more element of the 'ordering' field in an update for item '{}' was invalid.",
+          &self.id
+        ))?;
     }
 
     // container
     if let Some(u) = json::get_string_field(map, "orderChildrenBy")? {
-      if !is_container_item_type(self.item_type) { not_applicable_err("orderChildrenBy", self.item_type, &self.id)?; }
+      if !is_container_item_type(self.item_type) {
+        not_applicable_err("orderChildrenBy", self.item_type, &self.id)?;
+      }
       self.order_children_by = Some(u);
     }
 
     // positionable
     if let Some(u) = json::get_vector_field(map, "spatialPositionGr")? {
-      if !is_positionable_type(self.item_type) { not_applicable_err("spatialPositionGr", self.item_type, &self.id)?; }
+      if !is_positionable_type(self.item_type) {
+        not_applicable_err("spatialPositionGr", self.item_type, &self.id)?;
+      }
       self.spatial_position_gr = Some(u);
     }
 
     // x-sizable
     if let Some(v) = json::get_integer_field(map, "spatialWidthGr")? {
-      if !is_x_sizeable_item_type(self.item_type) && !is_link_item(self) { not_applicable_err("spatialWidthGr", self.item_type, &self.id)?; }
+      if !is_x_sizeable_item_type(self.item_type) && !is_link_item(self) {
+        not_applicable_err("spatialWidthGr", self.item_type, &self.id)?;
+      }
       self.spatial_width_gr = Some(v);
     }
 
     // y-sizable
     if let Some(v) = json::get_integer_field(map, "spatialHeightGr")? {
-      if !is_y_sizeable_item_type(self.item_type) && !is_link_item(self) && self.item_type != ItemType::Note { not_applicable_err("spatialHeightGr", self.item_type, &self.id)?; }
+      if !is_y_sizeable_item_type(self.item_type) && !is_link_item(self) && self.item_type != ItemType::Note {
+        not_applicable_err("spatialHeightGr", self.item_type, &self.id)?;
+      }
       self.spatial_height_gr = Some(v);
     }
 
     // titled
     if let Some(v) = json::get_string_field(map, "title")? {
-      if !is_titled_item_type(self.item_type) { not_applicable_err("title", self.item_type, &self.id)?; }
+      if !is_titled_item_type(self.item_type) {
+        not_applicable_err("title", self.item_type, &self.id)?;
+      }
       self.title = Some(v);
     }
 
     // flags
     if let Some(v) = json::get_integer_field(map, "flags")? {
-      if !is_flags_item_type(self.item_type) { not_applicable_err("flags", self.item_type, &self.id)?; }
+      if !is_flags_item_type(self.item_type) {
+        not_applicable_err("flags", self.item_type, &self.id)?;
+      }
       self.flags = Some(v);
     }
 
     // format
     if let Some(v) = json::get_string_field(map, "format")? {
-      if !is_format_item_type(self.item_type) { not_applicable_err("format", self.item_type, &self.id)?; }
+      if !is_format_item_type(self.item_type) {
+        not_applicable_err("format", self.item_type, &self.id)?;
+      }
       self.format = Some(v);
     }
 
     // permission flags
     if let Some(v) = json::get_integer_field(map, "permissionFlags")? {
-      if !is_permission_flags_item_type(self.item_type) { not_applicable_err("permissionFlags", self.item_type, &self.id)?; }
+      if !is_permission_flags_item_type(self.item_type) {
+        not_applicable_err("permissionFlags", self.item_type, &self.id)?;
+      }
       self.permission_flags = Some(v);
     }
 
     // data
     // Like the data file, all these fields are immutable.
-    if json::get_integer_field(map, "originalCreationDate")?.is_some() { cannot_update_err("originalCreationDate", &self.id)?; }
-    if json::get_string_field(map, "mimeType")?.is_some() { cannot_update_err("mimeType", &self.id)?; }
-    if json::get_integer_field(map, "fileSizeBytes")?.is_some() { cannot_update_err("fileSizeBytes", &self.id)?; }
+    if json::get_integer_field(map, "originalCreationDate")?.is_some() {
+      cannot_update_err("originalCreationDate", &self.id)?;
+    }
+    if json::get_string_field(map, "mimeType")?.is_some() {
+      cannot_update_err("mimeType", &self.id)?;
+    }
+    if json::get_integer_field(map, "fileSizeBytes")?.is_some() {
+      cannot_update_err("fileSizeBytes", &self.id)?;
+    }
 
     // tabular
     if let Some(v) = json::get_table_columns_field(map, "tableColumns")? {
-      if !is_tabular_item_type(self.item_type) { not_applicable_err("tableColumns", self.item_type, &self.id)?; }
+      if !is_tabular_item_type(self.item_type) {
+        not_applicable_err("tableColumns", self.item_type, &self.id)?;
+      }
       self.table_columns = Some(v);
     }
     if let Some(v) = json::get_integer_field(map, "numberOfVisibleColumns")? {
-      if !is_tabular_item_type(self.item_type) { not_applicable_err("numberOfVisibleColumns", self.item_type, &self.id)?; }
+      if !is_tabular_item_type(self.item_type) {
+        not_applicable_err("numberOfVisibleColumns", self.item_type, &self.id)?;
+      }
       self.number_of_visible_columns = Some(v);
     }
 
     // colorable
     if let Some(v) = json::get_integer_field(map, "backgroundColorIndex")? {
-      if !is_colorable_item_type(self.item_type) { not_applicable_err("backgroundColorIndex", self.item_type, &self.id)?; }
+      if !is_colorable_item_type(self.item_type) {
+        not_applicable_err("backgroundColorIndex", self.item_type, &self.id)?;
+      }
       self.background_color_index = Some(v);
     }
 
     // aspect
     if let Some(v) = json::get_float_field(map, "naturalAspect")? {
-      if !is_aspect_item_type(self.item_type) { not_applicable_err("naturalAspect", self.item_type, &self.id)?; }
+      if !is_aspect_item_type(self.item_type) {
+        not_applicable_err("naturalAspect", self.item_type, &self.id)?;
+      }
       self.natural_aspect = Some(v);
     }
 
     // page
     if let Some(v) = json::get_integer_field(map, "innerSpatialWidthGr")? {
-      if self.item_type != ItemType::Page { not_applicable_err("innerSpatialWidthGr", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("innerSpatialWidthGr", self.item_type, &self.id)?;
+      }
       self.inner_spatial_width_gr = Some(v);
     }
     if let Some(v) = json::get_string_field(map, "arrangeAlgorithm")? {
-      if self.item_type != ItemType::Page { not_applicable_err("arrangeAlgorithm", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("arrangeAlgorithm", self.item_type, &self.id)?;
+      }
       self.arrange_algorithm = Some(ArrangeAlgorithm::from_str(&v)?);
     }
     if let Some(v) = json::get_vector_field(map, "defaultPopupPositionGr")? {
-      if self.item_type != ItemType::Page { not_applicable_err("defaultPopupPositionGr", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("defaultPopupPositionGr", self.item_type, &self.id)?;
+      }
       self.default_popup_position_gr = Some(v);
     }
     if let Some(v) = json::get_integer_field(map, "defaultPopupWidthGr")? {
-      if self.item_type != ItemType::Page { not_applicable_err("defaultPopupWidthGr", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("defaultPopupWidthGr", self.item_type, &self.id)?;
+      }
       self.default_popup_width_gr = Some(v);
     }
     if let Some(raw) = map.get("popupPositionGr") {
-      if !is_popup_positionable_item_type(self.item_type) { not_applicable_err("popupPositionGr", self.item_type, &self.id)?; }
+      if !is_popup_positionable_item_type(self.item_type) {
+        not_applicable_err("popupPositionGr", self.item_type, &self.id)?;
+      }
       if raw.is_null() {
         self.popup_position_gr = None;
       } else {
@@ -1010,7 +1366,9 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
     if let Some(raw) = map.get("popupWidthGr") {
-      if !is_popup_positionable_item_type(self.item_type) { not_applicable_err("popupWidthGr", self.item_type, &self.id)?; }
+      if !is_popup_positionable_item_type(self.item_type) {
+        not_applicable_err("popupWidthGr", self.item_type, &self.id)?;
+      }
       if raw.is_null() {
         self.popup_width_gr = None;
       } else {
@@ -1019,15 +1377,21 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
     if let Some(v) = json::get_float_vector_field(map, "defaultCellPopupPositionNorm")? {
-      if self.item_type != ItemType::Page { not_applicable_err("defaultCellPopupPositionNorm", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("defaultCellPopupPositionNorm", self.item_type, &self.id)?;
+      }
       self.default_cell_popup_position_norm = Some(v);
     }
     if let Some(v) = json::get_float_field(map, "defaultCellPopupWidthNorm")? {
-      if self.item_type != ItemType::Page { not_applicable_err("defaultCellPopupWidthNorm", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("defaultCellPopupWidthNorm", self.item_type, &self.id)?;
+      }
       self.default_cell_popup_width_norm = Some(v);
     }
     if let Some(raw) = map.get("cellPopupPositionNorm") {
-      if !is_popup_positionable_item_type(self.item_type) { not_applicable_err("cellPopupPositionNorm", self.item_type, &self.id)?; }
+      if !is_popup_positionable_item_type(self.item_type) {
+        not_applicable_err("cellPopupPositionNorm", self.item_type, &self.id)?;
+      }
       if raw.is_null() {
         self.cell_popup_position_norm = None;
       } else {
@@ -1036,7 +1400,9 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
     if let Some(raw) = map.get("cellPopupWidthNorm") {
-      if !is_popup_positionable_item_type(self.item_type) { not_applicable_err("cellPopupWidthNorm", self.item_type, &self.id)?; }
+      if !is_popup_positionable_item_type(self.item_type) {
+        not_applicable_err("cellPopupWidthNorm", self.item_type, &self.id)?;
+      }
       if raw.is_null() {
         self.cell_popup_width_norm = None;
       } else {
@@ -1045,65 +1411,92 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
     if let Some(v) = json::get_integer_field(map, "gridNumberOfColumns")? {
-      if self.item_type != ItemType::Page { not_applicable_err("gridNumberOfColumns", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("gridNumberOfColumns", self.item_type, &self.id)?;
+      }
       self.grid_number_of_columns = Some(v);
     }
     if let Some(v) = json::get_float_field(map, "gridCellAspect")? {
-      if self.item_type != ItemType::Page { not_applicable_err("gridCellAspect", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("gridCellAspect", self.item_type, &self.id)?;
+      }
       self.grid_cell_aspect = Some(v);
     }
     if let Some(v) = json::get_integer_field(map, "docWidthBl")? {
-      if self.item_type != ItemType::Page { not_applicable_err("docWidthBl", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("docWidthBl", self.item_type, &self.id)?;
+      }
       self.doc_width_bl = Some(v);
     }
     if let Some(v) = json::get_float_field(map, "justifiedRowAspect")? {
-      if self.item_type != ItemType::Page { not_applicable_err("justifiedRowAspect", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("justifiedRowAspect", self.item_type, &self.id)?;
+      }
       self.justified_row_aspect = Some(v);
     }
     if let Some(v) = json::get_float_field(map, "calendarDayRowHeightBl")? {
-      if self.item_type != ItemType::Page { not_applicable_err("calendarDayRowHeightBl", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Page {
+        not_applicable_err("calendarDayRowHeightBl", self.item_type, &self.id)?;
+      }
       self.calendar_day_row_height_bl = Some(v);
     }
 
     // note
     if let Some(v) = json::get_string_field(map, "url")? {
-      if self.item_type == ItemType::Note { self.url = Some(v); }
-      else { not_applicable_err("url", self.item_type, &self.id)?; }
+      if self.item_type == ItemType::Note {
+        self.url = Some(v);
+      } else {
+        not_applicable_err("url", self.item_type, &self.id)?;
+      }
     }
 
     // file
 
     // password
     if let Some(v) = json::get_string_field(map, "text")? {
-      if self.item_type == ItemType::Password { self.text = Some(v); }
-      else { not_applicable_err("text", self.item_type, &self.id)?; }
+      if self.item_type == ItemType::Password {
+        self.text = Some(v);
+      } else {
+        not_applicable_err("text", self.item_type, &self.id)?;
+      }
     }
 
     // table
 
     // image
     if let Some(v) = json::get_dimensions_field(map, "imageSizePx")? {
-      if self.item_type != ItemType::Image { not_applicable_err("imageSizePx", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Image {
+        not_applicable_err("imageSizePx", self.item_type, &self.id)?;
+      }
       self.image_size_px = Some(v);
     }
     if let Some(v) = json::get_string_field(map, "thumbnail")? {
-      if self.item_type == ItemType::Image { self.thumbnail = Some(v); }
-      else { not_applicable_err("thumbnail", self.item_type, &self.id)?; }
+      if self.item_type == ItemType::Image {
+        self.thumbnail = Some(v);
+      } else {
+        not_applicable_err("thumbnail", self.item_type, &self.id)?;
+      }
     }
 
     // rating
     if let Some(v) = json::get_integer_field(map, "rating")? {
-      if self.item_type != ItemType::Rating { not_applicable_err("rating", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Rating {
+        not_applicable_err("rating", self.item_type, &self.id)?;
+      }
       self.rating = Some(v);
     }
     if let Some(v) = json::get_string_field(map, "ratingType")? {
-      if self.item_type != ItemType::Rating { not_applicable_err("ratingType", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Rating {
+        not_applicable_err("ratingType", self.item_type, &self.id)?;
+      }
       self.rating_type = Some(RatingType::from_str(&v)?);
     }
 
     // link
     if let Some(v) = json::get_string_field(map, "linkTo")? {
-      if self.item_type != ItemType::Link { not_applicable_err("linkTo", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::Link {
+        not_applicable_err("linkTo", self.item_type, &self.id)?;
+      }
       self.link_to = Some(v);
     }
 
@@ -1111,14 +1504,15 @@ impl JsonLogSerializable<Item> for Item {
 
     // flipcard
     if let Some(v) = json::get_float_field(map, "scale")? {
-      if self.item_type != ItemType::FlipCard { not_applicable_err("scale", self.item_type, &self.id)?; }
+      if self.item_type != ItemType::FlipCard {
+        not_applicable_err("scale", self.item_type, &self.id)?;
+      }
       self.scale = Some(v);
     }
 
     Ok(())
   }
 }
-
 
 fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>> {
   fn nan_err(field_name: &str, item_id: &str) -> String {
@@ -1133,174 +1527,257 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   result.insert(String::from("id"), Value::String(item.id.clone()));
   result.insert(String::from("ownerId"), Value::String(item.owner_id.clone()));
   match &item.parent_id {
-    Some(uid) => { result.insert(String::from("parentId"), Value::String(uid.clone())); },
-    None => { result.insert(String::from("parentId"), Value::Null); }
+    Some(uid) => {
+      result.insert(String::from("parentId"), Value::String(uid.clone()));
+    }
+    None => {
+      result.insert(String::from("parentId"), Value::Null);
+    }
   };
-  result.insert(String::from("relationshipToParent"), Value::String(String::from(item.relationship_to_parent.as_str())));
+  result
+    .insert(String::from("relationshipToParent"), Value::String(String::from(item.relationship_to_parent.as_str())));
   result.insert(String::from("creationDate"), Value::Number(item.creation_date.into()));
   result.insert(String::from("lastModifiedDate"), Value::Number(item.last_modified_date.into()));
   result.insert(String::from("dateTime"), Value::Number(item.datetime.into()));
-  result.insert(String::from("ordering"), Value::Array(item.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
+  result.insert(
+    String::from("ordering"),
+    Value::Array(item.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()),
+  );
 
   // container
   if let Some(order_children_by) = &item.order_children_by {
-    if !is_container_item_type(item.item_type) { unexpected_field_err("orderChildrenBy", &item.id, item.item_type)? }
+    if !is_container_item_type(item.item_type) {
+      unexpected_field_err("orderChildrenBy", &item.id, item.item_type)?
+    }
     result.insert(String::from("orderChildrenBy"), Value::String(order_children_by.clone()));
   }
 
   // positionable
   if let Some(spatial_position_gr) = &item.spatial_position_gr {
-    if !is_positionable_type(item.item_type) { unexpected_field_err("spatialPositionGr", &item.id, item.item_type)? }
+    if !is_positionable_type(item.item_type) {
+      unexpected_field_err("spatialPositionGr", &item.id, item.item_type)?
+    }
     result.insert(String::from("spatialPositionGr"), json::vector_to_object(&spatial_position_gr));
   }
 
   // x-sizeable
   if let Some(spatial_width_gr) = item.spatial_width_gr {
-    if !is_x_sizeable_item_type(item.item_type) && !is_link_item(item) { unexpected_field_err("spatialWidthGr", &item.id, item.item_type)? }
+    if !is_x_sizeable_item_type(item.item_type) && !is_link_item(item) {
+      unexpected_field_err("spatialWidthGr", &item.id, item.item_type)?
+    }
     result.insert(String::from("spatialWidthGr"), Value::Number(spatial_width_gr.into()));
   }
 
   // y-sizable
   if let Some(spatial_height_gr) = item.spatial_height_gr {
-    if !is_y_sizeable_item_type(item.item_type) && !is_link_item(item) && item.item_type != ItemType::Note { unexpected_field_err("spatialHeightGr", &item.id, item.item_type)? }
+    if !is_y_sizeable_item_type(item.item_type) && !is_link_item(item) && item.item_type != ItemType::Note {
+      unexpected_field_err("spatialHeightGr", &item.id, item.item_type)?
+    }
     result.insert(String::from("spatialHeightGr"), Value::Number(spatial_height_gr.into()));
   }
 
   // titled
   if let Some(title) = &item.title {
-    if !is_titled_item_type(item.item_type) { unexpected_field_err("title", &item.id, item.item_type)? }
+    if !is_titled_item_type(item.item_type) {
+      unexpected_field_err("title", &item.id, item.item_type)?
+    }
     result.insert(String::from("title"), Value::String(title.clone()));
   }
 
   // data
   if let Some(original_creation_date) = item.original_creation_date {
-    if !is_data_item_type(item.item_type) { unexpected_field_err("originalCreationDate", &item.id, item.item_type)? }
+    if !is_data_item_type(item.item_type) {
+      unexpected_field_err("originalCreationDate", &item.id, item.item_type)?
+    }
     result.insert(String::from("originalCreationDate"), Value::Number(original_creation_date.into()));
   }
   if let Some(mime_type) = &item.mime_type {
-    if !is_data_item_type(item.item_type) { unexpected_field_err("mimeType", &item.id, item.item_type)? }
+    if !is_data_item_type(item.item_type) {
+      unexpected_field_err("mimeType", &item.id, item.item_type)?
+    }
     result.insert(String::from("mimeType"), Value::String(mime_type.clone()));
   }
   if let Some(file_size_bytes) = item.file_size_bytes {
-    if !is_data_item_type(item.item_type) { unexpected_field_err("fileSizeBytes", &item.id, item.item_type)? }
+    if !is_data_item_type(item.item_type) {
+      unexpected_field_err("fileSizeBytes", &item.id, item.item_type)?
+    }
     result.insert(String::from("fileSizeBytes"), Value::Number(file_size_bytes.into()));
   }
 
   // tabular
   if let Some(table_columns) = &item.table_columns {
-    if !is_tabular_item_type(item.item_type) { unexpected_field_err("tableColumns", &item.id, item.item_type)? }
+    if !is_tabular_item_type(item.item_type) {
+      unexpected_field_err("tableColumns", &item.id, item.item_type)?
+    }
     result.insert(String::from("tableColumns"), json::table_columns_to_array(table_columns));
   }
   if let Some(number_of_visible_columns) = item.number_of_visible_columns {
-    if !is_tabular_item_type(item.item_type) { unexpected_field_err("numberOfVisibleColumns", &item.id, item.item_type)? }
+    if !is_tabular_item_type(item.item_type) {
+      unexpected_field_err("numberOfVisibleColumns", &item.id, item.item_type)?
+    }
     result.insert(String::from("numberOfVisibleColumns"), Value::Number(number_of_visible_columns.into()));
   }
 
   // flags
   if let Some(flags) = item.flags {
-    if !is_flags_item_type(item.item_type) { unexpected_field_err("flags", &item.id, item.item_type)? }
+    if !is_flags_item_type(item.item_type) {
+      unexpected_field_err("flags", &item.id, item.item_type)?
+    }
     result.insert(String::from("flags"), Value::Number(flags.into()));
   }
 
   // format
   if let Some(format) = &item.format {
-    if !is_format_item_type(item.item_type) { unexpected_field_err("format", &item.id, item.item_type)? }
+    if !is_format_item_type(item.item_type) {
+      unexpected_field_err("format", &item.id, item.item_type)?
+    }
     result.insert(String::from("format"), Value::String(format.clone()));
   }
 
   // permission flags
   if let Some(permission_flags) = item.permission_flags {
-    if !is_permission_flags_item_type(item.item_type) { unexpected_field_err("permissionFlags", &item.id, item.item_type)? }
+    if !is_permission_flags_item_type(item.item_type) {
+      unexpected_field_err("permissionFlags", &item.id, item.item_type)?
+    }
     result.insert(String::from("permissionFlags"), Value::Number(permission_flags.into()));
   }
 
   // colorable
   if let Some(background_color_index) = item.background_color_index {
-    if !is_colorable_item_type(item.item_type) { unexpected_field_err("backgroundColorIndex", &item.id, item.item_type)? }
+    if !is_colorable_item_type(item.item_type) {
+      unexpected_field_err("backgroundColorIndex", &item.id, item.item_type)?
+    }
     result.insert(String::from("backgroundColorIndex"), Value::Number(background_color_index.into()));
   }
 
   // aspect
   if let Some(natural_aspect) = item.natural_aspect {
-    if !is_aspect_item_type(item.item_type){ unexpected_field_err("naturalAspect", &item.id, item.item_type)? }
+    if !is_aspect_item_type(item.item_type) {
+      unexpected_field_err("naturalAspect", &item.id, item.item_type)?
+    }
     result.insert(
       String::from("naturalAspect"),
-      Value::Number(Number::from_f64(natural_aspect).ok_or(nan_err("naturalAspect", &item.id))?));
+      Value::Number(Number::from_f64(natural_aspect).ok_or(nan_err("naturalAspect", &item.id))?),
+    );
   }
 
   // page
   if let Some(inner_spatial_width_gr) = item.inner_spatial_width_gr {
-    if item.item_type != ItemType::Page { unexpected_field_err("innerSpatialWidthGr", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("innerSpatialWidthGr", &item.id, item.item_type)?
+    }
     result.insert(String::from("innerSpatialWidthGr"), Value::Number(inner_spatial_width_gr.into()));
   }
   if let Some(arrange_algorithm) = &item.arrange_algorithm {
-    if item.item_type != ItemType::Page { unexpected_field_err("arrangeAlgorithm", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("arrangeAlgorithm", &item.id, item.item_type)?
+    }
     result.insert(String::from("arrangeAlgorithm"), Value::String(String::from(arrange_algorithm.as_str())));
   }
   if let Some(default_popup_position_gr) = &item.default_popup_position_gr {
-    if item.item_type != ItemType::Page { unexpected_field_err("defaultPopupPositionGr", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("defaultPopupPositionGr", &item.id, item.item_type)?
+    }
     result.insert(String::from("defaultPopupPositionGr"), json::vector_to_object(&default_popup_position_gr));
   }
   if let Some(default_popup_width_gr) = item.default_popup_width_gr {
-    if item.item_type != ItemType::Page { unexpected_field_err("defaultPopupWidthGr", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("defaultPopupWidthGr", &item.id, item.item_type)?
+    }
     result.insert(String::from("defaultPopupWidthGr"), Value::Number(default_popup_width_gr.into()));
   }
   if let Some(popup_position_gr) = &item.popup_position_gr {
-    if !is_popup_positionable_item_type(item.item_type) { unexpected_field_err("popupPositionGr", &item.id, item.item_type)? }
+    if !is_popup_positionable_item_type(item.item_type) {
+      unexpected_field_err("popupPositionGr", &item.id, item.item_type)?
+    }
     result.insert(String::from("popupPositionGr"), json::vector_to_object(&popup_position_gr));
   }
   if let Some(popup_width_gr) = item.popup_width_gr {
-    if !is_popup_positionable_item_type(item.item_type) { unexpected_field_err("popupWidthGr", &item.id, item.item_type)? }
+    if !is_popup_positionable_item_type(item.item_type) {
+      unexpected_field_err("popupWidthGr", &item.id, item.item_type)?
+    }
     result.insert(String::from("popupWidthGr"), Value::Number(popup_width_gr.into()));
   }
   if let Some(default_cell_popup_position_norm) = &item.default_cell_popup_position_norm {
-    if item.item_type != ItemType::Page { unexpected_field_err("defaultCellPopupPositionNorm", &item.id, item.item_type)? }
-    result.insert(String::from("defaultCellPopupPositionNorm"), json::float_vector_to_object(&default_cell_popup_position_norm));
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("defaultCellPopupPositionNorm", &item.id, item.item_type)?
+    }
+    result.insert(
+      String::from("defaultCellPopupPositionNorm"),
+      json::float_vector_to_object(&default_cell_popup_position_norm),
+    );
   }
   if let Some(default_cell_popup_width_norm) = item.default_cell_popup_width_norm {
-    if item.item_type != ItemType::Page { unexpected_field_err("defaultCellPopupWidthNorm", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("defaultCellPopupWidthNorm", &item.id, item.item_type)?
+    }
     result.insert(
       String::from("defaultCellPopupWidthNorm"),
-      Value::Number(Number::from_f64(default_cell_popup_width_norm).ok_or(nan_err("defaultCellPopupWidthNorm", &item.id))?));
+      Value::Number(
+        Number::from_f64(default_cell_popup_width_norm).ok_or(nan_err("defaultCellPopupWidthNorm", &item.id))?,
+      ),
+    );
   }
   if let Some(cell_popup_position_norm) = &item.cell_popup_position_norm {
-    if !is_popup_positionable_item_type(item.item_type) { unexpected_field_err("cellPopupPositionNorm", &item.id, item.item_type)? }
+    if !is_popup_positionable_item_type(item.item_type) {
+      unexpected_field_err("cellPopupPositionNorm", &item.id, item.item_type)?
+    }
     result.insert(String::from("cellPopupPositionNorm"), json::float_vector_to_object(&cell_popup_position_norm));
   }
   if let Some(cell_popup_width_norm) = item.cell_popup_width_norm {
-    if !is_popup_positionable_item_type(item.item_type) { unexpected_field_err("cellPopupWidthNorm", &item.id, item.item_type)? }
+    if !is_popup_positionable_item_type(item.item_type) {
+      unexpected_field_err("cellPopupWidthNorm", &item.id, item.item_type)?
+    }
     result.insert(
       String::from("cellPopupWidthNorm"),
-      Value::Number(Number::from_f64(cell_popup_width_norm).ok_or(nan_err("cellPopupWidthNorm", &item.id))?));
+      Value::Number(Number::from_f64(cell_popup_width_norm).ok_or(nan_err("cellPopupWidthNorm", &item.id))?),
+    );
   }
   if let Some(grid_number_of_columns) = item.grid_number_of_columns {
-    if item.item_type != ItemType::Page { unexpected_field_err("gridNumberOfColumns", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("gridNumberOfColumns", &item.id, item.item_type)?
+    }
     result.insert(String::from("gridNumberOfColumns"), Value::Number(grid_number_of_columns.into()));
   }
   if let Some(grid_cell_aspect) = item.grid_cell_aspect {
-    if item.item_type != ItemType::Page { unexpected_field_err("gridCellAspect", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("gridCellAspect", &item.id, item.item_type)?
+    }
     result.insert(
       String::from("gridCellAspect"),
-      Value::Number(Number::from_f64(grid_cell_aspect).ok_or(nan_err("gridCellAspect", &item.id))?));
+      Value::Number(Number::from_f64(grid_cell_aspect).ok_or(nan_err("gridCellAspect", &item.id))?),
+    );
   }
   if let Some(doc_width_bl) = item.doc_width_bl {
-    if item.item_type != ItemType::Page { unexpected_field_err("docWidthBl", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("docWidthBl", &item.id, item.item_type)?
+    }
     result.insert(String::from("docWidthBl"), Value::Number(doc_width_bl.into()));
   }
   if let Some(justified_row_aspect) = item.justified_row_aspect {
-    if item.item_type != ItemType::Page { unexpected_field_err("justifiedRowAspect", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("justifiedRowAspect", &item.id, item.item_type)?
+    }
     result.insert(
       String::from("justifiedRowAspect"),
-      Value::Number(Number::from_f64(justified_row_aspect).ok_or(nan_err("justifiedRowAspect", &item.id))?));
+      Value::Number(Number::from_f64(justified_row_aspect).ok_or(nan_err("justifiedRowAspect", &item.id))?),
+    );
   }
   if let Some(calendar_day_row_height_bl) = item.calendar_day_row_height_bl {
-    if item.item_type != ItemType::Page { unexpected_field_err("calendarDayRowHeightBl", &item.id, item.item_type)? }
-    result.insert(String::from("calendarDayRowHeightBl"), Value::Number(Number::from_f64(calendar_day_row_height_bl).ok_or(nan_err("calendarDayRowHeightBl", &item.id))?));
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("calendarDayRowHeightBl", &item.id, item.item_type)?
+    }
+    result.insert(
+      String::from("calendarDayRowHeightBl"),
+      Value::Number(Number::from_f64(calendar_day_row_height_bl).ok_or(nan_err("calendarDayRowHeightBl", &item.id))?),
+    );
   }
 
   // note
   if let Some(url) = &item.url {
-    if item.item_type != ItemType::Note { unexpected_field_err("url", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Note {
+      unexpected_field_err("url", &item.id, item.item_type)?
+    }
     result.insert(String::from("url"), Value::String(url.clone()));
   }
 
@@ -1308,7 +1785,9 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
 
   // password
   if let Some(text) = &item.text {
-    if item.item_type != ItemType::Password { unexpected_field_err("text", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Password {
+      unexpected_field_err("text", &item.id, item.item_type)?
+    }
     result.insert(String::from("text"), Value::String(text.clone()));
   }
 
@@ -1316,27 +1795,37 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
 
   // image
   if let Some(image_size_px) = &item.image_size_px {
-    if item.item_type != ItemType::Image { unexpected_field_err("imageSizePx", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Image {
+      unexpected_field_err("imageSizePx", &item.id, item.item_type)?
+    }
     result.insert(String::from("imageSizePx"), json::dimensions_to_object(&image_size_px));
   }
   if let Some(thumbnail) = &item.thumbnail {
-    if item.item_type != ItemType::Image { unexpected_field_err("thumbnail", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Image {
+      unexpected_field_err("thumbnail", &item.id, item.item_type)?
+    }
     result.insert(String::from("thumbnail"), Value::String(thumbnail.clone()));
   }
 
   // rating
   if let Some(rating) = item.rating {
-    if item.item_type != ItemType::Rating { unexpected_field_err("rating", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Rating {
+      unexpected_field_err("rating", &item.id, item.item_type)?
+    }
     result.insert(String::from("rating"), Value::Number(rating.into()));
   }
   if let Some(rating_type) = &item.rating_type {
-    if item.item_type != ItemType::Rating { unexpected_field_err("ratingType", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Rating {
+      unexpected_field_err("ratingType", &item.id, item.item_type)?
+    }
     result.insert(String::from("ratingType"), Value::String(String::from(rating_type.as_str())));
   }
 
   // link
   if let Some(link_to) = &item.link_to {
-    if item.item_type != ItemType::Link { unexpected_field_err("linkTo", &item.id, item.item_type)? }
+    if item.item_type != ItemType::Link {
+      unexpected_field_err("linkTo", &item.id, item.item_type)?
+    }
     result.insert(String::from("linkTo"), Value::String(link_to.clone()));
   }
 
@@ -1344,41 +1833,53 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
 
   // flipcard
   if let Some(scale) = item.scale {
-    if item.item_type != ItemType::FlipCard { unexpected_field_err("scale", &item.id, item.item_type)? }
-    result.insert(
-      String::from("scale"),
-      Value::Number(Number::from_f64(scale).ok_or(nan_err("scale", &item.id))?));
+    if item.item_type != ItemType::FlipCard {
+      unexpected_field_err("scale", &item.id, item.item_type)?
+    }
+    result.insert(String::from("scale"), Value::Number(Number::from_f64(scale).ok_or(nan_err("scale", &item.id))?));
   }
 
   Ok(result)
 }
 
-
 fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Item> {
   fn not_applicable_err(field_name: &str, item_type: ItemType, item_id: &str) -> InfuError {
-    format!("'{}' field is not valid for item type '{}' - cannot read entry for item '{}'.", field_name, item_type, item_id).into()
+    format!(
+      "'{}' field is not valid for item type '{}' - cannot read entry for item '{}'.",
+      field_name, item_type, item_id
+    )
+    .into()
   }
   fn expected_for_err(field_name: &str, item_type: ItemType, item_id: &str) -> InfuError {
-    format!("'{}' field is expected for item type '{}' - cannot read entry for item '{}'.", field_name, item_type, item_id).into()
+    format!(
+      "'{}' field is expected for item type '{}' - cannot read entry for item '{}'.",
+      field_name, item_type, item_id
+    )
+    .into()
   }
 
   json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
 
   let id = json::get_string_field(map, "id")?.ok_or("'id' field was missing.")?;
-  if !is_uid(&id) { return Err(format!("Item has invalid uid '{}'.", id).into()); }
+  if !is_uid(&id) {
+    return Err(format!("Item has invalid uid '{}'.", id).into());
+  }
 
   let item_type_str = json::get_string_field(map, "itemType")?.ok_or("'itemType' field was missing.")?;
   let item_type = ItemType::from_str(&item_type_str)?;
 
-  let parent_id = match map.get("parentId").ok_or(InfuError::new("'parentId' field was missing, and must always be set, even if null."))? {
+  let parent_id = match map
+    .get("parentId")
+    .ok_or(InfuError::new("'parentId' field was missing, and must always be set, even if null."))?
+  {
     Value::Null => None,
     Value::String(uid_maybe) => {
       if !is_uid(uid_maybe) {
         return Err(format!("Item has invalid parent uid '{}'.", uid_maybe).into());
       }
       Some(uid_maybe.clone())
-    },
-    _ => return Err("'parentId' field was not of type 'string'.".into())
+    }
+    _ => return Err("'parentId' field was not of type 'string'.".into()),
   };
 
   let r = Item {
@@ -1387,56 +1888,121 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     owner_id: json::get_string_field(map, "ownerId")?.ok_or("'owner_id' field was missing.")?,
     parent_id,
     relationship_to_parent: RelationshipToParent::from_str(
-      &json::get_string_field(map, "relationshipToParent")?.ok_or("'relationshipToParent' field is missing.")?)?,
+      &json::get_string_field(map, "relationshipToParent")?.ok_or("'relationshipToParent' field is missing.")?,
+    )?,
     creation_date: json::get_integer_field(map, "creationDate")?.ok_or("'creationDate' field was missing.")?,
-    last_modified_date: json::get_integer_field(map, "lastModifiedDate")?.ok_or("'lastModifiedDate' field was missing.")?,
+    last_modified_date: json::get_integer_field(map, "lastModifiedDate")?
+      .ok_or("'lastModifiedDate' field was missing.")?,
     datetime: json::get_integer_field(map, "dateTime")?.ok_or("'dateTime' field was missing.")?,
-    ordering: map.get("ordering")
+    ordering: map
+      .get("ordering")
       .ok_or(format!("'ordering' field for item '{}' was missing.", &id))?
       .as_array()
       .ok_or(format!("'ordering' field for item '{}' was not of type 'array'.", &id))?
-      .iter().map(|v| match v.as_i64() {
-        Some(v) => if v >= 0 && v <= 255 { Some(v as u8) } else { None },
-        None => None
+      .iter()
+      .map(|v| match v.as_i64() {
+        Some(v) => {
+          if v >= 0 && v <= 255 {
+            Some(v as u8)
+          } else {
+            None
+          }
+        }
+        None => None,
       })
-      .collect::<Option<Vec<_>>>().ok_or(format!("One or more element of the 'ordering' field for item '{}' was invalid.", &id))?,
+      .collect::<Option<Vec<_>>>()
+      .ok_or(format!("One or more element of the 'ordering' field for item '{}' was invalid.", &id))?,
 
     // container
     order_children_by: match json::get_string_field(map, "orderChildrenBy")? {
       Some(v) => {
-        if is_container_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("orderChildrenBy", item_type, &id)) }
-      },
-      None => { if is_container_item_type(item_type) { Err(expected_for_err("orderChildrenBy", item_type, &id)) } else { Ok(None) } }
+        if is_container_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("orderChildrenBy", item_type, &id))
+        }
+      }
+      None => {
+        if is_container_item_type(item_type) {
+          Err(expected_for_err("orderChildrenBy", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // positionable
     spatial_position_gr: match json::get_vector_field(map, "spatialPositionGr")? {
       Some(v) => {
-        if is_positionable_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("spatialPositionGr", item_type, &id)) }
-      },
-      None => { if is_positionable_type(item_type) { Err(expected_for_err("spatialPositionGr", item_type, &id)) } else { Ok(None) } }
+        if is_positionable_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("spatialPositionGr", item_type, &id))
+        }
+      }
+      None => {
+        if is_positionable_type(item_type) {
+          Err(expected_for_err("spatialPositionGr", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // x-sizable
     spatial_width_gr: match json::get_integer_field(map, "spatialWidthGr")? {
-      Some(v) => { if is_x_sizeable_item_type(item_type) || item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("spatialWidthGr", item_type, &id)) } },
-      None => { if is_x_sizeable_item_type(item_type) || item_type == ItemType::Link { Err(expected_for_err("spatialWidthGr", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_x_sizeable_item_type(item_type) || item_type == ItemType::Link {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("spatialWidthGr", item_type, &id))
+        }
+      }
+      None => {
+        if is_x_sizeable_item_type(item_type) || item_type == ItemType::Link {
+          Err(expected_for_err("spatialWidthGr", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // y-sizable
     spatial_height_gr: match json::get_integer_field(map, "spatialHeightGr")? {
-      Some(v) => { if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link || item_type == ItemType::Note { Ok(Some(v)) } else { Err(not_applicable_err("spatialHeightGr", item_type, &id)) } },
-      None => { 
-        if item_type == ItemType::Note { Ok(None) }
-        else if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link { Err(expected_for_err("spatialHeightGr", item_type, &id)) }
-        else { Ok(None) } 
+      Some(v) => {
+        if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link || item_type == ItemType::Note {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("spatialHeightGr", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Note {
+          Ok(None)
+        } else if is_y_sizeable_item_type(item_type) || item_type == ItemType::Link {
+          Err(expected_for_err("spatialHeightGr", item_type, &id))
+        } else {
+          Ok(None)
+        }
       }
     }?,
 
     // titled
     title: match json::get_string_field(map, "title")? {
-      Some(v) => { if is_titled_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("title", item_type, &id)) } },
-      None => { if is_titled_item_type(item_type) { Err(expected_for_err("title", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_titled_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("title", item_type, &id))
+        }
+      }
+      None => {
+        if is_titled_item_type(item_type) {
+          Err(expected_for_err("title", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // data
@@ -1447,191 +2013,544 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         } else {
           Err(not_applicable_err("originalCreationDate", item_type, &id))
         }
-      },
-      None => { if is_data_item_type(item_type) { Err(expected_for_err("originalCreationDate", item_type, &id)) } else { Ok(None) } }
+      }
+      None => {
+        if is_data_item_type(item_type) {
+          Err(expected_for_err("originalCreationDate", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     mime_type: match json::get_string_field(map, "mimeType")? {
-      Some(v) => { if is_data_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("mimeType", item_type, &id)) } },
-      None => { if is_data_item_type(item_type) { Err(expected_for_err("mimeType", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_data_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("mimeType", item_type, &id))
+        }
+      }
+      None => {
+        if is_data_item_type(item_type) {
+          Err(expected_for_err("mimeType", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     file_size_bytes: match json::get_integer_field(map, "fileSizeBytes")? {
-      Some(v) => { if is_data_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("fileSizeBytes", item_type, &id)) } },
-      None => { if is_data_item_type(item_type) { Err(expected_for_err("fileSizeBytes", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_data_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("fileSizeBytes", item_type, &id))
+        }
+      }
+      None => {
+        if is_data_item_type(item_type) {
+          Err(expected_for_err("fileSizeBytes", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // tabular
     table_columns: match json::get_table_columns_field(map, "tableColumns")? {
-      Some(v) => { if is_tabular_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("tableColumns", item_type, &id)) } }
-      None => { if is_tabular_item_type(item_type) { Err(expected_for_err("tableColumns", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_tabular_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("tableColumns", item_type, &id))
+        }
+      }
+      None => {
+        if is_tabular_item_type(item_type) {
+          Err(expected_for_err("tableColumns", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     number_of_visible_columns: match json::get_integer_field(map, "numberOfVisibleColumns")? {
-      Some(v) => { if is_tabular_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("numberOfVisibleColumns", item_type, &id)) } },
-      None => { if is_tabular_item_type(item_type) { Err(expected_for_err("numberOfVisibleColumns", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_tabular_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("numberOfVisibleColumns", item_type, &id))
+        }
+      }
+      None => {
+        if is_tabular_item_type(item_type) {
+          Err(expected_for_err("numberOfVisibleColumns", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // flags
     flags: match json::get_integer_field(map, "flags")? {
-      Some(v) => { if is_flags_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("flags", item_type, &id)) } },
-      None => { if is_flags_item_type(item_type) { Err(expected_for_err("flags", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_flags_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("flags", item_type, &id))
+        }
+      }
+      None => {
+        if is_flags_item_type(item_type) {
+          Err(expected_for_err("flags", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // format
     format: match json::get_string_field(map, "format")? {
-      Some(v) => { if is_format_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("format", item_type, &id)) } },
-      None => { if is_format_item_type(item_type) { Err(expected_for_err("format", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_format_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("format", item_type, &id))
+        }
+      }
+      None => {
+        if is_format_item_type(item_type) {
+          Err(expected_for_err("format", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // permission flags
     permission_flags: match json::get_integer_field(map, "permissionFlags")? {
-      Some(v) => { if is_permission_flags_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("permissionFlags", item_type, &id)) } },
-      None => { if is_permission_flags_item_type(item_type) { Err(expected_for_err("permissionFlags", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_permission_flags_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("permissionFlags", item_type, &id))
+        }
+      }
+      None => {
+        if is_permission_flags_item_type(item_type) {
+          Err(expected_for_err("permissionFlags", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // colorable
     background_color_index: match json::get_integer_field(map, "backgroundColorIndex")? {
-      Some(v) => { if is_colorable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("backgroundColorIndex", item_type, &id)) } },
-      None => { if is_colorable_item_type(item_type) { Err(expected_for_err("backgroundColorIndex", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_colorable_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("backgroundColorIndex", item_type, &id))
+        }
+      }
+      None => {
+        if is_colorable_item_type(item_type) {
+          Err(expected_for_err("backgroundColorIndex", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // aspect
     natural_aspect: match json::get_float_field(map, "naturalAspect")? {
-      Some(v) => { if is_aspect_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("naturalAspect", item_type, &id)) } },
-      None => { if is_aspect_item_type(item_type) { Err(expected_for_err("naturalAspect", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if is_aspect_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("naturalAspect", item_type, &id))
+        }
+      }
+      None => {
+        if is_aspect_item_type(item_type) {
+          Err(expected_for_err("naturalAspect", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // page
     inner_spatial_width_gr: match json::get_integer_field(map, "innerSpatialWidthGr")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("innerSpatialWidthGr", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("innerSpatialWidthGr", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("innerSpatialWidthGr", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("innerSpatialWidthGr", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     arrange_algorithm: match &json::get_string_field(map, "arrangeAlgorithm")? {
       Some(v) => {
-        if item_type == ItemType::Page { Ok(Some(ArrangeAlgorithm::from_str(v)?)) }
-        else { Err(not_applicable_err("arrangeAlgorithm", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("arrangeAlgorithm", item_type, &id)) } else { Ok(None) } }
+        if item_type == ItemType::Page {
+          Ok(Some(ArrangeAlgorithm::from_str(v)?))
+        } else {
+          Err(not_applicable_err("arrangeAlgorithm", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("arrangeAlgorithm", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     default_popup_position_gr: match json::get_vector_field(map, "defaultPopupPositionGr")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("defaultPopupPositionGr", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("defaultPopupPositionGr", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("defaultPopupPositionGr", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("defaultPopupPositionGr", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     default_popup_width_gr: match json::get_integer_field(map, "defaultPopupWidthGr")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("defaultPopupWidthGr", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("defaultPopupWidthGr", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("defaultPopupWidthGr", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("defaultPopupWidthGr", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     popup_position_gr: match json::get_vector_field(map, "popupPositionGr")? {
-      Some(v) => { if is_popup_positionable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("popupPositionGr", item_type, &id)) } },
-      None => { Ok(None) }
+      Some(v) => {
+        if is_popup_positionable_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("popupPositionGr", item_type, &id))
+        }
+      }
+      None => Ok(None),
     }?,
     popup_width_gr: match json::get_integer_field(map, "popupWidthGr")? {
-      Some(v) => { if is_popup_positionable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("popupWidthGr", item_type, &id)) } },
-      None => { Ok(None) }
+      Some(v) => {
+        if is_popup_positionable_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("popupWidthGr", item_type, &id))
+        }
+      }
+      None => Ok(None),
     }?,
     default_cell_popup_position_norm: match json::get_float_vector_field(map, "defaultCellPopupPositionNorm")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("defaultCellPopupPositionNorm", item_type, &id)) } },
-      None => { Ok(None) }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("defaultCellPopupPositionNorm", item_type, &id))
+        }
+      }
+      None => Ok(None),
     }?,
     default_cell_popup_width_norm: match json::get_float_field(map, "defaultCellPopupWidthNorm")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("defaultCellPopupWidthNorm", item_type, &id)) } },
-      None => { Ok(None) }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("defaultCellPopupWidthNorm", item_type, &id))
+        }
+      }
+      None => Ok(None),
     }?,
     cell_popup_position_norm: match json::get_float_vector_field(map, "cellPopupPositionNorm")? {
-      Some(v) => { if is_popup_positionable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("cellPopupPositionNorm", item_type, &id)) } },
-      None => { Ok(None) }
+      Some(v) => {
+        if is_popup_positionable_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("cellPopupPositionNorm", item_type, &id))
+        }
+      }
+      None => Ok(None),
     }?,
     cell_popup_width_norm: match json::get_float_field(map, "cellPopupWidthNorm")? {
-      Some(v) => { if is_popup_positionable_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("cellPopupWidthNorm", item_type, &id)) } },
-      None => { Ok(None) }
+      Some(v) => {
+        if is_popup_positionable_item_type(item_type) {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("cellPopupWidthNorm", item_type, &id))
+        }
+      }
+      None => Ok(None),
     }?,
     grid_number_of_columns: match json::get_integer_field(map, "gridNumberOfColumns")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("gridNumberOfColumns", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("gridNumberOfColumns", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("gridNumberOfColumns", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("gridNumberOfColumns", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     grid_cell_aspect: match json::get_float_field(map, "gridCellAspect")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("gridCellAspect", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("gridCellAspect", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("gridCellAspect", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("gridCellAspect", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     doc_width_bl: match json::get_integer_field(map, "docWidthBl")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("docWidthBl", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("docWidthBl", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("docWidthBl", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("docWidthBl", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     justified_row_aspect: match json::get_float_field(map, "justifiedRowAspect")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("justifiedRowAspect", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("justifiedRowAspect", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("justifiedRowAspect", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("justifiedRowAspect", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     calendar_day_row_height_bl: match json::get_float_field(map, "calendarDayRowHeightBl")? {
-      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("calendarDayRowHeightBl", item_type, &id)) } },
-      None => { if item_type == ItemType::Page { Err(expected_for_err("calendarDayRowHeightBl", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Page {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("calendarDayRowHeightBl", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Page {
+          Err(expected_for_err("calendarDayRowHeightBl", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // note
     url: match json::get_string_field(map, "url")? {
-      Some(v) => { if item_type == ItemType::Note { Ok(Some(v)) } else { Err(not_applicable_err("url", item_type, &id)) } },
-      None => { if item_type == ItemType::Note { Err(expected_for_err("url", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Note {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("url", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Note {
+          Err(expected_for_err("url", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // file
 
     // password
     text: match json::get_string_field(map, "text")? {
-      Some(v) => { if item_type == ItemType::Password { Ok(Some(v)) } else { Err(not_applicable_err("text", item_type, &id)) } },
-      None => { if item_type == ItemType::Password { Err(expected_for_err("text", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Password {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("text", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Password {
+          Err(expected_for_err("text", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // table
 
     // image
     image_size_px: match json::get_dimensions_field(map, "imageSizePx")? {
-      Some(v) => { if item_type == ItemType::Image { Ok(Some(v)) } else { Err(not_applicable_err("imageSizePx", item_type, &id)) } },
-      None => { if item_type == ItemType::Image { Err(expected_for_err("imageSizePx", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Image {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("imageSizePx", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Image {
+          Err(expected_for_err("imageSizePx", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     thumbnail: match json::get_string_field(map, "thumbnail")? {
-      Some(v) => { if item_type == ItemType::Image { Ok(Some(v)) } else { Err(not_applicable_err("thumbnail", item_type, &id)) } },
-      None => { if item_type == ItemType::Image { Err(expected_for_err("thumbnail", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Image {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("thumbnail", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Image {
+          Err(expected_for_err("thumbnail", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // rating
     rating: match json::get_integer_field(map, "rating")? {
-      Some(v) => { if item_type == ItemType::Rating { Ok(Some(v)) } else { Err(not_applicable_err("rating", item_type, &id)) } },
-      None => { if item_type == ItemType::Rating { Err(expected_for_err("rating", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Rating {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("rating", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Rating {
+          Err(expected_for_err("rating", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
     rating_type: match &json::get_string_field(map, "ratingType")? {
-      Some(v) => { if item_type == ItemType::Rating { Ok(Some(RatingType::from_str(v)?)) } else { Err(not_applicable_err("ratingType", item_type, &id)) } },
-      None => { if item_type == ItemType::Rating { Ok(None) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Rating {
+          Ok(Some(RatingType::from_str(v)?))
+        } else {
+          Err(not_applicable_err("ratingType", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Rating {
+          Ok(None)
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // link
     link_to: match json::get_string_field(map, "linkTo")? {
-      Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkTo", item_type, &id)) } },
-      None => { if item_type == ItemType::Link { Err(expected_for_err("linkTo", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::Link {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("linkTo", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Link {
+          Err(expected_for_err("linkTo", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
 
     // composite
 
     // flipcard
     scale: match json::get_float_field(map, "scale")? {
-      Some(v) => { if item_type == ItemType::FlipCard { Ok(Some(v)) } else { Err(not_applicable_err("scale", item_type, &id)) } },
-      None => { if item_type == ItemType::FlipCard { Err(expected_for_err("scale", item_type, &id)) } else { Ok(None) } }
+      Some(v) => {
+        if item_type == ItemType::FlipCard {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("scale", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::FlipCard {
+          Err(expected_for_err("scale", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
     }?,
   };
 
   Ok(r)
 }
 
-
 impl Item {
   pub fn new_note(
-      parent_id: &Uid,
-      ordering: Vec<u8>,
-      spatial_position_gr: Vector<i64>,
-      spatial_width_gr: i64,
-      relationship: RelationshipToParent,
-      title: &str,
-      flags: NoteFlags,
-      format: Option<&str>,
-      url: Option<String>) -> Item {
-
+    parent_id: &Uid,
+    ordering: Vec<u8>,
+    spatial_position_gr: Vector<i64>,
+    spatial_width_gr: i64,
+    relationship: RelationshipToParent,
+    title: &str,
+    flags: NoteFlags,
+    format: Option<&str>,
+    url: Option<String>,
+  ) -> Item {
     let mut fmt = "";
-    if let Some(f) = format { fmt = f; }
+    if let Some(f) = format {
+      fmt = f;
+    }
     Item {
       item_type: ItemType::Note,
       owner_id: EMPTY_UID.to_owned(),
@@ -1684,14 +2603,14 @@ impl Item {
   }
 
   pub fn new_link(
-      parent_id: &Uid,
-      ordering: Vec<u8>,
-      spatial_position_gr: Vector<i64>,
-      spatial_width_gr: i64,
-      spatial_height_gr: i64,
-      relationship: RelationshipToParent,
-      link_to: &Uid) -> Item {
-
+    parent_id: &Uid,
+    ordering: Vec<u8>,
+    spatial_position_gr: Vector<i64>,
+    spatial_width_gr: i64,
+    spatial_height_gr: i64,
+    relationship: RelationshipToParent,
+    link_to: &Uid,
+  ) -> Item {
     Item {
       item_type: ItemType::Link,
       owner_id: EMPTY_UID.to_owned(),
@@ -1744,17 +2663,18 @@ impl Item {
   }
 
   pub fn new_table(
-        parent_id: &Uid,
-        ordering: Vec<u8>,
-        spatial_position_gr: Vector<i64>,
-        spatial_width_gr: i64,
-        spatial_height_gr: i64,
-        relationship: RelationshipToParent,
-        title: &str,
-        flags: TableFlags,
-        table_columns: Vec<TableColumn>,
-        number_of_visible_columns: i64,
-        order_children_by: &str) -> Item {
+    parent_id: &Uid,
+    ordering: Vec<u8>,
+    spatial_position_gr: Vector<i64>,
+    spatial_width_gr: i64,
+    spatial_height_gr: i64,
+    relationship: RelationshipToParent,
+    title: &str,
+    flags: TableFlags,
+    table_columns: Vec<TableColumn>,
+    number_of_visible_columns: i64,
+    order_children_by: &str,
+  ) -> Item {
     Item {
       item_type: ItemType::Table,
       owner_id: EMPTY_UID.to_owned(),
@@ -1806,9 +2726,7 @@ impl Item {
     }
   }
 
-  pub fn new_placeholder(
-      parent_id: &Uid,
-      ordering: Vec<u8>) -> Item {
+  pub fn new_placeholder(parent_id: &Uid, ordering: Vec<u8>) -> Item {
     Item {
       item_type: ItemType::Placeholder,
       owner_id: EMPTY_UID.to_owned(),
@@ -1861,33 +2779,33 @@ impl Item {
   }
 
   pub fn new_page(
-      parent_id: Option<&Uid>,
-      ordering: Vec<u8>,
-      spatial_position_gr: Vector<i64>,
-      spatial_width_gr: i64,
-      relationship: RelationshipToParent,
-      title: &str,
-      order_children_by: &str,
-      background_color_index: i64,
-      permission_flags: i64,
-      flags: i64,
-      natural_aspect: f64,
-      inner_spatial_width_gr: i64,
-      arrange_algorithm: ArrangeAlgorithm,
-      grid_number_of_columns: i64,
-      grid_cell_aspect: f64,
-      doc_width_bl: i64,
-      justified_row_aspect: f64,
-      calendar_day_row_height_bl: f64,
-      table_columns: Vec<TableColumn>,
-      number_of_visible_columns: i64) -> Item {
-
+    parent_id: Option<&Uid>,
+    ordering: Vec<u8>,
+    spatial_position_gr: Vector<i64>,
+    spatial_width_gr: i64,
+    relationship: RelationshipToParent,
+    title: &str,
+    order_children_by: &str,
+    background_color_index: i64,
+    permission_flags: i64,
+    flags: i64,
+    natural_aspect: f64,
+    inner_spatial_width_gr: i64,
+    arrange_algorithm: ArrangeAlgorithm,
+    grid_number_of_columns: i64,
+    grid_cell_aspect: f64,
+    doc_width_bl: i64,
+    justified_row_aspect: f64,
+    calendar_day_row_height_bl: f64,
+    table_columns: Vec<TableColumn>,
+    number_of_visible_columns: i64,
+  ) -> Item {
     let inner_spatial_width_br = inner_spatial_width_gr / GRID_SIZE;
     let inner_spatial_height_br: i64 = (inner_spatial_width_br as f64 / natural_aspect) as i64;
     let default_popup_width_gr = (inner_spatial_width_br / 2) * GRID_SIZE;
     let default_popup_position_gr = Vector {
       x: (inner_spatial_width_br / 2) * GRID_SIZE,
-      y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE
+      y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE,
     };
 
     Item {
@@ -2019,10 +2937,8 @@ impl Item {
     // Tabular properties
     if is_tabular_item_type(self.item_type) {
       if let Some(table_columns) = &self.table_columns {
-        let columns_str = table_columns.iter()
-          .map(|col| format!("{}:{}", col.width_gr, col.name))
-          .collect::<Vec<_>>()
-          .join(";");
+        let columns_str =
+          table_columns.iter().map(|col| format!("{}:{}", col.width_gr, col.name)).collect::<Vec<_>>().join(";");
         hashes.push(hash_string_to_uid(&columns_str));
       }
       if let Some(number_of_visible_columns) = self.number_of_visible_columns {

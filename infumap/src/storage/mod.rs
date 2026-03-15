@@ -15,8 +15,8 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod backup;
+pub mod cache;
 pub mod db;
 pub mod file;
-pub mod cache;
 pub mod object;
 pub mod s3;

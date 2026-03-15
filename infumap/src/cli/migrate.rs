@@ -14,24 +14,23 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::any::Any;
-use std::path::PathBuf;
-use infusdk::item::Item;
-use infusdk::db::kv_store::JsonLogSerializable;
-use infusdk::util::infu::InfuResult;
-use infusdk::util::json;
-use serde_json::de::IoRead;
-use serde_json::{Map, Value, StreamDeserializer};
-use clap::{ArgMatches, Command, Arg};
-use tokio::fs::rename;
 use crate::storage::db::item_db::CURRENT_ITEM_LOG_VERSION;
 use crate::storage::db::user::User;
 use crate::storage::db::user_db::CURRENT_USER_LOG_VERSION;
 use crate::util::fs::{expand_tilde, path_exists};
+use clap::{Arg, ArgMatches, Command};
+use infusdk::db::kv_store::JsonLogSerializable;
+use infusdk::item::Item;
+use infusdk::util::infu::InfuResult;
+use infusdk::util::json;
+use serde_json::Value::Object;
+use serde_json::de::IoRead;
+use serde_json::{Map, StreamDeserializer, Value};
+use std::any::Any;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
-use serde_json::Value::Object;
-
+use std::path::PathBuf;
+use tokio::fs::rename;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("migrate")
@@ -44,12 +43,10 @@ pub fn make_clap_subcommand() -> Command {
       .required(true))
 }
 
-
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let log_path = sub_matches.get_one::<String>("log_path").unwrap();
   migrate_log(&log_path).await
 }
-
 
 async fn migrate_log(log_path: &str) -> InfuResult<()> {
   let expanded_log_path = expand_tilde(log_path).ok_or("Could not interpret log path.")?;
@@ -60,11 +57,12 @@ async fn migrate_log(log_path: &str) -> InfuResult<()> {
     let mut iterator = deserializer.into_iter::<serde_json::Value>();
     let first = iterator.next().ok_or("Log has no records.")??;
     let (from_version, value_type, updated_descriptor) = match first {
-      Object(kvs) => {
-        process_descriptor(&kvs)?
-      },
+      Object(kvs) => process_descriptor(&kvs)?,
       unexpected_type => {
-        return Err(format!("Descriptor log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into());
+        return Err(
+          format!("Descriptor log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id())
+            .into(),
+        );
       }
     };
 
@@ -90,13 +88,20 @@ async fn migrate_log(log_path: &str) -> InfuResult<()> {
   Ok(())
 }
 
-
-fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: Map<String, Value>, iterator: &mut StreamDeserializer<IoRead<BufReader<File>>, Value>) -> InfuResult<()> {
+fn migrate_item_log(
+  log_path: &PathBuf,
+  from_version: i64,
+  updated_descriptor: Map<String, Value>,
+  iterator: &mut StreamDeserializer<IoRead<BufReader<File>>, Value>,
+) -> InfuResult<()> {
   if from_version == CURRENT_ITEM_LOG_VERSION {
     return Err("Item log is already at the latest version.".into());
   }
   if from_version > CURRENT_ITEM_LOG_VERSION {
-    return Err(format!("Item log version {} is in the future - latest supported is {}.", from_version, CURRENT_ITEM_LOG_VERSION).into());
+    return Err(
+      format!("Item log version {} is in the future - latest supported is {}.", from_version, CURRENT_ITEM_LOG_VERSION)
+        .into(),
+    );
   }
 
   let file = File::create(log_path.with_extension("new"))?;
@@ -136,13 +141,17 @@ fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: M
           25 => crate::storage::db::item_db::migrate_record_v25_to_v26(&kvs)?,
           26 => crate::storage::db::item_db::migrate_record_v26_to_v27(&kvs)?,
           27 => crate::storage::db::item_db::migrate_record_v27_to_v28(&kvs)?,
-          _ => { return Err(format!("Unexpected item log version: {}.", from_version).into()); }
+          _ => {
+            return Err(format!("Unexpected item log version: {}.", from_version).into());
+          }
         };
         writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
         writer.write_all("\n".as_bytes())?;
-      },
+      }
       unexpected_type => {
-        return Err(format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into());
+        return Err(
+          format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
+        );
       }
     }
   }
@@ -151,13 +160,20 @@ fn migrate_item_log(log_path: &PathBuf, from_version: i64, updated_descriptor: M
   Ok(())
 }
 
-
-fn migrate_user_log(log_path: &PathBuf, from_version: i64, updated_descriptor: Map<String, Value>, iterator: &mut StreamDeserializer<IoRead<BufReader<File>>, Value>) -> InfuResult<()> {
+fn migrate_user_log(
+  log_path: &PathBuf,
+  from_version: i64,
+  updated_descriptor: Map<String, Value>,
+  iterator: &mut StreamDeserializer<IoRead<BufReader<File>>, Value>,
+) -> InfuResult<()> {
   if from_version == CURRENT_USER_LOG_VERSION {
     return Err("User log is already at the latest version.".into());
   }
   if from_version > CURRENT_USER_LOG_VERSION {
-    return Err(format!("User log version {} is in the future - latest supported is {}.", from_version, CURRENT_USER_LOG_VERSION).into());
+    return Err(
+      format!("User log version {} is in the future - latest supported is {}.", from_version, CURRENT_USER_LOG_VERSION)
+        .into(),
+    );
   }
 
   let file = File::create(log_path.with_extension("new"))?;
@@ -171,13 +187,17 @@ fn migrate_user_log(log_path: &PathBuf, from_version: i64, updated_descriptor: M
       Object(kvs) => {
         let migrated = match from_version {
           1 => crate::storage::db::pending_user_db::migrate_record_v1_to_v2(&kvs)?,
-          _ => { return Err(format!("Unexpected user log version: {}.", from_version).into()); }
+          _ => {
+            return Err(format!("Unexpected user log version: {}.", from_version).into());
+          }
         };
         writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
         writer.write_all("\n".as_bytes())?;
-      },
+      }
       unexpected_type => {
-        return Err(format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into());
+        return Err(
+          format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
+        );
       }
     }
   }
@@ -186,12 +206,14 @@ fn migrate_user_log(log_path: &PathBuf, from_version: i64, updated_descriptor: M
   Ok(())
 }
 
-
 fn process_descriptor(kvs: &Map<String, Value>) -> InfuResult<(i64, String, Map<String, Value>)> {
-  if json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() != "descriptor" {
+  if json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+    != "descriptor"
+  {
     return Err("First log record was not of type 'descriptor'.".into());
   }
-  let descriptor_version = json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
+  let descriptor_version =
+    json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
   let value_type = json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
   let mut updated_descriptor = kvs.clone();
   updated_descriptor.insert(String::from("version"), Value::Number(((descriptor_version + 1) as i64).into()));

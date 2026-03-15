@@ -18,71 +18,109 @@ use serde_json::{Map, Value};
 
 use crate::item::TableColumn;
 
-use super::{geometry::{Dimensions, Vector}, infu::InfuResult};
-
+use super::{
+  geometry::{Dimensions, Vector},
+  infu::InfuResult,
+};
 
 pub fn get_string_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<String>> {
-  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
-  if v.is_null() { return Ok(None); }
+  let v = match map.get(field) {
+    None => return Ok(None),
+    Some(s) => s,
+  };
+  if v.is_null() {
+    return Ok(None);
+  }
   Ok(Some(String::from(v.as_str().ok_or(format!("'{}' field was not of type 'string'.", field))?)))
 }
 
 pub fn get_integer_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<i64>> {
-  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
-  if v.is_null() { return Ok(None); }
+  let v = match map.get(field) {
+    None => return Ok(None),
+    Some(s) => s,
+  };
+  if v.is_null() {
+    return Ok(None);
+  }
   Ok(Some(v.as_i64().ok_or(format!("'{}' field was not of type 'i64'.", field))?))
 }
 
 pub fn get_float_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<f64>> {
-  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
-  if v.is_null() { return Ok(None); }
+  let v = match map.get(field) {
+    None => return Ok(None),
+    Some(s) => s,
+  };
+  if v.is_null() {
+    return Ok(None);
+  }
   Ok(Some(v.as_f64().ok_or(format!("'{}' field was not of type 'f64'.", field))?))
 }
 
 pub fn _get_bool_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<bool>> {
-  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
-  if v.is_null() { return Ok(None); }
+  let v = match map.get(field) {
+    None => return Ok(None),
+    Some(s) => s,
+  };
+  if v.is_null() {
+    return Ok(None);
+  }
   Ok(Some(v.as_bool().ok_or(format!("'{}' field was not of type 'bool'.", field))?))
 }
 
 pub fn get_vector_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Vector<i64>>> {
-  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
-  if v.is_null() { return Ok(None); }
+  let v = match map.get(field) {
+    None => return Ok(None),
+    Some(s) => s,
+  };
+  if v.is_null() {
+    return Ok(None);
+  }
   let o = v.as_object().ok_or(format!("'{}' field was not of type 'object'.", field))?;
   Ok(Some(Vector {
     x: get_integer_field(o, "x")?.ok_or("Vector field 'x' was missing.")?,
-    y: get_integer_field(o, "y")?.ok_or("Vector field 'y' was missing.")?
+    y: get_integer_field(o, "y")?.ok_or("Vector field 'y' was missing.")?,
   }))
 }
 
 pub fn get_float_vector_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Vector<f64>>> {
-  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
-  if v.is_null() { return Ok(None); }
+  let v = match map.get(field) {
+    None => return Ok(None),
+    Some(s) => s,
+  };
+  if v.is_null() {
+    return Ok(None);
+  }
   let o = v.as_object().ok_or(format!("'{}' field was not of type 'object'.", field))?;
   Ok(Some(Vector {
     x: get_float_field(o, "x")?.ok_or("Vector field 'x' was missing.")?,
-    y: get_float_field(o, "y")?.ok_or("Vector field 'y' was missing.")?
+    y: get_float_field(o, "y")?.ok_or("Vector field 'y' was missing.")?,
   }))
 }
 
 pub fn get_dimensions_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Dimensions<i64>>> {
-  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
+  let v = match map.get(field) {
+    None => return Ok(None),
+    Some(s) => s,
+  };
   let o = v.as_object().ok_or(format!("'{}' field was not of type 'object'.", field))?;
   Ok(Some(Dimensions {
     w: get_integer_field(o, "w")?.ok_or("Dimensions field 'w' was missing.")?,
-    h: get_integer_field(o, "h")?.ok_or("Dimensions field 'h' was missing.")?
+    h: get_integer_field(o, "h")?.ok_or("Dimensions field 'h' was missing.")?,
   }))
 }
 
 pub fn get_table_columns_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Vec<TableColumn>>> {
-  let v = match map.get(field) { None => return Ok(None), Some(s) => s };
+  let v = match map.get(field) {
+    None => return Ok(None),
+    Some(s) => s,
+  };
   let a = v.as_array().ok_or(format!("'{}' field was not of type 'array'.", field))?;
   let mut result = vec![];
   for tc in a {
     let o = tc.as_object().ok_or("item in table column array was not of type 'object'.")?;
     result.push(TableColumn {
       width_gr: get_integer_field(o, "widthGr")?.ok_or("TableColumn field 'widthGr' was missing.")?,
-      name: get_string_field(o, "name")?.ok_or("TableColumn field 'name' was missing.")?
+      name: get_string_field(o, "name")?.ok_or("TableColumn field 'name' was missing.")?,
     });
   }
   Ok(Some(result))

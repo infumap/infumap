@@ -14,20 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use crate::storage::db::Db;
+use infusdk::item::{is_attachments_item_type, is_container_item_type};
 use infusdk::util::hash::combine_hashes;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
-use infusdk::item::{is_attachments_item_type, is_container_item_type};
-use crate::storage::db::Db;
 use tokio::sync::MutexGuard;
-
 
 /// Creates a composite hash of an item and its attachments only.
 /// Corresponds to GetItemsMode::ItemAndAttachmentsOnly.
-pub fn hash_item_and_attachments_only(
-    db: &MutexGuard<'_, Db>,
-    item_id: &Uid,
-) -> InfuResult<Uid> {
+pub fn hash_item_and_attachments_only(db: &MutexGuard<'_, Db>, item_id: &Uid) -> InfuResult<Uid> {
   let mut hashes = Vec::new();
 
   let item = db.item.get(item_id)?;
@@ -48,10 +44,7 @@ pub fn hash_item_and_attachments_only(
 /// Creates a composite hash of all children of an item and their attachments only.
 /// Does NOT include a hash of the item itself.
 /// Corresponds to GetItemsMode::ChildrenAndTheirAttachmentsOnly.
-pub fn hash_children_and_their_attachments_only(
-    db: &MutexGuard<'_, Db>,
-    item_id: &Uid,
-) -> InfuResult<Uid> {
+pub fn hash_children_and_their_attachments_only(db: &MutexGuard<'_, Db>, item_id: &Uid) -> InfuResult<Uid> {
   let mut hashes = Vec::new();
 
   let item = db.item.get(item_id)?;
@@ -78,10 +71,7 @@ pub fn hash_children_and_their_attachments_only(
 
 /// Creates a composite hash of an item, its attachments, its children, and their attachments.
 /// Corresponds to GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments.
-pub fn hash_item_attachments_children_and_their_attachments(
-    db: &MutexGuard<'_, Db>,
-    item_id: &Uid,
-) -> InfuResult<Uid> {
+pub fn hash_item_attachments_children_and_their_attachments(db: &MutexGuard<'_, Db>, item_id: &Uid) -> InfuResult<Uid> {
   let mut hashes = Vec::new();
 
   let item = db.item.get(item_id)?;
@@ -113,4 +103,4 @@ pub fn hash_item_attachments_children_and_their_attachments(
 
   let hash_refs: Vec<&Uid> = hashes.iter().collect();
   Ok(combine_hashes(&hash_refs))
-} 
+}

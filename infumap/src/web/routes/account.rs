@@ -18,32 +18,31 @@ use bytes::Bytes;
 use config::Config;
 use http_body_util::combinators::BoxBody;
 use hyper::header::{HOST, SET_COOKIE};
-use hyper::{Request, Response, Method};
+use hyper::{Method, Request, Response};
 use infusdk::util::geometry::Dimensions;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::time::{unix_now_secs_i64, unix_now_secs_u64};
 use infusdk::util::uid::{is_uid, new_uid};
-use log::{info, error, debug, warn};
+use log::{debug, error, info, warn};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration};
-use totp_rs::{Algorithm, TOTP, Secret};
+use tokio::time::{Duration, sleep};
+use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 
 use crate::config::CONFIG_BYPASS_TOTP_CHECK;
-use crate::storage::db::users_extra::UserExtra;
 use crate::storage::db::Db;
-use crate::storage::db::user::{User, ROOT_USER_NAME};
+use crate::storage::db::user::{ROOT_USER_NAME, User};
+use crate::storage::db::users_extra::UserExtra;
 use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
 use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
-use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response, cors_response};
+use crate::web::serve::{cors_response, forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
-
 
 const TOTP_ALGORITHM: Algorithm = Algorithm::SHA1; // The most broadly compatible algo & SHA1 is just fine for 2FA.
 const TOTP_NUM_DIGITS: usize = 6; // 6 digit OTP is pretty standard.
@@ -73,8 +72,11 @@ static LOGIN_RATE_LIMIT_BY_IP: Lazy<Mutex<HashMap<String, LoginRateLimitEntry>>>
 static LOGIN_RATE_LIMIT_BY_USERNAME: Lazy<Mutex<HashMap<String, LoginRateLimitEntry>>> =
   Lazy::new(|| Mutex::new(HashMap::new()));
 
-
-pub async fn serve_account_route(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn serve_account_route(
+  config: Arc<Config>,
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   if req.method() == Method::OPTIONS {
     return cors_response();
   }
@@ -88,16 +90,15 @@ pub async fn serve_account_route(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: 
     (&Method::POST, "/account/change-password") => change_password(db, req).await,
     (&Method::POST, "/account/validate-session") => validate(db, req).await,
     (&Method::POST, "/account/extra") => extra(db, req).await,
-    _ => not_found_response()
+    _ => not_found_response(),
   }
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoginRequest {
   pub username: String,
   pub password: String,
-  #[serde(rename="totpToken")]
+  #[serde(rename = "totpToken")]
   pub totp_token: Option<String>,
 }
 
@@ -105,21 +106,25 @@ pub struct LoginRequest {
 pub struct LoginResponse {
   pub success: bool,
   pub err: Option<String>,
-  #[serde(rename="sessionId")]
+  #[serde(rename = "sessionId")]
   pub session_id: Option<String>,
-  #[serde(rename="userId")]
+  #[serde(rename = "userId")]
   pub user_id: Option<String>,
-  #[serde(rename="homePageId")]
+  #[serde(rename = "homePageId")]
   pub home_page_id: Option<String>,
-  #[serde(rename="trashPageId")]
+  #[serde(rename = "trashPageId")]
   pub trash_page_id: Option<String>,
-  #[serde(rename="dockPageId")]
+  #[serde(rename = "dockPageId")]
   pub dock_page_id: Option<String>,
-  #[serde(rename="hasTotp")]
+  #[serde(rename = "hasTotp")]
   pub has_totp: bool,
 }
 
-pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn login(
+  config: Arc<Config>,
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let bypass_totp_check = config.get_bool(CONFIG_BYPASS_TOTP_CHECK).unwrap_or(false);
   let client_ip_key = client_ip_rate_limit_key(&req);
   let secure_cookie = should_use_secure_cookie(&req);
@@ -128,8 +133,14 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
   async fn failed_response(msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
     sleep(Duration::from_millis(250)).await;
     return json_response(&LoginResponse {
-      success: false, session_id: None, user_id: None, home_page_id: None, trash_page_id: None, dock_page_id: None, has_totp: false,
-      err: Some(String::from(msg))
+      success: false,
+      session_id: None,
+      user_id: None,
+      home_page_id: None,
+      trash_page_id: None,
+      dock_page_id: None,
+      has_totp: false,
+      err: Some(String::from(msg)),
     });
   }
 
@@ -183,7 +194,7 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
           Err(e) => {
             info!("An error occurred whilst trying to validate a TOTP token for user '{}': {}", payload.username, e);
             return failed_response("server error").await;
-          },
+          }
           Ok(v) => {
             if !v {
               info!("A login attempt for user '{}' failed due to an incorrect TOTP.", payload.username);
@@ -199,7 +210,10 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
       }
     } else {
       if payload.totp_token.is_some() {
-        info!("A login attempt for user '{}' failed because a TOTP token was specified, but this is not expected.", payload.username);
+        info!(
+          "A login attempt for user '{}' failed because a TOTP token was specified, but this is not expected.",
+          payload.username
+        );
         record_login_failure(&client_ip_key, &username_key).await;
         return failed_response("credentials incorrect").await;
       }
@@ -216,9 +230,7 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
         if let Err(e) = db.session.delete_session(existing_session_id).await {
           warn!(
             "Could not delete prior session '{}' after successful login for user '{}': {}",
-            existing_session_id,
-            user.id,
-            e
+            existing_session_id, user.id, e
           );
         }
       }
@@ -237,12 +249,12 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
         trash_page_id: Some(user.trash_page_id),
         dock_page_id: Some(user.dock_page_id),
         has_totp: user.totp_secret.is_some(),
-        err: None
+        err: None,
       };
       let mut response = json_response(&result);
       set_cookie_header(&mut response, build_session_cookie_value(&session.id, secure_cookie));
       return response;
-    },
+    }
     Err(e) => {
       error!("Failed to create session for user '{}': {}.", payload.username, e);
       return failed_response("server error").await;
@@ -250,13 +262,15 @@ pub async fn login(config: Arc<Config>, db: &Arc<Mutex<Db>>, req: Request<hyper:
   }
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct LogoutResponse {
   pub success: bool,
 }
 
-pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn logout(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let secure_cookie = should_use_secure_cookie(&req);
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
@@ -272,18 +286,17 @@ pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) ->
 
   match db.session.delete_session(&session.id).await {
     Err(e) => {
-      warn!(
-        "Could not delete session '{}' for user '{}': {}",
-        session.id, session.user_id, e);
+      warn!("Could not delete session '{}' for user '{}': {}", session.id, session.user_id, e);
       let mut response = json_response(&LogoutResponse { success: false });
       set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
       return response;
-    },
+    }
     Ok(user_id) => {
       if user_id != session.user_id {
         error!(
           "Unexpected user_id '{}' deleting session '{}'. Session is associated with user: '{}'",
-          session.user_id, session.id, user_id);
+          session.user_id, session.id, user_id
+        );
         let mut response = json_response(&LogoutResponse { success: false });
         set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
         return response;
@@ -296,50 +309,52 @@ pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) ->
   response
 }
 
-
 #[derive(Deserialize)]
 pub struct RegisterRequest {
   username: String,
   password: String,
-  #[serde(rename="totpSecret")]
+  #[serde(rename = "totpSecret")]
   totp_secret: Option<String>,
-  #[serde(rename="totpToken")]
+  #[serde(rename = "totpToken")]
   totp_token: Option<String>,
-  #[serde(rename="pageWidthPx")]
+  #[serde(rename = "pageWidthPx")]
   page_width_px: i64,
-  #[serde(rename="pageHeightPx")]
+  #[serde(rename = "pageHeightPx")]
   page_height_px: i64,
 }
 
 #[derive(Serialize)]
 pub struct RegisterResponse {
   success: bool,
-  err: Option<String>
+  err: Option<String>,
 }
 
 const RESERVED_NAMES: [&'static str; 21] = [
-  "login", "logout", "register", "signin", "signup", "settings",
-  "item", "items", "page", "table", "image", "text", "rating",
-  "file", "blob", "about", "add", "delete", "remove", "update",
-  "admin"];
+  "login", "logout", "register", "signin", "signup", "settings", "item", "items", "page", "table", "image", "text",
+  "rating", "file", "blob", "about", "add", "delete", "remove", "update", "admin",
+];
 
-pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn register(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let mut db = db.lock().await;
 
   let payload: RegisterRequest = match incoming_json(req).await {
     Ok(p) => p,
     Err(e) => {
       error!("Could not parse register request: {}", e);
-      return json_response(&RegisterResponse { success: false, err: Some(String::from("application error")) } );
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("application error")) });
     }
   };
 
-  if db.user.get_by_username_case_insensitive(&payload.username).is_some() ||
-     db.pending_user.get_by_username_case_insensitive(&payload.username).is_some() ||
-     is_uid(&payload.username) ||
-     payload.username.len() > 16 ||
-     RESERVED_NAMES.contains(&payload.username.as_str()) {
-    return json_response(&RegisterResponse { success: false, err: Some(String::from("username not available")) } )
+  if db.user.get_by_username_case_insensitive(&payload.username).is_some()
+    || db.pending_user.get_by_username_case_insensitive(&payload.username).is_some()
+    || is_uid(&payload.username)
+    || payload.username.len() > 16
+    || RESERVED_NAMES.contains(&payload.username.as_str())
+  {
+    return json_response(&RegisterResponse { success: false, err: Some(String::from("username not available")) });
   }
 
   const NATURAL_BLOCK_SIZE_PX: i64 = 24;
@@ -347,24 +362,29 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   let page_width_bl = page_size_px.w / NATURAL_BLOCK_SIZE_PX;
   let natural_aspect = ((page_size_px.w as f64) / (page_size_px.h as f64) * 1000.0).round() / 1000.0;
   if payload.username.len() < 3 {
-    return json_response(&RegisterResponse { success: false, err: Some(String::from("username must be 3 or more characters")) } )
+    return json_response(&RegisterResponse {
+      success: false,
+      err: Some(String::from("username must be 3 or more characters")),
+    });
   }
   if let Err(msg) = validate_password_policy(&payload.password) {
-    return json_response(&RegisterResponse { success: false, err: Some(String::from(msg)) } )
+    return json_response(&RegisterResponse { success: false, err: Some(String::from(msg)) });
   }
   if let Some(totp_secret) = &payload.totp_secret {
     if let Some(totp_token) = &payload.totp_token {
       match validate_totp(totp_secret, totp_token) {
         Err(e) => {
           error!("Error occurred validating TOTP token: {}", e);
-          return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } );
-        },
+          return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+        }
         Ok(v) => {
-          if !v { return json_response(&RegisterResponse { success: false, err: Some(String::from("incorrect OTP")) } ); }
+          if !v {
+            return json_response(&RegisterResponse { success: false, err: Some(String::from("incorrect OTP")) });
+          }
         }
       }
     } else {
-      return json_response(&RegisterResponse { success: false, err: Some(String::from("application error")) } );
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("application error")) });
     }
   }
 
@@ -392,7 +412,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     dock_page_id: dock_page_id.clone(),
     default_page_width_bl: 60,
     default_page_natural_aspect: 2.0,
-    object_encryption_key: generate_key()
+    object_encryption_key: generate_key(),
   };
 
   if payload.username == ROOT_USER_NAME {
@@ -441,42 +461,45 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
 
 #[derive(Deserialize)]
 pub struct UpdateTotpRequest {
-  #[serde(rename="userId")]
+  #[serde(rename = "userId")]
   user_id: String,
-  #[serde(rename="totpSecret")]
+  #[serde(rename = "totpSecret")]
   totp_secret: Option<String>,
-  #[serde(rename="totpToken")]
+  #[serde(rename = "totpToken")]
   totp_token: Option<String>,
 }
 
 #[derive(Serialize)]
 pub struct UpdateTotpResponse {
   success: bool,
-  err: Option<String>
+  err: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct ChangePasswordRequest {
-  #[serde(rename="userId")]
+  #[serde(rename = "userId")]
   user_id: String,
-  #[serde(rename="currentPassword")]
+  #[serde(rename = "currentPassword")]
   current_password: String,
-  #[serde(rename="newPassword")]
+  #[serde(rename = "newPassword")]
   new_password: String,
 }
 
 #[derive(Serialize)]
 pub struct ChangePasswordResponse {
   success: bool,
-  err: Option<String>
+  err: Option<String>,
 }
 
-pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn update_totp(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
     None => {
       warn!("Could not update totp: no valid session is present.");
-      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("auth")) } );
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("auth")) });
     }
   };
 
@@ -484,15 +507,16 @@ pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming
     Ok(p) => p,
     Err(e) => {
       error!("Could not parse update totp request: {}", e);
-      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) });
     }
   };
 
   if payload.user_id != session.user_id {
     warn!(
       "Could not update totp: session user '{}' does not match request user '{}'.",
-      session.user_id, payload.user_id);
-    return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("auth")) } );
+      session.user_id, payload.user_id
+    );
+    return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("auth")) });
   }
 
   let mut db = db.lock().await;
@@ -500,44 +524,50 @@ pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming
   let mut user = match db.user.get(&session.user_id).ok_or(()) {
     Err(_) => {
       error!("User {} does not exist updating totp.", session.user_id);
-      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
-    },
-    Ok(u) => u
-  }.clone();
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) });
+    }
+    Ok(u) => u,
+  }
+  .clone();
 
   if let Some(totp_secret) = &payload.totp_secret {
     if let Some(totp_token) = &payload.totp_token {
       match validate_totp(totp_secret, totp_token) {
         Err(e) => {
           error!("Error occurred validating TOTP token (update): {}", e);
-          return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("server error")) } );
-        },
+          return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("server error")) });
+        }
         Ok(v) => {
-          if !v { return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("incorrect OTP")) } ); }
+          if !v {
+            return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("incorrect OTP")) });
+          }
         }
       }
       user.totp_secret = Some(totp_secret.clone());
     } else {
       error!("If totp secret is set, token must also be set.");
-      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) });
     }
   } else {
     if payload.totp_token.is_some() {
       error!("If totp secret is not set, token must also be not set.");
-      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) });
     }
     user.totp_secret = None;
   }
 
   if let Err(e) = db.user.update(&user).await {
     error!("User {}: failed to update totp: {}", session.user_id, e);
-    return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("server error")) } );
+    return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("server error")) });
   };
 
   json_response(&UpdateTotpResponse { success: true, err: None })
 }
 
-pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn change_password(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let secure_cookie = should_use_secure_cookie(&req);
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
@@ -558,7 +588,8 @@ pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
   if payload.user_id != session.user_id {
     warn!(
       "Could not change password: session user '{}' does not match request user '{}'.",
-      session.user_id, payload.user_id);
+      session.user_id, payload.user_id
+    );
     return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("auth")) });
   }
 
@@ -570,10 +601,7 @@ pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
   }
 
   if let Err(msg) = validate_password_policy(&payload.new_password) {
-    return json_response(&ChangePasswordResponse {
-      success: false,
-      err: Some(String::from(msg)),
-    });
+    return json_response(&ChangePasswordResponse { success: false, err: Some(String::from(msg)) });
   }
 
   let user = {
@@ -598,7 +626,10 @@ pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
   };
   if !current_password_ok {
     sleep(Duration::from_millis(250)).await;
-    return json_response(&ChangePasswordResponse { success: false, err: Some(String::from("current password incorrect")) });
+    return json_response(&ChangePasswordResponse {
+      success: false,
+      err: Some(String::from("current password incorrect")),
+    });
   }
 
   let new_password_hash = match User::hash_password(&payload.new_password) {
@@ -613,7 +644,8 @@ pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
   let update_result;
   {
     let mut db = db.lock().await;
-    update_result = db.user.update_password_hash_and_salt(&session.user_id, &new_password_hash, &new_password_salt).await;
+    update_result =
+      db.user.update_password_hash_and_salt(&session.user_id, &new_password_hash, &new_password_salt).await;
   }
 
   if let Err(e) = update_result {
@@ -627,15 +659,10 @@ pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
     match created {
       Ok(new_session) => {
         if let Err(e) = db.session.delete_session(&session.id).await {
-          warn!(
-            "Password changed for user '{}' but old session '{}' could not be deleted: {}",
-            user.id,
-            session.id,
-            e
-          );
+          warn!("Password changed for user '{}' but old session '{}' could not be deleted: {}", user.id, session.id, e);
         }
         Ok(new_session)
-      },
+      }
       Err(e) => Err(e),
     }
   };
@@ -655,10 +682,15 @@ pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
 
 fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
   let totp = TOTP::new(
-    TOTP_ALGORITHM, TOTP_NUM_DIGITS, TOTP_SKEW, TOTP_STEP,
+    TOTP_ALGORITHM,
+    TOTP_NUM_DIGITS,
+    TOTP_SKEW,
+    TOTP_STEP,
     Secret::Encoded(totp_secret.to_string()).to_bytes().map_err(|e| format!("{:?}", e))?,
-    None, "infumap".to_string()
-  ).map_err(|e| format!("{:?}", e))?;
+    None,
+    "infumap".to_string(),
+  )
+  .map_err(|e| format!("{:?}", e))?;
 
   let token = totp.generate(unix_now_secs_u64().unwrap());
 
@@ -685,9 +717,7 @@ pub(crate) fn should_use_secure_cookie(req: &Request<hyper::body::Incoming>) -> 
 pub(crate) fn build_session_cookie_value(session_id: &str, secure: bool) -> String {
   let mut cookie = format!(
     "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
-    SESSION_COOKIE_NAME,
-    session_id,
-    SESSION_COOKIE_MAX_AGE_SECS
+    SESSION_COOKIE_NAME, session_id, SESSION_COOKIE_MAX_AGE_SECS
   );
   if secure {
     cookie.push_str("; Secure");
@@ -707,7 +737,7 @@ pub(crate) fn set_cookie_header(response: &mut Response<BoxBody<Bytes, hyper::Er
   match hyper::header::HeaderValue::from_str(&value) {
     Ok(header_value) => {
       response.headers_mut().append(SET_COOKIE, header_value);
-    },
+    }
     Err(e) => {
       warn!("Could not set session cookie header: {}", e);
     }
@@ -731,7 +761,8 @@ fn validate_password_policy(password: &str) -> Result<(), &'static str> {
 }
 
 fn sanitize_rate_limit_key(raw: &str) -> String {
-  raw.chars()
+  raw
+    .chars()
     .filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == ':' || *c == '-' || *c == '_')
     .take(LOGIN_RATE_KEY_MAX_LEN)
     .collect::<String>()
@@ -739,15 +770,13 @@ fn sanitize_rate_limit_key(raw: &str) -> String {
 
 fn username_rate_limit_key(username: &str) -> String {
   let normalized = sanitize_rate_limit_key(&username.trim().to_ascii_lowercase());
-  if normalized.is_empty() {
-    UNKNOWN_LOGIN_PRINCIPAL.to_owned()
-  } else {
-    normalized
-  }
+  if normalized.is_empty() { UNKNOWN_LOGIN_PRINCIPAL.to_owned() } else { normalized }
 }
 
 fn client_ip_rate_limit_key(req: &Request<hyper::body::Incoming>) -> String {
-  let from_forwarded_for = req.headers().get("x-forwarded-for")
+  let from_forwarded_for = req
+    .headers()
+    .get("x-forwarded-for")
     .and_then(|v| v.to_str().ok())
     .and_then(|v| v.split(',').next())
     .map(|v| sanitize_rate_limit_key(v.trim()))
@@ -757,7 +786,9 @@ fn client_ip_rate_limit_key(req: &Request<hyper::body::Incoming>) -> String {
     return format!("xff:{}", v);
   }
 
-  let from_real_ip = req.headers().get("x-real-ip")
+  let from_real_ip = req
+    .headers()
+    .get("x-real-ip")
     .and_then(|v| v.to_str().ok())
     .map(|v| sanitize_rate_limit_key(v.trim()))
     .filter(|v| !v.is_empty());
@@ -881,58 +912,60 @@ fn sanitize_page_size(w_px: i64, h_px: i64) -> Dimensions<i64> {
   Dimensions { w: w_px, h: h_px }
 }
 
-
 #[derive(Serialize)]
 pub struct TotpResponse {
   pub success: bool,
   pub qr: Option<String>,
   pub url: Option<String>,
-  pub secret: Option<String>
+  pub secret: Option<String>,
 }
 
 pub fn create_totp() -> Response<BoxBody<Bytes, hyper::Error>> {
   // A 160 bit secret is recommended by https://www.rfc-editor.org/rfc/rfc4226.
   // Construct this from the non-deterministic parts of two new v4 uuids (we require a dependency on Uuid elsewhere anyway).
   // xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx
-  let u_uuid = Uuid::new_v4(); let u = u_uuid.as_bytes();
-  let v_uuid = Uuid::new_v4(); let v = v_uuid.as_bytes();
+  let u_uuid = Uuid::new_v4();
+  let u = u_uuid.as_bytes();
+  let v_uuid = Uuid::new_v4();
+  let v = v_uuid.as_bytes();
   let secret_bytes = vec![
-    u[0], u[1], u[2], u[3], u[4], u[5], u[11], u[12], u[13], u[14],
-    v[0], v[1], v[2], v[3], v[4], v[5], v[11], v[12], v[13], v[14]];
+    u[0], u[1], u[2], u[3], u[4], u[5], u[11], u[12], u[13], u[14], v[0], v[1], v[2], v[3], v[4], v[5], v[11], v[12],
+    v[13], v[14],
+  ];
 
-  let totp = TOTP::new(
-    TOTP_ALGORITHM, TOTP_NUM_DIGITS, TOTP_SKEW, TOTP_STEP,
-    secret_bytes.clone(),
-    None, "infumap".to_string()
-  ).unwrap();
+  let totp =
+    TOTP::new(TOTP_ALGORITHM, TOTP_NUM_DIGITS, TOTP_SKEW, TOTP_STEP, secret_bytes.clone(), None, "infumap".to_string())
+      .unwrap();
 
   json_response(&TotpResponse {
     success: true,
     qr: Some(totp.get_qr_base64().unwrap()),
     url: Some(totp.get_url()),
-    secret: Some(Secret::Raw(secret_bytes).to_encoded().to_string())
+    secret: Some(Secret::Raw(secret_bytes).to_encoded().to_string()),
   })
 }
-
 
 #[derive(Serialize)]
 pub struct ValidateResponse {
   pub success: bool,
-  #[serde(rename="username")]
+  #[serde(rename = "username")]
   pub username: Option<String>,
-  #[serde(rename="userId")]
+  #[serde(rename = "userId")]
   pub user_id: Option<String>,
-  #[serde(rename="homePageId")]
+  #[serde(rename = "homePageId")]
   pub home_page_id: Option<String>,
-  #[serde(rename="trashPageId")]
+  #[serde(rename = "trashPageId")]
   pub trash_page_id: Option<String>,
-  #[serde(rename="dockPageId")]
+  #[serde(rename = "dockPageId")]
   pub dock_page_id: Option<String>,
-  #[serde(rename="hasTotp")]
+  #[serde(rename = "hasTotp")]
   pub has_totp: Option<bool>,
 }
 
-pub async fn validate(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn validate(
+  db: &Arc<Mutex<Db>>,
+  req: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session = match get_and_validate_session(&req, db).await {
     Some(s) => s,
     None => {
@@ -965,39 +998,28 @@ pub async fn validate(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
         dock_page_id: None,
         has_totp: None,
       })
-    },
-    Some(user) => {
-      json_response(&ValidateResponse {
-        success: true,
-        username: Some(user.username),
-        user_id: Some(user.id),
-        home_page_id: Some(user.home_page_id),
-        trash_page_id: Some(user.trash_page_id),
-        dock_page_id: Some(user.dock_page_id),
-        has_totp: Some(user.totp_secret.is_some()),
-      })
     }
+    Some(user) => json_response(&ValidateResponse {
+      success: true,
+      username: Some(user.username),
+      user_id: Some(user.id),
+      home_page_id: Some(user.home_page_id),
+      trash_page_id: Some(user.trash_page_id),
+      dock_page_id: Some(user.dock_page_id),
+      has_totp: Some(user.totp_secret.is_some()),
+    }),
   }
 }
-
 
 pub async fn extra(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   let session_maybe = get_and_validate_session(&req, db).await;
 
   match session_maybe {
-    None => {
-      forbidden_response()
-    },
+    None => forbidden_response(),
     Some(s) => {
       let user_extra = match db.lock().await.user_extra.get(&s.user_id) {
-        None => {
-          UserExtra {
-            id: s.user_id.clone(),
-            last_backup_time: 0,
-            last_failed_backup_time: 0
-          }
-        },
-        Some(s) => s.clone()
+        None => UserExtra { id: s.user_id.clone(), last_backup_time: 0, last_failed_backup_time: 0 },
+        Some(s) => s.clone(),
       };
       json_response(&user_extra)
     }

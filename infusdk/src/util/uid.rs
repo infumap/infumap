@@ -14,11 +14,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 pub type Uid = String;
 
 pub const EMPTY_UID: &str = "00000000000000000000000000000000";
-
 
 pub fn uid_chars() -> Vec<&'static str> {
   vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
@@ -34,7 +32,9 @@ pub fn is_empty_uid(id: &Uid) -> bool {
 
 pub fn is_uid(id_maybe: &str) -> bool {
   // TODO (LOW): check this is valid v4 uuid, or the empty UID.
-  if id_maybe.len() != 32 { return false; }
+  if id_maybe.len() != 32 {
+    return false;
+  }
   for c in id_maybe.chars() {
     if !c.is_ascii_hexdigit() {
       return false;

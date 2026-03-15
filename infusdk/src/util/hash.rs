@@ -14,49 +14,48 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use twox_hash::XxHash64;
-use std::hash::Hasher;
 use super::uid::Uid;
-
+use std::hash::Hasher;
+use twox_hash::XxHash64;
 
 /// Converts a string to a UID using xxHash64 in a collision-resistant way
 pub fn hash_string_to_uid(s: &str) -> Uid {
-    let mut hasher = XxHash64::with_seed(0);
-    hasher.write(s.as_bytes());
-    let hash = hasher.finish();
+  let mut hasher = XxHash64::with_seed(0);
+  hasher.write(s.as_bytes());
+  let hash = hasher.finish();
 
-    // Convert to hex string and pad to 32 characters to match UID format
-    format!("{:016x}{:016x}", hash, hash)[..32].to_string()
+  // Convert to hex string and pad to 32 characters to match UID format
+  format!("{:016x}{:016x}", hash, hash)[..32].to_string()
 }
 
 /// Converts an i64 to a UID using xxHash64 in a collision-resistant way
 pub fn hash_i64_to_uid(value: i64) -> Uid {
-    let mut hasher = XxHash64::with_seed(0);
-    hasher.write(&value.to_le_bytes());
-    let hash = hasher.finish();
+  let mut hasher = XxHash64::with_seed(0);
+  hasher.write(&value.to_le_bytes());
+  let hash = hasher.finish();
 
-    // Convert to hex string and pad to 32 characters to match UID format
-    format!("{:016x}{:016x}", hash, hash)[..32].to_string()
+  // Convert to hex string and pad to 32 characters to match UID format
+  format!("{:016x}{:016x}", hash, hash)[..32].to_string()
 }
 
 /// Converts an f64 to a UID using xxHash64 in a collision-resistant way
 pub fn hash_f64_to_uid(value: f64) -> Uid {
-    let mut hasher = XxHash64::with_seed(0);
-    hasher.write(&value.to_le_bytes());
-    let hash = hasher.finish();
+  let mut hasher = XxHash64::with_seed(0);
+  hasher.write(&value.to_le_bytes());
+  let hash = hasher.finish();
 
-    // Convert to hex string and pad to 32 characters to match UID format
-    format!("{:016x}{:016x}", hash, hash)[..32].to_string()
+  // Convert to hex string and pad to 32 characters to match UID format
+  format!("{:016x}{:016x}", hash, hash)[..32].to_string()
 }
 
 /// Converts a byte vector to a UID using xxHash64 in a collision-resistant way
 pub fn hash_u8_vec_to_uid(bytes: &[u8]) -> Uid {
-    let mut hasher = XxHash64::with_seed(0);
-    hasher.write(bytes);
-    let hash = hasher.finish();
+  let mut hasher = XxHash64::with_seed(0);
+  hasher.write(bytes);
+  let hash = hasher.finish();
 
-    // Convert to hex string and pad to 32 characters to match UID format
-    format!("{:016x}{:016x}", hash, hash)[..32].to_string()
+  // Convert to hex string and pad to 32 characters to match UID format
+  format!("{:016x}{:016x}", hash, hash)[..32].to_string()
 }
 
 /// Combines multiple hash values to create a new hash in a commutative way using XOR
@@ -75,7 +74,9 @@ pub fn combine_hashes(hashes: &[&Uid]) -> Uid {
   for hash in hashes {
     // Convert hex string to bytes and XOR with result
     for (i, chunk) in hash.chars().collect::<Vec<_>>().chunks(2).enumerate() {
-      if i >= 16 { break; } // Only use first 32 hex chars (16 bytes)
+      if i >= 16 {
+        break;
+      } // Only use first 32 hex chars (16 bytes)
       let hex_str: String = chunk.iter().collect();
       if let Ok(byte_val) = u8::from_str_radix(&hex_str, 16) {
         result[i] ^= byte_val;

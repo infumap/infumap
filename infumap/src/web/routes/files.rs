@@ -18,9 +18,9 @@ use bytes::Bytes;
 use config::Config;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
+use image::ImageReader;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
-use image::ImageReader;
 use infusdk::util::infu::InfuResult;
 use log::debug;
 use once_cell::sync::Lazy;
@@ -29,23 +29,22 @@ use std::io::Cursor;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::config::{CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT, CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS};
-use crate::storage::db::Db;
+use crate::config::{
+  CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT,
+};
 use crate::storage::cache as storage_cache;
-use crate::storage::cache::{ImageSize, ImageCacheKey};
+use crate::storage::cache::{ImageCacheKey, ImageSize};
+use crate::storage::db::Db;
 use crate::storage::object;
-use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
-use crate::web::serve::{full_body, internal_server_error_response, not_found_response, cors_response};
+use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
+use crate::web::serve::{cors_response, full_body, internal_server_error_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 
 use super::command::authorize_item;
 
-
 pub static METRIC_CACHED_IMAGE_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
-  IntCounterVec::new(opts!(
-    "cached_image_requests_total",
-    "Total number of images served from cache."), &["name"])
-      .expect("Could not create METRIC_CACHED_IMAGE_REQUESTS_TOTAL.")
+  IntCounterVec::new(opts!("cached_image_requests_total", "Total number of images served from cache."), &["name"])
+    .expect("Could not create METRIC_CACHED_IMAGE_REQUESTS_TOTAL.")
 });
 
 const LABEL_HIT_APPROX: &'static str = "hit_approx";
@@ -76,26 +75,19 @@ fn content_disposition_header(uid: &str, inline: bool) -> String {
 
 fn response_content_headers(uid: &str, mime_type: &str) -> (String, String) {
   if is_safe_inline_mime(mime_type) {
-    (
-      mime_type.to_owned(),
-      content_disposition_header(uid, true)
-    )
+    (mime_type.to_owned(), content_disposition_header(uid, true))
   } else {
-    (
-      "application/octet-stream".to_owned(),
-      content_disposition_header(uid, false)
-    )
+    ("application/octet-stream".to_owned(), content_disposition_header(uid, false))
   }
 }
 
-
 pub async fn serve_files_route(
-    config: Arc<Config>,
-    db: &Arc<Mutex<Db>>,
-    object_store: Arc<object::ObjectStore>,
-    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
-    req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
-
+  config: Arc<Config>,
+  db: &Arc<Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  req: &Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   if req.method() == "OPTIONS" {
     debug!("Serving OPTIONS request, assuming CORS query.");
     return cors_response();
@@ -103,7 +95,7 @@ pub async fn serve_files_route(
 
   let session_user_id_maybe = match get_and_validate_session(&req, &db).await {
     Some(s) => Some(s.user_id),
-    None => None
+    None => None,
   };
 
   let name = &req.uri().path()[7..];
@@ -127,15 +119,14 @@ pub async fn serve_files_route(
   }
 }
 
-
 async fn get_cached_resized_img(
-    config: Arc<Config>,
-    db: &Arc<Mutex<Db>>,
-    object_store: Arc<object::ObjectStore>,
-    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
-    session_user_id_maybe: &Option<String>,
-    name: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
-
+  config: Arc<Config>,
+  db: &Arc<Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  session_user_id_maybe: &Option<String>,
+  name: &str,
+) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
   // TODO (MEDIUM): Consider browser side caching more in the case an image of different size than
   // that requested is returned. There would be a strategy that is better by some metric that more
   // heavily weights getting the exact requested size to the user. Such a strategy probably needs
@@ -150,10 +141,12 @@ async fn get_cached_resized_img(
   // Second part in request name is always a number, though we may respond with '{uid}_original' from the image cache.
   let requested_width = name_parts.get(1).unwrap().to_string().parse::<u32>()?;
 
-  let max_scale_image_down_percent = config.get_float(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT).map_err(|e| e.to_string())?;
+  let max_scale_image_down_percent =
+    config.get_float(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT).map_err(|e| e.to_string())?;
   let max_scale_image_up_percent = config.get_float(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT).map_err(|e| e.to_string())?;
 
-  let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;
+  let browser_cache_max_age_seconds =
+    config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;
   let cache_control_value = calc_cache_control(browser_cache_max_age_seconds);
 
   let object_encryption_key;
@@ -166,8 +159,10 @@ async fn get_cached_resized_img(
     authorize_item(&db, item, session_user_id_maybe, 0)?;
     owner_id = item.owner_id.clone();
 
-    object_encryption_key = db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
-    original_dimensions_px = item.image_size_px.as_ref().ok_or("Image item does not have image dimensions set.")?.clone();
+    object_encryption_key =
+      db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
+    original_dimensions_px =
+      item.image_size_px.as_ref().ok_or("Image item does not have image dimensions set.")?.clone();
     original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime type set.")?.clone();
   }
 
@@ -185,17 +180,20 @@ async fn get_cached_resized_img(
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
               let data = storage_cache::get(image_cache, &owner_id, candidate).await?.unwrap();
               let (content_type, content_disposition) = response_content_headers(&uid, &original_mime_type_string);
-              return Ok(Response::builder()
-                .header(hyper::header::CONTENT_TYPE, content_type)
-                .header("Content-Disposition", content_disposition)
-                .header("X-Content-Type-Options", "nosniff")
-                .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-                .body(full_body(data)).unwrap());
+              return Ok(
+                Response::builder()
+                  .header(hyper::header::CONTENT_TYPE, content_type)
+                  .header("Content-Disposition", content_disposition)
+                  .header("X-Content-Type-Options", "nosniff")
+                  .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+                  .body(full_body(data))
+                  .unwrap(),
+              );
             } else {
               // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
               continue;
             }
-          },
+          }
           ImageSize::Width(candidate_width) => {
             let candidate_width = *candidate_width;
             if respond_with_cached_original {
@@ -227,18 +225,20 @@ async fn get_cached_resized_img(
           debug!("Responding with cached image '{}'.", best_candidate.0);
           if format!("{}_{}", best_candidate.0.item_id, best_candidate.0.size) == name {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_EXACT]).inc();
-          }
-          else {
+          } else {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_APPROX]).inc();
           }
           let data = storage_cache::get(image_cache, &owner_id, best_candidate.0).await?.unwrap();
-          return Ok(Response::builder()
-            .header(hyper::header::CONTENT_TYPE, "image/jpeg")
-            .header("Content-Disposition", content_disposition_header(&uid, true))
-            .header("X-Content-Type-Options", "nosniff")
-            .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-            .body(full_body(data)).unwrap());
-        },
+          return Ok(
+            Response::builder()
+              .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+              .header("Content-Disposition", content_disposition_header(&uid, true))
+              .header("X-Content-Type-Options", "nosniff")
+              .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+              .body(full_body(data))
+              .unwrap(),
+          );
+        }
         None => {
           debug!("Cached image(s) for '{}' exist, but none are close enough to the required size.", uid);
         }
@@ -246,7 +246,8 @@ async fn get_cached_resized_img(
     }
   }
 
-  let original_file_bytes = object::get(object_store, owner_id.clone(), String::from(&uid), &object_encryption_key).await?;
+  let original_file_bytes =
+    object::get(object_store, owner_id.clone(), String::from(&uid), &object_encryption_key).await?;
 
   if respond_with_cached_original {
     let cache_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Original };
@@ -255,12 +256,15 @@ async fn get_cached_resized_img(
     // it is possible there was more than one request for this, and another request won inserting into cache.
     storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, original_file_bytes.clone()).await?;
     let (content_type, content_disposition) = response_content_headers(&uid, &original_mime_type_string);
-    return Ok(Response::builder()
-      .header(hyper::header::CONTENT_TYPE, content_type)
-      .header("Content-Disposition", content_disposition)
-      .header("X-Content-Type-Options", "nosniff")
-      .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-      .body(full_body(original_file_bytes)).unwrap());
+    return Ok(
+      Response::builder()
+        .header(hyper::header::CONTENT_TYPE, content_type)
+        .header("Content-Disposition", content_disposition)
+        .header("X-Content-Type-Options", "nosniff")
+        .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+        .body(full_body(original_file_bytes))
+        .unwrap(),
+    );
   }
 
   let exif_orientation = get_exif_orientation(original_file_bytes.clone(), &uid);
@@ -287,7 +291,8 @@ async fn get_cached_resized_img(
       let buf = Vec::new();
       let mut cursor = Cursor::new(buf);
       let encoder = JpegEncoder::new_with_quality(&mut cursor, JPEG_QUALITY);
-      img.write_with_encoder(encoder)
+      img
+        .write_with_encoder(encoder)
         .map_err(|e| format!("Could not create cached JPEG image for '{}': {}", name, e))?;
 
       debug!("Inserting image '{}' into cache and using as response.", name);
@@ -295,17 +300,21 @@ async fn get_cached_resized_img(
       let cache_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(requested_width) };
       let data = cursor.get_ref().to_vec();
       // it is possible there was more than one request for this, and another request won inserting into cache..
-      storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, data.clone()).await
-        .map_err(|e| format!("Failed to insert image ({}, {}) into image cache: {}", uid, requested_width, e.message()))?;
+      storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, data.clone()).await.map_err(|e| {
+        format!("Failed to insert image ({}, {}) into image cache: {}", uid, requested_width, e.message())
+      })?;
 
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
-      Ok(Response::builder()
-        .header(hyper::header::CONTENT_TYPE, "image/jpeg")
-        .header("Content-Disposition", content_disposition_header(&uid, true))
-        .header("X-Content-Type-Options", "nosniff")
-        .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-        .body(full_body(data)).unwrap())
-    },
+      Ok(
+        Response::builder()
+          .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+          .header("Content-Disposition", content_disposition_header(&uid, true))
+          .header("X-Content-Type-Options", "nosniff")
+          .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+          .body(full_body(data))
+          .unwrap(),
+      )
+    }
 
     Err(e) => {
       // TODO (LOW): possibly do something better in this case. Possibly return the image as is if it's not too big. Possibly cache it.
@@ -314,14 +323,13 @@ async fn get_cached_resized_img(
   }
 }
 
-
 async fn get_file(
-    config: Arc<Config>,
-    db: &Arc<Mutex<Db>>,
-    object_store: Arc<object::ObjectStore>,
-    session_user_id_maybe: &Option<String>,
-    uid: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
-
+  config: Arc<Config>,
+  db: &Arc<Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  session_user_id_maybe: &Option<String>,
+  uid: &str,
+) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
   let (item, object_encryption_key) = {
     let db = db.lock().await;
     let item = db.item.get(&String::from(uid))?.clone();
@@ -331,33 +339,30 @@ async fn get_file(
     (item, object_encryption_key)
   };
 
-  let mime_type_string = item.mime_type.as_ref()
-    .ok_or(format!("Mime type is not available for item '{}'.", uid))?;
+  let mime_type_string = item.mime_type.as_ref().ok_or(format!("Mime type is not available for item '{}'.", uid))?;
 
   // TODO (MEDIUM): Consider putting non-image files in the cache. Not highest priority though since
   // by default, configuration is such that these are cached browser side.
   let data = object::get(object_store, item.owner_id, String::from(uid), &object_encryption_key).await?;
 
-  let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;
+  let browser_cache_max_age_seconds =
+    config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;
 
   METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FULL]).inc();
 
   let (content_type, content_disposition) = response_content_headers(uid, mime_type_string);
 
-  Ok(Response::builder()
-    .header(hyper::header::CONTENT_TYPE, content_type)
-    .header("Content-Disposition", content_disposition)
-    .header("X-Content-Type-Options", "nosniff")
-    .header(hyper::header::CACHE_CONTROL, calc_cache_control(browser_cache_max_age_seconds))
-    .body(full_body(data)).unwrap())
+  Ok(
+    Response::builder()
+      .header(hyper::header::CONTENT_TYPE, content_type)
+      .header("Content-Disposition", content_disposition)
+      .header("X-Content-Type-Options", "nosniff")
+      .header(hyper::header::CACHE_CONTROL, calc_cache_control(browser_cache_max_age_seconds))
+      .body(full_body(data))
+      .unwrap(),
+  )
 }
 
-
 fn calc_cache_control(max_age: i64) -> String {
-  if max_age == 0 {
-    "no-cache".to_owned()
-  }
-  else {
-    format!("private, max-age={}", max_age)
-  }
+  if max_age == 0 { "no-cache".to_owned() } else { format!("private, max-age={}", max_age) }
 }

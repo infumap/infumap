@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use infusdk::{db::kv_store::JsonLogSerializable, util::{infu::InfuResult, json, uid::Uid}};
+use infusdk::{
+  db::kv_store::JsonLogSerializable,
+  util::{infu::InfuResult, json, uid::Uid},
+};
 use serde_json::{Map, Value};
-
 
 const ALL_JSON_FIELDS: [&'static str; 11] = [
   "__recordType",
@@ -116,13 +118,20 @@ impl JsonLogSerializable<IngestSession> for IngestSession {
 
   fn create_json_update(old: &IngestSession, new: &IngestSession) -> InfuResult<Map<String, Value>> {
     if old.id != new.id {
-      return Err("Attempt was made to create a IngestSession update record from instances with non-matching ids.".into());
+      return Err(
+        "Attempt was made to create a IngestSession update record from instances with non-matching ids.".into(),
+      );
     }
     if old.user_id != new.user_id {
-      return Err(format!("Attempt was made to change user_id for ingest session '{}', but this is not allowed.", old.id).into());
+      return Err(
+        format!("Attempt was made to change user_id for ingest session '{}', but this is not allowed.", old.id).into(),
+      );
     }
     if old.created_at != new.created_at {
-      return Err(format!("Attempt was made to change created_at for ingest session '{}', but this is not allowed.", old.id).into());
+      return Err(
+        format!("Attempt was made to change created_at for ingest session '{}', but this is not allowed.", old.id)
+          .into(),
+      );
     }
 
     let mut result: Map<String, Value> = Map::new();
@@ -158,19 +167,45 @@ impl JsonLogSerializable<IngestSession> for IngestSession {
     json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
 
     if let Some(_) = json::get_string_field(map, "userId")? {
-      return Err(format!("Encountered an update record for ingest session '{}' with user_id specified, but this is not allowed.", self.id).into());
+      return Err(
+        format!(
+          "Encountered an update record for ingest session '{}' with user_id specified, but this is not allowed.",
+          self.id
+        )
+        .into(),
+      );
     }
     if let Some(_) = json::get_integer_field(map, "createdAt")? {
-      return Err(format!("Encountered an update record for ingest session '{}' with created_at specified, but this is not allowed.", self.id).into());
+      return Err(
+        format!(
+          "Encountered an update record for ingest session '{}' with created_at specified, but this is not allowed.",
+          self.id
+        )
+        .into(),
+      );
     }
 
-    if let Some(v) = json::get_string_field(map, "deviceName")? { self.device_name = v; }
-    if let Some(v) = json::get_string_field(map, "accessTokenHash")? { self.access_token_hash = v; }
-    if let Some(v) = json::get_integer_field(map, "accessExpires")? { self.access_expires = v; }
-    if let Some(v) = json::get_string_field(map, "refreshTokenHash")? { self.refresh_token_hash = v; }
-    if let Some(v) = json::get_integer_field(map, "refreshExpires")? { self.refresh_expires = v; }
-    if let Some(v) = json::get_integer_field(map, "lastUsedAt")? { self.last_used_at = v; }
-    if let Some(v) = json::_get_bool_field(map, "revoked")? { self.revoked = v; }
+    if let Some(v) = json::get_string_field(map, "deviceName")? {
+      self.device_name = v;
+    }
+    if let Some(v) = json::get_string_field(map, "accessTokenHash")? {
+      self.access_token_hash = v;
+    }
+    if let Some(v) = json::get_integer_field(map, "accessExpires")? {
+      self.access_expires = v;
+    }
+    if let Some(v) = json::get_string_field(map, "refreshTokenHash")? {
+      self.refresh_token_hash = v;
+    }
+    if let Some(v) = json::get_integer_field(map, "refreshExpires")? {
+      self.refresh_expires = v;
+    }
+    if let Some(v) = json::get_integer_field(map, "lastUsedAt")? {
+      self.last_used_at = v;
+    }
+    if let Some(v) = json::_get_bool_field(map, "revoked")? {
+      self.revoked = v;
+    }
 
     Ok(())
   }

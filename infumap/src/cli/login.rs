@@ -16,7 +16,7 @@
 
 use std::io::{BufRead, Write};
 
-use clap::{Command, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
 use rpassword::read_password;
 
@@ -26,7 +26,6 @@ use crate::web::routes::account::{LoginRequest, LoginResponse};
 
 use super::NamedInfuSession;
 use super::logout::logout;
-
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("login")
@@ -40,19 +39,18 @@ pub fn make_clap_subcommand() -> Command {
       .required(false))
 }
 
-
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let session_name = sub_matches.get_one::<String>("session").unwrap().as_str();
 
   let sessions = match NamedInfuSession::read_sessions().await {
     Ok(s) => s,
-    Err(_e) => vec![]
+    Err(_e) => vec![],
   };
 
   let session_names = sessions.iter().map(|s| s.name.as_str()).collect::<Vec<&str>>();
   if session_names.contains(&session_name) {
     match logout(session_name).await {
-      Ok(_) => {},
+      Ok(_) => {}
       Err(e) => {
         println!("An error occurred logging out existing session (ignoring): {}.", e);
       }
@@ -70,7 +68,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     Ok(url) => url,
     Err(e) => {
       println!("Invalid URL: {}", e);
-      return Ok(())
+      return Ok(());
     }
   };
   print!("Username: ");
@@ -89,25 +87,20 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     .post(login_url.clone())
     .json(&login_request)
     .send()
-    .await.map_err(|e| format!("{}", e))?
+    .await
+    .map_err(|e| format!("{}", e))?
     .json()
-    .await.map_err(|e| format!("{}", e))?;
+    .await
+    .map_err(|e| format!("{}", e))?;
   if !login_response.success {
     println!("Login failed: {}", login_response.err.unwrap());
     return Ok(());
   }
 
-  let session = InfuSession {
-    username,
-    user_id: login_response.user_id.unwrap(),
-    session_id: login_response.session_id.unwrap(),
-  };
+  let session =
+    InfuSession { username, user_id: login_response.user_id.unwrap(), session_id: login_response.session_id.unwrap() };
 
-  let named_session = NamedInfuSession {
-    name: session_name.to_string(),
-    session,
-    url: url.to_string()
-  };
+  let named_session = NamedInfuSession { name: session_name.to_string(), session, url: url.to_string() };
 
   let mut sessions = vec![&named_session];
   sessions.append(&mut other_sessions);

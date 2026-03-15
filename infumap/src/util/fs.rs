@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::path::{Path, PathBuf};
 use infusdk::util::{infu::InfuResult, uid::uid_chars};
 use log::warn;
+use std::path::{Path, PathBuf};
 use tokio::fs;
-
 
 pub async fn path_exists(path: &PathBuf) -> bool {
   tokio::fs::metadata(path).await.is_ok()
@@ -45,14 +44,12 @@ pub fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
   })
 }
 
-
 pub async fn expand_tilde_path_exists<P: AsRef<Path>>(path: P) -> bool {
   match expand_tilde(path) {
     None => false,
-    Some(pb) => { path_exists(&pb).await }
+    Some(pb) => path_exists(&pb).await,
   }
 }
-
 
 pub async fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
   let mut num_created = 0;
@@ -87,13 +84,16 @@ pub async fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
     let entry_name = entry.file_name();
     if let Some(dirname) = entry_name.to_str() {
       if dirname.len() != 2 {
-        unexpected(&entry.path()); continue;
+        unexpected(&entry.path());
+        continue;
       }
       if !uid_chars().contains(&dirname.chars().nth(0).unwrap().to_string().as_str()) {
-        unexpected(&entry.path()); continue;
+        unexpected(&entry.path());
+        continue;
       }
       if !uid_chars().contains(&dirname.chars().nth(1).unwrap().to_string().as_str()) {
-        unexpected(&entry.path()); continue;
+        unexpected(&entry.path());
+        continue;
       }
     } else {
       unexpected(&entry.path());
@@ -102,7 +102,6 @@ pub async fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
 
   Ok(num_created)
 }
-
 
 pub fn construct_file_subpath(store_dir: &PathBuf, filename: &str) -> InfuResult<PathBuf> {
   if filename.len() < 2 {
@@ -126,7 +125,8 @@ pub async fn write_last_backup_filename(data_dir: &str, user_id: &str, filename:
   path.push(format!("user_{}", user_id));
   path.push("last_backup.txt");
 
-  fs::write(&path, filename).await
+  fs::write(&path, filename)
+    .await
     .map_err(|e| format!("Failed to write last backup filename for user '{}': {}", user_id, e))?;
 
   Ok(())
@@ -141,7 +141,8 @@ pub async fn read_last_backup_filename(data_dir: &str, user_id: &str) -> InfuRes
     return Ok(None);
   }
 
-  let content = fs::read_to_string(&path).await
+  let content = fs::read_to_string(&path)
+    .await
     .map_err(|e| format!("Failed to read last backup filename for user '{}': {}", user_id, e))?;
 
   Ok(Some(content.trim().to_string()))

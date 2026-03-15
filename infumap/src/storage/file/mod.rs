@@ -14,21 +14,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::HashSet;
-use std::path::PathBuf;
-use std::sync::{Mutex, Arc};
 use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{uid_chars, Uid};
+use infusdk::util::uid::{Uid, uid_chars};
+use std::collections::HashSet;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use tokio::fs;
 
 use log::{info, warn};
 
-use crate::util::fs::{expand_tilde, construct_file_subpath, ensure_256_subdirs, path_exists};
+use crate::util::fs::{construct_file_subpath, ensure_256_subdirs, expand_tilde, path_exists};
 
 use super::db::item_db::ItemAndUserId;
 use super::object::IndividualObjectStore;
-
 
 pub struct FileStore {
   data_dir: PathBuf,
@@ -42,7 +41,6 @@ impl FileStore {
   }
 }
 
-
 /// Create a new FileStore instance.
 /// One instance is designed to manage files on disk for all users.
 /// Assumes the mandated data folder hierarchy.
@@ -51,7 +49,6 @@ pub fn new(data_dir: &str) -> InfuResult<Arc<Mutex<FileStore>>> {
   Ok(Arc::new(Mutex::new(FileStore::new(data_dir)?)))
 }
 
-
 /// Get data associated with the specified item for the specified user.
 pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid) -> InfuResult<Vec<u8>> {
   let files_dir = ensure_files_dir(file_store, &user_id).await?;
@@ -59,7 +56,6 @@ pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid) 
   let buffer = tokio::fs::read(&path).await?;
   Ok(buffer)
 }
-
 
 /// Set data for the specified item for the specified user.
 pub async fn put(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
@@ -70,14 +66,12 @@ pub async fn put(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid, 
   Ok(())
 }
 
-
 /// Delete data for the specified item for the specified user.
 pub async fn delete(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid) -> InfuResult<()> {
   let files_dir = ensure_files_dir(file_store, &user_id).await?;
   tokio::fs::remove_file(construct_file_subpath(&files_dir, &item_id)?).await?;
   Ok(())
 }
-
 
 /// List the ids of all items with stored data for the specified user.
 pub async fn list(file_store: Arc<Mutex<FileStore>>, user_id: &Uid) -> InfuResult<Vec<String>> {
@@ -107,7 +101,7 @@ pub async fn list(file_store: Arc<Mutex<FileStore>>, user_id: &Uid) -> InfuResul
         if let Some(filename) = entry_name.to_str() {
           result.push(String::from(filename));
         } else {
-          return Err(format!("Unexpected file: {:?}", entry.file_name()).into())
+          return Err(format!("Unexpected file: {:?}", entry.file_name()).into());
         }
       }
       path.pop();
@@ -115,7 +109,6 @@ pub async fn list(file_store: Arc<Mutex<FileStore>>, user_id: &Uid) -> InfuResul
   }
   Ok(result)
 }
-
 
 async fn ensure_files_dir(file_store: Arc<Mutex<FileStore>>, user_id: &Uid) -> InfuResult<PathBuf> {
   let files_dir = {
@@ -144,7 +137,6 @@ async fn ensure_files_dir(file_store: Arc<Mutex<FileStore>>, user_id: &Uid) -> I
 
   Ok(files_dir)
 }
-
 
 async fn all_user_data_dirs(path: PathBuf) -> InfuResult<Vec<String>> {
   let mut result = vec![];
@@ -175,7 +167,6 @@ async fn all_user_data_dirs(path: PathBuf) -> InfuResult<Vec<String>> {
 
   Ok(result)
 }
-
 
 #[async_trait]
 impl IndividualObjectStore for Arc<Mutex<FileStore>> {

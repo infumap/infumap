@@ -20,7 +20,7 @@ use std::time::SystemTime;
 
 use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{is_uid, Uid};
+use infusdk::util::uid::{Uid, is_uid};
 use log::{info, warn};
 
 use crate::util::fs::{expand_tilde, path_exists};
@@ -125,7 +125,10 @@ impl IngestSessionDb {
 
   pub async fn add_session(&mut self, session: IngestSession) -> InfuResult<()> {
     self.ensure_store_for_user(&session.user_id).await?;
-    let store = self.store_by_user_id.get_mut(&session.user_id).ok_or(format!("No ingest session store for user '{}'.", session.user_id))?;
+    let store = self
+      .store_by_user_id
+      .get_mut(&session.user_id)
+      .ok_or(format!("No ingest session store for user '{}'.", session.user_id))?;
     store.add(session.clone()).await?;
     self.user_id_by_session_id.insert(session.id.clone(), session.user_id.clone());
     self.add_indices_for_session(&session, Self::now_unix_secs()?);
@@ -198,21 +201,29 @@ impl IngestSessionDb {
   }
 
   pub async fn update_session(&mut self, session: IngestSession) -> InfuResult<()> {
-    let user_id = self.user_id_by_session_id.get(&session.id)
+    let user_id = self
+      .user_id_by_session_id
+      .get(&session.id)
       .ok_or(format!("Unknown ingest session id '{}'.", session.id))?
       .clone();
 
     if user_id != session.user_id {
-      return Err(format!(
-        "User id mismatch for ingest session '{}': existing user '{}', incoming '{}'.",
-        session.id, user_id, session.user_id).into());
+      return Err(
+        format!(
+          "User id mismatch for ingest session '{}': existing user '{}', incoming '{}'.",
+          session.id, user_id, session.user_id
+        )
+        .into(),
+      );
     }
 
-    let old_session = self.get_session_by_id(&session.id)
-      .ok_or(format!("Ingest session '{}' does not exist.", session.id))?;
+    let old_session =
+      self.get_session_by_id(&session.id).ok_or(format!("Ingest session '{}' does not exist.", session.id))?;
     self.remove_indices_for_session(&old_session);
 
-    let store = self.store_by_user_id.get_mut(&session.user_id)
+    let store = self
+      .store_by_user_id
+      .get_mut(&session.user_id)
       .ok_or(format!("No ingest session store for user '{}'.", session.user_id))?;
     store.update(session.clone()).await?;
 
@@ -221,8 +232,8 @@ impl IngestSessionDb {
   }
 
   pub async fn revoke_session(&mut self, user_id: &str, session_id: &str) -> InfuResult<()> {
-    let mut session = self.get_session_by_id(session_id)
-      .ok_or(format!("Unknown ingest session id '{}'.", session_id))?;
+    let mut session =
+      self.get_session_by_id(session_id).ok_or(format!("Unknown ingest session id '{}'.", session_id))?;
     if session.user_id != user_id {
       return Err(format!("Ingest session '{}' does not belong to user '{}'.", session_id, user_id).into());
     }

@@ -22,13 +22,13 @@ use std::time::UNIX_EPOCH;
 
 use base64::{Engine as _, engine::general_purpose};
 use clap::ArgAction;
-use clap::{Command, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use image::ImageReader;
 use infusdk::item::ItemType;
-use infusdk::util::json;
 use infusdk::util::geometry::Dimensions;
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::InfuResult;
+use infusdk::util::json;
 use infusdk::util::uid::is_uid;
 use log::debug;
 use serde_json::Map;
@@ -40,13 +40,12 @@ use tokio::io::AsyncReadExt;
 use crate::util::fs::expand_tilde;
 use crate::util::image::adjust_image_for_exif_orientation;
 use crate::util::image::get_exif_orientation;
-use crate::web::routes::command::GetItemsRequest;
-use crate::web::routes::command::GetItemsMode;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
+use crate::web::routes::command::GetItemsMode;
+use crate::web::routes::command::GetItemsRequest;
 
 use super::NamedInfuSession;
-
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("upload")
@@ -88,7 +87,6 @@ pub fn make_clap_subcommand() -> Command {
       .required(false))
 }
 
-
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let resuming = sub_matches.get_flag("resume");
   let additional = sub_matches.get_flag("additional");
@@ -96,10 +94,11 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   // Validate directory.
   let local_path = match sub_matches.get_one::<String>("directory") {
     Some(path) => path,
-    None => { return Err("Path to directory to upload contents of must be specified.".into()); }
+    None => {
+      return Err("Path to directory to upload contents of must be specified.".into());
+    }
   };
-  let local_path = PathBuf::from(
-    expand_tilde(local_path).ok_or(format!("Could not interpret path."))?);
+  let local_path = PathBuf::from(expand_tilde(local_path).ok_or(format!("Could not interpret path."))?);
   let mut iter = fs::read_dir(&local_path).await?;
   let mut local_filenames = vec![];
   loop {
@@ -120,7 +119,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     let entry_name = entry.file_name();
     let filename = match entry_name.to_str() {
       None => return Err(format!("Could not interpret filename: {:?}", entry.file_name()).into()),
-      Some(filename) => filename.to_owned()
+      Some(filename) => filename.to_owned(),
     };
     local_filenames.push(filename);
   }
@@ -133,13 +132,16 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
         return Err(format!("Invalid container id: '{}'.", uid_maybe).into());
       }
       uid_maybe
-    },
-    None => { return Err("Id of container to upload files into must be specified.".into()); }
+    }
+    None => {
+      return Err("Id of container to upload files into must be specified.".into());
+    }
   };
 
   let session_name = sub_matches.get_one::<String>("session").unwrap();
 
-  let named_session = NamedInfuSession::get(session_name).await
+  let named_session = NamedInfuSession::get(session_name)
+    .await
     .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
     .ok_or("Session does not exist - use the login CLI command to create one.")?;
 
@@ -147,30 +149,36 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut request_headers = reqwest::header::HeaderMap::new();
   request_headers.insert(
     reqwest::header::COOKIE,
-    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
+    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
+  );
 
   // Get children of container.
   let get_children_request = serde_json::to_string(&GetItemsRequest {
     id: container_id.clone(),
-    mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str())
-  }).unwrap();
-  let send_request = CommandRequest {
-    command: "get-items".to_owned(),
-    json_data: get_children_request,
-    base64_data: None,
-  };
+    mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str()),
+  })
+  .unwrap();
+  let send_request =
+    CommandRequest { command: "get-items".to_owned(), json_data: get_children_request, base64_data: None };
   let container_children_response: CommandResponse = reqwest::ClientBuilder::new()
-    .default_headers(request_headers.clone()).build().unwrap()
+    .default_headers(request_headers.clone())
+    .build()
+    .unwrap()
     .post(named_session.command_url()?.clone())
     .json(&send_request)
     .send()
-    .await.map_err(|e| e.to_string())?
+    .await
+    .map_err(|e| e.to_string())?
     .json()
-    .await.map_err(|e| e.to_string())?;
+    .await
+    .map_err(|e| e.to_string())?;
   if !container_children_response.success {
     if let Some(reason) = container_children_response.fail_reason {
       if reason == "invalid-session" {
-        return Err("Invalid session. Note that sessions do not survive server a restart - perhaps the server was restarted.".into());
+        return Err(
+          "Invalid session. Note that sessions do not survive server a restart - perhaps the server was restarted."
+            .into(),
+        );
       } else {
         return Err(format!("Query for container contents failed. Reason: {}", reason).into());
       }
@@ -181,22 +189,42 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   let json_data = container_children_response.json_data.ok_or("Request for children yielded no data.")?;
   let json = serde_json::from_str::<Map<String, Value>>(&json_data).map_err(|e| e.to_string())?;
-  let children = json.get("children").ok_or("Request for children yielded an unexpected result (no children property).")?;
-  let container_children = children.as_array().ok_or("Request for children yielded an unexpected result (children property is not an array).")?;
+  let children =
+    json.get("children").ok_or("Request for children yielded an unexpected result (no children property).")?;
+  let container_children = children
+    .as_array()
+    .ok_or("Request for children yielded an unexpected result (children property is not an array).")?;
   if container_children.len() != 0 && !resuming && !additional {
-    return Err(format!("Specified container '{}' is not empty. Either the 'additional' or 'resume' flag must be set", container_id.clone()).into());
+    return Err(
+      format!(
+        "Specified container '{}' is not empty. Either the 'additional' or 'resume' flag must be set",
+        container_id.clone()
+      )
+      .into(),
+    );
   }
-  let container_children_titles = container_children.iter().map(|child| -> InfuResult<String> {
-    Ok(child
-        .as_object().ok_or("item is not an object")?
-        .get("title").ok_or("item does not have title property.")?
-        .as_str().ok_or("Title property is not of type string.")?.to_owned())
-  }).collect::<InfuResult<Vec<String>>>()?;
+  let container_children_titles = container_children
+    .iter()
+    .map(|child| -> InfuResult<String> {
+      Ok(
+        child
+          .as_object()
+          .ok_or("item is not an object")?
+          .get("title")
+          .ok_or("item does not have title property.")?
+          .as_str()
+          .ok_or("Title property is not of type string.")?
+          .to_owned(),
+      )
+    })
+    .collect::<InfuResult<Vec<String>>>()?;
 
   // 'resuming' flag validation.
   for filename in &local_filenames {
     if container_children_titles.contains(filename) && !resuming {
-      return Err(format!("Infumap container has existing item with name '{}', and resume flag is not set.", filename).into());
+      return Err(
+        format!("Infumap container has existing item with name '{}', and resume flag is not set.", filename).into(),
+      );
     }
   }
 
@@ -229,11 +257,15 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     item.insert("title".to_owned(), Value::String(filename.clone()));
     item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 6).into()));
     let raw_creation_time = metadata.created().map_err(|e| e.to_string())?.duration_since(UNIX_EPOCH)?.as_secs() as i64;
-    let sanitized_creation_time = infusdk::util::time::sanitize_original_creation_date(raw_creation_time, &format!("uploading file {}", filename));
+    let sanitized_creation_time =
+      infusdk::util::time::sanitize_original_creation_date(raw_creation_time, &format!("uploading file {}", filename));
     item.insert("originalCreationDate".to_owned(), Value::Number(sanitized_creation_time.into()));
     item.insert("fileSizeBytes".to_owned(), Value::Number(metadata.len().into()));
 
-    if filename.to_lowercase().ends_with(".png") || filename.to_lowercase().ends_with(".jpg") || filename.to_lowercase().ends_with(".jpeg") {
+    if filename.to_lowercase().ends_with(".png")
+      || filename.to_lowercase().ends_with(".jpg")
+      || filename.to_lowercase().ends_with(".jpeg")
+    {
       let file_cursor = Cursor::new(buffer.clone());
       let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
       match file_reader.decode() {
@@ -241,24 +273,31 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
           let exif_orientation = get_exif_orientation(buffer.clone(), filename);
           let img = adjust_image_for_exif_orientation(img, exif_orientation, filename);
           item.insert("itemType".to_owned(), Value::String(ItemType::Image.as_str().to_owned()));
-          item.insert("imageSizePx".to_owned(),
-            json::dimensions_to_object(&Dimensions { w: img.width().into(), h: img.height().into() }));
+          item.insert(
+            "imageSizePx".to_owned(),
+            json::dimensions_to_object(&Dimensions { w: img.width().into(), h: img.height().into() }),
+          );
           item.insert("thumbnail".to_owned(), Value::String("".to_owned())); // set on the server.
           if exif_orientation > 1 {
             debug!("Note: image has exif orientation type of: {}", exif_orientation);
           }
-          print!("Adding image '{}' {}/{}... ", filename, i+1, local_filenames.len());
+          print!("Adding image '{}' {}/{}... ", filename, i + 1, local_filenames.len());
           std::io::stdout().flush()?;
-        },
+        }
         Err(_e) => {
           item.insert("itemType".to_owned(), Value::String(ItemType::File.as_str().to_owned()));
-          print!("Could not interpret file '{}' as an image, adding as an item of type file {}/{}... ", filename, i, local_filenames.len());
+          print!(
+            "Could not interpret file '{}' as an image, adding as an item of type file {}/{}... ",
+            filename,
+            i,
+            local_filenames.len()
+          );
           std::io::stdout().flush()?;
         }
       }
     } else {
       item.insert("itemType".to_owned(), Value::String(ItemType::File.as_str().to_owned()));
-      print!("Adding file '{}' {}/{}... ", filename, i+1, local_filenames.len());
+      print!("Adding file '{}' {}/{}... ", filename, i + 1, local_filenames.len());
       std::io::stdout().flush()?;
     }
 
@@ -271,7 +310,9 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 
     loop {
       let add_item_response = reqwest::ClientBuilder::new()
-        .default_headers(request_headers.clone()).build().unwrap()
+        .default_headers(request_headers.clone())
+        .build()
+        .unwrap()
         .post(named_session.command_url()?.clone())
         .json(&send_request)
         .send()
@@ -286,7 +327,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
             println!("success!");
           }
           break;
-        },
+        }
         Err(e) => {
           println!("there was a connection issue sending the add-item request - retrying: {}", e);
           tokio::time::sleep(Duration::from_secs(2)).await;

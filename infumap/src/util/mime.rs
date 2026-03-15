@@ -57,9 +57,7 @@ fn looks_like_text(data: &[u8]) -> bool {
   }
 
   match std::str::from_utf8(data) {
-    Ok(text) => text
-      .chars()
-      .all(|c| !c.is_control() || matches!(c, '\n' | '\r' | '\t' | '\u{000C}')),
+    Ok(text) => text.chars().all(|c| !c.is_control() || matches!(c, '\n' | '\r' | '\t' | '\u{000C}')),
     Err(_) => false,
   }
 }
@@ -93,11 +91,7 @@ fn detect_text_mime_type(data: &[u8]) -> String {
 }
 
 fn trim_utf8_bom(data: &[u8]) -> &[u8] {
-  if data.starts_with(&[0xEF, 0xBB, 0xBF]) {
-    &data[3..]
-  } else {
-    data
-  }
+  if data.starts_with(&[0xEF, 0xBB, 0xBF]) { &data[3..] } else { data }
 }
 
 fn looks_like_html_document(text: &str) -> bool {
@@ -186,10 +180,7 @@ mod tests {
   #[test]
   fn normalizes_common_aliases_and_parameters() {
     assert_eq!(normalized_mime_type("Image/JPG"), "image/jpeg");
-    assert_eq!(
-      normalized_mime_type("text/plain; charset=utf-8"),
-      "text/plain"
-    );
+    assert_eq!(normalized_mime_type("text/plain; charset=utf-8"), "text/plain");
     assert_eq!(normalized_mime_type("application/x-pdf"), "application/pdf");
     assert_eq!(normalized_mime_type("image/png"), "image/png");
   }
@@ -216,18 +207,12 @@ mod tests {
 
   #[test]
   fn detects_svg() {
-    assert_eq!(
-      detect_mime_type(br#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#),
-      "image/svg+xml"
-    );
+    assert_eq!(detect_mime_type(br#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#), "image/svg+xml");
   }
 
   #[test]
   fn detects_xml() {
-    assert_eq!(
-      detect_mime_type(br#"<?xml version="1.0"?><note></note>"#),
-      "application/xml"
-    );
+    assert_eq!(detect_mime_type(br#"<?xml version="1.0"?><note></note>"#), "application/xml");
   }
 
   #[test]
@@ -245,9 +230,6 @@ mod tests {
 
   #[test]
   fn falls_back_to_octet_stream_for_binary() {
-    assert_eq!(
-      detect_mime_type(&[0, 159, 146, 150]),
-      "application/octet-stream"
-    );
+    assert_eq!(detect_mime_type(&[0, 159, 146, 150]), "application/octet-stream");
   }
 }

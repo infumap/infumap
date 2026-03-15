@@ -14,21 +14,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use crate::util::infu::{InfuError, InfuResult};
+use crate::util::uid::Uid;
 use std::any::Any;
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
-use crate::util::infu::{InfuError, InfuResult};
-use crate::util::uid::Uid;
 use tokio::fs::{File, OpenOptions};
 
-use serde::ser::SerializeStruct;
 use serde::Serialize;
-use serde_json::{self, Value, Map};
+use serde::ser::SerializeStruct;
 use serde_json::Value::Object;
-use tokio::io::{BufWriter, BufReader, AsyncBufReadExt};
+use serde_json::{self, Map, Value};
 use tokio::io::AsyncWriteExt;
-
-
+use tokio::io::{AsyncBufReadExt, BufReader, BufWriter};
 
 pub trait JsonLogSerializable<T> {
   fn value_type_identifier() -> &'static str;
@@ -42,14 +40,16 @@ pub trait JsonLogSerializable<T> {
   fn apply_json_update(&mut self, map: &Map<String, Value>) -> InfuResult<()>;
 }
 
-
 struct DescriptorRecord {
   version: i64,
-  value_type: String
+  value_type: String,
 }
 
 impl Serialize for DescriptorRecord {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
     const NUM_FIELDS: usize = 3;
     let mut state = serializer.serialize_struct("Descriptor", NUM_FIELDS)?;
     state.serialize_field("__recordType", "descriptor")?;
@@ -59,13 +59,15 @@ impl Serialize for DescriptorRecord {
   }
 }
 
-
 struct DeleteRecord {
-  id: String
+  id: String,
 }
 
 impl Serialize for DeleteRecord {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
     const NUM_FIELDS: usize = 2;
     let mut state = serializer.serialize_struct("DeleteRecord", NUM_FIELDS)?;
     state.serialize_field("__recordType", "delete")?;
@@ -74,15 +76,20 @@ impl Serialize for DeleteRecord {
   }
 }
 
-
 /// A pretty naive KV store implementation, but it'll probably be good enough indefinitely.
 /// TODO (MEDIUM): Lock mechanism to ensure only one KVStore instance is accessing files at any given time.
-pub struct KVStore<T> where T: JsonLogSerializable<T> {
+pub struct KVStore<T>
+where
+  T: JsonLogSerializable<T>,
+{
   log_path: String,
-  map: HashMap<String, T>
+  map: HashMap<String, T>,
 }
 
-impl<T> KVStore<T> where T: JsonLogSerializable<T> {
+impl<T> KVStore<T>
+where
+  T: JsonLogSerializable<T>,
+{
   pub async fn init(path: &str, version: i64) -> InfuResult<KVStore<T>> {
     if !std::path::Path::new(path).exists() {
       let file = File::create(path).await?;
@@ -140,7 +147,11 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
     Ok(())
   }
 
-  fn read_log_record(result: &mut HashMap<String, T>, kvs: &Map<String, Value>, expected_version: i64) -> InfuResult<()> {
+  fn read_log_record(
+    result: &mut HashMap<String, T>,
+    kvs: &Map<String, Value>,
+    expected_version: i64,
+  ) -> InfuResult<()> {
     let record_type = kvs
       .get("__recordType")
       .ok_or(InfuError::new("Log record is missing field __recordType."))?
@@ -156,7 +167,9 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
           .as_i64()
           .ok_or(InfuError::new("Descriptor version does not have type 'number'."))?;
         if descriptor_version != expected_version {
-          return Err(format!("Descriptor version is {}, but {} was expected.", descriptor_version, expected_version).into());
+          return Err(
+            format!("Descriptor version is {}, but {} was expected.", descriptor_version, expected_version).into(),
+          );
         }
         let value_type = kvs
           .get("valueType")
@@ -164,18 +177,22 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
           .as_str()
           .ok_or(InfuError::new("Descriptor value_type field is not of type 'string'."))?;
         if value_type != T::value_type_identifier() {
-          return Err(format!("Descriptor value_type is '{}', expecting '{}'.", value_type, T::value_type_identifier()).into());
+          return Err(
+            format!("Descriptor value_type is '{}', expecting '{}'.", value_type, T::value_type_identifier()).into(),
+          );
         }
-      },
+      }
 
       "entry" => {
         // Log record is a full specification of an entry value.
         let u = T::from_json(&kvs)?;
         if result.contains_key(u.get_id()) {
-          return Err(format!("Entry log record has id '{}', but an entry with this id already exists.", u.get_id()).into());
+          return Err(
+            format!("Entry log record has id '{}', but an entry with this id already exists.", u.get_id()).into(),
+          );
         }
         result.insert(u.get_id().clone(), u);
-      },
+      }
 
       "update" => {
         // Log record specifies an update to an entry value.
@@ -188,7 +205,7 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
           .get_mut(&String::from(id))
           .ok_or(InfuError::new(&format!("Update record has id '{}', but this is unknown.", id)))?;
         u.apply_json_update(&kvs)?;
-      },
+      }
 
       "delete" => {
         // Log record specifies that the entry with the given id should be deleted.
@@ -201,7 +218,7 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
           return Err(format!("Delete record has id '{}', but this is unknown.", id).into());
         }
         result.remove(&String::from(id));
-      },
+      }
 
       unexpected_record_type => {
         return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
@@ -219,9 +236,13 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
     while let Some(line) = lines.next_line().await? {
       let item = serde_json::from_str::<serde_json::Value>(&line);
       match item? {
-        Object(kvs) => { Self::read_log_record(&mut result, &kvs, expected_version)?; },
+        Object(kvs) => {
+          Self::read_log_record(&mut result, &kvs, expected_version)?;
+        }
         unexpected_type => {
-          return Err(format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into());
+          return Err(
+            format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
+          );
         }
       }
     }

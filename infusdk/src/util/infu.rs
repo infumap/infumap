@@ -16,17 +16,15 @@
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::num::{TryFromIntError, ParseIntError};
+use std::num::{ParseIntError, TryFromIntError};
 use std::string::FromUtf8Error;
 use std::time::SystemTimeError;
 
-
 pub type InfuResult<T> = Result<T, InfuError>;
-
 
 #[derive(Debug, Clone)]
 pub struct InfuError {
-  message: String
+  message: String,
 }
 
 impl InfuError {
@@ -50,35 +48,50 @@ impl Error for InfuError {
   }
 }
 
-
 impl From<serde_json::Error> for InfuError {
-  fn from(err: serde_json::Error) -> Self { Self::new(&err.to_string()) }
+  fn from(err: serde_json::Error) -> Self {
+    Self::new(&err.to_string())
+  }
 }
 
 impl From<std::io::Error> for InfuError {
-  fn from(err: std::io::Error) -> Self { Self::new(&err.to_string()) }
+  fn from(err: std::io::Error) -> Self {
+    Self::new(&err.to_string())
+  }
 }
 
 impl From<SystemTimeError> for InfuError {
-  fn from(err: SystemTimeError) -> Self { Self::new(&err.to_string()) }
+  fn from(err: SystemTimeError) -> Self {
+    Self::new(&err.to_string())
+  }
 }
 
 impl From<String> for InfuError {
-  fn from(err: String) -> Self { Self::new(&err) }
+  fn from(err: String) -> Self {
+    Self::new(&err)
+  }
 }
 
 impl From<&str> for InfuError {
-  fn from(err: &str) -> Self { Self::new(&err) }
+  fn from(err: &str) -> Self {
+    Self::new(&err)
+  }
 }
 
 impl From<TryFromIntError> for InfuError {
-  fn from(err: TryFromIntError) -> Self { Self::new(&err.to_string()) }
+  fn from(err: TryFromIntError) -> Self {
+    Self::new(&err.to_string())
+  }
 }
 
 impl From<ParseIntError> for InfuError {
-  fn from(err: ParseIntError) -> Self { Self::new(&err.to_string()) }
+  fn from(err: ParseIntError) -> Self {
+    Self::new(&err.to_string())
+  }
 }
 
 impl From<FromUtf8Error> for InfuError {
-  fn from(err: FromUtf8Error) -> Self { Self::new(&err.to_string()) }
+  fn from(err: FromUtf8Error) -> Self {
+    Self::new(&err.to_string())
+  }
 }

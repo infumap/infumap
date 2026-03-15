@@ -14,12 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use hyper::header::COOKIE;
 use hyper::Request;
-use infusdk::util::uid::{is_uid, Uid};
+use hyper::header::COOKIE;
+use infusdk::util::uid::{Uid, is_uid};
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
-
 
 pub const SESSION_COOKIE_NAME: &'static str = "infusession";
 pub const SESSION_HEADER_NAME: &'static str = "x-infusession";
@@ -27,63 +26,57 @@ pub const SESSION_HEADER_NAME: &'static str = "x-infusession";
 #[derive(Deserialize, Serialize, Clone)]
 pub struct InfuSession {
   pub username: String,
-  #[serde(rename="userId")]
+  #[serde(rename = "userId")]
   pub user_id: Uid,
-  #[serde(rename="sessionId")]
+  #[serde(rename = "sessionId")]
   pub session_id: Uid,
 }
 
 pub fn get_session_header_maybe(request: &Request<hyper::body::Incoming>) -> Option<InfuSession> {
   match request.headers().get(SESSION_HEADER_NAME) {
-    Some(header_value) => {
-      match header_value.to_str() {
-        Ok(header_value_str) => {
-          match serde_json::from_str::<InfuSession>(header_value_str) {
-            Ok(session) => Some(session),
-            Err(e) => {
-              warn!("Session header could not be parsed: {}", e);
-              None
-            }
-          }
-        },
+    Some(header_value) => match header_value.to_str() {
+      Ok(header_value_str) => match serde_json::from_str::<InfuSession>(header_value_str) {
+        Ok(session) => Some(session),
         Err(e) => {
-          warn!("Session header is not a valid string: {}", e);
+          warn!("Session header could not be parsed: {}", e);
           None
         }
+      },
+      Err(e) => {
+        warn!("Session header is not a valid string: {}", e);
+        None
       }
     },
-    None => None
+    None => None,
   }
 }
 
 pub fn get_session_cookie_session_id_maybe(request: &Request<hyper::body::Incoming>) -> Option<Uid> {
   match request.headers().get(COOKIE) {
-    Some(cookies) => {
-      match cookies.to_str() {
-        Ok(cookies) => {
-          let sc = cookie::Cookie::split_parse(cookies);
-          for cookie_maybe in sc.into_iter() {
-            match cookie_maybe {
-              Ok(cookie) => {
-                let (name, val) = cookie.name_value();
-                if name == SESSION_COOKIE_NAME {
-                  if !is_uid(val) {
-                    warn!("Session cookie has invalid session id value.");
-                    return None;
-                  }
-                  return Some(val.to_owned());
+    Some(cookies) => match cookies.to_str() {
+      Ok(cookies) => {
+        let sc = cookie::Cookie::split_parse(cookies);
+        for cookie_maybe in sc.into_iter() {
+          match cookie_maybe {
+            Ok(cookie) => {
+              let (name, val) = cookie.name_value();
+              if name == SESSION_COOKIE_NAME {
+                if !is_uid(val) {
+                  warn!("Session cookie has invalid session id value.");
+                  return None;
                 }
-              },
-              Err(_) => {}
+                return Some(val.to_owned());
+              }
             }
+            Err(_) => {}
           }
-          debug!("A valid session cookie not available.");
-          None
-        },
-        Err(_e) => {
-          warn!("Cookies http header is not a valid string.");
-          None
         }
+        debug!("A valid session cookie not available.");
+        None
+      }
+      Err(_e) => {
+        warn!("Cookies http header is not a valid string.");
+        None
       }
     },
     None => {

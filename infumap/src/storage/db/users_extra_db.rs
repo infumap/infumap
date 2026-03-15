@@ -25,20 +25,19 @@ use super::users_extra::{BackupStatus, UserExtra};
 
 pub const CURRENT_USER_LOG_VERSION: i64 = 1;
 
-
 /// Db for UserExtra instances.
 /// Not thread safe.
 pub struct UsersExtraDb {
   store: KVStore<UserExtra>,
 }
 
-
 impl UsersExtraDb {
   pub async fn init(db_dir: &str) -> InfuResult<UsersExtraDb> {
     let mut log_path = expand_tilde(db_dir).ok_or("Could not interpret path.")?;
     log_path.push("users_extra.json");
 
-    let store: KVStore<UserExtra> = KVStore::init(log_path.as_path().to_str().unwrap(), CURRENT_USER_LOG_VERSION).await?;
+    let store: KVStore<UserExtra> =
+      KVStore::init(log_path.as_path().to_str().unwrap(), CURRENT_USER_LOG_VERSION).await?;
     Ok(UsersExtraDb { store })
   }
 
@@ -52,12 +51,12 @@ impl UsersExtraDb {
           updated.last_backup_time = unix_now_secs_i64()?;
         }
         self.store.update(updated).await
-      },
+      }
       None => {
         let user_extra = UserExtra {
           id: id.clone(),
           last_backup_time: if status == BackupStatus::Failed { 0 } else { unix_now_secs_i64()? },
-          last_failed_backup_time: if status == BackupStatus::Succeeded { 0 } else { unix_now_secs_i64()? }
+          last_failed_backup_time: if status == BackupStatus::Succeeded { 0 } else { unix_now_secs_i64()? },
         };
         self.store.add(user_extra).await
       }

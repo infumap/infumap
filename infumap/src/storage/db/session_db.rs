@@ -14,16 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::path::PathBuf;
-use std::time::SystemTime;
-use std::collections::HashMap;
 use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{is_uid, new_uid, Uid};
-use log::{warn, info};
+use infusdk::util::uid::{Uid, is_uid, new_uid};
+use log::{info, warn};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::time::SystemTime;
 
-use crate::util::fs::{expand_tilde, path_exists};
 use super::session::Session;
+use crate::util::fs::{expand_tilde, path_exists};
 
 pub const CURRENT_SESSIONS_LOG_VERSION: i64 = 1;
 const SESSION_LOG_FILENAME: &str = "sessions.json";
@@ -31,13 +31,12 @@ pub const SESSION_LIFETIME_SECS: i64 = 60 * 60 * 24 * 30;
 pub const SESSION_ROTATION_INTERVAL_SECS: i64 = 60 * 60 * 24;
 const SESSION_ROTATION_GRACE_SECS: i64 = 60 * 2;
 
-
 /// Db for managing Session instances, assuming the mandated data folder hierarchy.
 /// Not thread safe.
 pub struct SessionDb {
   data_dir: PathBuf,
   store_by_user_id: HashMap<Uid, KVStore<Session>>,
-  user_id_by_session_id: HashMap<Uid, Uid>
+  user_id_by_session_id: HashMap<Uid, Uid>,
 }
 
 impl SessionDb {
@@ -88,11 +87,7 @@ impl SessionDb {
       store_by_user_id.insert(String::from(dir_userid), store);
     }
 
-    Ok(SessionDb {
-      data_dir: expanded_data_path,
-      store_by_user_id: store_by_user_id,
-      user_id_by_session_id,
-    })
+    Ok(SessionDb { data_dir: expanded_data_path, store_by_user_id: store_by_user_id, user_id_by_session_id })
   }
 
   pub async fn create(&mut self, user_id: &str) -> InfuResult<()> {
@@ -118,7 +113,7 @@ impl SessionDb {
       user_id: String::from(user_id),
       expires: now_unix_secs + SESSION_LIFETIME_SECS,
       issued_at: now_unix_secs,
-      username: String::from(username)
+      username: String::from(username),
     };
     let store = self.store_by_user_id.get_mut(user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
     store.add(session.clone()).await?;
@@ -180,7 +175,8 @@ impl SessionDb {
 
   pub async fn delete_session(&mut self, id: &str) -> InfuResult<String> {
     let user_id = self.user_id_by_session_id.get(id).ok_or(format!("Unknown session id '{}'.", id))?.clone();
-    let store = &mut self.store_by_user_id.get_mut(&user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
+    let store =
+      &mut self.store_by_user_id.get_mut(&user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
     let _session = store.get(id).ok_or(format!("Session '{}' does not exist.", id))?;
     if self.user_id_by_session_id.remove(id) == None {
       return Err(format!("Session '{}' has no user_id mapping to remove", id).into());
@@ -205,7 +201,7 @@ impl SessionDb {
         // Session record disappeared from the store. Keep indices consistent.
         self.user_id_by_session_id.remove(id);
         Ok(None)
-      },
+      }
       Some(s) => {
         let now_unix_secs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
         if s.expires <= now_unix_secs {

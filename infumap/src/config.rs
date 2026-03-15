@@ -14,9 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 pub const ENV_CONFIG_PREFIX: &'static str = "INFUMAP";
-
 
 pub const CONFIG_LOG_LEVEL: &'static str = "log_level";
 pub const CONFIG_LOG_LEVEL_DEFAULT: &'static str = "info";

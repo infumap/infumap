@@ -14,72 +14,76 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use async_recursion::async_recursion;
 use base64::{Engine as _, engine::general_purpose};
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
-use image::imageops::FilterType;
-use image::ImageReader;
 use image::ImageFormat;
+use image::ImageReader;
+use image::imageops::FilterType;
 use infusdk::item::is_flipcard_item;
-use infusdk::item::{is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item, Item, ItemType, PermissionFlags, RelationshipToParent};
+use infusdk::item::{
+  Item, ItemType, PermissionFlags, RelationshipToParent, is_attachments_item_type, is_composite_item,
+  is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item,
+  is_permission_flags_item_type, is_positionable_type, is_table_item,
+};
 use infusdk::util::geometry::{Dimensions, Vector};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::time::unix_now_secs_u64;
-use infusdk::util::uid::{is_empty_uid, is_uid, new_uid, Uid, EMPTY_UID};
+use infusdk::util::uid::{EMPTY_UID, Uid, is_empty_uid, is_uid, new_uid};
 use infusdk::web::WebApiJsonSerializable;
 use log::{debug, error, warn};
 use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::MutexGuard;
-use std::str;
 use std::io::Cursor;
+use std::str;
 use std::sync::Arc;
-use async_recursion::async_recursion;
+use tokio::sync::MutexGuard;
 
-use crate::storage::db::Db;
 use crate::storage::cache as storage_cache;
+use crate::storage::db::Db;
 use crate::storage::db::session::Session;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
-use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
+use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
 use crate::util::item::hash_children_and_their_attachments_only;
 use crate::util::item::hash_item_and_attachments_only;
 use crate::util::item::hash_item_attachments_children_and_their_attachments;
 use crate::util::mime::detect_mime_type;
 use crate::util::ordering::new_ordering_at_end;
-use crate::web::serve::{json_response, incoming_json_with_limit, cors_response};
+use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
-
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
 // 190+ MiB raw files while remaining bounded.
 const COMMAND_REQUEST_MAX_BYTES: usize = 256 * 1024 * 1024;
 
-
 pub static METRIC_COMMAND_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
-  IntCounterVec::new(opts!(
-    "command_requests_total",
-    "Total number of times a command has been called (by command name)."), &["name"])
-      .expect("Could not create METRIC_COMMAND_REQUESTS_TOTAL")
+  IntCounterVec::new(
+    opts!("command_requests_total", "Total number of times a command has been called (by command name)."),
+    &["name"],
+  )
+  .expect("Could not create METRIC_COMMAND_REQUESTS_TOTAL")
 });
 
 pub static METRIC_COMMAND_FAILURES_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
-  IntCounterVec::new(opts!(
-    "command_failures_total",
-    "Total number of times a command has been called and failed (by command name)."), &["name"])
-      .expect("Could not create METRIC_COMMAND_FAILURES_TOTAL")
+  IntCounterVec::new(
+    opts!("command_failures_total", "Total number of times a command has been called and failed (by command name)."),
+    &["name"],
+  )
+  .expect("Could not create METRIC_COMMAND_FAILURES_TOTAL")
 });
 
 #[derive(Deserialize, Serialize)]
 pub struct CommandRequest {
   pub command: String,
-  #[serde(rename="jsonData")]
+  #[serde(rename = "jsonData")]
   pub json_data: String,
-  #[serde(rename="base64Data")]
+  #[serde(rename = "base64Data")]
   pub base64_data: Option<String>,
 }
 
@@ -91,9 +95,9 @@ const REASON_NOT_FOUND: &str = "not-found";
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CommandResponse {
   pub success: bool,
-  #[serde(rename="failReason")]
+  #[serde(rename = "failReason")]
   pub fail_reason: Option<String>,
-  #[serde(rename="jsonData")]
+  #[serde(rename = "jsonData")]
   pub json_data: Option<String>,
 }
 
@@ -114,13 +118,12 @@ fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKin
   }
 }
 
-
 pub async fn serve_command_route(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    object_store: &Arc<object::ObjectStore>,
-    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
-    request: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
-
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: &Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   if request.method() == "OPTIONS" {
     debug!("Serving OPTIONS request, assuming CORS query.");
     return cors_response();
@@ -134,7 +137,11 @@ pub async fn serve_command_route(
       error!("An error occurred parsing command payload for user: {}", e);
       METRIC_COMMAND_REQUESTS_TOTAL.with_label_values(&["unknown"]).inc();
       METRIC_COMMAND_FAILURES_TOTAL.with_label_values(&["unknown"]).inc();
-      return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
+      return json_response(&CommandResponse {
+        success: false,
+        fail_reason: Some(REASON_CLIENT.to_owned()),
+        json_data: None,
+      });
     }
   };
 
@@ -147,9 +154,13 @@ pub async fn serve_command_route(
   let response_data_maybe = match request.command.as_str() {
     "get-items" => handle_get_items(db, &request.json_data, &session_maybe).await,
     "get-attachments" => handle_get_attachments(db, &request.json_data, &session_maybe).await,
-    "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session_maybe).await,
+    "add-item" => {
+      handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session_maybe).await
+    }
     "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await.map(|_| None),
-    "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await.map(|_| None),
+    "delete-item" => {
+      handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await.map(|_| None)
+    }
     "modified-check" => handle_modified_check(db, &request.json_data, &session_maybe).await,
     "search" => handle_search(db, &request.json_data, &session_maybe).await,
     "empty-trash" => handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
@@ -161,7 +172,11 @@ pub async fn serve_command_route(
       }
       METRIC_COMMAND_REQUESTS_TOTAL.with_label_values(&["invalid"]).inc();
       METRIC_COMMAND_FAILURES_TOTAL.with_label_values(&["invalid"]).inc();
-      return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
+      return json_response(&CommandResponse {
+        success: false,
+        fail_reason: Some(REASON_CLIENT.to_owned()),
+        json_data: None,
+      });
     }
   };
 
@@ -180,7 +195,11 @@ pub async fn serve_command_route(
         CommandErrorKind::NotFound => REASON_NOT_FOUND,
         CommandErrorKind::Server => REASON_SERVER,
       };
-      return json_response(&CommandResponse { success: false, fail_reason: Some(fail_reason.to_owned()), json_data: None });
+      return json_response(&CommandResponse {
+        success: false,
+        fail_reason: Some(fail_reason.to_owned()),
+        json_data: None,
+      });
     }
   };
 
@@ -191,12 +210,11 @@ pub async fn serve_command_route(
   json_response(&r)
 }
 
-
 #[derive(Debug, PartialEq)]
 pub enum GetItemsMode {
   ItemAndAttachmentsOnly,
   ItemAttachmentsChildrenAndTheirAttachments,
-  ChildrenAndTheirAttachmentsOnly
+  ChildrenAndTheirAttachmentsOnly,
 }
 
 impl GetItemsMode {
@@ -204,7 +222,7 @@ impl GetItemsMode {
     match self {
       GetItemsMode::ChildrenAndTheirAttachmentsOnly => "children-and-their-attachments-only",
       GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => "item-attachments-children-and-their-attachments",
-      GetItemsMode::ItemAndAttachmentsOnly => "item-and-attachments-only"
+      GetItemsMode::ItemAndAttachmentsOnly => "item-and-attachments-only",
     }
   }
 
@@ -213,18 +231,16 @@ impl GetItemsMode {
       "children-and-their-attachments-only" => Ok(GetItemsMode::ChildrenAndTheirAttachmentsOnly),
       "item-attachments-children-and-their-attachments" => Ok(GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments),
       "item-and-attachments-only" => Ok(GetItemsMode::ItemAndAttachmentsOnly),
-      other => Err(format!("Invalid GetItemsMode value: '{}'.", other).into())
+      other => Err(format!("Invalid GetItemsMode value: '{}'.", other).into()),
     }
   }
 }
 
-
 #[derive(Deserialize, Serialize)]
 pub struct GetItemsRequest {
   pub id: String,
-  pub mode: String
+  pub mode: String,
 }
-
 
 /**
  * Access is authorized if and only if:
@@ -245,7 +261,12 @@ pub struct GetItemsRequest {
  * corresponding linked-to item is authorized - the authorization is based on the linked
  * to item, and it's tree parent(s) as above.
  */
-pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_maybe: &Option<String>, recursion_level: i32) -> InfuResult<()> {
+pub fn authorize_item(
+  db: &MutexGuard<'_, Db>,
+  item: &Item,
+  session_user_id_maybe: &Option<String>,
+  recursion_level: i32,
+) -> InfuResult<()> {
   if recursion_level > 1 {
     return Err(format!("Not authorized to access item '{}' - recursion level too deep.", item.id).into());
   }
@@ -264,21 +285,20 @@ pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_mayb
         if flags == PermissionFlags::Public as i64 {
           return Ok(());
         }
-      },
+      }
       // Should never occur.
-      None => return Err(format!("Page item '{}' has no permissions flag property.", item.id).into())
+      None => return Err(format!("Page item '{}' has no permissions flag property.", item.id).into()),
     }
   }
 
   // any item that has a parent page that is public
   if let Some(item_parent_id) = &item.parent_id {
     match item.relationship_to_parent {
-
       RelationshipToParent::Child => {
         let item_parent = db.item.get(&item_parent_id)?;
         if is_composite_item(item_parent) || is_flipcard_item(item_parent) {
           // If the item is inside a composite, then what is effectively needed is authorization of the composite.
-          match authorize_item(db, item_parent, session_user_id_maybe, recursion_level+1) {
+          match authorize_item(db, item_parent, session_user_id_maybe, recursion_level + 1) {
             Ok(_) => return Ok(()),
             Err(e) => {
               return Err(format!("Not authorized to access item '{}': {}", item.id, e.to_string()).into());
@@ -288,7 +308,7 @@ pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_mayb
           item_auth_common(db, &item.id, item_parent)?;
           return Ok(());
         }
-      },
+      }
 
       RelationshipToParent::Attachment => {
         let attachment_parent = db.item.get(&item_parent_id)?;
@@ -297,11 +317,15 @@ pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_mayb
         }
         let attachment_parent_parent = match &attachment_parent.parent_id {
           Some(p) => db.item.get(&p)?,
-          None => return Err(format!("Attachment parent item '{}' has no parent - cannot authorize.", attachment_parent.id).into())
+          None => {
+            return Err(
+              format!("Attachment parent item '{}' has no parent - cannot authorize.", attachment_parent.id).into(),
+            );
+          }
         };
         item_auth_common(db, &attachment_parent.id, attachment_parent_parent)?;
         return Ok(());
-      },
+      }
 
       RelationshipToParent::NoParent => {
         // Should never occur.
@@ -322,15 +346,15 @@ fn item_auth_common(db: &MutexGuard<'_, Db>, item_id: &Uid, item_parent: &Item) 
           return Ok(());
         }
         return Err(format!("Not authorized to access parent page '{}' of item '{}'.", page_item.id, item_id).into());
-      },
+      }
       // Should never occur.
-      None => return Err(format!("Page item '{}' does not have a permissions flag property.", item_id).into())
+      None => return Err(format!("Page item '{}' does not have a permissions flag property.", item_id).into()),
     }
   } else if is_table_item(item_parent) {
     let parent_parent_id = match &item_parent.parent_id {
       Some(parent_parent_id) => parent_parent_id,
       // Should never occur.
-      None => return Err(format!("Expecting table '{}' to have a parent defined.", item_parent.id).into())
+      None => return Err(format!("Expecting table '{}' to have a parent defined.", item_parent.id).into()),
     };
     let parent_parent = db.item.get(&parent_parent_id)?;
     if is_page_item(parent_parent) {
@@ -339,28 +363,42 @@ fn item_auth_common(db: &MutexGuard<'_, Db>, item_id: &Uid, item_parent: &Item) 
           if flags == PermissionFlags::Public as i64 {
             return Ok(());
           }
-          return Err(format!("Not authorized to access parent page '{}' of table '{}' that contains item '{}'.", parent_parent.id, item_parent.id, item_id).into());
-        },
+          return Err(
+            format!(
+              "Not authorized to access parent page '{}' of table '{}' that contains item '{}'.",
+              parent_parent.id, item_parent.id, item_id
+            )
+            .into(),
+          );
+        }
         // Should never occur.
-        None => return Err(format!("Page item '{}' has no permissions flag property.", item_id).into())
+        None => return Err(format!("Page item '{}' has no permissions flag property.", item_id).into()),
       }
     } else {
-      return Err(format!("Expecting parent '{}' of table '{}' to be a page.", parent_parent_id, parent_parent_id).into());
+      return Err(
+        format!("Expecting parent '{}' of table '{}' to be a page.", parent_parent_id, parent_parent_id).into(),
+      );
     }
   } else {
     return Err(format!("Item '{}' has unexpected parent type.", item_id).into());
   }
 }
 
-
-fn get_item_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_user_id_maybe: &Option<String>) -> InfuResult<&'a Item> {
+fn get_item_authorized<'a>(
+  db: &'a MutexGuard<'_, Db>,
+  id: &Uid,
+  session_user_id_maybe: &Option<String>,
+) -> InfuResult<&'a Item> {
   let item = db.item.get(&id)?;
-  authorize_item(db, item, session_user_id_maybe, 0)
-    .map_err(|_| format!("Not authorized to access item '{}'.", id))?;
+  authorize_item(db, item, session_user_id_maybe, 0).map_err(|_| format!("Not authorized to access item '{}'.", id))?;
   Ok(item)
 }
 
-fn get_children_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_user_id_maybe: &Option<String>) -> InfuResult<Vec<&'a Item>> {
+fn get_children_authorized<'a>(
+  db: &'a MutexGuard<'_, Db>,
+  id: &Uid,
+  session_user_id_maybe: &Option<String>,
+) -> InfuResult<Vec<&'a Item>> {
   let children = db.item.get_children(id)?;
   for child in &children {
     // TODO (LOW): redundant, but doesn't hurt..
@@ -370,7 +408,11 @@ fn get_children_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_use
   Ok(children)
 }
 
-fn get_attachments_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_user_id_maybe: &Option<String>) -> InfuResult<Vec<&'a Item>> {
+fn get_attachments_authorized<'a>(
+  db: &'a MutexGuard<'_, Db>,
+  id: &Uid,
+  session_user_id_maybe: &Option<String>,
+) -> InfuResult<Vec<&'a Item>> {
   let attachments = db.item.get_attachments(id)?;
   for attachment in &attachments {
     // TODO (LOW): redundant, but doesn't hurt..
@@ -379,7 +421,6 @@ fn get_attachments_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_
   }
   Ok(attachments)
 }
-
 
 #[derive(Deserialize, Serialize)]
 pub struct ModifiedCheck {
@@ -406,12 +447,12 @@ pub struct ModifiedCheckResult {
 // - a better authorization model is needed first.
 
 async fn handle_modified_check(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    json_data: &str,
-    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
-
-  let requests: Vec<ModifiedCheck> = serde_json::from_str(json_data)
-    .map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let requests: Vec<ModifiedCheck> =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   let session_user_id_maybe = match &session_maybe {
     Some(session) => Some(session.user_id.clone()),
@@ -431,17 +472,15 @@ async fn handle_modified_check(
 
     let current_hash = match mode {
       GetItemsMode::ItemAndAttachmentsOnly => hash_item_and_attachments_only(db, &request.id)?,
-      GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => hash_item_attachments_children_and_their_attachments(db, &request.id)?,
+      GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
+        hash_item_attachments_children_and_their_attachments(db, &request.id)?
+      }
       GetItemsMode::ChildrenAndTheirAttachmentsOnly => hash_children_and_their_attachments_only(db, &request.id)?,
     };
 
     let modified = current_hash != request.hash;
 
-    responses.push(ModifiedCheckResult {
-      id: request.id,
-      mode: request.mode,
-      modified,
-    });
+    responses.push(ModifiedCheckResult { id: request.id, mode: request.mode, modified });
   }
 
   debug!("Executed 'modified-check' command for {} items.", responses.len());
@@ -449,11 +488,12 @@ async fn handle_modified_check(
 }
 
 async fn handle_get_items(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    json_data: &str,
-    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
-
-  let request: GetItemsRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let request: GetItemsRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   let parts = request.id.split('/').collect::<Vec<&str>>();
   if parts.len() != 1 {
@@ -466,15 +506,15 @@ async fn handle_get_items(
   } else {
     let username = if request.id.len() == 0 { ROOT_USER_NAME } else { &request.id };
     match db.lock().await.user.get_by_username_case_insensitive(username) {
-      Some(u) => { u.home_page_id.to_owned() },
-      None => { return Err(format!("User '{}' is unknown.", request.id).into()); }
+      Some(u) => u.home_page_id.to_owned(),
+      None => {
+        return Err(format!("User '{}' is unknown.", request.id).into());
+      }
     }
   };
 
   let session_user_id_maybe = match &session_maybe {
-    Some(session) => {
-      Some(session.user_id.clone())
-    },
+    Some(session) => Some(session.user_id.clone()),
     None => None,
   };
 
@@ -487,17 +527,21 @@ async fn handle_get_items(
   let mut attachments_result = serde_json::Map::new();
 
   let children_result;
-  if mode == GetItemsMode::ChildrenAndTheirAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
+  if mode == GetItemsMode::ChildrenAndTheirAttachmentsOnly
+    || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments
+  {
     let child_items = get_children_authorized(db, &item_id, &session_user_id_maybe)?;
 
-    children_result = child_items.iter()
+    children_result = child_items
+      .iter()
       .map(|v| v.to_api_json().ok())
       .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
       .ok_or(format!("Error occurred getting children for container '{}'.", item_id))?;
 
     for c in &child_items {
       let id = &c.id;
-      let item_attachments_result = get_attachments_authorized(db, id, &session_user_id_maybe)?.iter()
+      let item_attachments_result = get_attachments_authorized(db, id, &session_user_id_maybe)?
+        .iter()
         .map(|v| v.to_api_json().ok())
         .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
         .ok_or(format!("Error occurred getting attachments for {}", id))?;
@@ -510,7 +554,8 @@ async fn handle_get_items(
   }
 
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
-    let item_attachments_result = get_attachments_authorized(db, &item_id, &session_user_id_maybe)?.iter()
+    let item_attachments_result = get_attachments_authorized(db, &item_id, &session_user_id_maybe)?
+      .iter()
       .map(|v| v.to_api_json().ok())
       .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
       .ok_or(format!("Error occurred getting attachments for item {}", item_id))?;
@@ -523,7 +568,7 @@ async fn handle_get_items(
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
     let item_json_map = match item.to_api_json() {
       Ok(r) => r,
-      Err(e) => return Err(format!("Error occurred getting item {}: {}", item_id, e).into())
+      Err(e) => return Err(format!("Error occurred getting item {}: {}", item_id, e).into()),
     };
     result.insert(String::from("item"), Value::from(item_json_map));
   }
@@ -532,7 +577,9 @@ async fn handle_get_items(
 
   let hash_str = match mode {
     GetItemsMode::ItemAndAttachmentsOnly => hash_item_and_attachments_only(db, &item_id)?,
-    GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => hash_item_attachments_children_and_their_attachments(db, &item_id)?,
+    GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
+      hash_item_attachments_children_and_their_attachments(db, &item_id)?
+    }
     GetItemsMode::ChildrenAndTheirAttachmentsOnly => hash_children_and_their_attachments_only(db, &item_id)?,
   };
 
@@ -541,32 +588,33 @@ async fn handle_get_items(
   Ok(Some(serde_json::to_string(&result)?))
 }
 
-
 #[derive(Deserialize, Serialize)]
 pub struct GetAttachmentsRequest {
-  #[serde(rename="parentId")]
+  #[serde(rename = "parentId")]
   pub parent_id_maybe: Option<String>,
 }
 
 async fn handle_get_attachments(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    json_data: &str,
-    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
   let db = db.lock().await;
 
-  let request: GetAttachmentsRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  let request: GetAttachmentsRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   // TODO (MEDIUM): support sessionless get.
   let session = match session_maybe {
     Some(session) => session,
-    None => { return Err(format!("Session is required to update an item.").into()); }
+    None => {
+      return Err(format!("Session is required to update an item.").into());
+    }
   };
 
   let parent_id = match &request.parent_id_maybe {
     Some(parent_id) => parent_id,
-    None => {
-      &db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", &session.user_id))?.home_page_id
-    }
+    None => &db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", &session.user_id))?.home_page_id,
   };
 
   let parent_item = db.item.get(parent_id)?;
@@ -574,10 +622,10 @@ async fn handle_get_attachments(
     return Err(format!("User '{}' does not own item '{}'.", &session.user_id, parent_id).into());
   }
 
-  let attachment_items = db.item
-    .get_attachments(parent_id)?;
+  let attachment_items = db.item.get_attachments(parent_id)?;
 
-  let attachments_result = attachment_items.iter()
+  let attachments_result = attachment_items
+    .iter()
     .map(|v| v.to_api_json().ok())
     .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
     .ok_or(format!("Error occurred getting attachments for item '{}'.", parent_id))?;
@@ -587,29 +635,30 @@ async fn handle_get_attachments(
   Ok(Some(serde_json::to_string(&attachments_result)?))
 }
 
-
 async fn handle_add_item(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    object_store: Arc<object::ObjectStore>,
-    json_data: &str,
-    base64_data_maybe: &Option<String>,
-    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
-
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  json_data: &str,
+  base64_data_maybe: &Option<String>,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
   let session = match session_maybe {
     Some(session) => session,
-    None => { return Err(format!("Session is required to add an item.").into()); }
+    None => {
+      return Err(format!("Session is required to add an item.").into());
+    }
   };
 
   add_item_for_user(db, object_store, json_data, base64_data_maybe, &session.user_id).await
 }
 
 pub async fn add_item_for_user(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    object_store: Arc<object::ObjectStore>,
-    json_data: &str,
-    base64_data_maybe: &Option<String>,
-    session_user_id: &str) -> InfuResult<Option<String>> {
-
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  json_data: &str,
+  base64_data_maybe: &Option<String>,
+  session_user_id: &str,
+) -> InfuResult<Option<String>> {
   let session_user_id = session_user_id.to_owned();
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
@@ -618,7 +667,12 @@ pub async fn add_item_for_user(
   let mut item_map = item_map_maybe.as_object().ok_or("Add item request body is not a JSON object.")?.clone();
 
   let item_type = String::from(
-    item_map.get("itemType").ok_or("Item type was not specified.")?.as_str().ok_or("'itemType' field is not a string.")?);
+    item_map
+      .get("itemType")
+      .ok_or("Item type was not specified.")?
+      .as_str()
+      .ok_or("'itemType' field is not a string.")?,
+  );
 
   // The JSON sent to an add-item command is more flexible than the item schema allows for.
   // First step is to prep/transform/add defaults to the received JSON map for deserialization into an item object.
@@ -635,8 +689,12 @@ pub async fn add_item_for_user(
     let db = db.lock().await;
 
     if !item_map.contains_key("parentId") {
-      item_map.insert("parentId".to_owned(),
-        Value::String(db.user.get(&session_user_id).ok_or(format!("No user with id '{}'.", &session_user_id))?.home_page_id.clone()));
+      item_map.insert(
+        "parentId".to_owned(),
+        Value::String(
+          db.user.get(&session_user_id).ok_or(format!("No user with id '{}'.", &session_user_id))?.home_page_id.clone(),
+        ),
+      );
     }
 
     if !item_map.contains_key("ownerId") {
@@ -694,14 +752,22 @@ pub async fn add_item_for_user(
 
     if !item_map.contains_key("ordering") {
       let parent_id_value = item_map.get("parentId").unwrap(); // should always exist at this point.
-      let parent_id = parent_id_value.as_str()
-        .ok_or(format!("Attempt was made by user '{}' to add an item with a parentId that is not of type String", &session_user_id))?;
+      let parent_id = parent_id_value.as_str().ok_or(format!(
+        "Attempt was made by user '{}' to add an item with a parentId that is not of type String",
+        &session_user_id
+      ))?;
       if !is_uid(parent_id) {
-        return Err(format!("Attempt was made by user '{}' to add an item with invalid parent id.", &session_user_id).into());
+        return Err(
+          format!("Attempt was made by user '{}' to add an item with invalid parent id.", &session_user_id).into(),
+        );
       }
-      let orderings = db.item.get_children(&parent_id.to_owned())?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
+      let orderings =
+        db.item.get_children(&parent_id.to_owned())?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
       let ordering = new_ordering_at_end(orderings);
-      item_map.insert(String::from("ordering"), Value::Array(ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
+      item_map.insert(
+        String::from("ordering"),
+        Value::Array(ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()),
+      );
     }
 
     // 4. TODO (MEDIUM): triage destinations.
@@ -710,10 +776,14 @@ pub async fn add_item_for_user(
     let parent_id = item_map.get("parentId").unwrap().as_str().unwrap(); // by this point, should never fail.
 
     if parent_id == EMPTY_UID {
-      return Err(format!("Attempt was made by user '{}' to add an item with an empty parent id.", &session_user_id).into());
+      return Err(
+        format!("Attempt was made by user '{}' to add an item with an empty parent id.", &session_user_id).into(),
+      );
     }
 
-    let parent_item = db.item.get(&parent_id.to_owned())
+    let parent_item = db
+      .item
+      .get(&parent_id.to_owned())
       .map_err(|_| format!("Cannot add child item to '{}' because an item with that id does not exist.", parent_id))?;
     if &parent_item.owner_id != &session_user_id {
       return Err(format!("Cannot add child item to '{}' because user '{}' is not the owner.", &parent_item.id, &session_user_id,).into());
@@ -722,14 +792,23 @@ pub async fn add_item_for_user(
     match item.relationship_to_parent {
       RelationshipToParent::Child => {
         if !is_container_item_type(parent_item.item_type) {
-          return Err(format!("Attempt was made by user '{}' to add a child item to a non-container parent.", &session_user_id).into());
+          return Err(
+            format!("Attempt was made by user '{}' to add a child item to a non-container parent.", &session_user_id)
+              .into(),
+          );
         }
-      },
+      }
       RelationshipToParent::Attachment => {
         if !is_attachments_item_type(parent_item.item_type) {
-          return Err(format!("Attempt was made by user '{}' to add an attachment item to a non-attachments parent.", &session_user_id).into());
+          return Err(
+            format!(
+              "Attempt was made by user '{}' to add an attachment item to a non-attachments parent.",
+              &session_user_id
+            )
+            .into(),
+          );
         }
-      },
+      }
       RelationshipToParent::NoParent => {
         return Err(format!("Attempt was made by user '{}' to add a root level page.", &session_user_id).into());
       }
@@ -740,24 +819,42 @@ pub async fn add_item_for_user(
     }
 
     if &item.owner_id != &session_user_id {
-      return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, &session_user_id, item.id).into());
+      return Err(
+        format!(
+          "Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.",
+          item.owner_id, &session_user_id, item.id
+        )
+        .into(),
+      );
     }
 
     if db.item.get(&item.id).is_ok() {
-      return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
+      return Err(
+        format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into(),
+      );
     }
 
     if item.ordering.len() == 0 {
-      return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", &session_user_id).into());
+      return Err(
+        format!("Attempt was made by user '{}' to add an item with empty ordering.", &session_user_id).into(),
+      );
     }
 
     if item.item_type == ItemType::Placeholder && item.relationship_to_parent != RelationshipToParent::Attachment {
-      return Err(format!("Attempt was made to add a placeholder item where relationship to parent is not Attachment.").into());
+      return Err(
+        format!("Attempt was made to add a placeholder item where relationship to parent is not Attachment.").into(),
+      );
     }
 
     // Get encryption key if needed for data items, clone it so we can use it outside the lock.
     let encryption_key = if is_data_item_type(item.item_type) {
-      Some(db.user.get(&session_user_id).ok_or(format!("User '{}' not found.", &session_user_id))?.object_encryption_key.clone())
+      Some(
+        db.user
+          .get(&session_user_id)
+          .ok_or(format!("User '{}' not found.", &session_user_id))?
+          .object_encryption_key
+          .clone(),
+      )
     } else {
       None
     };
@@ -772,25 +869,47 @@ pub async fn add_item_for_user(
   // hold the lock during these operations.
   // ========================================================================
   if is_data_item_type(item.item_type) {
-    let base64_data = base64_data_maybe.as_ref().ok_or(format!("Add item request has no base64 data, when this is expected for item of type {}.", item.item_type))?;
-    let decoded = general_purpose::STANDARD.decode(&base64_data).map_err(|e| format!("There was a problem decoding base64 data for new item '{}': {}", item.id, e))?;
-    if decoded.len() != item.file_size_bytes.ok_or(format!("File size was not specified for new data item '{}'.", item.id))? as usize {
-      return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
+    let base64_data = base64_data_maybe.as_ref().ok_or(format!(
+      "Add item request has no base64 data, when this is expected for item of type {}.",
+      item.item_type
+    ))?;
+    let decoded = general_purpose::STANDARD
+      .decode(&base64_data)
+      .map_err(|e| format!("There was a problem decoding base64 data for new item '{}': {}", item.id, e))?;
+    if decoded.len()
+      != item.file_size_bytes.ok_or(format!("File size was not specified for new data item '{}'.", item.id))? as usize
+    {
+      return Err(
+        format!(
+          "File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).",
+          item.id,
+          item.file_size_bytes.unwrap(),
+          decoded.len()
+        )
+        .into(),
+      );
     }
     item.mime_type = Some(detect_mime_type(&decoded));
-    let object_encryption_key = object_encryption_key_maybe.as_ref().ok_or("Internal error: encryption key should have been set for data item.")?;
+    let object_encryption_key = object_encryption_key_maybe
+      .as_ref()
+      .ok_or("Internal error: encryption key should have been set for data item.")?;
     object::put(object_store.clone(), &session_user_id, &item.id, &decoded, object_encryption_key).await?;
 
     if is_image_item(&item) {
       let title = match &item.title {
         Some(title) => title,
-        None => { return Err(format!("Image item '{}' has no title set.", item.id).into()); }
+        None => {
+          return Err(format!("Image item '{}' has no title set.", item.id).into());
+        }
       };
       // TODO (LOW): clone here seems a bit excessive.
       let exif_orientation = get_exif_orientation(decoded.clone(), title);
       let file_cursor = Cursor::new(decoded);
       let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
-      let img = file_reader.decode().ok().ok_or(format!("Could not add new image item '{}' - could not interpret base64 data as an image.", item.id))?;
+      let img = file_reader
+        .decode()
+        .ok()
+        .ok_or(format!("Could not add new image item '{}' - could not interpret base64 data as an image.", item.id))?;
       let img = adjust_image_for_exif_orientation(img, exif_orientation, title);
 
       let width = img.width();
@@ -799,21 +918,37 @@ pub async fn add_item_for_user(
       let img = img.resize_exact(8, 8, FilterType::Nearest);
       let buf = Vec::new();
       let mut cursor = Cursor::new(buf);
-      img.write_to(&mut cursor, ImageFormat::Png)
+      img
+        .write_to(&mut cursor, ImageFormat::Png)
         .map_err(|e| format!("An error occurred creating the thumbnail png for new image '{}': {}.", item.id, e))?;
       let thumbnail_data = cursor.get_ref().to_vec();
       let thumbnail_base64 = general_purpose::STANDARD.encode(thumbnail_data);
       if item.thumbnail.unwrap() != "" {
-        return Err(format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", &session_user_id).into());
+        return Err(
+          format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", &session_user_id)
+            .into(),
+        );
       }
       item.thumbnail = Some(thumbnail_base64);
 
       let img_size_px = &item.image_size_px.unwrap();
       if img_size_px.w != -1 && img_size_px.w != width as i64 {
-        return Err(format!("Image width specified for new image item '{}' ({:?}) does not match the actual width of the image ({}).", item.id, img_size_px, width).into());
+        return Err(
+          format!(
+            "Image width specified for new image item '{}' ({:?}) does not match the actual width of the image ({}).",
+            item.id, img_size_px, width
+          )
+          .into(),
+        );
       }
       if img_size_px.h != -1 && img_size_px.h != height as i64 {
-        return Err(format!("Image height specified for new image item '{}' ({:?}) does not match the actual height of the image ({}).", item.id, img_size_px, height).into());
+        return Err(
+          format!(
+            "Image height specified for new image item '{}' ({:?}) does not match the actual height of the image ({}).",
+            item.id, img_size_px, height
+          )
+          .into(),
+        );
       }
       item.image_size_px = Some(Dimensions { w: width as i64, h: height as i64 });
     }
@@ -835,7 +970,9 @@ pub async fn add_item_for_user(
 
     // Re-check that item ID still doesn't exist (race condition guard).
     if db.item.get(&item.id).is_ok() {
-      return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
+      return Err(
+        format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into(),
+      );
     }
 
     let item_id = item.id.clone();
@@ -846,16 +983,18 @@ pub async fn add_item_for_user(
   Ok(Some(serialized_item))
 }
 
-
 async fn handle_update_item(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    json_data: &str,
-    session_maybe: &Option<Session>) -> InfuResult<()> {
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<()> {
   let mut db = db.lock().await;
 
   let session = match session_maybe {
     Some(session) => session,
-    None => { return Err(format!("Session is required to update an item.").into()); }
+    None => {
+      return Err(format!("Session is required to update an item.").into());
+    }
   };
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
@@ -865,7 +1004,13 @@ async fn handle_update_item(
   let item: Item = Item::from_api_json(item_map)?;
 
   if &db.item.get(&item.id)?.owner_id != &session.user_id {
-    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.", item.owner_id, session.user_id, item.id).into());
+    return Err(
+      format!(
+        "Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.",
+        item.owner_id, session.user_id, item.id
+      )
+      .into(),
+    );
   }
 
   db.item.update(&item).await?;
@@ -875,26 +1020,29 @@ async fn handle_update_item(
   Ok(())
 }
 
-
 #[derive(Deserialize)]
 pub struct DeleteItemRequest {
-  #[serde(rename="id")]
+  #[serde(rename = "id")]
   pub id: String,
 }
 
 async fn handle_delete_item<'a>(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    object_store: Arc<object::ObjectStore>,
-    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
-    json_data: &str,
-    session_maybe: &Option<Session>) -> InfuResult<()> {
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<()> {
   let mut db = db.lock().await;
 
-  let request: DeleteItemRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  let request: DeleteItemRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   let session = match session_maybe {
     Some(session) => session,
-    None => { return Err(format!("Session is required to delete an item.").into()); }
+    None => {
+      return Err(format!("Session is required to delete an item.").into());
+    }
   };
 
   if &db.item.get(&request.id)?.owner_id != &session.user_id {
@@ -903,12 +1051,21 @@ async fn handle_delete_item<'a>(
 
   if db.item.get_children(&request.id)?.len() > 0 {
     let child_ids: Vec<&String> = db.item.get_children(&request.id)?.iter().map(|itm| &itm.id).collect();
-    return Err(format!("Cannot delete item '{}' because it has one or more associated children: {:?}", request.id, child_ids).into());
+    return Err(
+      format!("Cannot delete item '{}' because it has one or more associated children: {:?}", request.id, child_ids)
+        .into(),
+    );
   }
 
   if db.item.get_attachments(&request.id)?.len() > 0 {
     let attachment_ids: Vec<&String> = db.item.get_attachments(&request.id)?.iter().map(|itm| &itm.id).collect();
-    return Err(format!("Cannot delete item '{}' because it has one or more associated attachments: {:?}", request.id, attachment_ids).into());
+    return Err(
+      format!(
+        "Cannot delete item '{}' because it has one or more associated attachments: {:?}",
+        request.id, attachment_ids
+      )
+      .into(),
+    );
   }
 
   let item = db.item.get(&request.id)?;
@@ -930,15 +1087,18 @@ async fn handle_delete_item<'a>(
 }
 
 async fn handle_empty_trash<'a>(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    object_store: Arc<object::ObjectStore>,
-    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
-    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
   let session = match session_maybe {
     Some(session) => session,
-    None => { return Err(format!("A session is required to empty trash.").into()); }
+    None => {
+      return Err(format!("A session is required to empty trash.").into());
+    }
   };
 
   let trash_page_id;
@@ -950,7 +1110,18 @@ async fn handle_empty_trash<'a>(
   let mut count = 0;
   let mut img_cache_count = 0;
   let mut object_count = 0;
-  delete_recursive(&mut db, object_store, image_cache, &session.user_id, trash_page_id, false, &mut count, &mut img_cache_count, &mut object_count).await?;
+  delete_recursive(
+    &mut db,
+    object_store,
+    image_cache,
+    &session.user_id,
+    trash_page_id,
+    false,
+    &mut count,
+    &mut img_cache_count,
+    &mut object_count,
+  )
+  .await?;
 
   let mut result = serde_json::Map::new();
   result.insert("itemCount".to_owned(), Value::Number(count.into()));
@@ -962,20 +1133,43 @@ async fn handle_empty_trash<'a>(
 
 #[async_recursion]
 async fn delete_recursive(
-    db: &mut MutexGuard<'_, Db>,
-    object_store: Arc<object::ObjectStore>,
-    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
-    user_id: &Uid,
-    item_id: Uid,
-    delete_item: bool,
-    count: &mut u64,
-    img_cache_count: &mut u64,
-    object_count: &mut u64) -> InfuResult<()> {
+  db: &mut MutexGuard<'_, Db>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  user_id: &Uid,
+  item_id: Uid,
+  delete_item: bool,
+  count: &mut u64,
+  img_cache_count: &mut u64,
+  object_count: &mut u64,
+) -> InfuResult<()> {
   for attachment_id in db.item.get_attachment_ids(&item_id)? {
-    delete_recursive(db, object_store.clone(), image_cache.clone(), user_id, attachment_id, true, count, img_cache_count, object_count).await?;
+    delete_recursive(
+      db,
+      object_store.clone(),
+      image_cache.clone(),
+      user_id,
+      attachment_id,
+      true,
+      count,
+      img_cache_count,
+      object_count,
+    )
+    .await?;
   }
   for child_id in db.item.get_children_ids(&item_id)? {
-    delete_recursive(db, object_store.clone(), image_cache.clone(), user_id, child_id, true, count, img_cache_count, object_count).await?;
+    delete_recursive(
+      db,
+      object_store.clone(),
+      image_cache.clone(),
+      user_id,
+      child_id,
+      true,
+      count,
+      img_cache_count,
+      object_count,
+    )
+    .await?;
   }
 
   if delete_item {
@@ -1004,18 +1198,18 @@ async fn delete_recursive(
 
 #[derive(Deserialize, Serialize)]
 pub struct SearchRequest {
-  #[serde(rename="pageId")]
+  #[serde(rename = "pageId")]
   pub page_id: Option<Uid>,
   pub text: String,
-  #[serde(rename="numResults")]
+  #[serde(rename = "numResults")]
   pub num_results: i64,
-  #[serde(rename="pageNum")]
+  #[serde(rename = "pageNum")]
   pub page_num: Option<i64>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SearchPathElement {
-  #[serde(rename="itemType")]
+  #[serde(rename = "itemType")]
   item_type: String,
   title: Option<String>,
   id: Uid,
@@ -1023,20 +1217,22 @@ pub struct SearchPathElement {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SearchResult {
-  #[serde(rename="path")]
+  #[serde(rename = "path")]
   pub path: Vec<SearchPathElement>,
 }
 
 async fn handle_search(
-    db: &Arc<tokio::sync::Mutex<Db>>,
-    json_data: &str,
-    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
   let session = match session_maybe {
     None => return Err("Sessionless search not supported".into()),
-    Some(s) => s
+    Some(s) => s,
   };
 
-  let request: SearchRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  let request: SearchRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   let mut db = db.lock().await;
 
@@ -1050,15 +1246,21 @@ async fn handle_search(
   let mut results: Vec<SearchResult> = vec![];
   let mut current_path: Vec<SearchPathElement> = vec![];
 
-  let start_result = if let Some(page_num) = request.page_num {
-    (page_num - 1) * request.num_results
-  } else {
-    0
-  };
+  let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results;
 
   let mut current_result = 0;
-  search_recursive(&mut db, &request.text.to_lowercase(), page_id, &session.user_id.clone(), start_result, end_result, &mut current_path, &mut results, &mut current_result)?;
+  search_recursive(
+    &mut db,
+    &request.text.to_lowercase(),
+    page_id,
+    &session.user_id.clone(),
+    start_result,
+    end_result,
+    &mut current_path,
+    &mut results,
+    &mut current_result,
+  )?;
 
   let serialized_results = serde_json::to_string(&results)?;
 
@@ -1068,26 +1270,28 @@ async fn handle_search(
 }
 
 fn search_recursive(
-    db: &mut MutexGuard<'_, Db>,
-    search_text: &str,
-    item_id: Uid,
-    user_id: &Uid,
-    start_result: i64,
-    end_result: i64,
-    current_path: &mut Vec<SearchPathElement>,
-    results: &mut Vec<SearchResult>,
-    current_result: &mut i64) -> InfuResult<()> {
-
+  db: &mut MutexGuard<'_, Db>,
+  search_text: &str,
+  item_id: Uid,
+  user_id: &Uid,
+  start_result: i64,
+  end_result: i64,
+  current_path: &mut Vec<SearchPathElement>,
+  results: &mut Vec<SearchResult>,
+  current_result: &mut i64,
+) -> InfuResult<()> {
   if results.len() >= (end_result - start_result) as usize {
     return Ok(());
   }
 
   {
     let item = db.item.get(&item_id)?;
-    if &item.owner_id != user_id { return Ok(()); } // paranoid.
+    if &item.owner_id != user_id {
+      return Ok(());
+    } // paranoid.
     if item.item_type != ItemType::Password {
       match &item.title {
-        None => {},
+        None => {}
         Some(title) => {
           if title.to_lowercase().contains(search_text) {
             if *current_result >= start_result && *current_result < end_result {
@@ -1095,7 +1299,7 @@ fn search_recursive(
               path.push(SearchPathElement {
                 item_type: item.item_type.as_str().to_owned(),
                 title: item.title.to_owned(),
-                id: item.id.to_owned()
+                id: item.id.to_owned(),
               });
               results.push(SearchResult { path });
             }
@@ -1108,12 +1312,26 @@ fn search_recursive(
       };
     }
 
-    current_path.push(SearchPathElement { item_type: item.item_type.as_str().to_owned(), title: item.title.clone(), id: item.id.clone() });
+    current_path.push(SearchPathElement {
+      item_type: item.item_type.as_str().to_owned(),
+      title: item.title.clone(),
+      id: item.id.clone(),
+    });
   }
 
   let child_ids = db.item.get_children_ids(&item_id)?;
   for child_id in child_ids {
-    search_recursive(db, search_text, child_id, user_id, start_result, end_result, current_path, results, current_result)?;
+    search_recursive(
+      db,
+      search_text,
+      child_id,
+      user_id,
+      start_result,
+      end_result,
+      current_path,
+      results,
+      current_result,
+    )?;
     if results.len() >= (end_result - start_result) as usize {
       return Ok(());
     }
@@ -1121,7 +1339,17 @@ fn search_recursive(
 
   let attachment_ids = db.item.get_attachment_ids(&item_id)?;
   for attachment_id in attachment_ids {
-    search_recursive(db, search_text, attachment_id, user_id, start_result, end_result, current_path, results, current_result)?;
+    search_recursive(
+      db,
+      search_text,
+      attachment_id,
+      user_id,
+      start_result,
+      end_result,
+      current_path,
+      results,
+      current_result,
+    )?;
     if results.len() >= (end_result - start_result) as usize {
       return Ok(());
     }

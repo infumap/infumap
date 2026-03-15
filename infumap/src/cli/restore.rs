@@ -14,31 +14,37 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::{path::PathBuf, io::Cursor};
+use std::{io::Cursor, path::PathBuf};
 
-use byteorder::{ReadBytesExt, BigEndian};
-use clap::{Command, Arg, ArgMatches};
+use byteorder::{BigEndian, ReadBytesExt};
+use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
-use tokio::{fs::{File, OpenOptions}, io::AsyncWriteExt};
+use tokio::{
+  fs::{File, OpenOptions},
+  io::AsyncWriteExt,
+};
 
 use crate::util::crypto::decrypt_file_data;
-
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("restore")
     .about("Restore user database logs from a backup file.")
-    .arg(Arg::new("backup_file")
-      .short('b')
-      .long("backup-file")
-      .help("Backup file taken from S3 compatible backup object store. File should not be renamed.")
-      .num_args(1)
-      .required(true))
-    .arg(Arg::new("encryption_key")
-      .short('k')
-      .long("key")
-      .help("The 32 byte hex encoded encryption key (64 chars) that was used to encrypt the backup.")
-      .num_args(1)
-      .required(true))
+    .arg(
+      Arg::new("backup_file")
+        .short('b')
+        .long("backup-file")
+        .help("Backup file taken from S3 compatible backup object store. File should not be renamed.")
+        .num_args(1)
+        .required(true),
+    )
+    .arg(
+      Arg::new("encryption_key")
+        .short('k')
+        .long("key")
+        .help("The 32 byte hex encoded encryption key (64 chars) that was used to encrypt the backup.")
+        .num_args(1)
+        .required(true),
+    )
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
@@ -62,8 +68,14 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   result
 }
 
-
-pub async fn process_backup(buffer: &Vec<u8>, items_path: &str, user_path: &str, encryption_key: &str, user_id: &str, backup_filename: &str) -> InfuResult<()> {
+pub async fn process_backup(
+  buffer: &Vec<u8>,
+  items_path: &str,
+  user_path: &str,
+  encryption_key: &str,
+  user_id: &str,
+  backup_filename: &str,
+) -> InfuResult<()> {
   let unencrypted = decrypt_file_data(&encryption_key, &buffer, backup_filename)?;
 
   let (compression_type, compressed_data) = if unencrypted.len() > 4 && &unencrypted[0..4] == b"IMZ1" {
@@ -79,7 +91,7 @@ pub async fn process_backup(buffer: &Vec<u8>, items_path: &str, user_path: &str,
     1 => {
       let mut zstd_decoder = zstd::stream::Decoder::new(compressed_data)?;
       std::io::copy(&mut zstd_decoder, &mut uncompressed)?;
-    },
+    }
     _ => {
       let mut u_cursor = std::io::Cursor::new(compressed_data);
       brotli::BrotliDecompress(&mut u_cursor, &mut uncompressed)
@@ -89,21 +101,15 @@ pub async fn process_backup(buffer: &Vec<u8>, items_path: &str, user_path: &str,
 
   let mut rdr = Cursor::new(&mut uncompressed[0..8]);
   let isize = rdr.read_u64::<BigEndian>()? as usize;
-  let mut rdr = Cursor::new(&mut uncompressed[(8+isize)..(16+isize)]);
+  let mut rdr = Cursor::new(&mut uncompressed[(8 + isize)..(16 + isize)]);
   let usize = rdr.read_u64::<BigEndian>()? as usize;
 
-  let mut file = OpenOptions::new()
-    .create_new(true)
-    .write(true)
-    .open(items_path).await?;
-  file.write_all(&uncompressed[8..(8+isize)]).await?;
+  let mut file = OpenOptions::new().create_new(true).write(true).open(items_path).await?;
+  file.write_all(&uncompressed[8..(8 + isize)]).await?;
   file.flush().await?;
 
-  let mut file = OpenOptions::new()
-    .create_new(true)
-    .write(true)
-    .open(user_path).await?;
-  file.write_all(&uncompressed[(16+isize)..(16+isize+usize)]).await?;
+  let mut file = OpenOptions::new().create_new(true).write(true).open(user_path).await?;
+  file.write_all(&uncompressed[(16 + isize)..(16 + isize + usize)]).await?;
   file.flush().await?;
 
   Ok(())

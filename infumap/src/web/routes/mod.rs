@@ -14,18 +14,27 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use infusdk::{item::{ArrangeAlgorithm, Item, RelationshipToParent, TableColumn}, util::{geometry::{Vector, GRID_SIZE}, uid::Uid}};
+use infusdk::{
+  item::{ArrangeAlgorithm, Item, RelationshipToParent, TableColumn},
+  util::{
+    geometry::{GRID_SIZE, Vector},
+    uid::Uid,
+  },
+};
 
 pub mod account;
 pub mod admin;
-pub mod ingest;
 pub mod command;
 pub mod files;
+pub mod ingest;
 
-
-
-pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
-
+pub fn default_home_page(
+  owner_id: &str,
+  title: &str,
+  home_page_id: Uid,
+  inner_spatial_width_br: i64,
+  natural_aspect: f64,
+) -> Item {
   let mut item = Item::new_page(
     None,
     vec![128],
@@ -46,7 +55,7 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     7.0,
     1.0,
     vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
-    1
+    1,
   );
 
   item.owner_id = String::from(owner_id);
@@ -54,7 +63,6 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
 
   item
 }
-
 
 pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f64) -> Item {
   let inner_spatial_width_br: i64 = 60;
@@ -79,7 +87,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     7.0,
     1.0,
     vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
-    1
+    1,
   );
 
   item.owner_id = String::from(owner_id);
@@ -87,7 +95,6 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
 
   item
 }
-
 
 pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64) -> Item {
   let inner_spatial_width_br: i64 = 60;
@@ -112,7 +119,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     7.0,
     1.0,
     vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
-    1
+    1,
   );
 
   item.owner_id = String::from(owner_id);

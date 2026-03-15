@@ -14,15 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use serde::{Serialize, Deserialize};
-
+use serde::{Deserialize, Serialize};
 
 pub const GRID_SIZE: i64 = 60;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Vector<T> {
   pub x: T,
-  pub y: T
+  pub y: T,
 }
 
 impl Clone for Vector<i64> {
@@ -49,11 +48,10 @@ impl PartialEq for Vector<f64> {
   }
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dimensions<T> {
   pub w: T,
-  pub h: T
+  pub h: T,
 }
 
 impl Clone for Dimensions<i64> {

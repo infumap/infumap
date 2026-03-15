@@ -14,15 +14,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use clap::{Command, ArgMatches};
+use clap::{ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
 
 use crate::util::crypto::generate_key;
 
-
 pub fn make_clap_subcommand() -> Command {
-  Command::new("keygen")
-    .about("Create a new hex encoded 32 byte key suitable for use as a backup_encryption_key.")
+  Command::new("keygen").about("Create a new hex encoded 32 byte key suitable for use as a backup_encryption_key.")
 }
 
 pub fn execute(_sub_matches: &ArgMatches) -> InfuResult<()> {
