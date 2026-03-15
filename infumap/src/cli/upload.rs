@@ -102,17 +102,23 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     expand_tilde(local_path).ok_or(format!("Could not interpret path."))?);
   let mut iter = fs::read_dir(&local_path).await?;
   let mut local_filenames = vec![];
-  while let Some(entry) = iter.next_entry().await? {
-    if entry.file_type().await?.is_dir() {
+  loop {
+    let next_entry = iter.next_entry().await?;
+    let Some(entry) = next_entry else {
+      break;
+    };
+    let file_type = entry.file_type().await?;
+    if file_type.is_dir() {
       return Err("Source directory must not contain other directories.".into());
     }
-    if entry.file_type().await?.is_symlink() {
+    if file_type.is_symlink() {
       return Err("Source directory contains a symlink. It must only contain regular files.".into());
     }
-    if !entry.file_type().await?.is_file() {
+    if !file_type.is_file() {
       return Err("Source directory must only contain regular files.".into());
     }
-    let filename = match entry.file_name().to_str() {
+    let entry_name = entry.file_name();
+    let filename = match entry_name.to_str() {
       None => return Err(format!("Could not interpret filename: {:?}", entry.file_name()).into()),
       Some(filename) => filename.to_owned()
     };

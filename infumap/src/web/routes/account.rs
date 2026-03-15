@@ -610,10 +610,11 @@ pub async fn change_password(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
   };
   let new_password_salt = new_uid();
 
-  let update_result = {
+  let update_result;
+  {
     let mut db = db.lock().await;
-    db.user.update_password_hash_and_salt(&session.user_id, &new_password_hash, &new_password_salt).await
-  };
+    update_result = db.user.update_password_hash_and_salt(&session.user_id, &new_password_hash, &new_password_salt).await;
+  }
 
   if let Err(e) = update_result {
     error!("User {}: failed to update password hash: {}", session.user_id, e);

@@ -76,11 +76,12 @@ pub async fn execute_list<'a>(_sub_matches: &ArgMatches, named_session: &NamedIn
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
-  match reqwest::ClientBuilder::new()
-      .default_headers(request_headers.clone()).build().unwrap()
-      .post(named_session.list_pending_users_url()?.clone())
-      .send()
-      .await.map_err(|e| e.to_string()) {
+  let send_result = reqwest::ClientBuilder::new()
+    .default_headers(request_headers.clone()).build().unwrap()
+    .post(named_session.list_pending_users_url()?.clone())
+    .send()
+    .await.map_err(|e| e.to_string());
+  match send_result {
     Ok(r) => {
       let logout_response: Result<ListPendingUsersResponse, String> = r.json().await.map_err(|e| e.to_string());
       match logout_response {
@@ -118,12 +119,13 @@ pub async fn execute_approve<'a>(sub_matches: &ArgMatches, named_session: &Named
     username: username.to_owned()
   };
 
-  match reqwest::ClientBuilder::new()
-      .default_headers(request_headers.clone()).build().unwrap()
-      .post(named_session.approve_pending_user_url()?.clone())
-      .json(&approve_request)
-      .send()
-      .await.map_err(|e| e.to_string()) {
+  let send_result = reqwest::ClientBuilder::new()
+    .default_headers(request_headers.clone()).build().unwrap()
+    .post(named_session.approve_pending_user_url()?.clone())
+    .json(&approve_request)
+    .send()
+    .await.map_err(|e| e.to_string());
+  match send_result {
     Ok(r) => {
       let approve_response: Result<ApprovePendingUserResponse, String> = r.json().await.map_err(|e| e.to_string());
       match approve_response {

@@ -45,57 +45,62 @@ impl UserDb {
 
     let expanded_data_path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
     let mut iter = tokio::fs::read_dir(&expanded_data_path).await?;
-    while let Some(entry) = iter.next_entry().await? {
-      if !entry.file_type().await?.is_dir() {
+    loop {
+      let next_entry = iter.next_entry().await?;
+      let Some(entry) = next_entry else {
+        break;
+      };
+      let file_type = entry.file_type().await?;
+      if !file_type.is_dir() {
         // pending users log is in the data directory as well.
         continue;
       }
 
-      if let Some(dirname) = entry.file_name().to_str() {
-        let parts = dirname.split('_').collect::<Vec<&str>>();
-        if parts.len() != 2 {
-          warn!("Unexpected directory in data directory: '{}'.", dirname);
-          continue;
-        }
-        let dir_userid = *parts.get(1).unwrap();
-
-        if !is_uid(dir_userid) {
-          warn!("Unexpected directory in data directory: '{}'.", dirname);
-          continue;
-        }
-
-        let mut log_path = expanded_data_path.clone();
-        log_path.push(dirname);
-        log_path.push("user.json");
-        let log_path_str = log_path.as_path().to_str().unwrap();
-        let store: KVStore<User> = KVStore::init(&log_path_str, CURRENT_USER_LOG_VERSION).await?;
-        let mut iter = store.get_iter();
-        let username;
-        match iter.next() {
-          None => {
-            warn!("User store {} contains no users, one expected.", log_path_str);
-            continue;
-          },
-          Some((uid, user)) => {
-            if uid != dir_userid {
-              warn!("Unexpected user '{}' encountered in log: '{}'. Ignoring.", uid, log_path_str);
-              continue;
-            }
-            username = user.username.clone();
-            user_id_by_username.insert(username.clone(), uid.clone());
-          }
-        }
-        if iter.next().is_some() {
-          warn!("User store {} contains more than one user, one expected. Ignoring all of them.", log_path_str);
-          user_id_by_username.remove(&username);
-          continue;
-        }
-
-        store_by_user_id.insert(String::from(dir_userid), store);
-      } else {
+      let entry_name = entry.file_name();
+      let Some(dirname) = entry_name.to_str() else {
         warn!("Unexpected directory in store directory: '{}'.", entry.path().display());
         continue;
+      };
+      let parts = dirname.split('_').collect::<Vec<&str>>();
+      if parts.len() != 2 {
+        warn!("Unexpected directory in data directory: '{}'.", dirname);
+        continue;
       }
+      let dir_userid = *parts.get(1).unwrap();
+
+      if !is_uid(dir_userid) {
+        warn!("Unexpected directory in data directory: '{}'.", dirname);
+        continue;
+      }
+
+      let mut log_path = expanded_data_path.clone();
+      log_path.push(dirname);
+      log_path.push("user.json");
+      let log_path_str = log_path.as_path().to_str().unwrap();
+      let store: KVStore<User> = KVStore::init(&log_path_str, CURRENT_USER_LOG_VERSION).await?;
+      let mut iter = store.get_iter();
+      let username;
+      match iter.next() {
+        None => {
+          warn!("User store {} contains no users, one expected.", log_path_str);
+          continue;
+        },
+        Some((uid, user)) => {
+          if uid != dir_userid {
+            warn!("Unexpected user '{}' encountered in log: '{}'. Ignoring.", uid, log_path_str);
+            continue;
+          }
+          username = user.username.clone();
+          user_id_by_username.insert(username.clone(), uid.clone());
+        }
+      }
+      if iter.next().is_some() {
+        warn!("User store {} contains more than one user, one expected. Ignoring all of them.", log_path_str);
+        user_id_by_username.remove(&username);
+        continue;
+      }
+
+      store_by_user_id.insert(String::from(dir_userid), store);
     }
     
     Ok(UserDb {

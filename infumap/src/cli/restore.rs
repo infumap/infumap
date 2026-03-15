@@ -58,7 +58,8 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
   tokio::io::AsyncReadExt::read_exact(&mut f, &mut buffer).await?;
 
-  process_backup(&buffer, "items.json", "user.json", encryption_key, user_id, filename).await
+  let result = process_backup(&buffer, "items.json", "user.json", encryption_key, user_id, filename).await;
+  result
 }
 
 

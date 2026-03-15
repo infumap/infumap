@@ -94,11 +94,17 @@ pub async fn list(file_store: Arc<Mutex<FileStore>>, user_id: &Uid) -> InfuResul
         return Err(format!("Files directory for user {} does not contain all expected subdirs.", user_id).into());
       }
       let mut iter = fs::read_dir(&path).await?;
-      while let Some(entry) = iter.next_entry().await? {
-        if !entry.file_type().await?.is_file() {
+      loop {
+        let next_entry = iter.next_entry().await?;
+        let Some(entry) = next_entry else {
+          break;
+        };
+        let file_type = entry.file_type().await?;
+        if !file_type.is_file() {
           return Err(format!("File directory should only contain files: '{}'", path.display()).into());
         }
-        if let Some(filename) = entry.file_name().to_str() {
+        let entry_name = entry.file_name();
+        if let Some(filename) = entry_name.to_str() {
           result.push(String::from(filename));
         } else {
           return Err(format!("Unexpected file: {:?}", entry.file_name()).into())
@@ -143,21 +149,28 @@ async fn ensure_files_dir(file_store: Arc<Mutex<FileStore>>, user_id: &Uid) -> I
 async fn all_user_data_dirs(path: PathBuf) -> InfuResult<Vec<String>> {
   let mut result = vec![];
   let mut iter = tokio::fs::read_dir(&path).await?;
-  while let Some(entry) = iter.next_entry().await? {
-    if !entry.file_type().await?.is_dir() {
+  loop {
+    let next_entry = iter.next_entry().await?;
+    let Some(entry) = next_entry else {
+      break;
+    };
+    let file_type = entry.file_type().await?;
+    if !file_type.is_dir() {
       // pending users log is in the data directory as well.
       continue;
     }
 
-    if let Some(dirname) = entry.file_name().to_str() {
-      let parts = dirname.split('_').collect::<Vec<&str>>();
-      if parts.len() != 2 {
-        warn!("Unexpected directory in data directory: '{}'.", dirname);
-        continue;
-      }
-      let dir_userid = *parts.get(1).unwrap();
-      result.push(dir_userid.to_owned());
+    let entry_name = entry.file_name();
+    let Some(dirname) = entry_name.to_str() else {
+      continue;
+    };
+    let parts = dirname.split('_').collect::<Vec<&str>>();
+    if parts.len() != 2 {
+      warn!("Unexpected directory in data directory: '{}'.", dirname);
+      continue;
     }
+    let dir_userid = *parts.get(1).unwrap();
+    result.push(dir_userid.to_owned());
   }
 
   Ok(result)

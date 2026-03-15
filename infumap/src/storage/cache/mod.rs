@@ -120,13 +120,19 @@ impl ImageCache {
       for j in 0..uid_chars().len() {
         path.push(format!("{}{}", uid_chars().get(i).unwrap(), uid_chars().get(j).unwrap()));
         let mut iter = tokio::fs::read_dir(&path).await?;
-        while let Some(entry) = iter.next_entry().await? {
-          if !entry.file_type().await?.is_file() {
+        loop {
+          let next_entry = iter.next_entry().await?;
+          let Some(entry) = next_entry else {
+            break;
+          };
+          let file_type = entry.file_type().await?;
+          if !file_type.is_file() {
             warn!("'{}' in image cache is not a file.", entry.path().display());
             continue;
           }
           let md = entry.metadata().await?;
-          let filename = entry.file_name().to_str()
+          let entry_name = entry.file_name();
+          let filename = entry_name.to_str()
             .ok_or(format!("Invalid cached image filename '{}'.", &path.display()))?.to_string();
           let file_info = FileInfo {
             size_bytes: md.len() as usize,

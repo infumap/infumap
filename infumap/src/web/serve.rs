@@ -92,16 +92,22 @@ pub async fn http_serve(
     else if req.uri().path().starts_with("/admin/") {
       (serve_admin_route(&db, dev_feature_flag, req).await, CorsPolicy::Disabled)
     }
-    else if let Some(response) = serve_dist_routes(&req) {
-      (response, CorsPolicy::Disabled)
-    }
-    else if req.method() == Method::GET { // &&
-      // TODO (MEDIUM): explicit support only for /{item_id}, /{username} and /{username}/{label}
-      //       req.uri().path().len() > 32 &&
-      //       is_uid(&req.uri().path()[req.uri().path().len()-32..]) {
-      (serve_index(), CorsPolicy::Disabled)
-    } else {
-      (not_found_response(), CorsPolicy::Disabled)
+    else {
+      match serve_dist_routes(&req) {
+        Some(response) => {
+          (response, CorsPolicy::Disabled)
+        },
+        None => {
+          if req.method() == Method::GET { // &&
+            // TODO (MEDIUM): explicit support only for /{item_id}, /{username} and /{username}/{label}
+            //       req.uri().path().len() > 32 &&
+            //       is_uid(&req.uri().path()[req.uri().path().len()-32..]) {
+            (serve_index(), CorsPolicy::Disabled)
+          } else {
+            (not_found_response(), CorsPolicy::Disabled)
+          }
+        }
+      }
     };
 
   maybe_rotate_primary_session(
@@ -138,10 +144,11 @@ async fn maybe_rotate_primary_session(
     (None, None) => return,
   };
 
-  let rotated_result = {
+  let rotated_result;
+  {
     let mut db = db.lock().await;
-    db.session.rotate_session_if_due(&session_id, SESSION_ROTATION_INTERVAL_SECS).await
-  };
+    rotated_result = db.session.rotate_session_if_due(&session_id, SESSION_ROTATION_INTERVAL_SECS).await;
+  }
 
   let rotated = match rotated_result {
     Ok(Some(rotated)) => rotated,
@@ -249,7 +256,11 @@ pub async fn incoming_json_with_limit<T>(request: Request<hyper::body::Incoming>
     body_bytes.reserve(content_length.min(max_bytes));
   }
 
-  while let Some(frame_result) = body.frame().await {
+  loop {
+    let next_frame = body.frame().await;
+    let Some(frame_result) = next_frame else {
+      break;
+    };
     let frame = frame_result.map_err(|e| format!("Could not read request body: {}", e))?;
     let data = match frame.into_data() {
       Ok(data) => data,

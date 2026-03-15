@@ -168,7 +168,11 @@ pub async fn put(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, val: &
   }
 
   let mut errors = vec![];
-  while let Some(res) = set.join_next().await {
+  loop {
+    let next_result = set.join_next().await;
+    let Some(res) = next_result else {
+      break;
+    };
     let res = res.map_err(|e| format!("Async join error: {}", e))?;
     match res {
       Err(e) => errors.push(e),
@@ -202,7 +206,11 @@ pub async fn delete(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid) -> 
   }
 
   let mut errors = vec![];
-  while let Some(res) = set.join_next().await {
+  loop {
+    let next_result = set.join_next().await;
+    let Some(res) = next_result else {
+      break;
+    };
     let res = res.map_err(|e| format!("Async join error: {}", e))?;
     match res {
       Err(e) => errors.push(e),

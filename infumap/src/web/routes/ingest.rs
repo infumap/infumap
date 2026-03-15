@@ -503,7 +503,8 @@ async fn revoke_token(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
 
   ingest_session.revoked = true;
   ingest_session.last_used_at = now_unix_secs;
-  match db.ingest_session.update_session(ingest_session.clone()).await {
+  let update_result = db.ingest_session.update_session(ingest_session.clone()).await;
+  match update_result {
     Ok(_) => {
       info!("Revoked ingest session '{}' via refresh token.", ingest_session.id);
       json_response(&IngestSimpleResponse { success: true, err: None })
@@ -607,7 +608,8 @@ async fn revoke_session(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>
   };
 
   let mut db = db.lock().await;
-  match db.ingest_session.revoke_session(&session.user_id, &payload.session_id).await {
+  let revoke_result = db.ingest_session.revoke_session(&session.user_id, &payload.session_id).await;
+  match revoke_result {
     Ok(_) => {
       info!("Revoked ingest session '{}' for user '{}'.", payload.session_id, session.user_id);
       json_response(&IngestSimpleResponse { success: true, err: None })

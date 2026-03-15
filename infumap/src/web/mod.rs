@@ -236,7 +236,8 @@ pub async fn start_server_with_options(config: Config, dev_feature_flag: bool, s
     info!("Backup tracking validation completed successfully.");
   }
 
-  listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone(), dev_feature_flag).await
+  let result = listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone(), dev_feature_flag).await;
+  result
 }
 
 
@@ -249,7 +250,10 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
     loop {
       time::sleep(Duration::from_secs((backup_period_minutes * 60) as u64)).await;
 
-      let dirty_user_ids = db.lock().await.all_dirty_user_ids();
+      let dirty_user_ids = {
+        let mut db = db.lock().await;
+        db.all_dirty_user_ids()
+      };
       debug!("Backing up database logs for {} users.", dirty_user_ids.len());
 
       for user_id in dirty_user_ids {
@@ -334,7 +338,8 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 
         info!("Finished creating database log backup for user '{}' with size {} bytes.", user_id, encrypted.len());
 
-        match storage_backup::put(backup_store_ref.clone(), &backup_filename, encrypted).await {
+        let put_result = storage_backup::put(backup_store_ref.clone(), &backup_filename, encrypted).await;
+        match put_result {
           Ok(_) => {
             info!("Backed up database logs for user '{}' to '{}'.", user_id, backup_filename);
 

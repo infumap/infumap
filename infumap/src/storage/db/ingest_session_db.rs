@@ -50,46 +50,52 @@ impl IngestSessionDb {
 
     let expanded_data_path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
     let mut iter = tokio::fs::read_dir(&expanded_data_path).await?;
-    while let Some(entry) = iter.next_entry().await? {
-      if !entry.file_type().await?.is_dir() {
+    loop {
+      let next_entry = iter.next_entry().await?;
+      let Some(entry) = next_entry else {
+        break;
+      };
+      let file_type = entry.file_type().await?;
+      if !file_type.is_dir() {
         continue;
       }
 
-      if let Some(dirname) = entry.file_name().to_str() {
-        let parts = dirname.split('_').collect::<Vec<&str>>();
-        if parts.len() != 2 {
-          warn!("Unexpected directory in data directory: '{}'.", dirname);
-          continue;
-        }
-        let dir_userid = *parts.get(1).unwrap();
+      let entry_name = entry.file_name();
+      let Some(dirname) = entry_name.to_str() else {
+        warn!("Unexpected directory in store directory: '{}'.", entry.path().display());
+        continue;
+      };
+      let parts = dirname.split('_').collect::<Vec<&str>>();
+      if parts.len() != 2 {
+        warn!("Unexpected directory in data directory: '{}'.", dirname);
+        continue;
+      }
+      let dir_userid = *parts.get(1).unwrap();
 
-        if !is_uid(dir_userid) {
-          warn!("Unexpected directory in data directory: '{}'.", dirname);
-          continue;
-        }
+      if !is_uid(dir_userid) {
+        warn!("Unexpected directory in data directory: '{}'.", dirname);
+        continue;
+      }
 
-        let mut log_path = expanded_data_path.clone();
-        log_path.push(dirname);
-        log_path.push(INGEST_SESSIONS_LOG_FILENAME);
-        let log_path_str = log_path.as_path().to_str().unwrap();
-        let store: KVStore<IngestSession> = KVStore::init(&log_path_str, CURRENT_INGEST_SESSIONS_LOG_VERSION).await?;
+      let mut log_path = expanded_data_path.clone();
+      log_path.push(dirname);
+      log_path.push(INGEST_SESSIONS_LOG_FILENAME);
+      let log_path_str = log_path.as_path().to_str().unwrap();
+      let store: KVStore<IngestSession> = KVStore::init(&log_path_str, CURRENT_INGEST_SESSIONS_LOG_VERSION).await?;
 
-        for (_, session) in store.get_iter() {
-          user_id_by_session_id.insert(session.id.clone(), session.user_id.clone());
-          if !session.revoked {
-            if session.access_expires > now_unix_secs {
-              session_id_by_access_hash.insert(session.access_token_hash.clone(), session.id.clone());
-            }
-            if session.refresh_expires > now_unix_secs {
-              session_id_by_refresh_hash.insert(session.refresh_token_hash.clone(), session.id.clone());
-            }
+      for (_, session) in store.get_iter() {
+        user_id_by_session_id.insert(session.id.clone(), session.user_id.clone());
+        if !session.revoked {
+          if session.access_expires > now_unix_secs {
+            session_id_by_access_hash.insert(session.access_token_hash.clone(), session.id.clone());
+          }
+          if session.refresh_expires > now_unix_secs {
+            session_id_by_refresh_hash.insert(session.refresh_token_hash.clone(), session.id.clone());
           }
         }
-
-        store_by_user_id.insert(String::from(dir_userid), store);
-      } else {
-        warn!("Unexpected directory in store directory: '{}'.", entry.path().display());
       }
+
+      store_by_user_id.insert(String::from(dir_userid), store);
     }
 
     Ok(IngestSessionDb {

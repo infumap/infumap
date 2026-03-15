@@ -146,7 +146,8 @@ pub async fn get_streaming(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> Inf
       Duration::from_secs(FIRST_BYTE_TIMEOUT_SECS)
     };
 
-    match tokio::time::timeout(timeout_duration, stream.next()).await {
+    let next_chunk_result = tokio::time::timeout(timeout_duration, stream.next()).await;
+    match next_chunk_result {
       Ok(Some(chunk_result)) => {
         let chunk = chunk_result
           .map_err(|e| format!("Error reading S3 stream chunk for '{}': {}", s3_path, e))?;

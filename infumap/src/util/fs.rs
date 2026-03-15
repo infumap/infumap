@@ -69,8 +69,13 @@ pub async fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
   }
 
   let mut iter = fs::read_dir(&path).await?;
-  while let Some(entry) = iter.next_entry().await? {
-    if !entry.file_type().await?.is_dir() {
+  loop {
+    let next_entry = iter.next_entry().await?;
+    let Some(entry) = next_entry else {
+      break;
+    };
+    let file_type = entry.file_type().await?;
+    if !file_type.is_dir() {
       warn!("Cache directory should only contain directories, but a file was found: '{}'", path.display());
       continue;
     }
@@ -79,7 +84,8 @@ pub async fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
       warn!("Unexpected directory in cache directory: '{}'", path.display());
     }
 
-    if let Some(dirname) = entry.file_name().to_str() {
+    let entry_name = entry.file_name();
+    if let Some(dirname) = entry_name.to_str() {
       if dirname.len() != 2 {
         unexpected(&entry.path()); continue;
       }
