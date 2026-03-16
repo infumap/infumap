@@ -88,4 +88,16 @@ if ! "$VENV_PYTHON" -m pip show marker-pdf >/dev/null 2>&1 || ! "$VENV_PYTHON" -
     "$VENV_PYTHON" -m pip install --upgrade "marker-pdf[full]" fastapi uvicorn python-multipart
 fi
 
+echo "Starting Infumap text extraction service"
+echo "Python: $("$VENV_PYTHON" -V 2>&1)"
+echo "Host/port: $HOST:$PORT"
+echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
+echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
+if command -v nvidia-smi >/dev/null 2>&1; then
+    echo "Detected GPUs via nvidia-smi:"
+    nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true
+else
+    echo "nvidia-smi: not found"
+fi
+
 exec "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT"
