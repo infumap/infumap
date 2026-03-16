@@ -84,6 +84,34 @@ enum ExtractOutcome {
   EndpointUnavailable(String),
 }
 
+struct ExtractionProgress {
+  processed: u64,
+  succeeded: u64,
+  document_failed: u64,
+  other_failed: u64,
+}
+
+impl ExtractionProgress {
+  fn on_success(&mut self) {
+    self.processed += 1;
+    self.succeeded += 1;
+  }
+  fn on_document_failed(&mut self) {
+    self.processed += 1;
+    self.document_failed += 1;
+  }
+  fn on_other_failed(&mut self) {
+    self.processed += 1;
+    self.other_failed += 1;
+  }
+  fn summary(&self) -> String {
+    format!(
+      "total={} succeeded={} document_failed={} other_failed={}",
+      self.processed, self.succeeded, self.document_failed, self.other_failed
+    )
+  }
+}
+
 pub fn enqueue_pdf_item_if_active(item: &Item) {
   let Some(state) = PROCESSING_STATE.get() else {
     return;
@@ -150,15 +178,21 @@ pub fn start_text_extraction_processing_loop(
   let _ = PROCESSING_STATE.set(state.clone());
 
   let _forever = task::spawn(async move {
+    let mut progress = ExtractionProgress {
+      processed: 0,
+      succeeded: 0,
+      document_failed: 0,
+      other_failed: 0,
+    };
     loop {
-      let candidate = {
+      let (candidate, queue_remaining) = {
         let mut state = state.lock().await;
         pop_candidate(&mut state)
       };
 
-      let candidate = match candidate {
-        Some(candidate) => candidate,
-        None => {
+      let (candidate, queue_remaining) = match (candidate, queue_remaining) {
+        (Some(c), rem) => (c, rem),
+        (None, _) => {
           let should_refill = {
             let state = state.lock().await;
             !state.scan_exhausted
@@ -170,8 +204,18 @@ pub fn start_text_extraction_processing_loop(
           }
 
           match refill_queue(&data_dir, db.clone(), state.clone()).await {
-            Ok(true) => continue,
-            Ok(false) => {
+            Ok((true, scanned, queued)) => {
+              info!(
+                "PDF text extraction queue refill: {} PDFs scanned, {} queued. Progress: {}",
+                scanned, queued, progress.summary()
+              );
+              continue;
+            }
+            Ok((false, scanned, _)) => {
+              info!(
+                "PDF text extraction queue refill: {} PDFs scanned, none need extraction. Progress: {}",
+                scanned, progress.summary()
+              );
               time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
               continue;
             }
@@ -189,6 +233,11 @@ pub fn start_text_extraction_processing_loop(
         match db.user.get(&candidate.user_id) {
           Some(user) => user.object_encryption_key.clone(),
           None => {
+            progress.on_other_failed();
+            info!(
+              "PDF '{}' (user {}): user not loaded. {} remaining. {}",
+              candidate.item_id, candidate.user_id, queue_remaining, progress.summary()
+            );
             error!(
               "Could not process PDF '{}' for user '{}': user is not loaded.",
               candidate.item_id, candidate.user_id
@@ -209,6 +258,11 @@ pub fn start_text_extraction_processing_loop(
       {
         Ok(bytes) => bytes,
         Err(e) => {
+          progress.on_other_failed();
+          info!(
+            "PDF '{}' (user {}): object read failed: {}. {} remaining. {}",
+            candidate.item_id, candidate.user_id, e, queue_remaining, progress.summary()
+          );
           error!(
             "Could not read PDF '{}' for user '{}': {}",
             candidate.item_id, candidate.user_id, e
@@ -221,6 +275,11 @@ pub fn start_text_extraction_processing_loop(
       match request_text_extraction(&client, &text_extraction_url, &candidate.title, file_bytes).await {
         ExtractOutcome::Success(response) => {
           if let Err(e) = write_success_artifacts(&data_dir, &text_extraction_url, &candidate, response).await {
+            progress.on_other_failed();
+            info!(
+              "PDF '{}' (user {}): write failed: {}. {} remaining. {}",
+              candidate.item_id, candidate.user_id, e, queue_remaining, progress.summary()
+            );
             error!(
               "Could not write text artifacts for PDF '{}' for user '{}': {}",
               candidate.item_id, candidate.user_id, e
@@ -228,12 +287,14 @@ pub fn start_text_extraction_processing_loop(
             time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
             continue;
           }
+          progress.on_success();
           info!(
-            "Generated markdown for PDF '{}' for user '{}'.",
-            candidate.item_id, candidate.user_id
+            "PDF '{}' (user {}): extracted successfully. {} remaining. {}",
+            candidate.item_id, candidate.user_id, queue_remaining, progress.summary()
           );
         }
         ExtractOutcome::DocumentFailed(message) => {
+          progress.on_document_failed();
           if let Err(e) = write_failed_manifest(&data_dir, &text_extraction_url, &candidate, &message).await {
             error!(
               "Could not write failed text manifest for PDF '{}' for user '{}': {}",
@@ -245,11 +306,15 @@ pub fn start_text_extraction_processing_loop(
               candidate.item_id, candidate.user_id, message
             );
           }
+          info!(
+            "PDF '{}' (user {}): extraction failed: {}. {} remaining. {}",
+            candidate.item_id, candidate.user_id, message, queue_remaining, progress.summary()
+          );
         }
         ExtractOutcome::EndpointUnavailable(message) => {
           info!(
-            "text extraction endpoint '{}' is unavailable ({}). Pausing PDF text extraction for 5 minutes.",
-            text_extraction_url, message
+            "text extraction endpoint '{}' is unavailable ({}). Pausing PDF text extraction for 5 minutes. Progress: {}",
+            text_extraction_url, message, progress.summary()
           );
           time::sleep(Duration::from_secs(ENDPOINT_BACKOFF_SECS)).await;
         }
@@ -264,7 +329,7 @@ async fn refill_queue(
   data_dir: &str,
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<ProcessingState>>,
-) -> InfuResult<bool> {
+) -> InfuResult<(bool, usize, usize)> {
   let candidates = {
     let db = db.lock().await;
     let mut candidates = db
@@ -293,6 +358,7 @@ async fn refill_queue(
     candidates
   };
 
+  let scanned = candidates.len();
   let mut state = state.lock().await;
   state.queue.clear();
   state.queued_item_ids.clear();
@@ -306,14 +372,21 @@ async fn refill_queue(
     }
   }
 
+  let queued = state.queue.len();
   state.scan_exhausted = state.queue.is_empty();
-  Ok(!state.queue.is_empty())
+  Ok((!state.queue.is_empty(), scanned, queued))
 }
 
-fn pop_candidate(state: &mut ProcessingState) -> Option<PdfCandidate> {
-  let candidate = state.queue.pop()?;
-  state.queued_item_ids.remove(&candidate.item_id);
-  Some(candidate)
+fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
+  let candidate = match state.queue.pop() {
+    Some(c) => {
+      state.queued_item_ids.remove(&c.item_id);
+      c
+    }
+    None => return (None, 0),
+  };
+  let remaining = state.queue.len();
+  (Some(candidate), remaining)
 }
 
 fn enqueue_candidate(state: &mut ProcessingState, candidate: PdfCandidate) {
