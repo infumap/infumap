@@ -73,6 +73,31 @@ ssh -L 8787:127.0.0.1:8787 my-host
 
 Then use `http://127.0.0.1:8787` locally as if the service were running on your laptop.
 
+## Access Over VPN
+
+If you bind the service to `0.0.0.0` and want to reach it directly over a WireGuard VPN, the machine running the service must allow the inbound TCP port and the VPN hub must allow forwarded peer-to-peer traffic.
+
+Example service startup on the admin Mac (`10.0.0.10`):
+
+```bash
+TEXT_EXTRACTION_HOST=0.0.0.0 ./tools/text_extraction/run.sh
+```
+
+If your VPN hub is the VPS from the Raspberry Pi deployment guide and it uses `sudo ufw default deny routed`, add an explicit routed allow rule there for the Infumap host (`10.0.0.2`) to reach the text extraction service on the admin Mac (`10.0.0.10`):
+
+```bash
+sudo ufw route allow in on wg0 out on wg0 from 10.0.0.2/32 to 10.0.0.10/32 port 8787 proto tcp
+sudo ufw reload
+```
+
+Then point Infumap at:
+
+```text
+http://10.0.0.10:8787/convert
+```
+
+If `10.0.0.1` can reach the service but `10.0.0.2` cannot, that usually means the VPN hub is still dropping forwarded `wg0` peer-to-peer traffic.
+
 ## Convert A File
 
 Example upload request:

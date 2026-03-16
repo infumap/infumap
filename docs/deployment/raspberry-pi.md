@@ -558,6 +558,21 @@ for admin access to the Raspberry Pi:
 Replace `10.0.0.10/32` with your admin client WireGuard IP in CIDR notation.
 The HTTPS rule intentionally allows all VPN peers (`10.0.0.0/24`) to reach the Raspberry Pi web service.
 
+For any other VPN peer-to-peer access, add similarly narrow routed allow rules on the VPS. The WireGuard peer config alone is not enough here because this guide sets `sudo ufw default deny routed` on the VPS. Traffic from `10.0.0.1` (the VPS itself) to another peer does not prove that peer-to-peer forwarding is allowed; forwarded `10.0.0.x -> 10.0.0.y` traffic is controlled separately by the VPS `FORWARD` policy.
+
+Examples:
+
+- Allow the Raspberry Pi (`10.0.0.2`) to reach a text extraction service on the admin Mac (`10.0.0.10`) over the VPN:
+
+      sudo ufw route allow in on wg0 out on wg0 from 10.0.0.2/32 to 10.0.0.10/32 port 8787 proto tcp
+
+After adding routed rules, reload and verify:
+
+    sudo ufw reload
+    sudo ufw status verbose
+
+Keep these rules as narrow as possible: specify both source and destination VPN IPs and the exact destination port. Avoid broad `10.0.0.0/24 -> 10.0.0.0/24` routed allow rules unless you intentionally want every VPN peer to reach every other VPN peer.
+
 Bring the tunnel up on macOS and verify:
 
     ping 10.0.0.1
