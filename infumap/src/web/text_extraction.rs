@@ -204,17 +204,17 @@ pub fn start_text_extraction_processing_loop(
           }
 
           match refill_queue(&data_dir, db.clone(), state.clone()).await {
-            Ok((true, scanned, queued)) => {
+            Ok((true, total_pdfs, queued)) => {
               info!(
-                "PDF text extraction queue refill: {} PDFs scanned, {} queued. Progress: {}",
-                scanned, queued, progress.summary()
+                "PDF text extraction queue refill: {}/{} manifests checked. Progress: {}",
+                queued, total_pdfs, progress.summary()
               );
               continue;
             }
-            Ok((false, scanned, _)) => {
+            Ok((false, total_pdfs, queued)) => {
               info!(
-                "PDF text extraction queue refill: {} PDFs scanned, none need extraction. Progress: {}",
-                scanned, progress.summary()
+                "PDF text extraction queue refill: {}/{} manifests checked. Progress: {}",
+                queued, total_pdfs, progress.summary()
               );
               time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
               continue;
