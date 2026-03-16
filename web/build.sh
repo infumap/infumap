@@ -37,14 +37,14 @@ pushd "$(dirname "$0")"
 EXPECTED_NODE_VERSION="$(tr -d '[:space:]' < ../.nvmrc)"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "Error: Node.js is required to build web assets. From the repo root, run 'nvm install && nvm use'."
+  echo "Error: Node.js is required to build web assets. From the repo root, install and use the Node version in .nvmrc (e.g. 'nvm install && nvm use' or 'fnm install && fnm use')."
   exit 1
 fi
 
 PACKAGE_NODE_VERSION="$(node -p "const pkg = require('./package.json'); pkg.engines && pkg.engines.node ? pkg.engines.node : ''")"
 
 if ! command -v npm >/dev/null 2>&1; then
-  echo "Error: npm is required to build web assets. From the repo root, install the pinned Node.js version with 'nvm install' and ensure it is on your PATH."
+  echo "Error: npm is required to build web assets. From the repo root, install and use the Node version in .nvmrc (e.g. 'nvm install && nvm use' or 'fnm install && fnm use'), then retry the build."
   exit 1
 fi
 
@@ -63,7 +63,7 @@ fi
 
 if [[ "$ACTIVE_NODE_VERSION" != "$EXPECTED_NODE_VERSION" ]]; then
   echo "Error: expected Node.js $EXPECTED_NODE_VERSION from .nvmrc, but found $ACTIVE_NODE_VERSION."
-  echo "From the repo root, run 'nvm install && nvm use', then retry the build."
+  echo "From the repo root, install and use the Node version in .nvmrc (e.g. 'nvm install && nvm use' or 'fnm install && fnm use'), then retry the build."
   exit 1
 fi
 
