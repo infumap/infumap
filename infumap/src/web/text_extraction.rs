@@ -119,14 +119,6 @@ pub fn enqueue_pdf_item_if_active(item: &Item) {
     return;
   };
 
-  let Ok(mut state) = state.try_lock() else {
-    return;
-  };
-
-  if !state.scan_exhausted {
-    return;
-  }
-
   let candidate = PdfCandidate {
     user_id: item.owner_id.clone(),
     item_id: item.id.clone(),
@@ -136,7 +128,16 @@ pub fn enqueue_pdf_item_if_active(item: &Item) {
     last_modified_date: item.last_modified_date,
   };
 
-  enqueue_candidate(&mut state, candidate);
+  if let Ok(mut state) = state.try_lock() {
+    enqueue_candidate(&mut state, candidate);
+    return;
+  }
+
+  let state = state.clone();
+  let _enqueue = task::spawn(async move {
+    let mut state = state.lock().await;
+    enqueue_candidate(&mut state, candidate);
+  });
 }
 
 #[derive(Clone)]
@@ -178,12 +179,7 @@ pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<
     if manifest.status != "failed" {
       continue;
     }
-    out.push(FailedPdfInfo {
-      user_id,
-      item_id,
-      file_name: manifest.source.file_name,
-      error: manifest.error,
-    });
+    out.push(FailedPdfInfo { user_id, item_id, file_name: manifest.source.file_name, error: manifest.error });
   }
   Ok(out)
 }
@@ -202,12 +198,8 @@ pub async fn extract_single_item(
     if item.mime_type.as_deref() != Some("application/pdf") {
       return Err(format!("Item '{}' is not a PDF (mime_type: {:?}).", item_id, item.mime_type).into());
     }
-    let key = db
-      .user
-      .get(&item.owner_id)
-      .ok_or(format!("User '{}' not loaded.", item.owner_id))?
-      .object_encryption_key
-      .clone();
+    let key =
+      db.user.get(&item.owner_id).ok_or(format!("User '{}' not loaded.", item.owner_id))?.object_encryption_key.clone();
     let c = PdfCandidate {
       user_id: item.owner_id.clone(),
       item_id: item.id.clone(),
@@ -233,10 +225,7 @@ pub async fn extract_single_item(
   match request_text_extraction(&client, text_extraction_url, &candidate.title, file_bytes).await {
     ExtractOutcome::Success(response) => {
       write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
-      info!(
-        "Extracted text for PDF '{}' (user {}).",
-        candidate.item_id, candidate.user_id
-      );
+      info!("Extracted text for PDF '{}' (user {}).", candidate.item_id, candidate.user_id);
     }
     ExtractOutcome::DocumentFailed(msg) => {
       write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
@@ -249,9 +238,7 @@ pub async fn extract_single_item(
   Ok(())
 }
 
-pub fn text_extraction_url_from_config(
-  config: &Config,
-) -> InfuResult<Option<String>> {
+pub fn text_extraction_url_from_config(config: &Config) -> InfuResult<Option<String>> {
   match config.get_string(CONFIG_TEXT_EXTRACTION_URL) {
     Ok(url) if !url.trim().is_empty() => Ok(Some(url)),
     Ok(_) => Ok(None),
@@ -282,20 +269,12 @@ pub fn start_text_extraction_processing_loop(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build text extraction HTTP client: {}", e))?;
-  let state = Arc::new(Mutex::new(ProcessingState {
-    queue: vec![],
-    queued_item_ids: HashSet::new(),
-    scan_exhausted: false,
-  }));
+  let state =
+    Arc::new(Mutex::new(ProcessingState { queue: vec![], queued_item_ids: HashSet::new(), scan_exhausted: false }));
   let _ = PROCESSING_STATE.set(state.clone());
 
   let _forever = task::spawn(async move {
-    let mut progress = ExtractionProgress {
-      processed: 0,
-      succeeded: 0,
-      document_failed: 0,
-      other_failed: 0,
-    };
+    let mut progress = ExtractionProgress { processed: 0, succeeded: 0, document_failed: 0, other_failed: 0 };
     loop {
       let (candidate, queue_remaining) = {
         let mut state = state.lock().await;
@@ -314,13 +293,23 @@ pub fn start_text_extraction_processing_loop(
                 Ok((true, total, checked, _queued, already_succeeded, already_failed, none)) => {
                   info!(
                     "PDF text extraction queue refill: {}/{} manifest checks (succeed: {}, failure: {}, none: {}). Progress: {}",
-                    checked, total, already_succeeded, already_failed, none, progress.summary()
+                    checked,
+                    total,
+                    already_succeeded,
+                    already_failed,
+                    none,
+                    progress.summary()
                   );
                 }
                 Ok((false, total, checked, _queued, already_succeeded, already_failed, none)) => {
                   info!(
                     "PDF text extraction queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
-                    checked, total, already_succeeded, already_failed, none, progress.summary()
+                    checked,
+                    total,
+                    already_succeeded,
+                    already_failed,
+                    none,
+                    progress.summary()
                   );
                 }
                 Err(e) => {
@@ -346,14 +335,24 @@ pub fn start_text_extraction_processing_loop(
             Ok((true, total, checked, _queued, already_succeeded, already_failed, none)) => {
               info!(
                 "PDF text extraction queue refill: {}/{} manifest checks (succeed: {}, failure: {}, none: {}). Progress: {}",
-                checked, total, already_succeeded, already_failed, none, progress.summary()
+                checked,
+                total,
+                already_succeeded,
+                already_failed,
+                none,
+                progress.summary()
               );
               continue;
             }
             Ok((false, total, checked, _queued, already_succeeded, already_failed, none)) => {
               info!(
                 "PDF text extraction queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
-                checked, total, already_succeeded, already_failed, none, progress.summary()
+                checked,
+                total,
+                already_succeeded,
+                already_failed,
+                none,
+                progress.summary()
               );
               time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
               continue;
@@ -375,7 +374,10 @@ pub fn start_text_extraction_processing_loop(
             progress.on_other_failed();
             info!(
               "PDF '{}' (user {}): user not loaded. {} remaining. {}",
-              candidate.item_id, candidate.user_id, queue_remaining, progress.summary()
+              candidate.item_id,
+              candidate.user_id,
+              queue_remaining,
+              progress.summary()
             );
             error!(
               "Could not process PDF '{}' for user '{}': user is not loaded.",
@@ -408,12 +410,13 @@ pub fn start_text_extraction_processing_loop(
           progress.on_other_failed();
           info!(
             "PDF '{}' (user {}): object read failed: {}. {} remaining. {}",
-            candidate.item_id, candidate.user_id, e, queue_remaining, progress.summary()
+            candidate.item_id,
+            candidate.user_id,
+            e,
+            queue_remaining,
+            progress.summary()
           );
-          error!(
-            "Could not read PDF '{}' for user '{}': {}",
-            candidate.item_id, candidate.user_id, e
-          );
+          error!("Could not read PDF '{}' for user '{}': {}", candidate.item_id, candidate.user_id, e);
           time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
           continue;
         }
@@ -425,7 +428,11 @@ pub fn start_text_extraction_processing_loop(
             progress.on_other_failed();
             info!(
               "PDF '{}' (user {}): write failed: {}. {} remaining. {}",
-              candidate.item_id, candidate.user_id, e, queue_remaining, progress.summary()
+              candidate.item_id,
+              candidate.user_id,
+              e,
+              queue_remaining,
+              progress.summary()
             );
             error!(
               "Could not write text artifacts for PDF '{}' for user '{}': {}",
@@ -437,7 +444,10 @@ pub fn start_text_extraction_processing_loop(
           progress.on_success();
           info!(
             "PDF '{}' (user {}): extracted successfully. {} remaining. {}",
-            candidate.item_id, candidate.user_id, queue_remaining, progress.summary()
+            candidate.item_id,
+            candidate.user_id,
+            queue_remaining,
+            progress.summary()
           );
         }
         ExtractOutcome::DocumentFailed(message) => {
@@ -455,13 +465,19 @@ pub fn start_text_extraction_processing_loop(
           }
           info!(
             "PDF '{}' (user {}): extraction failed: {}. {} remaining. {}",
-            candidate.item_id, candidate.user_id, message, queue_remaining, progress.summary()
+            candidate.item_id,
+            candidate.user_id,
+            message,
+            queue_remaining,
+            progress.summary()
           );
         }
         ExtractOutcome::EndpointUnavailable(message) => {
           info!(
             "text extraction endpoint '{}' is unavailable ({}). Pausing PDF text extraction for 5 minutes. Progress: {}",
-            text_extraction_url, message, progress.summary()
+            text_extraction_url,
+            message,
+            progress.summary()
           );
           time::sleep(Duration::from_secs(ENDPOINT_BACKOFF_SECS)).await;
         }
@@ -498,18 +514,13 @@ async fn refill_queue(
     candidates.sort_by(|a, b| {
       let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
       let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
-      a_size
-        .cmp(&b_size)
-        .then(a.last_modified_date.cmp(&b.last_modified_date))
-        .then(a.item_id.cmp(&b.item_id))
+      a_size.cmp(&b_size).then(a.last_modified_date.cmp(&b.last_modified_date)).then(a.item_id.cmp(&b.item_id))
     });
     candidates
   };
 
   let total = candidates.len();
-  let mut state = state.lock().await;
-  state.queue.clear();
-  state.queued_item_ids.clear();
+  let mut refill_state = ProcessingState { queue: vec![], queued_item_ids: HashSet::new(), scan_exhausted: false };
   let mut already_succeeded = 0usize;
   let mut already_failed = 0usize;
   let mut none = 0usize;
@@ -525,8 +536,8 @@ async fn refill_queue(
     match manifest_check(data_dir, &candidate).await? {
       ManifestCheckResult::NeedsExtraction => {
         none += 1;
-        enqueue_candidate(&mut state, candidate);
-        if state.queue.len() >= MAX_PENDING_PDFS {
+        enqueue_candidate(&mut refill_state, candidate);
+        if refill_state.queue.len() >= MAX_PENDING_PDFS {
           break;
         }
       }
@@ -535,6 +546,10 @@ async fn refill_queue(
     }
   }
 
+  let mut state = state.lock().await;
+  for candidate in refill_state.queue {
+    enqueue_candidate(&mut state, candidate);
+  }
   let queued = state.queue.len();
   state.scan_exhausted = state.queue.is_empty();
   let considered = checked + excluded;
@@ -575,10 +590,7 @@ fn enqueue_candidate(state: &mut ProcessingState, candidate: PdfCandidate) {
 fn compare_pdf_candidates_desc(a: &PdfCandidate, b: &PdfCandidate) -> std::cmp::Ordering {
   let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
   let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
-  b_size
-    .cmp(&a_size)
-    .then(b.last_modified_date.cmp(&a.last_modified_date))
-    .then(b.item_id.cmp(&a.item_id))
+  b_size.cmp(&a_size).then(b.last_modified_date.cmp(&a.last_modified_date)).then(b.item_id.cmp(&a.item_id))
 }
 
 enum ManifestCheckResult {
@@ -627,10 +639,7 @@ async fn request_text_extraction(
   file_name: &str,
   file_bytes: Vec<u8>,
 ) -> ExtractOutcome {
-  let part = match Part::bytes(file_bytes)
-    .file_name(file_name.to_owned())
-    .mime_str("application/pdf")
-  {
+  let part = match Part::bytes(file_bytes).file_name(file_name.to_owned()).mime_str("application/pdf") {
     Ok(part) => part,
     Err(e) => return ExtractOutcome::DocumentFailed(format!("Could not build multipart upload: {}", e)),
   };

@@ -470,9 +470,6 @@ mod tests {
   #[test]
   fn emits_ascii_and_utf8_filename_parameters() {
     let header = content_disposition_header("report \"final\".pdf", false);
-    assert_eq!(
-      header,
-      "attachment; filename=\"report _final_.pdf\"; filename*=UTF-8''report%20%22final%22.pdf"
-    );
+    assert_eq!(header, "attachment; filename=\"report _final_.pdf\"; filename*=UTF-8''report%20%22final%22.pdf");
   }
 }

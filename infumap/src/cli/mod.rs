@@ -30,6 +30,7 @@ use crate::web::cookie::InfuSession;
 
 pub mod compact;
 pub mod emergency;
+pub mod extract;
 pub mod keygen;
 pub mod login;
 pub mod logout;
@@ -39,7 +40,6 @@ pub mod note;
 pub mod pending;
 pub mod reconcile;
 pub mod restore;
-pub mod extract;
 pub mod upload;
 
 #[derive(Deserialize, Serialize, Clone)]

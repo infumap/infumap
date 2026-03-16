@@ -55,11 +55,7 @@ pub fn make_clap_subcommand() -> Command {
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  let db = Arc::new(Mutex::new(
-    Db::new(&data_dir)
-      .await
-      .map_err(|e| format!("Failed to initialize database: {}", e))?,
-  ));
+  let db = Arc::new(Mutex::new(Db::new(&data_dir).await.map_err(|e| format!("Failed to initialize database: {}", e))?));
 
   {
     let mut db = db.lock().await;
@@ -72,7 +68,13 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   if sub_matches.get_flag("list_failed") {
     let failed = list_failed_pdfs(&data_dir, db).await?;
     for f in &failed {
-      println!("user: {}  item: {}  file: {}  error: {}", f.user_id, f.item_id, f.file_name, f.error.as_deref().unwrap_or(""));
+      println!(
+        "user: {}  item: {}  file: {}  error: {}",
+        f.user_id,
+        f.item_id,
+        f.file_name,
+        f.error.as_deref().unwrap_or("")
+      );
     }
     if failed.is_empty() {
       println!("No PDFs with failed text extraction.");

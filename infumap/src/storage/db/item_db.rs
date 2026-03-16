@@ -17,9 +17,9 @@
 use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::db::kv_store::KVStore;
 use infusdk::item::TableColumn;
-use infusdk::item::is_data_item_type;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
+use infusdk::item::is_data_item_type;
 use infusdk::item::is_positionable_type;
 use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::geometry::GRID_SIZE;
@@ -74,11 +74,7 @@ impl MimeTypeMigrationStats {
   pub fn render_summary(&self) -> Vec<String> {
     let mut lines = vec![
       format!("Scanned {} item records.", self.scanned_records),
-      format!(
-        "Changed MIME type on {} records across {} items.",
-        self.changed_records,
-        self.changed_item_ids.len()
-      ),
+      format!("Changed MIME type on {} records across {} items.", self.changed_records, self.changed_item_ids.len()),
     ];
     if self.changed_records > 0 {
       lines.push(format!(
@@ -1693,7 +1689,8 @@ pub fn migrate_record_v28_to_v29(
     "entry" => {
       let mut result = kvs.clone();
       let item_id = json::get_string_field(&result, "id")?.ok_or("Entry record is missing id.")?;
-      let item_type = json::get_string_field(&result, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      let item_type =
+        json::get_string_field(&result, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
       let item_type = ItemType::from_str(&item_type)?;
       if is_data_item_type(item_type) {
         maybe_fix_mime_type_from_title(&mut result, None, None, stats, "entry")?;
@@ -1735,7 +1732,8 @@ fn maybe_fix_mime_type_from_title(
   stats: &mut MimeTypeMigrationStats,
   record_type: &str,
 ) -> InfuResult<()> {
-  let item_id = json::get_string_field(kvs, "id")?.ok_or(format!("{} record does not have 'id' field.", record_type))?;
+  let item_id =
+    json::get_string_field(kvs, "id")?.ok_or(format!("{} record does not have 'id' field.", record_type))?;
   let title_maybe = json::get_string_field(kvs, "title")?;
   let title = title_maybe.as_deref().or(previous_title_maybe);
   let derived_mime_type = match title.and_then(|title| mime_type_from_title_extension(title)) {
@@ -1757,7 +1755,10 @@ fn maybe_fix_mime_type_from_title(
   Ok(())
 }
 
-fn mime_type_migration_state_from_entry(kvs: &Map<String, Value>, item_type: ItemType) -> InfuResult<MimeTypeMigrationState> {
+fn mime_type_migration_state_from_entry(
+  kvs: &Map<String, Value>,
+  item_type: ItemType,
+) -> InfuResult<MimeTypeMigrationState> {
   Ok(MimeTypeMigrationState {
     is_data_item: is_data_item_type(item_type),
     title: json::get_string_field(kvs, "title")?,
@@ -1781,9 +1782,7 @@ fn apply_mime_type_migration_update(
 
 #[cfg(test)]
 mod tests {
-  use super::{
-    MimeTypeMigrationStats, MimeTypeMigrationState, migrate_record_v27_to_v28, migrate_record_v28_to_v29,
-  };
+  use super::{MimeTypeMigrationState, MimeTypeMigrationStats, migrate_record_v27_to_v28, migrate_record_v28_to_v29};
   use serde_json::{Map, Value};
   use std::collections::HashMap;
 
@@ -1821,10 +1820,7 @@ mod tests {
     let migrated = migrate_record_v28_to_v29(&entry, &mut state_by_id, &mut stats).unwrap();
 
     assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "application/pdf");
-    assert_eq!(
-      state_by_id.get("FILE1").unwrap().mime_type.as_deref().unwrap(),
-      "application/pdf"
-    );
+    assert_eq!(state_by_id.get("FILE1").unwrap().mime_type.as_deref().unwrap(), "application/pdf");
     assert_eq!(
       stats.render_summary(),
       vec![
@@ -1857,10 +1853,7 @@ mod tests {
 
     assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "application/pdf");
     assert_eq!(state_by_id.get("FILE2").unwrap().title.as_deref().unwrap(), "Renamed.pdf");
-    assert_eq!(
-      state_by_id.get("FILE2").unwrap().mime_type.as_deref().unwrap(),
-      "application/pdf"
-    );
+    assert_eq!(state_by_id.get("FILE2").unwrap().mime_type.as_deref().unwrap(), "application/pdf");
   }
 
   #[test]
@@ -1877,16 +1870,10 @@ mod tests {
     let migrated = migrate_record_v28_to_v29(&entry, &mut state_by_id, &mut stats).unwrap();
 
     assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "image/jpeg");
-    assert_eq!(
-      state_by_id.get("FILE3").unwrap().mime_type.as_deref().unwrap(),
-      "image/jpeg"
-    );
+    assert_eq!(state_by_id.get("FILE3").unwrap().mime_type.as_deref().unwrap(), "image/jpeg");
     assert_eq!(
       stats.render_summary(),
-      vec![
-        "Scanned 1 item records.".to_owned(),
-        "Changed MIME type on 0 records across 0 items.".to_owned(),
-      ]
+      vec!["Scanned 1 item records.".to_owned(), "Changed MIME type on 0 records across 0 items.".to_owned(),]
     );
 
     let mut entry = Map::new();
@@ -1901,10 +1888,7 @@ mod tests {
     let migrated = migrate_record_v28_to_v29(&entry, &mut state_by_id, &mut stats).unwrap();
 
     assert_eq!(migrated.get("mimeType").unwrap().as_str().unwrap(), "image/webp");
-    assert_eq!(
-      state_by_id.get("FILE4").unwrap().mime_type.as_deref().unwrap(),
-      "image/webp"
-    );
+    assert_eq!(state_by_id.get("FILE4").unwrap().mime_type.as_deref().unwrap(), "image/webp");
   }
 
   #[test]
@@ -1923,10 +1907,7 @@ mod tests {
     assert!(state_by_id.get("NOTE1").unwrap().mime_type.is_none());
     assert_eq!(
       stats.render_summary(),
-      vec![
-        "Scanned 1 item records.".to_owned(),
-        "Changed MIME type on 0 records across 0 items.".to_owned(),
-      ]
+      vec!["Scanned 1 item records.".to_owned(), "Changed MIME type on 0 records across 0 items.".to_owned(),]
     );
   }
 }
