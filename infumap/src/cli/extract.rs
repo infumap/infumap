@@ -17,7 +17,7 @@ use crate::storage::object::{self as storage_object};
 use crate::web::text_extraction::{start_text_extraction_processing_loop, text_extraction_url_from_config};
 
 pub fn make_clap_subcommand() -> Command {
-  Command::new("text-extraction")
+  Command::new("extract")
     .about("Run the text extraction processing loop without starting the web server.")
     .arg(
       Arg::new("settings_path")

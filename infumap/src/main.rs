@@ -42,7 +42,7 @@ async fn main() {
     .subcommand(cli::pending::make_clap_subcommand())
     .subcommand(cli::reconcile::make_clap_subcommand())
     .subcommand(cli::restore::make_clap_subcommand())
-    .subcommand(cli::text_extraction::make_clap_subcommand())
+    .subcommand(cli::extract::make_clap_subcommand())
     .subcommand(cli::upload::make_clap_subcommand())
     .subcommand(web::make_clap_subcommand())
     .about("Infumap")
@@ -64,7 +64,7 @@ async fn main() {
         "pending" => cli::pending::execute(&arg_sub_matches).await,
         "reconcile" => cli::reconcile::execute(&arg_sub_matches).await,
         "restore" => cli::restore::execute(&arg_sub_matches).await,
-        "text-extraction" => cli::text_extraction::execute(&arg_sub_matches).await,
+        "extract" => cli::extract::execute(&arg_sub_matches).await,
         "upload" => cli::upload::execute(&arg_sub_matches).await,
         _ => {
           println!(".. --help for help.");
