@@ -307,20 +307,12 @@ pub fn start_text_extraction_processing_loop(
             };
             if should_refill {
               match refill_queue(&data_dir, db.clone(), state.clone(), Some(&c.item_id)).await {
-                Ok((true, _total, _checked, queued, _already_succeeded, _already_failed, _none)) => {
+                Ok((_found, _total, _checked, queued, _already_succeeded, _already_failed, _none)) => {
                   info!(
-                    "Starting text extraction for PDF '{}' (user {}). Queued {} additional PDFs while this item is in progress. Progress: {}",
+                    "Starting text extraction for PDF '{}' (user {}). Pending queue: {}. Progress: {}",
                     c.item_id,
                     c.user_id,
                     queued,
-                    progress.summary()
-                  );
-                }
-                Ok((false, _total, _checked, _queued, _already_succeeded, _already_failed, _none)) => {
-                  info!(
-                    "Starting text extraction for PDF '{}' (user {}). No additional PDFs were queued while this item is in progress. Progress: {}",
-                    c.item_id,
-                    c.user_id,
                     progress.summary()
                   );
                 }
