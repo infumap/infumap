@@ -14,7 +14,9 @@ use crate::config::{
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
-use crate::web::text_extraction::{start_text_extraction_processing_loop, text_extraction_url_from_config};
+use crate::web::text_extraction::{
+  extract_single_item, list_failed_pdfs, start_text_extraction_processing_loop, text_extraction_url_from_config,
+};
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("extract")
@@ -34,16 +36,24 @@ pub fn make_clap_subcommand() -> Command {
         .num_args(1)
         .required(false),
     )
+    .arg(
+      Arg::new("item_id")
+        .long("item-id")
+        .help("Extract text only for this item (must be a PDF). Exits after one extraction.")
+        .num_args(1)
+        .required(false),
+    )
+    .arg(
+      Arg::new("list_failed")
+        .long("list-failed")
+        .help("List all PDFs for which text extraction failed. Exits after listing.")
+        .num_args(0)
+        .required(false),
+    )
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
-  let text_extraction_url = match sub_matches.get_one::<String>("text_extraction_url") {
-    Some(url) if !url.trim().is_empty() => url.clone(),
-    _ => text_extraction_url_from_config(&config)?
-      .ok_or("text_extraction_url must be configured or specified via --text-extraction-url.")?,
-  };
-
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let db = Arc::new(Mutex::new(
     Db::new(&data_dir)
@@ -51,6 +61,30 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       .map_err(|e| format!("Failed to initialize database: {}", e))?,
   ));
 
+  {
+    let mut db = db.lock().await;
+    let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
+    for user_id in all_user_ids {
+      db.item.load_user_items(&user_id, false).await?;
+    }
+  }
+
+  if sub_matches.get_flag("list_failed") {
+    let failed = list_failed_pdfs(&data_dir, db).await?;
+    for f in &failed {
+      println!("user: {}  item: {}  file: {}  error: {}", f.user_id, f.item_id, f.file_name, f.error.as_deref().unwrap_or(""));
+    }
+    if failed.is_empty() {
+      println!("No PDFs with failed text extraction.");
+    }
+    return Ok(());
+  }
+
+  let text_extraction_url = match sub_matches.get_one::<String>("text_extraction_url") {
+    Some(url) if !url.trim().is_empty() => url.clone(),
+    _ => text_extraction_url_from_config(&config)?
+      .ok_or("text_extraction_url must be configured or specified via --text-extraction-url.")?,
+  };
   let object_store = storage_object::new(
     &data_dir,
     config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?,
@@ -69,12 +103,9 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   )
   .map_err(|e| format!("Failed to initialize object store: {}", e))?;
 
-  {
-    let mut db = db.lock().await;
-    let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
-    for user_id in all_user_ids {
-      db.item.load_user_items(&user_id, false).await?;
-    }
+  if let Some(item_id) = sub_matches.get_one::<String>("item_id") {
+    extract_single_item(&data_dir, &text_extraction_url, db, object_store, item_id).await?;
+    return Ok(());
   }
 
   start_text_extraction_processing_loop(data_dir, text_extraction_url.clone(), db, object_store)?;

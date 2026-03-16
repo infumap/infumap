@@ -139,6 +139,116 @@ pub fn enqueue_pdf_item_if_active(item: &Item) {
   enqueue_candidate(&mut state, candidate);
 }
 
+#[derive(Clone)]
+pub struct FailedPdfInfo {
+  pub user_id: String,
+  pub item_id: String,
+  pub file_name: String,
+  pub error: Option<String>,
+}
+
+pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<Vec<FailedPdfInfo>> {
+  let mut out = vec![];
+  let pdf_item_ids: Vec<(String, String)> = {
+    let db = db.lock().await;
+    db.item
+      .all_loaded_items()
+      .into_iter()
+      .filter_map(|iu| db.item.get(&iu.item_id).ok().map(|item| (iu.user_id.clone(), item)))
+      .filter(|(_, item)| item.mime_type.as_deref() == Some("application/pdf"))
+      .map(|(user_id, item)| (user_id, item.id.clone()))
+      .collect()
+  };
+  for (user_id, item_id) in pdf_item_ids {
+    let path = match manifest_path(data_dir, &user_id, &item_id) {
+      Ok(p) => p,
+      Err(_) => continue,
+    };
+    if !path_exists(&path).await {
+      continue;
+    }
+    let bytes = match fs::read(&path).await {
+      Ok(b) => b,
+      Err(_) => continue,
+    };
+    let manifest: TextManifest = match serde_json::from_slice(&bytes) {
+      Ok(m) => m,
+      Err(_) => continue,
+    };
+    if manifest.status != "failed" {
+      continue;
+    }
+    out.push(FailedPdfInfo {
+      user_id,
+      item_id,
+      file_name: manifest.source.file_name,
+      error: manifest.error,
+    });
+  }
+  Ok(out)
+}
+
+pub async fn extract_single_item(
+  data_dir: &str,
+  text_extraction_url: &str,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  item_id: &str,
+) -> InfuResult<()> {
+  let (candidate, object_encryption_key) = {
+    let db = db.lock().await;
+    let id = item_id.to_string();
+    let item = db.item.get(&id).map_err(|e| e.to_string())?;
+    if item.mime_type.as_deref() != Some("application/pdf") {
+      return Err(format!("Item '{}' is not a PDF (mime_type: {:?}).", item_id, item.mime_type).into());
+    }
+    let key = db
+      .user
+      .get(&item.owner_id)
+      .ok_or(format!("User '{}' not loaded.", item.owner_id))?
+      .object_encryption_key
+      .clone();
+    let c = PdfCandidate {
+      user_id: item.owner_id.clone(),
+      item_id: item.id.clone(),
+      title: item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)),
+      mime_type: item.mime_type.clone().unwrap_or_else(|| "application/pdf".to_owned()),
+      file_size_bytes: item.file_size_bytes,
+      last_modified_date: item.last_modified_date,
+    };
+    (c, key)
+  };
+  clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  let file_bytes = storage_object::get(
+    object_store.clone(),
+    candidate.user_id.clone(),
+    candidate.item_id.clone(),
+    &object_encryption_key,
+  )
+  .await?;
+  let client = reqwest::ClientBuilder::new()
+    .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+    .build()
+    .map_err(|e| format!("Could not build HTTP client: {}", e))?;
+  match request_text_extraction(&client, text_extraction_url, &candidate.title, file_bytes).await {
+    ExtractOutcome::Success(response) => {
+      write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
+      info!(
+        "Extracted text for PDF '{}' (user {}).",
+        candidate.item_id, candidate.user_id
+      );
+    }
+    ExtractOutcome::DocumentFailed(msg) => {
+      write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
+      return Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into());
+    }
+    ExtractOutcome::EndpointUnavailable(msg) => {
+      return Err(format!("Text extraction endpoint unavailable: {}", msg).into());
+    }
+  }
+  Ok(())
+}
+
 pub fn text_extraction_url_from_config(
   config: &Config,
 ) -> InfuResult<Option<String>> {
@@ -200,17 +310,17 @@ pub fn start_text_extraction_processing_loop(
               !state.scan_exhausted
             };
             if should_refill {
-              match refill_queue(&data_dir, db.clone(), state.clone()).await {
-                Ok((true, total, queued, already_succeeded, already_failed)) => {
+              match refill_queue(&data_dir, db.clone(), state.clone(), Some(&c.item_id)).await {
+                Ok((true, total, checked, _queued, already_succeeded, already_failed, none)) => {
                   info!(
-                    "PDF text extraction queue refill: {}/{} manifests checked (succeed: {}, failure: {}). Progress: {}",
-                    queued, total, already_succeeded, already_failed, progress.summary()
+                    "PDF text extraction queue refill: {}/{} manifest checks (succeed: {}, failure: {}, none: {}). Progress: {}",
+                    checked, total, already_succeeded, already_failed, none, progress.summary()
                   );
                 }
-                Ok((false, total, queued, already_succeeded, already_failed)) => {
+                Ok((false, total, checked, _queued, already_succeeded, already_failed, none)) => {
                   info!(
-                    "PDF text extraction queue refill: {}/{} manifests checked (success: {}, failure: {}). Progress: {}",
-                    queued, total, already_succeeded, already_failed, progress.summary()
+                    "PDF text extraction queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
+                    checked, total, already_succeeded, already_failed, none, progress.summary()
                   );
                 }
                 Err(e) => {
@@ -232,18 +342,18 @@ pub fn start_text_extraction_processing_loop(
             continue;
           }
 
-          match refill_queue(&data_dir, db.clone(), state.clone()).await {
-            Ok((true, total, queued, already_succeeded, already_failed)) => {
+          match refill_queue(&data_dir, db.clone(), state.clone(), None).await {
+            Ok((true, total, checked, _queued, already_succeeded, already_failed, none)) => {
               info!(
-                "PDF text extraction queue refill: {}/{} manifests checked (succeed: {}, failure: {}). Progress: {}",
-                queued, total, already_succeeded, already_failed, progress.summary()
+                "PDF text extraction queue refill: {}/{} manifest checks (succeed: {}, failure: {}, none: {}). Progress: {}",
+                checked, total, already_succeeded, already_failed, none, progress.summary()
               );
               continue;
             }
-            Ok((false, total, queued, already_succeeded, already_failed)) => {
+            Ok((false, total, checked, _queued, already_succeeded, already_failed, none)) => {
               info!(
-                "PDF text extraction queue refill: {}/{} manifests checked (success: {}, failure: {}). Progress: {}",
-                queued, total, already_succeeded, already_failed, progress.summary()
+                "PDF text extraction queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
+                checked, total, already_succeeded, already_failed, none, progress.summary()
               );
               time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
               continue;
@@ -366,7 +476,8 @@ async fn refill_queue(
   data_dir: &str,
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<ProcessingState>>,
-) -> InfuResult<(bool, usize, usize, usize, usize)> {
+  exclude_item_id: Option<&str>,
+) -> InfuResult<(bool, usize, usize, usize, usize, usize, usize)> {
   let candidates = {
     let db = db.lock().await;
     let mut candidates = db
@@ -401,10 +512,19 @@ async fn refill_queue(
   state.queued_item_ids.clear();
   let mut already_succeeded = 0usize;
   let mut already_failed = 0usize;
+  let mut none = 0usize;
+  let mut checked = 0usize;
+  let mut excluded = 0usize;
 
   for candidate in candidates {
+    if exclude_item_id == Some(candidate.item_id.as_str()) {
+      excluded += 1;
+      continue;
+    }
+    checked += 1;
     match manifest_check(data_dir, &candidate).await? {
       ManifestCheckResult::NeedsExtraction => {
+        none += 1;
         enqueue_candidate(&mut state, candidate);
         if state.queue.len() >= MAX_PENDING_PDFS {
           break;
@@ -417,7 +537,8 @@ async fn refill_queue(
 
   let queued = state.queue.len();
   state.scan_exhausted = state.queue.is_empty();
-  Ok((!state.queue.is_empty(), total, queued, already_succeeded, already_failed))
+  let considered = checked + excluded;
+  Ok((!state.queue.is_empty(), total, considered, queued, already_succeeded, already_failed, none))
 }
 
 fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
@@ -638,6 +759,14 @@ fn item_text_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Pat
   text_dir.push(&item_id[..2]);
   text_dir.push(item_id);
   Ok(text_dir)
+}
+
+async fn clear_item_text_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
+  let dir = item_text_dir(data_dir, user_id, item_id)?;
+  if path_exists(&dir).await {
+    fs::remove_dir_all(&dir).await?;
+  }
+  Ok(())
 }
 
 fn user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
