@@ -15,7 +15,8 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::text_extraction::{
-  extract_single_item, list_failed_pdfs, start_text_extraction_processing_loop, text_extraction_url_from_config,
+  extract_single_item, list_failed_pdfs, start_text_extraction_processing_loop,
+  text_extraction_concurrency_from_config, text_extraction_url_from_config,
 };
 
 pub fn make_clap_subcommand() -> Command {
@@ -40,6 +41,13 @@ pub fn make_clap_subcommand() -> Command {
       Arg::new("item_id")
         .long("item-id")
         .help("Extract text only for this item (must be a PDF). Exits after one extraction.")
+        .num_args(1)
+        .required(false),
+    )
+    .arg(
+      Arg::new("text_extraction_concurrency")
+        .long("text-extraction-concurrency")
+        .help("Override the configured number of concurrent PDF extraction requests for this process.")
         .num_args(1)
         .required(false),
     )
@@ -87,6 +95,18 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     _ => text_extraction_url_from_config(&config)?
       .ok_or("text_extraction_url must be configured or specified via --text-extraction-url.")?,
   };
+  let text_extraction_concurrency = match sub_matches.get_one::<String>("text_extraction_concurrency") {
+    Some(value) => {
+      let parsed = value.parse::<usize>().map_err(|e| {
+        format!("Invalid --text-extraction-concurrency value '{}': {}. Expected an integer >= 1.", value, e)
+      })?;
+      if parsed < 1 {
+        return Err("--text-extraction-concurrency must be at least 1.".into());
+      }
+      parsed
+    }
+    None => text_extraction_concurrency_from_config(&config)?,
+  };
   let object_store = storage_object::new(
     &data_dir,
     config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?,
@@ -110,8 +130,17 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
-  start_text_extraction_processing_loop(data_dir, text_extraction_url.clone(), db, object_store)?;
-  info!("Running text extraction loop using '{}'. Press Ctrl-C to stop.", text_extraction_url);
+  start_text_extraction_processing_loop(
+    data_dir,
+    text_extraction_url.clone(),
+    text_extraction_concurrency,
+    db,
+    object_store,
+  )?;
+  info!(
+    "Running text extraction loop using '{}' with concurrency {}. Press Ctrl-C to stop.",
+    text_extraction_url, text_extraction_concurrency
+  );
   tokio::signal::ctrl_c().await.map_err(|e| format!("Failed waiting for Ctrl-C: {}", e))?;
   Ok(())
 }

@@ -9,6 +9,50 @@ readonly HOST="${TEXT_EXTRACTION_HOST:-${MARKER_SERVICE_HOST:-127.0.0.1}}"
 readonly PORT="${TEXT_EXTRACTION_PORT:-${MARKER_SERVICE_PORT:-8787}}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
+gpu_total_memory_mib() {
+    if ! command -v nvidia-smi >/dev/null 2>&1; then
+        return 1
+    fi
+    nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n 1
+}
+
+set_runtime_defaults() {
+    local gpu_mib=""
+    if gpu_mib="$(gpu_total_memory_mib)" && [ -n "$gpu_mib" ]; then
+        if [ -z "${TORCH_DEVICE:-}" ]; then
+            export TORCH_DEVICE="cuda"
+        fi
+        if [ -z "${INFERENCE_RAM:-}" ]; then
+            export INFERENCE_RAM="$((gpu_mib / 1024))"
+        fi
+    fi
+
+    if [ -z "${TEXT_EXTRACTION_PDFTEXT_WORKERS:-}" ]; then
+        local cpu_count
+        cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
+        if [ "$cpu_count" -ge 16 ]; then
+            export TEXT_EXTRACTION_PDFTEXT_WORKERS=4
+        elif [ "$cpu_count" -ge 8 ]; then
+            export TEXT_EXTRACTION_PDFTEXT_WORKERS=2
+        else
+            export TEXT_EXTRACTION_PDFTEXT_WORKERS=1
+        fi
+    fi
+
+    if [ -z "${TEXT_EXTRACTION_MAX_CONCURRENCY:-}" ]; then
+        local inferred_ram="${INFERENCE_RAM:-0}"
+        if [ "$inferred_ram" -ge 64 ]; then
+            export TEXT_EXTRACTION_MAX_CONCURRENCY=6
+        elif [ "$inferred_ram" -ge 40 ]; then
+            export TEXT_EXTRACTION_MAX_CONCURRENCY=4
+        elif [ "$inferred_ram" -ge 20 ]; then
+            export TEXT_EXTRACTION_MAX_CONCURRENCY=2
+        else
+            export TEXT_EXTRACTION_MAX_CONCURRENCY=1
+        fi
+    fi
+}
+
 fail() {
     echo "Error: $1" >&2
     exit 1
@@ -89,12 +133,17 @@ if ! "$VENV_PYTHON" -m pip show marker-pdf >/dev/null 2>&1 || ! "$VENV_PYTHON" -
     "$VENV_PYTHON" -m pip install --upgrade "marker-pdf[full]" fastapi uvicorn python-multipart
 fi
 
+set_runtime_defaults
+
 echo "Starting Infumap text extraction service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
 echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
+echo "INFERENCE_RAM=${INFERENCE_RAM:-<unset>}"
+echo "TEXT_EXTRACTION_MAX_CONCURRENCY=${TEXT_EXTRACTION_MAX_CONCURRENCY}"
+echo "TEXT_EXTRACTION_PDFTEXT_WORKERS=${TEXT_EXTRACTION_PDFTEXT_WORKERS}"
 if command -v nvidia-smi >/dev/null 2>&1; then
     echo "Detected GPUs via nvidia-smi:"
     nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true

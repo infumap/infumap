@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import platform
@@ -20,6 +21,7 @@ from marker.output import text_from_rendered
 
 APP_STATE: dict[str, Any] = {}
 LOGGER = logging.getLogger("uvicorn.error")
+CONVERT_SEMAPHORE: asyncio.Semaphore | None = None
 
 
 class ConvertResponse(BaseModel):
@@ -37,6 +39,17 @@ def package_version(package_name: str) -> str:
         return "unknown"
 
 
+def env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        LOGGER.warning("Invalid integer for %s=%r; using %d", name, raw, default)
+        return default
+
+
 def build_runtime_summary() -> list[str]:
     summary = [
         f"python={platform.python_version()}",
@@ -46,6 +59,9 @@ def build_runtime_summary() -> list[str]:
         f"uvicorn={package_version('uvicorn')}",
         f"torch_device_env={os.environ.get('TORCH_DEVICE', '<unset>')}",
         f"cuda_visible_devices={os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}",
+        f"inference_ram={os.environ.get('INFERENCE_RAM', '<unset>')}",
+        f"max_concurrency={env_int('TEXT_EXTRACTION_MAX_CONCURRENCY', 1)}",
+        f"pdftext_workers={env_int('TEXT_EXTRACTION_PDFTEXT_WORKERS', 1)}",
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
     ]
 
@@ -160,7 +176,9 @@ def torch_cuda_memory_summary() -> str | None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    global CONVERT_SEMAPHORE
     config = build_config()
+    CONVERT_SEMAPHORE = asyncio.Semaphore(env_int("TEXT_EXTRACTION_MAX_CONCURRENCY", 1))
     LOGGER.info("Text extraction startup: %s", " ".join(build_runtime_summary()))
     LOGGER.info(
         "Text extraction config: force_ocr=%s paginate_output=%s use_llm=%s output_format=%s pdftext_workers=%s",
@@ -180,6 +198,7 @@ async def lifespan(_: FastAPI):
     )
     yield
     APP_STATE.clear()
+    CONVERT_SEMAPHORE = None
 
 
 app = FastAPI(
@@ -195,7 +214,7 @@ def build_config() -> dict[str, Any]:
         "paginate_output": True,
         "use_llm": bool(os.environ.get("GOOGLE_API_KEY")),
         "output_format": "markdown",
-        "pdftext_workers": 1,
+        "pdftext_workers": env_int("TEXT_EXTRACTION_PDFTEXT_WORKERS", 1),
     }
 
 
@@ -296,7 +315,13 @@ async def convert_upload(file: UploadFile = File(...)) -> ConvertResponse:
     file_name = Path(file.filename or "upload").name
 
     try:
-        return convert_file(temp_path, file_name)
+        semaphore = CONVERT_SEMAPHORE
+        if semaphore is None:
+            raise HTTPException(status_code=503, detail="Text extraction service is not ready.")
+        async with semaphore:
+            return await asyncio.to_thread(convert_file, temp_path, file_name)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     finally:
