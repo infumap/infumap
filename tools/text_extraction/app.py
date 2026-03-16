@@ -19,7 +19,7 @@ from marker.models import create_model_dict
 from marker.output import text_from_rendered
 
 APP_STATE: dict[str, Any] = {}
-LOGGER = logging.getLogger("infumap.text_extraction")
+LOGGER = logging.getLogger("uvicorn.error")
 
 
 class ConvertResponse(BaseModel):
@@ -126,6 +126,38 @@ def clear_torch_cuda_cache() -> None:
         pass
 
 
+def reset_torch_cuda_peak_memory() -> None:
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+    except Exception:
+        pass
+
+
+def torch_cuda_memory_summary() -> str | None:
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return None
+
+        torch.cuda.synchronize()
+        allocated_mib = torch.cuda.memory_allocated() / (1024 * 1024)
+        reserved_mib = torch.cuda.memory_reserved() / (1024 * 1024)
+        peak_allocated_mib = torch.cuda.max_memory_allocated() / (1024 * 1024)
+        peak_reserved_mib = torch.cuda.max_memory_reserved() / (1024 * 1024)
+        return (
+            f"cuda_mem_allocated={allocated_mib:.0f}MiB "
+            f"cuda_mem_reserved={reserved_mib:.0f}MiB "
+            f"cuda_peak_allocated={peak_allocated_mib:.0f}MiB "
+            f"cuda_peak_reserved={peak_reserved_mib:.0f}MiB"
+        )
+    except Exception as exc:
+        return f"cuda_mem_error={exc}"
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     config = build_config()
@@ -180,6 +212,9 @@ def metadata_to_dict(metadata: Any) -> dict[str, Any]:
 
 def convert_file(file_path: str, file_name: str) -> ConvertResponse:
     started_at = time.perf_counter()
+    file_size_bytes = Path(file_path).stat().st_size
+    LOGGER.info("Starting conversion: file=%s size_bytes=%d", file_name, file_size_bytes)
+    reset_torch_cuda_peak_memory()
     try:
         config_parser = ConfigParser(build_config())
         converter = PdfConverter(
@@ -191,15 +226,41 @@ def convert_file(file_path: str, file_name: str) -> ConvertResponse:
         )
         rendered = converter(file_path)
         markdown, _, _ = text_from_rendered(rendered)
+        metadata = metadata_to_dict(rendered.metadata)
         duration_ms = int((time.perf_counter() - started_at) * 1000)
+        page_count = None
+        page_stats = metadata.get("page_stats")
+        if isinstance(page_stats, list):
+            page_count = len(page_stats)
+        cuda_memory = torch_cuda_memory_summary()
+        LOGGER.info(
+            "Completed conversion: file=%s size_bytes=%d duration_ms=%d markdown_chars=%d page_count=%s%s",
+            file_name,
+            file_size_bytes,
+            duration_ms,
+            len(markdown),
+            page_count if page_count is not None else "unknown",
+            f" {cuda_memory}" if cuda_memory else "",
+        )
 
         return ConvertResponse(
             success=True,
             file_name=file_name,
             markdown=markdown,
-            metadata=metadata_to_dict(rendered.metadata),
+            metadata=metadata,
             duration_ms=duration_ms,
         )
+    except Exception as exc:
+        duration_ms = int((time.perf_counter() - started_at) * 1000)
+        cuda_memory = torch_cuda_memory_summary()
+        LOGGER.exception(
+            "Conversion failed: file=%s size_bytes=%d duration_ms=%d%s",
+            file_name,
+            file_size_bytes,
+            duration_ms,
+            f" {cuda_memory}" if cuda_memory else "",
+        )
+        raise exc
     finally:
         clear_torch_cuda_cache()
 
