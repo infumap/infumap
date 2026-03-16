@@ -36,6 +36,7 @@ struct PdfCandidate {
   title: String,
   mime_type: String,
   file_size_bytes: Option<i64>,
+  creation_date: i64,
   last_modified_date: i64,
 }
 
@@ -125,6 +126,7 @@ pub fn enqueue_pdf_item_if_active(item: &Item) {
     title: item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)),
     mime_type: item.mime_type.clone().unwrap_or_else(|| "application/pdf".to_owned()),
     file_size_bytes: item.file_size_bytes,
+    creation_date: item.creation_date,
     last_modified_date: item.last_modified_date,
   };
 
@@ -137,6 +139,25 @@ pub fn enqueue_pdf_item_if_active(item: &Item) {
   let _enqueue = task::spawn(async move {
     let mut state = state.lock().await;
     enqueue_candidate(&mut state, candidate);
+  });
+}
+
+pub fn dequeue_pdf_item_if_active(item_id: &str) {
+  let Some(state) = PROCESSING_STATE.get() else {
+    return;
+  };
+
+  let item_id = item_id.to_owned();
+
+  if let Ok(mut state) = state.try_lock() {
+    remove_candidate(&mut state, &item_id);
+    return;
+  }
+
+  let state = state.clone();
+  let _dequeue = task::spawn(async move {
+    let mut state = state.lock().await;
+    remove_candidate(&mut state, &item_id);
   });
 }
 
@@ -206,6 +227,7 @@ pub async fn extract_single_item(
       title: item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)),
       mime_type: item.mime_type.clone().unwrap_or_else(|| "application/pdf".to_owned()),
       file_size_bytes: item.file_size_bytes,
+      creation_date: item.creation_date,
       last_modified_date: item.last_modified_date,
     };
     (c, key)
@@ -222,7 +244,13 @@ pub async fn extract_single_item(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
-  match request_text_extraction(&client, text_extraction_url, &candidate.title, file_bytes).await {
+  let outcome = request_text_extraction(&client, text_extraction_url, &candidate.title, file_bytes).await;
+  if !candidate_still_current(db.clone(), &candidate).await? {
+    return Err(
+      format!("Item '{}' was deleted or replaced while extraction was in progress.", candidate.item_id).into(),
+    );
+  }
+  match outcome {
     ExtractOutcome::Success(response) => {
       write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
       info!("Extracted text for PDF '{}' (user {}).", candidate.item_id, candidate.user_id);
@@ -236,6 +264,10 @@ pub async fn extract_single_item(
     }
   }
   Ok(())
+}
+
+pub async fn delete_item_text_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
+  clear_item_text_dir(data_dir, user_id, item_id).await
 }
 
 pub fn text_extraction_url_from_config(config: &Config) -> InfuResult<Option<String>> {
@@ -422,7 +454,32 @@ pub fn start_text_extraction_processing_loop(
         }
       };
 
-      match request_text_extraction(&client, &text_extraction_url, &candidate.title, file_bytes).await {
+      let outcome = request_text_extraction(&client, &text_extraction_url, &candidate.title, file_bytes).await;
+      let item_is_current = match candidate_still_current(db.clone(), &candidate).await {
+        Ok(current) => current,
+        Err(e) => {
+          progress.on_other_failed();
+          error!(
+            "Could not verify current state for PDF '{}' for user '{}': {}",
+            candidate.item_id, candidate.user_id, e
+          );
+          time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+          continue;
+        }
+      };
+      if !item_is_current {
+        progress.on_other_failed();
+        info!(
+          "PDF '{}' (user {}): item was deleted or replaced while extraction was in progress. Skipping artifact write. {} remaining. {}",
+          candidate.item_id,
+          candidate.user_id,
+          queue_remaining,
+          progress.summary()
+        );
+        continue;
+      }
+
+      match outcome {
         ExtractOutcome::Success(response) => {
           if let Err(e) = write_success_artifacts(&data_dir, &text_extraction_url, &candidate, response).await {
             progress.on_other_failed();
@@ -508,6 +565,7 @@ async fn refill_queue(
         title: item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)),
         mime_type: item.mime_type.clone().unwrap_or_else(|| "application/pdf".to_owned()),
         file_size_bytes: item.file_size_bytes,
+        creation_date: item.creation_date,
         last_modified_date: item.last_modified_date,
       })
       .collect::<Vec<PdfCandidate>>();
@@ -587,6 +645,11 @@ fn enqueue_candidate(state: &mut ProcessingState, candidate: PdfCandidate) {
   state.scan_exhausted = false;
 }
 
+fn remove_candidate(state: &mut ProcessingState, item_id: &str) {
+  state.queue.retain(|candidate| candidate.item_id != item_id);
+  state.queued_item_ids.remove(item_id);
+}
+
 fn compare_pdf_candidates_desc(a: &PdfCandidate, b: &PdfCandidate) -> std::cmp::Ordering {
   let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
   let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
@@ -597,6 +660,19 @@ enum ManifestCheckResult {
   NeedsExtraction,
   AlreadySucceeded,
   AlreadyFailed,
+}
+
+async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &PdfCandidate) -> InfuResult<bool> {
+  let db = db.lock().await;
+  let item = match db.item.get(&candidate.item_id) {
+    Ok(item) => item,
+    Err(_) => return Ok(false),
+  };
+  Ok(
+    item.owner_id == candidate.user_id
+      && item.creation_date == candidate.creation_date
+      && item.mime_type.as_deref() == Some("application/pdf"),
+  )
 }
 
 async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> InfuResult<ManifestCheckResult> {

@@ -120,6 +120,10 @@ impl ItemDb {
     }
   }
 
+  pub fn data_dir(&self) -> &str {
+    &self.data_dir
+  }
+
   /// Compact a user's item database.
   ///
   /// In general it is not possible to maintain chronological ordering because items can be moved between parents

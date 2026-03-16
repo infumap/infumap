@@ -57,7 +57,7 @@ use crate::util::mime::detect_mime_type;
 use crate::util::ordering::new_ordering_at_end;
 use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
-use crate::web::text_extraction::enqueue_pdf_item_if_active;
+use crate::web::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
 // 190+ MiB raw files while remaining bounded.
@@ -1074,7 +1074,9 @@ async fn handle_delete_item<'a>(
     );
   }
 
-  let item = db.item.get(&request.id)?;
+  let data_dir = db.item.data_dir().to_owned();
+  let item = db.item.get(&request.id)?.clone();
+  dequeue_pdf_item_if_active(&request.id);
 
   if is_image_item(&item) {
     let num_removed = storage_cache::delete_all(image_cache, &session.user_id, &request.id).await?;
@@ -1085,6 +1087,8 @@ async fn handle_delete_item<'a>(
     object::delete(object_store.clone(), &session.user_id, &request.id).await?;
     debug!("Deleted item '{}' from object store.", request.id);
   }
+
+  delete_item_text_dir(&data_dir, &session.user_id, &request.id).await?;
 
   let _item = db.item.remove(&request.id).await?;
   debug!("Deleted item '{}' from database.", request.id);
@@ -1179,7 +1183,9 @@ async fn delete_recursive(
   }
 
   if delete_item {
+    let data_dir = db.item.data_dir().to_owned();
     let item = db.item.get(&item_id)?.clone();
+    dequeue_pdf_item_if_active(&item_id);
 
     if is_image_item(&item) {
       let num_removed = storage_cache::delete_all(image_cache, &user_id, &item.id).await?;
@@ -1192,6 +1198,8 @@ async fn delete_recursive(
       debug!("Deleted item '{}' from object store.", item.id);
       *object_count = *object_count + 1;
     }
+
+    delete_item_text_dir(&data_dir, user_id, &item.id).await?;
 
     let _item = db.item.remove(&item_id).await?;
     debug!("Deleted item '{}' from database.", item_id);
