@@ -27,7 +27,7 @@ pretty_env_logger = "0.5.0"
 once_cell = "1.19.0"
 pin-project-lite = "0.2.11"
 prometheus = "0.13.4"
-reqwest = { version = "0.12.4", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12.4", default-features = false, features = ["json", "multipart", "rustls-tls"] }
 rpassword = "7.3.1"
 rust-s3 = { version = "0.35.0", default-features = false, features = ["tokio-rustls-tls"] }
 serde = { version = "1.0.202", features = ["derive"] }

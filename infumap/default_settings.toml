@@ -58,6 +58,11 @@
 # The cache directory. Used to store scaled down images.
 #cache_dir = "~/.infumap/cache"
 
+# Optional URL for the external text extraction service. If set, Infumap will run a
+# background loop that extracts markdown for PDF file items and stores the
+# results under each user's text directory in the data directory.
+#text_extraction_url = "http://127.0.0.1:8787/convert"
+
 # Maximum aggregate size (in megabytes) of all files in the cache. Files are
 # removed using an LRU policy if this size is exceeded.
 #cache_max_mb = 500

@@ -34,7 +34,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Infumap PDF to MD Service",
+    title="Infumap Text Extraction Service",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -98,7 +98,7 @@ def store_upload(upload: UploadFile) -> str:
 @app.get("/")
 async def root() -> dict[str, str]:
     return {
-        "service": "infumap-pdf-to-md",
+        "service": "infumap-text-extraction",
         "docs": "/docs",
         "health": "/healthz",
     }

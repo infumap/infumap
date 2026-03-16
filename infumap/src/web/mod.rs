@@ -17,6 +17,7 @@
 mod dist_handlers;
 mod prometheus;
 mod serve;
+mod text_processing;
 
 pub mod cookie;
 pub mod routes;
@@ -55,6 +56,7 @@ use crate::util::fs::expand_tilde;
 
 use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
+use self::text_processing::init_text_extraction_processing_loop;
 
 pub static METRIC_BACKUPS_INITIATED_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
   IntCounter::new("backups_total", "Total number of times a user database backup has been initiated.")
@@ -236,6 +238,8 @@ pub async fn start_server_with_options(
     }
     info!("Done loading all items for all users.");
   }
+
+  init_text_extraction_processing_loop(config.clone(), db.clone(), object_store.clone())?;
 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {
     let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();

@@ -1,4 +1,4 @@
-# PDF To MD
+# Text Extraction
 
 This is a small ad-hoc HTTP wrapper around [Marker](https://github.com/datalab-to/marker) for converting uploaded files to markdown.
 
@@ -26,10 +26,10 @@ Requirements:
 From the repo root:
 
 ```bash
-./tools/pdf_to_md/run.sh
+./tools/text_extraction/run.sh
 ```
 
-On first run this creates `tools/pdf_to_md/.venv` and installs:
+On first run this creates `tools/text_extraction/.venv` and installs:
 
 - `marker-pdf[full]`
 - `fastapi`
@@ -40,9 +40,9 @@ By default the service listens on `127.0.0.1:8787`.
 
 Optional environment variables:
 
-- `MARKER_SERVICE_HOST`
-- `MARKER_SERVICE_PORT`
-- `MARKER_SERVICE_VENV_DIR`
+- `TEXT_EXTRACTION_HOST`
+- `TEXT_EXTRACTION_PORT`
+- `TEXT_EXTRACTION_VENV_DIR`
 - `PYTHON_BIN`
 - `TORCH_DEVICE`
 - `GOOGLE_API_KEY`
@@ -50,11 +50,11 @@ Optional environment variables:
 Examples:
 
 ```bash
-TORCH_DEVICE=cpu ./tools/pdf_to_md/run.sh
+TORCH_DEVICE=cpu ./tools/text_extraction/run.sh
 ```
 
 ```bash
-TORCH_DEVICE=cuda MARKER_SERVICE_PORT=9000 ./tools/pdf_to_md/run.sh
+TORCH_DEVICE=cuda TEXT_EXTRACTION_PORT=9000 ./tools/text_extraction/run.sh
 ```
 
 The service uses a fixed extraction policy:

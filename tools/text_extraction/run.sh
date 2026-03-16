@@ -4,9 +4,9 @@ set -euo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
-readonly VENV_DIR="${MARKER_SERVICE_VENV_DIR:-$ROOT_DIR/.venv}"
-readonly HOST="${MARKER_SERVICE_HOST:-127.0.0.1}"
-readonly PORT="${MARKER_SERVICE_PORT:-8787}"
+readonly VENV_DIR="${TEXT_EXTRACTION_VENV_DIR:-${MARKER_SERVICE_VENV_DIR:-$ROOT_DIR/.venv}}"
+readonly HOST="${TEXT_EXTRACTION_HOST:-${MARKER_SERVICE_HOST:-127.0.0.1}}"
+readonly PORT="${TEXT_EXTRACTION_PORT:-${MARKER_SERVICE_PORT:-8787}}"
 
 fail() {
     echo "Error: $1" >&2
