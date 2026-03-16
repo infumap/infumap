@@ -24,6 +24,8 @@ const ENDPOINT_BACKOFF_SECS: u64 = 5 * 60;
 const REQUEST_TIMEOUT_SECS: u64 = 4 * 60 * 60;
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const MAX_PENDING_PDFS: usize = 50;
+const REFILL_WHEN_QUEUE_AT_MOST: usize = 25;
+const LARGE_PDF_SIZE_BYTES: i64 = 25 * 1024 * 1024;
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -191,7 +193,34 @@ pub fn start_text_extraction_processing_loop(
       };
 
       let (candidate, queue_remaining) = match (candidate, queue_remaining) {
-        (Some(c), rem) => (c, rem),
+        (Some(c), rem) => {
+          if rem <= REFILL_WHEN_QUEUE_AT_MOST {
+            let should_refill = {
+              let state = state.lock().await;
+              !state.scan_exhausted
+            };
+            if should_refill {
+              match refill_queue(&data_dir, db.clone(), state.clone()).await {
+                Ok((true, total, queued, already_succeeded, already_failed)) => {
+                  info!(
+                    "PDF text extraction queue refill: {}/{} manifests checked (succeed: {}, failure: {}). Progress: {}",
+                    queued, total, already_succeeded, already_failed, progress.summary()
+                  );
+                }
+                Ok((false, total, queued, already_succeeded, already_failed)) => {
+                  info!(
+                    "PDF text extraction queue refill: {}/{} manifests checked (success: {}, failure: {}). Progress: {}",
+                    queued, total, already_succeeded, already_failed, progress.summary()
+                  );
+                }
+                Err(e) => {
+                  error!("Could not refill PDF text extraction queue: {}", e);
+                }
+              }
+            }
+          }
+          (c, rem)
+        }
         (None, _) => {
           let should_refill = {
             let state = state.lock().await;
@@ -248,6 +277,14 @@ pub fn start_text_extraction_processing_loop(
         }
       };
 
+      if candidate.file_size_bytes.map_or(false, |s| s >= LARGE_PDF_SIZE_BYTES) {
+        info!(
+          "PDF '{}' (user {}): large document (~{} MB); extraction may take a long time and use significant memory.",
+          candidate.item_id,
+          candidate.user_id,
+          candidate.file_size_bytes.map(|s| s / (1024 * 1024)).unwrap_or(0)
+        );
+      }
       let file_bytes = match storage_object::get(
         object_store.clone(),
         candidate.user_id.clone(),
