@@ -132,6 +132,15 @@ Options:
 - **-i --id:** The user id.
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
 
+### text-extraction
+
+Run the text extraction processing loop without starting the web server. This command will load items, initialize the configured object store, and then continuously call the external text extraction service for PDFs that do not yet have extracted text artifacts.
+
+Options:
+
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **--text-extraction-url (optional):** Override the configured `text_extraction_url` for this process.
+
 
 
 ## API Commands

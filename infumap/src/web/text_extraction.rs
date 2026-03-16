@@ -109,16 +109,35 @@ pub fn enqueue_pdf_item_if_active(item: &Item) {
   enqueue_candidate(&mut state, candidate);
 }
 
+pub fn text_extraction_url_from_config(
+  config: &Config,
+) -> InfuResult<Option<String>> {
+  match config.get_string(CONFIG_TEXT_EXTRACTION_URL) {
+    Ok(url) if !url.trim().is_empty() => Ok(Some(url)),
+    Ok(_) => Ok(None),
+    Err(_) => Ok(None),
+  }
+}
+
 pub fn init_text_extraction_processing_loop(
-  config: Arc<Config>,
+  config: &Config,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
-  let text_extraction_url = match config.get_string(CONFIG_TEXT_EXTRACTION_URL) {
-    Ok(url) if !url.trim().is_empty() => url,
-    _ => return Ok(()),
+  let text_extraction_url = match text_extraction_url_from_config(config)? {
+    Some(url) => url,
+    None => return Ok(()),
   };
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
+  start_text_extraction_processing_loop(data_dir, text_extraction_url, db, object_store)
+}
+
+pub fn start_text_extraction_processing_loop(
+  data_dir: String,
+  text_extraction_url: String,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+) -> InfuResult<()> {
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()

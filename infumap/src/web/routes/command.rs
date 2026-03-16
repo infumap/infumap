@@ -57,7 +57,7 @@ use crate::util::mime::detect_mime_type;
 use crate::util::ordering::new_ordering_at_end;
 use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
-use crate::web::text_processing::enqueue_pdf_item_if_active;
+use crate::web::text_extraction::enqueue_pdf_item_if_active;
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
 // 190+ MiB raw files while remaining bounded.

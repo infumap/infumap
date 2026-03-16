@@ -1,0 +1,84 @@
+use std::sync::Arc;
+
+use clap::{Arg, ArgMatches, Command};
+use infusdk::util::infu::InfuResult;
+use log::info;
+use tokio::sync::Mutex;
+
+use crate::config::{
+  CONFIG_DATA_DIR, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE,
+  CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_S3_1_BUCKET, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_KEY, CONFIG_S3_1_REGION,
+  CONFIG_S3_1_SECRET, CONFIG_S3_2_BUCKET, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_KEY, CONFIG_S3_2_REGION,
+  CONFIG_S3_2_SECRET,
+};
+use crate::setup::get_config;
+use crate::storage::db::Db;
+use crate::storage::object::{self as storage_object};
+use crate::web::text_extraction::{start_text_extraction_processing_loop, text_extraction_url_from_config};
+
+pub fn make_clap_subcommand() -> Command {
+  Command::new("text-extraction")
+    .about("Run the text extraction processing loop without starting the web server.")
+    .arg(
+      Arg::new("settings_path")
+        .short('s')
+        .long("settings")
+        .help("Path to a toml settings configuration file. If not specified, the default will be assumed.")
+        .num_args(1)
+        .required(false),
+    )
+    .arg(
+      Arg::new("text_extraction_url")
+        .long("text-extraction-url")
+        .help("Override the configured text extraction service URL for this process.")
+        .num_args(1)
+        .required(false),
+    )
+}
+
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
+  let text_extraction_url = match sub_matches.get_one::<String>("text_extraction_url") {
+    Some(url) if !url.trim().is_empty() => url.clone(),
+    _ => text_extraction_url_from_config(&config)?
+      .ok_or("text_extraction_url must be configured or specified via --text-extraction-url.")?,
+  };
+
+  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
+  let db = Arc::new(Mutex::new(
+    Db::new(&data_dir)
+      .await
+      .map_err(|e| format!("Failed to initialize database: {}", e))?,
+  ));
+
+  let object_store = storage_object::new(
+    &data_dir,
+    config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?,
+    config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE).map_err(|e| e.to_string())?,
+    config.get_string(CONFIG_S3_1_REGION).ok(),
+    config.get_string(CONFIG_S3_1_ENDPOINT).ok(),
+    config.get_string(CONFIG_S3_1_BUCKET).ok(),
+    config.get_string(CONFIG_S3_1_KEY).ok(),
+    config.get_string(CONFIG_S3_1_SECRET).ok(),
+    config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE).map_err(|e| e.to_string())?,
+    config.get_string(CONFIG_S3_2_REGION).ok(),
+    config.get_string(CONFIG_S3_2_ENDPOINT).ok(),
+    config.get_string(CONFIG_S3_2_BUCKET).ok(),
+    config.get_string(CONFIG_S3_2_KEY).ok(),
+    config.get_string(CONFIG_S3_2_SECRET).ok(),
+  )
+  .map_err(|e| format!("Failed to initialize object store: {}", e))?;
+
+  {
+    let mut db = db.lock().await;
+    let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
+    for user_id in all_user_ids {
+      db.item.load_user_items(&user_id, false).await?;
+    }
+  }
+
+  start_text_extraction_processing_loop(data_dir, text_extraction_url.clone(), db, object_store)?;
+  info!("Running text extraction loop using '{}'. Press Ctrl-C to stop.", text_extraction_url);
+  tokio::signal::ctrl_c().await.map_err(|e| format!("Failed waiting for Ctrl-C: {}", e))?;
+  Ok(())
+}
