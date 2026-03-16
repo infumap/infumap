@@ -5,7 +5,6 @@ use log::{error, info};
 use once_cell::sync::OnceCell;
 use reqwest::multipart::{Form, Part};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -34,7 +33,6 @@ struct PdfCandidate {
   user_id: String,
   item_id: String,
   title: String,
-  mime_type: String,
   file_size_bytes: Option<i64>,
   creation_date: i64,
   last_modified_date: i64,
@@ -50,7 +48,6 @@ struct ProcessingState {
 struct PdfToMdResponse {
   success: bool,
   markdown: String,
-  metadata: Value,
   duration_ms: u64,
 }
 
@@ -58,20 +55,8 @@ struct PdfToMdResponse {
 struct TextManifest {
   schema_version: u32,
   status: String,
-  source: TextManifestSource,
   extractor: TextManifestExtractor,
   error: Option<String>,
-  metadata: Option<Value>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct TextManifestSource {
-  user_id: String,
-  item_id: String,
-  file_name: String,
-  mime_type: String,
-  file_size_bytes: Option<i64>,
-  last_modified_date: i64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -124,7 +109,6 @@ pub fn enqueue_pdf_item_if_active(item: &Item) {
     user_id: item.owner_id.clone(),
     item_id: item.id.clone(),
     title: item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)),
-    mime_type: item.mime_type.clone().unwrap_or_else(|| "application/pdf".to_owned()),
     file_size_bytes: item.file_size_bytes,
     creation_date: item.creation_date,
     last_modified_date: item.last_modified_date,
@@ -171,17 +155,19 @@ pub struct FailedPdfInfo {
 
 pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<Vec<FailedPdfInfo>> {
   let mut out = vec![];
-  let pdf_item_ids: Vec<(String, String)> = {
+  let pdf_items: Vec<(String, String, String)> = {
     let db = db.lock().await;
     db.item
       .all_loaded_items()
       .into_iter()
       .filter_map(|iu| db.item.get(&iu.item_id).ok().map(|item| (iu.user_id.clone(), item)))
       .filter(|(_, item)| item.mime_type.as_deref() == Some("application/pdf"))
-      .map(|(user_id, item)| (user_id, item.id.clone()))
+      .map(|(user_id, item)| {
+        (user_id, item.id.clone(), item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)))
+      })
       .collect()
   };
-  for (user_id, item_id) in pdf_item_ids {
+  for (user_id, item_id, file_name) in pdf_items {
     let path = match manifest_path(data_dir, &user_id, &item_id) {
       Ok(p) => p,
       Err(_) => continue,
@@ -200,7 +186,7 @@ pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<
     if manifest.status != "failed" {
       continue;
     }
-    out.push(FailedPdfInfo { user_id, item_id, file_name: manifest.source.file_name, error: manifest.error });
+    out.push(FailedPdfInfo { user_id, item_id, file_name, error: manifest.error });
   }
   Ok(out)
 }
@@ -225,7 +211,6 @@ pub async fn extract_single_item(
       user_id: item.owner_id.clone(),
       item_id: item.id.clone(),
       title: item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)),
-      mime_type: item.mime_type.clone().unwrap_or_else(|| "application/pdf".to_owned()),
       file_size_bytes: item.file_size_bytes,
       creation_date: item.creation_date,
       last_modified_date: item.last_modified_date,
@@ -558,7 +543,6 @@ async fn refill_queue(
         user_id: item.owner_id.clone(),
         item_id: item.id.clone(),
         title: item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)),
-        mime_type: item.mime_type.clone().unwrap_or_else(|| "application/pdf".to_owned()),
         file_size_bytes: item.file_size_bytes,
         creation_date: item.creation_date,
         last_modified_date: item.last_modified_date,
@@ -684,9 +668,7 @@ async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> InfuResult<
     Err(_) => return Ok(ManifestCheckResult::NeedsExtraction),
   };
 
-  let source_matches = manifest.source.item_id == candidate.item_id && manifest.source.user_id == candidate.user_id;
-
-  if !source_matches {
+  if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
     return Ok(ManifestCheckResult::NeedsExtraction);
   }
 
@@ -762,21 +744,12 @@ async fn write_success_artifacts(
   let manifest = TextManifest {
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
-    source: TextManifestSource {
-      user_id: candidate.user_id.clone(),
-      item_id: candidate.item_id.clone(),
-      file_name: candidate.title.clone(),
-      mime_type: candidate.mime_type.clone(),
-      file_size_bytes: candidate.file_size_bytes,
-      last_modified_date: candidate.last_modified_date,
-    },
     extractor: TextManifestExtractor {
       text_extraction_url: text_extraction_url.to_owned(),
       extracted_at_unix_secs: unix_now_secs()?,
       duration_ms: Some(response.duration_ms),
     },
     error: None,
-    metadata: Some(response.metadata),
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
   Ok(())
@@ -799,21 +772,12 @@ async fn write_failed_manifest(
   let manifest = TextManifest {
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "failed".to_owned(),
-    source: TextManifestSource {
-      user_id: candidate.user_id.clone(),
-      item_id: candidate.item_id.clone(),
-      file_name: candidate.title.clone(),
-      mime_type: candidate.mime_type.clone(),
-      file_size_bytes: candidate.file_size_bytes,
-      last_modified_date: candidate.last_modified_date,
-    },
     extractor: TextManifestExtractor {
       text_extraction_url: text_extraction_url.to_owned(),
       extracted_at_unix_secs: unix_now_secs()?,
       duration_ms: None,
     },
     error: Some(error_message.to_owned()),
-    metadata: None,
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
   Ok(())
