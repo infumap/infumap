@@ -204,17 +204,17 @@ pub fn start_text_extraction_processing_loop(
           }
 
           match refill_queue(&data_dir, db.clone(), state.clone()).await {
-            Ok((true, total_pdfs, queued)) => {
+            Ok((true, total, queued, already_succeeded, already_failed)) => {
               info!(
-                "PDF text extraction queue refill: {}/{} manifests checked. Progress: {}",
-                queued, total_pdfs, progress.summary()
+                "PDF text extraction queue refill: {}/{} manifests checked (succeed: {}, failure: {}). Progress: {}",
+                queued, total, already_succeeded, already_failed, progress.summary()
               );
               continue;
             }
-            Ok((false, total_pdfs, queued)) => {
+            Ok((false, total, queued, already_succeeded, already_failed)) => {
               info!(
-                "PDF text extraction queue refill: {}/{} manifests checked. Progress: {}",
-                queued, total_pdfs, progress.summary()
+                "PDF text extraction queue refill: {}/{} manifests checked (success: {}, failure: {}). Progress: {}",
+                queued, total, already_succeeded, already_failed, progress.summary()
               );
               time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
               continue;
@@ -329,7 +329,7 @@ async fn refill_queue(
   data_dir: &str,
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<ProcessingState>>,
-) -> InfuResult<(bool, usize, usize)> {
+) -> InfuResult<(bool, usize, usize, usize, usize)> {
   let candidates = {
     let db = db.lock().await;
     let mut candidates = db
@@ -358,23 +358,29 @@ async fn refill_queue(
     candidates
   };
 
-  let scanned = candidates.len();
+  let total = candidates.len();
   let mut state = state.lock().await;
   state.queue.clear();
   state.queued_item_ids.clear();
+  let mut already_succeeded = 0usize;
+  let mut already_failed = 0usize;
 
   for candidate in candidates {
-    if needs_text_extraction(data_dir, &candidate).await? {
-      enqueue_candidate(&mut state, candidate);
-      if state.queue.len() >= MAX_PENDING_PDFS {
-        break;
+    match manifest_check(data_dir, &candidate).await? {
+      ManifestCheckResult::NeedsExtraction => {
+        enqueue_candidate(&mut state, candidate);
+        if state.queue.len() >= MAX_PENDING_PDFS {
+          break;
+        }
       }
+      ManifestCheckResult::AlreadySucceeded => already_succeeded += 1,
+      ManifestCheckResult::AlreadyFailed => already_failed += 1,
     }
   }
 
   let queued = state.queue.len();
   state.scan_exhausted = state.queue.is_empty();
-  Ok((!state.queue.is_empty(), scanned, queued))
+  Ok((!state.queue.is_empty(), total, queued, already_succeeded, already_failed))
 }
 
 fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
@@ -417,31 +423,44 @@ fn compare_pdf_candidates_desc(a: &PdfCandidate, b: &PdfCandidate) -> std::cmp::
     .then(b.item_id.cmp(&a.item_id))
 }
 
-async fn needs_text_extraction(data_dir: &str, candidate: &PdfCandidate) -> InfuResult<bool> {
+enum ManifestCheckResult {
+  NeedsExtraction,
+  AlreadySucceeded,
+  AlreadyFailed,
+}
+
+async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> InfuResult<ManifestCheckResult> {
   let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let markdown_path = markdown_path(data_dir, &candidate.user_id, &candidate.item_id)?;
 
   if !path_exists(&manifest_path).await {
-    return Ok(true);
+    return Ok(ManifestCheckResult::NeedsExtraction);
   }
 
   let manifest_bytes = fs::read(&manifest_path).await?;
   let manifest: TextManifest = match serde_json::from_slice(&manifest_bytes) {
     Ok(manifest) => manifest,
-    Err(_) => return Ok(true),
+    Err(_) => return Ok(ManifestCheckResult::NeedsExtraction),
   };
 
   let source_matches = manifest.source.item_id == candidate.item_id && manifest.source.user_id == candidate.user_id;
 
   if !source_matches {
-    return Ok(true);
+    return Ok(ManifestCheckResult::NeedsExtraction);
   }
 
-  if manifest.status == "succeeded" && !path_exists(&markdown_path).await {
-    return Ok(true);
+  if manifest.status == "succeeded" {
+    if path_exists(&markdown_path).await {
+      return Ok(ManifestCheckResult::AlreadySucceeded);
+    }
+    return Ok(ManifestCheckResult::NeedsExtraction);
   }
 
-  Ok(false)
+  if manifest.status == "failed" {
+    return Ok(ManifestCheckResult::AlreadyFailed);
+  }
+
+  Ok(ManifestCheckResult::NeedsExtraction)
 }
 
 async fn request_text_extraction(
