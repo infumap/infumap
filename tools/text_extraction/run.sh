@@ -7,6 +7,7 @@ readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${TEXT_EXTRACTION_VENV_DIR:-${MARKER_SERVICE_VENV_DIR:-$ROOT_DIR/.venv}}"
 readonly HOST="${TEXT_EXTRACTION_HOST:-${MARKER_SERVICE_HOST:-127.0.0.1}}"
 readonly PORT="${TEXT_EXTRACTION_PORT:-${MARKER_SERVICE_PORT:-8787}}"
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 fail() {
     echo "Error: $1" >&2
@@ -93,6 +94,7 @@ echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
 echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
+echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 if command -v nvidia-smi >/dev/null 2>&1; then
     echo "Detected GPUs via nvidia-smi:"
     nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true

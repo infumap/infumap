@@ -116,6 +116,16 @@ def summarize_loaded_models(models: dict[str, Any]) -> str:
     return ", ".join(parts) if parts else "<none>"
 
 
+def clear_torch_cuda_cache() -> None:
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     config = build_config()
@@ -170,25 +180,28 @@ def metadata_to_dict(metadata: Any) -> dict[str, Any]:
 
 def convert_file(file_path: str, file_name: str) -> ConvertResponse:
     started_at = time.perf_counter()
-    config_parser = ConfigParser(build_config())
-    converter = PdfConverter(
-        config=config_parser.generate_config_dict(),
-        artifact_dict=APP_STATE["models"],
-        processor_list=config_parser.get_processors(),
-        renderer=config_parser.get_renderer(),
-        llm_service=config_parser.get_llm_service(),
-    )
-    rendered = converter(file_path)
-    markdown, _, _ = text_from_rendered(rendered)
-    duration_ms = int((time.perf_counter() - started_at) * 1000)
+    try:
+        config_parser = ConfigParser(build_config())
+        converter = PdfConverter(
+            config=config_parser.generate_config_dict(),
+            artifact_dict=APP_STATE["models"],
+            processor_list=config_parser.get_processors(),
+            renderer=config_parser.get_renderer(),
+            llm_service=config_parser.get_llm_service(),
+        )
+        rendered = converter(file_path)
+        markdown, _, _ = text_from_rendered(rendered)
+        duration_ms = int((time.perf_counter() - started_at) * 1000)
 
-    return ConvertResponse(
-        success=True,
-        file_name=file_name,
-        markdown=markdown,
-        metadata=metadata_to_dict(rendered.metadata),
-        duration_ms=duration_ms,
-    )
+        return ConvertResponse(
+            success=True,
+            file_name=file_name,
+            markdown=markdown,
+            metadata=metadata_to_dict(rendered.metadata),
+            duration_ms=duration_ms,
+        )
+    finally:
+        clear_torch_cuda_cache()
 
 
 def store_upload(upload: UploadFile) -> str:
