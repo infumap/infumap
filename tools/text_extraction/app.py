@@ -24,6 +24,10 @@ LOGGER = logging.getLogger("uvicorn.error")
 CONVERT_SEMAPHORE: asyncio.Semaphore | None = None
 
 
+class DocumentRejectedError(Exception):
+    pass
+
+
 class ConvertResponse(BaseModel):
     success: bool
     file_name: str
@@ -229,6 +233,11 @@ def metadata_to_dict(metadata: Any) -> dict[str, Any]:
     return {"value": metadata}
 
 
+def is_password_protected_pdf_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "incorrect password" in message or "password error" in message
+
+
 def convert_file(file_path: str, file_name: str) -> ConvertResponse:
     started_at = time.perf_counter()
     file_size_bytes = Path(file_path).stat().st_size
@@ -272,6 +281,15 @@ def convert_file(file_path: str, file_name: str) -> ConvertResponse:
     except Exception as exc:
         duration_ms = int((time.perf_counter() - started_at) * 1000)
         cuda_memory = torch_cuda_memory_summary()
+        if is_password_protected_pdf_error(exc):
+            LOGGER.warning(
+                "Skipping password-protected PDF: file=%s size_bytes=%d duration_ms=%d%s",
+                file_name,
+                file_size_bytes,
+                duration_ms,
+                f" {cuda_memory}" if cuda_memory else "",
+            )
+            raise DocumentRejectedError("Password-protected PDFs are not supported.") from exc
         LOGGER.exception(
             "Conversion failed: file=%s size_bytes=%d duration_ms=%d%s",
             file_name,
@@ -320,6 +338,8 @@ async def convert_upload(file: UploadFile = File(...)) -> ConvertResponse:
             raise HTTPException(status_code=503, detail="Text extraction service is not ready.")
         async with semaphore:
             return await asyncio.to_thread(convert_file, temp_path, file_name)
+    except DocumentRejectedError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as exc:
