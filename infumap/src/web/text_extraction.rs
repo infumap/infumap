@@ -317,13 +317,14 @@ pub fn init_text_extraction_processing_loop(
   };
   let concurrency = text_extraction_concurrency_from_config(config)?;
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  start_text_extraction_processing_loop(data_dir, text_extraction_url, concurrency, db, object_store)
+  start_text_extraction_processing_loop(data_dir, text_extraction_url, concurrency, Duration::ZERO, db, object_store)
 }
 
 pub fn start_text_extraction_processing_loop(
   data_dir: String,
   text_extraction_url: String,
   concurrency: usize,
+  request_delay: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
@@ -346,7 +347,12 @@ pub fn start_text_extraction_processing_loop(
   let progress =
     Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, document_failed: 0, other_failed: 0 }));
 
-  info!("Starting {} text extraction worker(s) using '{}'.", concurrency, text_extraction_url);
+  info!(
+    "Starting {} text extraction worker(s) using '{}' with a {:.3}s delay between requests.",
+    concurrency,
+    text_extraction_url,
+    request_delay.as_secs_f64()
+  );
   for worker_id in 0..concurrency {
     let worker_state = state.clone();
     let worker_db = db.clone();
@@ -355,11 +361,13 @@ pub fn start_text_extraction_processing_loop(
     let worker_progress = progress.clone();
     let worker_data_dir = data_dir.clone();
     let worker_text_extraction_url = text_extraction_url.clone();
+    let worker_request_delay = request_delay;
     let _worker = task::spawn(async move {
       run_text_extraction_worker(
         worker_id + 1,
         worker_data_dir,
         worker_text_extraction_url,
+        worker_request_delay,
         worker_db,
         worker_object_store,
         worker_client,
@@ -377,6 +385,7 @@ async fn run_text_extraction_worker(
   worker_id: usize,
   data_dir: String,
   text_extraction_url: String,
+  request_delay: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   client: reqwest::Client,
@@ -553,6 +562,9 @@ async fn run_text_extraction_worker(
         "PDF '{}' (user {}): item was deleted or replaced while extraction was in progress. Skipping artifact write. {} remaining. {}",
         candidate.item_id, candidate.user_id, queue_remaining, progress_summary
       );
+      if request_delay > Duration::ZERO {
+        time::sleep(request_delay).await;
+      }
       continue;
     }
 
@@ -618,6 +630,9 @@ async fn run_text_extraction_worker(
         );
         time::sleep(Duration::from_secs(ENDPOINT_BACKOFF_SECS)).await;
       }
+    }
+    if request_delay > Duration::ZERO {
+      time::sleep(request_delay).await;
     }
   }
 }

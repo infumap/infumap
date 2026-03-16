@@ -140,6 +140,8 @@ Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--text-extraction-url (optional):** Override the configured `text_extraction_url` for this process.
+- **--text-extraction-concurrency (optional):** Override the configured number of concurrent PDF extraction requests for this process.
+- **--text-extraction-delay-secs (optional):** Sleep for this many seconds after each text extraction request in this process. Defaults to `0`.
 
 
 

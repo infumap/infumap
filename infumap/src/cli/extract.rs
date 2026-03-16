@@ -52,6 +52,13 @@ pub fn make_clap_subcommand() -> Command {
         .required(false),
     )
     .arg(
+      Arg::new("text_extraction_delay_secs")
+        .long("text-extraction-delay-secs")
+        .help("Sleep for this many seconds after each text extraction request in this process.")
+        .num_args(1)
+        .required(false),
+    )
+    .arg(
       Arg::new("list_failed")
         .long("list-failed")
         .help("List all PDFs for which text extraction failed. Exits after listing.")
@@ -107,6 +114,18 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
     None => text_extraction_concurrency_from_config(&config)?,
   };
+  let text_extraction_delay = match sub_matches.get_one::<String>("text_extraction_delay_secs") {
+    Some(value) => {
+      let parsed = value.parse::<f64>().map_err(|e| {
+        format!("Invalid --text-extraction-delay-secs value '{}': {}. Expected a number >= 0.", value, e)
+      })?;
+      if parsed < 0.0 {
+        return Err("--text-extraction-delay-secs must be greater than or equal to 0.".into());
+      }
+      std::time::Duration::from_secs_f64(parsed)
+    }
+    None => std::time::Duration::ZERO,
+  };
   let object_store = storage_object::new(
     &data_dir,
     config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?,
@@ -134,12 +153,15 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     data_dir,
     text_extraction_url.clone(),
     text_extraction_concurrency,
+    text_extraction_delay,
     db,
     object_store,
   )?;
   info!(
-    "Running text extraction loop using '{}' with concurrency {}. Press Ctrl-C to stop.",
-    text_extraction_url, text_extraction_concurrency
+    "Running text extraction loop using '{}' with concurrency {} and delay {:.3}s. Press Ctrl-C to stop.",
+    text_extraction_url,
+    text_extraction_concurrency,
+    text_extraction_delay.as_secs_f64()
   );
   tokio::signal::ctrl_c().await.map_err(|e| format!("Failed waiting for Ctrl-C: {}", e))?;
   Ok(())
