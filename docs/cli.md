@@ -143,6 +143,15 @@ Options:
 - **--text-extraction-concurrency (optional):** Override the configured number of concurrent PDF extraction requests for this process.
 - **--text-extraction-delay-secs (optional):** Sleep for this many seconds after each text extraction request in this process. Defaults to `0`.
 
+### fragments
+
+Build on-disk RAG fragment artifacts without starting the web server. The initial implementation writes fragments from the item `title` field only. This includes note text, since notes store their text in `title`.
+
+Options:
+
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **--item-id (optional):** Build fragments only for this item.
+
 
 
 ## API Commands

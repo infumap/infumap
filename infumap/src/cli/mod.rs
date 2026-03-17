@@ -31,6 +31,7 @@ use crate::web::cookie::InfuSession;
 pub mod compact;
 pub mod emergency;
 pub mod extract;
+pub mod fragments;
 pub mod keygen;
 pub mod login;
 pub mod logout;
