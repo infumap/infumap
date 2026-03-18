@@ -142,6 +142,13 @@ On iPhone:
 
 Any hostname issued by this Caddy internal CA (for example, `infumap.yourdomain.tld` and `grafana.yourdomain.tld`) will be trusted once this root is installed.
 
+For the Infumap CLI, trust the same root certificate on the client machine that runs commands like `login`, `ls`, `note`, and `upload`.
+Recent CLI builds use the native/system trust store, so no extra configuration is needed once that root is installed system-wide.
+If you do not want to install the root into the system trust store, point the CLI at a local copy of the Caddy root certificate instead:
+
+    export INFUMAP_CA_CERT=~/Downloads/root.crt
+    infumap login
+
 ### Keep Access VPN-Only
 
 On the Raspberry Pi, keep inbound `443/tcp` restricted to the WireGuard subnet, as configured in the common guide:

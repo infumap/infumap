@@ -20,6 +20,7 @@ use infusdk::util::infu::InfuResult;
 use crate::web::routes::account::LogoutResponse;
 
 use super::NamedInfuSession;
+use super::build_http_client;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("logout")
@@ -65,18 +66,11 @@ pub async fn logout(session_name: &str) -> InfuResult<()> {
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
   );
+  let client = build_http_client(Some(request_headers)).await?;
 
   let logout_url = named_session.logout_url()?;
 
-  let error_msg = match reqwest::ClientBuilder::new()
-    .default_headers(request_headers.clone())
-    .build()
-    .unwrap()
-    .post(logout_url)
-    .send()
-    .await
-    .map_err(|e| e.to_string())
-  {
+  let error_msg = match client.post(logout_url).send().await.map_err(|e| e.to_string()) {
     Ok(r) => {
       let logout_response: Result<LogoutResponse, String> = r.json().await.map_err(|e| e.to_string());
       match logout_response {

@@ -23,6 +23,7 @@ use serde_json::Map;
 use serde_json::Value;
 
 use crate::cli::NamedInfuSession;
+use crate::cli::build_http_client;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
 
@@ -76,6 +77,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
   );
+  let client = build_http_client(Some(request_headers)).await?;
 
   let mut item: Map<String, Value> = Map::new();
   item.insert("itemType".to_owned(), Value::String(ItemType::Note.as_str().to_owned()));
@@ -92,10 +94,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let add_item_request = serde_json::to_string(&item)?;
   let send_request = CommandRequest { command: "add-item".to_owned(), json_data: add_item_request, base64_data: None };
 
-  let add_item_response: CommandResponse = reqwest::ClientBuilder::new()
-    .default_headers(request_headers.clone())
-    .build()
-    .unwrap()
+  let add_item_response: CommandResponse = client
     .post(named_session.command_url()?.clone())
     .json(&send_request)
     .send()

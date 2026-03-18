@@ -18,6 +18,7 @@ use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
 
 use super::NamedInfuSession;
+use super::build_http_client;
 use crate::web::routes::admin::{ApprovePendingUserRequest, ApprovePendingUserResponse, ListPendingUsersResponse};
 
 pub fn make_clap_subcommand() -> Command {
@@ -73,15 +74,10 @@ pub async fn execute_list<'a>(_sub_matches: &ArgMatches, named_session: &NamedIn
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
   );
+  let client = build_http_client(Some(request_headers)).await?;
 
-  let send_result = reqwest::ClientBuilder::new()
-    .default_headers(request_headers.clone())
-    .build()
-    .unwrap()
-    .post(named_session.list_pending_users_url()?.clone())
-    .send()
-    .await
-    .map_err(|e| e.to_string());
+  let send_result =
+    client.post(named_session.list_pending_users_url()?.clone()).send().await.map_err(|e| e.to_string());
   match send_result {
     Ok(r) => {
       let logout_response: Result<ListPendingUsersResponse, String> = r.json().await.map_err(|e| e.to_string());
@@ -106,6 +102,7 @@ pub async fn execute_approve<'a>(sub_matches: &ArgMatches, named_session: &Named
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
   );
+  let client = build_http_client(Some(request_headers)).await?;
 
   let username = match sub_matches.get_one::<String>("username") {
     Some(u) => u,
@@ -114,10 +111,7 @@ pub async fn execute_approve<'a>(sub_matches: &ArgMatches, named_session: &Named
 
   let approve_request = &ApprovePendingUserRequest { username: username.to_owned() };
 
-  let send_result = reqwest::ClientBuilder::new()
-    .default_headers(request_headers.clone())
-    .build()
-    .unwrap()
+  let send_result = client
     .post(named_session.approve_pending_user_url()?.clone())
     .json(&approve_request)
     .send()

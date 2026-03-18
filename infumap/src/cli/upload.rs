@@ -46,6 +46,7 @@ use crate::web::routes::command::GetItemsMode;
 use crate::web::routes::command::GetItemsRequest;
 
 use super::NamedInfuSession;
+use super::build_http_client;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("upload")
@@ -151,6 +152,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
   );
+  let client = build_http_client(Some(request_headers)).await?;
 
   // Get children of container.
   let get_children_request = serde_json::to_string(&GetItemsRequest {
@@ -160,10 +162,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   .unwrap();
   let send_request =
     CommandRequest { command: "get-items".to_owned(), json_data: get_children_request, base64_data: None };
-  let container_children_response: CommandResponse = reqwest::ClientBuilder::new()
-    .default_headers(request_headers.clone())
-    .build()
-    .unwrap()
+  let container_children_response: CommandResponse = client
     .post(named_session.command_url()?.clone())
     .json(&send_request)
     .send()
@@ -309,14 +308,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     };
 
     loop {
-      let add_item_response = reqwest::ClientBuilder::new()
-        .default_headers(request_headers.clone())
-        .build()
-        .unwrap()
-        .post(named_session.command_url()?.clone())
-        .json(&send_request)
-        .send()
-        .await;
+      let add_item_response = client.post(named_session.command_url()?.clone()).json(&send_request).send().await;
       match add_item_response {
         Ok(r) => {
           let json_response: CommandResponse = r.json().await.map_err(|e| e.to_string())?;

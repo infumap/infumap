@@ -25,6 +25,7 @@ use crate::web::cookie::InfuSession;
 use crate::web::routes::account::{LoginRequest, LoginResponse};
 
 use super::NamedInfuSession;
+use super::build_http_client;
 use super::logout::logout;
 
 pub fn make_clap_subcommand() -> Command {
@@ -83,7 +84,8 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let totp_token = if totp == "" { None } else { Some(totp) };
 
   let login_request = LoginRequest { username: username.clone(), password, totp_token };
-  let login_response: LoginResponse = reqwest::Client::new()
+  let client = build_http_client(None).await?;
+  let login_response: LoginResponse = client
     .post(login_url.clone())
     .json(&login_request)
     .send()

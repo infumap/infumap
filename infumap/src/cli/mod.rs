@@ -44,6 +44,8 @@ pub mod restore;
 pub mod tag_images;
 pub mod upload;
 
+const INFUMAP_CA_CERT_ENV_VAR: &str = "INFUMAP_CA_CERT";
+
 #[derive(Deserialize, Serialize, Clone)]
 pub struct NamedInfuSession {
   pub session: InfuSession,
@@ -128,6 +130,50 @@ impl NamedInfuSession {
     let mut session_file_path = PathBuf::from(cli_dir_path);
     session_file_path.push("sessions.json");
     Ok(session_file_path)
+  }
+}
+
+pub async fn build_http_client(default_headers: Option<reqwest::header::HeaderMap>) -> InfuResult<reqwest::Client> {
+  let mut builder = reqwest::ClientBuilder::new();
+
+  if let Some(headers) = default_headers {
+    builder = builder.default_headers(headers);
+  }
+
+  if let Some(extra_ca_cert_path) = extra_ca_cert_path_from_env()? {
+    let expanded_path = expand_tilde(&extra_ca_cert_path).ok_or(format!(
+      "Could not interpret certificate path from {}='{}'.",
+      INFUMAP_CA_CERT_ENV_VAR, extra_ca_cert_path
+    ))?;
+    let cert_bytes = tokio::fs::read(&expanded_path).await.map_err(|e| {
+      format!("Could not read certificate file from {}='{}': {}", INFUMAP_CA_CERT_ENV_VAR, expanded_path.display(), e)
+    })?;
+    let cert = reqwest::Certificate::from_pem(&cert_bytes)
+      .or_else(|_| reqwest::Certificate::from_der(&cert_bytes))
+      .map_err(|e| {
+        format!(
+          "Could not parse certificate file from {}='{}': {}",
+          INFUMAP_CA_CERT_ENV_VAR,
+          expanded_path.display(),
+          e
+        )
+      })?;
+    builder = builder.add_root_certificate(cert);
+  }
+
+  builder.build().map_err(|e| format!("Could not build HTTP client: {}", e).into())
+}
+
+fn extra_ca_cert_path_from_env() -> InfuResult<Option<String>> {
+  match std::env::var(INFUMAP_CA_CERT_ENV_VAR) {
+    Ok(value) => {
+      let trimmed = value.trim();
+      if trimmed.is_empty() { Ok(None) } else { Ok(Some(trimmed.to_owned())) }
+    }
+    Err(std::env::VarError::NotPresent) => Ok(None),
+    Err(std::env::VarError::NotUnicode(_)) => {
+      Err(format!("Environment variable {} is not valid unicode.", INFUMAP_CA_CERT_ENV_VAR).into())
+    }
   }
 }
 

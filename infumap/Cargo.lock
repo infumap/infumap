@@ -2172,6 +2172,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "rustls 0.22.4",
+ "rustls-native-certs 0.7.3",
  "rustls-pemfile 2.1.2",
  "rustls-pki-types",
  "serde",
@@ -2185,7 +2186,6 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "webpki-roots 0.26.11",
  "winreg",
 ]
 
@@ -2290,7 +2290,7 @@ dependencies = [
  "percent-encoding",
  "quick-xml",
  "rustls 0.21.12",
- "rustls-native-certs",
+ "rustls-native-certs 0.6.3",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2357,6 +2357,19 @@ checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
 dependencies = [
  "openssl-probe",
  "rustls-pemfile 1.0.4",
+ "schannel",
+ "security-framework",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5bfb394eeed242e909609f56089eecfe5fda225042e8b171791b9c95f5931e5"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
  "schannel",
  "security-framework",
 ]
