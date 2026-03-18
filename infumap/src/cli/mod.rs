@@ -26,7 +26,7 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 
 use crate::util::fs::{expand_tilde, path_exists};
-use crate::web::cookie::InfuSession;
+use crate::web::cookie::{InfuSession, SESSION_COOKIE_NAME};
 
 pub mod compact;
 pub mod emergency;
@@ -162,6 +162,15 @@ pub async fn build_http_client(default_headers: Option<reqwest::header::HeaderMa
   }
 
   builder.build().map_err(|e| format!("Could not build HTTP client: {}", e).into())
+}
+
+pub fn build_session_headers(session: &InfuSession) -> InfuResult<reqwest::header::HeaderMap> {
+  let mut request_headers = reqwest::header::HeaderMap::new();
+  let cookie_value = format!("{}={}", SESSION_COOKIE_NAME, session.session_id);
+  let header_value = reqwest::header::HeaderValue::from_str(&cookie_value)
+    .map_err(|e| format!("Could not build session cookie header: {}", e))?;
+  request_headers.insert(reqwest::header::COOKIE, header_value);
+  Ok(request_headers)
 }
 
 fn extra_ca_cert_path_from_env() -> InfuResult<Option<String>> {

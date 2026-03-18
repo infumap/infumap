@@ -22,8 +22,7 @@ use infusdk::util::uid::is_uid;
 use serde_json::Map;
 use serde_json::Value;
 
-use crate::cli::NamedInfuSession;
-use crate::cli::build_http_client;
+use crate::cli::{NamedInfuSession, build_http_client, build_session_headers};
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
 
@@ -71,12 +70,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     None => None,
   };
 
-  let session_cookie_value = serde_json::to_string(&named_session.session)?;
-  let mut request_headers = reqwest::header::HeaderMap::new();
-  request_headers.insert(
-    reqwest::header::COOKIE,
-    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
-  );
+  let request_headers = build_session_headers(&named_session.session)?;
   let client = build_http_client(Some(request_headers)).await?;
 
   let mut item: Map<String, Value> = Map::new();

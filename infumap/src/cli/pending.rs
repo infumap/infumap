@@ -17,8 +17,7 @@
 use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
 
-use super::NamedInfuSession;
-use super::build_http_client;
+use super::{NamedInfuSession, build_http_client, build_session_headers};
 use crate::web::routes::admin::{ApprovePendingUserRequest, ApprovePendingUserResponse, ListPendingUsersResponse};
 
 pub fn make_clap_subcommand() -> Command {
@@ -68,12 +67,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 }
 
 pub async fn execute_list<'a>(_sub_matches: &ArgMatches, named_session: &NamedInfuSession) -> InfuResult<()> {
-  let session_cookie_value = serde_json::to_string(&named_session.session)?;
-  let mut request_headers = reqwest::header::HeaderMap::new();
-  request_headers.insert(
-    reqwest::header::COOKIE,
-    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
-  );
+  let request_headers = build_session_headers(&named_session.session)?;
   let client = build_http_client(Some(request_headers)).await?;
 
   let send_result =
@@ -96,12 +90,7 @@ pub async fn execute_list<'a>(_sub_matches: &ArgMatches, named_session: &NamedIn
 }
 
 pub async fn execute_approve<'a>(sub_matches: &ArgMatches, named_session: &NamedInfuSession) -> InfuResult<()> {
-  let session_cookie_value = serde_json::to_string(&named_session.session)?;
-  let mut request_headers = reqwest::header::HeaderMap::new();
-  request_headers.insert(
-    reqwest::header::COOKIE,
-    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap(),
-  );
+  let request_headers = build_session_headers(&named_session.session)?;
   let client = build_http_client(Some(request_headers)).await?;
 
   let username = match sub_matches.get_one::<String>("username") {
