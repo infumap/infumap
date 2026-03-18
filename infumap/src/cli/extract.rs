@@ -19,6 +19,8 @@ use crate::web::text_extraction::{
   text_extraction_concurrency_from_config, text_extraction_url_from_config,
 };
 
+const CLI_ENDPOINT_BACKOFF_SECS: u64 = 10;
+
 pub fn make_clap_subcommand() -> Command {
   Command::new("extract")
     .about("Run the text extraction processing loop without starting the web server.")
@@ -154,6 +156,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     text_extraction_url.clone(),
     text_extraction_concurrency,
     text_extraction_delay,
+    std::time::Duration::from_secs(CLI_ENDPOINT_BACKOFF_SECS),
     db,
     object_store,
   )?;

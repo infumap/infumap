@@ -19,7 +19,7 @@ use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
 
 const IDLE_POLL_SECS: u64 = 60;
-const ENDPOINT_BACKOFF_SECS: u64 = 5 * 60;
+const DEFAULT_ENDPOINT_BACKOFF_SECS: u64 = 5 * 60;
 const REQUEST_TIMEOUT_SECS: u64 = 4 * 60 * 60;
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const MAX_PENDING_PDFS: usize = 50;
@@ -317,7 +317,15 @@ pub fn init_text_extraction_processing_loop(
   };
   let concurrency = text_extraction_concurrency_from_config(config)?;
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  start_text_extraction_processing_loop(data_dir, text_extraction_url, concurrency, Duration::ZERO, db, object_store)
+  start_text_extraction_processing_loop(
+    data_dir,
+    text_extraction_url,
+    concurrency,
+    Duration::ZERO,
+    Duration::from_secs(DEFAULT_ENDPOINT_BACKOFF_SECS),
+    db,
+    object_store,
+  )
 }
 
 pub fn start_text_extraction_processing_loop(
@@ -325,6 +333,7 @@ pub fn start_text_extraction_processing_loop(
   text_extraction_url: String,
   concurrency: usize,
   request_delay: Duration,
+  endpoint_backoff: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
@@ -362,12 +371,14 @@ pub fn start_text_extraction_processing_loop(
     let worker_data_dir = data_dir.clone();
     let worker_text_extraction_url = text_extraction_url.clone();
     let worker_request_delay = request_delay;
+    let worker_endpoint_backoff = endpoint_backoff;
     let _worker = task::spawn(async move {
       run_text_extraction_worker(
         worker_id + 1,
         worker_data_dir,
         worker_text_extraction_url,
         worker_request_delay,
+        worker_endpoint_backoff,
         worker_db,
         worker_object_store,
         worker_client,
@@ -386,6 +397,7 @@ async fn run_text_extraction_worker(
   data_dir: String,
   text_extraction_url: String,
   request_delay: Duration,
+  endpoint_backoff: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   client: reqwest::Client,
@@ -625,16 +637,32 @@ async fn run_text_extraction_worker(
           progress.summary()
         };
         info!(
-          "Worker {}: text extraction endpoint '{}' is unavailable ({}). Pausing PDF text extraction for 5 minutes. Progress: {}",
-          worker_id, text_extraction_url, message, progress_summary
+          "Worker {}: text extraction endpoint '{}' is unavailable ({}). Pausing PDF text extraction for {}. Progress: {}",
+          worker_id,
+          text_extraction_url,
+          message,
+          format_duration_for_log(endpoint_backoff),
+          progress_summary
         );
-        time::sleep(Duration::from_secs(ENDPOINT_BACKOFF_SECS)).await;
+        time::sleep(endpoint_backoff).await;
       }
     }
     if request_delay > Duration::ZERO {
       time::sleep(request_delay).await;
     }
   }
+}
+
+fn format_duration_for_log(duration: Duration) -> String {
+  if duration.subsec_nanos() == 0 {
+    let secs = duration.as_secs();
+    if secs >= 60 && secs % 60 == 0 {
+      let minutes = secs / 60;
+      return if minutes == 1 { "1 minute".to_owned() } else { format!("{} minutes", minutes) };
+    }
+    return if secs == 1 { "1 second".to_owned() } else { format!("{} seconds", secs) };
+  }
+  format!("{:.3} seconds", duration.as_secs_f64())
 }
 
 async fn refill_queue_if_needed(
