@@ -41,6 +41,7 @@ pub mod note;
 pub mod pending;
 pub mod reconcile;
 pub mod restore;
+pub mod tag_images;
 pub mod upload;
 
 #[derive(Deserialize, Serialize, Clone)]

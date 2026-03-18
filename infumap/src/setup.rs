@@ -300,6 +300,19 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
     CONFIG_TEXT_EXTRACTION_CONCURRENCY,
     config.get_int(CONFIG_TEXT_EXTRACTION_CONCURRENCY).map_err(|e| e.to_string())?
   );
+  match config.get_string(CONFIG_IMAGE_TAGGING_URL) {
+    Ok(v) => {
+      info!(" {} = '{}'", CONFIG_IMAGE_TAGGING_URL, v);
+    }
+    Err(_) => {
+      info!(" {} = {}", CONFIG_IMAGE_TAGGING_URL, "<not set>");
+    }
+  }
+  info!(
+    " {} = {}",
+    CONFIG_IMAGE_TAGGING_CONCURRENCY,
+    config.get_int(CONFIG_IMAGE_TAGGING_CONCURRENCY).map_err(|e| e.to_string())?
+  );
   info!(" {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB).map_err(|e| e.to_string())?);
   info!(
     " {} = {}",
@@ -502,6 +515,9 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
   if result.get_int(CONFIG_TEXT_EXTRACTION_CONCURRENCY).map_err(|e| e.to_string())? < 1 {
     return Err(format!("{} must be at least 1.", CONFIG_TEXT_EXTRACTION_CONCURRENCY).into());
   }
+  if result.get_int(CONFIG_IMAGE_TAGGING_CONCURRENCY).map_err(|e| e.to_string())? < 1 {
+    return Err(format!("{} must be at least 1.", CONFIG_IMAGE_TAGGING_CONCURRENCY).into());
+  }
 
   return Ok(result);
 }
@@ -530,6 +546,8 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_TEXT_EXTRACTION_CONCURRENCY, CONFIG_TEXT_EXTRACTION_CONCURRENCY_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_IMAGE_TAGGING_CONCURRENCY, CONFIG_IMAGE_TAGGING_CONCURRENCY_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_CACHE_MAX_MB, CONFIG_CACHE_MAX_MB_DEFAULT)
       .map_err(|e| e.to_string())?

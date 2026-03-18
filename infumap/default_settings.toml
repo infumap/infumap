@@ -67,6 +67,15 @@
 # Increase this only if the service host has enough CPU/GPU/memory to benefit.
 #text_extraction_concurrency = 1
 
+# Optional URL for the external image tagging service. If set, Infumap will run a
+# background loop that tags supported image items and stores the JSON results
+# under each user's image_tags directory in the data directory.
+#image_tagging_url = "http://127.0.0.1:8788/tag"
+
+# Maximum number of images to send to the image tagging service concurrently.
+# Increase this only if the service host has enough CPU/GPU/memory to benefit.
+#image_tagging_concurrency = 1
+
 # Maximum aggregate size (in megabytes) of all files in the cache. Files are
 # removed using an LRU policy if this size is exceeded.
 #cache_max_mb = 500

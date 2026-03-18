@@ -152,6 +152,20 @@ Options:
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--item-id (optional):** Build fragments only for this item.
 
+### tag-images
+
+Run the image tagging processing loop without starting the web server. This command will load items, initialize the configured object store, and then continuously call the external image tagging service for supported image items that do not yet have image-tag artifacts.
+
+Options:
+
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **--image-tagging-url (optional):** Override the configured `image_tagging_url` for this process.
+- **--image-tagging-concurrency (optional):** Override the configured number of concurrent image tagging requests for this process.
+- **--image-tagging-delay-secs (optional):** Sleep for this many seconds after each image tagging request in this process. Defaults to `0`.
+- **--item-id (optional):** Tag only this item. The item must have a supported image MIME type.
+- **--container-id (optional):** Tag only supported images within this container subtree, then exit after the finite batch completes.
+- **--list-failed (optional):** List supported images for which image tagging previously failed, then exit.
+
 
 
 ## API Commands

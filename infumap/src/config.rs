@@ -46,6 +46,9 @@ pub const CONFIG_CACHE_DIR_DEFAULT: &'static str = "~/.infumap/cache";
 pub const CONFIG_TEXT_EXTRACTION_URL: &'static str = "text_extraction_url";
 pub const CONFIG_TEXT_EXTRACTION_CONCURRENCY: &'static str = "text_extraction_concurrency";
 pub const CONFIG_TEXT_EXTRACTION_CONCURRENCY_DEFAULT: u32 = 1;
+pub const CONFIG_IMAGE_TAGGING_URL: &'static str = "image_tagging_url";
+pub const CONFIG_IMAGE_TAGGING_CONCURRENCY: &'static str = "image_tagging_concurrency";
+pub const CONFIG_IMAGE_TAGGING_CONCURRENCY_DEFAULT: u32 = 1;
 
 pub const CONFIG_CACHE_MAX_MB: &'static str = "cache_max_mb";
 pub const CONFIG_CACHE_MAX_MB_DEFAULT: u64 = 500;

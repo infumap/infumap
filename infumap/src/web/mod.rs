@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 mod dist_handlers;
+pub mod image_tagging;
 mod prometheus;
 mod serve;
 pub mod text_extraction;
@@ -54,6 +55,7 @@ use crate::tokiort::TokioIo;
 use crate::util::crypto::{decrypt_file_data, encrypt_file_data};
 use crate::util::fs::expand_tilde;
 
+use self::image_tagging::init_image_tagging_processing_loop;
 use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
 use self::text_extraction::init_text_extraction_processing_loop;
@@ -240,6 +242,7 @@ pub async fn start_server_with_options(
   }
 
   init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone())?;
+  init_image_tagging_processing_loop(config.as_ref(), db.clone(), object_store.clone())?;
 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {
     let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
