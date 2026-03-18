@@ -24,6 +24,10 @@ function fileUrl(host: string, itemId: string): string {
   return new URL(`/files/${itemId}`, host).href;
 }
 
+function fileTextUrl(host: string, itemId: string): string {
+  return new URL(`/files/${itemId}/text`, host).href;
+}
+
 async function fetchRemoteFileBlob(host: string, itemId: string): Promise<Blob> {
   const headers: Record<string, string> = {};
   appendRemoteSessionHeader(host, headers);
@@ -72,6 +76,37 @@ export async function openRemoteFileInNewTab(host: string, itemId: string): Prom
   const popup = window.open("", "_blank", "noopener");
   try {
     const blob = await fetchRemoteFileBlob(host, itemId);
+    const objectUrl = URL.createObjectURL(blob);
+    cleanupObjectUrl(objectUrl);
+    if (popup) {
+      popup.location.href = objectUrl;
+    } else {
+      window.open(objectUrl, "_blank", "noopener");
+    }
+  } catch (e) {
+    if (popup) {
+      popup.close();
+    }
+    throw e;
+  }
+}
+
+export async function openRemoteItemTextInNewTab(host: string, itemId: string): Promise<void> {
+  const popup = window.open("", "_blank", "noopener");
+  try {
+    const headers: Record<string, string> = {};
+    appendRemoteSessionHeader(host, headers);
+    const response = await fetch(fileTextUrl(host, itemId), {
+      method: "GET",
+      headers,
+    });
+    applyRotatedRemoteSessionHeader(host, response);
+
+    if (!response.ok || response.status !== 200) {
+      throw new Error(`Text fetch request failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
     const objectUrl = URL.createObjectURL(blob);
     cleanupObjectUrl(objectUrl);
     if (popup) {

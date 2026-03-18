@@ -38,6 +38,7 @@ import QRCode from "qrcode";
 import { asFlipCardItem, isFlipCard } from "../../items/flipcard-item";
 import { isImage, asImageItem } from "../../items/image-item";
 import { isFile, asFileItem } from "../../items/file-item";
+import { openRemoteItemTextInNewTab } from "../../util/remoteFile";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -344,6 +345,20 @@ export const Toolbar_Popup: Component = () => {
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
+  const openItemTextClickHandler = (): void => {
+    const currentItem = store.history.getFocusItem();
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    if (currentItem.origin != null) {
+      void openRemoteItemTextInNewTab(currentItem.origin, currentItem.id).catch((e) => {
+        console.error(`Could not open text for remote item '${currentItem.id}' from '${currentItem.origin}':`, e);
+        store.overlay.toolbarTransientMessage.set({ text: "could not open text", type: TransientMessageType.Error });
+        setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1500);
+      });
+      return;
+    }
+    window.open(`/files/${currentItem.id}/text`, "_blank", "noopener");
+  }
+
   const handleAutoClick = (): void => {
     const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
     textElement!.value = aspect;
@@ -500,6 +515,12 @@ export const Toolbar_Popup: Component = () => {
                 <span class="font-mono text-slate-400">Composite Id:</span><br />
                 <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
                 <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyCompositeIdClickHandler} />
+              </div>
+            </Show>
+            <Show when={isFile(store.history.getFocusItem()) || isImage(store.history.getFocusItem())}>
+              <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
+                <span class="font-mono text-slate-400">Text:</span>
+                <span class="ml-2 text-blue-700 cursor-pointer hover:underline" onClick={openItemTextClickHandler}>view</span>
               </div>
             </Show>
             <Show when={isPage(store.history.getFocusItem()) || isTable(store.history.getFocusItem())}>

@@ -25,8 +25,11 @@ use infusdk::util::infu::InfuResult;
 use log::debug;
 use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
+use serde::Deserialize;
 use std::io::Cursor;
+use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::config::{
@@ -36,6 +39,7 @@ use crate::storage::cache as storage_cache;
 use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
+use crate::util::fs::expand_tilde;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
 use crate::web::serve::{cors_response, full_body, internal_server_error_response, not_found_response};
 use crate::web::session::get_and_validate_session;
@@ -54,12 +58,19 @@ const LABEL_MISS_ORIG: &'static str = "miss_orig";
 const LABEL_MISS_CREATE: &'static str = "miss";
 const LABEL_FULL: &'static str = "full";
 const LABEL_FAILED: &'static str = "failed";
+const TEXT_NOT_AVAILABLE_MESSAGE: &str = "[text not available]";
 
 // 90 => very high-quality with significant reduction in file size.
 // 80 => almost no loss of quality.
 // 75 and below => starting to see significant loss in quality.
 // TODO (LOW): Make this configurable.
 const JPEG_QUALITY: u8 = 80;
+
+#[derive(Deserialize)]
+struct ItemTextManifest {
+  status: String,
+  content_mime_type: String,
+}
 
 fn is_safe_inline_mime(mime_type: &str) -> bool {
   let mime_type = mime_type.to_ascii_lowercase();
@@ -165,7 +176,18 @@ pub async fn serve_files_route(
 
   let name = &req.uri().path()[7..];
 
-  if name.contains("_") {
+  if let Some(uid) = name.strip_suffix("/text") {
+    if uid.is_empty() || uid.contains('/') {
+      return not_found_response();
+    }
+    match get_item_text(db, &session_user_id_maybe, uid).await {
+      Ok(text_response) => text_response,
+      Err(e) => {
+        METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
+        internal_server_error_response(&format!("get_item_text failed: {}", e))
+      }
+    }
+  } else if name.contains("_") {
     match get_cached_resized_img(config, db, object_store, image_cache, &session_user_id_maybe, name).await {
       Ok(img_response) => img_response,
       Err(e) => {
@@ -430,6 +452,94 @@ async fn get_file(
       .body(full_body(data))
       .unwrap(),
   )
+}
+
+async fn get_item_text(
+  db: &Arc<Mutex<Db>>,
+  session_user_id_maybe: &Option<String>,
+  uid: &str,
+) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
+  let (item, data_dir) = {
+    let db = db.lock().await;
+    let item = db.item.get(&String::from(uid))?.clone();
+    authorize_item(&db, &item, session_user_id_maybe, 0)?;
+    (item, db.item.data_dir().to_owned())
+  };
+
+  let manifest_path = item_text_manifest_path(&data_dir, &item.owner_id, uid)?;
+  let manifest_bytes = match fs::read(&manifest_path).await {
+    Ok(bytes) => bytes,
+    Err(_) => return Ok(text_not_available_response()),
+  };
+  let manifest: ItemTextManifest = match serde_json::from_slice(&manifest_bytes) {
+    Ok(manifest) => manifest,
+    Err(_) => return Ok(text_not_available_response()),
+  };
+  if manifest.status != "succeeded" {
+    return Ok(text_not_available_response());
+  }
+
+  let text_path = item_text_path(&data_dir, &item.owner_id, uid)?;
+  let data = match fs::read(&text_path).await {
+    Ok(bytes) => bytes,
+    Err(_) => return Ok(text_not_available_response()),
+  };
+
+  let filename = item_text_filename(uid, &manifest.content_mime_type);
+  let (content_type, content_disposition) = response_content_headers(&filename, &manifest.content_mime_type);
+
+  Ok(
+    Response::builder()
+      .header(hyper::header::CONTENT_TYPE, content_type)
+      .header("Content-Disposition", content_disposition)
+      .header("X-Content-Type-Options", "nosniff")
+      .header(hyper::header::CACHE_CONTROL, "no-cache")
+      .body(full_body(data))
+      .unwrap(),
+  )
+}
+
+fn text_not_available_response() -> Response<BoxBody<Bytes, hyper::Error>> {
+  Response::builder()
+    .header(hyper::header::CONTENT_TYPE, "text/plain; charset=utf-8")
+    .header("Content-Disposition", content_disposition_header("text", true))
+    .header("X-Content-Type-Options", "nosniff")
+    .header(hyper::header::CACHE_CONTROL, "no-cache")
+    .body(full_body(TEXT_NOT_AVAILABLE_MESSAGE))
+    .unwrap()
+}
+
+fn item_text_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = item_text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_manifest.json", item_id));
+  Ok(path)
+}
+
+fn item_text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = item_text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_text", item_id));
+  Ok(path)
+}
+
+fn item_text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  if item_id.len() < 2 {
+    return Err(format!("Item id '{}' is too short.", item_id).into());
+  }
+  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  path.push(format!("user_{}", user_id));
+  path.push("text");
+  path.push(&item_id[..2]);
+  Ok(path)
+}
+
+fn item_text_filename(uid: &str, content_mime_type: &str) -> String {
+  let extension = match content_mime_type {
+    "text/markdown" => ".md",
+    "application/json" => ".json",
+    "text/plain" => ".txt",
+    _ => "",
+  };
+  format!("{}_text{}", uid, extension)
 }
 
 fn calc_cache_control(max_age: i64) -> String {
