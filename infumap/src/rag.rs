@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use infusdk::item::{Item, ItemType};
+use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -10,17 +10,19 @@ use tokio::fs;
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
 
 const FRAGMENTS_SCHEMA_VERSION: u32 = 1;
-const TITLE_FRAGMENTER_VERSION: &str = "title-v1";
+const FRAGMENTER_VERSION: &str = "fragments-v1";
 
 #[derive(Clone, Copy)]
-enum FragmentSourceKind {
+pub enum FragmentSourceKind {
   ItemTitle,
+  CompositeChildTitles,
 }
 
 impl FragmentSourceKind {
   fn as_str(&self) -> &'static str {
     match self {
       FragmentSourceKind::ItemTitle => "item_title",
+      FragmentSourceKind::CompositeChildTitles => "composite_child_titles",
     }
   }
 }
@@ -61,32 +63,21 @@ struct FragmentsManifest {
   fragment_count: usize,
 }
 
-pub async fn build_title_fragments_for_item(
+pub async fn build_fragments_for_item(
   data_dir: &str,
   item: &Item,
+  source_kind: FragmentSourceKind,
+  source_text: &str,
   container_title: Option<String>,
 ) -> InfuResult<FragmentBuildOutcome> {
-  if item.item_type == ItemType::Link
-    || item.item_type == ItemType::Rating
-    || item.item_type == ItemType::Expression
-    || item.item_type == ItemType::Password
-    || item.item_type == ItemType::Page
-    || item.item_type == ItemType::Table
-  {
+  let source_text = source_text.trim();
+  if source_text.is_empty() {
     let cleared = clear_item_rag_dir(data_dir, &item.owner_id, &item.id).await?;
     return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
   }
-
-  let title = match item.title.as_deref().map(|v| v.trim()) {
-    Some(v) if !v.is_empty() => v,
-    _ => {
-      let cleared = clear_item_rag_dir(data_dir, &item.owner_id, &item.id).await?;
-      return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
-    }
-  };
   let fragment_text = match container_title.as_deref().map(|v| v.trim()) {
-    Some(container_title) if !container_title.is_empty() => format!("## {}\n\n{}", container_title, title),
-    _ => title.to_owned(),
+    Some(container_title) if !container_title.is_empty() => format!("## {}\n\n{}", container_title, source_text),
+    _ => source_text.to_owned(),
   };
 
   ensure_user_rag_dir(data_dir, &item.owner_id).await?;
@@ -96,7 +87,6 @@ pub async fn build_title_fragments_for_item(
   let manifest_path = fragments_manifest_path(data_dir, &item.owner_id, &item.id)?;
 
   let source_text_sha256 = sha256_hex(&fragment_text);
-  let source_kind = FragmentSourceKind::ItemTitle;
   let record = FragmentRecord {
     ordinal: 0,
     item_id: item.id.clone(),
@@ -104,7 +94,7 @@ pub async fn build_title_fragments_for_item(
     source_item_creation_date: None,
     source_kind: source_kind.as_str().to_owned(),
     text: fragment_text,
-    fragmenter_version: TITLE_FRAGMENTER_VERSION.to_owned(),
+    fragmenter_version: FRAGMENTER_VERSION.to_owned(),
   };
   let mut serialized = serde_json::to_vec(&record)?;
   serialized.push(b'\n');
@@ -112,7 +102,7 @@ pub async fn build_title_fragments_for_item(
 
   let manifest = FragmentsManifest {
     schema_version: FRAGMENTS_SCHEMA_VERSION,
-    fragmenter_version: TITLE_FRAGMENTER_VERSION.to_owned(),
+    fragmenter_version: FRAGMENTER_VERSION.to_owned(),
     source_kind: source_kind.as_str().to_owned(),
     source_text_sha256,
     generated_at_unix_secs: unix_now_secs()?,
@@ -121,6 +111,11 @@ pub async fn build_title_fragments_for_item(
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
 
   Ok(FragmentBuildOutcome { wrote_fragments: true, fragment_count: 1, cleared_existing_fragments: false })
+}
+
+pub async fn clear_fragments_for_item(data_dir: &str, item: &Item) -> InfuResult<FragmentBuildOutcome> {
+  let cleared = clear_item_rag_dir(data_dir, &item.owner_id, &item.id).await?;
+  Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() })
 }
 
 fn sha256_hex(text: &str) -> String {

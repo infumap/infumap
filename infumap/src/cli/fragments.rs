@@ -1,15 +1,17 @@
+use std::cmp::Ordering;
 use std::sync::Arc;
 
 use clap::{Arg, ArgMatches, Command};
-use infusdk::item::{Item, RelationshipToParent};
+use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::infu::InfuResult;
 use log::info;
 use tokio::sync::Mutex;
 
 use crate::config::CONFIG_DATA_DIR;
-use crate::rag::build_title_fragments_for_item;
+use crate::rag::{FragmentSourceKind, build_fragments_for_item, clear_fragments_for_item};
 use crate::setup::get_config;
 use crate::storage::db::Db;
+use crate::util::ordering::compare_orderings;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("fragments")
@@ -59,11 +61,23 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut fragments_written = 0usize;
 
   for item in items {
-    let container_title = {
+    let fragment_source = {
       let db = db.lock().await;
-      container_title_for_item(&db, &item)
+      fragment_source_for_item(&db, &item)
     };
-    let outcome = build_title_fragments_for_item(&data_dir, &item, container_title).await?;
+    let outcome = match fragment_source {
+      Some(fragment_source) => {
+        build_fragments_for_item(
+          &data_dir,
+          &item,
+          fragment_source.source_kind,
+          &fragment_source.source_text,
+          fragment_source.container_title,
+        )
+        .await?
+      }
+      None => clear_fragments_for_item(&data_dir, &item).await?,
+    };
     if outcome.wrote_fragments {
       items_with_fragments += 1;
       fragments_written += outcome.fragment_count;
@@ -73,11 +87,73 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   info!(
-    "Built title fragments for {} item(s), wrote {} fragment(s), cleared {} empty item artifact dir(s).",
+    "Built RAG fragments for {} item(s), wrote {} fragment(s), cleared {} empty item artifact dir(s).",
     items_with_fragments, fragments_written, items_cleared
   );
 
   Ok(())
+}
+
+struct FragmentSource {
+  source_kind: FragmentSourceKind,
+  source_text: String,
+  container_title: Option<String>,
+}
+
+fn fragment_source_for_item(db: &Db, item: &Item) -> Option<FragmentSource> {
+  if item.item_type == ItemType::Link
+    || item.item_type == ItemType::Rating
+    || item.item_type == ItemType::Expression
+    || item.item_type == ItemType::Password
+    || item.item_type == ItemType::Page
+    || item.item_type == ItemType::Table
+  {
+    return None;
+  }
+  if is_child_of_composite(db, item) {
+    return None;
+  }
+
+  let container_title = container_title_for_item(db, item);
+  if item.item_type == ItemType::Composite {
+    let source_text = composite_child_titles(db, item)?;
+    return Some(FragmentSource {
+      source_kind: FragmentSourceKind::CompositeChildTitles,
+      source_text,
+      container_title,
+    });
+  }
+
+  let source_text = item.title.as_deref().map(str::trim).filter(|title| !title.is_empty())?.to_owned();
+  Some(FragmentSource { source_kind: FragmentSourceKind::ItemTitle, source_text, container_title })
+}
+
+fn is_child_of_composite(db: &Db, item: &Item) -> bool {
+  if item.relationship_to_parent != RelationshipToParent::Child {
+    return false;
+  }
+  let Some(parent_id) = item.parent_id.as_ref() else {
+    return false;
+  };
+  db.item.get(parent_id).map(|parent| parent.item_type == ItemType::Composite).unwrap_or(false)
+}
+
+fn composite_child_titles(db: &Db, item: &Item) -> Option<String> {
+  let mut children = db.item.get_children(&item.id).ok()?;
+  children.sort_by(|a, b| match compare_orderings(&a.ordering, &b.ordering) {
+    -1 => Ordering::Less,
+    1 => Ordering::Greater,
+    _ => Ordering::Equal,
+  });
+
+  let child_titles = children
+    .into_iter()
+    .filter_map(|child| child.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).map(str::to_owned))
+    .collect::<Vec<String>>();
+  if child_titles.is_empty() {
+    return None;
+  }
+  Some(child_titles.join("\n"))
 }
 
 fn container_title_for_item(db: &Db, item: &Item) -> Option<String> {
