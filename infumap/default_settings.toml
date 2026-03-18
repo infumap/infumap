@@ -65,7 +65,7 @@
 
 # Optional URL for the external image tagging service. If set, Infumap will run a
 # background loop that tags supported image items and stores the JSON results
-# under each user's image_tags directory in the data directory.
+# under each user's text directory in the data directory.
 #image_tagging_url = "http://127.0.0.1:8788/tag"
 
 # Maximum aggregate size (in megabytes) of all files in the cache. Files are

@@ -27,6 +27,8 @@ const REFILL_WHEN_QUEUE_AT_MOST: usize = 25;
 const LARGE_PDF_SIZE_BYTES: i64 = 25 * 1024 * 1024;
 const REFILL_WAIT_MILLIS: u64 = 1000;
 const DEFAULT_BACKGROUND_CONCURRENCY: usize = 1;
+const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
+const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -71,6 +73,8 @@ struct PdfToMdResponse {
 struct TextManifest {
   schema_version: u32,
   status: String,
+  source_mime_type: String,
+  content_mime_type: String,
   extractor: TextManifestExtractor,
   error: Option<String>,
 }
@@ -828,18 +832,17 @@ async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &PdfCandidate) -
   Ok(
     item.owner_id == candidate.user_id
       && item.creation_date == candidate.creation_date
-      && item.mime_type.as_deref() == Some("application/pdf"),
+      && item.mime_type.as_deref() == Some(PDF_SOURCE_MIME_TYPE),
   )
 }
 
 async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> InfuResult<ManifestCheckResult> {
   let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let markdown_path = markdown_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
 
   if !path_exists(&manifest_path).await {
     return Ok(ManifestCheckResult::NeedsExtraction);
   }
-
   let manifest_bytes = fs::read(&manifest_path).await?;
   let manifest: TextManifest = match serde_json::from_slice(&manifest_bytes) {
     Ok(manifest) => manifest,
@@ -851,7 +854,7 @@ async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> InfuResult<
   }
 
   if manifest.status == "succeeded" {
-    if path_exists(&markdown_path).await {
+    if path_exists(&text_path).await {
       return Ok(ManifestCheckResult::AlreadySucceeded);
     }
     return Ok(ManifestCheckResult::NeedsExtraction);
@@ -914,14 +917,14 @@ async fn write_success_artifacts(
   response: PdfToMdResponse,
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
-  let markdown_path = markdown_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let item_dir = item_text_dir(data_dir, &candidate.user_id, &candidate.item_id)?;
-  fs::create_dir_all(&item_dir).await?;
-  fs::write(&markdown_path, response.markdown.as_bytes()).await?;
+  fs::write(&text_path, response.markdown.as_bytes()).await?;
   let manifest = TextManifest {
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
+    source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
+    content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
     extractor: TextManifestExtractor {
       text_extraction_url: text_extraction_url.to_owned(),
       extracted_at_unix_secs: unix_now_secs()?,
@@ -940,16 +943,16 @@ async fn write_failed_manifest(
   error_message: &str,
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
-  let item_dir = item_text_dir(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let markdown_path = markdown_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  fs::create_dir_all(&item_dir).await?;
-  if path_exists(&markdown_path).await {
-    fs::remove_file(&markdown_path).await?;
+  if path_exists(&text_path).await {
+    fs::remove_file(&text_path).await?;
   }
   let manifest = TextManifest {
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "failed".to_owned(),
+    source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
+    content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
     extractor: TextManifestExtractor {
       text_extraction_url: text_extraction_url.to_owned(),
       extracted_at_unix_secs: unix_now_secs()?,
@@ -961,32 +964,35 @@ async fn write_failed_manifest(
   Ok(())
 }
 
-fn markdown_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_text_dir(data_dir, user_id, item_id)?;
-  path.push("stage1.md");
+fn text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_text", item_id));
   Ok(path)
 }
 
 fn manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_text_dir(data_dir, user_id, item_id)?;
-  path.push("manifest.json");
+  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_manifest.json", item_id));
   Ok(path)
 }
 
-fn item_text_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+fn text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   if item_id.len() < 2 {
     return Err(format!("Item id '{}' is too short.", item_id).into());
   }
   let mut text_dir = user_text_dir(data_dir, user_id)?;
   text_dir.push(&item_id[..2]);
-  text_dir.push(item_id);
   Ok(text_dir)
 }
 
 async fn clear_item_text_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
-  let dir = item_text_dir(data_dir, user_id, item_id)?;
-  if path_exists(&dir).await {
-    fs::remove_dir_all(&dir).await?;
+  let manifest_path = manifest_path(data_dir, user_id, item_id)?;
+  let text_path = text_path(data_dir, user_id, item_id)?;
+  if path_exists(&manifest_path).await {
+    fs::remove_file(&manifest_path).await?;
+  }
+  if path_exists(&text_path).await {
+    fs::remove_file(&text_path).await?;
   }
   Ok(())
 }

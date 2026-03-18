@@ -29,6 +29,7 @@ const LARGE_IMAGE_SIZE_BYTES: i64 = 10 * 1024 * 1024;
 const REFILL_WAIT_MILLIS: u64 = 1000;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
 const DEFAULT_BACKGROUND_CONCURRENCY: usize = 1;
+const JSON_CONTENT_MIME_TYPE: &str = "application/json";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -72,6 +73,8 @@ struct ProcessingState {
 struct ImageTagManifest {
   schema_version: u32,
   status: String,
+  source_mime_type: String,
+  content_mime_type: String,
   extractor: ImageTagManifestExtractor,
   error: Option<String>,
 }
@@ -287,8 +290,8 @@ pub async fn tag_single_item(
     return Err(format!("Item '{}' was deleted or replaced while tagging was in progress.", candidate.item_id).into());
   }
   match outcome {
-    TagOutcome::Success(stage1_json, duration_ms) => {
-      write_success_artifacts(data_dir, image_tagging_url, &candidate, &stage1_json, duration_ms).await?;
+    TagOutcome::Success(tag_data, duration_ms) => {
+      write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms).await?;
       info!("Tagged image '{}' (user {}).", candidate.item_id, candidate.user_id);
     }
     TagOutcome::DocumentFailed(msg) => {
@@ -603,9 +606,8 @@ async fn run_image_tagging_worker(
     }
 
     match outcome {
-      TagOutcome::Success(stage1_json, duration_ms) => {
-        if let Err(e) =
-          write_success_artifacts(&data_dir, &image_tagging_url, &candidate, &stage1_json, duration_ms).await
+      TagOutcome::Success(tag_data, duration_ms) => {
+        if let Err(e) = write_success_artifacts(&data_dir, &image_tagging_url, &candidate, &tag_data, duration_ms).await
         {
           let progress_summary = {
             let mut progress = progress.lock().await;
@@ -849,12 +851,11 @@ async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &ImageCandidate)
 
 async fn manifest_check(data_dir: &str, candidate: &ImageCandidate) -> InfuResult<ManifestCheckResult> {
   let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let stage1_path = stage1_json_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
 
   if !path_exists(&manifest_path).await {
     return Ok(ManifestCheckResult::NeedsTagging);
   }
-
   let manifest_bytes = fs::read(&manifest_path).await?;
   let manifest: ImageTagManifest = match serde_json::from_slice(&manifest_bytes) {
     Ok(manifest) => manifest,
@@ -866,7 +867,7 @@ async fn manifest_check(data_dir: &str, candidate: &ImageCandidate) -> InfuResul
   }
 
   if manifest.status == "succeeded" {
-    if path_exists(&stage1_path).await {
+    if path_exists(&text_path).await {
       return Ok(ManifestCheckResult::AlreadySucceeded);
     }
     return Ok(ManifestCheckResult::NeedsTagging);
@@ -927,18 +928,18 @@ async fn write_success_artifacts(
   data_dir: &str,
   image_tagging_url: &str,
   candidate: &ImageCandidate,
-  stage1_json: &Value,
+  tag_data: &Value,
   duration_ms: Option<u64>,
 ) -> InfuResult<()> {
-  ensure_user_image_tag_dir(data_dir, &candidate.user_id).await?;
-  let stage1_path = stage1_json_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  ensure_user_text_dir(data_dir, &candidate.user_id).await?;
+  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let item_dir = item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id)?;
-  fs::create_dir_all(&item_dir).await?;
-  fs::write(&stage1_path, serde_json::to_vec_pretty(stage1_json)?).await?;
+  fs::write(&text_path, serde_json::to_vec_pretty(tag_data)?).await?;
   let manifest = ImageTagManifest {
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
+    source_mime_type: candidate.mime_type.clone(),
+    content_mime_type: JSON_CONTENT_MIME_TYPE.to_owned(),
     extractor: ImageTagManifestExtractor {
       image_tagging_url: image_tagging_url.to_owned(),
       tagged_at_unix_secs: unix_now_secs()?,
@@ -956,17 +957,17 @@ async fn write_failed_manifest(
   candidate: &ImageCandidate,
   error_message: &str,
 ) -> InfuResult<()> {
-  ensure_user_image_tag_dir(data_dir, &candidate.user_id).await?;
-  let item_dir = item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let stage1_path = stage1_json_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  ensure_user_text_dir(data_dir, &candidate.user_id).await?;
+  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  fs::create_dir_all(&item_dir).await?;
-  if path_exists(&stage1_path).await {
-    fs::remove_file(&stage1_path).await?;
+  if path_exists(&text_path).await {
+    fs::remove_file(&text_path).await?;
   }
   let manifest = ImageTagManifest {
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "failed".to_owned(),
+    source_mime_type: candidate.mime_type.clone(),
+    content_mime_type: JSON_CONTENT_MIME_TYPE.to_owned(),
     extractor: ImageTagManifestExtractor {
       image_tagging_url: image_tagging_url.to_owned(),
       tagged_at_unix_secs: unix_now_secs()?,
@@ -978,40 +979,43 @@ async fn write_failed_manifest(
   Ok(())
 }
 
-fn stage1_json_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_image_tag_dir(data_dir, user_id, item_id)?;
-  path.push("stage1.json");
+fn text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_text", item_id));
   Ok(path)
 }
 
 fn manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_image_tag_dir(data_dir, user_id, item_id)?;
-  path.push("manifest.json");
+  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_manifest.json", item_id));
   Ok(path)
 }
 
-fn item_image_tag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+fn text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   if item_id.len() < 2 {
     return Err(format!("Item id '{}' is too short.", item_id).into());
   }
-  let mut image_tag_dir = user_image_tag_dir(data_dir, user_id)?;
-  image_tag_dir.push(&item_id[..2]);
-  image_tag_dir.push(item_id);
-  Ok(image_tag_dir)
+  let mut text_dir = user_text_dir(data_dir, user_id)?;
+  text_dir.push(&item_id[..2]);
+  Ok(text_dir)
 }
 
 async fn clear_item_image_tag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
-  let dir = item_image_tag_dir(data_dir, user_id, item_id)?;
-  if path_exists(&dir).await {
-    fs::remove_dir_all(&dir).await?;
+  let manifest_path = manifest_path(data_dir, user_id, item_id)?;
+  let text_path = text_path(data_dir, user_id, item_id)?;
+  if path_exists(&manifest_path).await {
+    fs::remove_file(&manifest_path).await?;
+  }
+  if path_exists(&text_path).await {
+    fs::remove_file(&text_path).await?;
   }
   Ok(())
 }
 
-fn user_image_tag_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+fn user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
   let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
   path.push(format!("user_{}", user_id));
-  path.push("image_tags");
+  path.push("text");
   Ok(path)
 }
 
@@ -1024,11 +1028,11 @@ fn unix_now_secs() -> InfuResult<i64> {
   )
 }
 
-async fn ensure_user_image_tag_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let image_tag_dir = user_image_tag_dir(data_dir, user_id)?;
-  if !path_exists(&image_tag_dir).await {
-    fs::create_dir_all(&image_tag_dir).await?;
+async fn ensure_user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+  let text_dir = user_text_dir(data_dir, user_id)?;
+  if !path_exists(&text_dir).await {
+    fs::create_dir_all(&text_dir).await?;
   }
-  ensure_256_subdirs(&image_tag_dir).await?;
-  Ok(image_tag_dir)
+  ensure_256_subdirs(&text_dir).await?;
+  Ok(text_dir)
 }
