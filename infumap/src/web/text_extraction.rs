@@ -875,7 +875,7 @@ async fn request_text_extraction(
 ) -> ExtractOutcome {
   let part = match Part::bytes(file_bytes).file_name(file_name.to_owned()).mime_str("application/pdf") {
     Ok(part) => part,
-    Err(e) => return ExtractOutcome::DocumentFailed(format!("Could not build multipart upload: {}", e)),
+    Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not build multipart upload: {}", e)),
   };
   let form = Form::new().part("file", part);
 
@@ -896,18 +896,18 @@ async fn request_text_extraction(
         if parsed.success {
           ExtractOutcome::Success(parsed)
         } else {
-          ExtractOutcome::DocumentFailed("text extraction service returned success=false".to_owned())
+          ExtractOutcome::EndpointUnavailable("text extraction service returned success=false".to_owned())
         }
       }
       Err(e) => ExtractOutcome::EndpointUnavailable(format!("Could not parse success response: {}", e)),
     };
   }
 
-  if status.is_server_error() {
-    return ExtractOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body));
+  if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY {
+    return ExtractOutcome::DocumentFailed(format!("HTTP {}: {}", status, body));
   }
 
-  ExtractOutcome::DocumentFailed(format!("HTTP {}: {}", status, body))
+  ExtractOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body))
 }
 
 async fn write_success_artifacts(

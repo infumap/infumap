@@ -889,7 +889,7 @@ async fn request_image_tagging(
 ) -> TagOutcome {
   let part = match Part::bytes(file_bytes).file_name(file_name.to_owned()).mime_str(mime_type) {
     Ok(part) => part,
-    Err(e) => return TagOutcome::DocumentFailed(format!("Could not build multipart upload: {}", e)),
+    Err(e) => return TagOutcome::EndpointUnavailable(format!("Could not build multipart upload: {}", e)),
   };
   let form = Form::new().part("file", part);
 
@@ -911,17 +911,17 @@ async fn request_image_tagging(
     };
     let success = parsed.get("success").and_then(|value| value.as_bool()).unwrap_or(false);
     if !success {
-      return TagOutcome::DocumentFailed("image tagging service returned success=false".to_owned());
+      return TagOutcome::EndpointUnavailable("image tagging service returned success=false".to_owned());
     }
     let duration_ms = parsed.get("duration_ms").and_then(|value| value.as_u64());
     return TagOutcome::Success(parsed, duration_ms);
   }
 
-  if status.is_server_error() {
-    return TagOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body));
+  if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY {
+    return TagOutcome::DocumentFailed(format!("HTTP {}: {}", status, body));
   }
 
-  TagOutcome::DocumentFailed(format!("HTTP {}: {}", status, body))
+  TagOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body))
 }
 
 async fn write_success_artifacts(
