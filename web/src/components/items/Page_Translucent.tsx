@@ -36,6 +36,7 @@ import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
+import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -163,6 +164,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           `background-color: #ffffff; ` +
           `overflow-y: ${pageFns().boundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
           `overflow-x: ${pageFns().boundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+          `${scrollGestureStyleForArrangeAlgorithm(pageFns().pageItem().arrangeAlgorithm)}` +
           `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
         onscroll={translucentScrollHandler}>
         <div class="absolute"

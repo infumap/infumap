@@ -31,6 +31,7 @@ import { getMonthInfo } from "../../util/time";
 import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
 import { fullArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
+import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -407,6 +408,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
         `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
         `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+        `${scrollGestureStyleForArrangeAlgorithm(pageFns().pageItem().arrangeAlgorithm)}` +
         `${VeFns.zIndexStyle(props.visualElement)} `}
       onscroll={rootScrollHandler}>
       <div class="absolute"

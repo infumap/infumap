@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { ArrangeAlgorithm } from "../../items/page-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { VisualElement } from "../../layout/visual-element";
 import { cloneBoundingBox } from "../../util/geometry";
@@ -44,4 +45,11 @@ export const createLineHighlightBoundsPxFn = (veFn: () => VisualElement) => {
     }
     return null;
   })
+}
+
+export const scrollGestureStyleForArrangeAlgorithm = (arrangeAlgorithm: ArrangeAlgorithm): string => {
+  if (arrangeAlgorithm != ArrangeAlgorithm.Grid && arrangeAlgorithm != ArrangeAlgorithm.Justified) {
+    return "";
+  }
+  return "overscroll-behavior: contain; touch-action: pan-x pan-y; ";
 }
