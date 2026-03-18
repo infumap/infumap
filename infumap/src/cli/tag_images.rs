@@ -22,7 +22,7 @@ use crate::web::image_tagging::{
   image_tagging_url_from_config, list_failed_images, start_image_tagging_processing_loop, tag_single_item,
 };
 
-const CLI_ENDPOINT_BACKOFF_SECS: u64 = 10;
+const CLI_ENDPOINT_BACKOFF_SECS: u64 = 2;
 const DEFAULT_CLI_IMAGE_TAGGING_CONCURRENCY: usize = 1;
 
 pub fn make_clap_subcommand() -> Command {

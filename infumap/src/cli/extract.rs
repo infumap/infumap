@@ -18,7 +18,7 @@ use crate::web::text_extraction::{
   extract_single_item, list_failed_pdfs, start_text_extraction_processing_loop, text_extraction_url_from_config,
 };
 
-const CLI_ENDPOINT_BACKOFF_SECS: u64 = 10;
+const CLI_ENDPOINT_BACKOFF_SECS: u64 = 2;
 const DEFAULT_CLI_TEXT_EXTRACTION_CONCURRENCY: usize = 1;
 
 pub fn make_clap_subcommand() -> Command {
