@@ -147,8 +147,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
     const borderWidth = 3;
     const bounds = pageFns().viewportBoundsPx();
-    const dockWidthPx = store.getCurrentDockWidthPx();
-
     // Accumulate x offsets from parent ListPageRoot items (nested list page selections)
     let accumulatedX = pageFns().boundsPx().x;
     let parentPath = props.visualElement.parentPath;
@@ -163,7 +161,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       parentPath = parentVe.parentPath;
     }
 
-    const leftOffset = dockWidthPx + accumulatedX;
+    const leftOffset = accumulatedX;
     const topOffset = store.topToolbarHeightPx() + (pageFns().boundsPx().h - bounds.h);
 
     return (
