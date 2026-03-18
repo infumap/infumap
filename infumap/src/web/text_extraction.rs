@@ -404,6 +404,7 @@ async fn run_text_extraction_worker(
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<ExtractionProgress>>,
 ) {
+  let mut endpoint_was_unavailable = false;
   loop {
     let (candidate, queue_remaining) = {
       let mut state = state.lock().await;
@@ -547,7 +548,20 @@ async fn run_text_extraction_worker(
       }
     };
 
+    info!(
+      "Worker {} sending text extraction request for PDF '{}' (user {}) to '{}'.",
+      worker_id, candidate.item_id, candidate.user_id, text_extraction_url
+    );
     let outcome = request_text_extraction(&client, &text_extraction_url, &candidate.title, file_bytes).await;
+    let endpoint_recovered =
+      endpoint_was_unavailable && matches!(&outcome, ExtractOutcome::Success(_) | ExtractOutcome::DocumentFailed(_));
+    if endpoint_recovered {
+      info!(
+        "Worker {}: text extraction endpoint '{}' accepted a request again for PDF '{}' (user {}).",
+        worker_id, text_extraction_url, candidate.item_id, candidate.user_id
+      );
+      endpoint_was_unavailable = false;
+    }
     let item_is_current = match candidate_still_current(db.clone(), &candidate).await {
       Ok(current) => current,
       Err(e) => {
@@ -632,6 +646,7 @@ async fn run_text_extraction_worker(
         );
       }
       ExtractOutcome::EndpointUnavailable(message) => {
+        endpoint_was_unavailable = true;
         let progress_summary = {
           let progress = progress.lock().await;
           progress.summary()

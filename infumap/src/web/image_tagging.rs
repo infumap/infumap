@@ -419,6 +419,7 @@ async fn run_image_tagging_worker(
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<TaggingProgress>>,
 ) {
+  let mut endpoint_was_unavailable = false;
   loop {
     let (candidate, queue_remaining) = {
       let mut state = state.lock().await;
@@ -562,8 +563,21 @@ async fn run_image_tagging_worker(
       }
     };
 
+    info!(
+      "Worker {} sending image tagging request for '{}' (user {}) to '{}'.",
+      worker_id, candidate.item_id, candidate.user_id, image_tagging_url
+    );
     let outcome =
       request_image_tagging(&client, &image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes).await;
+    let endpoint_recovered =
+      endpoint_was_unavailable && matches!(&outcome, TagOutcome::Success(_, _) | TagOutcome::DocumentFailed(_));
+    if endpoint_recovered {
+      info!(
+        "Worker {}: image tagging endpoint '{}' accepted a request again for '{}' (user {}).",
+        worker_id, image_tagging_url, candidate.item_id, candidate.user_id
+      );
+      endpoint_was_unavailable = false;
+    }
     let item_is_current = match candidate_still_current(db.clone(), &candidate).await {
       Ok(current) => current,
       Err(e) => {
@@ -647,6 +661,7 @@ async fn run_image_tagging_worker(
         );
       }
       TagOutcome::EndpointUnavailable(message) => {
+        endpoint_was_unavailable = true;
         let progress_summary = {
           let progress = progress.lock().await;
           progress.summary()
