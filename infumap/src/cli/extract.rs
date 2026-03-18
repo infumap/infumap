@@ -15,11 +15,11 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::text_extraction::{
-  extract_single_item, list_failed_pdfs, start_text_extraction_processing_loop,
-  text_extraction_concurrency_from_config, text_extraction_url_from_config,
+  extract_single_item, list_failed_pdfs, start_text_extraction_processing_loop, text_extraction_url_from_config,
 };
 
 const CLI_ENDPOINT_BACKOFF_SECS: u64 = 10;
+const DEFAULT_CLI_TEXT_EXTRACTION_CONCURRENCY: usize = 1;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("extract")
@@ -49,7 +49,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("text_extraction_concurrency")
         .long("text-extraction-concurrency")
-        .help("Override the configured number of concurrent PDF extraction requests for this process.")
+        .help("Set the number of concurrent PDF extraction requests for this process. Defaults to 1.")
         .num_args(1)
         .required(false),
     )
@@ -114,7 +114,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       }
       parsed
     }
-    None => text_extraction_concurrency_from_config(&config)?,
+    None => DEFAULT_CLI_TEXT_EXTRACTION_CONCURRENCY,
   };
   let text_extraction_delay = match sub_matches.get_one::<String>("text_extraction_delay_secs") {
     Some(value) => {

@@ -13,7 +13,7 @@ use tokio::fs;
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
-use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_CONCURRENCY, CONFIG_TEXT_EXTRACTION_URL};
+use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
@@ -26,6 +26,7 @@ const MAX_PENDING_PDFS: usize = 50;
 const REFILL_WHEN_QUEUE_AT_MOST: usize = 25;
 const LARGE_PDF_SIZE_BYTES: i64 = 25 * 1024 * 1024;
 const REFILL_WAIT_MILLIS: u64 = 1000;
+const DEFAULT_BACKGROUND_CONCURRENCY: usize = 1;
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -298,14 +299,6 @@ pub fn text_extraction_url_from_config(config: &Config) -> InfuResult<Option<Str
   }
 }
 
-pub fn text_extraction_concurrency_from_config(config: &Config) -> InfuResult<usize> {
-  let concurrency = config.get_int(CONFIG_TEXT_EXTRACTION_CONCURRENCY).map_err(|e| e.to_string())?;
-  if concurrency < 1 {
-    return Err(format!("{} must be at least 1.", CONFIG_TEXT_EXTRACTION_CONCURRENCY).into());
-  }
-  Ok(concurrency as usize)
-}
-
 pub fn init_text_extraction_processing_loop(
   config: &Config,
   db: Arc<Mutex<Db>>,
@@ -315,12 +308,11 @@ pub fn init_text_extraction_processing_loop(
     Some(url) => url,
     None => return Ok(()),
   };
-  let concurrency = text_extraction_concurrency_from_config(config)?;
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   start_text_extraction_processing_loop(
     data_dir,
     text_extraction_url,
-    concurrency,
+    DEFAULT_BACKGROUND_CONCURRENCY,
     Duration::ZERO,
     Duration::from_secs(DEFAULT_ENDPOINT_BACKOFF_SECS),
     db,

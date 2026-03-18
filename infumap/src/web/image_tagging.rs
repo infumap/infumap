@@ -14,7 +14,7 @@ use tokio::fs;
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
-use crate::config::{CONFIG_DATA_DIR, CONFIG_IMAGE_TAGGING_CONCURRENCY, CONFIG_IMAGE_TAGGING_URL};
+use crate::config::{CONFIG_DATA_DIR, CONFIG_IMAGE_TAGGING_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
@@ -28,6 +28,7 @@ const REFILL_WHEN_QUEUE_AT_MOST: usize = 50;
 const LARGE_IMAGE_SIZE_BYTES: i64 = 10 * 1024 * 1024;
 const REFILL_WAIT_MILLIS: u64 = 1000;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
+const DEFAULT_BACKGROUND_CONCURRENCY: usize = 1;
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -313,14 +314,6 @@ pub fn image_tagging_url_from_config(config: &Config) -> InfuResult<Option<Strin
   }
 }
 
-pub fn image_tagging_concurrency_from_config(config: &Config) -> InfuResult<usize> {
-  let concurrency = config.get_int(CONFIG_IMAGE_TAGGING_CONCURRENCY).map_err(|e| e.to_string())?;
-  if concurrency < 1 {
-    return Err(format!("{} must be at least 1.", CONFIG_IMAGE_TAGGING_CONCURRENCY).into());
-  }
-  Ok(concurrency as usize)
-}
-
 pub fn init_image_tagging_processing_loop(
   config: &Config,
   db: Arc<Mutex<Db>>,
@@ -330,12 +323,11 @@ pub fn init_image_tagging_processing_loop(
     Some(url) => url,
     None => return Ok(()),
   };
-  let concurrency = image_tagging_concurrency_from_config(config)?;
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   start_image_tagging_processing_loop(
     data_dir,
     image_tagging_url,
-    concurrency,
+    DEFAULT_BACKGROUND_CONCURRENCY,
     Duration::ZERO,
     Duration::from_secs(DEFAULT_ENDPOINT_BACKOFF_SECS),
     db,

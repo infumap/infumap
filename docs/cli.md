@@ -140,7 +140,7 @@ Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--text-extraction-url (optional):** Override the configured `text_extraction_url` for this process.
-- **--text-extraction-concurrency (optional):** Override the configured number of concurrent PDF extraction requests for this process.
+- **--text-extraction-concurrency (optional):** Set the number of concurrent PDF extraction requests for this process. Defaults to `1`.
 - **--text-extraction-delay-secs (optional):** Sleep for this many seconds after each text extraction request in this process. Defaults to `0`.
 
 ### fragments
@@ -160,7 +160,7 @@ Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--image-tagging-url (optional):** Override the configured `image_tagging_url` for this process.
-- **--image-tagging-concurrency (optional):** Override the configured number of concurrent image tagging requests for this process.
+- **--image-tagging-concurrency (optional):** Set the number of concurrent image tagging requests for this process. Defaults to `1`.
 - **--image-tagging-delay-secs (optional):** Sleep for this many seconds after each image tagging request in this process. Defaults to `0`.
 - **--item-id (optional):** Tag only this item. The item must have a supported image MIME type.
 - **--container-id (optional):** Tag only supported images within this container subtree, then exit after the finite batch completes.

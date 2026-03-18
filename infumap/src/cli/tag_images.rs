@@ -19,11 +19,11 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::image_tagging::{
-  image_tagging_concurrency_from_config, image_tagging_url_from_config, list_failed_images,
-  start_image_tagging_processing_loop, tag_single_item,
+  image_tagging_url_from_config, list_failed_images, start_image_tagging_processing_loop, tag_single_item,
 };
 
 const CLI_ENDPOINT_BACKOFF_SECS: u64 = 10;
+const DEFAULT_CLI_IMAGE_TAGGING_CONCURRENCY: usize = 1;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("tag-images")
@@ -61,7 +61,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("image_tagging_concurrency")
         .long("image-tagging-concurrency")
-        .help("Override the configured number of concurrent image tagging requests for this process.")
+        .help("Set the number of concurrent image tagging requests for this process. Defaults to 1.")
         .num_args(1)
         .required(false),
     )
@@ -136,7 +136,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       }
       parsed
     }
-    None => image_tagging_concurrency_from_config(&config)?,
+    None => DEFAULT_CLI_IMAGE_TAGGING_CONCURRENCY,
   };
   let image_tagging_delay = match sub_matches.get_one::<String>("image_tagging_delay_secs") {
     Some(value) => {
