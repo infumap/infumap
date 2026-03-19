@@ -301,6 +301,19 @@ pub async fn extract_single_item(
   Ok(())
 }
 
+pub async fn item_needs_text_extraction(data_dir: &str, db: Arc<Mutex<Db>>, item_id: &str) -> InfuResult<bool> {
+  let candidate = {
+    let db = db.lock().await;
+    let id = item_id.to_string();
+    let item = db.item.get(&id).map_err(|e| e.to_string())?;
+    if item.mime_type.as_deref() != Some("application/pdf") {
+      return Err(format!("Item '{}' is not a PDF (mime_type: {:?}).", item_id, item.mime_type).into());
+    }
+    PdfCandidate::from_item(item)
+  };
+  Ok(matches!(manifest_check(data_dir, &candidate).await?, ManifestCheckResult::NeedsExtraction))
+}
+
 pub async fn delete_item_text_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
   clear_item_text_dir(data_dir, user_id, item_id).await
 }

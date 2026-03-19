@@ -305,6 +305,19 @@ pub async fn tag_single_item(
   Ok(())
 }
 
+pub async fn item_needs_image_tagging(data_dir: &str, db: Arc<Mutex<Db>>, item_id: &str) -> InfuResult<bool> {
+  let candidate = {
+    let db = db.lock().await;
+    let id = item_id.to_string();
+    let item = db.item.get(&id).map_err(|e| e.to_string())?;
+    let Some(candidate) = ImageCandidate::from_item(item) else {
+      return Err(format!("Item '{}' is not a supported taggable image.", item_id).into());
+    };
+    candidate
+  };
+  Ok(matches!(manifest_check(data_dir, &candidate).await?, ManifestCheckResult::NeedsTagging))
+}
+
 pub async fn delete_item_image_tag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
   clear_item_image_tag_dir(data_dir, user_id, item_id).await
 }

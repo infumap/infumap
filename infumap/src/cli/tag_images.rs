@@ -19,7 +19,8 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::image_tagging::{
-  image_tagging_url_from_config, list_failed_images, start_image_tagging_processing_loop, tag_single_item,
+  image_tagging_url_from_config, item_needs_image_tagging, list_failed_images, start_image_tagging_processing_loop,
+  tag_single_item,
 };
 
 const CLI_ENDPOINT_BACKOFF_SECS: u64 = 2;
@@ -46,7 +47,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("item_id")
         .long("item-id")
-        .help("Tag only this item (must be a supported image). Exits after one image.")
+        .help("Tag only this item (must be a supported image). Existing image-tag artifacts are overwritten. Exits after one image.")
         .num_args(1)
         .conflicts_with("container_id")
         .required(false),
@@ -54,8 +55,17 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("container_id")
         .long("container-id")
-        .help("Tag only supported images within this container subtree. Exits after the finite batch completes.")
+        .help("Tag only supported images within this container subtree. By default, items with existing image-tag artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
         .num_args(1)
+        .required(false),
+    )
+    .arg(
+      Arg::new("overwrite")
+        .long("overwrite")
+        .help("When used with --container-id, reprocess items even if image-tag artifacts already exist. --item-id always overwrites.")
+        .num_args(0)
+        .requires("container_id")
+        .conflicts_with("list_failed")
         .required(false),
     )
     .arg(
@@ -174,13 +184,28 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   if let Some(container_id) = sub_matches.get_one::<String>("container_id") {
-    let item_ids = collect_taggable_image_ids_in_container(db.clone(), container_id).await?;
+    let overwrite = sub_matches.get_flag("overwrite");
+    let collected_item_ids = collect_taggable_image_ids_in_container(db.clone(), container_id).await?;
+    let total_candidate_items = collected_item_ids.len();
+    let (item_ids, skipped_existing) = if overwrite {
+      (collected_item_ids, 0)
+    } else {
+      filter_taggable_image_ids_to_process(&data_dir, db.clone(), collected_item_ids).await?
+    };
+    if skipped_existing > 0 {
+      info!(
+        "Skipping {} of {} images under container '{}' because image-tag artifacts already exist. Use --overwrite to reprocess them.",
+        skipped_existing, total_candidate_items, container_id
+      );
+    }
     process_container_image_batch(
       &data_dir,
       &image_tagging_url,
       image_tagging_concurrency,
       image_tagging_delay,
       container_id,
+      total_candidate_items,
+      skipped_existing,
       item_ids,
       db,
       object_store,
@@ -213,6 +238,31 @@ struct BatchProgress {
   processed: usize,
   succeeded: usize,
   failed: usize,
+}
+
+impl BatchProgress {
+  fn summary(&self) -> String {
+    format!("total={} succeeded={} failed={}", self.processed, self.succeeded, self.failed)
+  }
+}
+
+async fn filter_taggable_image_ids_to_process(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  item_ids: Vec<String>,
+) -> InfuResult<(Vec<String>, usize)> {
+  let mut filtered_item_ids = vec![];
+  let mut skipped_existing = 0usize;
+
+  for item_id in item_ids {
+    if item_needs_image_tagging(data_dir, db.clone(), &item_id).await? {
+      filtered_item_ids.push(item_id);
+    } else {
+      skipped_existing += 1;
+    }
+  }
+
+  Ok((filtered_item_ids, skipped_existing))
 }
 
 async fn collect_taggable_image_ids_in_container(db: Arc<Mutex<Db>>, container_id: &str) -> InfuResult<Vec<String>> {
@@ -270,16 +320,35 @@ async fn process_container_image_batch(
   image_tagging_concurrency: usize,
   image_tagging_delay: std::time::Duration,
   container_id: &str,
+  total_candidate_items: usize,
+  skipped_existing: usize,
   item_ids: Vec<String>,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
 ) -> InfuResult<()> {
   if item_ids.is_empty() {
-    info!("No supported images found under container '{}'. Nothing to tag.", container_id);
+    if total_candidate_items == 0 {
+      info!("No supported images found under container '{}'. Nothing to tag.", container_id);
+    } else {
+      info!(
+        "All {} supported images under container '{}' already have image-tag artifacts. Nothing to tag. Use --overwrite to reprocess them.",
+        total_candidate_items, container_id
+      );
+    }
     return Ok(());
   }
 
-  let total_items = item_ids.len();
+  let scheduled_items = item_ids.len();
+  info!(
+    "Starting container-scoped image tagging for container '{}' using '{}' with concurrency {} and delay {:.3}s. Scheduled images: {} (existing skipped: {}, total discovered: {}).",
+    container_id,
+    image_tagging_url,
+    image_tagging_concurrency,
+    image_tagging_delay.as_secs_f64(),
+    scheduled_items,
+    skipped_existing,
+    total_candidate_items
+  );
   let queue = Arc::new(Mutex::new(VecDeque::from(item_ids)));
   let progress = Arc::new(Mutex::new(BatchProgress::default()));
   let mut join_set = JoinSet::new();
@@ -294,14 +363,28 @@ async fn process_container_image_batch(
 
     join_set.spawn(async move {
       loop {
-        let item_id = {
+        let (item_id, queue_remaining) = {
           let mut queue = worker_queue.lock().await;
-          queue.pop_front()
+          let item_id = queue.pop_front();
+          let queue_remaining = queue.len();
+          (item_id, queue_remaining)
         };
 
         let Some(item_id) = item_id else {
           break;
         };
+
+        let progress_summary = {
+          let progress = worker_progress.lock().await;
+          progress.summary()
+        };
+        info!(
+          "Container-scoped image tagging worker {} starting image '{}'. Pending queue: {}. Progress: {}",
+          worker_index + 1,
+          item_id,
+          queue_remaining,
+          progress_summary
+        );
 
         match tag_single_item(
           &worker_data_dir,
@@ -321,7 +404,7 @@ async fn process_container_image_batch(
               worker_index + 1,
               item_id,
               progress.processed,
-              total_items
+              scheduled_items
             );
           }
           Err(e) => {
@@ -333,7 +416,7 @@ async fn process_container_image_batch(
               worker_index + 1,
               item_id,
               progress.processed,
-              total_items,
+              scheduled_items,
               e
             );
           }
@@ -352,8 +435,8 @@ async fn process_container_image_batch(
 
   let progress = progress.lock().await;
   info!(
-    "Container-scoped image tagging finished for container '{}': total={} succeeded={} failed={}.",
-    container_id, total_items, progress.succeeded, progress.failed
+    "Container-scoped image tagging finished for container '{}': scheduled={} skipped_existing={} succeeded={} failed={}.",
+    container_id, scheduled_items, skipped_existing, progress.succeeded, progress.failed
   );
   Ok(())
 }
