@@ -18,9 +18,9 @@ use crate::config::{CONFIG_DATA_DIR, CONFIG_IMAGE_TAGGING_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
+use crate::util::retry::endpoint_retry_delay;
 
 const IDLE_POLL_SECS: u64 = 60;
-const DEFAULT_ENDPOINT_BACKOFF_SECS: u64 = 5 * 60;
 const REQUEST_TIMEOUT_SECS: u64 = 30 * 60;
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const MAX_PENDING_IMAGES: usize = 100;
@@ -284,8 +284,7 @@ pub async fn tag_single_item(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
-  let outcome =
-    request_image_tagging(&client, image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes).await;
+  let outcome = request_image_tagging_with_retries(&client, image_tagging_url, &candidate, &file_bytes, None).await;
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(format!("Item '{}' was deleted or replaced while tagging was in progress.", candidate.item_id).into());
   }
@@ -345,7 +344,6 @@ pub fn init_image_tagging_processing_loop(
     image_tagging_url,
     DEFAULT_BACKGROUND_CONCURRENCY,
     Duration::ZERO,
-    Duration::from_secs(DEFAULT_ENDPOINT_BACKOFF_SECS),
     db,
     object_store,
   )
@@ -356,7 +354,6 @@ pub fn start_image_tagging_processing_loop(
   image_tagging_url: String,
   concurrency: usize,
   request_delay: Duration,
-  endpoint_backoff: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
@@ -394,14 +391,12 @@ pub fn start_image_tagging_processing_loop(
     let worker_data_dir = data_dir.clone();
     let worker_image_tagging_url = image_tagging_url.clone();
     let worker_request_delay = request_delay;
-    let worker_endpoint_backoff = endpoint_backoff;
     let _worker = task::spawn(async move {
       run_image_tagging_worker(
         worker_id + 1,
         worker_data_dir,
         worker_image_tagging_url,
         worker_request_delay,
-        worker_endpoint_backoff,
         worker_db,
         worker_object_store,
         worker_client,
@@ -420,14 +415,12 @@ async fn run_image_tagging_worker(
   data_dir: String,
   image_tagging_url: String,
   request_delay: Duration,
-  endpoint_backoff: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   client: reqwest::Client,
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<TaggingProgress>>,
 ) {
-  let mut endpoint_was_unavailable = false;
   loop {
     let (candidate, queue_remaining) = {
       let mut state = state.lock().await;
@@ -576,16 +569,7 @@ async fn run_image_tagging_worker(
       worker_id, candidate.item_id, candidate.user_id, image_tagging_url
     );
     let outcome =
-      request_image_tagging(&client, &image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes).await;
-    let endpoint_recovered =
-      endpoint_was_unavailable && matches!(&outcome, TagOutcome::Success(_, _) | TagOutcome::DocumentFailed(_));
-    if endpoint_recovered {
-      info!(
-        "Worker {}: image tagging endpoint '{}' accepted a request again for '{}' (user {}).",
-        worker_id, image_tagging_url, candidate.item_id, candidate.user_id
-      );
-      endpoint_was_unavailable = false;
-    }
+      request_image_tagging_with_retries(&client, &image_tagging_url, &candidate, &file_bytes, Some(worker_id)).await;
     let item_is_current = match candidate_still_current(db.clone(), &candidate).await {
       Ok(current) => current,
       Err(e) => {
@@ -668,20 +652,10 @@ async fn run_image_tagging_worker(
         );
       }
       TagOutcome::EndpointUnavailable(message) => {
-        endpoint_was_unavailable = true;
-        let progress_summary = {
-          let progress = progress.lock().await;
-          progress.summary()
-        };
-        info!(
-          "Worker {}: image tagging endpoint '{}' is unavailable ({}). Pausing image tagging for {}. Progress: {}",
-          worker_id,
-          image_tagging_url,
-          message,
-          format_duration_for_log(endpoint_backoff),
-          progress_summary
+        error!(
+          "Worker {}: retry loop returned an unexpected endpoint-unavailable outcome for image '{}' (user {}): {}",
+          worker_id, candidate.item_id, candidate.user_id, message
         );
-        time::sleep(endpoint_backoff).await;
       }
     }
     if request_delay > Duration::ZERO {
@@ -700,6 +674,71 @@ fn format_duration_for_log(duration: Duration) -> String {
     return if secs == 1 { "1 second".to_owned() } else { format!("{} seconds", secs) };
   }
   format!("{:.3} seconds", duration.as_secs_f64())
+}
+
+async fn request_image_tagging_with_retries(
+  client: &reqwest::Client,
+  image_tagging_url: &str,
+  candidate: &ImageCandidate,
+  file_bytes: &[u8],
+  worker_id_maybe: Option<usize>,
+) -> TagOutcome {
+  let mut unavailable_attempt = 0usize;
+
+  loop {
+    let outcome =
+      request_image_tagging(client, image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes.to_vec())
+        .await;
+    match outcome {
+      TagOutcome::EndpointUnavailable(message) => {
+        let delay = endpoint_retry_delay(unavailable_attempt);
+        unavailable_attempt += 1;
+        match worker_id_maybe {
+          Some(worker_id) => {
+            info!(
+              "Worker {}: image tagging endpoint '{}' is unavailable for '{}' (user {}) ({}). Retrying in {}.",
+              worker_id,
+              image_tagging_url,
+              candidate.item_id,
+              candidate.user_id,
+              message,
+              format_duration_for_log(delay)
+            );
+          }
+          None => {
+            info!(
+              "Image tagging endpoint '{}' is unavailable for '{}' (user {}) ({}). Retrying in {}.",
+              image_tagging_url,
+              candidate.item_id,
+              candidate.user_id,
+              message,
+              format_duration_for_log(delay)
+            );
+          }
+        }
+        time::sleep(delay).await;
+      }
+      other => {
+        if unavailable_attempt > 0 {
+          match worker_id_maybe {
+            Some(worker_id) => {
+              info!(
+                "Worker {}: image tagging endpoint '{}' accepted requests again for '{}' (user {}) after {} unavailable attempt(s).",
+                worker_id, image_tagging_url, candidate.item_id, candidate.user_id, unavailable_attempt
+              );
+            }
+            None => {
+              info!(
+                "Image tagging endpoint '{}' accepted requests again for '{}' (user {}) after {} unavailable attempt(s).",
+                image_tagging_url, candidate.item_id, candidate.user_id, unavailable_attempt
+              );
+            }
+          }
+        }
+        return other;
+      }
+    }
+  }
 }
 
 async fn refill_queue_if_needed(

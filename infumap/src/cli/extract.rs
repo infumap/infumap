@@ -23,7 +23,6 @@ use crate::web::text_extraction::{
   text_extraction_url_from_config,
 };
 
-const CLI_ENDPOINT_BACKOFF_SECS: u64 = 2;
 const DEFAULT_CLI_TEXT_EXTRACTION_CONCURRENCY: usize = 1;
 
 pub fn make_clap_subcommand() -> Command {
@@ -216,7 +215,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     text_extraction_url.clone(),
     text_extraction_concurrency,
     text_extraction_delay,
-    std::time::Duration::from_secs(CLI_ENDPOINT_BACKOFF_SECS),
     db,
     object_store,
   )?;

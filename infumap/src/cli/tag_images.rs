@@ -23,7 +23,6 @@ use crate::web::image_tagging::{
   tag_single_item,
 };
 
-const CLI_ENDPOINT_BACKOFF_SECS: u64 = 2;
 const DEFAULT_CLI_IMAGE_TAGGING_CONCURRENCY: usize = 1;
 
 pub fn make_clap_subcommand() -> Command {
@@ -219,7 +218,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     image_tagging_url.clone(),
     image_tagging_concurrency,
     image_tagging_delay,
-    std::time::Duration::from_secs(CLI_ENDPOINT_BACKOFF_SECS),
     db,
     object_store,
   )?;

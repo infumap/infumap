@@ -17,9 +17,9 @@ use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
+use crate::util::retry::endpoint_retry_delay;
 
 const IDLE_POLL_SECS: u64 = 60;
-const DEFAULT_ENDPOINT_BACKOFF_SECS: u64 = 5 * 60;
 const REQUEST_TIMEOUT_SECS: u64 = 4 * 60 * 60;
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const MAX_PENDING_PDFS: usize = 50;
@@ -279,7 +279,7 @@ pub async fn extract_single_item(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
-  let outcome = request_text_extraction(&client, text_extraction_url, &candidate.title, file_bytes).await;
+  let outcome = request_text_extraction_with_retries(&client, text_extraction_url, &candidate, &file_bytes, None).await;
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(
       format!("Item '{}' was deleted or replaced while extraction was in progress.", candidate.item_id).into(),
@@ -341,7 +341,6 @@ pub fn init_text_extraction_processing_loop(
     text_extraction_url,
     DEFAULT_BACKGROUND_CONCURRENCY,
     Duration::ZERO,
-    Duration::from_secs(DEFAULT_ENDPOINT_BACKOFF_SECS),
     db,
     object_store,
   )
@@ -352,7 +351,6 @@ pub fn start_text_extraction_processing_loop(
   text_extraction_url: String,
   concurrency: usize,
   request_delay: Duration,
-  endpoint_backoff: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
@@ -390,14 +388,12 @@ pub fn start_text_extraction_processing_loop(
     let worker_data_dir = data_dir.clone();
     let worker_text_extraction_url = text_extraction_url.clone();
     let worker_request_delay = request_delay;
-    let worker_endpoint_backoff = endpoint_backoff;
     let _worker = task::spawn(async move {
       run_text_extraction_worker(
         worker_id + 1,
         worker_data_dir,
         worker_text_extraction_url,
         worker_request_delay,
-        worker_endpoint_backoff,
         worker_db,
         worker_object_store,
         worker_client,
@@ -416,14 +412,12 @@ async fn run_text_extraction_worker(
   data_dir: String,
   text_extraction_url: String,
   request_delay: Duration,
-  endpoint_backoff: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   client: reqwest::Client,
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<ExtractionProgress>>,
 ) {
-  let mut endpoint_was_unavailable = false;
   loop {
     let (candidate, queue_remaining) = {
       let mut state = state.lock().await;
@@ -642,16 +636,9 @@ async fn run_text_extraction_worker(
       "Worker {} sending text extraction request for PDF '{}' (user {}) to '{}'.",
       worker_id, candidate.item_id, candidate.user_id, text_extraction_url
     );
-    let outcome = request_text_extraction(&client, &text_extraction_url, &candidate.title, file_bytes).await;
-    let endpoint_recovered =
-      endpoint_was_unavailable && matches!(&outcome, ExtractOutcome::Success(_) | ExtractOutcome::DocumentFailed(_));
-    if endpoint_recovered {
-      info!(
-        "Worker {}: text extraction endpoint '{}' accepted a request again for PDF '{}' (user {}).",
-        worker_id, text_extraction_url, candidate.item_id, candidate.user_id
-      );
-      endpoint_was_unavailable = false;
-    }
+    let outcome =
+      request_text_extraction_with_retries(&client, &text_extraction_url, &candidate, &file_bytes, Some(worker_id))
+        .await;
     let item_is_current = match candidate_still_current(db.clone(), &candidate).await {
       Ok(current) => current,
       Err(e) => {
@@ -736,20 +723,10 @@ async fn run_text_extraction_worker(
         );
       }
       ExtractOutcome::EndpointUnavailable(message) => {
-        endpoint_was_unavailable = true;
-        let progress_summary = {
-          let progress = progress.lock().await;
-          progress.summary()
-        };
-        info!(
-          "Worker {}: text extraction endpoint '{}' is unavailable ({}). Pausing PDF text extraction for {}. Progress: {}",
-          worker_id,
-          text_extraction_url,
-          message,
-          format_duration_for_log(endpoint_backoff),
-          progress_summary
+        error!(
+          "Worker {}: retry loop returned an unexpected endpoint-unavailable outcome for PDF '{}' (user {}): {}",
+          worker_id, candidate.item_id, candidate.user_id, message
         );
-        time::sleep(endpoint_backoff).await;
       }
     }
     if request_delay > Duration::ZERO {
@@ -778,6 +755,69 @@ fn manifest_failure_for_object_read_error(error_message: &str) -> Option<String>
     return Some(format!("Source PDF object is missing from local object storage: {}", error_message));
   }
   None
+}
+
+async fn request_text_extraction_with_retries(
+  client: &reqwest::Client,
+  text_extraction_url: &str,
+  candidate: &PdfCandidate,
+  file_bytes: &[u8],
+  worker_id_maybe: Option<usize>,
+) -> ExtractOutcome {
+  let mut unavailable_attempt = 0usize;
+
+  loop {
+    let outcome = request_text_extraction(client, text_extraction_url, &candidate.title, file_bytes.to_vec()).await;
+    match outcome {
+      ExtractOutcome::EndpointUnavailable(message) => {
+        let delay = endpoint_retry_delay(unavailable_attempt);
+        unavailable_attempt += 1;
+        match worker_id_maybe {
+          Some(worker_id) => {
+            info!(
+              "Worker {}: text extraction endpoint '{}' is unavailable for PDF '{}' (user {}) ({}). Retrying in {}.",
+              worker_id,
+              text_extraction_url,
+              candidate.item_id,
+              candidate.user_id,
+              message,
+              format_duration_for_log(delay)
+            );
+          }
+          None => {
+            info!(
+              "Text extraction endpoint '{}' is unavailable for PDF '{}' (user {}) ({}). Retrying in {}.",
+              text_extraction_url,
+              candidate.item_id,
+              candidate.user_id,
+              message,
+              format_duration_for_log(delay)
+            );
+          }
+        }
+        time::sleep(delay).await;
+      }
+      other => {
+        if unavailable_attempt > 0 {
+          match worker_id_maybe {
+            Some(worker_id) => {
+              info!(
+                "Worker {}: text extraction endpoint '{}' accepted requests again for PDF '{}' (user {}) after {} unavailable attempt(s).",
+                worker_id, text_extraction_url, candidate.item_id, candidate.user_id, unavailable_attempt
+              );
+            }
+            None => {
+              info!(
+                "Text extraction endpoint '{}' accepted requests again for PDF '{}' (user {}) after {} unavailable attempt(s).",
+                text_extraction_url, candidate.item_id, candidate.user_id, unavailable_attempt
+              );
+            }
+          }
+        }
+        return other;
+      }
+    }
+  }
 }
 
 #[cfg(test)]
