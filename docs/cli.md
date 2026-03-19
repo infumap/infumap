@@ -132,7 +132,7 @@ Options:
 - **-i --id:** The user id.
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
 
-### text-extraction
+### extract
 
 Run the text extraction processing loop without starting the web server. This command will load items, initialize the configured object store, and then continuously call the external text extraction service for PDFs that do not yet have extracted text artifacts.
 
@@ -142,6 +142,10 @@ Options:
 - **--text-extraction-url (optional):** Override the configured `text_extraction_url` for this process.
 - **--text-extraction-concurrency (optional):** Set the number of concurrent PDF extraction requests for this process. Defaults to `1`.
 - **--text-extraction-delay-secs (optional):** Sleep for this many seconds after each text extraction request in this process. Defaults to `0`.
+- **--item-id (optional):** Extract text only for this item. The item must be a PDF. Existing extraction artifacts are overwritten.
+- **--container-id (optional):** Extract text only for PDFs within this container subtree, then exit after the finite batch completes. By default, items with existing extraction artifacts are skipped.
+- **--overwrite (optional):** When used with `--container-id`, reprocess items even if extraction artifacts already exist. `--item-id` always overwrites.
+- **--list-failed (optional):** List PDFs for which text extraction previously failed, then exit. When combined with `--container-id`, only failures within that subtree are shown.
 
 ### fragments
 
@@ -162,9 +166,10 @@ Options:
 - **--image-tagging-url (optional):** Override the configured `image_tagging_url` for this process.
 - **--image-tagging-concurrency (optional):** Set the number of concurrent image tagging requests for this process. Defaults to `1`.
 - **--image-tagging-delay-secs (optional):** Sleep for this many seconds after each image tagging request in this process. Defaults to `0`.
-- **--item-id (optional):** Tag only this item. The item must have a supported image MIME type.
-- **--container-id (optional):** Tag only supported images within this container subtree, then exit after the finite batch completes.
-- **--list-failed (optional):** List supported images for which image tagging previously failed, then exit.
+- **--item-id (optional):** Tag only this item. The item must have a supported image MIME type. Existing image-tag artifacts are overwritten.
+- **--container-id (optional):** Tag only supported images within this container subtree, then exit after the finite batch completes. By default, items with existing image-tag artifacts are skipped.
+- **--overwrite (optional):** When used with `--container-id`, reprocess items even if image-tag artifacts already exist. `--item-id` always overwrites.
+- **--list-failed (optional):** List supported images for which image tagging previously failed, then exit. When combined with `--container-id`, only failures within that subtree are shown.
 
 
 

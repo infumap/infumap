@@ -38,11 +38,16 @@ On first run this creates `tools/text_extraction/.venv` and installs:
 
 By default the service listens on `127.0.0.1:8787`.
 
+`run.sh` now supervises the `uvicorn` process. If the text extraction service crashes
+(including a segfault), the script logs the exit and restarts it automatically after
+a short delay. Pressing `Ctrl-C` still stops the supervisor cleanly.
+
 Optional environment variables:
 
 - `TEXT_EXTRACTION_HOST`
 - `TEXT_EXTRACTION_PORT`
 - `TEXT_EXTRACTION_VENV_DIR`
+- `TEXT_EXTRACTION_RESTART_DELAY_SECS`
 - `PYTHON_BIN`
 - `TORCH_DEVICE`
 - `GOOGLE_API_KEY`
