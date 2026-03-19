@@ -217,7 +217,7 @@ async def lifespan(_: FastAPI):
     device = select_device()
     dtype = select_torch_dtype(device)
     started_at = time.perf_counter()
-    processor = AutoProcessor.from_pretrained(model_id(), trust_remote_code=True)
+    processor = AutoProcessor.from_pretrained(model_id(), trust_remote_code=True, use_fast=False)
     model = AutoModelForCausalLM.from_pretrained(
         model_id(),
         torch_dtype=dtype,
