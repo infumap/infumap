@@ -252,15 +252,17 @@ app = FastAPI(
 )
 
 
-def store_upload(upload: UploadFile) -> str:
+def store_upload(upload: UploadFile) -> tuple[str, int]:
     suffix = "".join(Path(upload.filename or "").suffixes) or ".bin"
+    total_bytes = 0
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as handle:
         while True:
             chunk = upload.file.read(1024 * 1024)
             if not chunk:
                 break
+            total_bytes += len(chunk)
             handle.write(chunk)
-        return handle.name
+        return handle.name, total_bytes
 
 
 def prepare_image(file_path: str) -> tuple[Image.Image, str | None]:
@@ -482,15 +484,45 @@ async def healthz() -> dict[str, bool]:
 
 @app.post("/tag", response_model=ImageTagResponse)
 async def tag_upload(file: UploadFile = File(...)) -> ImageTagResponse:
-    temp_path = store_upload(file)
     file_name = Path(file.filename or "upload").name
     content_type = (file.content_type or "").strip().lower() or None
+    request_started_at = time.perf_counter()
+    LOGGER.info(
+        "Received image tagging request: file=%s content_type=%s",
+        file_name,
+        content_type or "<unset>",
+    )
+    upload_started_at = time.perf_counter()
+    temp_path, upload_size_bytes = store_upload(file)
+    upload_duration_ms = int((time.perf_counter() - upload_started_at) * 1000)
+    LOGGER.info(
+        "Stored image tagging upload: file=%s size_bytes=%d upload_ms=%d",
+        file_name,
+        upload_size_bytes,
+        upload_duration_ms,
+    )
 
     try:
         semaphore = TAG_SEMAPHORE
         if semaphore is None:
             raise HTTPException(status_code=503, detail="Image tagging service is not ready.")
+        semaphore_wait_started_at = time.perf_counter()
+        if semaphore.locked():
+            LOGGER.info(
+                "Image tagging request waiting for worker slot: file=%s size_bytes=%d",
+                file_name,
+                upload_size_bytes,
+            )
         async with semaphore:
+            semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
+            request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
+            LOGGER.info(
+                "Dispatching image tagging run: file=%s size_bytes=%d request_age_ms=%d semaphore_wait_ms=%d",
+                file_name,
+                upload_size_bytes,
+                request_age_ms,
+                semaphore_wait_ms,
+            )
             return await asyncio.to_thread(tag_image_file, temp_path, file_name, content_type)
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
