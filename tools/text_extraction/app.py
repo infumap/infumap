@@ -233,9 +233,13 @@ def metadata_to_dict(metadata: Any) -> dict[str, Any]:
     return {"value": metadata}
 
 
-def is_password_protected_pdf_error(exc: Exception) -> bool:
+def classify_document_rejection(exc: Exception) -> str | None:
     message = str(exc).lower()
-    return "incorrect password" in message or "password error" in message
+    if "incorrect password" in message or "password error" in message:
+        return "Password-protected PDFs are not supported."
+    if "failed to load document" in message and "data format error" in message:
+        return "The PDF appears to be malformed or corrupted and could not be opened by PDFium."
+    return None
 
 
 def convert_file(file_path: str, file_name: str) -> ConvertResponse:
@@ -281,15 +285,17 @@ def convert_file(file_path: str, file_name: str) -> ConvertResponse:
     except Exception as exc:
         duration_ms = int((time.perf_counter() - started_at) * 1000)
         cuda_memory = torch_cuda_memory_summary()
-        if is_password_protected_pdf_error(exc):
+        rejection_reason = classify_document_rejection(exc)
+        if rejection_reason is not None:
             LOGGER.warning(
-                "Skipping password-protected PDF: file=%s size_bytes=%d duration_ms=%d%s",
+                "Skipping unprocessable PDF: file=%s size_bytes=%d duration_ms=%d reason=%s%s",
                 file_name,
                 file_size_bytes,
                 duration_ms,
+                rejection_reason,
                 f" {cuda_memory}" if cuda_memory else "",
             )
-            raise DocumentRejectedError("Password-protected PDFs are not supported.") from exc
+            raise DocumentRejectedError(rejection_reason) from exc
         LOGGER.exception(
             "Conversion failed: file=%s size_bytes=%d duration_ms=%d%s",
             file_name,
