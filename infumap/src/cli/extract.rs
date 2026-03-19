@@ -1,9 +1,13 @@
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
 use clap::{Arg, ArgMatches, Command};
+use infusdk::item::{Item, is_container_item_type};
 use infusdk::util::infu::InfuResult;
 use log::info;
 use tokio::sync::Mutex;
+use tokio::task::JoinSet;
+use tokio::time::sleep;
 
 use crate::config::{
   CONFIG_DATA_DIR, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE,
@@ -44,6 +48,14 @@ pub fn make_clap_subcommand() -> Command {
         .long("item-id")
         .help("Extract text only for this item (must be a PDF). Exits after one extraction.")
         .num_args(1)
+        .conflicts_with("container_id")
+        .required(false),
+    )
+    .arg(
+      Arg::new("container_id")
+        .long("container-id")
+        .help("Extract text only for PDFs within this container subtree. Exits after the finite batch completes.")
+        .num_args(1)
         .required(false),
     )
     .arg(
@@ -83,7 +95,14 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   if sub_matches.get_flag("list_failed") {
-    let failed = list_failed_pdfs(&data_dir, db).await?;
+    let failed = list_failed_pdfs(&data_dir, db.clone()).await?;
+    let failed = if let Some(container_id) = sub_matches.get_one::<String>("container_id") {
+      let container_pdf_ids = collect_extractable_pdf_ids_in_container(db.clone(), container_id).await?;
+      let container_pdf_id_set = container_pdf_ids.into_iter().collect::<HashSet<String>>();
+      failed.into_iter().filter(|failed_pdf| container_pdf_id_set.contains(&failed_pdf.item_id)).collect::<Vec<_>>()
+    } else {
+      failed
+    };
     for f in &failed {
       println!(
         "user: {}  item: {}  file: {}  error: {}",
@@ -151,6 +170,22 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
+  if let Some(container_id) = sub_matches.get_one::<String>("container_id") {
+    let item_ids = collect_extractable_pdf_ids_in_container(db.clone(), container_id).await?;
+    process_container_pdf_batch(
+      &data_dir,
+      &text_extraction_url,
+      text_extraction_concurrency,
+      text_extraction_delay,
+      container_id,
+      item_ids,
+      db,
+      object_store,
+    )
+    .await?;
+    return Ok(());
+  }
+
   start_text_extraction_processing_loop(
     data_dir,
     text_extraction_url.clone(),
@@ -167,5 +202,158 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     text_extraction_delay.as_secs_f64()
   );
   tokio::signal::ctrl_c().await.map_err(|e| format!("Failed waiting for Ctrl-C: {}", e))?;
+  Ok(())
+}
+
+#[derive(Default)]
+struct BatchProgress {
+  processed: usize,
+  succeeded: usize,
+  failed: usize,
+}
+
+async fn collect_extractable_pdf_ids_in_container(db: Arc<Mutex<Db>>, container_id: &str) -> InfuResult<Vec<String>> {
+  let db = db.lock().await;
+  let container = db.item.get(&container_id.to_owned()).map_err(|e| e.to_string())?;
+  if !is_container_item_type(container.item_type) {
+    return Err(format!("Item '{}' is not a container item.", container_id).into());
+  }
+
+  let mut visited_item_ids = HashSet::new();
+  let mut collected_pdf_ids = HashSet::new();
+  let mut ordered_pdf_ids = vec![];
+  collect_extractable_pdf_ids_recursive(
+    &db,
+    container_id,
+    &mut visited_item_ids,
+    &mut collected_pdf_ids,
+    &mut ordered_pdf_ids,
+  )?;
+  Ok(ordered_pdf_ids)
+}
+
+fn collect_extractable_pdf_ids_recursive(
+  db: &Db,
+  item_id: &str,
+  visited_item_ids: &mut HashSet<String>,
+  collected_pdf_ids: &mut HashSet<String>,
+  ordered_pdf_ids: &mut Vec<String>,
+) -> InfuResult<()> {
+  if !visited_item_ids.insert(item_id.to_owned()) {
+    return Ok(());
+  }
+
+  for attachment in db.item.get_attachments(&item_id.to_owned())? {
+    if is_extractable_pdf_item(attachment) && collected_pdf_ids.insert(attachment.id.clone()) {
+      ordered_pdf_ids.push(attachment.id.clone());
+    }
+    collect_extractable_pdf_ids_recursive(db, &attachment.id, visited_item_ids, collected_pdf_ids, ordered_pdf_ids)?;
+  }
+
+  for child in db.item.get_children(&item_id.to_owned())? {
+    if is_extractable_pdf_item(child) && collected_pdf_ids.insert(child.id.clone()) {
+      ordered_pdf_ids.push(child.id.clone());
+    }
+    collect_extractable_pdf_ids_recursive(db, &child.id, visited_item_ids, collected_pdf_ids, ordered_pdf_ids)?;
+  }
+
+  Ok(())
+}
+
+fn is_extractable_pdf_item(item: &Item) -> bool {
+  item.mime_type.as_deref() == Some("application/pdf")
+}
+
+async fn process_container_pdf_batch(
+  data_dir: &str,
+  text_extraction_url: &str,
+  text_extraction_concurrency: usize,
+  text_extraction_delay: std::time::Duration,
+  container_id: &str,
+  item_ids: Vec<String>,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<storage_object::ObjectStore>,
+) -> InfuResult<()> {
+  if item_ids.is_empty() {
+    info!("No PDFs found under container '{}'. Nothing to extract.", container_id);
+    return Ok(());
+  }
+
+  let total_items = item_ids.len();
+  let queue = Arc::new(Mutex::new(VecDeque::from(item_ids)));
+  let progress = Arc::new(Mutex::new(BatchProgress::default()));
+  let mut join_set = JoinSet::new();
+
+  for worker_index in 0..text_extraction_concurrency {
+    let worker_queue = queue.clone();
+    let worker_progress = progress.clone();
+    let worker_db = db.clone();
+    let worker_object_store = object_store.clone();
+    let worker_data_dir = data_dir.to_owned();
+    let worker_text_extraction_url = text_extraction_url.to_owned();
+
+    join_set.spawn(async move {
+      loop {
+        let item_id = {
+          let mut queue = worker_queue.lock().await;
+          queue.pop_front()
+        };
+
+        let Some(item_id) = item_id else {
+          break;
+        };
+
+        match extract_single_item(
+          &worker_data_dir,
+          &worker_text_extraction_url,
+          worker_db.clone(),
+          worker_object_store.clone(),
+          &item_id,
+        )
+        .await
+        {
+          Ok(()) => {
+            let mut progress = worker_progress.lock().await;
+            progress.processed += 1;
+            progress.succeeded += 1;
+            info!(
+              "Container-scoped text extraction worker {}: extracted '{}' successfully ({}/{}).",
+              worker_index + 1,
+              item_id,
+              progress.processed,
+              total_items
+            );
+          }
+          Err(e) => {
+            let mut progress = worker_progress.lock().await;
+            progress.processed += 1;
+            progress.failed += 1;
+            info!(
+              "Container-scoped text extraction worker {}: failed for '{}' ({}/{}): {}",
+              worker_index + 1,
+              item_id,
+              progress.processed,
+              total_items,
+              e
+            );
+          }
+        }
+
+        if text_extraction_delay > std::time::Duration::ZERO {
+          sleep(text_extraction_delay).await;
+        }
+      }
+    });
+  }
+
+  while let Some(join_result) = join_set.join_next().await {
+    join_result.map_err(|e| format!("Container-scoped text extraction worker task failed: {}", e))?;
+  }
+
+  let progress = progress.lock().await;
+  info!(
+    "Container-scoped text extraction finished for container '{}': total={} succeeded={} failed={}.",
+    container_id, total_items, progress.succeeded, progress.failed
+  );
   Ok(())
 }
