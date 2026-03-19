@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+@dataclass
+class BackendConfig:
+    backend_spec: str
+    model_id: str
+    device: str
+    dtype: Any
+    max_concurrency: int
+
+
+class ImageInfo(BaseModel):
+    width: int
+    height: int
+    mime_type: str | None
+
+
+class DetectedObject(BaseModel):
+    label: str
+    bbox: list[float] = Field(default_factory=list)
+
+
+class OCRRegion(BaseModel):
+    text: str
+    quad_box: list[float] = Field(default_factory=list)
+
+
+class DocumentCandidateInfo(BaseModel):
+    heuristic_version: str
+    is_document_candidate: bool
+    triggered_rules: list[str]
+    text_region_count: int
+    text_char_count: int
+    text_word_count: int
+    text_coverage_ratio: float
+
+
+class ImageTagResponse(BaseModel):
+    success: bool
+    file_name: str
+    backend: str
+    model_id: str
+    image: ImageInfo
+    detailed_caption: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    objects: list[DetectedObject] = Field(default_factory=list)
+    ocr_text: str = ""
+    ocr_regions: list[OCRRegion] = Field(default_factory=list)
+    document_candidate: DocumentCandidateInfo | None = None
+    raw_task_outputs: dict[str, Any] = Field(default_factory=dict)
+    task_durations_ms: dict[str, int] = Field(default_factory=dict)
+    backend_payload: dict[str, Any] = Field(default_factory=dict)
+    duration_ms: int
+
+
+class ImageTaggingBackend(ABC):
+    def __init__(self, config: BackendConfig):
+        self.config = config
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def startup(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def shutdown(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def tag_image_file(self, file_path: str, file_name: str, upload_mime_type: str | None) -> ImageTagResponse:
+        raise NotImplementedError
+
+    def health_ready(self) -> bool:
+        return True

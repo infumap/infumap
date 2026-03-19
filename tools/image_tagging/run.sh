@@ -7,8 +7,22 @@ readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${IMAGE_TAGGING_VENV_DIR:-$ROOT_DIR/.venv}"
 readonly HOST="${IMAGE_TAGGING_HOST:-127.0.0.1}"
 readonly PORT="${IMAGE_TAGGING_PORT:-8788}"
-export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-microsoft/Florence-2-large-ft}"
-readonly TRANSFORMERS_VERSION="${IMAGE_TAGGING_TRANSFORMERS_VERSION:-4.49.0}"
+export IMAGE_TAGGING_BACKEND="${IMAGE_TAGGING_BACKEND:-qwen35}"
+if [ -z "${IMAGE_TAGGING_MODEL_ID:-}" ]; then
+    case "$IMAGE_TAGGING_BACKEND" in
+        qwen35)
+            export IMAGE_TAGGING_MODEL_ID="Qwen/Qwen3.5-9B"
+            ;;
+        qwen35-35b)
+            export IMAGE_TAGGING_MODEL_ID="Qwen/Qwen3.5-35B-A3B"
+            ;;
+        florence)
+            export IMAGE_TAGGING_MODEL_ID="microsoft/Florence-2-large-ft"
+            ;;
+    esac
+fi
+readonly TRANSFORMERS_VERSION="${IMAGE_TAGGING_TRANSFORMERS_VERSION:-}"
+export IMAGE_TAGGING_EXTRA_PIP_PACKAGES="${IMAGE_TAGGING_EXTRA_PIP_PACKAGES:-}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 gpu_total_memory_mib() {
@@ -106,40 +120,25 @@ readonly VENV_PYTHON="$VENV_DIR/bin/python"
 
 ensure_venv_pip
 
-installed_transformers_version="$("$VENV_PYTHON" -m pip show transformers 2>/dev/null | awk '/^Version: / {print $2}')"
-
-if ! "$VENV_PYTHON" -m pip show torch >/dev/null 2>&1 \
-    || ! "$VENV_PYTHON" -m pip show transformers >/dev/null 2>&1 \
-    || ! "$VENV_PYTHON" -m pip show fastapi >/dev/null 2>&1 \
-    || ! "$VENV_PYTHON" -m pip show uvicorn >/dev/null 2>&1 \
-    || ! "$VENV_PYTHON" -m pip show python-multipart >/dev/null 2>&1 \
-    || ! "$VENV_PYTHON" -m pip show Pillow >/dev/null 2>&1 \
-    || ! "$VENV_PYTHON" -m pip show timm >/dev/null 2>&1 \
-    || ! "$VENV_PYTHON" -m pip show einops >/dev/null 2>&1 \
-    || [ "$installed_transformers_version" != "$TRANSFORMERS_VERSION" ]; then
-    "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip install --upgrade \
-        torch \
-        "transformers==${TRANSFORMERS_VERSION}" \
-        fastapi \
-        uvicorn \
-        python-multipart \
-        Pillow \
-        timm \
-        einops
-fi
+"$VENV_PYTHON" "$ROOT_DIR/bootstrap_backend.py" \
+    --backend "$IMAGE_TAGGING_BACKEND" \
+    --transformers-version "$TRANSFORMERS_VERSION" \
+    --extra-packages "$IMAGE_TAGGING_EXTRA_PIP_PACKAGES" \
+    --mode sync
 
 set_runtime_defaults
 
 echo "Starting Infumap image tagging service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
+echo "Backend: $IMAGE_TAGGING_BACKEND"
 echo "Model: $IMAGE_TAGGING_MODEL_ID"
-echo "Transformers: $("$VENV_PYTHON" -m pip show transformers 2>/dev/null | awk '/^Version: / {print $2}')"
+echo "Transformers: $("$VENV_PYTHON" -m pip show transformers 2>/dev/null | awk '/^Version: / {print $2}' || true)"
 echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "IMAGE_TAGGING_MAX_CONCURRENCY=${IMAGE_TAGGING_MAX_CONCURRENCY}"
+echo "IMAGE_TAGGING_EXTRA_PIP_PACKAGES=${IMAGE_TAGGING_EXTRA_PIP_PACKAGES:-<unset>}"
 if command -v nvidia-smi >/dev/null 2>&1; then
     echo "Detected GPUs via nvidia-smi:"
     nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true
