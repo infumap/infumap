@@ -9,7 +9,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::fs;
 use tokio::sync::Mutex;
 use tokio::{task, time};
@@ -273,13 +273,38 @@ pub async fn tag_single_item(
     (candidate, key)
   };
   clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  info!("Starting source object read/decrypt for image '{}' (user {}).", candidate.item_id, candidate.user_id);
+  let object_read_started_at = Instant::now();
   let file_bytes = storage_object::get(
     object_store.clone(),
     candidate.user_id.clone(),
     candidate.item_id.clone(),
     &object_encryption_key,
   )
-  .await?;
+  .await;
+  let file_bytes = match file_bytes {
+    Ok(bytes) => bytes,
+    Err(e) => {
+      let elapsed = object_read_started_at.elapsed();
+      let error_message = e.to_string();
+      error!(
+        "Could not read source image object for '{}' (user {}) after {}: {}",
+        candidate.item_id,
+        candidate.user_id,
+        format_duration_for_log(elapsed),
+        error_message
+      );
+      return Err(format!("Could not read source image object for '{}': {}", candidate.item_id, error_message).into());
+    }
+  };
+  let object_read_elapsed = object_read_started_at.elapsed();
+  info!(
+    "Completed source object read/decrypt for image '{}' (user {}) in {} ({} bytes).",
+    candidate.item_id,
+    candidate.user_id,
+    format_duration_for_log(object_read_elapsed),
+    file_bytes.len()
+  );
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
@@ -536,6 +561,11 @@ async fn run_image_tagging_worker(
       );
     }
 
+    info!(
+      "Worker {} starting source object read/decrypt for image '{}' (user {}).",
+      worker_id, candidate.item_id, candidate.user_id
+    );
+    let object_read_started_at = Instant::now();
     let file_bytes = match storage_object::get(
       object_store.clone(),
       candidate.user_id.clone(),
@@ -546,23 +576,42 @@ async fn run_image_tagging_worker(
     {
       Ok(bytes) => bytes,
       Err(e) => {
+        let object_read_elapsed = object_read_started_at.elapsed();
         let progress_summary = {
           let mut progress = progress.lock().await;
           progress.on_other_failed();
           progress.summary()
         };
         info!(
-          "Image '{}' (user {}): object read failed: {}. {} remaining. {}",
-          candidate.item_id, candidate.user_id, e, queue_remaining, progress_summary
+          "Image '{}' (user {}): source object read/decrypt failed after {}: {}. {} remaining. {}",
+          candidate.item_id,
+          candidate.user_id,
+          format_duration_for_log(object_read_elapsed),
+          e,
+          queue_remaining,
+          progress_summary
         );
         error!(
-          "Worker {} could not read image '{}' for user '{}': {}",
-          worker_id, candidate.item_id, candidate.user_id, e
+          "Worker {} could not read image '{}' for user '{}' after {}: {}",
+          worker_id,
+          candidate.item_id,
+          candidate.user_id,
+          format_duration_for_log(object_read_elapsed),
+          e
         );
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
         continue;
       }
     };
+    let object_read_elapsed = object_read_started_at.elapsed();
+    info!(
+      "Worker {} completed source object read/decrypt for image '{}' (user {}) in {} ({} bytes).",
+      worker_id,
+      candidate.item_id,
+      candidate.user_id,
+      format_duration_for_log(object_read_elapsed),
+      file_bytes.len()
+    );
 
     info!(
       "Worker {} sending image tagging request for '{}' (user {}) to '{}'.",

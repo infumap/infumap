@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::fs;
 use tokio::sync::Mutex;
 use tokio::{task, time};
@@ -258,6 +258,8 @@ pub async fn extract_single_item(
     (c, key)
   };
   clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  info!("Starting source object read/decrypt for PDF '{}' (user {}).", candidate.item_id, candidate.user_id);
+  let object_read_started_at = Instant::now();
   let file_bytes = storage_object::get(
     object_store.clone(),
     candidate.user_id.clone(),
@@ -268,13 +270,29 @@ pub async fn extract_single_item(
   let file_bytes = match file_bytes {
     Ok(bytes) => bytes,
     Err(e) => {
+      let elapsed = object_read_started_at.elapsed();
       let error_message = e.to_string();
+      error!(
+        "Could not read source PDF object for '{}' (user {}) after {}: {}",
+        candidate.item_id,
+        candidate.user_id,
+        format_duration_for_log(elapsed),
+        error_message
+      );
       if let Some(manifest_error_message) = manifest_failure_for_object_read_error(&error_message) {
         write_failed_manifest(data_dir, text_extraction_url, &candidate, &manifest_error_message).await?;
       }
       return Err(format!("Could not read source PDF object for '{}': {}", candidate.item_id, error_message).into());
     }
   };
+  let object_read_elapsed = object_read_started_at.elapsed();
+  info!(
+    "Completed source object read/decrypt for PDF '{}' (user {}) in {} ({} bytes).",
+    candidate.item_id,
+    candidate.user_id,
+    format_duration_for_log(object_read_elapsed),
+    file_bytes.len()
+  );
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
@@ -533,6 +551,11 @@ async fn run_text_extraction_worker(
       );
     }
 
+    info!(
+      "Worker {} starting source object read/decrypt for PDF '{}' (user {}).",
+      worker_id, candidate.item_id, candidate.user_id
+    );
+    let object_read_started_at = Instant::now();
     let file_bytes = match storage_object::get(
       object_store.clone(),
       candidate.user_id.clone(),
@@ -543,6 +566,7 @@ async fn run_text_extraction_worker(
     {
       Ok(bytes) => bytes,
       Err(e) => {
+        let object_read_elapsed = object_read_started_at.elapsed();
         let error_message = e.to_string();
         if let Some(manifest_error_message) = manifest_failure_for_object_read_error(&error_message) {
           let item_is_current = match candidate_still_current(db.clone(), &candidate).await {
@@ -568,8 +592,12 @@ async fn run_text_extraction_worker(
               progress.summary()
             };
             info!(
-              "PDF '{}' (user {}): source object read failed, but the item was deleted or replaced before failure could be recorded. {} remaining. {}",
-              candidate.item_id, candidate.user_id, queue_remaining, progress_summary
+              "PDF '{}' (user {}): source object read/decrypt failed after {}, but the item was deleted or replaced before failure could be recorded. {} remaining. {}",
+              candidate.item_id,
+              candidate.user_id,
+              format_duration_for_log(object_read_elapsed),
+              queue_remaining,
+              progress_summary
             );
             if request_delay > Duration::ZERO {
               time::sleep(request_delay).await;
@@ -585,8 +613,13 @@ async fn run_text_extraction_worker(
               progress.summary()
             };
             info!(
-              "PDF '{}' (user {}): object read failed and failed manifest write also failed: {}. {} remaining. {}",
-              candidate.item_id, candidate.user_id, write_error, queue_remaining, progress_summary
+              "PDF '{}' (user {}): source object read/decrypt failed after {} and failed manifest write also failed: {}. {} remaining. {}",
+              candidate.item_id,
+              candidate.user_id,
+              format_duration_for_log(object_read_elapsed),
+              write_error,
+              queue_remaining,
+              progress_summary
             );
             error!(
               "Worker {} could not write failed text manifest after object read failure for PDF '{}' for user '{}': {}",
@@ -601,12 +634,20 @@ async fn run_text_extraction_worker(
             progress.summary()
           };
           error!(
-            "Worker {} could not read PDF '{}' for user '{}': {}",
-            worker_id, candidate.item_id, candidate.user_id, error_message
+            "Worker {} could not read PDF '{}' for user '{}' after {}: {}",
+            worker_id,
+            candidate.item_id,
+            candidate.user_id,
+            format_duration_for_log(object_read_elapsed),
+            error_message
           );
           info!(
-            "PDF '{}' (user {}): extraction failed because the source object is missing. {} remaining. {}",
-            candidate.item_id, candidate.user_id, queue_remaining, progress_summary
+            "PDF '{}' (user {}): extraction failed because the source object is missing after {}. {} remaining. {}",
+            candidate.item_id,
+            candidate.user_id,
+            format_duration_for_log(object_read_elapsed),
+            queue_remaining,
+            progress_summary
           );
           if request_delay > Duration::ZERO {
             time::sleep(request_delay).await;
@@ -620,17 +661,35 @@ async fn run_text_extraction_worker(
           progress.summary()
         };
         info!(
-          "PDF '{}' (user {}): object read failed: {}. {} remaining. {}",
-          candidate.item_id, candidate.user_id, error_message, queue_remaining, progress_summary
+          "PDF '{}' (user {}): source object read/decrypt failed after {}: {}. {} remaining. {}",
+          candidate.item_id,
+          candidate.user_id,
+          format_duration_for_log(object_read_elapsed),
+          error_message,
+          queue_remaining,
+          progress_summary
         );
         error!(
-          "Worker {} could not read PDF '{}' for user '{}': {}",
-          worker_id, candidate.item_id, candidate.user_id, error_message
+          "Worker {} could not read PDF '{}' for user '{}' after {}: {}",
+          worker_id,
+          candidate.item_id,
+          candidate.user_id,
+          format_duration_for_log(object_read_elapsed),
+          error_message
         );
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
         continue;
       }
     };
+    let object_read_elapsed = object_read_started_at.elapsed();
+    info!(
+      "Worker {} completed source object read/decrypt for PDF '{}' (user {}) in {} ({} bytes).",
+      worker_id,
+      candidate.item_id,
+      candidate.user_id,
+      format_duration_for_log(object_read_elapsed),
+      file_bytes.len()
+    );
 
     info!(
       "Worker {} sending text extraction request for PDF '{}' (user {}) to '{}'.",
