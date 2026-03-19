@@ -264,7 +264,17 @@ pub async fn extract_single_item(
     candidate.item_id.clone(),
     &object_encryption_key,
   )
-  .await?;
+  .await;
+  let file_bytes = match file_bytes {
+    Ok(bytes) => bytes,
+    Err(e) => {
+      let error_message = e.to_string();
+      if let Some(manifest_error_message) = manifest_failure_for_object_read_error(&error_message) {
+        write_failed_manifest(data_dir, text_extraction_url, &candidate, &manifest_error_message).await?;
+      }
+      return Err(format!("Could not read source PDF object for '{}': {}", candidate.item_id, error_message).into());
+    }
+  };
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
@@ -526,6 +536,77 @@ async fn run_text_extraction_worker(
     {
       Ok(bytes) => bytes,
       Err(e) => {
+        let error_message = e.to_string();
+        if let Some(manifest_error_message) = manifest_failure_for_object_read_error(&error_message) {
+          let item_is_current = match candidate_still_current(db.clone(), &candidate).await {
+            Ok(current) => current,
+            Err(check_error) => {
+              let progress_summary = {
+                let mut progress = progress.lock().await;
+                progress.on_other_failed();
+                progress.summary()
+              };
+              error!(
+                "Worker {} could not verify current state after object read failure for PDF '{}' for user '{}': {}. {}",
+                worker_id, candidate.item_id, candidate.user_id, check_error, progress_summary
+              );
+              time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+              continue;
+            }
+          };
+          if !item_is_current {
+            let progress_summary = {
+              let mut progress = progress.lock().await;
+              progress.on_other_failed();
+              progress.summary()
+            };
+            info!(
+              "PDF '{}' (user {}): source object read failed, but the item was deleted or replaced before failure could be recorded. {} remaining. {}",
+              candidate.item_id, candidate.user_id, queue_remaining, progress_summary
+            );
+            if request_delay > Duration::ZERO {
+              time::sleep(request_delay).await;
+            }
+            continue;
+          }
+          if let Err(write_error) =
+            write_failed_manifest(&data_dir, &text_extraction_url, &candidate, &manifest_error_message).await
+          {
+            let progress_summary = {
+              let mut progress = progress.lock().await;
+              progress.on_other_failed();
+              progress.summary()
+            };
+            info!(
+              "PDF '{}' (user {}): object read failed and failed manifest write also failed: {}. {} remaining. {}",
+              candidate.item_id, candidate.user_id, write_error, queue_remaining, progress_summary
+            );
+            error!(
+              "Worker {} could not write failed text manifest after object read failure for PDF '{}' for user '{}': {}",
+              worker_id, candidate.item_id, candidate.user_id, write_error
+            );
+            time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+            continue;
+          }
+          let progress_summary = {
+            let mut progress = progress.lock().await;
+            progress.on_document_failed();
+            progress.summary()
+          };
+          error!(
+            "Worker {} could not read PDF '{}' for user '{}': {}",
+            worker_id, candidate.item_id, candidate.user_id, error_message
+          );
+          info!(
+            "PDF '{}' (user {}): extraction failed because the source object is missing. {} remaining. {}",
+            candidate.item_id, candidate.user_id, queue_remaining, progress_summary
+          );
+          if request_delay > Duration::ZERO {
+            time::sleep(request_delay).await;
+          }
+          continue;
+        }
+
         let progress_summary = {
           let mut progress = progress.lock().await;
           progress.on_other_failed();
@@ -533,11 +614,11 @@ async fn run_text_extraction_worker(
         };
         info!(
           "PDF '{}' (user {}): object read failed: {}. {} remaining. {}",
-          candidate.item_id, candidate.user_id, e, queue_remaining, progress_summary
+          candidate.item_id, candidate.user_id, error_message, queue_remaining, progress_summary
         );
         error!(
           "Worker {} could not read PDF '{}' for user '{}': {}",
-          worker_id, candidate.item_id, candidate.user_id, e
+          worker_id, candidate.item_id, candidate.user_id, error_message
         );
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
         continue;
@@ -674,6 +755,43 @@ fn format_duration_for_log(duration: Duration) -> String {
     return if secs == 1 { "1 second".to_owned() } else { format!("{} seconds", secs) };
   }
   format!("{:.3} seconds", duration.as_secs_f64())
+}
+
+fn manifest_failure_for_object_read_error(error_message: &str) -> Option<String> {
+  if error_message.contains("Unexpected status code getting S3 object") && error_message.contains("404") {
+    return Some(format!("Source PDF object is missing from S3 object storage: {}", error_message));
+  }
+  if error_message.contains("No such file or directory") {
+    return Some(format!("Source PDF object is missing from local object storage: {}", error_message));
+  }
+  None
+}
+
+#[cfg(test)]
+mod tests {
+  use super::manifest_failure_for_object_read_error;
+
+  #[test]
+  fn classifies_s3_404_as_terminal_document_failure() {
+    let message = "Unexpected status code getting S3 object 'user_item': 404";
+    let classified = manifest_failure_for_object_read_error(message);
+    assert!(classified.is_some());
+    assert!(classified.unwrap().contains("missing"));
+  }
+
+  #[test]
+  fn classifies_missing_local_file_as_terminal_document_failure() {
+    let message = "No such file or directory (os error 2)";
+    let classified = manifest_failure_for_object_read_error(message);
+    assert!(classified.is_some());
+    assert!(classified.unwrap().contains("local object storage"));
+  }
+
+  #[test]
+  fn leaves_transient_storage_errors_retryable() {
+    let message = "Timeout waiting for first byte from S3 for 'user_item'";
+    assert!(manifest_failure_for_object_read_error(message).is_none());
+  }
 }
 
 async fn refill_queue_if_needed(

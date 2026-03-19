@@ -157,6 +157,17 @@ fn response_content_headers(filename: &str, mime_type: &str) -> (String, String)
   }
 }
 
+fn response_content_headers_for_generated_item_text(filename: &str, mime_type: &str) -> (String, String) {
+  let (content_type, content_disposition) = response_content_headers(filename, mime_type);
+  let content_type = match mime_type {
+    "text/plain" | "text/markdown" | "text/csv" if content_type == mime_type => {
+      format!("{}; charset=utf-8", mime_type)
+    }
+    _ => content_type,
+  };
+  (content_type, content_disposition)
+}
+
 pub async fn serve_files_route(
   config: Arc<Config>,
   db: &Arc<Mutex<Db>>,
@@ -486,7 +497,8 @@ async fn get_item_text(
   };
 
   let filename = item_text_filename(uid, &manifest.content_mime_type);
-  let (content_type, content_disposition) = response_content_headers(&filename, &manifest.content_mime_type);
+  let (content_type, content_disposition) =
+    response_content_headers_for_generated_item_text(&filename, &manifest.content_mime_type);
 
   Ok(
     Response::builder()
@@ -548,7 +560,10 @@ fn calc_cache_control(max_age: i64) -> String {
 
 #[cfg(test)]
 mod tests {
-  use super::{content_disposition_header, is_safe_inline_mime, response_filename};
+  use super::{
+    content_disposition_header, is_safe_inline_mime, response_content_headers_for_generated_item_text,
+    response_filename,
+  };
 
   #[test]
   fn allows_inline_for_documents_media_and_safe_text() {
@@ -581,5 +596,20 @@ mod tests {
   fn emits_ascii_and_utf8_filename_parameters() {
     let header = content_disposition_header("report \"final\".pdf", false);
     assert_eq!(header, "attachment; filename=\"report _final_.pdf\"; filename*=UTF-8''report%20%22final%22.pdf");
+  }
+
+  #[test]
+  fn adds_utf8_charset_for_generated_markdown() {
+    let (content_type, disposition) = response_content_headers_for_generated_item_text("report.md", "text/markdown");
+    assert_eq!(content_type, "text/markdown; charset=utf-8");
+    assert!(disposition.starts_with("inline;"));
+  }
+
+  #[test]
+  fn leaves_generated_json_content_type_unchanged() {
+    let (content_type, disposition) =
+      response_content_headers_for_generated_item_text("report.json", "application/json");
+    assert_eq!(content_type, "application/json");
+    assert!(disposition.starts_with("inline;"));
   }
 }
