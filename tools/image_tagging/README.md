@@ -41,6 +41,7 @@ On first run this creates `tools/image_tagging/.venv` and installs:
 - `python-multipart`
 - `Pillow`
 - `timm`
+- `einops`
 
 By default the service listens on `127.0.0.1:8788` and uses
 `microsoft/Florence-2-large-ft`.

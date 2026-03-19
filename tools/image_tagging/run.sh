@@ -8,6 +8,7 @@ readonly VENV_DIR="${IMAGE_TAGGING_VENV_DIR:-$ROOT_DIR/.venv}"
 readonly HOST="${IMAGE_TAGGING_HOST:-127.0.0.1}"
 readonly PORT="${IMAGE_TAGGING_PORT:-8788}"
 export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-microsoft/Florence-2-large-ft}"
+readonly TRANSFORMERS_VERSION="${IMAGE_TAGGING_TRANSFORMERS_VERSION:-4.49.0}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 gpu_total_memory_mib() {
@@ -105,15 +106,27 @@ readonly VENV_PYTHON="$VENV_DIR/bin/python"
 
 ensure_venv_pip
 
+installed_transformers_version="$("$VENV_PYTHON" -m pip show transformers 2>/dev/null | awk '/^Version: / {print $2}')"
+
 if ! "$VENV_PYTHON" -m pip show torch >/dev/null 2>&1 \
     || ! "$VENV_PYTHON" -m pip show transformers >/dev/null 2>&1 \
     || ! "$VENV_PYTHON" -m pip show fastapi >/dev/null 2>&1 \
     || ! "$VENV_PYTHON" -m pip show uvicorn >/dev/null 2>&1 \
     || ! "$VENV_PYTHON" -m pip show python-multipart >/dev/null 2>&1 \
     || ! "$VENV_PYTHON" -m pip show Pillow >/dev/null 2>&1 \
-    || ! "$VENV_PYTHON" -m pip show timm >/dev/null 2>&1; then
+    || ! "$VENV_PYTHON" -m pip show timm >/dev/null 2>&1 \
+    || ! "$VENV_PYTHON" -m pip show einops >/dev/null 2>&1 \
+    || [ "$installed_transformers_version" != "$TRANSFORMERS_VERSION" ]; then
     "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip install --upgrade torch transformers fastapi uvicorn python-multipart Pillow timm
+    "$VENV_PYTHON" -m pip install --upgrade \
+        torch \
+        "transformers==${TRANSFORMERS_VERSION}" \
+        fastapi \
+        uvicorn \
+        python-multipart \
+        Pillow \
+        timm \
+        einops
 fi
 
 set_runtime_defaults
@@ -122,6 +135,7 @@ echo "Starting Infumap image tagging service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
 echo "Model: $IMAGE_TAGGING_MODEL_ID"
+echo "Transformers: $("$VENV_PYTHON" -m pip show transformers 2>/dev/null | awk '/^Version: / {print $2}')"
 echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
