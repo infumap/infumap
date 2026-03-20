@@ -39,7 +39,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("text_extraction_url")
         .long("text-extraction-url")
-        .help("Override the configured text extraction service URL for this process.")
+        .help("Text extraction service URL. Overrides the configured value, if present.")
         .num_args(1)
         .required(false),
     )
@@ -54,7 +54,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("container_id")
         .long("container-id")
-        .help("Extract text only for PDFs within this container subtree. By default, items with existing extraction artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
+        .help("Extract text only for PDFs within this container subtree (recursive). By default, items with existing extraction artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
         .num_args(1)
         .required(false),
     )

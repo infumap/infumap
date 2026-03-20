@@ -39,7 +39,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("image_tagging_url")
         .long("image-tagging-url")
-        .help("Override the configured image tagging service URL for this process.")
+        .help("Image tagging service URL. Overrides the configured value, if present.")
         .num_args(1)
         .required(false),
     )
@@ -54,7 +54,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("container_id")
         .long("container-id")
-        .help("Tag only supported images within this container subtree. By default, items with existing image-tag artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
+        .help("Tag only supported images within this container subtree (recursive). By default, items with existing image-tag artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
         .num_args(1)
         .required(false),
     )
