@@ -2,12 +2,9 @@
 
 This is a small ad-hoc HTTP wrapper around [Marker](https://github.com/datalab-to/marker) for converting uploaded files to markdown.
 
-It is intended for burst use:
+Intended for burst or long running use.
 
-- start it when you need to process a batch
-- run it locally or on a short-lived VPS
-- keep it bound to `127.0.0.1`
-- access it over SSH port forwarding
+Works well on a google cloud g2-standard-4 instance (NVIDIA L4). Note that a T4 is a little underpowered for larger / more complex PDFs. L4 is the sweat spot.
 
 ## What It Does
 
@@ -38,7 +35,7 @@ On first run this creates `tools/text_extraction/.venv` and installs:
 
 By default the service listens on `127.0.0.1:8787`.
 
-`run.sh` now supervises the `uvicorn` process. If the text extraction service crashes
+`run.sh` supervises a `uvicorn` process. If the text extraction service crashes
 (including a segfault), the script logs the exit and restarts it automatically after
 a short delay. Pressing `Ctrl-C` still stops the supervisor cleanly.
 
@@ -75,6 +72,8 @@ If the service is running on `my-host`:
 ```bash
 ssh -L 8787:127.0.0.1:8787 my-host
 ```
+
+(locally)
 
 Then use `http://127.0.0.1:8787` locally as if the service were running on your laptop.
 
