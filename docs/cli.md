@@ -146,6 +146,8 @@ Options:
 - **--container-id (optional):** Extract text only for PDFs within this container subtree, then exit after the finite batch completes. By default, items with existing extraction artifacts are skipped.
 - **--overwrite (optional):** When used with `--container-id`, reprocess items even if extraction artifacts already exist. `--item-id` always overwrites.
 - **--list-failed (optional):** List PDFs for which text extraction previously failed, then exit. When combined with `--container-id`, only failures within that subtree are shown.
+- **--mark-failed-item-id (optional, repeatable):** Write a failed text-extraction manifest for this PDF and exit without contacting the extraction service. This keeps the item from being retried until you explicitly reprocess it.
+- **--mark-failed-reason (optional):** Reason string to store in manifests written via `--mark-failed-item-id`.
 
 ### fragments
 

@@ -17,7 +17,7 @@
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
-use clap::{Arg, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use infusdk::item::{Item, is_container_item_type};
 use infusdk::util::infu::InfuResult;
 use log::info;
@@ -35,8 +35,8 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::text_extraction::{
-  extract_single_item, item_needs_text_extraction, list_failed_pdfs, start_text_extraction_processing_loop,
-  text_extraction_url_from_config,
+  extract_single_item, item_needs_text_extraction, list_failed_pdfs, mark_item_text_extraction_failed,
+  start_text_extraction_processing_loop, text_extraction_url_from_config,
 };
 
 const DEFAULT_CLI_TEXT_EXTRACTION_CONCURRENCY: usize = 1;
@@ -64,7 +64,7 @@ pub fn make_clap_subcommand() -> Command {
         .long("item-id")
         .help("Extract text only for this item (must be a PDF). Existing extraction artifacts are overwritten. Exits after one extraction.")
         .num_args(1)
-        .conflicts_with("container_id")
+        .conflicts_with_all(["container_id", "mark_failed_item_id"])
         .required(false),
     )
     .arg(
@@ -72,6 +72,7 @@ pub fn make_clap_subcommand() -> Command {
         .long("container-id")
         .help("Extract text only for PDFs within this container subtree (recursive). By default, items with existing extraction artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
         .num_args(1)
+        .conflicts_with("mark_failed_item_id")
         .required(false),
     )
     .arg(
@@ -102,6 +103,23 @@ pub fn make_clap_subcommand() -> Command {
         .long("list-failed")
         .help("List all PDFs for which text extraction failed. Exits after listing.")
         .num_args(0)
+        .conflicts_with("mark_failed_item_id")
+        .required(false),
+    )
+    .arg(
+      Arg::new("mark_failed_item_id")
+        .long("mark-failed-item-id")
+        .help("Write a failed text-extraction manifest for this PDF and exit without contacting the extraction service. Repeat to mark multiple items.")
+        .num_args(1)
+        .action(ArgAction::Append)
+        .required(false),
+    )
+    .arg(
+      Arg::new("mark_failed_reason")
+        .long("mark-failed-reason")
+        .help("Optional reason stored in failed manifests written via --mark-failed-item-id.")
+        .num_args(1)
+        .requires("mark_failed_item_id")
         .required(false),
     )
 }
@@ -140,6 +158,19 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     if failed.is_empty() {
       println!("No PDFs with failed text extraction.");
     }
+    return Ok(());
+  }
+
+  if let Some(item_ids) = sub_matches.get_many::<String>("mark_failed_item_id") {
+    let reason_maybe = sub_matches.get_one::<String>("mark_failed_reason").map(String::as_str);
+    let item_ids = item_ids.cloned().collect::<Vec<String>>();
+    for item_id in &item_ids {
+      mark_item_text_extraction_failed(&data_dir, db.clone(), item_id, reason_maybe).await?;
+    }
+    info!(
+      "Marked {} PDF(s) as failed for text extraction. They will be skipped until reprocessed explicitly.",
+      item_ids.len()
+    );
     return Ok(());
   }
 

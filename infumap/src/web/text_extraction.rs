@@ -45,6 +45,7 @@ const REFILL_WAIT_MILLIS: u64 = 1000;
 const DEFAULT_BACKGROUND_CONCURRENCY: usize = 1;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
+const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -332,6 +333,31 @@ pub async fn extract_single_item(
       return Err(format!("Text extraction endpoint unavailable: {}", msg).into());
     }
   }
+  Ok(())
+}
+
+pub async fn mark_item_text_extraction_failed(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  item_id: &str,
+  reason_maybe: Option<&str>,
+) -> InfuResult<()> {
+  let candidate = {
+    let db = db.lock().await;
+    let id = item_id.to_string();
+    let item = db.item.get(&id).map_err(|e| e.to_string())?;
+    if item.mime_type.as_deref() != Some("application/pdf") {
+      return Err(format!("Item '{}' is not a PDF (mime_type: {:?}).", item_id, item.mime_type).into());
+    }
+    PdfCandidate::from_item(item)
+  };
+  clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  let error_message = match reason_maybe.map(|reason| reason.trim()).filter(|reason| !reason.is_empty()) {
+    Some(reason) => format!("Marked failed via CLI: {}", reason),
+    None => "Marked failed via CLI.".to_owned(),
+  };
+  write_failed_manifest(data_dir, CLI_FAILED_MANIFEST_EXTRACTOR_URL, &candidate, &error_message).await?;
+  info!("Marked PDF '{}' (user {}) as failed for text extraction via CLI.", candidate.item_id, candidate.user_id);
   Ok(())
 }
 
