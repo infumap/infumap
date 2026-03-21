@@ -95,7 +95,9 @@ Rules:
 - "scene" should summarize the overall setting in a short phrase.
 - "location_type" should capture the venue or image type when visible.
 - "activities" should contain short lower-case activity phrases.
-- "document_confidence" should estimate whether the image is mainly intended to preserve, share, or later read a document or text-bearing artifact. Use high values when the central subject is a paper, screen, sign, ticket, card, page, label, receipt, poster, slide, screenshot, or similar text-bearing artifact; use low values for ordinary scene photos.
+- "document_confidence" should estimate whether the image seems mainly intended to preserve, share, or later read the contents of a document or text-bearing artifact.
+- Use high values only when the composition strongly suggests the artifact itself is the main subject and the viewer is meant to read or keep its contents.
+- Use low values for ordinary scene photos, aesthetic compositions, desk or room setups, portraits, or environmental shots where a paper, screen, sign, laptop, or other text-bearing object is merely present or even prominent but is not obviously being captured for its readable content.
 - "document_reasons" should justify the document score in one short sentence.
 - "face_recognition_candidate_confidence" should estimate whether the image is appropriate for downstream real-person face matching across photos.
 - Use 1.0 for obvious strong positives such as portraits, selfies, posed two-person photos, or clear group photos where at least one real human face is near-frontal, sharp, and large enough that you would definitely send the image to a face-matching system.
