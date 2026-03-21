@@ -158,6 +158,9 @@ Options:
 - **--list-failed (optional):** List PDFs for which text extraction previously failed, then exit. When combined with `--container-id`, only failures within that subtree are shown.
 - **--mark-failed-item-id (optional, repeatable):** Write a failed text-extraction manifest for this PDF and exit without contacting the extraction service. This keeps the item from being retried until you explicitly reprocess it.
 - **--mark-failed-reason (optional):** Reason string to store in manifests written via `--mark-failed-item-id`.
+- **--delete-all (optional):** Delete all derived PDF text-extraction results while leaving image-tagging results untouched. Requires exactly one of `--dry-run` or `--force`.
+- **--dry-run (optional):** Show which PDF text-extraction results `--delete-all` would remove without deleting anything.
+- **--force (optional):** Perform the deletion requested by `--delete-all`.
 
 ### extract image
 
@@ -174,6 +177,9 @@ Options:
 - **--list-failed (optional):** List supported images for which image tagging previously failed, then exit. When combined with `--container-id`, only failures within that subtree are shown.
 - **--mark-failed-item-id (optional, repeatable):** Write a failed image-tagging manifest for this image and exit without contacting the image tagging service. This keeps the item from being retried until you explicitly reprocess it.
 - **--mark-failed-reason (optional):** Reason string to store in manifests written via `--mark-failed-item-id`.
+- **--delete-all (optional):** Delete all derived image-tagging results while leaving PDF text-extraction results untouched. Requires exactly one of `--dry-run` or `--force`.
+- **--dry-run (optional):** Show which image-tagging results `--delete-all` would remove without deleting anything.
+- **--force (optional):** Perform the deletion requested by `--delete-all`.
 
 ### fragments
 

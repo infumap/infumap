@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -25,6 +25,8 @@ use config::Config;
 use infusdk::item::{is_container_item_type, Item};
 use infusdk::util::infu::InfuResult;
 use log::info;
+use serde::Deserialize;
+use tokio::fs;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
@@ -39,15 +41,21 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::image_tagging::{
+  delete_item_image_tag_dir,
   image_tagging_url_from_config, item_needs_image_tagging, list_failed_images, load_image_for_tagging,
+  is_supported_image_tagging_mime_type,
   mark_item_image_tagging_failed, process_loaded_image_tagging, should_tag_image_item,
   start_image_tagging_processing_loop, tag_single_item_no_retry, LoadedImageTagging,
 };
 use crate::web::text_extraction::{
+  delete_item_text_dir,
   extract_single_item_no_retry, item_needs_text_extraction, list_failed_pdfs, load_pdf_for_extraction,
   mark_item_text_extraction_failed, process_loaded_pdf_extraction, start_text_extraction_processing_loop,
   text_extraction_url_from_config, LoadedPdfExtraction,
 };
+use crate::util::fs::{expand_tilde, path_exists};
+
+const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("extract")
@@ -82,7 +90,7 @@ fn make_pdf_subcommand() -> Command {
         .long("item-id")
         .help("Extract text only for this item (must be a PDF). Existing extraction artifacts are overwritten. Exits after one extraction.")
         .num_args(1)
-        .conflicts_with_all(["container_id", "mark_failed_item_id"])
+        .conflicts_with_all(["container_id", "mark_failed_item_id", "delete_all"])
         .required(false),
     )
     .arg(
@@ -90,7 +98,7 @@ fn make_pdf_subcommand() -> Command {
         .long("container-id")
         .help("Extract text only for PDFs within this container subtree (recursive). By default, items with existing extraction artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
         .num_args(1)
-        .conflicts_with("mark_failed_item_id")
+        .conflicts_with_all(["mark_failed_item_id", "delete_all"])
         .required(false),
     )
     .arg(
@@ -99,7 +107,7 @@ fn make_pdf_subcommand() -> Command {
         .help("When used with --container-id, reprocess items even if extraction artifacts already exist. --item-id always overwrites.")
         .num_args(0)
         .requires("container_id")
-        .conflicts_with("list_failed")
+        .conflicts_with_all(["list_failed", "delete_all"])
         .required(false),
     )
     .arg(
@@ -114,7 +122,7 @@ fn make_pdf_subcommand() -> Command {
         .long("list-failed")
         .help("List all PDFs for which text extraction failed. Exits after listing.")
         .num_args(0)
-        .conflicts_with("mark_failed_item_id")
+        .conflicts_with_all(["mark_failed_item_id", "delete_all"])
         .required(false),
     )
     .arg(
@@ -123,6 +131,7 @@ fn make_pdf_subcommand() -> Command {
         .help("Write a failed text-extraction manifest for this PDF and exit without contacting the extraction service. Repeat to mark multiple items.")
         .num_args(1)
         .action(ArgAction::Append)
+        .conflicts_with("delete_all")
         .required(false),
     )
     .arg(
@@ -131,6 +140,32 @@ fn make_pdf_subcommand() -> Command {
         .help("Optional reason stored in failed manifests written via --mark-failed-item-id.")
         .num_args(1)
         .requires("mark_failed_item_id")
+        .required(false),
+    )
+    .arg(
+      Arg::new("delete_all")
+        .long("delete-all")
+        .help("Delete all derived PDF text-extraction results while leaving image-tagging results untouched.")
+        .num_args(0)
+        .conflicts_with_all(["service_url", "delay_secs"])
+        .required(false),
+    )
+    .arg(
+      Arg::new("force")
+        .long("force")
+        .help("Perform the deletion requested by --delete-all.")
+        .num_args(0)
+        .requires("delete_all")
+        .conflicts_with("dry_run")
+        .required(false),
+    )
+    .arg(
+      Arg::new("dry_run")
+        .long("dry-run")
+        .help("Show what --delete-all would remove without deleting anything.")
+        .num_args(0)
+        .requires("delete_all")
+        .conflicts_with("force")
         .required(false),
     )
 }
@@ -151,7 +186,7 @@ fn make_image_subcommand() -> Command {
         .long("item-id")
         .help("Tag only this item (must be a supported image). Existing image-tag artifacts are overwritten. Exits after one image.")
         .num_args(1)
-        .conflicts_with_all(["container_id", "mark_failed_item_id"])
+        .conflicts_with_all(["container_id", "mark_failed_item_id", "delete_all"])
         .required(false),
     )
     .arg(
@@ -159,7 +194,7 @@ fn make_image_subcommand() -> Command {
         .long("container-id")
         .help("Tag only supported images within this container subtree (recursive). By default, items with existing image-tag artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
         .num_args(1)
-        .conflicts_with("mark_failed_item_id")
+        .conflicts_with_all(["mark_failed_item_id", "delete_all"])
         .required(false),
     )
     .arg(
@@ -168,7 +203,7 @@ fn make_image_subcommand() -> Command {
         .help("When used with --container-id, reprocess items even if image-tag artifacts already exist. --item-id always overwrites.")
         .num_args(0)
         .requires("container_id")
-        .conflicts_with("list_failed")
+        .conflicts_with_all(["list_failed", "delete_all"])
         .required(false),
     )
     .arg(
@@ -183,6 +218,7 @@ fn make_image_subcommand() -> Command {
         .long("list-failed")
         .help("List all supported images for which image tagging failed. Exits after listing.")
         .num_args(0)
+        .conflicts_with("delete_all")
         .required(false),
     )
     .arg(
@@ -191,6 +227,7 @@ fn make_image_subcommand() -> Command {
         .help("Write a failed image-tagging manifest for this image and exit without contacting the image tagging service. Repeat to mark multiple items.")
         .num_args(1)
         .action(ArgAction::Append)
+        .conflicts_with("delete_all")
         .required(false),
     )
     .arg(
@@ -199,6 +236,32 @@ fn make_image_subcommand() -> Command {
         .help("Optional reason stored in failed manifests written via --mark-failed-item-id.")
         .num_args(1)
         .requires("mark_failed_item_id")
+        .required(false),
+    )
+    .arg(
+      Arg::new("delete_all")
+        .long("delete-all")
+        .help("Delete all derived image-tagging results while leaving PDF text-extraction results untouched.")
+        .num_args(0)
+        .conflicts_with_all(["service_url", "delay_secs"])
+        .required(false),
+    )
+    .arg(
+      Arg::new("force")
+        .long("force")
+        .help("Perform the deletion requested by --delete-all.")
+        .num_args(0)
+        .requires("delete_all")
+        .conflicts_with("dry_run")
+        .required(false),
+    )
+    .arg(
+      Arg::new("dry_run")
+        .long("dry-run")
+        .help("Show what --delete-all would remove without deleting anything.")
+        .num_args(0)
+        .requires("delete_all")
+        .conflicts_with("force")
         .required(false),
     )
 }
@@ -241,6 +304,48 @@ struct BatchUiText {
   artifact_label: &'static str,
 }
 
+#[derive(Clone, Copy)]
+enum DeleteAllKind {
+  Pdf,
+  Image,
+}
+
+impl DeleteAllKind {
+  fn result_label(self) -> &'static str {
+    match self {
+      DeleteAllKind::Pdf => "PDF text-extraction",
+      DeleteAllKind::Image => "image-tagging",
+    }
+  }
+
+  fn matches_item(self, item: &Item) -> bool {
+    match self {
+      DeleteAllKind::Pdf => is_extractable_pdf_item(item),
+      DeleteAllKind::Image => should_tag_image_item(item),
+    }
+  }
+
+  fn matches_source_mime_type(self, mime_type: &str) -> bool {
+    match self {
+      DeleteAllKind::Pdf => mime_type == PDF_SOURCE_MIME_TYPE,
+      DeleteAllKind::Image => is_supported_image_tagging_mime_type(Some(mime_type)),
+    }
+  }
+}
+
+#[derive(Deserialize)]
+struct DerivedManifestSummary {
+  source_mime_type: String,
+}
+
+#[derive(Clone)]
+struct DeleteAllTarget {
+  user_id: String,
+  item_id: String,
+  manifest_exists: bool,
+  content_exists: bool,
+}
+
 type NeedsProcessingFuture<'a> = Pin<Box<dyn Future<Output = InfuResult<bool>> + Send + 'a>>;
 type NeedsProcessingFn = for<'a> fn(&'a str, Arc<Mutex<Db>>, &'a str) -> NeedsProcessingFuture<'a>;
 type LoadItemFuture<'a, LoadedItem> = Pin<Box<dyn Future<Output = InfuResult<LoadedItem>> + Send + 'a>>;
@@ -253,6 +358,10 @@ type ProcessLoadedItemFn<LoadedItem> =
 async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
   let CliRuntime { config, data_dir, db, object_store } =
     init_runtime(sub_matches.get_one::<String>("settings_path")).await?;
+
+  if maybe_execute_delete_all(sub_matches, &data_dir, db.clone(), DeleteAllKind::Pdf).await? {
+    return Ok(());
+  }
 
   if sub_matches.get_flag("list_failed") {
     let failed = list_failed_pdfs(&data_dir, db.clone()).await?;
@@ -367,6 +476,10 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
 async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
   let CliRuntime { config, data_dir, db, object_store } =
     init_runtime(sub_matches.get_one::<String>("settings_path")).await?;
+
+  if maybe_execute_delete_all(sub_matches, &data_dir, db.clone(), DeleteAllKind::Image).await? {
+    return Ok(());
+  }
 
   if sub_matches.get_flag("list_failed") {
     let failed = list_failed_images(&data_dir, db.clone()).await?;
@@ -527,6 +640,75 @@ fn resolve_service_url(
   }
 }
 
+async fn maybe_execute_delete_all(
+  sub_matches: &ArgMatches,
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  kind: DeleteAllKind,
+) -> InfuResult<bool> {
+  if !sub_matches.get_flag("delete_all") {
+    return Ok(false);
+  }
+
+  let force = sub_matches.get_flag("force");
+  let dry_run = sub_matches.get_flag("dry_run");
+  if force == dry_run {
+    return Err("When using --delete-all, specify exactly one of --force or --dry-run.".into());
+  }
+
+  let targets = collect_delete_all_targets(data_dir, db, kind).await?;
+  let manifest_count = targets.iter().filter(|target| target.manifest_exists).count();
+  let content_count = targets.iter().filter(|target| target.content_exists).count();
+
+  if targets.is_empty() {
+    println!("No {} derived results found.", kind.result_label());
+    return Ok(true);
+  }
+
+  if dry_run {
+    println!(
+      "Dry run: would delete {} {} result set(s) ({} manifest file(s), {} content file(s)).",
+      targets.len(),
+      kind.result_label(),
+      manifest_count,
+      content_count
+    );
+    for target in &targets {
+      let mut pieces = vec![];
+      if target.manifest_exists {
+        pieces.push("manifest");
+      }
+      if target.content_exists {
+        pieces.push("content");
+      }
+      println!(
+        "would delete {} for user={} item={}",
+        pieces.join("+"),
+        target.user_id,
+        target.item_id
+      );
+    }
+    println!("Re-run with --force to perform this deletion.");
+    return Ok(true);
+  }
+
+  for target in &targets {
+    match kind {
+      DeleteAllKind::Pdf => delete_item_text_dir(data_dir, &target.user_id, &target.item_id).await?,
+      DeleteAllKind::Image => delete_item_image_tag_dir(data_dir, &target.user_id, &target.item_id).await?,
+    }
+  }
+
+  info!(
+    "Deleted {} {} result set(s) ({} manifest file(s), {} content file(s)).",
+    targets.len(),
+    kind.result_label(),
+    manifest_count,
+    content_count
+  );
+  Ok(true)
+}
+
 fn parse_delay_arg(sub_matches: &ArgMatches, arg_name: &str, flag_name: &str) -> InfuResult<Duration> {
   match sub_matches.get_one::<String>(arg_name) {
     Some(value) => {
@@ -560,6 +742,141 @@ async fn filter_item_ids_to_process(
   }
 
   Ok((filtered_item_ids, skipped_existing))
+}
+
+async fn collect_delete_all_targets(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  kind: DeleteAllKind,
+) -> InfuResult<Vec<DeleteAllTarget>> {
+  let current_items = {
+    let db = db.lock().await;
+    db.item
+      .all_loaded_items()
+      .into_iter()
+      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().map(Item::clone))
+      .filter(|item| kind.matches_item(item))
+      .map(|item| (item.owner_id.clone(), item.id.clone()))
+      .collect::<Vec<(String, String)>>()
+  };
+
+  let mut targets = HashMap::<(String, String), DeleteAllTarget>::new();
+
+  for (user_id, item_id) in current_items {
+    let (manifest_path, content_path) = derived_result_paths(data_dir, &user_id, &item_id)?;
+    let manifest_exists = path_exists(&manifest_path).await;
+    let content_exists = path_exists(&content_path).await;
+    if manifest_exists || content_exists {
+      targets.insert(
+        (user_id.clone(), item_id.clone()),
+        DeleteAllTarget { user_id, item_id, manifest_exists, content_exists },
+      );
+    }
+  }
+
+  scan_manifest_backed_delete_targets(data_dir, kind, &mut targets).await?;
+
+  let mut targets = targets
+    .into_values()
+    .filter(|target| target.manifest_exists || target.content_exists)
+    .collect::<Vec<DeleteAllTarget>>();
+  targets.sort_by(|a, b| a.user_id.cmp(&b.user_id).then(a.item_id.cmp(&b.item_id)));
+  Ok(targets)
+}
+
+async fn scan_manifest_backed_delete_targets(
+  data_dir: &str,
+  kind: DeleteAllKind,
+  targets: &mut HashMap<(String, String), DeleteAllTarget>,
+) -> InfuResult<()> {
+  let base_dir = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  if !path_exists(&base_dir).await {
+    return Ok(());
+  }
+
+  let mut user_entries = fs::read_dir(&base_dir).await?;
+  while let Some(user_entry) = user_entries.next_entry().await? {
+    if !user_entry.file_type().await?.is_dir() {
+      continue;
+    }
+    let user_dir_name = user_entry.file_name().to_string_lossy().into_owned();
+    let Some(user_id) = user_dir_name.strip_prefix("user_") else {
+      continue;
+    };
+    let text_dir = user_entry.path().join("text");
+    if !path_exists(&text_dir).await {
+      continue;
+    }
+
+    let mut shard_entries = fs::read_dir(&text_dir).await?;
+    while let Some(shard_entry) = shard_entries.next_entry().await? {
+      if !shard_entry.file_type().await?.is_dir() {
+        continue;
+      }
+
+      let mut file_entries = fs::read_dir(shard_entry.path()).await?;
+      while let Some(file_entry) = file_entries.next_entry().await? {
+        if !file_entry.file_type().await?.is_file() {
+          continue;
+        }
+        let file_name = file_entry.file_name().to_string_lossy().into_owned();
+        let Some(item_id) = file_name.strip_suffix("_manifest.json") else {
+          continue;
+        };
+
+        let manifest_bytes = match fs::read(file_entry.path()).await {
+          Ok(bytes) => bytes,
+          Err(_) => continue,
+        };
+        let manifest: DerivedManifestSummary = match serde_json::from_slice(&manifest_bytes) {
+          Ok(manifest) => manifest,
+          Err(_) => continue,
+        };
+        if !kind.matches_source_mime_type(&manifest.source_mime_type) {
+          continue;
+        }
+
+        let manifest_exists = true;
+        let content_path = shard_entry.path().join(format!("{}_text", item_id));
+        let content_exists = path_exists(&content_path).await;
+        let key = (user_id.to_owned(), item_id.to_owned());
+        targets
+          .entry(key)
+          .and_modify(|target| {
+            target.manifest_exists = true;
+            target.content_exists |= content_exists;
+          })
+          .or_insert(DeleteAllTarget {
+            user_id: user_id.to_owned(),
+            item_id: item_id.to_owned(),
+            manifest_exists,
+            content_exists,
+          });
+      }
+    }
+  }
+
+  Ok(())
+}
+
+fn derived_result_paths(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<(std::path::PathBuf, std::path::PathBuf)> {
+  if item_id.len() < 2 {
+    return Err(format!("Item id '{}' is too short.", item_id).into());
+  }
+  let mut dir = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  dir.push(format!("user_{}", user_id));
+  dir.push("text");
+  dir.push(&item_id[..2]);
+
+  let mut manifest_path = dir.clone();
+  manifest_path.push(format!("{}_manifest.json", item_id));
+  let mut content_path = dir;
+  content_path.push(format!("{}_text", item_id));
+  Ok((manifest_path, content_path))
 }
 
 async fn collect_matching_item_ids_in_container<PredicateFn>(
