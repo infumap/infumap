@@ -21,17 +21,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class ImageInfo(BaseModel):
-    width: int
-    height: int
-    mime_type: str | None
-
-
-class DetectedObject(BaseModel):
-    label: str
-    bbox: list[float] = Field(default_factory=list)
-
-
 class OCRRegion(BaseModel):
     text: str
     quad_box: list[float] = Field(default_factory=list)
@@ -49,17 +38,11 @@ class DocumentCandidateInfo(BaseModel):
 
 class ImageTagResponse(BaseModel):
     success: bool
-    file_name: str
-    backend: str
-    model_id: str
-    image: ImageInfo
     detailed_caption: str | None = None
     tags: list[str] = Field(default_factory=list)
-    objects: list[DetectedObject] = Field(default_factory=list)
+    key_objects: list[str] = Field(default_factory=list)
     ocr_text: str = ""
     ocr_regions: list[OCRRegion] = Field(default_factory=list)
     document_candidate: DocumentCandidateInfo | None = None
     raw_task_outputs: dict[str, Any] = Field(default_factory=dict)
-    task_durations_ms: dict[str, int] = Field(default_factory=dict)
     backend_payload: dict[str, Any] = Field(default_factory=dict)
-    duration_ms: int

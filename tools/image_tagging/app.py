@@ -36,7 +36,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
 
-from backend_api import DetectedObject, DocumentCandidateInfo, ImageInfo, ImageTagResponse
+from backend_api import DocumentCandidateInfo, ImageTagResponse
 
 APP_STATE: dict[str, Any] = {}
 LOGGER = logging.getLogger("uvicorn.error")
@@ -829,8 +829,7 @@ async def post_chat_completion(payload: dict[str, Any]) -> dict[str, Any]:
     raise LlamaServerError(response.status_code, body)
 
 
-async def request_analysis(prepared_bytes: bytes, prepared_mime_type: str) -> tuple[dict[str, Any], str, str, dict[str, Any], int]:
-    started_at = time.perf_counter()
+async def request_analysis(prepared_bytes: bytes, prepared_mime_type: str) -> tuple[dict[str, Any], str]:
     data_url, image_base64 = make_data_url(prepared_mime_type, prepared_bytes)
 
     request_format = "openai-image_url"
@@ -860,8 +859,7 @@ async def request_analysis(prepared_bytes: bytes, prepared_mime_type: str) -> tu
             payload_excerpt,
         )
         raise
-    duration_ms = int((time.perf_counter() - started_at) * 1000)
-    return parsed, strip_reasoning(message_text), request_format, payload, duration_ms
+    return parsed, request_format
 
 
 async def probe_llama_server() -> tuple[bool, str | None]:
@@ -970,7 +968,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
                 request_age_ms,
                 semaphore_wait_ms,
             )
-            parsed, raw_model_output, request_format, raw_response_json, llama_duration_ms = await request_analysis(
+            parsed, request_format = await request_analysis(
                 prepared_bytes,
                 prepared_mime_type,
             )
@@ -992,10 +990,8 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         if location_type:
             merged_tags = normalize_labels(merged_tags + [location_type])
 
-        objects = [DetectedObject(label=label, bbox=[]) for label in key_objects]
         document_candidate = build_document_candidate_info(parsed, visible_text)
         duration_ms = int((time.perf_counter() - request_started_at) * 1000)
-        response_mime_type = content_type or detected_mime_type
         prepared_width = int(preprocessing["prepared_width"])
         prepared_height = int(preprocessing["prepared_height"])
         prepared_size_bytes = int(preprocessing["prepared_size_bytes"])
@@ -1017,36 +1013,23 @@ async def tag_upload(request: Request) -> ImageTagResponse:
 
         return ImageTagResponse(
             success=True,
-            file_name=file_name,
-            backend=LLAMA_BACKEND_NAME,
-            model_id=APP_STATE.get("model_id") or llama_model_id(),
-            image=ImageInfo(width=width, height=height, mime_type=response_mime_type),
             detailed_caption=detailed_caption,
             tags=merged_tags,
-            objects=objects,
+            key_objects=key_objects,
             ocr_text=visible_text,
             ocr_regions=[],
             document_candidate=document_candidate,
             raw_task_outputs={
-                "analysis_prompt": IMAGE_TAG_PROMPT,
-                "model_output_text": raw_model_output,
                 "parsed_json": parsed,
-                "llama_response": raw_response_json,
-            },
-            task_durations_ms={
-                "llama_server": llama_duration_ms,
             },
             backend_payload={
                 "prompt_version": PROMPT_VERSION,
-                "llama_request_format": request_format,
                 "scene": scene,
                 "location_type": location_type,
                 "activities": activities,
                 "document_confidence": max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0)),
                 "document_reasons": coerce_string_list(parsed.get("document_reasons"), limit=8),
-                "preprocessing": preprocessing,
             },
-            duration_ms=duration_ms,
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
