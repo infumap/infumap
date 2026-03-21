@@ -108,38 +108,6 @@ Rules:
 - Keep the JSON compact and end immediately after the final closing brace.
 """.strip()
 
-DOCUMENT_ARTIFACT_KEYWORDS = (
-    "ticket",
-    "queue ticket",
-    "receipt",
-    "bank slip",
-    "slip",
-    "invoice",
-    "bill",
-    "statement",
-    "form",
-    "letter",
-    "document",
-    "page",
-    "printout",
-    "note",
-    "card",
-    "pass",
-    "badge",
-    "label",
-    "menu",
-    "poster",
-    "sign",
-    "notice",
-    "flyer",
-    "brochure",
-    "pamphlet",
-    "slide",
-    "screenshot",
-    "qr code",
-)
-
-
 class ImageRejectedError(Exception):
     pass
 
@@ -509,37 +477,6 @@ def extract_first_json_object(text: str) -> dict[str, Any]:
     raise ValueError("Model output contained an incomplete JSON object.")
 
 
-def qwen_document_keyword_hits(parsed: dict[str, Any]) -> list[str]:
-    candidate_text = " ".join(
-        part.lower()
-        for part in [
-            coerce_optional_string(parsed.get("location_type")) or "",
-            coerce_optional_string(parsed.get("scene")) or "",
-            coerce_optional_string(parsed.get("detailed_caption")) or "",
-            *coerce_string_list(parsed.get("document_reasons"), limit=8),
-        ]
-        if part
-    )
-
-    hits: list[str] = []
-    for keyword in DOCUMENT_ARTIFACT_KEYWORDS:
-        if keyword in candidate_text and keyword not in hits:
-            hits.append(keyword)
-    return hits
-
-
-def infer_document_candidate(parsed: dict[str, Any], visible_text_parts: list[str]) -> bool:
-    document_reasons = coerce_string_list(parsed.get("document_reasons"), limit=8)
-    document_confidence = max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0))
-    visible_text = " ".join(visible_text_parts)
-    visible_text_word_count = len(visible_text.split())
-    visible_text_char_count = len(visible_text)
-    model_flag = bool(parsed.get("is_document_candidate"))
-    keyword_hits = qwen_document_keyword_hits(parsed)
-
-    return model_flag or document_confidence >= 0.65 or bool(keyword_hits) or visible_text_word_count >= 10 or visible_text_char_count >= 60
-
-
 def extract_message_text(payload: dict[str, Any]) -> str:
     choices = payload.get("choices")
     if not isinstance(choices, list) or not choices:
@@ -624,7 +561,7 @@ def resize_dimensions(width: int, height: int) -> tuple[int, int, float]:
     return new_width, new_height, scale
 
 
-def prepare_image(upload_bytes: bytes) -> tuple[bytes, str, str, int, int, dict[str, Any]]:
+def prepare_image(upload_bytes: bytes) -> tuple[bytes, str, int, int, int, int]:
     try:
         with Image.open(io.BytesIO(upload_bytes)) as opened:
             image_format = opened.format
@@ -648,7 +585,7 @@ def prepare_image(upload_bytes: bytes) -> tuple[bytes, str, str, int, int, dict[
 
             original_width = image.width
             original_height = image.height
-            prepared_width, prepared_height, resize_scale = resize_dimensions(original_width, original_height)
+            prepared_width, prepared_height, _resize_scale = resize_dimensions(original_width, original_height)
             if prepared_width != original_width or prepared_height != original_height:
                 image = image.resize((prepared_width, prepared_height), resample=image_resampling_filter())
 
@@ -661,23 +598,10 @@ def prepare_image(upload_bytes: bytes) -> tuple[bytes, str, str, int, int, dict[
             return (
                 prepared_bytes,
                 prepared_mime_type,
-                detected_mime_type,
                 original_width,
                 original_height,
-                {
-                    "original_width": original_width,
-                    "original_height": original_height,
-                    "prepared_width": prepared_width,
-                    "prepared_height": prepared_height,
-                    "original_format": image_format,
-                    "original_mime_type": detected_mime_type,
-                    "prepared_mime_type": prepared_mime_type,
-                    "frame_count": frame_count,
-                    "resize_applied": prepared_width != original_width or prepared_height != original_height,
-                    "resize_scale": round(resize_scale, 4),
-                    "prepared_size_bytes": len(prepared_bytes),
-                    "output_jpeg_quality": encoded_quality,
-                },
+                prepared_width,
+                prepared_height,
             )
     except ImageRejectedError:
         raise
@@ -994,7 +918,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             upload_size_bytes,
         )
 
-        prepared_bytes, prepared_mime_type, detected_mime_type, width, height, preprocessing = prepare_image(upload_bytes)
+        prepared_bytes, prepared_mime_type, width, height, prepared_width, prepared_height = prepare_image(upload_bytes)
         if content_type is not None and content_type not in SUPPORTED_MIME_TYPES:
             raise ImageRejectedError(f"Unsupported image MIME type: {content_type}")
 
@@ -1039,11 +963,8 @@ async def tag_upload(request: Request) -> ImageTagResponse:
 
         tags = search_tags
 
-        is_document_candidate = infer_document_candidate(parsed, visible_text)
         duration_ms = int((time.perf_counter() - request_started_at) * 1000)
-        prepared_width = int(preprocessing["prepared_width"])
-        prepared_height = int(preprocessing["prepared_height"])
-        prepared_size_bytes = int(preprocessing["prepared_size_bytes"])
+        prepared_size_bytes = len(prepared_bytes)
 
         LOGGER.info(
             "Completed image tagging: file=%s upload_bytes=%d prepared_bytes=%d duration_ms=%d width=%d height=%d prepared_width=%d prepared_height=%d tags=%d backend=%s format=%s",
