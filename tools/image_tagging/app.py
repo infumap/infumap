@@ -77,13 +77,14 @@ Return exactly one JSON object with these keys:
 - "detailed_caption": string
 - "search_tags": array of strings
 - "key_objects": array of strings
-- "visible_text": string
+- "visible_text": array of strings
 - "scene": string or null
 - "location_type": string or null
 - "activities": array of strings
 - "is_document_candidate": boolean
 - "document_confidence": number from 0.0 to 1.0
 - "document_reasons": string
+- "face_recognition_candidate_confidence": number from 0.0 to 1.0
 
 Rules:
 - Be literal and visually grounded. Do not guess names, exact places, or events unless strongly supported by the image.
@@ -91,14 +92,19 @@ Rules:
 - "search_tags" should contain 10 to 24 short lower-case tags useful for search.
 - Avoid redundant tags that merely repeat "key_objects", "activities", "scene", or "location_type" verbatim unless they add clear search value.
 - "key_objects" should contain concrete visible nouns only, up to 12 entries.
-- "visible_text" should contain only a short excerpt of the most useful readable text, not a full transcription. Keep it under 320 characters. Use an empty string if nothing readable is visible.
-- If there are multiple separate snippets or signs, separate them with " | ". Do not merge unrelated snippets into one phrase.
+- "visible_text" should be an array of the most useful readable text snippets, not a full transcription.
+- Each entry should contain one distinct snippet or sign only. Do not merge unrelated snippets into one string.
+- Keep the combined visible text under 320 characters total. Use an empty array if nothing readable is visible.
 - "scene" should summarize the overall setting in a short phrase.
 - "location_type" should capture the venue or image type when visible.
 - "activities" should contain short lower-case activity phrases.
 - "is_document_candidate" should be true if the image seems intended to preserve, share, or later read the contents of a document or text-bearing artifact.
 - Prefer true when the central subject is a paper, screen, sign, ticket, card, page, label, receipt, poster, slide, screenshot, or similar text-bearing artifact.
 - "document_reasons" should briefly justify the document decision in one short sentence.
+- "face_recognition_candidate_confidence" should estimate whether this image is appropriate for downstream real-person face matching across photos.
+- Give high confidence when one or more real, camera-captured human faces are visible at usable size and clarity for matching.
+- Give low confidence for no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces.
+- Printed or on-screen faces do not count unless real faces are also visible in the same image.
 - Keep the JSON compact and end immediately after the final closing brace.
 """.strip()
 
@@ -1060,6 +1066,10 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             activities=activities,
             document_confidence=max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0)),
             document_reasons=coerce_reason_string(parsed.get("document_reasons")),
+            face_recognition_candidate_confidence=max(
+                0.0,
+                min(coerce_float(parsed.get("face_recognition_candidate_confidence"), 0.0), 1.0),
+            ),
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

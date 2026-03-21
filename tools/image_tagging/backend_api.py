@@ -29,3 +29,4 @@ class ImageTagResponse(BaseModel):
     activities: list[str] = Field(default_factory=list)
     document_confidence: float = 0.0
     document_reasons: str | None = None
+    face_recognition_candidate_confidence: float = 0.0
