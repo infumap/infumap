@@ -16,22 +16,16 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 
-class OCRRegion(BaseModel):
-    text: str
-    quad_box: list[float] = Field(default_factory=list)
-
-
 class ImageTagResponse(BaseModel):
-    success: bool
     detailed_caption: str | None = None
     tags: list[str] = Field(default_factory=list)
     key_objects: list[str] = Field(default_factory=list)
-    ocr_text: str = ""
-    ocr_regions: list[OCRRegion] = Field(default_factory=list)
-    is_document_candidate: bool = False
-    backend_payload: dict[str, Any] = Field(default_factory=dict)
+    ocr_text: list[str] = Field(default_factory=list)
+    scene: str | None = None
+    location_type: str | None = None
+    activities: list[str] = Field(default_factory=list)
+    document_confidence: float = 0.0
+    document_reasons: str | None = None

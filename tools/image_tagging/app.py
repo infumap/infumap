@@ -83,20 +83,22 @@ Return exactly one JSON object with these keys:
 - "activities": array of strings
 - "is_document_candidate": boolean
 - "document_confidence": number from 0.0 to 1.0
-- "document_reasons": array of strings
+- "document_reasons": string
 
 Rules:
 - Be literal and visually grounded. Do not guess names, exact places, or events unless strongly supported by the image.
 - "detailed_caption" should be 2 to 4 short sentences and mention the setting, salient objects, and relationships that help search later.
 - "search_tags" should contain 10 to 24 short lower-case tags useful for search.
+- Avoid redundant tags that merely repeat "key_objects", "activities", "scene", or "location_type" verbatim unless they add clear search value.
 - "key_objects" should contain concrete visible nouns only, up to 12 entries.
 - "visible_text" should contain only a short excerpt of the most useful readable text, not a full transcription. Keep it under 320 characters. Use an empty string if nothing readable is visible.
+- If there are multiple separate snippets or signs, separate them with " | ". Do not merge unrelated snippets into one phrase.
 - "scene" should summarize the overall setting in a short phrase.
 - "location_type" should capture the venue or image type when visible.
 - "activities" should contain short lower-case activity phrases.
 - "is_document_candidate" should be true if the image seems intended to preserve, share, or later read the contents of a document or text-bearing artifact.
 - Prefer true when the central subject is a paper, screen, sign, ticket, card, page, label, receipt, poster, slide, screenshot, or similar text-bearing artifact.
-- "document_reasons" should briefly justify the document decision in 1 to 4 short phrases.
+- "document_reasons" should briefly justify the document decision in one short sentence.
 - Keep the JSON compact and end immediately after the final closing brace.
 """.strip()
 
@@ -329,6 +331,19 @@ def coerce_optional_string(value: Any) -> str | None:
     return normalized or None
 
 
+def coerce_reason_string(value: Any) -> str | None:
+    if value is None:
+        return None
+
+    if isinstance(value, list):
+        parts = coerce_string_list(value, limit=8)
+        if not parts:
+            return None
+        return collapse_whitespace(" ".join(parts))
+
+    return coerce_optional_string(value)
+
+
 def coerce_string_list(value: Any, limit: int | None = None) -> list[str]:
     raw_items: list[str] = []
     if isinstance(value, str):
@@ -382,6 +397,46 @@ def trim_excerpt_text(value: str, max_chars: int) -> str:
     if " " in clipped:
         clipped = clipped.rsplit(" ", 1)[0]
     return f"{clipped}..."
+
+
+def normalize_visible_text(value: str, max_chars: int) -> list[str]:
+    raw = value.strip()
+    if not raw:
+        return []
+
+    normalized = raw.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = re.sub(r"\s*\|\s*", " | ", normalized)
+    normalized = re.sub(r"\s*[;\n]+\s*", " | ", normalized)
+    normalized = re.sub(r"\s*,\s*", " | ", normalized)
+    normalized = collapse_whitespace(normalized)
+
+    parts: list[str] = []
+    seen: set[str] = set()
+    for part in normalized.split(" | "):
+        cleaned = collapse_whitespace(part.strip(" ,;|"))
+        if not cleaned:
+            continue
+        lowered = cleaned.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        parts.append(cleaned)
+
+    limited_parts: list[str] = []
+    total_chars = 0
+    separator_len = 3
+    for part in parts:
+        addition = len(part) if not limited_parts else separator_len + len(part)
+        if total_chars + addition <= max_chars:
+            limited_parts.append(part)
+            total_chars += addition
+            continue
+
+        if not limited_parts:
+            limited_parts.append(trim_excerpt_text(part, max_chars=max_chars))
+        break
+
+    return limited_parts
 
 
 def strip_reasoning(text: str) -> str:
@@ -460,9 +515,10 @@ def qwen_document_keyword_hits(parsed: dict[str, Any]) -> list[str]:
     return hits
 
 
-def infer_document_candidate(parsed: dict[str, Any], visible_text: str) -> bool:
+def infer_document_candidate(parsed: dict[str, Any], visible_text_parts: list[str]) -> bool:
     document_reasons = coerce_string_list(parsed.get("document_reasons"), limit=8)
     document_confidence = max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0))
+    visible_text = " ".join(visible_text_parts)
     visible_text_word_count = len(visible_text.split())
     visible_text_char_count = len(visible_text)
     model_flag = bool(parsed.get("is_document_candidate"))
@@ -963,7 +1019,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
         search_tags = normalize_labels(coerce_string_list(parsed.get("search_tags"), limit=24))
         key_objects = normalize_labels(coerce_string_list(parsed.get("key_objects"), limit=12))
-        visible_text = trim_excerpt_text(
+        visible_text = normalize_visible_text(
             coerce_optional_string(parsed.get("visible_text")) or "",
             max_chars=VISIBLE_TEXT_MAX_CHARS,
         )
@@ -971,11 +1027,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         location_type = coerce_optional_string(parsed.get("location_type"))
         activities = normalize_labels(coerce_string_list(parsed.get("activities"), limit=12))
 
-        merged_tags = normalize_labels(search_tags + key_objects + activities)
-        if scene:
-            merged_tags = normalize_labels(merged_tags + [scene])
-        if location_type:
-            merged_tags = normalize_labels(merged_tags + [location_type])
+        tags = search_tags
 
         is_document_candidate = infer_document_candidate(parsed, visible_text)
         duration_ms = int((time.perf_counter() - request_started_at) * 1000)
@@ -993,26 +1045,21 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             height,
             prepared_width,
             prepared_height,
-            len(merged_tags),
+            len(tags),
             LLAMA_BACKEND_NAME,
             request_format,
         )
 
         return ImageTagResponse(
-            success=True,
             detailed_caption=detailed_caption,
-            tags=merged_tags,
+            tags=tags,
             key_objects=key_objects,
             ocr_text=visible_text,
-            ocr_regions=[],
-            is_document_candidate=is_document_candidate,
-            backend_payload={
-                "scene": scene,
-                "location_type": location_type,
-                "activities": activities,
-                "document_confidence": max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0)),
-                "document_reasons": coerce_string_list(parsed.get("document_reasons"), limit=8),
-            },
+            scene=scene,
+            location_type=location_type,
+            activities=activities,
+            document_confidence=max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0)),
+            document_reasons=coerce_reason_string(parsed.get("document_reasons")),
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

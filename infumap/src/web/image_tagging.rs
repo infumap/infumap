@@ -1060,10 +1060,6 @@ async fn request_image_tagging(
       Ok(parsed) => parsed,
       Err(e) => return TagOutcome::EndpointUnavailable(format!("Could not parse success response: {}", e)),
     };
-    let success = parsed.get("success").and_then(|value| value.as_bool()).unwrap_or(false);
-    if !success {
-      return TagOutcome::EndpointUnavailable("image tagging service returned success=false".to_owned());
-    }
     let duration_ms = parsed.get("duration_ms").and_then(|value| value.as_u64());
     return TagOutcome::Success(parsed, duration_ms);
   }
