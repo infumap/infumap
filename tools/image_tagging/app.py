@@ -926,10 +926,6 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         if semaphore is None:
             raise HTTPException(status_code=503, detail="Image tagging service is not ready.")
 
-        ok, detail = await probe_llama_server()
-        if not ok:
-            raise HTTPException(status_code=503, detail=f"llama-server is not ready: {detail}")
-
         semaphore_wait_started_at = time.perf_counter()
         if semaphore.locked():
             LOGGER.info(
