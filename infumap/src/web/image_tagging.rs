@@ -45,6 +45,7 @@ const LARGE_IMAGE_SIZE_BYTES: i64 = 10 * 1024 * 1024;
 const REFILL_WAIT_MILLIS: u64 = 1000;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
 const JSON_CONTENT_MIME_TYPE: &str = "application/json";
+const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -371,6 +372,31 @@ pub(crate) async fn process_loaded_image_tagging(
       return Err(format!("Image tagging endpoint unavailable: {}", msg).into());
     }
   }
+  Ok(())
+}
+
+pub async fn mark_item_image_tagging_failed(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  item_id: &str,
+  reason_maybe: Option<&str>,
+) -> InfuResult<()> {
+  let candidate = {
+    let db = db.lock().await;
+    let id = item_id.to_string();
+    let item = db.item.get(&id).map_err(|e| e.to_string())?;
+    let Some(candidate) = ImageCandidate::from_item(item) else {
+      return Err(format!("Item '{}' is not a supported taggable image.", item_id).into());
+    };
+    candidate
+  };
+  clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  let error_message = match reason_maybe.map(|reason| reason.trim()).filter(|reason| !reason.is_empty()) {
+    Some(reason) => format!("Marked failed via CLI: {}", reason),
+    None => "Marked failed via CLI.".to_owned(),
+  };
+  write_failed_manifest(data_dir, CLI_FAILED_MANIFEST_EXTRACTOR_URL, &candidate, &error_message).await?;
+  info!("Marked image '{}' (user {}) as failed for image tagging via CLI.", candidate.item_id, candidate.user_id);
   Ok(())
 }
 

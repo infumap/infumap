@@ -40,8 +40,8 @@ use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::image_tagging::{
   image_tagging_url_from_config, item_needs_image_tagging, list_failed_images, load_image_for_tagging,
-  process_loaded_image_tagging, should_tag_image_item, start_image_tagging_processing_loop, tag_single_item_no_retry,
-  LoadedImageTagging,
+  mark_item_image_tagging_failed, process_loaded_image_tagging, should_tag_image_item,
+  start_image_tagging_processing_loop, tag_single_item_no_retry, LoadedImageTagging,
 };
 use crate::web::text_extraction::{
   extract_single_item_no_retry, item_needs_text_extraction, list_failed_pdfs, load_pdf_for_extraction,
@@ -71,9 +71,9 @@ fn make_pdf_subcommand() -> Command {
     .about("Run PDF text extraction without starting the web server.")
     .arg(settings_arg())
     .arg(
-      Arg::new("text_extraction_url")
-        .long("text-extraction-url")
-        .help("Text extraction service URL. Overrides the configured value, if present.")
+      Arg::new("service_url")
+        .long("service-url")
+        .help("Service URL. Overrides the configured text extraction URL, if present.")
         .num_args(1)
         .required(false),
     )
@@ -103,8 +103,8 @@ fn make_pdf_subcommand() -> Command {
         .required(false),
     )
     .arg(
-      Arg::new("text_extraction_delay_secs")
-        .long("text-extraction-delay-secs")
+      Arg::new("delay_secs")
+        .long("delay-secs")
         .help("Sleep for this many seconds after each text extraction request in this process.")
         .num_args(1)
         .required(false),
@@ -140,9 +140,9 @@ fn make_image_subcommand() -> Command {
     .about("Run image tagging without starting the web server.")
     .arg(settings_arg())
     .arg(
-      Arg::new("image_tagging_url")
-        .long("image-tagging-url")
-        .help("Image tagging service URL. Overrides the configured value, if present.")
+      Arg::new("service_url")
+        .long("service-url")
+        .help("Service URL. Overrides the configured image tagging URL, if present.")
         .num_args(1)
         .required(false),
     )
@@ -151,6 +151,7 @@ fn make_image_subcommand() -> Command {
         .long("item-id")
         .help("Tag only this item (must be a supported image). Existing image-tag artifacts are overwritten. Exits after one image.")
         .num_args(1)
+        .conflicts_with_all(["container_id", "mark_failed_item_id"])
         .required(false),
     )
     .arg(
@@ -158,6 +159,7 @@ fn make_image_subcommand() -> Command {
         .long("container-id")
         .help("Tag only supported images within this container subtree (recursive). By default, items with existing image-tag artifacts are skipped; use --overwrite to reprocess them. Exits after the finite batch completes.")
         .num_args(1)
+        .conflicts_with("mark_failed_item_id")
         .required(false),
     )
     .arg(
@@ -170,8 +172,8 @@ fn make_image_subcommand() -> Command {
         .required(false),
     )
     .arg(
-      Arg::new("image_tagging_delay_secs")
-        .long("image-tagging-delay-secs")
+      Arg::new("delay_secs")
+        .long("delay-secs")
         .help("Sleep for this many seconds after each image tagging request in this process.")
         .num_args(1)
         .required(false),
@@ -181,6 +183,22 @@ fn make_image_subcommand() -> Command {
         .long("list-failed")
         .help("List all supported images for which image tagging failed. Exits after listing.")
         .num_args(0)
+        .required(false),
+    )
+    .arg(
+      Arg::new("mark_failed_item_id")
+        .long("mark-failed-item-id")
+        .help("Write a failed image-tagging manifest for this image and exit without contacting the image tagging service. Repeat to mark multiple items.")
+        .num_args(1)
+        .action(ArgAction::Append)
+        .required(false),
+    )
+    .arg(
+      Arg::new("mark_failed_reason")
+        .long("mark-failed-reason")
+        .help("Optional reason stored in failed manifests written via --mark-failed-item-id.")
+        .num_args(1)
+        .requires("mark_failed_item_id")
         .required(false),
     )
 }
@@ -277,13 +295,12 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
   let text_extraction_url = resolve_service_url(
     &config,
     sub_matches,
-    "text_extraction_url",
-    "--text-extraction-url",
+    "service_url",
+    "--service-url",
     text_extraction_url_from_config,
     "text_extraction_url",
   )?;
-  let text_extraction_delay =
-    parse_delay_arg(sub_matches, "text_extraction_delay_secs", "--text-extraction-delay-secs")?;
+  let text_extraction_delay = parse_delay_arg(sub_matches, "delay_secs", "--delay-secs")?;
 
   if let Some(item_id) = sub_matches.get_one::<String>("item_id") {
     extract_single_item_no_retry(&data_dir, &text_extraction_url, db, object_store, item_id).await?;
@@ -376,15 +393,28 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
+  if let Some(item_ids) = sub_matches.get_many::<String>("mark_failed_item_id") {
+    let reason_maybe = sub_matches.get_one::<String>("mark_failed_reason").map(String::as_str);
+    let item_ids = item_ids.cloned().collect::<Vec<String>>();
+    for item_id in &item_ids {
+      mark_item_image_tagging_failed(&data_dir, db.clone(), item_id, reason_maybe).await?;
+    }
+    info!(
+      "Marked {} image(s) as failed for image tagging. They will be skipped until reprocessed explicitly.",
+      item_ids.len()
+    );
+    return Ok(());
+  }
+
   let image_tagging_url = resolve_service_url(
     &config,
     sub_matches,
-    "image_tagging_url",
-    "--image-tagging-url",
+    "service_url",
+    "--service-url",
     image_tagging_url_from_config,
     "image_tagging_url",
   )?;
-  let image_tagging_delay = parse_delay_arg(sub_matches, "image_tagging_delay_secs", "--image-tagging-delay-secs")?;
+  let image_tagging_delay = parse_delay_arg(sub_matches, "delay_secs", "--delay-secs")?;
 
   if let Some(item_id) = sub_matches.get_one::<String>("item_id") {
     tag_single_item_no_retry(&data_dir, &image_tagging_url, db, object_store, item_id).await?;
