@@ -405,20 +405,27 @@ def trim_excerpt_text(value: str, max_chars: int) -> str:
     return f"{clipped}..."
 
 
-def normalize_visible_text(value: str, max_chars: int) -> list[str]:
-    raw = value.strip()
-    if not raw:
+def normalize_visible_text(value: Any, max_chars: int) -> list[str]:
+    raw_parts: list[str] = []
+
+    if value is None:
         return []
 
-    normalized = raw.replace("\r\n", "\n").replace("\r", "\n")
-    normalized = re.sub(r"\s*\|\s*", " | ", normalized)
-    normalized = re.sub(r"\s*[;\n]+\s*", " | ", normalized)
-    normalized = re.sub(r"\s*,\s*", " | ", normalized)
-    normalized = collapse_whitespace(normalized)
+    if isinstance(value, list):
+        for item in value:
+            if item is None:
+                continue
+            raw_parts.append(item if isinstance(item, str) else str(item))
+    else:
+        raw = value if isinstance(value, str) else str(value)
+        raw = raw.strip()
+        if not raw:
+            return []
+        raw_parts = [raw]
 
     parts: list[str] = []
     seen: set[str] = set()
-    for part in normalized.split(" | "):
+    for part in raw_parts:
         cleaned = collapse_whitespace(part.strip(" ,;|"))
         if not cleaned:
             continue
@@ -1025,10 +1032,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
         search_tags = normalize_labels(coerce_string_list(parsed.get("search_tags"), limit=24))
         key_objects = normalize_labels(coerce_string_list(parsed.get("key_objects"), limit=12))
-        visible_text = normalize_visible_text(
-            coerce_optional_string(parsed.get("visible_text")) or "",
-            max_chars=VISIBLE_TEXT_MAX_CHARS,
-        )
+        visible_text = normalize_visible_text(parsed.get("visible_text"), max_chars=VISIBLE_TEXT_MAX_CHARS)
         scene = coerce_optional_string(parsed.get("scene"))
         location_type = coerce_optional_string(parsed.get("location_type"))
         activities = normalize_labels(coerce_string_list(parsed.get("activities"), limit=12))
