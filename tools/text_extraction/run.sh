@@ -43,31 +43,8 @@ set_runtime_defaults() {
             export INFERENCE_RAM="$((gpu_mib / 1024))"
         fi
     fi
-
-    if [ -z "${TEXT_EXTRACTION_PDFTEXT_WORKERS:-}" ]; then
-        local cpu_count
-        cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
-        if [ "$cpu_count" -ge 16 ]; then
-            export TEXT_EXTRACTION_PDFTEXT_WORKERS=4
-        elif [ "$cpu_count" -ge 8 ]; then
-            export TEXT_EXTRACTION_PDFTEXT_WORKERS=2
-        else
-            export TEXT_EXTRACTION_PDFTEXT_WORKERS=1
-        fi
-    fi
-
-    if [ -z "${TEXT_EXTRACTION_MAX_CONCURRENCY:-}" ]; then
-        local inferred_ram="${INFERENCE_RAM:-0}"
-        if [ "$inferred_ram" -ge 64 ]; then
-            export TEXT_EXTRACTION_MAX_CONCURRENCY=6
-        elif [ "$inferred_ram" -ge 40 ]; then
-            export TEXT_EXTRACTION_MAX_CONCURRENCY=4
-        elif [ "$inferred_ram" -ge 20 ]; then
-            export TEXT_EXTRACTION_MAX_CONCURRENCY=2
-        else
-            export TEXT_EXTRACTION_MAX_CONCURRENCY=1
-        fi
-    fi
+    export TEXT_EXTRACTION_PDFTEXT_WORKERS=1
+    export TEXT_EXTRACTION_MAX_CONCURRENCY=1
 }
 
 fail() {

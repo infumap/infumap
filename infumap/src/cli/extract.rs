@@ -1001,59 +1001,61 @@ where
   let mut progress = BatchProgress::default();
   let mut next_prefetch =
     queue.pop_front().map(|item_id| spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), item_id, load_item));
+  let mut current_process = advance_prefetch_to_process(
+    data_dir,
+    service_url,
+    db.clone(),
+    object_store.clone(),
+    &mut queue,
+    &mut next_prefetch,
+    &ui_text,
+    &mut progress,
+    load_item,
+    process_loaded_item,
+  )
+  .await?;
 
-  while let Some(current_prefetch) = next_prefetch {
-    let (item_id, loaded_result) = current_prefetch
+  while let Some(current_handle) = current_process {
+    let next_process = if delay == Duration::ZERO {
+      advance_prefetch_to_process(
+        data_dir,
+        service_url,
+        db.clone(),
+        object_store.clone(),
+        &mut queue,
+        &mut next_prefetch,
+        &ui_text,
+        &mut progress,
+        load_item,
+        process_loaded_item,
+      )
+      .await?
+    } else {
+      None
+    };
+
+    let (item_id, result) = current_handle
       .await
-      .map_err(|e| format!("Container-scoped {} prefetch task failed: {}", ui_text.action_name, e))?;
+      .map_err(|e| format!("Container-scoped {} request task failed: {}", ui_text.action_name, e))?;
 
-    next_prefetch =
-      queue.pop_front().map(|next_item_id| spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), next_item_id, load_item));
-    let queue_remaining = queue.len();
-
-    info!(
-      "Container-scoped {} starting {} '{}'. Pending queue: {}. Progress: {}",
-      ui_text.action_name,
-      ui_text.noun_singular,
-      item_id,
-      queue_remaining,
-      progress.summary()
-    );
-
-    match loaded_result {
-      Ok(loaded_item) => {
-        match process_loaded_item(data_dir, service_url, db.clone(), loaded_item, true).await {
-          Ok(()) => {
-            progress.processed += 1;
-            progress.succeeded += 1;
-            info!(
-              "Container-scoped {}: {} '{}' successfully ({}/{}).",
-              ui_text.action_name,
-              ui_text.action_past,
-              item_id,
-              progress.processed,
-              scheduled_items
-            );
-          }
-          Err(e) => {
-            progress.processed += 1;
-            progress.failed += 1;
-            info!(
-              "Container-scoped {}: failed for '{}' ({}/{}): {}",
-              ui_text.action_name,
-              item_id,
-              progress.processed,
-              scheduled_items,
-              e
-            );
-          }
-        }
+    match result {
+      Ok(()) => {
+        progress.processed += 1;
+        progress.succeeded += 1;
+        info!(
+          "Container-scoped {}: {} '{}' successfully ({}/{}).",
+          ui_text.action_name,
+          ui_text.action_past,
+          item_id,
+          progress.processed,
+          scheduled_items
+        );
       }
       Err(e) => {
         progress.processed += 1;
         progress.failed += 1;
         info!(
-          "Container-scoped {}: failed during source-object load for '{}' ({}/{}): {}",
+          "Container-scoped {}: failed for '{}' ({}/{}): {}",
           ui_text.action_name,
           item_id,
           progress.processed,
@@ -1065,6 +1067,21 @@ where
 
     if delay > Duration::ZERO {
       sleep(delay).await;
+      current_process = advance_prefetch_to_process(
+        data_dir,
+        service_url,
+        db.clone(),
+        object_store.clone(),
+        &mut queue,
+        &mut next_prefetch,
+        &ui_text,
+        &mut progress,
+        load_item,
+        process_loaded_item,
+      )
+      .await?;
+    } else {
+      current_process = next_process;
     }
   }
 
@@ -1091,6 +1108,90 @@ where
   tokio::spawn(async move {
     let loaded = load_item(&worker_data_dir, &worker_service_url, db, object_store, &item_id).await;
     (item_id, loaded)
+  })
+}
+
+async fn advance_prefetch_to_process<LoadedItem>(
+  data_dir: &str,
+  service_url: &str,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<storage_object::ObjectStore>,
+  queue: &mut VecDeque<String>,
+  next_prefetch: &mut Option<JoinHandle<(String, InfuResult<LoadedItem>)>>,
+  ui_text: &BatchUiText,
+  progress: &mut BatchProgress,
+  load_item: LoadItemFn<LoadedItem>,
+  process_loaded_item: ProcessLoadedItemFn<LoadedItem>,
+) -> InfuResult<Option<JoinHandle<(String, InfuResult<()>)>>>
+where
+  LoadedItem: Send + 'static,
+{
+  loop {
+    let Some(current_prefetch) = next_prefetch.take() else {
+      return Ok(None);
+    };
+
+    let (item_id, loaded_result) = current_prefetch
+      .await
+      .map_err(|e| format!("Container-scoped {} prefetch task failed: {}", ui_text.action_name, e))?;
+
+    *next_prefetch =
+      queue.pop_front().map(|next_item_id| spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), next_item_id, load_item));
+    let pending_queue = queue.len() + usize::from(next_prefetch.is_some());
+
+    match loaded_result {
+      Ok(loaded_item) => {
+        info!(
+          "Container-scoped {} starting {} '{}'. Pending queue: {}. Progress: {}",
+          ui_text.action_name,
+          ui_text.noun_singular,
+          item_id,
+          pending_queue,
+          progress.summary()
+        );
+        return Ok(Some(spawn_process_loaded_item(
+          data_dir,
+          service_url,
+          db.clone(),
+          item_id,
+          loaded_item,
+          process_loaded_item,
+        )));
+      }
+      Err(e) => {
+        progress.processed += 1;
+        progress.failed += 1;
+        info!(
+          "Container-scoped {}: failed during source-object load for '{}'. {} Error: {}",
+          ui_text.action_name,
+          item_id,
+          progress.summary(),
+          e
+        );
+        if next_prefetch.is_none() {
+          return Ok(None);
+        }
+      }
+    }
+  }
+}
+
+fn spawn_process_loaded_item<LoadedItem>(
+  data_dir: &str,
+  service_url: &str,
+  db: Arc<Mutex<Db>>,
+  item_id: String,
+  loaded_item: LoadedItem,
+  process_loaded_item: ProcessLoadedItemFn<LoadedItem>,
+) -> JoinHandle<(String, InfuResult<()>)>
+where
+  LoadedItem: Send + 'static,
+{
+  let worker_data_dir = data_dir.to_owned();
+  let worker_service_url = service_url.to_owned();
+  tokio::spawn(async move {
+    let result = process_loaded_item(&worker_data_dir, &worker_service_url, db, loaded_item, true).await;
+    (item_id, result)
   })
 }
 

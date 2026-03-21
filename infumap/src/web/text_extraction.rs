@@ -455,7 +455,7 @@ pub fn start_text_extraction_processing_loop(
     Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   info!(
-    "Starting text extraction processing loop using '{}' with single-request execution and pipelined source-object prefetch (delay {:.3}s).",
+    "Starting text extraction processing loop using '{}' with pipelined source-object prefetch and request dispatch (delay {:.3}s).",
     text_extraction_url,
     request_delay.as_secs_f64()
   );
@@ -475,54 +475,65 @@ async fn run_text_extraction_loop(
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<ExtractionProgress>>,
 ) {
-  let mut next_prefetch = spawn_pdf_prefetch(
+  let mut next_prefetch = Some(spawn_pdf_prefetch(
     data_dir.clone(),
     text_extraction_url.clone(),
     db.clone(),
     object_store.clone(),
     state.clone(),
     progress.clone(),
-  );
+  ));
+  let mut current_process = advance_pdf_prefetch_to_process(
+    data_dir.clone(),
+    text_extraction_url.clone(),
+    db.clone(),
+    object_store.clone(),
+    state.clone(),
+    progress.clone(),
+    &mut next_prefetch,
+  )
+  .await;
 
   loop {
-    let (loaded, queue_remaining) = match next_prefetch.await {
+    let Some(current_handle) = current_process else {
+      return;
+    };
+
+    let next_process = if request_delay == Duration::ZERO {
+      advance_pdf_prefetch_to_process(
+        data_dir.clone(),
+        text_extraction_url.clone(),
+        db.clone(),
+        object_store.clone(),
+        state.clone(),
+        progress.clone(),
+        &mut next_prefetch,
+      )
+      .await
+    } else {
+      None
+    };
+
+    let (item_id, user_id, queue_remaining, result) = match current_handle.await {
       Ok(result) => result,
       Err(e) => {
-        error!("Text extraction prefetch task failed: {}", e);
+        error!("Text extraction request task failed: {}", e);
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        next_prefetch = spawn_pdf_prefetch(
+        current_process = advance_pdf_prefetch_to_process(
           data_dir.clone(),
           text_extraction_url.clone(),
           db.clone(),
           object_store.clone(),
           state.clone(),
           progress.clone(),
-        );
+          &mut next_prefetch,
+        )
+        .await;
         continue;
       }
     };
 
-    next_prefetch = spawn_pdf_prefetch(
-      data_dir.clone(),
-      text_extraction_url.clone(),
-      db.clone(),
-      object_store.clone(),
-      state.clone(),
-      progress.clone(),
-    );
-
-    let item_id = loaded.candidate.item_id.clone();
-    let user_id = loaded.candidate.user_id.clone();
-    let progress_summary = {
-      let progress = progress.lock().await;
-      progress.summary()
-    };
-    info!(
-      "Starting text extraction for PDF '{}' (user {}). Pending queue: {}. Progress: {}",
-      item_id, user_id, queue_remaining, progress_summary
-    );
-
-    match process_loaded_pdf_extraction(&data_dir, &text_extraction_url, db.clone(), loaded, true).await {
+    match result {
       Ok(()) => {
         let progress_summary = {
           let mut progress = progress.lock().await;
@@ -546,8 +557,21 @@ async fn run_text_extraction_loop(
         );
       }
     }
+
     if request_delay > Duration::ZERO {
       time::sleep(request_delay).await;
+      current_process = advance_pdf_prefetch_to_process(
+        data_dir.clone(),
+        text_extraction_url.clone(),
+        db.clone(),
+        object_store.clone(),
+        state.clone(),
+        progress.clone(),
+        &mut next_prefetch,
+      )
+      .await;
+    } else {
+      current_process = next_process;
     }
   }
 }
@@ -563,6 +587,79 @@ fn spawn_pdf_prefetch(
   task::spawn(async move {
     prefetch_next_pdf_extraction(data_dir, text_extraction_url, db, object_store, state, progress).await
   })
+}
+
+fn spawn_pdf_process(
+  data_dir: String,
+  text_extraction_url: String,
+  db: Arc<Mutex<Db>>,
+  loaded: LoadedPdfExtraction,
+  queue_remaining: usize,
+) -> task::JoinHandle<(String, String, usize, InfuResult<()>)> {
+  let item_id = loaded.candidate.item_id.clone();
+  let user_id = loaded.candidate.user_id.clone();
+  task::spawn(async move {
+    let result = process_loaded_pdf_extraction(&data_dir, &text_extraction_url, db, loaded, true).await;
+    (item_id, user_id, queue_remaining, result)
+  })
+}
+
+async fn advance_pdf_prefetch_to_process(
+  data_dir: String,
+  text_extraction_url: String,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  state: Arc<Mutex<ProcessingState>>,
+  progress: Arc<Mutex<ExtractionProgress>>,
+  next_prefetch: &mut Option<task::JoinHandle<(LoadedPdfExtraction, usize)>>,
+) -> Option<task::JoinHandle<(String, String, usize, InfuResult<()>)>> {
+  loop {
+    let current_prefetch = next_prefetch.take()?;
+    let (loaded, queue_remaining) = match current_prefetch.await {
+      Ok(result) => result,
+      Err(e) => {
+        error!("Text extraction prefetch task failed: {}", e);
+        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+        *next_prefetch = Some(spawn_pdf_prefetch(
+          data_dir.clone(),
+          text_extraction_url.clone(),
+          db.clone(),
+          object_store.clone(),
+          state.clone(),
+          progress.clone(),
+        ));
+        continue;
+      }
+    };
+
+    *next_prefetch = Some(spawn_pdf_prefetch(
+      data_dir.clone(),
+      text_extraction_url.clone(),
+      db.clone(),
+      object_store.clone(),
+      state.clone(),
+      progress.clone(),
+    ));
+
+    let item_id = loaded.candidate.item_id.clone();
+    let user_id = loaded.candidate.user_id.clone();
+    let progress_summary = {
+      let progress = progress.lock().await;
+      progress.summary()
+    };
+    info!(
+      "Starting text extraction for PDF '{}' (user {}). Pending queue: {}. Progress: {}",
+      item_id, user_id, queue_remaining, progress_summary
+    );
+
+    return Some(spawn_pdf_process(
+      data_dir.clone(),
+      text_extraction_url.clone(),
+      db.clone(),
+      loaded,
+      queue_remaining,
+    ));
+  }
 }
 
 async fn prefetch_next_pdf_extraction(

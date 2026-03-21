@@ -461,7 +461,7 @@ pub fn start_image_tagging_processing_loop(
     Arc::new(Mutex::new(TaggingProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   info!(
-    "Starting image tagging processing loop using '{}' with single-request execution and pipelined source-object prefetch (delay {:.3}s).",
+    "Starting image tagging processing loop using '{}' with pipelined source-object prefetch and request dispatch (delay {:.3}s).",
     image_tagging_url,
     request_delay.as_secs_f64()
   );
@@ -481,54 +481,65 @@ async fn run_image_tagging_loop(
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<TaggingProgress>>,
 ) {
-  let mut next_prefetch = spawn_image_prefetch(
+  let mut next_prefetch = Some(spawn_image_prefetch(
     data_dir.clone(),
     image_tagging_url.clone(),
     db.clone(),
     object_store.clone(),
     state.clone(),
     progress.clone(),
-  );
+  ));
+  let mut current_process = advance_image_prefetch_to_process(
+    data_dir.clone(),
+    image_tagging_url.clone(),
+    db.clone(),
+    object_store.clone(),
+    state.clone(),
+    progress.clone(),
+    &mut next_prefetch,
+  )
+  .await;
 
   loop {
-    let (loaded, queue_remaining) = match next_prefetch.await {
+    let Some(current_handle) = current_process else {
+      return;
+    };
+
+    let next_process = if request_delay == Duration::ZERO {
+      advance_image_prefetch_to_process(
+        data_dir.clone(),
+        image_tagging_url.clone(),
+        db.clone(),
+        object_store.clone(),
+        state.clone(),
+        progress.clone(),
+        &mut next_prefetch,
+      )
+      .await
+    } else {
+      None
+    };
+
+    let (item_id, user_id, queue_remaining, result) = match current_handle.await {
       Ok(result) => result,
       Err(e) => {
-        error!("Image tagging prefetch task failed: {}", e);
+        error!("Image tagging request task failed: {}", e);
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        next_prefetch = spawn_image_prefetch(
+        current_process = advance_image_prefetch_to_process(
           data_dir.clone(),
           image_tagging_url.clone(),
           db.clone(),
           object_store.clone(),
           state.clone(),
           progress.clone(),
-        );
+          &mut next_prefetch,
+        )
+        .await;
         continue;
       }
     };
 
-    next_prefetch = spawn_image_prefetch(
-      data_dir.clone(),
-      image_tagging_url.clone(),
-      db.clone(),
-      object_store.clone(),
-      state.clone(),
-      progress.clone(),
-    );
-
-    let item_id = loaded.candidate.item_id.clone();
-    let user_id = loaded.candidate.user_id.clone();
-    let progress_summary = {
-      let progress = progress.lock().await;
-      progress.summary()
-    };
-    info!(
-      "Starting image tagging for '{}' (user {}). Pending queue: {}. Progress: {}",
-      item_id, user_id, queue_remaining, progress_summary
-    );
-
-    match process_loaded_image_tagging(&data_dir, &image_tagging_url, db.clone(), loaded, true).await {
+    match result {
       Ok(()) => {
         let progress_summary = {
           let mut progress = progress.lock().await;
@@ -552,8 +563,21 @@ async fn run_image_tagging_loop(
         );
       }
     }
+
     if request_delay > Duration::ZERO {
       time::sleep(request_delay).await;
+      current_process = advance_image_prefetch_to_process(
+        data_dir.clone(),
+        image_tagging_url.clone(),
+        db.clone(),
+        object_store.clone(),
+        state.clone(),
+        progress.clone(),
+        &mut next_prefetch,
+      )
+      .await;
+    } else {
+      current_process = next_process;
     }
   }
 }
@@ -569,6 +593,79 @@ fn spawn_image_prefetch(
   task::spawn(async move {
     prefetch_next_image_tagging(data_dir, image_tagging_url, db, object_store, state, progress).await
   })
+}
+
+fn spawn_image_process(
+  data_dir: String,
+  image_tagging_url: String,
+  db: Arc<Mutex<Db>>,
+  loaded: LoadedImageTagging,
+  queue_remaining: usize,
+) -> task::JoinHandle<(String, String, usize, InfuResult<()>)> {
+  let item_id = loaded.candidate.item_id.clone();
+  let user_id = loaded.candidate.user_id.clone();
+  task::spawn(async move {
+    let result = process_loaded_image_tagging(&data_dir, &image_tagging_url, db, loaded, true).await;
+    (item_id, user_id, queue_remaining, result)
+  })
+}
+
+async fn advance_image_prefetch_to_process(
+  data_dir: String,
+  image_tagging_url: String,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  state: Arc<Mutex<ProcessingState>>,
+  progress: Arc<Mutex<TaggingProgress>>,
+  next_prefetch: &mut Option<task::JoinHandle<(LoadedImageTagging, usize)>>,
+) -> Option<task::JoinHandle<(String, String, usize, InfuResult<()>)>> {
+  loop {
+    let current_prefetch = next_prefetch.take()?;
+    let (loaded, queue_remaining) = match current_prefetch.await {
+      Ok(result) => result,
+      Err(e) => {
+        error!("Image tagging prefetch task failed: {}", e);
+        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+        *next_prefetch = Some(spawn_image_prefetch(
+          data_dir.clone(),
+          image_tagging_url.clone(),
+          db.clone(),
+          object_store.clone(),
+          state.clone(),
+          progress.clone(),
+        ));
+        continue;
+      }
+    };
+
+    *next_prefetch = Some(spawn_image_prefetch(
+      data_dir.clone(),
+      image_tagging_url.clone(),
+      db.clone(),
+      object_store.clone(),
+      state.clone(),
+      progress.clone(),
+    ));
+
+    let item_id = loaded.candidate.item_id.clone();
+    let user_id = loaded.candidate.user_id.clone();
+    let progress_summary = {
+      let progress = progress.lock().await;
+      progress.summary()
+    };
+    info!(
+      "Starting image tagging for '{}' (user {}). Pending queue: {}. Progress: {}",
+      item_id, user_id, queue_remaining, progress_summary
+    );
+
+    return Some(spawn_image_process(
+      data_dir.clone(),
+      image_tagging_url.clone(),
+      db.clone(),
+      loaded,
+      queue_remaining,
+    ));
+  }
 }
 
 async fn prefetch_next_image_tagging(

@@ -38,6 +38,8 @@ from marker.output import text_from_rendered
 APP_STATE: dict[str, Any] = {}
 LOGGER = logging.getLogger("uvicorn.error")
 CONVERT_SEMAPHORE: asyncio.Semaphore | None = None
+GPU_REQUEST_CONCURRENCY = 1
+PDFTEXT_WORKERS = 1
 
 
 class DocumentRejectedError(Exception):
@@ -80,8 +82,8 @@ def build_runtime_summary() -> list[str]:
         f"torch_device_env={os.environ.get('TORCH_DEVICE', '<unset>')}",
         f"cuda_visible_devices={os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}",
         f"inference_ram={os.environ.get('INFERENCE_RAM', '<unset>')}",
-        f"max_concurrency={env_int('TEXT_EXTRACTION_MAX_CONCURRENCY', 1)}",
-        f"pdftext_workers={env_int('TEXT_EXTRACTION_PDFTEXT_WORKERS', 1)}",
+        f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
+        f"pdftext_workers={PDFTEXT_WORKERS}",
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
     ]
 
@@ -198,7 +200,7 @@ def torch_cuda_memory_summary() -> str | None:
 async def lifespan(_: FastAPI):
     global CONVERT_SEMAPHORE
     config = build_config()
-    CONVERT_SEMAPHORE = asyncio.Semaphore(env_int("TEXT_EXTRACTION_MAX_CONCURRENCY", 1))
+    CONVERT_SEMAPHORE = asyncio.Semaphore(GPU_REQUEST_CONCURRENCY)
     LOGGER.info("Text extraction startup: %s", " ".join(build_runtime_summary()))
     LOGGER.info(
         "Text extraction config: force_ocr=%s paginate_output=%s use_llm=%s output_format=%s pdftext_workers=%s",
@@ -234,7 +236,7 @@ def build_config() -> dict[str, Any]:
         "paginate_output": True,
         "use_llm": bool(os.environ.get("GOOGLE_API_KEY")),
         "output_format": "markdown",
-        "pdftext_workers": env_int("TEXT_EXTRACTION_PDFTEXT_WORKERS", 1),
+        "pdftext_workers": PDFTEXT_WORKERS,
     }
 
 

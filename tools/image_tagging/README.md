@@ -64,7 +64,6 @@ API wrapper:
 - `IMAGE_TAGGING_HOST`
 - `IMAGE_TAGGING_PORT`
 - `IMAGE_TAGGING_VENV_DIR`
-- `IMAGE_TAGGING_MAX_CONCURRENCY`
 - `IMAGE_TAGGING_MAX_UPLOAD_BYTES`
 - `IMAGE_TAGGING_TARGET_MAX_PIXELS`
 - `IMAGE_TAGGING_TARGET_MAX_LONG_EDGE`
@@ -97,7 +96,6 @@ Default llama-server runtime flags:
 - `IMAGE_TAGGING_LLAMA_CTX` default `8192`
 - `IMAGE_TAGGING_LLAMA_BATCH_SIZE` default `2048`
 - `IMAGE_TAGGING_LLAMA_UBATCH_SIZE` default `512`
-- `IMAGE_TAGGING_LLAMA_PARALLEL` default `IMAGE_TAGGING_MAX_CONCURRENCY`
 - `IMAGE_TAGGING_LLAMA_NGL` default `all` when `nvidia-smi` is present, else `0`
 - `IMAGE_TAGGING_LLAMA_FLASH_ATTN` default `auto` when `nvidia-smi` is present
 - `IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS` optional pass-through to `llama-server`
@@ -159,6 +157,9 @@ curl -sS \
 - The wrapper first tries the standard OpenAI `image_url` chat format. If the
   running `llama-server` build rejects that format, it automatically retries
   using the older `image_data` payload style.
+- GPU-facing inference is intentionally serialized: uploads and preprocessing
+  may overlap, but only one `llama-server` request is allowed to execute at a
+  time.
 - The `/tag` endpoint now parses the multipart body directly from the request
   stream instead of using FastAPI `UploadFile`, so the service code does not
   spool uploads to temp files on disk.

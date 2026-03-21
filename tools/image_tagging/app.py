@@ -63,6 +63,7 @@ DEFAULT_TARGET_MAX_PIXELS = 3_145_728
 DEFAULT_TARGET_MAX_LONG_EDGE = 2048
 DEFAULT_OUTPUT_JPEG_QUALITY = 90
 DEFAULT_MAX_TOKENS = 4096
+GPU_REQUEST_CONCURRENCY = 1
 
 SYSTEM_PROMPT = """
 You analyze images for search indexing.
@@ -225,7 +226,7 @@ def build_runtime_summary() -> list[str]:
         f"llama_server_url={llama_server_url()}",
         f"model_id={llama_model_id()}",
         f"model_name={llama_model_name()}",
-        f"max_concurrency={env_int('IMAGE_TAGGING_MAX_CONCURRENCY', 1)}",
+        f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
         f"max_upload_bytes={max_upload_bytes()}",
         f"target_max_pixels={target_max_pixels()}",
         f"target_max_long_edge={target_max_long_edge()}",
@@ -237,7 +238,6 @@ def build_runtime_summary() -> list[str]:
 async def lifespan(_: FastAPI):
     global TAG_SEMAPHORE
 
-    max_concurrency = max(1, env_int("IMAGE_TAGGING_MAX_CONCURRENCY", 1))
     timeout = httpx.Timeout(
         connect=max(5.0, env_float("IMAGE_TAGGING_LLAMA_CONNECT_TIMEOUT_SECS", 10.0)),
         read=max(30.0, env_float("IMAGE_TAGGING_LLAMA_READ_TIMEOUT_SECS", 30.0 * 60.0)),
@@ -247,7 +247,7 @@ async def lifespan(_: FastAPI):
     APP_STATE["llama_client"] = httpx.AsyncClient(base_url=llama_server_url(), timeout=timeout)
     APP_STATE["model_name"] = llama_model_name()
     APP_STATE["model_id"] = llama_model_id()
-    TAG_SEMAPHORE = asyncio.Semaphore(max_concurrency)
+    TAG_SEMAPHORE = asyncio.Semaphore(GPU_REQUEST_CONCURRENCY)
     LOGGER.info("Image tagging startup: %s", " ".join(build_runtime_summary()))
 
     try:
