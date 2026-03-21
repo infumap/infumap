@@ -26,7 +26,7 @@ use infusdk::item::{is_container_item_type, Item};
 use infusdk::util::infu::InfuResult;
 use log::info;
 use tokio::sync::Mutex;
-use tokio::task::JoinSet;
+use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
 use crate::config::{
@@ -39,15 +39,15 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::image_tagging::{
-  image_tagging_url_from_config, item_needs_image_tagging, list_failed_images, should_tag_image_item,
-  start_image_tagging_processing_loop, tag_single_item, tag_single_item_no_retry,
+  image_tagging_url_from_config, item_needs_image_tagging, list_failed_images, load_image_for_tagging,
+  process_loaded_image_tagging, should_tag_image_item, start_image_tagging_processing_loop, tag_single_item_no_retry,
+  LoadedImageTagging,
 };
 use crate::web::text_extraction::{
-  extract_single_item, extract_single_item_no_retry, item_needs_text_extraction, list_failed_pdfs,
-  mark_item_text_extraction_failed, start_text_extraction_processing_loop, text_extraction_url_from_config,
+  extract_single_item_no_retry, item_needs_text_extraction, list_failed_pdfs, load_pdf_for_extraction,
+  mark_item_text_extraction_failed, process_loaded_pdf_extraction, start_text_extraction_processing_loop,
+  text_extraction_url_from_config, LoadedPdfExtraction,
 };
-
-const DEFAULT_CLI_EXTRACTION_CONCURRENCY: usize = 1;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("extract")
@@ -100,13 +100,6 @@ fn make_pdf_subcommand() -> Command {
         .num_args(0)
         .requires("container_id")
         .conflicts_with("list_failed")
-        .required(false),
-    )
-    .arg(
-      Arg::new("text_extraction_concurrency")
-        .long("text-extraction-concurrency")
-        .help("Set the number of concurrent PDF extraction requests for this process. Defaults to 1.")
-        .num_args(1)
         .required(false),
     )
     .arg(
@@ -177,13 +170,6 @@ fn make_image_subcommand() -> Command {
         .required(false),
     )
     .arg(
-      Arg::new("image_tagging_concurrency")
-        .long("image-tagging-concurrency")
-        .help("Set the number of concurrent image tagging requests for this process. Defaults to 1.")
-        .num_args(1)
-        .required(false),
-    )
-    .arg(
       Arg::new("image_tagging_delay_secs")
         .long("image-tagging-delay-secs")
         .help("Sleep for this many seconds after each image tagging request in this process.")
@@ -239,9 +225,12 @@ struct BatchUiText {
 
 type NeedsProcessingFuture<'a> = Pin<Box<dyn Future<Output = InfuResult<bool>> + Send + 'a>>;
 type NeedsProcessingFn = for<'a> fn(&'a str, Arc<Mutex<Db>>, &'a str) -> NeedsProcessingFuture<'a>;
-type ProcessItemFuture<'a> = Pin<Box<dyn Future<Output = InfuResult<()>> + Send + 'a>>;
-type ProcessItemFn =
-  for<'a> fn(&'a str, &'a str, Arc<Mutex<Db>>, Arc<storage_object::ObjectStore>, &'a str) -> ProcessItemFuture<'a>;
+type LoadItemFuture<'a, LoadedItem> = Pin<Box<dyn Future<Output = InfuResult<LoadedItem>> + Send + 'a>>;
+type LoadItemFn<LoadedItem> =
+  for<'a> fn(&'a str, &'a str, Arc<Mutex<Db>>, Arc<storage_object::ObjectStore>, &'a str) -> LoadItemFuture<'a, LoadedItem>;
+type ProcessLoadedItemFuture<'a> = Pin<Box<dyn Future<Output = InfuResult<()>> + Send + 'a>>;
+type ProcessLoadedItemFn<LoadedItem> =
+  for<'a> fn(&'a str, &'a str, Arc<Mutex<Db>>, LoadedItem, bool) -> ProcessLoadedItemFuture<'a>;
 
 async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
   let CliRuntime { config, data_dir, db, object_store } =
@@ -293,12 +282,6 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
     text_extraction_url_from_config,
     "text_extraction_url",
   )?;
-  let text_extraction_concurrency = parse_concurrency_arg(
-    sub_matches,
-    "text_extraction_concurrency",
-    "--text-extraction-concurrency",
-    DEFAULT_CLI_EXTRACTION_CONCURRENCY,
-  )?;
   let text_extraction_delay =
     parse_delay_arg(sub_matches, "text_extraction_delay_secs", "--text-extraction-delay-secs")?;
 
@@ -326,7 +309,6 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
     process_container_batch(
       &data_dir,
       &text_extraction_url,
-      text_extraction_concurrency,
       text_extraction_delay,
       container_id,
       total_candidate_items,
@@ -342,7 +324,8 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
         action_past: "extracted",
         artifact_label: "extraction artifacts",
       },
-      extract_single_item_boxed,
+      load_pdf_for_extraction_boxed,
+      process_loaded_pdf_extraction_boxed,
     )
     .await?;
     return Ok(());
@@ -351,15 +334,13 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
   start_text_extraction_processing_loop(
     data_dir,
     text_extraction_url.clone(),
-    text_extraction_concurrency,
     text_extraction_delay,
     db,
     object_store,
   )?;
   info!(
-    "Running text extraction loop using '{}' with concurrency {} and delay {:.3}s. Press Ctrl-C to stop.",
+    "Running text extraction loop using '{}' with pipelined source-object prefetch and delay {:.3}s. Press Ctrl-C to stop.",
     text_extraction_url,
-    text_extraction_concurrency,
     text_extraction_delay.as_secs_f64()
   );
   tokio::signal::ctrl_c().await.map_err(|e| format!("Failed waiting for Ctrl-C: {}", e))?;
@@ -403,12 +384,6 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     image_tagging_url_from_config,
     "image_tagging_url",
   )?;
-  let image_tagging_concurrency = parse_concurrency_arg(
-    sub_matches,
-    "image_tagging_concurrency",
-    "--image-tagging-concurrency",
-    DEFAULT_CLI_EXTRACTION_CONCURRENCY,
-  )?;
   let image_tagging_delay = parse_delay_arg(sub_matches, "image_tagging_delay_secs", "--image-tagging-delay-secs")?;
 
   if let Some(item_id) = sub_matches.get_one::<String>("item_id") {
@@ -435,7 +410,6 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     process_container_batch(
       &data_dir,
       &image_tagging_url,
-      image_tagging_concurrency,
       image_tagging_delay,
       container_id,
       total_candidate_items,
@@ -451,7 +425,8 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
         action_past: "tagged",
         artifact_label: "image-tag artifacts",
       },
-      tag_single_item_boxed,
+      load_image_for_tagging_boxed,
+      process_loaded_image_tagging_boxed,
     )
     .await?;
     return Ok(());
@@ -460,15 +435,13 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
   start_image_tagging_processing_loop(
     data_dir,
     image_tagging_url.clone(),
-    image_tagging_concurrency,
     image_tagging_delay,
     db,
     object_store,
   )?;
   info!(
-    "Running image tagging loop using '{}' with concurrency {} and delay {:.3}s. Press Ctrl-C to stop.",
+    "Running image tagging loop using '{}' with pipelined source-object prefetch and delay {:.3}s. Press Ctrl-C to stop.",
     image_tagging_url,
-    image_tagging_concurrency,
     image_tagging_delay.as_secs_f64()
   );
   tokio::signal::ctrl_c().await.map_err(|e| format!("Failed waiting for Ctrl-C: {}", e))?;
@@ -521,26 +494,6 @@ fn resolve_service_url(
     Some(url) if !url.trim().is_empty() => Ok(url.clone()),
     _ => from_config(config)?
       .ok_or(format!("{} must be configured or specified via {}.", config_key_name, flag_name).into()),
-  }
-}
-
-fn parse_concurrency_arg(
-  sub_matches: &ArgMatches,
-  arg_name: &str,
-  flag_name: &str,
-  default: usize,
-) -> InfuResult<usize> {
-  match sub_matches.get_one::<String>(arg_name) {
-    Some(value) => {
-      let parsed = value
-        .parse::<usize>()
-        .map_err(|e| format!("Invalid {} value '{}': {}. Expected an integer >= 1.", flag_name, value, e))?;
-      if parsed < 1 {
-        return Err(format!("{} must be at least 1.", flag_name).into());
-      }
-      Ok(parsed)
-    }
-    None => Ok(default),
   }
 }
 
@@ -653,10 +606,9 @@ where
   Ok(())
 }
 
-async fn process_container_batch(
+async fn process_container_batch<LoadedItem>(
   data_dir: &str,
   service_url: &str,
-  concurrency: usize,
   delay: Duration,
   container_id: &str,
   total_candidate_items: usize,
@@ -665,8 +617,12 @@ async fn process_container_batch(
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
   ui_text: BatchUiText,
-  process_item: ProcessItemFn,
-) -> InfuResult<()> {
+  load_item: LoadItemFn<LoadedItem>,
+  process_loaded_item: ProcessLoadedItemFn<LoadedItem>,
+) -> InfuResult<()>
+where
+  LoadedItem: Send + 'static,
+{
   if item_ids.is_empty() {
     if total_candidate_items == 0 {
       info!(
@@ -684,73 +640,48 @@ async fn process_container_batch(
 
   let scheduled_items = item_ids.len();
   info!(
-    "Starting container-scoped {} for container '{}' using '{}' with concurrency {} and delay {:.3}s. Scheduled {}: {} (existing skipped: {}, total discovered: {}).",
+    "Starting container-scoped {} for container '{}' using '{}' with pipelined source-object prefetch and delay {:.3}s. Scheduled {}: {} (existing skipped: {}, total discovered: {}).",
     ui_text.action_name,
     container_id,
     service_url,
-    concurrency,
     delay.as_secs_f64(),
     ui_text.noun_plural,
     scheduled_items,
     skipped_existing,
     total_candidate_items
   );
-  let queue = Arc::new(Mutex::new(VecDeque::from(item_ids)));
-  let progress = Arc::new(Mutex::new(BatchProgress::default()));
-  let mut join_set = JoinSet::new();
+  let mut queue = VecDeque::from(item_ids);
+  let mut progress = BatchProgress::default();
+  let mut next_prefetch =
+    queue.pop_front().map(|item_id| spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), item_id, load_item));
 
-  for worker_index in 0..concurrency {
-    let worker_queue = queue.clone();
-    let worker_progress = progress.clone();
-    let worker_db = db.clone();
-    let worker_object_store = object_store.clone();
-    let worker_data_dir = data_dir.to_owned();
-    let worker_service_url = service_url.to_owned();
+  while let Some(current_prefetch) = next_prefetch {
+    let (item_id, loaded_result) = current_prefetch
+      .await
+      .map_err(|e| format!("Container-scoped {} prefetch task failed: {}", ui_text.action_name, e))?;
 
-    join_set.spawn(async move {
-      loop {
-        let (item_id, queue_remaining) = {
-          let mut queue = worker_queue.lock().await;
-          let item_id = queue.pop_front();
-          let queue_remaining = queue.len();
-          (item_id, queue_remaining)
-        };
+    next_prefetch =
+      queue.pop_front().map(|next_item_id| spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), next_item_id, load_item));
+    let queue_remaining = queue.len();
 
-        let Some(item_id) = item_id else {
-          break;
-        };
+    info!(
+      "Container-scoped {} starting {} '{}'. Pending queue: {}. Progress: {}",
+      ui_text.action_name,
+      ui_text.noun_singular,
+      item_id,
+      queue_remaining,
+      progress.summary()
+    );
 
-        let progress_summary = {
-          let progress = worker_progress.lock().await;
-          progress.summary()
-        };
-        info!(
-          "Container-scoped {} worker {} starting {} '{}'. Pending queue: {}. Progress: {}",
-          ui_text.action_name,
-          worker_index + 1,
-          ui_text.noun_singular,
-          item_id,
-          queue_remaining,
-          progress_summary
-        );
-
-        match process_item(
-          &worker_data_dir,
-          &worker_service_url,
-          worker_db.clone(),
-          worker_object_store.clone(),
-          &item_id,
-        )
-        .await
-        {
+    match loaded_result {
+      Ok(loaded_item) => {
+        match process_loaded_item(data_dir, service_url, db.clone(), loaded_item, true).await {
           Ok(()) => {
-            let mut progress = worker_progress.lock().await;
             progress.processed += 1;
             progress.succeeded += 1;
             info!(
-              "Container-scoped {} worker {}: {} '{}' successfully ({}/{}).",
+              "Container-scoped {}: {} '{}' successfully ({}/{}).",
               ui_text.action_name,
-              worker_index + 1,
               ui_text.action_past,
               item_id,
               progress.processed,
@@ -758,13 +689,11 @@ async fn process_container_batch(
             );
           }
           Err(e) => {
-            let mut progress = worker_progress.lock().await;
             progress.processed += 1;
             progress.failed += 1;
             info!(
-              "Container-scoped {} worker {}: failed for '{}' ({}/{}): {}",
+              "Container-scoped {}: failed for '{}' ({}/{}): {}",
               ui_text.action_name,
-              worker_index + 1,
               item_id,
               progress.processed,
               scheduled_items,
@@ -772,24 +701,50 @@ async fn process_container_batch(
             );
           }
         }
-
-        if delay > Duration::ZERO {
-          sleep(delay).await;
-        }
       }
-    });
+      Err(e) => {
+        progress.processed += 1;
+        progress.failed += 1;
+        info!(
+          "Container-scoped {}: failed during source-object load for '{}' ({}/{}): {}",
+          ui_text.action_name,
+          item_id,
+          progress.processed,
+          scheduled_items,
+          e
+        );
+      }
+    }
+
+    if delay > Duration::ZERO {
+      sleep(delay).await;
+    }
   }
 
-  while let Some(join_result) = join_set.join_next().await {
-    join_result.map_err(|e| format!("Container-scoped {} worker task failed: {}", ui_text.action_name, e))?;
-  }
-
-  let progress = progress.lock().await;
   info!(
     "Container-scoped {} finished for container '{}': scheduled={} skipped_existing={} succeeded={} failed={}.",
     ui_text.action_name, container_id, scheduled_items, skipped_existing, progress.succeeded, progress.failed
   );
   Ok(())
+}
+
+fn spawn_prefetch<LoadedItem>(
+  data_dir: &str,
+  service_url: &str,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<storage_object::ObjectStore>,
+  item_id: String,
+  load_item: LoadItemFn<LoadedItem>,
+) -> JoinHandle<(String, InfuResult<LoadedItem>)>
+where
+  LoadedItem: Send + 'static,
+{
+  let worker_data_dir = data_dir.to_owned();
+  let worker_service_url = service_url.to_owned();
+  tokio::spawn(async move {
+    let loaded = load_item(&worker_data_dir, &worker_service_url, db, object_store, &item_id).await;
+    (item_id, loaded)
+  })
 }
 
 fn is_extractable_pdf_item(item: &Item) -> bool {
@@ -812,22 +767,55 @@ fn item_needs_image_tagging_boxed<'a>(
   Box::pin(item_needs_image_tagging(data_dir, db, item_id))
 }
 
-fn extract_single_item_boxed<'a>(
+fn load_pdf_for_extraction_boxed<'a>(
   data_dir: &'a str,
   service_url: &'a str,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
   item_id: &'a str,
-) -> ProcessItemFuture<'a> {
-  Box::pin(extract_single_item(data_dir, service_url, db, object_store, item_id))
+) -> LoadItemFuture<'a, LoadedPdfExtraction> {
+  Box::pin(load_pdf_for_extraction(data_dir, service_url, db, object_store, item_id))
 }
 
-fn tag_single_item_boxed<'a>(
+fn load_image_for_tagging_boxed<'a>(
   data_dir: &'a str,
   service_url: &'a str,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
   item_id: &'a str,
-) -> ProcessItemFuture<'a> {
-  Box::pin(tag_single_item(data_dir, service_url, db, object_store, item_id))
+) -> LoadItemFuture<'a, LoadedImageTagging> {
+  let _ = (data_dir, service_url);
+  Box::pin(load_image_for_tagging(db, object_store, item_id))
+}
+
+fn process_loaded_pdf_extraction_boxed<'a>(
+  data_dir: &'a str,
+  service_url: &'a str,
+  db: Arc<Mutex<Db>>,
+  loaded: LoadedPdfExtraction,
+  retry_endpoint_unavailable: bool,
+) -> ProcessLoadedItemFuture<'a> {
+  Box::pin(process_loaded_pdf_extraction(
+    data_dir,
+    service_url,
+    db,
+    loaded,
+    retry_endpoint_unavailable,
+  ))
+}
+
+fn process_loaded_image_tagging_boxed<'a>(
+  data_dir: &'a str,
+  service_url: &'a str,
+  db: Arc<Mutex<Db>>,
+  loaded: LoadedImageTagging,
+  retry_endpoint_unavailable: bool,
+) -> ProcessLoadedItemFuture<'a> {
+  Box::pin(process_loaded_image_tagging(
+    data_dir,
+    service_url,
+    db,
+    loaded,
+    retry_endpoint_unavailable,
+  ))
 }

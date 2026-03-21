@@ -141,6 +141,7 @@ This command has two subcommands:
 - `extract image`
 
 Both subcommands load items, initialize the configured object store, and then either run a finite batch or a continuous background loop.
+In both modes, Infumap keeps only one extraction/tagging request in flight at a time, while pipelining the next source-object read from object storage in the background.
 
 ### extract pdf
 
@@ -150,7 +151,6 @@ Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--text-extraction-url (optional):** Override the configured `text_extraction_url` for this process.
-- **--text-extraction-concurrency (optional):** Set the number of concurrent PDF extraction requests for this process. Defaults to `1`.
 - **--text-extraction-delay-secs (optional):** Sleep for this many seconds after each text extraction request in this process. Defaults to `0`.
 - **--item-id (optional):** Extract text only for this item. The item must be a PDF. Existing extraction artifacts are overwritten.
 - **--container-id (optional):** Extract text only for PDFs within this container subtree, then exit after the finite batch completes. By default, items with existing extraction artifacts are skipped.
@@ -167,7 +167,6 @@ Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--image-tagging-url (optional):** Override the configured `image_tagging_url` for this process.
-- **--image-tagging-concurrency (optional):** Set the number of concurrent image tagging requests for this process. Defaults to `1`.
 - **--image-tagging-delay-secs (optional):** Sleep for this many seconds after each image tagging request in this process. Defaults to `0`.
 - **--item-id (optional):** Tag only this item. The item must have a supported image MIME type. Existing image-tag artifacts are overwritten.
 - **--container-id (optional):** Tag only supported images within this container subtree, then exit after the finite batch completes. By default, items with existing image-tag artifacts are skipped.

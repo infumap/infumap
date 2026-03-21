@@ -44,7 +44,6 @@ const REFILL_WHEN_QUEUE_AT_MOST: usize = 50;
 const LARGE_IMAGE_SIZE_BYTES: i64 = 10 * 1024 * 1024;
 const REFILL_WAIT_MILLIS: u64 = 1000;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
-const DEFAULT_BACKGROUND_CONCURRENCY: usize = 1;
 const JSON_CONTENT_MIME_TYPE: &str = "application/json";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
@@ -76,6 +75,11 @@ impl ImageCandidate {
       last_modified_date: item.last_modified_date,
     })
   }
+}
+
+pub(crate) struct LoadedImageTagging {
+  candidate: ImageCandidate,
+  file_bytes: Vec<u8>,
 }
 
 struct ProcessingState {
@@ -112,7 +116,6 @@ struct RefillResult {
   found_any: bool,
   total_candidates: usize,
   considered_candidates: usize,
-  queued_candidates: usize,
   already_succeeded: usize,
   already_failed: usize,
   needs_tagging: usize,
@@ -121,7 +124,6 @@ struct RefillResult {
 struct TaggingProgress {
   processed: u64,
   succeeded: u64,
-  document_failed: u64,
   other_failed: u64,
 }
 
@@ -131,21 +133,13 @@ impl TaggingProgress {
     self.succeeded += 1;
   }
 
-  fn on_document_failed(&mut self) {
-    self.processed += 1;
-    self.document_failed += 1;
-  }
-
   fn on_other_failed(&mut self) {
     self.processed += 1;
     self.other_failed += 1;
   }
 
   fn summary(&self) -> String {
-    format!(
-      "total={} succeeded={} document_failed={} other_failed={}",
-      self.processed, self.succeeded, self.document_failed, self.other_failed
-    )
+    format!("total={} succeeded={} failed={}", self.processed, self.succeeded, self.other_failed)
   }
 }
 
@@ -270,16 +264,6 @@ pub async fn list_failed_images(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResul
   Ok(out)
 }
 
-pub async fn tag_single_item(
-  data_dir: &str,
-  image_tagging_url: &str,
-  db: Arc<Mutex<Db>>,
-  object_store: Arc<ObjectStore>,
-  item_id: &str,
-) -> InfuResult<()> {
-  tag_single_item_inner(data_dir, image_tagging_url, db, object_store, item_id, true).await
-}
-
 pub async fn tag_single_item_no_retry(
   data_dir: &str,
   image_tagging_url: &str,
@@ -298,6 +282,15 @@ async fn tag_single_item_inner(
   item_id: &str,
   retry_endpoint_unavailable: bool,
 ) -> InfuResult<()> {
+  let loaded = load_image_for_tagging(db.clone(), object_store, item_id).await?;
+  process_loaded_image_tagging(data_dir, image_tagging_url, db, loaded, retry_endpoint_unavailable).await
+}
+
+pub(crate) async fn load_image_for_tagging(
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  item_id: &str,
+) -> InfuResult<LoadedImageTagging> {
   let (candidate, object_encryption_key) = {
     let db = db.lock().await;
     let id = item_id.to_string();
@@ -309,7 +302,6 @@ async fn tag_single_item_inner(
       db.user.get(&item.owner_id).ok_or(format!("User '{}' not loaded.", item.owner_id))?.object_encryption_key.clone();
     (candidate, key)
   };
-  clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
   info!("Starting source object read/decrypt for image '{}' (user {}).", candidate.item_id, candidate.user_id);
   let object_read_started_at = Instant::now();
   let file_bytes = storage_object::get(
@@ -342,6 +334,18 @@ async fn tag_single_item_inner(
     format_duration_for_log(object_read_elapsed),
     file_bytes.len()
   );
+  Ok(LoadedImageTagging { candidate, file_bytes })
+}
+
+pub(crate) async fn process_loaded_image_tagging(
+  data_dir: &str,
+  image_tagging_url: &str,
+  db: Arc<Mutex<Db>>,
+  loaded: LoadedImageTagging,
+  retry_endpoint_unavailable: bool,
+) -> InfuResult<()> {
+  let LoadedImageTagging { candidate, file_bytes } = loaded;
+  clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
@@ -405,20 +409,12 @@ pub fn init_image_tagging_processing_loop(
     None => return Ok(()),
   };
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  start_image_tagging_processing_loop(
-    data_dir,
-    image_tagging_url,
-    DEFAULT_BACKGROUND_CONCURRENCY,
-    Duration::ZERO,
-    db,
-    object_store,
-  )
+  start_image_tagging_processing_loop(data_dir, image_tagging_url, Duration::ZERO, db, object_store)
 }
 
 pub fn start_image_tagging_processing_loop(
   data_dir: String,
   image_tagging_url: String,
-  concurrency: usize,
   request_delay: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
@@ -426,10 +422,6 @@ pub fn start_image_tagging_processing_loop(
   if PROCESSING_STATE.get().is_some() {
     return Err("Image tagging processing loop is already running in this process.".into());
   }
-  let client = reqwest::ClientBuilder::new()
-    .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
-    .build()
-    .map_err(|e| format!("Could not build image tagging HTTP client: {}", e))?;
   let state = Arc::new(Mutex::new(ProcessingState {
     queue: vec![],
     queued_item_ids: HashSet::new(),
@@ -440,82 +432,198 @@ pub fn start_image_tagging_processing_loop(
     .set(state.clone())
     .map_err(|_| "Image tagging processing loop is already running in this process.".to_owned())?;
   let progress =
-    Arc::new(Mutex::new(TaggingProgress { processed: 0, succeeded: 0, document_failed: 0, other_failed: 0 }));
+    Arc::new(Mutex::new(TaggingProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   info!(
-    "Starting {} image tagging worker(s) using '{}' with a {:.3}s delay between requests.",
-    concurrency,
+    "Starting image tagging processing loop using '{}' with single-request execution and pipelined source-object prefetch (delay {:.3}s).",
     image_tagging_url,
     request_delay.as_secs_f64()
   );
-  for worker_id in 0..concurrency {
-    let worker_state = state.clone();
-    let worker_db = db.clone();
-    let worker_object_store = object_store.clone();
-    let worker_client = client.clone();
-    let worker_progress = progress.clone();
-    let worker_data_dir = data_dir.clone();
-    let worker_image_tagging_url = image_tagging_url.clone();
-    let worker_request_delay = request_delay;
-    let _worker = task::spawn(async move {
-      run_image_tagging_worker(
-        worker_id + 1,
-        worker_data_dir,
-        worker_image_tagging_url,
-        worker_request_delay,
-        worker_db,
-        worker_object_store,
-        worker_client,
-        worker_state,
-        worker_progress,
-      )
-      .await;
-    });
-  }
+  let _worker = task::spawn(async move {
+    run_image_tagging_loop(data_dir, image_tagging_url, request_delay, db, object_store, state, progress).await;
+  });
 
   Ok(())
 }
 
-async fn run_image_tagging_worker(
-  worker_id: usize,
+async fn run_image_tagging_loop(
   data_dir: String,
   image_tagging_url: String,
   request_delay: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
-  client: reqwest::Client,
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<TaggingProgress>>,
 ) {
+  let mut next_prefetch = spawn_image_prefetch(
+    data_dir.clone(),
+    image_tagging_url.clone(),
+    db.clone(),
+    object_store.clone(),
+    state.clone(),
+    progress.clone(),
+  );
+
+  loop {
+    let (loaded, queue_remaining) = match next_prefetch.await {
+      Ok(result) => result,
+      Err(e) => {
+        error!("Image tagging prefetch task failed: {}", e);
+        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+        next_prefetch = spawn_image_prefetch(
+          data_dir.clone(),
+          image_tagging_url.clone(),
+          db.clone(),
+          object_store.clone(),
+          state.clone(),
+          progress.clone(),
+        );
+        continue;
+      }
+    };
+
+    next_prefetch = spawn_image_prefetch(
+      data_dir.clone(),
+      image_tagging_url.clone(),
+      db.clone(),
+      object_store.clone(),
+      state.clone(),
+      progress.clone(),
+    );
+
+    let item_id = loaded.candidate.item_id.clone();
+    let user_id = loaded.candidate.user_id.clone();
+    let progress_summary = {
+      let progress = progress.lock().await;
+      progress.summary()
+    };
+    info!(
+      "Starting image tagging for '{}' (user {}). Pending queue: {}. Progress: {}",
+      item_id, user_id, queue_remaining, progress_summary
+    );
+
+    match process_loaded_image_tagging(&data_dir, &image_tagging_url, db.clone(), loaded, true).await {
+      Ok(()) => {
+        let progress_summary = {
+          let mut progress = progress.lock().await;
+          progress.on_success();
+          progress.summary()
+        };
+        info!(
+          "Image '{}' (user {}): tagged successfully. {} remaining. {}",
+          item_id, user_id, queue_remaining, progress_summary
+        );
+      }
+      Err(e) => {
+        let progress_summary = {
+          let mut progress = progress.lock().await;
+          progress.on_other_failed();
+          progress.summary()
+        };
+        info!(
+          "Image '{}' (user {}): tagging failed: {}. {} remaining. {}",
+          item_id, user_id, e, queue_remaining, progress_summary
+        );
+      }
+    }
+    if request_delay > Duration::ZERO {
+      time::sleep(request_delay).await;
+    }
+  }
+}
+
+fn spawn_image_prefetch(
+  data_dir: String,
+  image_tagging_url: String,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  state: Arc<Mutex<ProcessingState>>,
+  progress: Arc<Mutex<TaggingProgress>>,
+) -> task::JoinHandle<(LoadedImageTagging, usize)> {
+  task::spawn(async move {
+    prefetch_next_image_tagging(data_dir, image_tagging_url, db, object_store, state, progress).await
+  })
+}
+
+async fn prefetch_next_image_tagging(
+  data_dir: String,
+  image_tagging_url: String,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  state: Arc<Mutex<ProcessingState>>,
+  progress: Arc<Mutex<TaggingProgress>>,
+) -> (LoadedImageTagging, usize) {
+  let _ = image_tagging_url;
+  loop {
+    let (candidate, queue_remaining) =
+      wait_for_next_image_candidate(&data_dir, db.clone(), state.clone(), progress.clone()).await;
+    if candidate.file_size_bytes.map_or(false, |size| size >= LARGE_IMAGE_SIZE_BYTES) {
+      info!(
+        "Image '{}' (user {}): large image (~{} MB); tagging may take longer and use significant memory.",
+        candidate.item_id,
+        candidate.user_id,
+        candidate.file_size_bytes.map(|size| size / (1024 * 1024)).unwrap_or(0)
+      );
+    }
+
+    match load_image_for_tagging(db.clone(), object_store.clone(), &candidate.item_id).await {
+      Ok(loaded) => return (loaded, queue_remaining),
+      Err(e) => {
+        let progress_summary = {
+          let mut progress = progress.lock().await;
+          progress.on_other_failed();
+          progress.summary()
+        };
+        info!(
+          "Image '{}' (user {}): source-object prefetch failed: {}. {} remaining. {}",
+          candidate.item_id, candidate.user_id, e, queue_remaining, progress_summary
+        );
+        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+      }
+    }
+  }
+}
+
+async fn wait_for_next_image_candidate(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  state: Arc<Mutex<ProcessingState>>,
+  progress: Arc<Mutex<TaggingProgress>>,
+) -> (ImageCandidate, usize) {
   loop {
     let (candidate, queue_remaining) = {
       let mut state = state.lock().await;
       pop_candidate(&mut state)
     };
 
-    let (candidate, queue_remaining) = match (candidate, queue_remaining) {
+    match (candidate, queue_remaining) {
       (Some(candidate), remaining) => {
         if remaining <= REFILL_WHEN_QUEUE_AT_MOST {
-          match refill_queue_if_needed(&data_dir, db.clone(), state.clone(), Some(&candidate.item_id)).await {
+          match refill_queue_if_needed(data_dir, db.clone(), state.clone(), Some(&candidate.item_id)).await {
             Ok(Some(refill)) => {
               let progress_summary = {
                 let progress = progress.lock().await;
                 progress.summary()
               };
               info!(
-                "Worker {} starting image tagging for '{}' (user {}). Pending queue: {}. Progress: {}",
-                worker_id, candidate.item_id, candidate.user_id, refill.queued_candidates, progress_summary
+                "Image tagging queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
+                refill.considered_candidates,
+                refill.total_candidates,
+                refill.already_succeeded,
+                refill.already_failed,
+                refill.needs_tagging,
+                progress_summary
               );
             }
             Ok(None) => {}
             Err(e) => {
-              error!("Worker {} could not refill image tagging queue: {}", worker_id, e);
+              error!("Could not refill image tagging queue: {}", e);
             }
           }
         }
-        (candidate, remaining)
+        return (candidate, remaining);
       }
-      (None, _) => match refill_queue_if_needed(&data_dir, db.clone(), state.clone(), None).await {
+      (None, _) => match refill_queue_if_needed(data_dir, db.clone(), state.clone(), None).await {
         Ok(Some(refill)) if refill.found_any => {
           let progress_summary = {
             let progress = progress.lock().await;
@@ -547,7 +655,6 @@ async fn run_image_tagging_worker(
             progress_summary
           );
           time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-          continue;
         }
         Ok(None) => {
           let should_idle_sleep = {
@@ -559,197 +666,12 @@ async fn run_image_tagging_worker(
           } else {
             time::sleep(Duration::from_millis(REFILL_WAIT_MILLIS)).await;
           }
-          continue;
         }
         Err(e) => {
-          error!("Worker {} could not refill image tagging queue: {}", worker_id, e);
+          error!("Could not refill image tagging queue: {}", e);
           time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-          continue;
         }
       },
-    };
-
-    let object_encryption_key = {
-      let db = db.lock().await;
-      match db.user.get(&candidate.user_id) {
-        Some(user) => user.object_encryption_key.clone(),
-        None => {
-          let progress_summary = {
-            let mut progress = progress.lock().await;
-            progress.on_other_failed();
-            progress.summary()
-          };
-          info!(
-            "Image '{}' (user {}): user not loaded. {} remaining. {}",
-            candidate.item_id, candidate.user_id, queue_remaining, progress_summary
-          );
-          error!(
-            "Worker {} could not process image '{}' for user '{}': user is not loaded.",
-            worker_id, candidate.item_id, candidate.user_id
-          );
-          time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-          continue;
-        }
-      }
-    };
-
-    if candidate.file_size_bytes.map_or(false, |size| size >= LARGE_IMAGE_SIZE_BYTES) {
-      info!(
-        "Image '{}' (user {}): large image (~{} MB); tagging may take longer and use significant memory.",
-        candidate.item_id,
-        candidate.user_id,
-        candidate.file_size_bytes.map(|size| size / (1024 * 1024)).unwrap_or(0)
-      );
-    }
-
-    info!(
-      "Worker {} starting source object read/decrypt for image '{}' (user {}).",
-      worker_id, candidate.item_id, candidate.user_id
-    );
-    let object_read_started_at = Instant::now();
-    let file_bytes = match storage_object::get(
-      object_store.clone(),
-      candidate.user_id.clone(),
-      candidate.item_id.clone(),
-      &object_encryption_key,
-    )
-    .await
-    {
-      Ok(bytes) => bytes,
-      Err(e) => {
-        let object_read_elapsed = object_read_started_at.elapsed();
-        let progress_summary = {
-          let mut progress = progress.lock().await;
-          progress.on_other_failed();
-          progress.summary()
-        };
-        info!(
-          "Image '{}' (user {}): source object read/decrypt failed after {}: {}. {} remaining. {}",
-          candidate.item_id,
-          candidate.user_id,
-          format_duration_for_log(object_read_elapsed),
-          e,
-          queue_remaining,
-          progress_summary
-        );
-        error!(
-          "Worker {} could not read image '{}' for user '{}' after {}: {}",
-          worker_id,
-          candidate.item_id,
-          candidate.user_id,
-          format_duration_for_log(object_read_elapsed),
-          e
-        );
-        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        continue;
-      }
-    };
-    let object_read_elapsed = object_read_started_at.elapsed();
-    info!(
-      "Worker {} completed source object read/decrypt for image '{}' (user {}) in {} ({} bytes).",
-      worker_id,
-      candidate.item_id,
-      candidate.user_id,
-      format_duration_for_log(object_read_elapsed),
-      file_bytes.len()
-    );
-
-    info!(
-      "Worker {} sending image tagging request for '{}' (user {}) to '{}'.",
-      worker_id, candidate.item_id, candidate.user_id, image_tagging_url
-    );
-    let outcome =
-      request_image_tagging_with_retries(&client, &image_tagging_url, &candidate, &file_bytes, Some(worker_id)).await;
-    let item_is_current = match candidate_still_current(db.clone(), &candidate).await {
-      Ok(current) => current,
-      Err(e) => {
-        let progress_summary = {
-          let mut progress = progress.lock().await;
-          progress.on_other_failed();
-          progress.summary()
-        };
-        error!(
-          "Worker {} could not verify current state for image '{}' for user '{}': {}. {}",
-          worker_id, candidate.item_id, candidate.user_id, e, progress_summary
-        );
-        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        continue;
-      }
-    };
-    if !item_is_current {
-      let progress_summary = {
-        let mut progress = progress.lock().await;
-        progress.on_other_failed();
-        progress.summary()
-      };
-      info!(
-        "Image '{}' (user {}): item was deleted or replaced while tagging was in progress. Skipping artifact write. {} remaining. {}",
-        candidate.item_id, candidate.user_id, queue_remaining, progress_summary
-      );
-      if request_delay > Duration::ZERO {
-        time::sleep(request_delay).await;
-      }
-      continue;
-    }
-
-    match outcome {
-      TagOutcome::Success(tag_data, duration_ms) => {
-        if let Err(e) = write_success_artifacts(&data_dir, &image_tagging_url, &candidate, &tag_data, duration_ms).await
-        {
-          let progress_summary = {
-            let mut progress = progress.lock().await;
-            progress.on_other_failed();
-            progress.summary()
-          };
-          info!(
-            "Image '{}' (user {}): write failed: {}. {} remaining. {}",
-            candidate.item_id, candidate.user_id, e, queue_remaining, progress_summary
-          );
-          error!(
-            "Worker {} could not write image tag artifacts for '{}' for user '{}': {}",
-            worker_id, candidate.item_id, candidate.user_id, e
-          );
-          time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-          continue;
-        }
-        let progress_summary = {
-          let mut progress = progress.lock().await;
-          progress.on_success();
-          progress.summary()
-        };
-        info!(
-          "Image '{}' (user {}): tagged successfully. {} remaining. {}",
-          candidate.item_id, candidate.user_id, queue_remaining, progress_summary
-        );
-      }
-      TagOutcome::DocumentFailed(message) => {
-        let progress_summary = {
-          let mut progress = progress.lock().await;
-          progress.on_document_failed();
-          progress.summary()
-        };
-        if let Err(e) = write_failed_manifest(&data_dir, &image_tagging_url, &candidate, &message).await {
-          error!(
-            "Worker {} could not write failed image tag manifest for '{}' for user '{}': {}",
-            worker_id, candidate.item_id, candidate.user_id, e
-          );
-        } else {
-          error!("Image tagging failed for '{}' for user '{}': {}", candidate.item_id, candidate.user_id, message);
-        }
-        info!(
-          "Image '{}' (user {}): tagging failed: {}. {} remaining. {}",
-          candidate.item_id, candidate.user_id, message, queue_remaining, progress_summary
-        );
-      }
-      TagOutcome::EndpointUnavailable(message) => {
-        error!(
-          "Worker {}: retry loop returned an unexpected endpoint-unavailable outcome for image '{}' (user {}): {}",
-          worker_id, candidate.item_id, candidate.user_id, message
-        );
-      }
-    }
-    if request_delay > Duration::ZERO {
-      time::sleep(request_delay).await;
     }
   }
 }
@@ -924,14 +846,12 @@ async fn refill_queue(
   for candidate in refill_state.queue {
     enqueue_candidate(&mut state, candidate);
   }
-  let queued = state.queue.len();
   state.scan_exhausted = state.queue.is_empty();
   let considered = checked + excluded;
   Ok(RefillResult {
     found_any: !state.queue.is_empty(),
     total_candidates: total,
     considered_candidates: considered,
-    queued_candidates: queued,
     already_succeeded,
     already_failed,
     needs_tagging: none,
