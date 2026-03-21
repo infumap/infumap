@@ -81,31 +81,27 @@ Return exactly one JSON object with these keys:
 - "scene": string or null
 - "location_type": string or null
 - "activities": array of strings
-- "is_document_candidate": boolean
 - "document_confidence": number from 0.0 to 1.0
 - "document_reasons": string
 - "face_recognition_candidate_confidence": number from 0.0 to 1.0
 
 Rules:
 - Be literal and visually grounded. Do not guess names, exact places, or events unless strongly supported by the image.
-- "detailed_caption" should be 2 to 4 short sentences and mention the setting, salient objects, and relationships that help search later.
+- "detailed_caption" should be 2 to 4 short sentences covering the setting, salient objects, and relationships that help search later.
 - "search_tags" should contain 10 to 24 short lower-case tags useful for search.
 - Avoid redundant tags that merely repeat "key_objects", "activities", "scene", or "location_type" verbatim unless they add clear search value.
 - "key_objects" should contain concrete visible nouns only, up to 12 entries.
-- "visible_text" should be an array of the most useful readable text snippets, not a full transcription.
-- Each entry should contain one distinct snippet or sign only. Do not merge unrelated snippets into one string.
-- Keep the combined visible text under 320 characters total. Use an empty array if nothing readable is visible.
+- "visible_text" should be an array of distinct useful readable snippets, not a full transcription. Keep one snippet or sign per entry, do not merge unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
 - "scene" should summarize the overall setting in a short phrase.
 - "location_type" should capture the venue or image type when visible.
 - "activities" should contain short lower-case activity phrases.
-- "is_document_candidate" should be true if the image seems intended to preserve, share, or later read the contents of a document or text-bearing artifact.
-- Prefer true when the central subject is a paper, screen, sign, ticket, card, page, label, receipt, poster, slide, screenshot, or similar text-bearing artifact.
-- "document_reasons" should briefly justify the document decision in one short sentence.
-- "face_recognition_candidate_confidence" should estimate whether this image is appropriate for downstream real-person face matching across photos.
-- Give high confidence when one or more real, camera-captured human faces are visible at usable size and clarity for matching.
-- Give low confidence for no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces.
+- "document_confidence" should estimate whether the image is mainly intended to preserve, share, or later read a document or text-bearing artifact. Use high values when the central subject is a paper, screen, sign, ticket, card, page, label, receipt, poster, slide, screenshot, or similar text-bearing artifact; use low values for ordinary scene photos.
+- "document_reasons" should justify the document score in one short sentence.
+- "face_recognition_candidate_confidence" should estimate whether the image is appropriate for downstream real-person face matching across photos.
+- Use 1.0 for obvious strong positives such as portraits, selfies, posed two-person photos, or clear group photos where at least one real human face is near-frontal, sharp, and large enough that you would definitely send the image to a face-matching system.
+- Use 0.8 to 0.95 for usable but imperfect cases such as moderately sized faces, slight angle, mild blur, or partial occlusion.
+- Use 0.0 when there is no usable real face at all, including no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces.
 - Printed or on-screen faces do not count unless real faces are also visible in the same image.
-- Keep the JSON compact and end immediately after the final closing brace.
 """.strip()
 
 class ImageRejectedError(Exception):
