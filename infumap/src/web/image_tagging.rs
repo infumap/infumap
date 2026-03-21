@@ -277,6 +277,27 @@ pub async fn tag_single_item(
   object_store: Arc<ObjectStore>,
   item_id: &str,
 ) -> InfuResult<()> {
+  tag_single_item_inner(data_dir, image_tagging_url, db, object_store, item_id, true).await
+}
+
+pub async fn tag_single_item_no_retry(
+  data_dir: &str,
+  image_tagging_url: &str,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  item_id: &str,
+) -> InfuResult<()> {
+  tag_single_item_inner(data_dir, image_tagging_url, db, object_store, item_id, false).await
+}
+
+async fn tag_single_item_inner(
+  data_dir: &str,
+  image_tagging_url: &str,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  item_id: &str,
+  retry_endpoint_unavailable: bool,
+) -> InfuResult<()> {
   let (candidate, object_encryption_key) = {
     let db = db.lock().await;
     let id = item_id.to_string();
@@ -325,7 +346,11 @@ pub async fn tag_single_item(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
-  let outcome = request_image_tagging_with_retries(&client, image_tagging_url, &candidate, &file_bytes, None).await;
+  let outcome = if retry_endpoint_unavailable {
+    request_image_tagging_with_retries(&client, image_tagging_url, &candidate, &file_bytes, None).await
+  } else {
+    request_image_tagging_once(&client, image_tagging_url, &candidate, &file_bytes).await
+  };
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(format!("Item '{}' was deleted or replaced while tagging was in progress.", candidate.item_id).into());
   }
@@ -804,6 +829,15 @@ async fn request_image_tagging_with_retries(
       }
     }
   }
+}
+
+async fn request_image_tagging_once(
+  client: &reqwest::Client,
+  image_tagging_url: &str,
+  candidate: &ImageCandidate,
+  file_bytes: &[u8],
+) -> TagOutcome {
+  request_image_tagging(client, image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes.to_vec()).await
 }
 
 async fn refill_queue_if_needed(

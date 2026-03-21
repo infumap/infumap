@@ -36,7 +36,7 @@ use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::image_tagging::{
   image_tagging_url_from_config, item_needs_image_tagging, list_failed_images, start_image_tagging_processing_loop,
-  tag_single_item,
+  tag_single_item, tag_single_item_no_retry,
 };
 
 const DEFAULT_CLI_IMAGE_TAGGING_CONCURRENCY: usize = 1;
@@ -194,7 +194,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   .map_err(|e| format!("Failed to initialize object store: {}", e))?;
 
   if let Some(item_id) = sub_matches.get_one::<String>("item_id") {
-    tag_single_item(&data_dir, &image_tagging_url, db, object_store, item_id).await?;
+    tag_single_item_no_retry(&data_dir, &image_tagging_url, db, object_store, item_id).await?;
     return Ok(());
   }
 

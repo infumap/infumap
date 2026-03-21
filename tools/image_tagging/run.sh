@@ -23,43 +23,35 @@ readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${IMAGE_TAGGING_VENV_DIR:-$ROOT_DIR/.venv}"
 readonly HOST="${IMAGE_TAGGING_HOST:-127.0.0.1}"
 readonly PORT="${IMAGE_TAGGING_PORT:-8788}"
-export IMAGE_TAGGING_BACKEND="${IMAGE_TAGGING_BACKEND:-qwen35}"
-if [ -z "${IMAGE_TAGGING_MODEL_ID:-}" ]; then
-    case "$IMAGE_TAGGING_BACKEND" in
-        qwen35)
-            export IMAGE_TAGGING_MODEL_ID="Qwen/Qwen3.5-9B"
-            ;;
-        qwen35-35b)
-            export IMAGE_TAGGING_MODEL_ID="Qwen/Qwen3.5-35B-A3B"
-            ;;
-        florence)
-            export IMAGE_TAGGING_MODEL_ID="microsoft/Florence-2-large-ft"
-            ;;
-    esac
-fi
-readonly TRANSFORMERS_VERSION="${IMAGE_TAGGING_TRANSFORMERS_VERSION:-}"
-export IMAGE_TAGGING_EXTRA_PIP_PACKAGES="${IMAGE_TAGGING_EXTRA_PIP_PACKAGES:-}"
-export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+readonly MANAGE_LLAMA_SERVER="${IMAGE_TAGGING_MANAGE_LLAMA_SERVER:-1}"
+readonly LLAMA_HOST="${IMAGE_TAGGING_LLAMA_HOST:-127.0.0.1}"
+readonly LLAMA_PORT="${IMAGE_TAGGING_LLAMA_PORT:-18080}"
+readonly LLAMA_SERVER_URL_DEFAULT="http://${LLAMA_HOST}:${LLAMA_PORT}"
+readonly STARTUP_TIMEOUT_SECS="${IMAGE_TAGGING_STARTUP_TIMEOUT_SECS:-900}"
 
-gpu_total_memory_mib() {
-    if ! command -v nvidia-smi >/dev/null 2>&1; then
-        return 1
-    fi
-    nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n 1
-}
+readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$ROOT_DIR/models}"
+readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-unsloth/Qwen3.5-9B-GGUF}"
+readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-Qwen3.5-9B-Q4_K_M.gguf}"
+readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-mmproj-BF16.gguf}"
+readonly MODEL_PATH="${MODELS_DIR}/${MODEL_FILE}"
+readonly MMPROJ_PATH="${MODELS_DIR}/${MMPROJ_FILE}"
 
-set_runtime_defaults() {
-    local gpu_mib=""
-    if gpu_mib="$(gpu_total_memory_mib)" && [ -n "$gpu_mib" ]; then
-        if [ -z "${TORCH_DEVICE:-}" ]; then
-            export TORCH_DEVICE="cuda"
-        fi
-    fi
+readonly LLAMA_CPP_REPO_URL="${IMAGE_TAGGING_LLAMA_CPP_REPO_URL:-https://github.com/ggml-org/llama.cpp.git}"
+readonly LLAMA_CPP_DIR="${IMAGE_TAGGING_LLAMA_CPP_DIR:-$ROOT_DIR/.llama.cpp}"
+readonly LLAMA_BUILD_DIR="${IMAGE_TAGGING_LLAMA_BUILD_DIR:-$LLAMA_CPP_DIR/build}"
+readonly LLAMA_BIN_OVERRIDE="${IMAGE_TAGGING_LLAMA_BIN:-}"
+readonly LLAMA_CMAKE_ARGS="${IMAGE_TAGGING_LLAMA_CMAKE_ARGS:-}"
+readonly LLAMA_EXTRA_ARGS="${IMAGE_TAGGING_LLAMA_EXTRA_ARGS:-}"
+readonly LLAMA_CTX="${IMAGE_TAGGING_LLAMA_CTX:-8192}"
+readonly LLAMA_BATCH_SIZE="${IMAGE_TAGGING_LLAMA_BATCH_SIZE:-2048}"
+readonly LLAMA_UBATCH_SIZE="${IMAGE_TAGGING_LLAMA_UBATCH_SIZE:-512}"
+readonly LLAMA_PARALLEL="${IMAGE_TAGGING_LLAMA_PARALLEL:-${IMAGE_TAGGING_MAX_CONCURRENCY:-1}}"
+readonly LLAMA_IMAGE_MIN_TOKENS="${IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS:-}"
+readonly LLAMA_IMAGE_MAX_TOKENS="${IMAGE_TAGGING_LLAMA_IMAGE_MAX_TOKENS:-}"
+readonly LLAMA_UPDATE_CHECKOUT="${IMAGE_TAGGING_LLAMA_UPDATE_CHECKOUT:-0}"
 
-    if [ -z "${IMAGE_TAGGING_MAX_CONCURRENCY:-}" ]; then
-        export IMAGE_TAGGING_MAX_CONCURRENCY=1
-    fi
-}
+llama_pid=""
+api_pid=""
 
 fail() {
     echo "Error: $1" >&2
@@ -120,7 +112,192 @@ ensure_venv_pip() {
     fail "pip is unavailable inside the virtualenv. Install $package_name or python3-venv, then rerun."
 }
 
-if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+require_command() {
+    if ! command_exists "$1"; then
+        fail "Required command not found: $1"
+    fi
+}
+
+ensure_python_packages() {
+    if "$VENV_PYTHON" -c "import fastapi, uvicorn, multipart, PIL, httpx, huggingface_hub" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    "$VENV_PYTHON" -m pip install --upgrade pip
+    "$VENV_PYTHON" -m pip install --upgrade \
+        fastapi \
+        uvicorn \
+        "python-multipart>=0.0.18" \
+        Pillow \
+        httpx \
+        "huggingface_hub[hf_xet]" \
+        hf_xet
+}
+
+has_nvidia_gpu() {
+    command_exists nvidia-smi
+}
+
+effective_llama_ngl() {
+    if [ -n "${IMAGE_TAGGING_LLAMA_NGL:-}" ]; then
+        printf '%s\n' "${IMAGE_TAGGING_LLAMA_NGL}"
+        return 0
+    fi
+    if has_nvidia_gpu; then
+        printf '%s\n' "all"
+        return 0
+    fi
+    printf '%s\n' "0"
+}
+
+effective_llama_flash_attn() {
+    if [ -n "${IMAGE_TAGGING_LLAMA_FLASH_ATTN:-}" ]; then
+        printf '%s\n' "${IMAGE_TAGGING_LLAMA_FLASH_ATTN}"
+        return 0
+    fi
+    if has_nvidia_gpu; then
+        printf '%s\n' "auto"
+        return 0
+    fi
+    printf '%s\n' ""
+}
+
+ensure_llama_cpp_checkout() {
+    if [ ! -d "$LLAMA_CPP_DIR/.git" ]; then
+        require_command git
+        git clone --depth 1 "$LLAMA_CPP_REPO_URL" "$LLAMA_CPP_DIR" >&2
+        return 0
+    fi
+
+    if [ "$LLAMA_UPDATE_CHECKOUT" = "1" ]; then
+        require_command git
+        git -C "$LLAMA_CPP_DIR" pull --ff-only >&2
+    fi
+}
+
+ensure_local_llama_server() {
+    local candidate
+
+    if [ -n "$LLAMA_BIN_OVERRIDE" ]; then
+        [ -x "$LLAMA_BIN_OVERRIDE" ] || fail "IMAGE_TAGGING_LLAMA_BIN is not executable: $LLAMA_BIN_OVERRIDE"
+        printf '%s\n' "$LLAMA_BIN_OVERRIDE"
+        return 0
+    fi
+
+    if command_exists llama-server; then
+        command -v llama-server
+        return 0
+    fi
+
+    candidate="$LLAMA_BUILD_DIR/bin/llama-server"
+    if [ -x "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+
+    require_command git
+    require_command cmake
+    ensure_llama_cpp_checkout
+
+    local jobs
+    jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
+
+    local -a cmake_configure_args
+    cmake_configure_args=(
+        -S "$LLAMA_CPP_DIR"
+        -B "$LLAMA_BUILD_DIR"
+        -DCMAKE_BUILD_TYPE=Release
+    )
+    if has_nvidia_gpu; then
+        cmake_configure_args+=(-DGGML_CUDA=ON)
+    fi
+    if [ -n "$LLAMA_CMAKE_ARGS" ]; then
+        local -a extra_cmake_args
+        # shellcheck disable=SC2206
+        extra_cmake_args=($LLAMA_CMAKE_ARGS)
+        cmake_configure_args+=("${extra_cmake_args[@]}")
+    fi
+
+    echo "Configuring llama.cpp build in $LLAMA_BUILD_DIR" >&2
+    cmake "${cmake_configure_args[@]}" >&2
+    echo "Building llama-server with $jobs job(s)" >&2
+    cmake --build "$LLAMA_BUILD_DIR" --config Release -j "$jobs" --target llama-server >&2
+
+    [ -x "$candidate" ] || fail "Expected llama-server binary was not produced at $candidate"
+    printf '%s\n' "$candidate"
+}
+
+ensure_models() {
+    mkdir -p "$MODELS_DIR"
+    "$VENV_PYTHON" "$ROOT_DIR/bootstrap_models.py" \
+        --repo-id "$MODEL_REPO" \
+        --model-file "$MODEL_FILE" \
+        --mmproj-file "$MMPROJ_FILE" \
+        --dest-dir "$MODELS_DIR"
+}
+
+wait_for_llama_server() {
+    local server_url
+    server_url="$1"
+    local server_pid
+    server_pid="${2:-}"
+
+    "$VENV_PYTHON" - "$server_url" "$STARTUP_TIMEOUT_SECS" "$server_pid" <<'PY'
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+
+base_url = sys.argv[1].rstrip("/")
+deadline = time.time() + float(sys.argv[2])
+pid_text = sys.argv[3].strip()
+server_pid = int(pid_text) if pid_text else None
+paths = ("/health", "/v1/models", "/")
+
+def process_alive(pid: int | None) -> bool:
+    if pid is None:
+        return True
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+while time.time() < deadline:
+    if not process_alive(server_pid):
+        print(f"llama-server exited before becoming ready at {base_url}", file=sys.stderr)
+        sys.exit(1)
+    for path in paths:
+        try:
+            with urllib.request.urlopen(base_url + path, timeout=5) as response:
+                if 200 <= response.status < 400:
+                    sys.exit(0)
+        except Exception:
+            pass
+    time.sleep(1)
+
+print(f"Timed out waiting for llama-server at {base_url}", file=sys.stderr)
+sys.exit(1)
+PY
+}
+
+cleanup() {
+    if [ -n "$api_pid" ] && kill -0 "$api_pid" 2>/dev/null; then
+        kill -TERM "$api_pid" 2>/dev/null || true
+    fi
+    if [ -n "$llama_pid" ] && kill -0 "$llama_pid" 2>/dev/null; then
+        kill -TERM "$llama_pid" 2>/dev/null || true
+    fi
+}
+
+trap cleanup EXIT INT TERM
+
+if ! command_exists "$PYTHON_BIN"; then
     fail "Python executable not found: $PYTHON_BIN"
 fi
 
@@ -135,31 +312,102 @@ fi
 readonly VENV_PYTHON="$VENV_DIR/bin/python"
 
 ensure_venv_pip
+ensure_python_packages
 
-"$VENV_PYTHON" "$ROOT_DIR/bootstrap_backend.py" \
-    --backend "$IMAGE_TAGGING_BACKEND" \
-    --transformers-version "$TRANSFORMERS_VERSION" \
-    --extra-packages "$IMAGE_TAGGING_EXTRA_PIP_PACKAGES" \
-    --mode sync
-
-set_runtime_defaults
+if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
+    export IMAGE_TAGGING_LLAMA_SERVER_URL="$LLAMA_SERVER_URL_DEFAULT"
+else
+    export IMAGE_TAGGING_LLAMA_SERVER_URL="${IMAGE_TAGGING_LLAMA_SERVER_URL:-$LLAMA_SERVER_URL_DEFAULT}"
+fi
+export IMAGE_TAGGING_MODEL_REPO="$MODEL_REPO"
+export IMAGE_TAGGING_MODEL_FILE="$MODEL_FILE"
+export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-${MODEL_REPO}:${MODEL_FILE}}"
+export IMAGE_TAGGING_LLAMA_MODEL_NAME="${IMAGE_TAGGING_LLAMA_MODEL_NAME:-${MODEL_FILE%.gguf}}"
+export IMAGE_TAGGING_MAX_CONCURRENCY="${IMAGE_TAGGING_MAX_CONCURRENCY:-1}"
 
 echo "Starting Infumap image tagging service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
-echo "Host/port: $HOST:$PORT"
-echo "Backend: $IMAGE_TAGGING_BACKEND"
-echo "Model: $IMAGE_TAGGING_MODEL_ID"
-echo "Transformers: $("$VENV_PYTHON" -m pip show transformers 2>/dev/null | awk '/^Version: / {print $2}' || true)"
-echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
-echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
-echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
+echo "API host/port: $HOST:$PORT"
+echo "llama-server URL: $IMAGE_TAGGING_LLAMA_SERVER_URL"
+echo "Model repo: $MODEL_REPO"
+echo "Model file: $MODEL_FILE"
+echo "mmproj file: $MMPROJ_FILE"
 echo "IMAGE_TAGGING_MAX_CONCURRENCY=${IMAGE_TAGGING_MAX_CONCURRENCY}"
-echo "IMAGE_TAGGING_EXTRA_PIP_PACKAGES=${IMAGE_TAGGING_EXTRA_PIP_PACKAGES:-<unset>}"
-if command -v nvidia-smi >/dev/null 2>&1; then
+
+if has_nvidia_gpu; then
     echo "Detected GPUs via nvidia-smi:"
     nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true
 else
     echo "nvidia-smi: not found"
 fi
 
-exec "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT"
+if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
+    readonly LLAMA_SERVER_BIN="$(ensure_local_llama_server)"
+    ensure_models
+
+    readonly EFFECTIVE_LLAMA_NGL="$(effective_llama_ngl)"
+    readonly EFFECTIVE_LLAMA_FLASH_ATTN="$(effective_llama_flash_attn)"
+
+    echo "llama-server binary: $LLAMA_SERVER_BIN"
+    echo "Local llama.cpp checkout: $LLAMA_CPP_DIR"
+    echo "Local models dir: $MODELS_DIR"
+    echo "llama ctx: $LLAMA_CTX"
+    echo "llama batch size: $LLAMA_BATCH_SIZE"
+    echo "llama ubatch size: $LLAMA_UBATCH_SIZE"
+    echo "llama parallel slots: $LLAMA_PARALLEL"
+    echo "llama n-gpu-layers: $EFFECTIVE_LLAMA_NGL"
+    echo "llama flash-attn: ${EFFECTIVE_LLAMA_FLASH_ATTN:-<unset>}"
+    echo "llama image min tokens: ${LLAMA_IMAGE_MIN_TOKENS:-<unset>}"
+    echo "llama image max tokens: ${LLAMA_IMAGE_MAX_TOKENS:-<unset>}"
+
+    llama_cmd=(
+        "$LLAMA_SERVER_BIN"
+        -m "$MODEL_PATH"
+        --mmproj "$MMPROJ_PATH"
+        -c "$LLAMA_CTX"
+        -b "$LLAMA_BATCH_SIZE"
+        -ub "$LLAMA_UBATCH_SIZE"
+        -np "$LLAMA_PARALLEL"
+        --host "$LLAMA_HOST"
+        --port "$LLAMA_PORT"
+    )
+    if [ "$EFFECTIVE_LLAMA_NGL" != "0" ]; then
+        llama_cmd+=(-ngl "$EFFECTIVE_LLAMA_NGL")
+    fi
+    if [ -n "$EFFECTIVE_LLAMA_FLASH_ATTN" ]; then
+        llama_cmd+=(-fa "$EFFECTIVE_LLAMA_FLASH_ATTN")
+    fi
+    if [ -n "$LLAMA_IMAGE_MIN_TOKENS" ]; then
+        llama_cmd+=(--image-min-tokens "$LLAMA_IMAGE_MIN_TOKENS")
+    fi
+    if [ -n "$LLAMA_IMAGE_MAX_TOKENS" ]; then
+        llama_cmd+=(--image-max-tokens "$LLAMA_IMAGE_MAX_TOKENS")
+    fi
+    if [ -n "$LLAMA_EXTRA_ARGS" ]; then
+        # shellcheck disable=SC2206
+        llama_extra_args=($LLAMA_EXTRA_ARGS)
+        llama_cmd+=("${llama_extra_args[@]}")
+    fi
+
+    "${llama_cmd[@]}" &
+    llama_pid="$!"
+
+    echo "Waiting for llama-server to become ready..."
+    wait_for_llama_server "$IMAGE_TAGGING_LLAMA_SERVER_URL" "$llama_pid"
+else
+    echo "Using externally managed llama-server at $IMAGE_TAGGING_LLAMA_SERVER_URL"
+fi
+
+"$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT" &
+api_pid="$!"
+
+set +e
+if [ -n "$llama_pid" ]; then
+    wait -n "$api_pid" "$llama_pid"
+else
+    wait "$api_pid"
+fi
+exit_code=$?
+set -e
+
+exit "$exit_code"

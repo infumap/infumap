@@ -1,32 +1,46 @@
 # Image Tagging
 
-This is a small ad-hoc HTTP wrapper around a swappable local image-tagging
-backend. The default built-in backend uses Qwen 3.5 9B for search-oriented
-image understanding and document-candidate detection, and the service can also
-load alternate local backends for model experiments while keeping the same HTTP
-API.
+This service runs local image understanding through a `llama-server` instance.
 
-It is intended for burst use:
+The default launcher path does three things for you:
 
-- start it when you need to process a batch
-- run it locally or on a short-lived GPU VPS
-- keep it bound to `127.0.0.1`
-- access it over SSH port forwarding
+- creates a Python virtualenv for the service
+- downloads the GGUF + `mmproj` files if they are missing
+- uses an existing `llama-server` binary, or clones/builds `ggml-org/llama.cpp`
+  locally if one is not already available
 
-## What It Does
+The service accepts multipart image uploads and forwards them to `llama-server`
+via its OpenAI-compatible chat completions endpoint.
 
-- accepts multipart image uploads at `POST /tag`
-- returns OCR, detailed caption, object detections, normalized tags, and
-  document-candidate heuristics as JSON
-- loads the selected backend once when the service starts
-- supports built-in Qwen and Florence backends plus custom Python backends
+## Default Layout
 
-## Start The Service
+By default:
 
-Requirements:
+- the HTTP service listens on `127.0.0.1:8788`
+- local `llama-server` listens on `127.0.0.1:18080`
+- model files live under `tools/image_tagging/models`
+- the launcher uses:
+  - repo: `unsloth/Qwen3.5-9B-GGUF`
+  - model file: `Qwen3.5-9B-Q4_K_M.gguf`
+  - mmproj file: `mmproj-BF16.gguf`
+
+## Requirements
+
+Minimum requirements:
 
 - `python3`
 - `python3-venv`
+
+If `llama-server` is already installed and on `PATH`, that is enough.
+
+If the launcher needs to build `llama.cpp` locally, you also need:
+
+- `git`
+- `cmake`
+- a working C/C++ toolchain
+- CUDA build dependencies if you want GPU acceleration from a local build
+
+## Start The Service
 
 From the repo root:
 
@@ -34,150 +48,89 @@ From the repo root:
 ./tools/image_tagging/run.sh
 ```
 
-On first run this creates `tools/image_tagging/.venv` and installs:
+That command will:
 
-- `torch`
-- `fastapi`
-- `uvicorn`
-- `python-multipart`
-- `Pillow`
+1. create or reuse `tools/image_tagging/.venv`
+2. install the small Python wrapper dependencies
+3. download the configured model files if they are missing
+4. ensure `llama-server` exists
+5. start `llama-server`
+6. start the `/tag` service
 
-The launcher installs backend-specific packages automatically:
+## Important Environment Variables
 
-- built-in `qwen35`: `transformers`, `accelerate`, `bitsandbytes`
-- built-in `qwen35-35b`: `transformers`, `accelerate`, `bitsandbytes`
-- built-in `florence`: `transformers`, `timm`, `einops`
-- custom backends: packages listed in a top-level `PIP_REQUIREMENTS = [...]`
-  literal inside the backend file/module
-- ad hoc experiments: extra packages from `IMAGE_TAGGING_EXTRA_PIP_PACKAGES`
-
-By default the service listens on `127.0.0.1:8788` and uses the built-in
-`qwen35` backend with `Qwen/Qwen3.5-9B`.
-
-If you just want the default high-quality local setup, run:
-
-```bash
-./tools/image_tagging/run.sh
-```
-
-That path is intended for a CUDA GPU with roughly 24 GiB or more of VRAM.
-For a 32 GiB card, `qwen35` is the safer default in this native Transformers
-backend. The `Qwen/Qwen3.5-27B` and `qwen35-35b` variants can run out of memory
-even with 4-bit quantization here, despite fitting in leaner runtimes such as
-GGUF/llama.cpp.
-
-Optional environment variables:
+API wrapper:
 
 - `IMAGE_TAGGING_HOST`
 - `IMAGE_TAGGING_PORT`
 - `IMAGE_TAGGING_VENV_DIR`
-- `IMAGE_TAGGING_BACKEND`
-- `IMAGE_TAGGING_MODEL_ID`
-- `IMAGE_TAGGING_TRANSFORMERS_VERSION`
-- `IMAGE_TAGGING_EXTRA_PIP_PACKAGES`
 - `IMAGE_TAGGING_MAX_CONCURRENCY`
-- `IMAGE_TAGGING_QWEN_DEVICE_MAP`
-- `PYTHON_BIN`
-- `TORCH_DEVICE`
+- `IMAGE_TAGGING_MAX_UPLOAD_BYTES`
+- `IMAGE_TAGGING_TARGET_MAX_PIXELS`
+- `IMAGE_TAGGING_TARGET_MAX_LONG_EDGE`
+- `IMAGE_TAGGING_OUTPUT_JPEG_QUALITY`
 
-Examples:
+llama-server management:
+
+- `IMAGE_TAGGING_MANAGE_LLAMA_SERVER`
+- `IMAGE_TAGGING_LLAMA_SERVER_URL`
+- `IMAGE_TAGGING_LLAMA_HOST`
+- `IMAGE_TAGGING_LLAMA_PORT`
+- `IMAGE_TAGGING_LLAMA_BIN`
+- `IMAGE_TAGGING_LLAMA_CPP_DIR`
+- `IMAGE_TAGGING_LLAMA_CPP_REPO_URL`
+- `IMAGE_TAGGING_LLAMA_UPDATE_CHECKOUT`
+- `IMAGE_TAGGING_LLAMA_CMAKE_ARGS`
+- `IMAGE_TAGGING_LLAMA_EXTRA_ARGS`
+
+Model selection:
+
+- `IMAGE_TAGGING_MODELS_DIR`
+- `IMAGE_TAGGING_MODEL_REPO`
+- `IMAGE_TAGGING_MODEL_FILE`
+- `IMAGE_TAGGING_MMPROJ_FILE`
+- `IMAGE_TAGGING_MODEL_ID`
+- `IMAGE_TAGGING_LLAMA_MODEL_NAME`
+
+Default llama-server runtime flags:
+
+- `IMAGE_TAGGING_LLAMA_CTX` default `8192`
+- `IMAGE_TAGGING_LLAMA_BATCH_SIZE` default `2048`
+- `IMAGE_TAGGING_LLAMA_UBATCH_SIZE` default `512`
+- `IMAGE_TAGGING_LLAMA_PARALLEL` default `IMAGE_TAGGING_MAX_CONCURRENCY`
+- `IMAGE_TAGGING_LLAMA_NGL` default `all` when `nvidia-smi` is present, else `0`
+- `IMAGE_TAGGING_LLAMA_FLASH_ATTN` default `auto` when `nvidia-smi` is present
+- `IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS` optional pass-through to `llama-server`
+- `IMAGE_TAGGING_LLAMA_IMAGE_MAX_TOKENS` optional pass-through to `llama-server`
+
+## Common Examples
+
+Run on a different external API port:
 
 ```bash
-TORCH_DEVICE=cpu ./tools/image_tagging/run.sh
+IMAGE_TAGGING_PORT=9001 ./tools/image_tagging/run.sh
 ```
 
-```bash
-TORCH_DEVICE=cuda IMAGE_TAGGING_PORT=9001 ./tools/image_tagging/run.sh
-```
-
-Try the larger Qwen 35B variant explicitly:
+Point the service at an already-running external `llama-server` and skip local
+model/binary management:
 
 ```bash
-IMAGE_TAGGING_BACKEND=qwen35-35b ./tools/image_tagging/run.sh
-```
-
-Try the denser Qwen 27B checkpoint explicitly:
-
-```bash
-IMAGE_TAGGING_BACKEND=qwen35 IMAGE_TAGGING_MODEL_ID=Qwen/Qwen3.5-27B ./tools/image_tagging/run.sh
-```
-
-If a fresh machine hits a Qwen class import error during startup, force a newer
-Transformers release and rerun:
-
-```bash
-IMAGE_TAGGING_TRANSFORMERS_VERSION=5.3.0 ./tools/image_tagging/run.sh
-```
-
-If a Qwen startup fails because `device_map="auto"` wants to spill modules to
-CPU or disk, the built-in backend now prefers single-GPU placement by default.
-You can still opt back into Hugging Face auto placement with:
-
-```bash
-IMAGE_TAGGING_QWEN_DEVICE_MAP=auto ./tools/image_tagging/run.sh
-```
-
-Use a custom backend file:
-
-```bash
-IMAGE_TAGGING_BACKEND='file:backend_template.py' ./tools/image_tagging/run.sh
-```
-
-Try a different local model with a custom backend file:
-
-```bash
-IMAGE_TAGGING_BACKEND='file:/path/to/qwen_backend.py' \
-IMAGE_TAGGING_MODEL_ID='Qwen/your-model-id' \
+IMAGE_TAGGING_MANAGE_LLAMA_SERVER=0 \
+IMAGE_TAGGING_LLAMA_SERVER_URL=http://127.0.0.1:18080 \
 ./tools/image_tagging/run.sh
 ```
 
-Custom backend contract:
-
-- `IMAGE_TAGGING_BACKEND=qwen35` uses the built-in Qwen 9B backend
-- `IMAGE_TAGGING_BACKEND=qwen35-35b` uses the built-in Qwen 35B backend
-- `IMAGE_TAGGING_BACKEND=florence` uses the built-in Florence backend
-- `IMAGE_TAGGING_BACKEND=module:your_python.import.path` imports a module
-- `IMAGE_TAGGING_BACKEND=file:/abs/path/to/backend.py` loads a backend file
-- a custom backend must expose either `load_backend(config)` or `Backend(config)`
-- a custom backend can declare `PIP_REQUIREMENTS = ["pkg", "otherpkg==1.2.3"]`
-  so `run.sh` installs what that backend needs automatically
-- the returned object must implement `startup()`, `shutdown()`, `health_ready()`,
-  `tag_image_file(...)`, and `name`
-- keep optional heavy imports inside `startup()` so bootstrap-time requirement
-  discovery does not need the model packages preinstalled
-
-See [backend_template.py](./backend_template.py)
-for a minimal example backend you can copy and adapt to a different local model.
-
-## Access Over SSH
-
-If the service is running on `my-host`:
+Use a different GGUF within the same repo:
 
 ```bash
-ssh -L 8788:127.0.0.1:8788 my-host
+IMAGE_TAGGING_MODEL_FILE=Qwen3.5-9B-Q6_K.gguf ./tools/image_tagging/run.sh
 ```
 
-Then use `http://127.0.0.1:8788` locally as if the service were running on
-your laptop.
-
-## Tag An Image
-
-Example upload request:
+Pass extra flags straight through to `llama-server`:
 
 ```bash
-curl -sS \
-  -F "file=@/path/to/photo.jpg" \
-  http://127.0.0.1:8788/tag
+IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/image_tagging/run.sh
 ```
-
-## Supported Image Types
-
-- `image/jpeg`
-- `image/png`
-- `image/webp`
-- `image/tiff`
-
-Animated images and vector images are not supported.
 
 ## Endpoints
 
@@ -185,4 +138,33 @@ Animated images and vector images are not supported.
 - `GET /healthz`
 - `POST /tag`
 
-Interactive API docs are available at `http://127.0.0.1:8788/docs`.
+Interactive docs remain available at `http://127.0.0.1:8788/docs`.
+
+## Example Request
+
+```bash
+curl -sS \
+  -F "file=@/path/to/photo.jpg" \
+  http://127.0.0.1:8788/tag
+```
+
+## Notes
+
+- The HTTP service uses the multimodal chat model running behind
+  `llama-server`.
+- The wrapper first tries the standard OpenAI `image_url` chat format. If the
+  running `llama-server` build rejects that format, it automatically retries
+  using the older `image_data` payload style.
+- The `/tag` endpoint now parses the multipart body directly from the request
+  stream instead of using FastAPI `UploadFile`, so the service code does not
+  spool uploads to temp files on disk.
+- Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
+  The default is `67108864` bytes (64 MiB), configurable via
+  `IMAGE_TAGGING_MAX_UPLOAD_BYTES`.
+- Before calling the model, the wrapper now resizes oversized images
+  conservatively and re-encodes them as JPEG for better efficiency. By default
+  it caps inputs to `2048` pixels on the long edge and about `3.1` megapixels
+  total, with JPEG quality `90`.
+- That default is aimed at photo understanding and document-like detection, not
+  tiny-text OCR. The knobs are `IMAGE_TAGGING_TARGET_MAX_LONG_EDGE`,
+  `IMAGE_TAGGING_TARGET_MAX_PIXELS`, and `IMAGE_TAGGING_OUTPUT_JPEG_QUALITY`.

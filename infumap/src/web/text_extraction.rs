@@ -262,6 +262,27 @@ pub async fn extract_single_item(
   object_store: Arc<ObjectStore>,
   item_id: &str,
 ) -> InfuResult<()> {
+  extract_single_item_inner(data_dir, text_extraction_url, db, object_store, item_id, true).await
+}
+
+pub async fn extract_single_item_no_retry(
+  data_dir: &str,
+  text_extraction_url: &str,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  item_id: &str,
+) -> InfuResult<()> {
+  extract_single_item_inner(data_dir, text_extraction_url, db, object_store, item_id, false).await
+}
+
+async fn extract_single_item_inner(
+  data_dir: &str,
+  text_extraction_url: &str,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+  item_id: &str,
+  retry_endpoint_unavailable: bool,
+) -> InfuResult<()> {
   let (candidate, object_encryption_key) = {
     let db = db.lock().await;
     let id = item_id.to_string();
@@ -314,7 +335,11 @@ pub async fn extract_single_item(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
-  let outcome = request_text_extraction_with_retries(&client, text_extraction_url, &candidate, &file_bytes, None).await;
+  let outcome = if retry_endpoint_unavailable {
+    request_text_extraction_with_retries(&client, text_extraction_url, &candidate, &file_bytes, None).await
+  } else {
+    request_text_extraction_once(&client, text_extraction_url, &candidate, &file_bytes).await
+  };
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(
       format!("Item '{}' was deleted or replaced while extraction was in progress.", candidate.item_id).into(),
@@ -946,6 +971,15 @@ mod tests {
     let message = "Timeout waiting for first byte from S3 for 'user_item'";
     assert!(manifest_failure_for_object_read_error(message).is_none());
   }
+}
+
+async fn request_text_extraction_once(
+  client: &reqwest::Client,
+  text_extraction_url: &str,
+  candidate: &PdfCandidate,
+  file_bytes: &[u8],
+) -> ExtractOutcome {
+  request_text_extraction(client, text_extraction_url, &candidate.title, file_bytes.to_vec()).await
 }
 
 async fn refill_queue_if_needed(

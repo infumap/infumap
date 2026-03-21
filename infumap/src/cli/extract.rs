@@ -35,8 +35,8 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::web::text_extraction::{
-  extract_single_item, item_needs_text_extraction, list_failed_pdfs, mark_item_text_extraction_failed,
-  start_text_extraction_processing_loop, text_extraction_url_from_config,
+  extract_single_item, extract_single_item_no_retry, item_needs_text_extraction, list_failed_pdfs,
+  mark_item_text_extraction_failed, start_text_extraction_processing_loop, text_extraction_url_from_config,
 };
 
 const DEFAULT_CLI_TEXT_EXTRACTION_CONCURRENCY: usize = 1;
@@ -222,7 +222,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   .map_err(|e| format!("Failed to initialize object store: {}", e))?;
 
   if let Some(item_id) = sub_matches.get_one::<String>("item_id") {
-    extract_single_item(&data_dir, &text_extraction_url, db, object_store, item_id).await?;
+    extract_single_item_no_retry(&data_dir, &text_extraction_url, db, object_store, item_id).await?;
     return Ok(());
   }
 

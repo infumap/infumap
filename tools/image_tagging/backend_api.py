@@ -16,20 +16,9 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, Field
-
-
-@dataclass
-class BackendConfig:
-    backend_spec: str
-    model_id: str
-    device: str
-    dtype: Any
-    max_concurrency: int
 
 
 class ImageInfo(BaseModel):
@@ -74,28 +63,3 @@ class ImageTagResponse(BaseModel):
     task_durations_ms: dict[str, int] = Field(default_factory=dict)
     backend_payload: dict[str, Any] = Field(default_factory=dict)
     duration_ms: int
-
-
-class ImageTaggingBackend(ABC):
-    def __init__(self, config: BackendConfig):
-        self.config = config
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        raise NotImplementedError
-
-    @abstractmethod
-    def startup(self) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def shutdown(self) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def tag_image_file(self, file_path: str, file_name: str, upload_mime_type: str | None) -> ImageTagResponse:
-        raise NotImplementedError
-
-    def health_ready(self) -> bool:
-        return True
