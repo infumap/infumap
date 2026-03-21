@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use hyper::Request;
 use hyper::header::COOKIE;
-use infusdk::util::uid::{Uid, is_uid};
+use hyper::Request;
+use infusdk::util::uid::{is_uid, Uid};
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 

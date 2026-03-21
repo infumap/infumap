@@ -16,7 +16,7 @@
 
 use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{Uid, is_uid, new_uid};
+use infusdk::util::uid::{is_uid, new_uid, Uid};
 use log::{info, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;

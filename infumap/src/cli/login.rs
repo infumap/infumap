@@ -24,9 +24,9 @@ use crate::cli::login_url_from_base_url;
 use crate::web::cookie::InfuSession;
 use crate::web::routes::account::{LoginRequest, LoginResponse};
 
-use super::NamedInfuSession;
 use super::build_http_client;
 use super::logout::logout;
+use super::NamedInfuSession;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("login")

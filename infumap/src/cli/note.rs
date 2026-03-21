@@ -22,7 +22,7 @@ use infusdk::util::uid::is_uid;
 use serde_json::Map;
 use serde_json::Value;
 
-use crate::cli::{NamedInfuSession, build_http_client, build_session_headers};
+use crate::cli::{build_http_client, build_session_headers, NamedInfuSession};
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
 

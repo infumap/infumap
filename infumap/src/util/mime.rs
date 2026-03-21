@@ -123,7 +123,11 @@ fn detect_text_mime_type(data: &[u8]) -> String {
 }
 
 fn trim_utf8_bom(data: &[u8]) -> &[u8] {
-  if data.starts_with(&[0xEF, 0xBB, 0xBF]) { &data[3..] } else { data }
+  if data.starts_with(&[0xEF, 0xBB, 0xBF]) {
+    &data[3..]
+  } else {
+    data
+  }
 }
 
 fn looks_like_html_document(text: &str) -> bool {

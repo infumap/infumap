@@ -30,14 +30,14 @@ use std::collections::HashMap;
 use std::str;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::time::{Duration, sleep};
+use tokio::time::{sleep, Duration};
 use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 
 use crate::config::CONFIG_BYPASS_TOTP_CHECK;
-use crate::storage::db::Db;
-use crate::storage::db::user::{ROOT_USER_NAME, User};
+use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::storage::db::users_extra::UserExtra;
+use crate::storage::db::Db;
 use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
 use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
@@ -770,7 +770,11 @@ fn sanitize_rate_limit_key(raw: &str) -> String {
 
 fn username_rate_limit_key(username: &str) -> String {
   let normalized = sanitize_rate_limit_key(&username.trim().to_ascii_lowercase());
-  if normalized.is_empty() { UNKNOWN_LOGIN_PRINCIPAL.to_owned() } else { normalized }
+  if normalized.is_empty() {
+    UNKNOWN_LOGIN_PRINCIPAL.to_owned()
+  } else {
+    normalized
+  }
 }
 
 fn client_ip_rate_limit_key(req: &Request<hyper::body::Incoming>) -> String {

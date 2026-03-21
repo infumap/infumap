@@ -17,7 +17,7 @@
 use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
 
-use super::{NamedInfuSession, build_http_client, build_session_headers};
+use super::{build_http_client, build_session_headers, NamedInfuSession};
 use crate::web::routes::admin::{ApprovePendingUserRequest, ApprovePendingUserResponse, ListPendingUsersResponse};
 
 pub fn make_clap_subcommand() -> Command {

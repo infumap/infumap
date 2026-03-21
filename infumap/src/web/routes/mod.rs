@@ -17,7 +17,7 @@
 use infusdk::{
   item::{ArrangeAlgorithm, Item, RelationshipToParent, TableColumn},
   util::{
-    geometry::{GRID_SIZE, Vector},
+    geometry::{Vector, GRID_SIZE},
     uid::Uid,
   },
 };

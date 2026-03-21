@@ -15,8 +15,8 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::str::{decode_hex, encode_hex};
+use aes_gcm::aead::{rand_core::RngCore, Aead, KeyInit, OsRng, Payload};
 use aes_gcm::Aes256Gcm;
-use aes_gcm::aead::{Aead, KeyInit, OsRng, Payload, rand_core::RngCore};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::time::unix_now_secs_u64;
 use std::io::{Read, Write};

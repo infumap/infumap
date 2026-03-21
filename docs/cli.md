@@ -134,7 +134,17 @@ Options:
 
 ### extract
 
-Run the text extraction processing loop without starting the web server. This command will load items, initialize the configured object store, and then continuously call the external text extraction service for PDFs that do not yet have extracted text artifacts.
+Extract derived artifacts from PDFs or images without starting the web server.
+This command has two subcommands:
+
+- `extract pdf`
+- `extract image`
+
+Both subcommands load items, initialize the configured object store, and then either run a finite batch or a continuous background loop.
+
+### extract pdf
+
+Run the text extraction processing loop for PDFs.
 
 Options:
 
@@ -149,18 +159,9 @@ Options:
 - **--mark-failed-item-id (optional, repeatable):** Write a failed text-extraction manifest for this PDF and exit without contacting the extraction service. This keeps the item from being retried until you explicitly reprocess it.
 - **--mark-failed-reason (optional):** Reason string to store in manifests written via `--mark-failed-item-id`.
 
-### fragments
+### extract image
 
-Build on-disk RAG fragment artifacts without starting the web server. The initial implementation writes fragments from the item `title` field only. This includes note text, since notes store their text in `title`.
-
-Options:
-
-- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **--item-id (optional):** Build fragments only for this item.
-
-### tag-images
-
-Run the image tagging processing loop without starting the web server. This command will load items, initialize the configured object store, and then continuously call the external image tagging service for supported image items that do not yet have image-tag artifacts.
+Run the image tagging processing loop for supported images.
 
 Options:
 
@@ -173,7 +174,14 @@ Options:
 - **--overwrite (optional):** When used with `--container-id`, reprocess items even if image-tag artifacts already exist. `--item-id` always overwrites.
 - **--list-failed (optional):** List supported images for which image tagging previously failed, then exit. When combined with `--container-id`, only failures within that subtree are shown.
 
+### fragments
 
+Build on-disk RAG fragment artifacts without starting the web server. The initial implementation writes fragments from the item `title` field only. This includes note text, since notes store their text in `title`.
+
+Options:
+
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **--item-id (optional):** Build fragments only for this item.
 
 ## API Commands
 

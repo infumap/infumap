@@ -29,14 +29,14 @@ use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::storage::db::Db;
 use crate::storage::db::ingest_session::IngestSession;
+use crate::storage::db::Db;
 use crate::storage::object;
 use crate::web::routes::command::add_item_for_user;
 use crate::web::serve::{cors_response, incoming_json, incoming_json_with_limit, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{Uid, new_uid};
+use infusdk::util::uid::{new_uid, Uid};
 
 const REASON_AUTH: &str = "auth";
 const REASON_CLIENT: &str = "client";
@@ -710,5 +710,9 @@ fn normalize_pairing_code(code: &str) -> String {
 
 fn sanitize_device_name(device_name: Option<&str>) -> String {
   let sanitized = device_name.unwrap_or("").trim().chars().filter(|c| !c.is_control()).take(80).collect::<String>();
-  if sanitized.is_empty() { DEFAULT_DEVICE_NAME.to_owned() } else { sanitized }
+  if sanitized.is_empty() {
+    DEFAULT_DEVICE_NAME.to_owned()
+  } else {
+    sanitized
+  }
 }

@@ -19,7 +19,7 @@ use infusdk::util::infu::InfuResult;
 
 use crate::web::routes::account::LogoutResponse;
 
-use super::{NamedInfuSession, build_http_client, build_session_headers};
+use super::{build_http_client, build_session_headers, NamedInfuSession};
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("logout")

@@ -20,7 +20,7 @@ use std::time::SystemTime;
 
 use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{Uid, is_uid};
+use infusdk::util::uid::{is_uid, Uid};
 use log::{info, warn};
 
 use crate::util::fs::{expand_tilde, path_exists};

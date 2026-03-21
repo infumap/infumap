@@ -16,14 +16,14 @@
 
 use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::db::kv_store::KVStore;
-use infusdk::item::TableColumn;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
 use infusdk::item::is_data_item_type;
 use infusdk::item::is_positionable_type;
+use infusdk::item::TableColumn;
 use infusdk::item::{Item, ItemType, RelationshipToParent};
-use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::geometry::Vector;
+use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::json;
 use infusdk::util::time::unix_now_secs_i64;
@@ -1786,7 +1786,7 @@ fn apply_mime_type_migration_update(
 
 #[cfg(test)]
 mod tests {
-  use super::{MimeTypeMigrationState, MimeTypeMigrationStats, migrate_record_v27_to_v28, migrate_record_v28_to_v29};
+  use super::{migrate_record_v27_to_v28, migrate_record_v28_to_v29, MimeTypeMigrationState, MimeTypeMigrationStats};
   use serde_json::{Map, Value};
   use std::collections::HashMap;
 

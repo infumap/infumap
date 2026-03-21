@@ -20,10 +20,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use filetime::{FileTime, set_file_atime};
+use filetime::{set_file_atime, FileTime};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::time::unix_now_secs_u64;
-use infusdk::util::uid::{Uid, uid_chars};
+use infusdk::util::uid::{uid_chars, Uid};
 use log::{debug, info, warn};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::AsyncReadExt;
