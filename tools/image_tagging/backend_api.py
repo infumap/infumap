@@ -26,16 +26,6 @@ class OCRRegion(BaseModel):
     quad_box: list[float] = Field(default_factory=list)
 
 
-class DocumentCandidateInfo(BaseModel):
-    heuristic_version: str
-    is_document_candidate: bool
-    triggered_rules: list[str]
-    text_region_count: int
-    text_char_count: int
-    text_word_count: int
-    text_coverage_ratio: float
-
-
 class ImageTagResponse(BaseModel):
     success: bool
     detailed_caption: str | None = None
@@ -43,6 +33,5 @@ class ImageTagResponse(BaseModel):
     key_objects: list[str] = Field(default_factory=list)
     ocr_text: str = ""
     ocr_regions: list[OCRRegion] = Field(default_factory=list)
-    document_candidate: DocumentCandidateInfo | None = None
-    raw_task_outputs: dict[str, Any] = Field(default_factory=dict)
+    is_document_candidate: bool = False
     backend_payload: dict[str, Any] = Field(default_factory=dict)

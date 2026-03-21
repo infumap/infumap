@@ -36,7 +36,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
 
-from backend_api import DocumentCandidateInfo, ImageTagResponse
+from backend_api import ImageTagResponse
 
 APP_STATE: dict[str, Any] = {}
 LOGGER = logging.getLogger("uvicorn.error")
@@ -55,7 +55,6 @@ FORMATS_REJECTED_WHEN_MULTIFRAME = {
     "PNG",
     "WEBP",
 }
-PROMPT_VERSION = "llama-server-search-json-v1"
 VISIBLE_TEXT_MAX_CHARS = 320
 LLAMA_BACKEND_NAME = "llama-server"
 LLAMA_IMAGE_SLOT_ID = 1
@@ -461,7 +460,7 @@ def qwen_document_keyword_hits(parsed: dict[str, Any]) -> list[str]:
     return hits
 
 
-def build_document_candidate_info(parsed: dict[str, Any], visible_text: str) -> DocumentCandidateInfo:
+def infer_document_candidate(parsed: dict[str, Any], visible_text: str) -> bool:
     document_reasons = coerce_string_list(parsed.get("document_reasons"), limit=8)
     document_confidence = max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0))
     visible_text_word_count = len(visible_text.split())
@@ -469,24 +468,7 @@ def build_document_candidate_info(parsed: dict[str, Any], visible_text: str) -> 
     model_flag = bool(parsed.get("is_document_candidate"))
     keyword_hits = qwen_document_keyword_hits(parsed)
 
-    triggered_rules = [f"model:{reason.lower()}" for reason in document_reasons]
-    triggered_rules.extend(f"keyword:{keyword}" for keyword in keyword_hits[:4])
-    if document_confidence >= 0.65:
-        triggered_rules.append("document_confidence>=0.65")
-    if visible_text_word_count >= 10:
-        triggered_rules.append("visible_text_word_count>=10")
-    if visible_text_char_count >= 60:
-        triggered_rules.append("visible_text_char_count>=60")
-
-    return DocumentCandidateInfo(
-        heuristic_version="llama-server-model-judged-v1",
-        is_document_candidate=model_flag or document_confidence >= 0.65 or bool(keyword_hits),
-        triggered_rules=triggered_rules,
-        text_region_count=0,
-        text_char_count=visible_text_char_count,
-        text_word_count=visible_text_word_count,
-        text_coverage_ratio=0.0,
-    )
+    return model_flag or document_confidence >= 0.65 or bool(keyword_hits) or visible_text_word_count >= 10 or visible_text_char_count >= 60
 
 
 def extract_message_text(payload: dict[str, Any]) -> str:
@@ -525,7 +507,12 @@ def extract_message_text(payload: dict[str, Any]) -> str:
 
         reasoning_content = message.get("reasoning_content")
         if isinstance(reasoning_content, str) and reasoning_content.strip():
-            return reasoning_content
+            finish_reason = choice0.get("finish_reason")
+            if finish_reason == "length":
+                raise ValueError(
+                    "llama-server consumed its token budget in reasoning_content without returning final JSON content. "
+                    "Disable reasoning, for example with --reasoning-format none."
+                )
 
     text = choice0.get("text")
     if isinstance(text, str) and text.strip():
@@ -990,7 +977,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         if location_type:
             merged_tags = normalize_labels(merged_tags + [location_type])
 
-        document_candidate = build_document_candidate_info(parsed, visible_text)
+        is_document_candidate = infer_document_candidate(parsed, visible_text)
         duration_ms = int((time.perf_counter() - request_started_at) * 1000)
         prepared_width = int(preprocessing["prepared_width"])
         prepared_height = int(preprocessing["prepared_height"])
@@ -1018,12 +1005,8 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             key_objects=key_objects,
             ocr_text=visible_text,
             ocr_regions=[],
-            document_candidate=document_candidate,
-            raw_task_outputs={
-                "parsed_json": parsed,
-            },
+            is_document_candidate=is_document_candidate,
             backend_payload={
-                "prompt_version": PROMPT_VERSION,
                 "scene": scene,
                 "location_type": location_type,
                 "activities": activities,

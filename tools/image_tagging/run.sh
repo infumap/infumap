@@ -48,6 +48,7 @@ readonly LLAMA_UBATCH_SIZE="${IMAGE_TAGGING_LLAMA_UBATCH_SIZE:-512}"
 readonly LLAMA_PARALLEL="${IMAGE_TAGGING_LLAMA_PARALLEL:-${IMAGE_TAGGING_MAX_CONCURRENCY:-1}}"
 readonly LLAMA_IMAGE_MIN_TOKENS="${IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS:-}"
 readonly LLAMA_IMAGE_MAX_TOKENS="${IMAGE_TAGGING_LLAMA_IMAGE_MAX_TOKENS:-}"
+readonly LLAMA_REASONING_FORMAT="${IMAGE_TAGGING_LLAMA_REASONING_FORMAT:-none}"
 readonly LLAMA_UPDATE_CHECKOUT="${IMAGE_TAGGING_LLAMA_UPDATE_CHECKOUT:-0}"
 
 llama_pid=""
@@ -359,6 +360,7 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
     echo "llama flash-attn: ${EFFECTIVE_LLAMA_FLASH_ATTN:-<unset>}"
     echo "llama image min tokens: ${LLAMA_IMAGE_MIN_TOKENS:-<unset>}"
     echo "llama image max tokens: ${LLAMA_IMAGE_MAX_TOKENS:-<unset>}"
+    echo "llama reasoning format: ${LLAMA_REASONING_FORMAT:-<unset>}"
 
     llama_cmd=(
         "$LLAMA_SERVER_BIN"
@@ -382,6 +384,9 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
     fi
     if [ -n "$LLAMA_IMAGE_MAX_TOKENS" ]; then
         llama_cmd+=(--image-max-tokens "$LLAMA_IMAGE_MAX_TOKENS")
+    fi
+    if [ -n "$LLAMA_REASONING_FORMAT" ]; then
+        llama_cmd+=(--reasoning-format "$LLAMA_REASONING_FORMAT")
     fi
     if [ -n "$LLAMA_EXTRA_ARGS" ]; then
         # shellcheck disable=SC2206

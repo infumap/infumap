@@ -102,6 +102,7 @@ Default llama-server runtime flags:
 - `IMAGE_TAGGING_LLAMA_FLASH_ATTN` default `auto` when `nvidia-smi` is present
 - `IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS` optional pass-through to `llama-server`
 - `IMAGE_TAGGING_LLAMA_IMAGE_MAX_TOKENS` optional pass-through to `llama-server`
+- `IMAGE_TAGGING_LLAMA_REASONING_FORMAT` default `none`
 
 ## Common Examples
 
@@ -152,6 +153,9 @@ curl -sS \
 
 - The HTTP service uses the multimodal chat model running behind
   `llama-server`.
+- When `run.sh` manages `llama-server`, it now defaults to
+  `--reasoning-format none` so the model returns final JSON instead of
+  spending the token budget on reasoning traces.
 - The wrapper first tries the standard OpenAI `image_url` chat format. If the
   running `llama-server` build rejects that format, it automatically retries
   using the older `image_data` payload style.
