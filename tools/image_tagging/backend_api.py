@@ -21,12 +21,10 @@ from pydantic import BaseModel, Field
 
 class ImageTagResponse(BaseModel):
     detailed_caption: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    key_objects: list[str] = Field(default_factory=list)
-    ocr_text: list[str] = Field(default_factory=list)
     scene: str | None = None
     location_type: str | None = None
-    activities: list[str] = Field(default_factory=list)
     document_confidence: float = 0.0
-    document_reasons: str | None = None
     face_recognition_candidate_confidence: float = 0.0
+    visible_face_count_estimate: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    ocr_text: list[str] = Field(default_factory=list)

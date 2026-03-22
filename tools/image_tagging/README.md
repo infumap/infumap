@@ -164,8 +164,9 @@ curl -sS \
   stream instead of using FastAPI `UploadFile`, so the service code does not
   spool uploads to temp files on disk.
 - The `/tag` JSON response now also includes
-  `face_recognition_candidate_confidence` so downstream services can decide
-  whether an image is worth sending to a dedicated face-matching pipeline.
+  `face_recognition_candidate_confidence` and
+  `visible_face_count_estimate` so downstream services can decide whether an
+  image is worth sending to a dedicated face-matching pipeline.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
   The default is `67108864` bytes (64 MiB), configurable via
   `IMAGE_TAGGING_MAX_UPLOAD_BYTES`.

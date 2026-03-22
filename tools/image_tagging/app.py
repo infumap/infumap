@@ -76,35 +76,32 @@ Analyze this image for local search indexing.
 
 Return exactly one JSON object with these keys:
 - "detailed_caption": string
-- "search_tags": array of strings
-- "key_objects": array of strings
-- "visible_text": array of strings
 - "scene": string or null
 - "location_type": string or null
-- "activities": array of strings
 - "document_confidence": number from 0.0 to 1.0
-- "document_reasons": string
 - "face_recognition_candidate_confidence": number from 0.0 to 1.0
+- "visible_face_count_estimate": string
+- "tags": array of strings
+- "ocr_text": array of strings
 
 Rules:
 - Be literal and visually grounded. Do not guess names, exact places, or events unless strongly supported by the image.
 - "detailed_caption" should be 2 to 4 short sentences covering the setting, salient objects, and relationships that help search later.
-- "search_tags" should contain 10 to 24 short lower-case tags useful for search.
-- Avoid redundant tags that merely repeat "key_objects", "activities", "scene", or "location_type" verbatim unless they add clear search value.
-- "key_objects" should contain concrete visible nouns only, up to 12 entries.
-- "visible_text" should be an array of distinct useful readable snippets, not a full transcription. Keep one snippet or sign per entry, do not merge unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
 - "scene" should summarize the overall setting in a short phrase.
-- "location_type" should capture the venue or image type when visible.
-- "activities" should contain short lower-case activity phrases.
+- "location_type" should capture the venue or image type when visible. Keep it as a short freeform phrase; do not force it into a fixed vocabulary.
 - "document_confidence" should estimate whether the image seems mainly intended to preserve, share, or later read the contents of a document or text-bearing artifact.
 - Use high values only when the composition strongly suggests the artifact itself is the main subject and the viewer is meant to read or keep its contents.
 - Use low values for ordinary scene photos, aesthetic compositions, desk or room setups, portraits, or environmental shots where a paper, screen, sign, laptop, or other text-bearing object is merely present or even prominent but is not obviously being captured for its readable content.
-- "document_reasons" should justify the document score in one short sentence.
 - "face_recognition_candidate_confidence" should estimate whether the image is appropriate for downstream real-person face matching across photos.
 - Use 1.0 for obvious strong positives such as portraits, selfies, posed two-person photos, or clear group photos where at least one real human face is near-frontal, sharp, and large enough that you would definitely send the image to a face-matching system.
 - Use 0.8 to 0.95 for usable but imperfect cases such as moderately sized faces, slight angle, mild blur, or partial occlusion.
 - Use 0.0 when there is no usable real face at all, including no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces.
 - Printed or on-screen faces do not count unless real faces are also visible in the same image.
+- "visible_face_count_estimate" should estimate how many real human faces are visibly present using exactly one of these strings: "0", "1", "2", "3-5", or "6+".
+- Count only real visible human faces in the captured scene. Do not count faces on screens, posters, photos, paintings, toys, or statues.
+- "tags" should contain 10 to 24 short lower-case tags useful for search. Use this one array to capture salient visible objects, activities, people roles, attributes, and context.
+- Avoid redundant tags that merely repeat the caption, "scene", or "location_type" verbatim unless they add clear search value.
+- "ocr_text" should be an array of distinct useful readable snippets, not a full transcription. Keep one snippet or sign per entry, do not merge unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
 """.strip()
 
 class ImageRejectedError(Exception):
@@ -303,19 +300,6 @@ def coerce_optional_string(value: Any) -> str | None:
     return normalized or None
 
 
-def coerce_reason_string(value: Any) -> str | None:
-    if value is None:
-        return None
-
-    if isinstance(value, list):
-        parts = coerce_string_list(value, limit=8)
-        if not parts:
-            return None
-        return collapse_whitespace(" ".join(parts))
-
-    return coerce_optional_string(value)
-
-
 def coerce_string_list(value: Any, limit: int | None = None) -> list[str]:
     raw_items: list[str] = []
     if isinstance(value, str):
@@ -359,6 +343,62 @@ def coerce_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def coerce_face_count_estimate(value: Any) -> str | None:
+    if value is None:
+        return None
+
+    if isinstance(value, (int, float)):
+        numeric = int(value)
+        if numeric <= 0:
+            return "0"
+        if numeric == 1:
+            return "1"
+        if numeric == 2:
+            return "2"
+        if numeric <= 5:
+            return "3-5"
+        return "6+"
+
+    normalized = collapse_whitespace(str(value).strip()).lower()
+    if not normalized:
+        return None
+
+    normalized = normalized.replace("–", "-").replace("—", "-")
+    normalized = normalized.replace(" to ", "-")
+
+    if normalized in {"0", "zero", "none", "no faces", "no face", "no visible faces", "no visible face"}:
+        return "0"
+    if normalized in {"1", "one", "single", "one face", "1 face", "one visible face", "1 visible face"}:
+        return "1"
+    if normalized in {"2", "two", "two faces", "2 faces", "two visible faces", "2 visible faces"}:
+        return "2"
+    if normalized in {"3-5", "3 - 5", "3-4", "4", "5", "three", "four", "five", "several"}:
+        return "3-5"
+    if normalized in {"6+", "6", "7", "8", "9", "10+", "many", "crowd"}:
+        return "6+"
+
+    digits = re.findall(r"\d+", normalized)
+    if not digits:
+        return None
+
+    numbers = [int(digit) for digit in digits]
+    if "+" in normalized or max(numbers) >= 6:
+        return "6+"
+    if len(numbers) >= 2 and min(numbers) <= 2 and max(numbers) >= 3:
+        return "3-5"
+
+    numeric = max(numbers)
+    if numeric <= 0:
+        return "0"
+    if numeric == 1:
+        return "1"
+    if numeric == 2:
+        return "2"
+    if numeric <= 5:
+        return "3-5"
+    return "6+"
 
 
 def trim_excerpt_text(value: str, max_chars: int) -> str:
@@ -948,14 +988,10 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             )
 
         detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
-        search_tags = normalize_labels(coerce_string_list(parsed.get("search_tags"), limit=24))
-        key_objects = normalize_labels(coerce_string_list(parsed.get("key_objects"), limit=12))
-        visible_text = normalize_visible_text(parsed.get("visible_text"), max_chars=VISIBLE_TEXT_MAX_CHARS)
+        tags = normalize_labels(coerce_string_list(parsed.get("tags"), limit=24))
+        ocr_text = normalize_visible_text(parsed.get("ocr_text"), max_chars=VISIBLE_TEXT_MAX_CHARS)
         scene = coerce_optional_string(parsed.get("scene"))
         location_type = coerce_optional_string(parsed.get("location_type"))
-        activities = normalize_labels(coerce_string_list(parsed.get("activities"), limit=12))
-
-        tags = search_tags
 
         duration_ms = int((time.perf_counter() - request_started_at) * 1000)
         prepared_size_bytes = len(prepared_bytes)
@@ -977,18 +1013,16 @@ async def tag_upload(request: Request) -> ImageTagResponse:
 
         return ImageTagResponse(
             detailed_caption=detailed_caption,
-            tags=tags,
-            key_objects=key_objects,
-            ocr_text=visible_text,
             scene=scene,
             location_type=location_type,
-            activities=activities,
             document_confidence=max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0)),
-            document_reasons=coerce_reason_string(parsed.get("document_reasons")),
             face_recognition_candidate_confidence=max(
                 0.0,
                 min(coerce_float(parsed.get("face_recognition_candidate_confidence"), 0.0), 1.0),
             ),
+            visible_face_count_estimate=coerce_face_count_estimate(parsed.get("visible_face_count_estimate")),
+            tags=tags,
+            ocr_text=ocr_text,
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
