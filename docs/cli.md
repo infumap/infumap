@@ -190,6 +190,17 @@ Options:
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--item-id (optional):** Build fragments only for this item.
 
+### stats
+
+Show comprehensive local instance statistics without starting the web server.
+
+The report includes overall item counts, per-item-type counts, supported image and PDF counts, declared data byte totals, image-tagging coverage, PDF text-extraction coverage, and per-user summaries. With `--json`, the same information is emitted as structured JSON.
+
+Options:
+
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **--json (optional):** Emit machine-readable JSON instead of the default human-readable report.
+
 ## API Commands
 
 ### login

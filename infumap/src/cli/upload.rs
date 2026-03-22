@@ -20,7 +20,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::UNIX_EPOCH;
 
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use clap::ArgAction;
 use clap::{Arg, ArgMatches, Command};
 use image::ImageReader;
@@ -45,7 +45,7 @@ use crate::web::routes::command::CommandResponse;
 use crate::web::routes::command::GetItemsMode;
 use crate::web::routes::command::GetItemsRequest;
 
-use super::{build_http_client, build_session_headers, NamedInfuSession};
+use super::{NamedInfuSession, build_http_client, build_session_headers};
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("upload")

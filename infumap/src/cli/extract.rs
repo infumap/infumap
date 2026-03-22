@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use config::Config;
-use infusdk::item::{is_container_item_type, Item};
+use infusdk::item::{Item, is_container_item_type};
 use infusdk::util::infu::InfuResult;
 use log::info;
 use serde::Deserialize;
@@ -40,20 +40,17 @@ use crate::config::{
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
+use crate::util::fs::{expand_tilde, path_exists};
 use crate::web::image_tagging::{
-  delete_item_image_tag_dir,
-  image_tagging_url_from_config, item_needs_image_tagging, list_failed_images, load_image_for_tagging,
-  is_supported_image_tagging_mime_type,
-  mark_item_image_tagging_failed, process_loaded_image_tagging, should_tag_image_item,
-  start_image_tagging_processing_loop, tag_single_item_no_retry, LoadedImageTagging,
+  LoadedImageTagging, delete_item_image_tag_dir, image_tagging_url_from_config, is_supported_image_tagging_mime_type,
+  item_needs_image_tagging, list_failed_images, load_image_for_tagging, mark_item_image_tagging_failed,
+  process_loaded_image_tagging, should_tag_image_item, start_image_tagging_processing_loop, tag_single_item_no_retry,
 };
 use crate::web::text_extraction::{
-  delete_item_text_dir,
-  extract_single_item_no_retry, item_needs_text_extraction, list_failed_pdfs, load_pdf_for_extraction,
-  mark_item_text_extraction_failed, process_loaded_pdf_extraction, start_text_extraction_processing_loop,
-  text_extraction_url_from_config, LoadedPdfExtraction,
+  LoadedPdfExtraction, delete_item_text_dir, extract_single_item_no_retry, item_needs_text_extraction,
+  list_failed_pdfs, load_pdf_for_extraction, mark_item_text_extraction_failed, process_loaded_pdf_extraction,
+  start_text_extraction_processing_loop, text_extraction_url_from_config,
 };
-use crate::util::fs::{expand_tilde, path_exists};
 
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 
@@ -367,8 +364,13 @@ struct DeleteAllTarget {
 type NeedsProcessingFuture<'a> = Pin<Box<dyn Future<Output = InfuResult<bool>> + Send + 'a>>;
 type NeedsProcessingFn = for<'a> fn(&'a str, Arc<Mutex<Db>>, &'a str) -> NeedsProcessingFuture<'a>;
 type LoadItemFuture<'a, LoadedItem> = Pin<Box<dyn Future<Output = InfuResult<LoadedItem>> + Send + 'a>>;
-type LoadItemFn<LoadedItem> =
-  for<'a> fn(&'a str, &'a str, Arc<Mutex<Db>>, Arc<storage_object::ObjectStore>, &'a str) -> LoadItemFuture<'a, LoadedItem>;
+type LoadItemFn<LoadedItem> = for<'a> fn(
+  &'a str,
+  &'a str,
+  Arc<Mutex<Db>>,
+  Arc<storage_object::ObjectStore>,
+  &'a str,
+) -> LoadItemFuture<'a, LoadedItem>;
 type ProcessLoadedItemFuture<'a> = Pin<Box<dyn Future<Output = InfuResult<()>> + Send + 'a>>;
 type ProcessLoadedItemFn<LoadedItem> =
   for<'a> fn(&'a str, &'a str, Arc<Mutex<Db>>, LoadedItem, bool) -> ProcessLoadedItemFuture<'a>;
@@ -595,13 +597,7 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
-  start_image_tagging_processing_loop(
-    data_dir,
-    image_tagging_url.clone(),
-    image_tagging_delay,
-    db,
-    object_store,
-  )?;
+  start_image_tagging_processing_loop(data_dir, image_tagging_url.clone(), image_tagging_delay, db, object_store)?;
   info!(
     "Running image tagging loop using '{}' with pipelined source-object prefetch and delay {:.3}s. Press Ctrl-C to stop.",
     image_tagging_url,
@@ -701,12 +697,7 @@ async fn maybe_execute_delete_all(
       if target.content_exists {
         pieces.push("content");
       }
-      println!(
-        "would delete {} for user={} item={}",
-        pieces.join("+"),
-        target.user_id,
-        target.item_id
-      );
+      println!("would delete {} for user={} item={}", pieces.join("+"), target.user_id, target.item_id);
     }
     println!("Re-run with --force to perform this deletion.");
     return Ok(true);
@@ -1020,8 +1011,9 @@ where
   );
   let mut queue = VecDeque::from(item_ids);
   let mut progress = BatchProgress::default();
-  let mut next_prefetch =
-    queue.pop_front().map(|item_id| spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), item_id, load_item));
+  let mut next_prefetch = queue
+    .pop_front()
+    .map(|item_id| spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), item_id, load_item));
   let mut current_process = advance_prefetch_to_process(
     data_dir,
     service_url,
@@ -1067,12 +1059,7 @@ where
           average_throughput_suffix(&started_at, progress.processed, ui_text.throughput_unit_label);
         info!(
           "Container-scoped {}: {} '{}' successfully ({}/{}).{}",
-          ui_text.action_name,
-          ui_text.action_past,
-          item_id,
-          progress.processed,
-          scheduled_items,
-          throughput_suffix
+          ui_text.action_name, ui_text.action_past, item_id, progress.processed, scheduled_items, throughput_suffix
         );
       }
       Err(e) => {
@@ -1082,12 +1069,7 @@ where
           average_throughput_suffix(&started_at, progress.processed, ui_text.throughput_unit_label);
         info!(
           "Container-scoped {}: failed for '{}' ({}/{}): {}.{}",
-          ui_text.action_name,
-          item_id,
-          progress.processed,
-          scheduled_items,
-          e,
-          throughput_suffix
+          ui_text.action_name, item_id, progress.processed, scheduled_items, e, throughput_suffix
         );
       }
     }
@@ -1162,8 +1144,9 @@ where
       .await
       .map_err(|e| format!("Container-scoped {} prefetch task failed: {}", ui_text.action_name, e))?;
 
-    *next_prefetch =
-      queue.pop_front().map(|next_item_id| spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), next_item_id, load_item));
+    *next_prefetch = queue.pop_front().map(|next_item_id| {
+      spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), next_item_id, load_item)
+    });
     let pending_queue = queue.len() + usize::from(next_prefetch.is_some());
 
     match loaded_result {
@@ -1270,13 +1253,7 @@ fn process_loaded_pdf_extraction_boxed<'a>(
   loaded: LoadedPdfExtraction,
   retry_endpoint_unavailable: bool,
 ) -> ProcessLoadedItemFuture<'a> {
-  Box::pin(process_loaded_pdf_extraction(
-    data_dir,
-    service_url,
-    db,
-    loaded,
-    retry_endpoint_unavailable,
-  ))
+  Box::pin(process_loaded_pdf_extraction(data_dir, service_url, db, loaded, retry_endpoint_unavailable))
 }
 
 fn process_loaded_image_tagging_boxed<'a>(
@@ -1286,11 +1263,5 @@ fn process_loaded_image_tagging_boxed<'a>(
   loaded: LoadedImageTagging,
   retry_endpoint_unavailable: bool,
 ) -> ProcessLoadedItemFuture<'a> {
-  Box::pin(process_loaded_image_tagging(
-    data_dir,
-    service_url,
-    db,
-    loaded,
-    retry_endpoint_unavailable,
-  ))
+  Box::pin(process_loaded_image_tagging(data_dir, service_url, db, loaded, retry_endpoint_unavailable))
 }

@@ -15,28 +15,28 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use async_recursion::async_recursion;
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
-use image::imageops::FilterType;
 use image::ImageFormat;
 use image::ImageReader;
+use image::imageops::FilterType;
 use infusdk::item::is_flipcard_item;
 use infusdk::item::{
-  is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type,
-  is_format_item_type, is_image_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item,
-  Item, ItemType, PermissionFlags, RelationshipToParent,
+  Item, ItemType, PermissionFlags, RelationshipToParent, is_attachments_item_type, is_composite_item,
+  is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item,
+  is_permission_flags_item_type, is_positionable_type, is_table_item,
 };
 use infusdk::util::geometry::{Dimensions, Vector};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::time::unix_now_secs_u64;
-use infusdk::util::uid::{is_empty_uid, is_uid, new_uid, Uid, EMPTY_UID};
+use infusdk::util::uid::{EMPTY_UID, Uid, is_empty_uid, is_uid, new_uid};
 use infusdk::web::WebApiJsonSerializable;
 use log::{debug, error, warn};
 use once_cell::sync::Lazy;
-use prometheus::{opts, IntCounterVec};
+use prometheus::{IntCounterVec, opts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::Cursor;
@@ -45,9 +45,9 @@ use std::sync::Arc;
 use tokio::sync::MutexGuard;
 
 use crate::storage::cache as storage_cache;
+use crate::storage::db::Db;
 use crate::storage::db::session::Session;
 use crate::storage::db::user::ROOT_USER_NAME;
-use crate::storage::db::Db;
 use crate::storage::object;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
 use crate::util::item::hash_children_and_their_attachments_only;

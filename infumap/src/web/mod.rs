@@ -48,8 +48,8 @@ use crate::config::*;
 use crate::setup::init_fs_maybe_and_get_config;
 use crate::storage::backup::{self as storage_backup, BackupStore};
 use crate::storage::cache::{self as storage_cache, ImageCache};
-use crate::storage::db::users_extra::BackupStatus;
 use crate::storage::db::Db;
+use crate::storage::db::users_extra::BackupStatus;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::tokiort::TokioIo;
 use crate::util::crypto::{decrypt_file_data, encrypt_file_data};
@@ -452,11 +452,7 @@ fn init_db_backup(
 
 fn extract_timestamp_from_backup_filename(filename: &str) -> Option<u64> {
   let parts: Vec<&str> = filename.split('_').collect();
-  if parts.len() == 2 {
-    parts[1].parse::<u64>().ok()
-  } else {
-    None
-  }
+  if parts.len() == 2 { parts[1].parse::<u64>().ok() } else { None }
 }
 
 async fn find_next_backup_number(data_dir: &str, user_id: &str, base_filename: &str) -> InfuResult<u32> {

@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
-use hyper::{server::conn::http1, service::service_fn, Request, Response};
+use hyper::{Request, Response, server::conn::http1, service::service_fn};
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, info};
 use prometheus::{Encoder, TextEncoder};
@@ -32,8 +32,8 @@ use crate::{
 use super::routes::command::{METRIC_COMMAND_FAILURES_TOTAL, METRIC_COMMAND_REQUESTS_TOTAL};
 use super::routes::files::METRIC_CACHED_IMAGE_REQUESTS_TOTAL;
 use super::{
-  METRIC_BACKUPS_FAILED_TOTAL, METRIC_BACKUPS_INITIATED_TOTAL, METRIC_BACKUP_CLEANUP_DELETE_FAILURES_TOTAL,
-  METRIC_BACKUP_CLEANUP_DELETE_REQUESTS_TOTAL,
+  METRIC_BACKUP_CLEANUP_DELETE_FAILURES_TOTAL, METRIC_BACKUP_CLEANUP_DELETE_REQUESTS_TOTAL,
+  METRIC_BACKUPS_FAILED_TOTAL, METRIC_BACKUPS_INITIATED_TOTAL,
 };
 
 pub async fn spawn_prometheus_listener(prometheus_addr: SocketAddr) -> InfuResult<()> {

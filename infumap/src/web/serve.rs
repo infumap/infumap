@@ -16,24 +16,24 @@
 
 use bytes::Bytes;
 use config::Config;
-use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
+use http_body_util::{BodyExt, Empty, Full, combinators::BoxBody};
 use hyper::header::HeaderValue;
 use hyper::{Method, Request, Response, StatusCode};
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, warn};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::str;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::config::CONFIG_ALLOW_CROSS_INSTANCE_EMBED;
 use crate::storage::cache::ImageCache;
-use crate::storage::db::session_db::SESSION_ROTATION_INTERVAL_SECS;
 use crate::storage::db::Db;
+use crate::storage::db::session_db::SESSION_ROTATION_INTERVAL_SECS;
 use crate::storage::object::ObjectStore;
 use crate::web::cookie::{
-  get_session_cookie_session_id_maybe, get_session_header_maybe, InfuSession, SESSION_HEADER_NAME,
+  InfuSession, SESSION_HEADER_NAME, get_session_cookie_session_id_maybe, get_session_header_maybe,
 };
 use crate::web::dist_handlers::serve_index;
 

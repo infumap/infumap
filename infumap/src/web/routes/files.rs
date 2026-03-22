@@ -18,13 +18,13 @@ use bytes::Bytes;
 use config::Config;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
+use image::ImageReader;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
-use image::ImageReader;
 use infusdk::util::infu::InfuResult;
 use log::debug;
 use once_cell::sync::Lazy;
-use prometheus::{opts, IntCounterVec};
+use prometheus::{IntCounterVec, opts};
 use serde::Deserialize;
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -114,11 +114,7 @@ fn sanitize_ascii_filename(filename: &str) -> String {
     })
     .collect();
   let sanitized = sanitized.trim();
-  if sanitized.is_empty() {
-    "download".to_owned()
-  } else {
-    sanitized.to_owned()
-  }
+  if sanitized.is_empty() { "download".to_owned() } else { sanitized.to_owned() }
 }
 
 fn encode_rfc5987_value(value: &str) -> String {
@@ -559,11 +555,7 @@ fn item_text_filename(uid: &str, content_mime_type: &str) -> String {
 }
 
 fn calc_cache_control(max_age: i64) -> String {
-  if max_age == 0 {
-    "no-cache".to_owned()
-  } else {
-    format!("private, max-age={}", max_age)
-  }
+  if max_age == 0 { "no-cache".to_owned() } else { format!("private, max-age={}", max_age) }
 }
 
 #[cfg(test)]

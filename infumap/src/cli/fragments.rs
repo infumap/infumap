@@ -8,7 +8,7 @@ use log::info;
 use tokio::sync::Mutex;
 
 use crate::config::CONFIG_DATA_DIR;
-use crate::rag::{build_fragments_for_item, clear_fragments_for_item, FragmentSourceKind};
+use crate::rag::{FragmentSourceKind, build_fragments_for_item, clear_fragments_for_item};
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::ordering::compare_orderings;

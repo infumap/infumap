@@ -173,11 +173,7 @@ fn value_as_string(value: Value) -> Option<String> {
     other => other.to_string(),
   };
   let trimmed = text.trim();
-  if trimmed.is_empty() {
-    None
-  } else {
-    Some(trimmed.to_owned())
-  }
+  if trimmed.is_empty() { None } else { Some(trimmed.to_owned()) }
 }
 
 fn value_as_string_list(value: Value) -> Vec<String> {
@@ -563,8 +559,7 @@ pub fn start_image_tagging_processing_loop(
   PROCESSING_STATE
     .set(state.clone())
     .map_err(|_| "Image tagging processing loop is already running in this process.".to_owned())?;
-  let progress =
-    Arc::new(Mutex::new(TaggingProgress { processed: 0, succeeded: 0, other_failed: 0 }));
+  let progress = Arc::new(Mutex::new(TaggingProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   info!(
     "Starting image tagging processing loop using '{}' with pipelined source-object prefetch and request dispatch (delay {:.3}s).",
@@ -765,13 +760,7 @@ async fn advance_image_prefetch_to_process(
       item_id, user_id, queue_remaining, progress_summary
     );
 
-    return Some(spawn_image_process(
-      data_dir.clone(),
-      image_tagging_url.clone(),
-      db.clone(),
-      loaded,
-      queue_remaining,
-    ));
+    return Some(spawn_image_process(data_dir.clone(), image_tagging_url.clone(), db.clone(), loaded, queue_remaining));
   }
 }
 

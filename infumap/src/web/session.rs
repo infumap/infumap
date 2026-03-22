@@ -14,15 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use hyper::Request;
 use hyper::header::{HOST, ORIGIN};
 use hyper::http::uri::Authority;
-use hyper::Request;
 use log::{debug, error, warn};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::storage::db::{session::Session, Db};
+use crate::storage::db::{Db, session::Session};
 
 use super::cookie::{get_session_cookie_session_id_maybe, get_session_header_maybe};
 

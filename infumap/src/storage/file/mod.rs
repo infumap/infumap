@@ -16,7 +16,7 @@
 
 use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{uid_chars, Uid};
+use infusdk::util::uid::{Uid, uid_chars};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};

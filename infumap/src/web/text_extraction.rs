@@ -451,8 +451,7 @@ pub fn start_text_extraction_processing_loop(
   PROCESSING_STATE
     .set(state.clone())
     .map_err(|_| "Text extraction processing loop is already running in this process.".to_owned())?;
-  let progress =
-    Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, other_failed: 0 }));
+  let progress = Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   info!(
     "Starting text extraction processing loop using '{}' with pipelined source-object prefetch and request dispatch (delay {:.3}s).",
@@ -652,13 +651,7 @@ async fn advance_pdf_prefetch_to_process(
       item_id, user_id, queue_remaining, progress_summary
     );
 
-    return Some(spawn_pdf_process(
-      data_dir.clone(),
-      text_extraction_url.clone(),
-      db.clone(),
-      loaded,
-      queue_remaining,
-    ));
+    return Some(spawn_pdf_process(data_dir.clone(), text_extraction_url.clone(), db.clone(), loaded, queue_remaining));
   }
 }
 
@@ -682,14 +675,8 @@ async fn prefetch_next_pdf_extraction(
       );
     }
 
-    match load_pdf_for_extraction(
-      &data_dir,
-      &text_extraction_url,
-      db.clone(),
-      object_store.clone(),
-      &candidate.item_id,
-    )
-    .await
+    match load_pdf_for_extraction(&data_dir, &text_extraction_url, db.clone(), object_store.clone(), &candidate.item_id)
+      .await
     {
       Ok(loaded) => return (loaded, queue_remaining),
       Err(e) => {

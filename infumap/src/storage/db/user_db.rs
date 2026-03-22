@@ -17,7 +17,7 @@
 use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::uid::{is_uid, Uid};
+use infusdk::util::uid::{Uid, is_uid};
 use log::{debug, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;

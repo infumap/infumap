@@ -24,7 +24,7 @@ use serde_json::Value;
 use crate::web::routes::command::GetItemsMode;
 use crate::web::routes::command::{CommandRequest, CommandResponse};
 
-use super::{build_http_client, build_session_headers, NamedInfuSession};
+use super::{NamedInfuSession, build_http_client, build_session_headers};
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("ls")

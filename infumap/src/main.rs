@@ -45,6 +45,7 @@ async fn main() {
     .subcommand(cli::restore::make_clap_subcommand())
     .subcommand(cli::extract::make_clap_subcommand())
     .subcommand(cli::fragments::make_clap_subcommand())
+    .subcommand(cli::stats::make_clap_subcommand())
     .subcommand(cli::upload::make_clap_subcommand())
     .subcommand(web::make_clap_subcommand())
     .about("Infumap")
@@ -68,6 +69,7 @@ async fn main() {
         "restore" => cli::restore::execute(&arg_sub_matches).await,
         "extract" => cli::extract::execute(&arg_sub_matches).await,
         "fragments" => cli::fragments::execute(&arg_sub_matches).await,
+        "stats" => cli::stats::execute(&arg_sub_matches).await,
         "upload" => cli::upload::execute(&arg_sub_matches).await,
         _ => {
           println!(".. --help for help.");

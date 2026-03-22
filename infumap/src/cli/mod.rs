@@ -41,6 +41,7 @@ pub mod note;
 pub mod pending;
 pub mod reconcile;
 pub mod restore;
+pub mod stats;
 pub mod upload;
 
 const INFUMAP_CA_CERT_ENV_VAR: &str = "INFUMAP_CA_CERT";
@@ -176,11 +177,7 @@ fn extra_ca_cert_path_from_env() -> InfuResult<Option<String>> {
   match std::env::var(INFUMAP_CA_CERT_ENV_VAR) {
     Ok(value) => {
       let trimmed = value.trim();
-      if trimmed.is_empty() {
-        Ok(None)
-      } else {
-        Ok(Some(trimmed.to_owned()))
-      }
+      if trimmed.is_empty() { Ok(None) } else { Ok(Some(trimmed.to_owned())) }
     }
     Err(std::env::VarError::NotPresent) => Ok(None),
     Err(std::env::VarError::NotUnicode(_)) => {

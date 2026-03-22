@@ -28,8 +28,8 @@ use crate::config::{
   CONFIG_S3_2_REGION, CONFIG_S3_2_SECRET,
 };
 use crate::setup::get_config;
-use crate::storage::db::item_db::ItemAndUserId;
 use crate::storage::db::Db;
+use crate::storage::db::item_db::ItemAndUserId;
 use crate::storage::file as storage_file;
 use crate::storage::object::IndividualObjectStore;
 use crate::storage::s3 as storage_s3;
