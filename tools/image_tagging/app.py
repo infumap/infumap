@@ -95,8 +95,7 @@ Rules:
 - Use 1.0 for clear strong positives such as portraits, selfies, posed two-person photos, or clear group photos where at least one real human face is near-frontal, sharp, and large enough to confidently send to face matching; use 0.8 to 0.95 for usable but imperfect cases such as moderately sized faces, slight angle, mild blur, or partial occlusion.
 - Use around 0.5 for borderline cases where a real face is present and may be usable, but is not clearly strong enough to confidently send to face matching.
 - Use 0.0 when there is no usable real face, including no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces. Ignore faces on screens, posters, photos, paintings, toys, or statues for this score.
-- "visible_face_count_estimate" should estimate how many real human faces are visibly present using exactly one of these strings: "0", "1", "2", "3-5", or "6+".
-- Count only real visible human faces in the captured scene. Do not count faces on screens, posters, photos, paintings, toys, or statues.
+- "visible_face_count_estimate" should estimate how many real human faces are visibly present using exactly one of these strings: "0", "1", "2", or "3+".
 - "tags" should contain 6 to 14 short lower-case tags useful for search. Fewer is better than adding weak tags.
 - Prefer concrete visible tags. Add broader context only when clearly supported by the image.
 - Prefer precise, non-repetitive tags over generic or speculative ones.
@@ -356,9 +355,7 @@ def coerce_face_count_estimate(value: Any) -> str | None:
             return "1"
         if numeric == 2:
             return "2"
-        if numeric <= 5:
-            return "3-5"
-        return "6+"
+        return "3+"
 
     normalized = collapse_whitespace(str(value).strip()).lower()
     if not normalized:
@@ -373,20 +370,42 @@ def coerce_face_count_estimate(value: Any) -> str | None:
         return "1"
     if normalized in {"2", "two", "two faces", "2 faces", "two visible faces", "2 visible faces"}:
         return "2"
-    if normalized in {"3-5", "3 - 5", "3-4", "4", "5", "three", "four", "five", "several"}:
-        return "3-5"
-    if normalized in {"6+", "6", "7", "8", "9", "10+", "many", "crowd"}:
-        return "6+"
+    if normalized in {
+        "3+",
+        "3 +",
+        "3-plus",
+        "3 or more",
+        "3 or more faces",
+        "3 or more visible faces",
+        "3-5",
+        "3 - 5",
+        "3-4",
+        "4",
+        "5",
+        "6+",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10+",
+        "three",
+        "four",
+        "five",
+        "several",
+        "many",
+        "crowd",
+    }:
+        return "3+"
 
     digits = re.findall(r"\d+", normalized)
     if not digits:
         return None
 
     numbers = [int(digit) for digit in digits]
-    if "+" in normalized or max(numbers) >= 6:
-        return "6+"
+    if "+" in normalized or max(numbers) >= 3:
+        return "3+"
     if len(numbers) >= 2 and min(numbers) <= 2 and max(numbers) >= 3:
-        return "3-5"
+        return "3+"
 
     numeric = max(numbers)
     if numeric <= 0:
@@ -395,9 +414,7 @@ def coerce_face_count_estimate(value: Any) -> str | None:
         return "1"
     if numeric == 2:
         return "2"
-    if numeric <= 5:
-        return "3-5"
-    return "6+"
+    return "3+"
 
 
 def trim_excerpt_text(value: str, max_chars: int) -> str:
