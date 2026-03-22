@@ -46,6 +46,7 @@ const MAX_PENDING_IMAGES: usize = 100;
 const REFILL_WHEN_QUEUE_AT_MOST: usize = 50;
 const LARGE_IMAGE_SIZE_BYTES: i64 = 10 * 1024 * 1024;
 const REFILL_WAIT_MILLIS: u64 = 1000;
+const MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS: usize = 6;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
 const JSON_CONTENT_MIME_TYPE: &str = "application/json";
 const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
@@ -113,6 +114,7 @@ struct ImageTagManifestExtractor {
 enum TagOutcome {
   Success(ImageTagArtifact, Option<u64>),
   DocumentFailed(String),
+  ResponseFormatFailed(String),
   EndpointUnavailable(String),
 }
 
@@ -473,6 +475,10 @@ pub(crate) async fn process_loaded_image_tagging(
       info!("Tagged image '{}' (user {}).", candidate.item_id, candidate.user_id);
     }
     TagOutcome::DocumentFailed(msg) => {
+      write_failed_manifest(data_dir, image_tagging_url, &candidate, &msg).await?;
+      return Err(format!("Image tagging failed for '{}': {}", candidate.item_id, msg).into());
+    }
+    TagOutcome::ResponseFormatFailed(msg) => {
       write_failed_manifest(data_dir, image_tagging_url, &candidate, &msg).await?;
       return Err(format!("Image tagging failed for '{}': {}", candidate.item_id, msg).into());
     }
@@ -931,12 +937,38 @@ async fn request_image_tagging_with_retries(
   worker_id_maybe: Option<usize>,
 ) -> TagOutcome {
   let mut unavailable_attempt = 0usize;
+  let mut response_format_attempt = 0usize;
 
   loop {
     let outcome =
       request_image_tagging(client, image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes.to_vec())
         .await;
     match outcome {
+      TagOutcome::ResponseFormatFailed(message) => {
+        if response_format_attempt >= MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS {
+          return TagOutcome::DocumentFailed(format!(
+            "Image tagging service repeatedly returned malformed structured output after {} attempt(s): {}",
+            response_format_attempt + 1,
+            message
+          ));
+        }
+
+        response_format_attempt += 1;
+        match worker_id_maybe {
+          Some(worker_id) => {
+            info!(
+              "Worker {}: image tagging endpoint '{}' returned malformed structured output for '{}' (user {}) ({}). Retrying immediately.",
+              worker_id, image_tagging_url, candidate.item_id, candidate.user_id, message
+            );
+          }
+          None => {
+            info!(
+              "Image tagging endpoint '{}' returned malformed structured output for '{}' (user {}) ({}). Retrying immediately.",
+              image_tagging_url, candidate.item_id, candidate.user_id, message
+            );
+          }
+        }
+      }
       TagOutcome::EndpointUnavailable(message) => {
         let delay = endpoint_retry_delay(unavailable_attempt);
         unavailable_attempt += 1;
@@ -966,18 +998,23 @@ async fn request_image_tagging_with_retries(
         time::sleep(delay).await;
       }
       other => {
-        if unavailable_attempt > 0 {
+        if unavailable_attempt > 0 || response_format_attempt > 0 {
           match worker_id_maybe {
             Some(worker_id) => {
               info!(
-                "Worker {}: image tagging endpoint '{}' accepted requests again for '{}' (user {}) after {} unavailable attempt(s).",
-                worker_id, image_tagging_url, candidate.item_id, candidate.user_id, unavailable_attempt
+                "Worker {}: image tagging endpoint '{}' accepted requests again for '{}' (user {}) after {} unavailable attempt(s) and {} malformed-response attempt(s).",
+                worker_id,
+                image_tagging_url,
+                candidate.item_id,
+                candidate.user_id,
+                unavailable_attempt,
+                response_format_attempt
               );
             }
             None => {
               info!(
-                "Image tagging endpoint '{}' accepted requests again for '{}' (user {}) after {} unavailable attempt(s).",
-                image_tagging_url, candidate.item_id, candidate.user_id, unavailable_attempt
+                "Image tagging endpoint '{}' accepted requests again for '{}' (user {}) after {} unavailable attempt(s) and {} malformed-response attempt(s).",
+                image_tagging_url, candidate.item_id, candidate.user_id, unavailable_attempt, response_format_attempt
               );
             }
           }
@@ -1224,7 +1261,43 @@ async fn request_image_tagging(
     return TagOutcome::DocumentFailed(format!("HTTP {}: {}", status, body));
   }
 
+  if let Some(message) = classify_malformed_structured_output_response(status, &body) {
+    return TagOutcome::ResponseFormatFailed(format!("HTTP {}: {}", status, message));
+  }
+
   TagOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body))
+}
+
+fn classify_malformed_structured_output_response(status: reqwest::StatusCode, body: &str) -> Option<String> {
+  if status != reqwest::StatusCode::INTERNAL_SERVER_ERROR {
+    return None;
+  }
+
+  let detail = extract_response_detail(body).unwrap_or_else(|| body.trim().to_owned());
+  if is_malformed_structured_output_detail(&detail) { Some(detail) } else { None }
+}
+
+fn extract_response_detail(body: &str) -> Option<String> {
+  let parsed: Value = serde_json::from_str(body).ok()?;
+  let detail = parsed.get("detail")?.as_str()?.trim();
+  if detail.is_empty() { None } else { Some(detail.to_owned()) }
+}
+
+fn is_malformed_structured_output_detail(detail: &str) -> bool {
+  let lowered = detail.trim().to_ascii_lowercase();
+  if lowered.starts_with("model output ") {
+    return true;
+  }
+
+  let looks_like_json_decode_error = (lowered.contains("expecting ") || lowered.contains("unterminated "))
+    && lowered.contains(" line ")
+    && lowered.contains(" column ");
+
+  looks_like_json_decode_error
+    || lowered.contains("invalid control character")
+    || lowered.contains("extra data")
+    || lowered.contains("json object")
+    || lowered.contains("json root")
 }
 
 async fn write_success_artifacts(
@@ -1338,4 +1411,30 @@ async fn ensure_user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathB
   }
   ensure_256_subdirs(&text_dir).await?;
   Ok(text_dir)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::classify_malformed_structured_output_response;
+
+  #[test]
+  fn detects_model_output_json_object_failures() {
+    let body = r#"{"detail":"Model output did not contain a JSON object."}"#;
+    let classified = classify_malformed_structured_output_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR, body);
+    assert_eq!(classified.as_deref(), Some("Model output did not contain a JSON object."));
+  }
+
+  #[test]
+  fn detects_json_decoder_failures_from_service_detail() {
+    let body = r#"{"detail":"Expecting property name enclosed in double quotes: line 1 column 3 (char 2)"}"#;
+    let classified = classify_malformed_structured_output_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR, body);
+    assert!(classified.is_some());
+  }
+
+  #[test]
+  fn leaves_unrelated_internal_server_errors_retryable() {
+    let body = r#"{"detail":"Image tagging service is not ready."}"#;
+    let classified = classify_malformed_structured_output_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR, body);
+    assert!(classified.is_none());
+  }
 }
