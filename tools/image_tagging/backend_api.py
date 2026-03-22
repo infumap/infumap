@@ -27,3 +27,4 @@ class ImageTagResponse(BaseModel):
     visible_face_count_estimate: str | None = None
     tags: list[str] = Field(default_factory=list)
     ocr_text: list[str] = Field(default_factory=list)
+    image_embedding: list[float] = Field(default_factory=list)

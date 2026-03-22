@@ -33,6 +33,8 @@ readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$ROOT_DIR/models}"
 readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-unsloth/Qwen3.5-9B-GGUF}"
 readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-Qwen3.5-9B-Q4_K_M.gguf}"
 readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-mmproj-BF16.gguf}"
+readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
+readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
 readonly MODEL_PATH="${MODELS_DIR}/${MODEL_FILE}"
 readonly MMPROJ_PATH="${MODELS_DIR}/${MMPROJ_FILE}"
 
@@ -124,7 +126,7 @@ require_command() {
 }
 
 ensure_python_packages() {
-    if "$VENV_PYTHON" -c "import fastapi, uvicorn, multipart, PIL, httpx, huggingface_hub" >/dev/null 2>&1; then
+    if "$VENV_PYTHON" -c "import fastapi, uvicorn, multipart, PIL, httpx, huggingface_hub, torch, transformers" >/dev/null 2>&1; then
         return 0
     fi
 
@@ -135,6 +137,8 @@ ensure_python_packages() {
         "python-multipart>=0.0.18" \
         Pillow \
         httpx \
+        torch \
+        transformers \
         "huggingface_hub[hf_xet]" \
         hf_xet
 }
@@ -333,6 +337,8 @@ echo "llama-server URL: $IMAGE_TAGGING_LLAMA_SERVER_URL"
 echo "Model repo: $MODEL_REPO"
 echo "Model file: $MODEL_FILE"
 echo "mmproj file: $MMPROJ_FILE"
+echo "Image embedding enabled: $IMAGE_EMBEDDING_ENABLED"
+echo "Image embedding model: $IMAGE_EMBEDDING_MODEL_ID"
 echo "IMAGE_TAGGING_MAX_CONCURRENCY=${IMAGE_TAGGING_MAX_CONCURRENCY}"
 
 if has_nvidia_gpu; then

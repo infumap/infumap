@@ -10,7 +10,9 @@ The default launcher path does three things for you:
   locally if one is not already available
 
 The service accepts multipart image uploads and forwards them to `llama-server`
-via its OpenAI-compatible chat completions endpoint.
+via its OpenAI-compatible chat completions endpoint. It also computes a local
+image embedding in parallel using `facebook/dinov2-with-registers-base` by
+default.
 
 ## Default Layout
 
@@ -51,7 +53,7 @@ From the repo root:
 That command will:
 
 1. create or reuse `tools/image_tagging/.venv`
-2. install the small Python wrapper dependencies
+2. install the Python wrapper and embedding dependencies
 3. download the configured model files if they are missing
 4. ensure `llama-server` exists
 5. start `llama-server`
@@ -68,6 +70,9 @@ API wrapper:
 - `IMAGE_TAGGING_TARGET_MAX_PIXELS`
 - `IMAGE_TAGGING_TARGET_MAX_LONG_EDGE`
 - `IMAGE_TAGGING_OUTPUT_JPEG_QUALITY`
+- `IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING`
+- `IMAGE_TAGGING_EMBEDDING_MODEL_ID`
+- `IMAGE_TAGGING_EMBEDDING_DEVICE`
 
 llama-server management:
 
@@ -150,7 +155,8 @@ curl -sS \
 ## Notes
 
 - The HTTP service uses the multimodal chat model running behind
-  `llama-server`.
+  `llama-server`, plus a local DINOv2 image-embedding model in the FastAPI
+  process.
 - When `run.sh` manages `llama-server`, it now defaults to
   `--reasoning-format none` so the model returns final JSON instead of
   spending the token budget on reasoning traces.
@@ -167,6 +173,9 @@ curl -sS \
   `face_recognition_candidate_confidence` and
   `visible_face_count_estimate` so downstream services can decide whether an
   image is worth sending to a dedicated face-matching pipeline.
+- The `/tag` JSON response now also includes `image_embedding` as the last
+  field. The vector is L2-normalized and is produced in parallel with the
+  tagging request for the same prepared image.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
   The default is `67108864` bytes (64 MiB), configurable via
   `IMAGE_TAGGING_MAX_UPLOAD_BYTES`.

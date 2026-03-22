@@ -129,6 +129,7 @@ struct ImageTagArtifact {
   ocr_text: Vec<String>,
   #[serde(skip_serializing_if = "Option::is_none")]
   image_metadata: Option<ImageMetadata>,
+  image_embedding: Vec<f32>,
   #[serde(flatten)]
   extra: BTreeMap<String, Value>,
 }
@@ -151,6 +152,7 @@ impl ImageTagArtifact {
       tags: take_string_list(&mut map, "tags"),
       ocr_text: take_string_list(&mut map, "ocr_text"),
       image_metadata: None,
+      image_embedding: take_f32_list(&mut map, "image_embedding"),
       extra: map.into_iter().collect(),
     }
   }
@@ -170,6 +172,10 @@ fn take_string_list(map: &mut JsonMap<String, Value>, key: &str) -> Vec<String> 
 
 fn take_f64(map: &mut JsonMap<String, Value>, key: &str) -> f64 {
   map.remove(key).and_then(value_as_f64).unwrap_or(0.0)
+}
+
+fn take_f32_list(map: &mut JsonMap<String, Value>, key: &str) -> Vec<f32> {
+  map.remove(key).map(value_as_f32_list).unwrap_or_default()
 }
 
 fn value_as_string(value: Value) -> Option<String> {
@@ -219,6 +225,20 @@ fn value_as_u64(value: &Value) -> Option<u64> {
     Value::String(text) => text.trim().parse::<u64>().ok(),
     _ => None,
   }
+}
+
+fn value_as_f32_list(value: Value) -> Vec<f32> {
+  let raw_values = match value {
+    Value::Null => return vec![],
+    Value::Array(values) => values,
+    other => vec![other],
+  };
+
+  raw_values
+    .into_iter()
+    .filter_map(value_as_f64)
+    .map(|value| value as f32)
+    .collect()
 }
 
 struct RefillResult {

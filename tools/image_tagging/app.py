@@ -63,6 +63,7 @@ DEFAULT_TARGET_MAX_PIXELS = 3_145_728
 DEFAULT_TARGET_MAX_LONG_EDGE = 2048
 DEFAULT_OUTPUT_JPEG_QUALITY = 90
 DEFAULT_MAX_TOKENS = 8192
+DEFAULT_IMAGE_EMBEDDING_MODEL_ID = "facebook/dinov2-with-registers-base"
 GPU_REQUEST_CONCURRENCY = 1
 
 SYSTEM_PROMPT = """
@@ -209,7 +210,34 @@ def output_jpeg_quality() -> int:
     return max(1, min(100, env_int("IMAGE_TAGGING_OUTPUT_JPEG_QUALITY", DEFAULT_OUTPUT_JPEG_QUALITY)))
 
 
+def image_embedding_enabled() -> bool:
+    raw = os.environ.get("IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING", "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
+def image_embedding_model_id() -> str:
+    return env_str("IMAGE_TAGGING_EMBEDDING_MODEL_ID", DEFAULT_IMAGE_EMBEDDING_MODEL_ID)
+
+
+def image_embedding_device() -> str:
+    configured = env_str("IMAGE_TAGGING_EMBEDDING_DEVICE", "auto").lower()
+    if configured != "auto":
+        return configured
+
+    try:
+        import torch
+    except Exception:
+        return "cpu"
+
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
+
+
 def build_runtime_summary() -> list[str]:
+    embedding_enabled = APP_STATE.get("image_embedding_enabled", image_embedding_enabled())
+    embedding_model_id = APP_STATE.get("image_embedding_model_id", image_embedding_model_id())
+    embedding_device = APP_STATE.get("image_embedding_device", "disabled" if not embedding_enabled else image_embedding_device())
     return [
         f"python={platform.python_version()}",
         f"platform={platform.platform()}",
@@ -217,16 +245,43 @@ def build_runtime_summary() -> list[str]:
         f"uvicorn={package_version('uvicorn')}",
         f"httpx={package_version('httpx')}",
         f"pillow={package_version('Pillow')}",
+        f"torch={package_version('torch')}",
+        f"transformers={package_version('transformers')}",
         f"backend={LLAMA_BACKEND_NAME}",
         f"llama_server_url={llama_server_url()}",
         f"model_id={llama_model_id()}",
         f"model_name={llama_model_name()}",
+        f"image_embedding_enabled={embedding_enabled}",
+        f"image_embedding_model_id={embedding_model_id if embedding_enabled else '<disabled>'}",
+        f"image_embedding_device={embedding_device}",
         f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
         f"max_upload_bytes={max_upload_bytes()}",
         f"target_max_pixels={target_max_pixels()}",
         f"target_max_long_edge={target_max_long_edge()}",
         f"output_jpeg_quality={output_jpeg_quality()}",
     ]
+
+
+def load_image_embedding_backend() -> tuple[Any, Any, Any, str]:
+    try:
+        import torch
+        from transformers import AutoImageProcessor, AutoModel
+    except Exception as exc:
+        raise RuntimeError(
+            "Image embedding dependencies are unavailable. Install torch and transformers in the image-tagging venv."
+        ) from exc
+
+    model_id = image_embedding_model_id()
+    device = image_embedding_device()
+    model_kwargs: dict[str, Any] = {}
+    if device.startswith("cuda"):
+        model_kwargs["torch_dtype"] = torch.float16
+
+    processor = AutoImageProcessor.from_pretrained(model_id)
+    model = AutoModel.from_pretrained(model_id, **model_kwargs)
+    model = model.to(device)
+    model.eval()
+    return torch, processor, model, device
 
 
 @asynccontextmanager
@@ -242,6 +297,16 @@ async def lifespan(_: FastAPI):
     APP_STATE["llama_client"] = httpx.AsyncClient(base_url=llama_server_url(), timeout=timeout)
     APP_STATE["model_name"] = llama_model_name()
     APP_STATE["model_id"] = llama_model_id()
+    APP_STATE["image_embedding_enabled"] = image_embedding_enabled()
+    APP_STATE["image_embedding_model_id"] = image_embedding_model_id()
+    if APP_STATE["image_embedding_enabled"]:
+        torch, processor, model, device = load_image_embedding_backend()
+        APP_STATE["embedding_torch"] = torch
+        APP_STATE["embedding_processor"] = processor
+        APP_STATE["embedding_model"] = model
+        APP_STATE["image_embedding_device"] = device
+    else:
+        APP_STATE["image_embedding_device"] = "disabled"
     TAG_SEMAPHORE = asyncio.Semaphore(GPU_REQUEST_CONCURRENCY)
     LOGGER.info("Image tagging startup: %s", " ".join(build_runtime_summary()))
 
@@ -663,6 +728,48 @@ def prepare_image(upload_bytes: bytes) -> tuple[bytes, str, int, int, int, int]:
         raise ImageRejectedError("The uploaded file is not a supported raster image.") from exc
 
 
+def compute_image_embedding_sync(prepared_bytes: bytes) -> list[float]:
+    if not APP_STATE.get("image_embedding_enabled"):
+        return []
+
+    torch = APP_STATE.get("embedding_torch")
+    processor = APP_STATE.get("embedding_processor")
+    model = APP_STATE.get("embedding_model")
+    device = APP_STATE.get("image_embedding_device")
+    if torch is None or processor is None or model is None or not isinstance(device, str):
+        raise RuntimeError("Image embedding model is not ready.")
+
+    with Image.open(io.BytesIO(prepared_bytes)) as opened:
+        image = convert_image_to_rgb(opened)
+        image.load()
+
+    model_dtype = next(model.parameters()).dtype
+    inputs = processor(images=image, return_tensors="pt")
+    normalized_inputs: dict[str, Any] = {}
+    for key, value in inputs.items():
+        if not hasattr(value, "to"):
+            normalized_inputs[key] = value
+            continue
+        if hasattr(value, "dtype") and torch.is_floating_point(value):
+            normalized_inputs[key] = value.to(device=device, dtype=model_dtype)
+        else:
+            normalized_inputs[key] = value.to(device)
+
+    with torch.inference_mode():
+        outputs = model(**normalized_inputs)
+        embedding = outputs.last_hidden_state[:, 0, :]
+        embedding = torch.nn.functional.normalize(embedding, p=2, dim=-1)
+        vector = embedding[0].detach().to("cpu", dtype=torch.float32).tolist()
+
+    return [round(float(value), 8) for value in vector]
+
+
+async def compute_image_embedding(prepared_bytes: bytes) -> list[float]:
+    if not APP_STATE.get("image_embedding_enabled"):
+        return []
+    return await asyncio.to_thread(compute_image_embedding_sync, prepared_bytes)
+
+
 async def read_multipart_upload(request: Request) -> tuple[str, str | None, bytes]:
     content_type_header = request.headers.get("content-type", "")
     parsed_content_type, params = parse_options_header(content_type_header.encode("latin-1"))
@@ -931,6 +1038,9 @@ async def healthz() -> dict[str, Any]:
         "backend": LLAMA_BACKEND_NAME,
         "model_id": APP_STATE.get("model_id"),
         "llama_server_url": llama_server_url(),
+        "image_embedding_enabled": APP_STATE.get("image_embedding_enabled"),
+        "image_embedding_model_id": APP_STATE.get("image_embedding_model_id"),
+        "image_embedding_device": APP_STATE.get("image_embedding_device"),
         "detail": detail,
     }
 
@@ -998,9 +1108,12 @@ async def tag_upload(request: Request) -> ImageTagResponse:
                 request_age_ms,
                 semaphore_wait_ms,
             )
-            parsed, request_format = await request_analysis(
-                prepared_bytes,
-                prepared_mime_type,
+            (parsed, request_format), image_embedding = await asyncio.gather(
+                request_analysis(
+                    prepared_bytes,
+                    prepared_mime_type,
+                ),
+                compute_image_embedding(prepared_bytes),
             )
 
         detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
@@ -1012,7 +1125,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         prepared_size_bytes = len(prepared_bytes)
 
         LOGGER.info(
-            "Completed image tagging: file=%s upload_bytes=%d prepared_bytes=%d duration_ms=%d width=%d height=%d prepared_width=%d prepared_height=%d tags=%d backend=%s format=%s",
+            "Completed image tagging: file=%s upload_bytes=%d prepared_bytes=%d duration_ms=%d width=%d height=%d prepared_width=%d prepared_height=%d tags=%d embedding_dims=%d backend=%s format=%s",
             file_name,
             upload_size_bytes,
             prepared_size_bytes,
@@ -1022,6 +1135,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             prepared_width,
             prepared_height,
             len(tags),
+            len(image_embedding),
             LLAMA_BACKEND_NAME,
             request_format,
         )
@@ -1037,6 +1151,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             visible_face_count_estimate=coerce_face_count_estimate(parsed.get("visible_face_count_estimate")),
             tags=tags,
             ocr_text=ocr_text,
+            image_embedding=image_embedding,
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
