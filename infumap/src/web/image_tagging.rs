@@ -22,6 +22,8 @@ use once_cell::sync::OnceCell;
 use reqwest::multipart::{Form, Part};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_json::map::Map as JsonMap;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -108,9 +110,113 @@ struct ImageTagManifestExtractor {
 }
 
 enum TagOutcome {
-  Success(Value, Option<u64>),
+  Success(ImageTagArtifact, Option<u64>),
   DocumentFailed(String),
   EndpointUnavailable(String),
+}
+
+#[derive(Serialize, Default)]
+struct ImageTagArtifact {
+  detailed_caption: Option<String>,
+  scene: Option<String>,
+  location_type: Option<String>,
+  document_confidence: f64,
+  face_recognition_candidate_confidence: f64,
+  visible_face_count_estimate: Option<String>,
+  tags: Vec<String>,
+  ocr_text: Vec<String>,
+  #[serde(flatten)]
+  extra: BTreeMap<String, Value>,
+}
+
+impl ImageTagArtifact {
+  fn from_value(value: Value) -> ImageTagArtifact {
+    let mut map = match value {
+      Value::Object(map) => map,
+      _ => return ImageTagArtifact::default(),
+    };
+
+    ImageTagArtifact {
+      detailed_caption: take_optional_string(&mut map, "detailed_caption"),
+      scene: take_optional_string(&mut map, "scene"),
+      location_type: take_optional_string(&mut map, "location_type"),
+      document_confidence: take_f64(&mut map, "document_confidence"),
+      face_recognition_candidate_confidence: take_f64(&mut map, "face_recognition_candidate_confidence"),
+      visible_face_count_estimate: take_optional_string(&mut map, "visible_face_count_estimate"),
+      tags: take_string_list(&mut map, "tags"),
+      ocr_text: take_string_list(&mut map, "ocr_text"),
+      extra: map.into_iter().collect(),
+    }
+  }
+
+  fn duration_ms(&self) -> Option<u64> {
+    self.extra.get("duration_ms").and_then(value_as_u64)
+  }
+}
+
+fn take_optional_string(map: &mut JsonMap<String, Value>, key: &str) -> Option<String> {
+  map.remove(key).and_then(value_as_string)
+}
+
+fn take_string_list(map: &mut JsonMap<String, Value>, key: &str) -> Vec<String> {
+  map.remove(key).map(value_as_string_list).unwrap_or_default()
+}
+
+fn take_f64(map: &mut JsonMap<String, Value>, key: &str) -> f64 {
+  map.remove(key).and_then(value_as_f64).unwrap_or(0.0)
+}
+
+fn value_as_string(value: Value) -> Option<String> {
+  let text = match value {
+    Value::Null => return None,
+    Value::String(text) => text,
+    other => other.to_string(),
+  };
+  let trimmed = text.trim();
+  if trimmed.is_empty() {
+    None
+  } else {
+    Some(trimmed.to_owned())
+  }
+}
+
+fn value_as_string_list(value: Value) -> Vec<String> {
+  let mut out = Vec::new();
+  let mut seen = HashSet::new();
+
+  let raw_values = match value {
+    Value::Null => return out,
+    Value::Array(values) => values,
+    other => vec![other],
+  };
+
+  for raw in raw_values {
+    let Some(text) = value_as_string(raw) else {
+      continue;
+    };
+    let lowered = text.to_lowercase();
+    if seen.insert(lowered) {
+      out.push(text);
+    }
+  }
+
+  out
+}
+
+fn value_as_f64(value: Value) -> Option<f64> {
+  match value {
+    Value::Number(number) => number.as_f64(),
+    Value::String(text) => text.trim().parse::<f64>().ok(),
+    _ => None,
+  }
+}
+
+fn value_as_u64(value: &Value) -> Option<u64> {
+  match value {
+    Value::Number(number) => number.as_u64(),
+    Value::String(text) => text.trim().parse::<u64>().ok(),
+    _ => None,
+  }
 }
 
 struct RefillResult {
@@ -1103,8 +1209,9 @@ async fn request_image_tagging(
       Ok(parsed) => parsed,
       Err(e) => return TagOutcome::EndpointUnavailable(format!("Could not parse success response: {}", e)),
     };
-    let duration_ms = parsed.get("duration_ms").and_then(|value| value.as_u64());
-    return TagOutcome::Success(parsed, duration_ms);
+    let tag_data = ImageTagArtifact::from_value(parsed);
+    let duration_ms = tag_data.duration_ms();
+    return TagOutcome::Success(tag_data, duration_ms);
   }
 
   if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY {
@@ -1118,7 +1225,7 @@ async fn write_success_artifacts(
   data_dir: &str,
   image_tagging_url: &str,
   candidate: &ImageCandidate,
-  tag_data: &Value,
+  tag_data: &ImageTagArtifact,
   duration_ms: Option<u64>,
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
