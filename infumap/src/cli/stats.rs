@@ -71,6 +71,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     storage: StorageStatsReport::default(),
     items: ItemStatsReport::default(),
     image_tagging: DerivedStatsReport::default(),
+    geo: DerivedStatsReport::default(),
     pdf_text_extraction: DerivedStatsReport::default(),
     per_user: vec![],
   };
@@ -112,6 +113,15 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
         &mut user_stats.image_tagging,
       )
       .await?;
+      update_current_derived_stats(
+        &data_dir,
+        &item.user_id,
+        &item.item_id,
+        DerivedKind::Geo,
+        &mut report.geo,
+        &mut user_stats.geo,
+      )
+      .await?;
     }
 
     if item.is_pdf() {
@@ -136,6 +146,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     &mut per_user,
   )
   .await?;
+  scan_orphaned_manifests(&data_dir, DerivedKind::Geo, &image_candidate_keys, &mut report.geo, &mut per_user).await?;
   scan_orphaned_manifests(
     &data_dir,
     DerivedKind::Pdf,
@@ -201,14 +212,31 @@ struct ItemKey {
 #[derive(Clone, Copy)]
 enum DerivedKind {
   Image,
+  Geo,
   Pdf,
 }
 
 impl DerivedKind {
   fn matches_source_mime_type(self, mime_type: &str) -> bool {
     match self {
-      DerivedKind::Image => crate::web::image_tagging::is_supported_image_tagging_mime_type(Some(mime_type)),
+      DerivedKind::Image | DerivedKind::Geo => {
+        crate::web::image_tagging::is_supported_image_tagging_mime_type(Some(mime_type))
+      }
       DerivedKind::Pdf => mime_type == PDF_MIME_TYPE,
+    }
+  }
+
+  fn manifest_suffix(self) -> &'static str {
+    match self {
+      DerivedKind::Image | DerivedKind::Pdf => "_manifest.json",
+      DerivedKind::Geo => "_geo_manifest.json",
+    }
+  }
+
+  fn content_suffix(self) -> &'static str {
+    match self {
+      DerivedKind::Image | DerivedKind::Pdf => "_text",
+      DerivedKind::Geo => "_geo.json",
     }
   }
 }
@@ -227,6 +255,7 @@ struct StatsReport {
   storage: StorageStatsReport,
   items: ItemStatsReport,
   image_tagging: DerivedStatsReport,
+  geo: DerivedStatsReport,
   pdf_text_extraction: DerivedStatsReport,
   per_user: Vec<UserStatsReport>,
 }
@@ -290,6 +319,7 @@ struct DerivedStatsReport {
   candidates: usize,
   succeeded: usize,
   failed: usize,
+  skipped: usize,
   pending: usize,
   invalid_manifest: usize,
   success_missing_content: usize,
@@ -305,6 +335,7 @@ struct UserStatsReport {
   storage: StorageStatsReport,
   items: ItemStatsReport,
   image_tagging: DerivedStatsReport,
+  geo: DerivedStatsReport,
   pdf_text_extraction: DerivedStatsReport,
 }
 
@@ -316,6 +347,7 @@ impl UserStatsReport {
       storage: StorageStatsReport::default(),
       items: ItemStatsReport::default(),
       image_tagging: DerivedStatsReport::default(),
+      geo: DerivedStatsReport::default(),
       pdf_text_extraction: DerivedStatsReport::default(),
     }
   }
@@ -332,7 +364,7 @@ async fn update_current_derived_stats(
   global.candidates += 1;
   per_user.candidates += 1;
 
-  let (manifest_path, content_path) = derived_result_paths(data_dir, user_id, item_id)?;
+  let (manifest_path, content_path) = derived_result_paths(data_dir, user_id, item_id, kind)?;
   let manifest_exists = path_exists(&manifest_path).await;
   let content_exists = path_exists(&content_path).await;
 
@@ -377,6 +409,14 @@ async fn update_current_derived_stats(
     "failed" => {
       global.failed += 1;
       per_user.failed += 1;
+      if content_exists {
+        global.failed_with_content += 1;
+        per_user.failed_with_content += 1;
+      }
+    }
+    "skipped" => {
+      global.skipped += 1;
+      per_user.skipped += 1;
       if content_exists {
         global.failed_with_content += 1;
         per_user.failed_with_content += 1;
@@ -431,7 +471,7 @@ async fn scan_orphaned_manifests(
           continue;
         }
         let file_name = file_entry.file_name().to_string_lossy().into_owned();
-        let Some(item_id) = file_name.strip_suffix("_manifest.json") else {
+        let Some(item_id) = file_name.strip_suffix(kind.manifest_suffix()) else {
           continue;
         };
 
@@ -452,6 +492,7 @@ async fn scan_orphaned_manifests(
         if let Some(user_stats) = per_user.get_mut(user_id) {
           let derived_stats = match kind {
             DerivedKind::Image => &mut user_stats.image_tagging,
+            DerivedKind::Geo => &mut user_stats.geo,
             DerivedKind::Pdf => &mut user_stats.pdf_text_extraction,
           };
           derived_stats.orphaned_manifests += 1;
@@ -474,7 +515,12 @@ async fn load_manifest_summary(path: &PathBuf) -> InfuResult<Option<DerivedManif
   }
 }
 
-fn derived_result_paths(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<(PathBuf, PathBuf)> {
+fn derived_result_paths(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+  kind: DerivedKind,
+) -> InfuResult<(PathBuf, PathBuf)> {
   if item_id.len() < 2 {
     return Err(format!("Item id '{}' is too short.", item_id).into());
   }
@@ -484,9 +530,9 @@ fn derived_result_paths(data_dir: &str, user_id: &str, item_id: &str) -> InfuRes
   dir.push(&item_id[..2]);
 
   let mut manifest_path = dir.clone();
-  manifest_path.push(format!("{}_manifest.json", item_id));
+  manifest_path.push(format!("{}{}", item_id, kind.manifest_suffix()));
   let mut content_path = dir;
-  content_path.push(format!("{}_text", item_id));
+  content_path.push(format!("{}{}", item_id, kind.content_suffix()));
   Ok((manifest_path, content_path))
 }
 
@@ -531,6 +577,10 @@ fn print_human_report(report: &StatsReport) {
   print_derived_stats(&report.image_tagging, 2);
   println!();
 
+  println!("Geo");
+  print_derived_stats(&report.geo, 2);
+  println!();
+
   println!("PDF text extraction");
   print_derived_stats(&report.pdf_text_extraction, 2);
 
@@ -551,6 +601,10 @@ fn print_human_report(report: &StatsReport) {
         user.image_tagging.failed,
         user.image_tagging.pending,
         user.image_tagging.orphaned_manifests
+      );
+      println!(
+        "    geo: succeeded={} failed={} skipped={} pending={} orphaned={}",
+        user.geo.succeeded, user.geo.failed, user.geo.skipped, user.geo.pending, user.geo.orphaned_manifests
       );
       println!(
         "    pdf extraction: succeeded={} failed={} pending={} orphaned={}",
@@ -587,6 +641,7 @@ fn print_derived_stats(stats: &DerivedStatsReport, indent: usize) {
   println!("{}candidates: {}", pad, stats.candidates);
   println!("{}succeeded: {}", pad, stats.succeeded);
   println!("{}failed: {}", pad, stats.failed);
+  println!("{}skipped: {}", pad, stats.skipped);
   println!("{}pending: {}", pad, stats.pending);
   println!("{}invalid manifests: {}", pad, stats.invalid_manifest);
   println!("{}success manifests missing content: {}", pad, stats.success_missing_content);
