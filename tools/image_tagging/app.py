@@ -85,7 +85,7 @@ Return exactly one JSON object with these keys:
 
 Rules:
 - Be literal and visually grounded. Do not guess names, exact places, or events unless strongly supported by the image.
-- If uncertain, prefer omission, null, an empty array, or a lower confidence value rather than guessing.
+- If uncertain, prefer null, an empty array or "0" rather than guessing.
 - "detailed_caption" should be 2 to 4 short sentences covering the setting, salient objects, and relationships that help search later.
 - "scene" should summarize the overall setting in a short phrase.
 - "document_confidence" should estimate whether the image mainly seems intended to preserve, share, or later read a document or text-bearing artifact; use high values only when the artifact itself is clearly the main subject and meant to be read or kept.
@@ -97,9 +97,9 @@ Rules:
 - Use 0.0 when there is no usable real face, including no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces. Ignore faces on screens, posters, photos, paintings, toys, or statues for this score.
 - "visible_face_count_estimate" should estimate how many real human faces are visibly present using exactly one of these strings: "0", "1", "2", "3-5", or "6+".
 - Count only real visible human faces in the captured scene. Do not count faces on screens, posters, photos, paintings, toys, or statues.
-- "tags" should contain 8 to 18 short lower-case tags useful for search. Use this one array to capture salient visible objects, activities, people roles, attributes, and context.
-- Prefer tags that are directly visible or strongly implied by the composition. Use abstract or higher-level context tags sparingly. Include them only when clearly supported by the image, and prefer concrete visible tags when the evidence is weak.
-- Prefer fewer precise tags over speculative, generic, or repetitive ones, and avoid near-synonyms.
+- "tags" should contain 6 to 14 short lower-case tags useful for search.
+- Prefer concrete visible tags. Add broader context only when clearly supported by the image.
+- Prefer precise, non-repetitive tags over generic or speculative ones.
 - "ocr_text" should be an array of distinct useful readable snippets, not a full transcription. Keep one snippet or sign per entry, do not merge unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
 """.strip()
 
