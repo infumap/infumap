@@ -22,7 +22,6 @@ from pydantic import BaseModel, Field
 class ImageTagResponse(BaseModel):
     detailed_caption: str | None = None
     scene: str | None = None
-    location_type: str | None = None
     document_confidence: float = 0.0
     face_recognition_candidate_confidence: float = 0.0
     visible_face_count_estimate: str | None = None

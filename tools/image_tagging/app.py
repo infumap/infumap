@@ -77,7 +77,6 @@ Analyze this image for local search indexing.
 Return exactly one JSON object with these keys:
 - "detailed_caption": string
 - "scene": string or null
-- "location_type": string or null
 - "document_confidence": number from 0.0 to 1.0
 - "face_recognition_candidate_confidence": number from 0.0 to 1.0
 - "visible_face_count_estimate": string
@@ -89,7 +88,6 @@ Rules:
 - If uncertain, prefer omission, null, an empty array, or a lower confidence value rather than guessing.
 - "detailed_caption" should be 2 to 4 short sentences covering the setting, salient objects, and relationships that help search later.
 - "scene" should summarize the overall setting in a short phrase.
-- "location_type" should capture the venue when visually clear; otherwise use a short image-type phrase if that is clearer. Keep it as a short freeform phrase, and use null if neither is clear.
 - "document_confidence" should estimate whether the image seems mainly intended to preserve, share, or later read the contents of a document or text-bearing artifact.
 - Use high values only when the composition strongly suggests the artifact itself is the main subject and the viewer is meant to read or keep its contents.
 - Use low values for ordinary scene photos, aesthetic compositions, desk or room setups, portraits, or environmental shots where a paper, screen, sign, laptop, or other text-bearing object is merely present or even prominent but is not obviously being captured for its readable content.
@@ -101,9 +99,8 @@ Rules:
 - "visible_face_count_estimate" should estimate how many real human faces are visibly present using exactly one of these strings: "0", "1", "2", "3-5", or "6+".
 - Count only real visible human faces in the captured scene. Do not count faces on screens, posters, photos, paintings, toys, or statues.
 - "tags" should contain 8 to 18 short lower-case tags useful for search. Use this one array to capture salient visible objects, activities, people roles, attributes, and context.
-- Prefer tags that are directly visible or strongly implied by the composition.
+- Prefer tags that are directly visible or strongly implied by the composition. Use abstract or higher-level context tags sparingly. Include them only when clearly supported by the image, and prefer concrete visible tags when the evidence is weak.
 - Prefer fewer precise tags over speculative, generic, or repetitive ones, and avoid near-synonyms.
-- Avoid redundant tags that merely repeat the caption, "scene", or "location_type" verbatim unless they add clear search value.
 - "ocr_text" should be an array of distinct useful readable snippets, not a full transcription. Keep one snippet or sign per entry, do not merge unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
 """.strip()
 
@@ -994,7 +991,6 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         tags = normalize_labels(coerce_string_list(parsed.get("tags"), limit=24))
         ocr_text = normalize_visible_text(parsed.get("ocr_text"), max_chars=VISIBLE_TEXT_MAX_CHARS)
         scene = coerce_optional_string(parsed.get("scene"))
-        location_type = coerce_optional_string(parsed.get("location_type"))
 
         duration_ms = int((time.perf_counter() - request_started_at) * 1000)
         prepared_size_bytes = len(prepared_bytes)
@@ -1017,7 +1013,6 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         return ImageTagResponse(
             detailed_caption=detailed_caption,
             scene=scene,
-            location_type=location_type,
             document_confidence=max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0)),
             face_recognition_candidate_confidence=max(
                 0.0,

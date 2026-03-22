@@ -122,7 +122,6 @@ enum TagOutcome {
 struct ImageTagArtifact {
   detailed_caption: Option<String>,
   scene: Option<String>,
-  location_type: Option<String>,
   document_confidence: f64,
   face_recognition_candidate_confidence: f64,
   visible_face_count_estimate: Option<String>,
@@ -141,11 +140,11 @@ impl ImageTagArtifact {
       _ => return ImageTagArtifact::default(),
     };
     let _ = map.remove("image_metadata");
+    let _ = map.remove("location_type");
 
     ImageTagArtifact {
       detailed_caption: take_optional_string(&mut map, "detailed_caption"),
       scene: take_optional_string(&mut map, "scene"),
-      location_type: take_optional_string(&mut map, "location_type"),
       document_confidence: take_f64(&mut map, "document_confidence"),
       face_recognition_candidate_confidence: take_f64(&mut map, "face_recognition_candidate_confidence"),
       visible_face_count_estimate: take_optional_string(&mut map, "visible_face_count_estimate"),
