@@ -172,6 +172,7 @@ Options:
 - **--service-url (optional):** Override the configured `image_tagging_url` for this process.
 - **--delay-secs (optional):** Sleep for this many seconds after each image tagging request in this process. Defaults to `0`.
 - **--item-id (optional):** Tag only this item. The item must have a supported image MIME type. Existing image-tag artifacts are overwritten.
+- **--test (optional):** Read saved image embeddings for supported images, use this item as the query, and print the top 10 closest items by cosine similarity. Does not contact the image-tagging service.
 - **--container-id (optional):** Tag only supported images within this container subtree, then exit after the finite batch completes. By default, items with existing image-tag artifacts are skipped.
 - **--overwrite (optional):** When used with `--container-id`, reprocess items even if image-tag artifacts already exist. `--item-id` always overwrites.
 - **--list-failed (optional):** List supported images for which image tagging previously failed, then exit. When combined with `--container-id`, only failures within that subtree are shown.

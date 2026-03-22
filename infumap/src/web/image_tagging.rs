@@ -234,11 +234,7 @@ fn value_as_f32_list(value: Value) -> Vec<f32> {
     other => vec![other],
   };
 
-  raw_values
-    .into_iter()
-    .filter_map(value_as_f64)
-    .map(|value| value as f32)
-    .collect()
+  raw_values.into_iter().filter_map(value_as_f64).map(|value| value as f32).collect()
 }
 
 struct RefillResult {
