@@ -41,6 +41,7 @@ use crate::storage::db::Db;
 use crate::storage::object;
 use crate::util::fs::expand_tilde;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
+use crate::web::image_tagging::is_supported_image_tagging_mime_type;
 use crate::web::serve::{cors_response, full_body, internal_server_error_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 
@@ -59,6 +60,7 @@ const LABEL_MISS_CREATE: &'static str = "miss";
 const LABEL_FULL: &'static str = "full";
 const LABEL_FAILED: &'static str = "failed";
 const TEXT_NOT_AVAILABLE_MESSAGE: &str = "[text not available]";
+const GEO_INFO_NOT_AVAILABLE_MESSAGE: &str = "[geo info not available]";
 
 // 90 => very high-quality with significant reduction in file size.
 // 80 => almost no loss of quality.
@@ -491,14 +493,26 @@ async fn get_item_text(
   }
 
   let text_path = item_text_path(&data_dir, &item.owner_id, uid)?;
-  let data = match fs::read(&text_path).await {
+  let text_data = match fs::read(&text_path).await {
     Ok(bytes) => bytes,
     Err(_) => return Ok(text_not_available_response()),
   };
 
-  let filename = item_text_filename(uid, &manifest.content_mime_type);
+  let (data, response_mime_type) = if manifest.content_mime_type == "application/json"
+    && is_supported_image_tagging_mime_type(item.mime_type.as_deref())
+  {
+    let geo_data = match fs::read(item_geo_path(&data_dir, &item.owner_id, uid)?).await {
+      Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+      Err(_) => GEO_INFO_NOT_AVAILABLE_MESSAGE.to_owned(),
+    };
+    (format!("{}\n\n{}", String::from_utf8_lossy(&text_data), geo_data).into_bytes(), "text/plain".to_owned())
+  } else {
+    (text_data, manifest.content_mime_type.clone())
+  };
+
+  let filename = item_text_filename(uid, &response_mime_type);
   let (content_type, content_disposition) =
-    response_content_headers_for_generated_item_text(&filename, &manifest.content_mime_type);
+    response_content_headers_for_generated_item_text(&filename, &response_mime_type);
 
   Ok(
     Response::builder()
@@ -530,6 +544,12 @@ fn item_text_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> Infu
 fn item_text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   let mut path = item_text_shard_dir(data_dir, user_id, item_id)?;
   path.push(format!("{}_text", item_id));
+  Ok(path)
+}
+
+fn item_geo_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = item_text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_geo.json", item_id));
   Ok(path)
 }
 

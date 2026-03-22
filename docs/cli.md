@@ -190,6 +190,24 @@ Options:
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--item-id (optional):** Build fragments only for this item.
 
+### geo
+
+Reverse geocode GPS-tagged supported images without starting the web server.
+
+This command looks for supported image items that already have saved image-tag output in the local `text` artifact directory. When the saved image-tag JSON includes `image_metadata.gps_latitude` and `image_metadata.gps_longitude`, Infumap calls a reverse-geocoding service and stores the full JSON response beside the image-tag artifact as `<item_id>_geo.json`, along with a separate `<item_id>_geo_manifest.json`.
+
+By default, the command targets the Geoapify reverse-geocoding API and expects an API key via `--api-key` or `INFUMAP_GEOAPIFY_API_KEY`.
+
+Options:
+
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **--api-key (optional):** Geoapify API key. Defaults to `INFUMAP_GEOAPIFY_API_KEY`.
+- **--service-url (optional):** Override the reverse-geocoding service URL. Defaults to Geoapify's reverse endpoint.
+- **--item-id (optional):** Reverse geocode only this supported image item. Existing geo artifacts are overwritten. The command exits after processing the one item.
+- **--overwrite (optional):** Reprocess items even if geo artifacts already exist. `--item-id` always overwrites.
+- **--max-requests (optional):** Maximum number of external reverse-geocoding API requests to send in this run. Reused in-memory cache hits do not count toward the limit.
+- **--delay-secs (optional):** Sleep for this many seconds after each external reverse-geocoding request. Defaults to `0`.
+
 ### stats
 
 Show comprehensive local instance statistics without starting the web server.
