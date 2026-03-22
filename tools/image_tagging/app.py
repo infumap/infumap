@@ -86,9 +86,10 @@ Return exactly one JSON object with these keys:
 
 Rules:
 - Be literal and visually grounded. Do not guess names, exact places, or events unless strongly supported by the image.
+- If uncertain, prefer omission, null, an empty array, or a lower confidence value rather than guessing.
 - "detailed_caption" should be 2 to 4 short sentences covering the setting, salient objects, and relationships that help search later.
 - "scene" should summarize the overall setting in a short phrase.
-- "location_type" should capture the venue or image type when visible. Keep it as a short freeform phrase; do not force it into a fixed vocabulary.
+- "location_type" should capture the venue when visually clear; otherwise use a short image-type phrase if that is clearer. Keep it as a short freeform phrase, and use null if neither is clear.
 - "document_confidence" should estimate whether the image seems mainly intended to preserve, share, or later read the contents of a document or text-bearing artifact.
 - Use high values only when the composition strongly suggests the artifact itself is the main subject and the viewer is meant to read or keep its contents.
 - Use low values for ordinary scene photos, aesthetic compositions, desk or room setups, portraits, or environmental shots where a paper, screen, sign, laptop, or other text-bearing object is merely present or even prominent but is not obviously being captured for its readable content.
@@ -99,7 +100,9 @@ Rules:
 - Printed or on-screen faces do not count unless real faces are also visible in the same image.
 - "visible_face_count_estimate" should estimate how many real human faces are visibly present using exactly one of these strings: "0", "1", "2", "3-5", or "6+".
 - Count only real visible human faces in the captured scene. Do not count faces on screens, posters, photos, paintings, toys, or statues.
-- "tags" should contain 10 to 24 short lower-case tags useful for search. Use this one array to capture salient visible objects, activities, people roles, attributes, and context.
+- "tags" should contain 8 to 18 short lower-case tags useful for search. Use this one array to capture salient visible objects, activities, people roles, attributes, and context.
+- Prefer tags that are directly visible or strongly implied by the composition.
+- Prefer fewer precise tags over speculative, generic, or repetitive ones, and avoid near-synonyms.
 - Avoid redundant tags that merely repeat the caption, "scene", or "location_type" verbatim unless they add clear search value.
 - "ocr_text" should be an array of distinct useful readable snippets, not a full transcription. Keep one snippet or sign per entry, do not merge unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
 """.strip()
