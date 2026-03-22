@@ -36,6 +36,7 @@ use crate::config::{CONFIG_DATA_DIR, CONFIG_IMAGE_TAGGING_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
+use crate::util::image::{ImageMetadata, extract_image_metadata};
 use crate::util::retry::endpoint_retry_delay;
 
 const IDLE_POLL_SECS: u64 = 60;
@@ -125,6 +126,8 @@ struct ImageTagArtifact {
   visible_face_count_estimate: Option<String>,
   tags: Vec<String>,
   ocr_text: Vec<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  image_metadata: Option<ImageMetadata>,
   #[serde(flatten)]
   extra: BTreeMap<String, Value>,
 }
@@ -135,6 +138,7 @@ impl ImageTagArtifact {
       Value::Object(map) => map,
       _ => return ImageTagArtifact::default(),
     };
+    let _ = map.remove("image_metadata");
 
     ImageTagArtifact {
       detailed_caption: take_optional_string(&mut map, "detailed_caption"),
@@ -145,6 +149,7 @@ impl ImageTagArtifact {
       visible_face_count_estimate: take_optional_string(&mut map, "visible_face_count_estimate"),
       tags: take_string_list(&mut map, "tags"),
       ocr_text: take_string_list(&mut map, "ocr_text"),
+      image_metadata: None,
       extra: map.into_iter().collect(),
     }
   }
@@ -462,7 +467,8 @@ pub(crate) async fn process_loaded_image_tagging(
     return Err(format!("Item '{}' was deleted or replaced while tagging was in progress.", candidate.item_id).into());
   }
   match outcome {
-    TagOutcome::Success(tag_data, duration_ms) => {
+    TagOutcome::Success(mut tag_data, duration_ms) => {
+      tag_data.image_metadata = extract_image_metadata(&file_bytes);
       write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms).await?;
       info!("Tagged image '{}' (user {}).", candidate.item_id, candidate.user_id);
     }
