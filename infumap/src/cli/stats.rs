@@ -245,8 +245,6 @@ struct ItemStatsReport {
   image_items: usize,
   supported_image_items: usize,
   pdf_items: usize,
-  data_items_missing_mime_type: usize,
-  data_items_missing_file_size: usize,
   declared_data_bytes: u64,
   declared_supported_image_bytes: u64,
   declared_pdf_bytes: u64,
@@ -261,10 +259,6 @@ impl ItemStatsReport {
     }
     if is_data_item_type(item.item_type) {
       self.data_items += 1;
-      match item.mime_type.as_deref() {
-        Some(_) => {}
-        None => self.data_items_missing_mime_type += 1,
-      }
       match item.file_size_bytes {
         Some(size_bytes) if size_bytes >= 0 => {
           self.declared_data_bytes += size_bytes as u64;
@@ -275,9 +269,7 @@ impl ItemStatsReport {
             self.declared_pdf_bytes += size_bytes as u64;
           }
         }
-        _ => {
-          self.data_items_missing_file_size += 1;
-        }
+        _ => {}
       }
     }
     if item.item_type == ItemType::Image {
@@ -374,7 +366,7 @@ async fn update_current_derived_stats(
   }
 
   match manifest.status.as_str() {
-    "success" => {
+    "succeeded" => {
       global.succeeded += 1;
       per_user.succeeded += 1;
       if !content_exists {
@@ -579,8 +571,6 @@ fn print_item_stats(stats: &ItemStatsReport, include_by_type: bool, indent: usiz
   println!("{}image items: {}", pad, stats.image_items);
   println!("{}supported images: {}", pad, stats.supported_image_items);
   println!("{}pdfs: {}", pad, stats.pdf_items);
-  println!("{}data items missing mime type: {}", pad, stats.data_items_missing_mime_type);
-  println!("{}data items missing file size: {}", pad, stats.data_items_missing_file_size);
   println!("{}declared data bytes: {}", pad, format_bytes(stats.declared_data_bytes));
   println!("{}declared supported image bytes: {}", pad, format_bytes(stats.declared_supported_image_bytes));
   println!("{}declared pdf bytes: {}", pad, format_bytes(stats.declared_pdf_bytes));
