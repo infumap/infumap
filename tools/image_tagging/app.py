@@ -99,7 +99,7 @@ Rules:
 - "tags" should contain 6 to 14 short lower-case tags useful for search. Fewer is better than adding weak tags.
 - Prefer concrete visible tags. Add broader context only when clearly supported by the image.
 - Prefer precise, non-repetitive tags over generic or speculative ones.
-- "ocr_text" should be an array of distinct useful readable snippets, not a full transcription. Keep one snippet or sign per entry, do not merge unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
+- "ocr_text" should be an array of distinct readable snippets, not a full transcription. Keep one snippet per sign or text region, separate unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
 """.strip()
 
 class ImageRejectedError(Exception):
