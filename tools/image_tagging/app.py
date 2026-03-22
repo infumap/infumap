@@ -88,14 +88,13 @@ Rules:
 - If uncertain, prefer omission, null, an empty array, or a lower confidence value rather than guessing.
 - "detailed_caption" should be 2 to 4 short sentences covering the setting, salient objects, and relationships that help search later.
 - "scene" should summarize the overall setting in a short phrase.
-- "document_confidence" should estimate whether the image seems mainly intended to preserve, share, or later read the contents of a document or text-bearing artifact.
-- Use high values only when the composition strongly suggests the artifact itself is the main subject and the viewer is meant to read or keep its contents.
+- "document_confidence" should estimate whether the image mainly seems intended to preserve, share, or later read a document or text-bearing artifact; use high values only when the artifact itself is clearly the main subject and meant to be read or kept.
+- Use around 0.5 for borderline cases where a document, screen, sign, page, or label is prominent and partly readable, but it is unclear whether reading or preserving its contents is the main purpose of the image.
 - Use low values for ordinary scene photos, aesthetic compositions, desk or room setups, portraits, or environmental shots where a paper, screen, sign, laptop, or other text-bearing object is merely present or even prominent but is not obviously being captured for its readable content.
-- "face_recognition_candidate_confidence" should estimate whether the image is appropriate for downstream real-person face matching across photos.
-- Use 1.0 for obvious strong positives such as portraits, selfies, posed two-person photos, or clear group photos where at least one real human face is near-frontal, sharp, and large enough that you would definitely send the image to a face-matching system.
-- Use 0.8 to 0.95 for usable but imperfect cases such as moderately sized faces, slight angle, mild blur, or partial occlusion.
-- Use 0.0 when there is no usable real face at all, including no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces.
-- Printed or on-screen faces do not count unless real faces are also visible in the same image.
+- "face_recognition_candidate_confidence" should estimate whether the image is suitable for downstream real-person face matching across photos.
+- Use 1.0 for clear strong positives such as portraits, selfies, posed two-person photos, or clear group photos where at least one real human face is near-frontal, sharp, and large enough to confidently send to face matching; use 0.8 to 0.95 for usable but imperfect cases such as moderately sized faces, slight angle, mild blur, or partial occlusion.
+- Use around 0.5 for borderline cases where a real face is present and may be usable, but is not clearly strong enough to confidently send to face matching.
+- Use 0.0 when there is no usable real face, including no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces. Ignore faces on screens, posters, photos, paintings, toys, or statues for this score.
 - "visible_face_count_estimate" should estimate how many real human faces are visibly present using exactly one of these strings: "0", "1", "2", "3-5", or "6+".
 - Count only real visible human faces in the captured scene. Do not count faces on screens, posters, photos, paintings, toys, or statues.
 - "tags" should contain 8 to 18 short lower-case tags useful for search. Use this one array to capture salient visible objects, activities, people roles, attributes, and context.
