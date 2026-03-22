@@ -587,6 +587,7 @@ async fn run_image_tagging_loop(
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<TaggingProgress>>,
 ) {
+  let started_at = Instant::now();
   let mut next_prefetch = Some(spawn_image_prefetch(
     data_dir.clone(),
     image_tagging_url.clone(),
@@ -647,25 +648,25 @@ async fn run_image_tagging_loop(
 
     match result {
       Ok(()) => {
-        let progress_summary = {
+        let (progress_summary, throughput_suffix) = {
           let mut progress = progress.lock().await;
           progress.on_success();
-          progress.summary()
+          (progress.summary(), average_throughput_suffix(&started_at, progress.processed))
         };
         info!(
-          "Image '{}' (user {}): tagged successfully. {} remaining. {}",
-          item_id, user_id, queue_remaining, progress_summary
+          "Image '{}' (user {}): tagged successfully. {} remaining. {}.{}",
+          item_id, user_id, queue_remaining, progress_summary, throughput_suffix
         );
       }
       Err(e) => {
-        let progress_summary = {
+        let (progress_summary, throughput_suffix) = {
           let mut progress = progress.lock().await;
           progress.on_other_failed();
-          progress.summary()
+          (progress.summary(), average_throughput_suffix(&started_at, progress.processed))
         };
         info!(
-          "Image '{}' (user {}): tagging failed: {}. {} remaining. {}",
-          item_id, user_id, e, queue_remaining, progress_summary
+          "Image '{}' (user {}): tagging failed: {}. {} remaining. {}.{}",
+          item_id, user_id, e, queue_remaining, progress_summary, throughput_suffix
         );
       }
     }
@@ -915,6 +916,16 @@ fn format_duration_for_log(duration: Duration) -> String {
     return if secs == 1 { "1 second".to_owned() } else { format!("{} seconds", secs) };
   }
   format!("{:.3} seconds", duration.as_secs_f64())
+}
+
+fn average_throughput_suffix(started_at: &Instant, completed_requests: u64) -> String {
+  if completed_requests == 0 {
+    return String::new();
+  }
+
+  let elapsed_secs = started_at.elapsed().as_secs_f64().max(0.001);
+  let per_minute = (completed_requests as f64) * 60.0 / elapsed_secs;
+  format!(" avg_throughput={:.2} images/min", per_minute)
 }
 
 async fn request_image_tagging_with_retries(

@@ -18,7 +18,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use config::Config;
@@ -302,6 +302,24 @@ struct BatchUiText {
   action_infinitive: &'static str,
   action_past: &'static str,
   artifact_label: &'static str,
+  throughput_unit_label: Option<&'static str>,
+}
+
+fn average_throughput_suffix(
+  started_at: &Instant,
+  completed_requests: usize,
+  throughput_unit_label: Option<&str>,
+) -> String {
+  let Some(unit_label) = throughput_unit_label else {
+    return String::new();
+  };
+  if completed_requests == 0 {
+    return String::new();
+  }
+
+  let elapsed_secs = started_at.elapsed().as_secs_f64().max(0.001);
+  let per_minute = (completed_requests as f64) * 60.0 / elapsed_secs;
+  format!(" avg_throughput={:.2} {}", per_minute, unit_label)
 }
 
 #[derive(Clone, Copy)]
@@ -449,6 +467,7 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
         action_infinitive: "extract",
         action_past: "extracted",
         artifact_label: "extraction artifacts",
+        throughput_unit_label: None,
       },
       load_pdf_for_extraction_boxed,
       process_loaded_pdf_extraction_boxed,
@@ -567,6 +586,7 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
         action_infinitive: "tag",
         action_past: "tagged",
         artifact_label: "image-tag artifacts",
+        throughput_unit_label: Some("images/min"),
       },
       load_image_for_tagging_boxed,
       process_loaded_image_tagging_boxed,
@@ -986,6 +1006,7 @@ where
   }
 
   let scheduled_items = item_ids.len();
+  let started_at = Instant::now();
   info!(
     "Starting container-scoped {} for container '{}' using '{}' with pipelined source-object prefetch and delay {:.3}s. Scheduled {}: {} (existing skipped: {}, total discovered: {}).",
     ui_text.action_name,
@@ -1042,25 +1063,31 @@ where
       Ok(()) => {
         progress.processed += 1;
         progress.succeeded += 1;
+        let throughput_suffix =
+          average_throughput_suffix(&started_at, progress.processed, ui_text.throughput_unit_label);
         info!(
-          "Container-scoped {}: {} '{}' successfully ({}/{}).",
+          "Container-scoped {}: {} '{}' successfully ({}/{}).{}",
           ui_text.action_name,
           ui_text.action_past,
           item_id,
           progress.processed,
-          scheduled_items
+          scheduled_items,
+          throughput_suffix
         );
       }
       Err(e) => {
         progress.processed += 1;
         progress.failed += 1;
+        let throughput_suffix =
+          average_throughput_suffix(&started_at, progress.processed, ui_text.throughput_unit_label);
         info!(
-          "Container-scoped {}: failed for '{}' ({}/{}): {}",
+          "Container-scoped {}: failed for '{}' ({}/{}): {}.{}",
           ui_text.action_name,
           item_id,
           progress.processed,
           scheduled_items,
-          e
+          e,
+          throughput_suffix
         );
       }
     }
