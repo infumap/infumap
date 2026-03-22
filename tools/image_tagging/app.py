@@ -97,7 +97,7 @@ Rules:
 - Use 0.0 when there is no usable real face, including no people, body-only shots, back-of-head views, tiny distant faces, heavy blur, strong occlusion, or non-human faces. Ignore faces on screens, posters, photos, paintings, toys, or statues for this score.
 - "visible_face_count_estimate" should estimate how many real human faces are visibly present using exactly one of these strings: "0", "1", "2", "3-5", or "6+".
 - Count only real visible human faces in the captured scene. Do not count faces on screens, posters, photos, paintings, toys, or statues.
-- "tags" should contain 6 to 14 short lower-case tags useful for search.
+- "tags" should contain 6 to 14 short lower-case tags useful for search. Fewer is better than adding weak tags.
 - Prefer concrete visible tags. Add broader context only when clearly supported by the image.
 - Prefer precise, non-repetitive tags over generic or speculative ones.
 - "ocr_text" should be an array of distinct useful readable snippets, not a full transcription. Keep one snippet or sign per entry, do not merge unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
