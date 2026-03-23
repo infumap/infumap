@@ -17,32 +17,25 @@
 from __future__ import annotations
 
 import asyncio
-import ctypes
 import logging
 import os
 import platform
+import tempfile
 import time
-from contextlib import asynccontextmanager, contextmanager
-from typing import List
+from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from ftfy import fix_text
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
 
 from marker.config.parser import ConfigParser
-from marker.builders.document import DocumentBuilder
-from marker.builders.line import LineBuilder
-from marker.builders.ocr import OcrBuilder
-from marker.builders.structure import StructureBuilder
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
-from marker.providers.pdf import PdfProvider, ProviderOutput, PolygonBox, get_block_class, BlockTypes
 
 APP_STATE: dict[str, Any] = {}
 LOGGER = logging.getLogger("uvicorn.error")
@@ -50,12 +43,6 @@ CONVERT_SEMAPHORE: asyncio.Semaphore | None = None
 GPU_REQUEST_CONCURRENCY = 1
 PDFTEXT_WORKERS = 1
 DEFAULT_MAX_UPLOAD_BYTES = 128 * 1024 * 1024
-LIBC = ctypes.CDLL(None, use_errno=True)
-SYS_MEMFD_CREATE_BY_ARCH = {
-    "x86_64": 319,
-    "aarch64": 279,
-    "arm64": 279,
-}
 
 
 class DocumentRejectedError(Exception):
@@ -106,8 +93,6 @@ def build_runtime_summary() -> list[str]:
         f"pdftext_workers={PDFTEXT_WORKERS}",
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
         f"max_upload_bytes={max_upload_bytes()}",
-        f"memfd_supported={memfd_supported()}",
-        f"o_tmpfile_supported={o_tmpfile_supported()}",
     ]
 
     try:
@@ -267,95 +252,6 @@ def max_upload_bytes() -> int:
     return max(1, env_int("TEXT_EXTRACTION_MAX_UPLOAD_BYTES", DEFAULT_MAX_UPLOAD_BYTES))
 
 
-def raw_memfd_supported() -> bool:
-    return hasattr(LIBC, "memfd_create") or platform.machine().lower() in SYS_MEMFD_CREATE_BY_ARCH
-
-
-def memfd_supported() -> bool:
-    return hasattr(os, "memfd_create") or raw_memfd_supported()
-
-
-def o_tmpfile_supported() -> bool:
-    return getattr(os, "O_TMPFILE", None) is not None and Path("/dev/shm").is_dir()
-
-
-def create_memfd(file_name: str) -> int:
-    safe_name = (Path(file_name or "upload").stem or "upload")[:32]
-    flags = getattr(os, "MFD_CLOEXEC", 0)
-    name = f"infumap-pdf-{safe_name}-{os.getpid()}"
-
-    if hasattr(os, "memfd_create"):
-        return os.memfd_create(name, flags)
-
-    encoded_name = name.encode("utf-8", errors="ignore")
-    if hasattr(LIBC, "memfd_create"):
-        fd = LIBC.memfd_create(ctypes.c_char_p(encoded_name), ctypes.c_uint(flags))
-        if fd >= 0:
-            return fd
-        errno_value = ctypes.get_errno()
-        raise OSError(errno_value, os.strerror(errno_value))
-
-    syscall_nr = SYS_MEMFD_CREATE_BY_ARCH.get(platform.machine().lower())
-    if syscall_nr is None:
-        raise OSError(None, f"memfd_create syscall number is unknown for architecture '{platform.machine()}'.")
-    fd = LIBC.syscall(ctypes.c_long(syscall_nr), ctypes.c_char_p(encoded_name), ctypes.c_uint(flags))
-    if fd >= 0:
-        return int(fd)
-    errno_value = ctypes.get_errno()
-    raise OSError(errno_value, os.strerror(errno_value))
-
-
-def create_o_tmpfile_fd() -> int:
-    flags = getattr(os, "O_TMPFILE", None)
-    if flags is None:
-        raise OSError(None, "O_TMPFILE is not available in this Python runtime.")
-    return os.open("/dev/shm", os.O_RDWR | flags, 0o600)
-
-
-def fd_path_candidates(fd: int) -> list[str]:
-    pid = os.getpid()
-    return [
-        f"/proc/self/fd/{fd}",
-        f"/proc/{pid}/fd/{fd}",
-        f"/dev/fd/{fd}",
-    ]
-
-
-def resolve_fd_path(fd: int) -> str:
-    for candidate in fd_path_candidates(fd):
-        try:
-            with open(candidate, "rb") as handle:
-                handle.read(0)
-            return candidate
-        except OSError:
-            continue
-    raise RuntimeError(
-        "Anonymous in-memory files are available, but this platform does not expose a usable "
-        "file-descriptor path for Marker. Tried: "
-        + ", ".join(fd_path_candidates(fd))
-    )
-
-
-def create_anonymous_pdf_fd(file_name: str) -> tuple[int, str]:
-    errors: list[str] = []
-
-    try:
-        return create_memfd(file_name), "memfd"
-    except OSError as exc:
-        errors.append(f"memfd: {exc}")
-
-    try:
-        return create_o_tmpfile_fd(), "o_tmpfile:/dev/shm"
-    except OSError as exc:
-        errors.append(f"o_tmpfile: {exc}")
-
-    raise RuntimeError(
-        "Could not create an anonymous temporary file for Marker without using a named disk file. "
-        + "Tried "
-        + "; ".join(errors)
-    )
-
-
 def decode_header_value(value: bytes | str | None) -> str | None:
     if value is None:
         return None
@@ -387,158 +283,11 @@ def classify_document_rejection(exc: Exception) -> str | None:
     return None
 
 
-class InMemoryPdfProvider(PdfProvider):
-    def __init__(self, file_bytes: bytes, file_name: str, config=None):
-        self.file_bytes = file_bytes
-        self.in_memory_name = file_name
-        super().__init__(file_name, config)
-
-    @contextmanager
-    def get_doc(self):
-        doc = None
-        try:
-            import pypdfium2 as pdfium
-
-            doc = pdfium.PdfDocument(self.file_bytes)
-            if self.flatten_pdf:
-                doc.init_forms()
-            yield doc
-        finally:
-            if doc:
-                doc.close()
-
-    def pdftext_extraction(self, doc):
-        from pdftext.extraction import dictionary_output
-
-        page_lines = {}
-        page_char_blocks = dictionary_output(
-            self.file_bytes,
-            page_range=self.page_range,
-            keep_chars=self.keep_chars,
-            workers=self.pdftext_workers,
-            flatten_pdf=self.flatten_pdf,
-            quote_loosebox=False,
-            disable_links=self.disable_links,
-        )
-        self.page_bboxes = {
-            page_id: [0, 0, page["width"], page["height"]]
-            for page_id, page in zip(self.page_range, page_char_blocks)
-        }
-        SpanClass = get_block_class(BlockTypes.Span)
-        LineClass = get_block_class(BlockTypes.Line)
-        CharClass = get_block_class(BlockTypes.Char)
-
-        for page in page_char_blocks:
-            page_id = page["page"]
-            lines: List[ProviderOutput] = []
-            if not self.check_page(page_id, doc):
-                continue
-            for block in page["blocks"]:
-                for line in block["lines"]:
-                    spans = []
-                    chars = []
-                    for span in line["spans"]:
-                        if not span["text"]:
-                            continue
-                        font_formats = self.font_flags_to_format(span["font"]["flags"]).union(
-                            self.font_names_to_format(span["font"]["name"])
-                        )
-                        font_name = span["font"]["name"] or "Unknown"
-                        font_weight = span["font"]["weight"] or 0
-                        font_size = span["font"]["size"] or 0
-                        polygon = PolygonBox.from_bbox(span["bbox"], ensure_nonzero_area=True)
-                        superscript = span.get("superscript", False)
-                        subscript = span.get("subscript", False)
-                        text = self.normalize_spaces(fix_text(span["text"]))
-                        if superscript or subscript:
-                            text = text.strip()
-                        spans.append(
-                            SpanClass(
-                                polygon=polygon,
-                                text=text,
-                                font=font_name,
-                                font_weight=font_weight,
-                                font_size=font_size,
-                                minimum_position=span["char_start_idx"],
-                                maximum_position=span["char_end_idx"],
-                                formats=list(font_formats),
-                                page_id=page_id,
-                                text_extraction_method="pdftext",
-                                url=span.get("url"),
-                                has_superscript=superscript,
-                                has_subscript=subscript,
-                            )
-                        )
-                        if self.keep_chars:
-                            span_chars = [
-                                CharClass(
-                                    text=char["char"],
-                                    polygon=PolygonBox.from_bbox(char["bbox"], ensure_nonzero_area=True),
-                                    idx=char["char_idx"],
-                                )
-                                for char in span["chars"]
-                            ]
-                            chars.append(span_chars)
-                        else:
-                            chars.append([])
-                    polygon = PolygonBox.from_bbox(line["bbox"], ensure_nonzero_area=True)
-                    assert len(spans) == len(chars), (
-                        f"Spans and chars length mismatch on page {page_id}: {len(spans)} spans, {len(chars)} chars"
-                    )
-                    lines.append(
-                        ProviderOutput(
-                            line=LineClass(polygon=polygon, page_id=page_id),
-                            spans=spans,
-                            chars=chars,
-                        )
-                    )
-            if self.check_line_spans(lines):
-                page_lines[page_id] = lines
-            self.page_refs[page_id] = []
-            if page_refs := page.get("refs", None):
-                self.page_refs[page_id] = page_refs
-
-        return page_lines
-
-
-class InMemoryPdfConverter(PdfConverter):
-    def build_document_from_bytes(self, file_bytes: bytes, file_name: str):
-        layout_builder = self.resolve_dependencies(self.layout_builder_class)
-        line_builder = self.resolve_dependencies(LineBuilder)
-        ocr_builder = self.resolve_dependencies(OcrBuilder)
-        provider = InMemoryPdfProvider(file_bytes, file_name, self.config)
-        document = DocumentBuilder(self.config)(
-            provider,
-            layout_builder,
-            line_builder,
-            ocr_builder,
-        )
-        structure_builder_cls = self.resolve_dependencies(StructureBuilder)
-        structure_builder_cls(document)
-        for processor in self.processor_list:
-            processor(document)
-        return document
-
-    def convert_bytes(self, file_bytes: bytes, file_name: str):
-        document = self.build_document_from_bytes(file_bytes, file_name)
-        self.page_count = len(document.pages)
-        renderer = self.resolve_dependencies(self.renderer)
-        return renderer(document)
-
-
-@contextmanager
-def open_in_memory_pdf_path(file_name: str, file_bytes: bytes):
-    fd, strategy = create_anonymous_pdf_fd(file_name)
-    try:
-        remaining = memoryview(file_bytes)
-        while remaining:
-            written = os.write(fd, remaining)
-            remaining = remaining[written:]
-        file_path = resolve_fd_path(fd)
-        LOGGER.debug("Using anonymous PDF path strategy=%s path=%s", strategy, file_path)
-        yield file_path
-    finally:
-        os.close(fd)
+def store_upload_bytes(file_bytes: bytes, file_name: str) -> str:
+    suffix = "".join(Path(file_name or "upload").suffixes) or ".bin"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as handle:
+        handle.write(file_bytes)
+        return handle.name
 
 
 def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
@@ -546,16 +295,17 @@ def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
     file_size_bytes = len(file_bytes)
     LOGGER.info("Starting conversion: file=%s size_bytes=%d", file_name, file_size_bytes)
     reset_torch_cuda_peak_memory()
+    temp_path = store_upload_bytes(file_bytes, file_name)
     try:
         config_parser = ConfigParser(build_config())
-        converter = InMemoryPdfConverter(
+        converter = PdfConverter(
             config=config_parser.generate_config_dict(),
             artifact_dict=APP_STATE["models"],
             processor_list=config_parser.get_processors(),
             renderer=config_parser.get_renderer(),
             llm_service=config_parser.get_llm_service(),
         )
-        rendered = converter.convert_bytes(file_bytes, file_name)
+        rendered = converter(temp_path)
         markdown, _, _ = text_from_rendered(rendered)
         metadata = metadata_to_dict(rendered.metadata)
         duration_ms = int((time.perf_counter() - started_at) * 1000)
@@ -604,6 +354,7 @@ def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
         )
         raise exc
     finally:
+        Path(temp_path).unlink(missing_ok=True)
         clear_torch_cuda_cache()
 
 
