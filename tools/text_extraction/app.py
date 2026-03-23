@@ -23,19 +23,26 @@ import os
 import platform
 import time
 from contextlib import asynccontextmanager, contextmanager
+from typing import List
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from ftfy import fix_text
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
 
 from marker.config.parser import ConfigParser
+from marker.builders.document import DocumentBuilder
+from marker.builders.line import LineBuilder
+from marker.builders.ocr import OcrBuilder
+from marker.builders.structure import StructureBuilder
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
+from marker.providers.pdf import PdfProvider, ProviderOutput, PolygonBox, get_block_class, BlockTypes
 
 APP_STATE: dict[str, Any] = {}
 LOGGER = logging.getLogger("uvicorn.error")
@@ -380,6 +387,145 @@ def classify_document_rejection(exc: Exception) -> str | None:
     return None
 
 
+class InMemoryPdfProvider(PdfProvider):
+    def __init__(self, file_bytes: bytes, file_name: str, config=None):
+        self.file_bytes = file_bytes
+        self.in_memory_name = file_name
+        super().__init__(file_name, config)
+
+    @contextmanager
+    def get_doc(self):
+        doc = None
+        try:
+            import pypdfium2 as pdfium
+
+            doc = pdfium.PdfDocument(self.file_bytes)
+            if self.flatten_pdf:
+                doc.init_forms()
+            yield doc
+        finally:
+            if doc:
+                doc.close()
+
+    def pdftext_extraction(self, doc):
+        from pdftext.extraction import dictionary_output
+
+        page_lines = {}
+        page_char_blocks = dictionary_output(
+            self.file_bytes,
+            page_range=self.page_range,
+            keep_chars=self.keep_chars,
+            workers=self.pdftext_workers,
+            flatten_pdf=self.flatten_pdf,
+            quote_loosebox=False,
+            disable_links=self.disable_links,
+        )
+        self.page_bboxes = {
+            page_id: [0, 0, page["width"], page["height"]]
+            for page_id, page in zip(self.page_range, page_char_blocks)
+        }
+        SpanClass = get_block_class(BlockTypes.Span)
+        LineClass = get_block_class(BlockTypes.Line)
+        CharClass = get_block_class(BlockTypes.Char)
+
+        for page in page_char_blocks:
+            page_id = page["page"]
+            lines: List[ProviderOutput] = []
+            if not self.check_page(page_id, doc):
+                continue
+            for block in page["blocks"]:
+                for line in block["lines"]:
+                    spans = []
+                    chars = []
+                    for span in line["spans"]:
+                        if not span["text"]:
+                            continue
+                        font_formats = self.font_flags_to_format(span["font"]["flags"]).union(
+                            self.font_names_to_format(span["font"]["name"])
+                        )
+                        font_name = span["font"]["name"] or "Unknown"
+                        font_weight = span["font"]["weight"] or 0
+                        font_size = span["font"]["size"] or 0
+                        polygon = PolygonBox.from_bbox(span["bbox"], ensure_nonzero_area=True)
+                        superscript = span.get("superscript", False)
+                        subscript = span.get("subscript", False)
+                        text = self.normalize_spaces(fix_text(span["text"]))
+                        if superscript or subscript:
+                            text = text.strip()
+                        spans.append(
+                            SpanClass(
+                                polygon=polygon,
+                                text=text,
+                                font=font_name,
+                                font_weight=font_weight,
+                                font_size=font_size,
+                                minimum_position=span["char_start_idx"],
+                                maximum_position=span["char_end_idx"],
+                                formats=list(font_formats),
+                                page_id=page_id,
+                                text_extraction_method="pdftext",
+                                url=span.get("url"),
+                                has_superscript=superscript,
+                                has_subscript=subscript,
+                            )
+                        )
+                        if self.keep_chars:
+                            span_chars = [
+                                CharClass(
+                                    text=char["char"],
+                                    polygon=PolygonBox.from_bbox(char["bbox"], ensure_nonzero_area=True),
+                                    idx=char["char_idx"],
+                                )
+                                for char in span["chars"]
+                            ]
+                            chars.append(span_chars)
+                        else:
+                            chars.append([])
+                    polygon = PolygonBox.from_bbox(line["bbox"], ensure_nonzero_area=True)
+                    assert len(spans) == len(chars), (
+                        f"Spans and chars length mismatch on page {page_id}: {len(spans)} spans, {len(chars)} chars"
+                    )
+                    lines.append(
+                        ProviderOutput(
+                            line=LineClass(polygon=polygon, page_id=page_id),
+                            spans=spans,
+                            chars=chars,
+                        )
+                    )
+            if self.check_line_spans(lines):
+                page_lines[page_id] = lines
+            self.page_refs[page_id] = []
+            if page_refs := page.get("refs", None):
+                self.page_refs[page_id] = page_refs
+
+        return page_lines
+
+
+class InMemoryPdfConverter(PdfConverter):
+    def build_document_from_bytes(self, file_bytes: bytes, file_name: str):
+        layout_builder = self.resolve_dependencies(self.layout_builder_class)
+        line_builder = self.resolve_dependencies(LineBuilder)
+        ocr_builder = self.resolve_dependencies(OcrBuilder)
+        provider = InMemoryPdfProvider(file_bytes, file_name, self.config)
+        document = DocumentBuilder(self.config)(
+            provider,
+            layout_builder,
+            line_builder,
+            ocr_builder,
+        )
+        structure_builder_cls = self.resolve_dependencies(StructureBuilder)
+        structure_builder_cls(document)
+        for processor in self.processor_list:
+            processor(document)
+        return document
+
+    def convert_bytes(self, file_bytes: bytes, file_name: str):
+        document = self.build_document_from_bytes(file_bytes, file_name)
+        self.page_count = len(document.pages)
+        renderer = self.resolve_dependencies(self.renderer)
+        return renderer(document)
+
+
 @contextmanager
 def open_in_memory_pdf_path(file_name: str, file_bytes: bytes):
     fd, strategy = create_anonymous_pdf_fd(file_name)
@@ -402,15 +548,14 @@ def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
     reset_torch_cuda_peak_memory()
     try:
         config_parser = ConfigParser(build_config())
-        converter = PdfConverter(
+        converter = InMemoryPdfConverter(
             config=config_parser.generate_config_dict(),
             artifact_dict=APP_STATE["models"],
             processor_list=config_parser.get_processors(),
             renderer=config_parser.get_renderer(),
             llm_service=config_parser.get_llm_service(),
         )
-        with open_in_memory_pdf_path(file_name, file_bytes) as file_path:
-            rendered = converter(file_path)
+        rendered = converter.convert_bytes(file_bytes, file_name)
         markdown, _, _ = text_from_rendered(rendered)
         metadata = metadata_to_dict(rendered.metadata)
         duration_ms = int((time.perf_counter() - started_at) * 1000)
