@@ -68,6 +68,7 @@ const GEO_INFO_NOT_AVAILABLE_MESSAGE: &str = "[geo info not available]";
 // 75 and below => starting to see significant loss in quality.
 // TODO (LOW): Make this configurable.
 const JPEG_QUALITY: u8 = 80;
+const FRAGMENT_VIEW_SEPARATOR: &str = "\n\n-----------------\n\n";
 
 #[derive(Deserialize)]
 struct ItemTextManifest {
@@ -618,7 +619,7 @@ fn parse_fragments_text(data: &[u8]) -> InfuResult<Vec<u8>> {
     .map(|fragment| fragment.text.trim().to_owned())
     .filter(|fragment| !fragment.is_empty())
     .collect::<Vec<String>>()
-    .join("\n\n");
+    .join(FRAGMENT_VIEW_SEPARATOR);
   Ok(text.into_bytes())
 }
 
@@ -696,8 +697,8 @@ fn calc_cache_control(max_age: i64) -> String {
 #[cfg(test)]
 mod tests {
   use super::{
-    content_disposition_header, is_safe_inline_mime, response_content_headers_for_generated_item_text,
-    response_filename,
+    content_disposition_header, is_safe_inline_mime, parse_fragments_text,
+    response_content_headers_for_generated_item_text, response_filename,
   };
 
   #[test]
@@ -746,5 +747,20 @@ mod tests {
       response_content_headers_for_generated_item_text("report.json", "application/json");
     assert_eq!(content_type, "application/json");
     assert!(disposition.starts_with("inline;"));
+  }
+
+  #[test]
+  fn separates_rendered_fragments_with_a_rule_line() {
+    let parsed = parse_fragments_text(
+      br#"{"ordinal":1,"text":"Second fragment"}
+{"ordinal":0,"text":"First fragment"}
+"#,
+    )
+    .unwrap();
+
+    assert_eq!(
+      String::from_utf8(parsed).unwrap(),
+      "First fragment\n\n-----------------\n\nSecond fragment"
+    );
   }
 }
