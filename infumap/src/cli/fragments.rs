@@ -26,6 +26,7 @@ use crate::web::image_tagging::should_tag_image_item;
 
 const PDF_MIME_TYPE: &str = "application/pdf";
 const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
+const PDF_FRAGMENT_MIN_CHARS: usize = 500;
 const PDF_FRAGMENT_SOFT_LIMIT_CHARS: usize = 1400;
 const PDF_FRAGMENT_HARD_LIMIT_CHARS: usize = 1900;
 const PDF_PAGE_BREAK_MIN_DASH_COUNT: usize = 8;
@@ -380,27 +381,23 @@ fn build_pdf_fragment_inputs(
 
   for block in blocks {
     for part in split_pdf_block_text(&block.text) {
+      let next_block = PdfFragmentBlock { headings: block.headings.clone(), text: part };
       let should_flush = current.as_ref().is_some_and(|current| {
-        current.page_end != block.page_number
-          || current.headings != block.headings
-          || rendered_pdf_fragment_len(
-            document_title.as_deref(),
-            context_title.as_deref(),
-            &current.headings,
-            current.page_start,
-            block.page_number,
-            &current.blocks,
-            Some(part.as_str()),
-          ) > PDF_FRAGMENT_SOFT_LIMIT_CHARS
+        should_flush_pdf_fragment(
+          document_title.as_deref(),
+          context_title.as_deref(),
+          current,
+          block.page_number,
+          &next_block,
+        )
       });
 
       if should_flush {
         push_pdf_fragment_input(&mut fragments, current.take(), document_title.as_deref(), context_title.as_deref());
       }
 
-      let current_fragment =
-        current.get_or_insert_with(|| PdfFragmentAccumulator::new(block.page_number, block.headings.clone()));
-      current_fragment.push(part, block.page_number);
+      let current_fragment = current.get_or_insert_with(|| PdfFragmentAccumulator::new(block.page_number));
+      current_fragment.push(next_block, block.page_number);
     }
   }
 
@@ -417,57 +414,83 @@ fn push_pdf_fragment_input(
   let Some(fragment) = fragment else {
     return;
   };
-  let text = render_pdf_fragment_text(
-    document_title,
-    context_title,
-    &fragment.headings,
-    fragment.page_start,
-    fragment.page_end,
-    &fragment.blocks,
-  );
+  let text =
+    render_pdf_fragment_text(document_title, context_title, fragment.page_start, fragment.page_end, &fragment.blocks);
   if text.trim().is_empty() {
     return;
   }
   out.push(FragmentInput::new(text).with_page_range(Some(fragment.page_start), Some(fragment.page_end)));
 }
 
+fn should_flush_pdf_fragment(
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+  current: &PdfFragmentAccumulator,
+  next_page_number: usize,
+  next_block: &PdfFragmentBlock,
+) -> bool {
+  if current.page_end != next_page_number {
+    return true;
+  }
+
+  let current_len = rendered_pdf_fragment_len(
+    document_title,
+    context_title,
+    current.page_start,
+    current.page_end,
+    &current.blocks,
+    None,
+  );
+  let candidate_len = rendered_pdf_fragment_len(
+    document_title,
+    context_title,
+    current.page_start,
+    next_page_number,
+    &current.blocks,
+    Some(next_block),
+  );
+
+  candidate_len > PDF_FRAGMENT_HARD_LIMIT_CHARS
+    || (candidate_len > PDF_FRAGMENT_SOFT_LIMIT_CHARS && current_len >= PDF_FRAGMENT_MIN_CHARS)
+}
+
 fn rendered_pdf_fragment_len(
   document_title: Option<&str>,
   context_title: Option<&str>,
-  headings: &[String],
   page_start: usize,
   page_end: usize,
-  blocks: &[String],
-  next_block: Option<&str>,
+  blocks: &[PdfFragmentBlock],
+  next_block: Option<&PdfFragmentBlock>,
 ) -> usize {
   let mut candidate_blocks = blocks.to_vec();
   if let Some(next_block) = next_block {
-    candidate_blocks.push(next_block.to_owned());
+    candidate_blocks.push(next_block.clone());
   }
-  render_pdf_fragment_text(document_title, context_title, headings, page_start, page_end, &candidate_blocks).len()
+  render_pdf_fragment_text(document_title, context_title, page_start, page_end, &candidate_blocks).len()
 }
 
 fn render_pdf_fragment_text(
   document_title: Option<&str>,
   context_title: Option<&str>,
-  headings: &[String],
   page_start: usize,
   page_end: usize,
-  blocks: &[String],
+  blocks: &[PdfFragmentBlock],
 ) -> String {
+  let document_title = normalized_text(document_title);
+  let context_title = normalized_text(context_title)
+    .filter(|context| document_title.as_deref().map(|title| !title.eq_ignore_ascii_case(context)).unwrap_or(true));
   let mut lines = Vec::new();
 
-  if let Some(document_title) = normalized_text(document_title) {
+  if let Some(document_title) = document_title.as_deref() {
     lines.push(labeled_sentence("Document", &document_title));
   }
 
-  if let Some(context_title) = normalized_text(context_title)
-    .filter(|context| document_title.map(|title| !title.trim().eq_ignore_ascii_case(context)).unwrap_or(true))
-  {
+  if let Some(context_title) = context_title.as_deref() {
     lines.push(labeled_sentence("Context", &context_title));
   }
 
-  let section_path = normalized_heading_path(headings, document_title, context_title);
+  let rendered_blocks = collapse_renderable_pdf_blocks(blocks, document_title.as_deref(), context_title.as_deref());
+  let section_path = common_heading_path(&rendered_blocks);
   if !section_path.is_empty() {
     lines.push(labeled_sentence("Section", &section_path.join(" > ")));
   }
@@ -475,13 +498,62 @@ fn render_pdf_fragment_text(
   let page_label = if page_start == page_end { page_start.to_string() } else { format!("{page_start}-{page_end}") };
   lines.push(labeled_sentence(if page_start == page_end { "Page" } else { "Pages" }, &page_label));
 
-  let body = blocks.iter().map(|block| block.trim()).filter(|block| !block.is_empty()).collect::<Vec<_>>().join("\n\n");
+  let body = rendered_blocks
+    .iter()
+    .map(|block| render_pdf_body_block(block, &section_path))
+    .filter(|block| !block.is_empty())
+    .collect::<Vec<_>>()
+    .join("\n\n");
   if body.is_empty() {
     lines.join("\n")
   } else if lines.is_empty() {
     body
   } else {
     format!("{}\n\n{}", lines.join("\n"), body)
+  }
+}
+
+fn collapse_renderable_pdf_blocks(
+  blocks: &[PdfFragmentBlock],
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+) -> Vec<RenderablePdfBlock> {
+  let mut out = Vec::<RenderablePdfBlock>::new();
+
+  for block in blocks {
+    let text = block.text.trim();
+    if text.is_empty() {
+      continue;
+    }
+    let headings = normalized_heading_path(&block.headings, document_title, context_title);
+    if let Some(last) = out.last_mut() {
+      if heading_paths_equal(&last.headings, &headings) {
+        last.body_parts.push(text.to_owned());
+        continue;
+      }
+    }
+    out.push(RenderablePdfBlock { headings, body_parts: vec![text.to_owned()] });
+  }
+
+  out
+}
+
+fn render_pdf_body_block(block: &RenderablePdfBlock, shared_heading_path: &[String]) -> String {
+  let heading_line = if shared_heading_path.is_empty() {
+    if block.headings.is_empty() { None } else { Some(labeled_sentence("Section", &block.headings.join(" > "))) }
+  } else {
+    let remainder = heading_path_remainder(&block.headings, shared_heading_path);
+    if remainder.is_empty() { None } else { Some(labeled_sentence("Subsection", &remainder.join(" > "))) }
+  };
+
+  let body =
+    block.body_parts.iter().map(|part| part.trim()).filter(|part| !part.is_empty()).collect::<Vec<_>>().join("\n\n");
+  if body.is_empty() {
+    heading_line.unwrap_or_default()
+  } else if let Some(heading_line) = heading_line {
+    format!("{heading_line}\n{body}")
+  } else {
+    body
   }
 }
 
@@ -511,6 +583,34 @@ fn normalized_heading_path(
   }
 
   out
+}
+
+fn common_heading_path(blocks: &[RenderablePdfBlock]) -> Vec<String> {
+  let mut shared = match blocks.first() {
+    Some(block) => block.headings.clone(),
+    None => return vec![],
+  };
+
+  for block in blocks.iter().skip(1) {
+    let shared_len =
+      shared.iter().zip(block.headings.iter()).take_while(|(left, right)| left.eq_ignore_ascii_case(right)).count();
+    shared.truncate(shared_len);
+    if shared.is_empty() {
+      break;
+    }
+  }
+
+  shared
+}
+
+fn heading_path_remainder(path: &[String], shared_prefix: &[String]) -> Vec<String> {
+  let shared_len =
+    shared_prefix.iter().zip(path.iter()).take_while(|(left, right)| left.eq_ignore_ascii_case(right)).count();
+  path[shared_len..].to_vec()
+}
+
+fn heading_paths_equal(left: &[String], right: &[String]) -> bool {
+  left.len() == right.len() && left.iter().zip(right.iter()).all(|(left, right)| left.eq_ignore_ascii_case(right))
 }
 
 fn split_pdf_block_text(text: &str) -> Vec<String> {
@@ -924,19 +1024,29 @@ fn resolve_pdf_pages(pages: Vec<PdfPage>) -> Vec<ResolvedPdfPage> {
 struct PdfFragmentAccumulator {
   page_start: usize,
   page_end: usize,
-  headings: Vec<String>,
-  blocks: Vec<String>,
+  blocks: Vec<PdfFragmentBlock>,
 }
 
 impl PdfFragmentAccumulator {
-  fn new(page_number: usize, headings: Vec<String>) -> PdfFragmentAccumulator {
-    PdfFragmentAccumulator { page_start: page_number, page_end: page_number, headings, blocks: Vec::new() }
+  fn new(page_number: usize) -> PdfFragmentAccumulator {
+    PdfFragmentAccumulator { page_start: page_number, page_end: page_number, blocks: Vec::new() }
   }
 
-  fn push(&mut self, text: String, page_number: usize) {
+  fn push(&mut self, block: PdfFragmentBlock, page_number: usize) {
     self.page_end = page_number;
-    self.blocks.push(text);
+    self.blocks.push(block);
   }
+}
+
+#[derive(Clone)]
+struct PdfFragmentBlock {
+  headings: Vec<String>,
+  text: String,
+}
+
+struct RenderablePdfBlock {
+  headings: Vec<String>,
+  body_parts: Vec<String>,
 }
 
 struct PdfPage {
@@ -1552,7 +1662,7 @@ mod tests {
 
     let fragments = build_pdf_fragment_inputs(Some("Best agent for resorts"), Some("Travel research"), markdown);
 
-    assert!(fragments.len() >= 3);
+    assert!(fragments.len() >= 2);
     assert_eq!(fragments[0].page_start, Some(1));
     assert!(fragments.iter().any(|fragment| fragment.page_start == Some(2)));
     assert!(fragments.iter().all(|fragment| fragment.text.contains("Document: Best agent for resorts.")));
@@ -1566,5 +1676,54 @@ mod tests {
         .iter()
         .any(|fragment| fragment.text.contains("Section: Six Senses Ninh Van Bay - Agents, Deals & Relationships."))
     );
+    assert!(
+      fragments
+        .iter()
+        .any(|fragment| fragment.text.contains("Subsection: Which agent is best for Six Senses Ninh Van Bay?"))
+    );
+  }
+
+  #[test]
+  fn merges_small_adjacent_pdf_sections_on_the_same_page() {
+    let markdown = r#"
+{1}------------------------------------------------
+
+# Thanks Matthew! Your booking in Kuala Lumpur is confirmed.
+
+## Twin Towers View Room King Bed
+
+Guest name Matthew Howlett
+
+## Stay safe online
+
+Protect your security by never sharing your personal or credit card information over the phone, by email or chat.
+
+Learn more
+
+Modify your booking
+
+To get the app, scan this code with your phone camera
+
+## Make your trip easy with the app
+
+Change or cancel bookings on the go, chat directly with your property, and much more.
+
+Get the app
+"#;
+
+    let fragments = build_pdf_fragment_inputs(
+      Some("Gmail - Thanks! Your booking is confirmed at Mandarin Oriental, Kuala Lumpur.pdf"),
+      Some("Malaysia 2025-02"),
+      markdown,
+    );
+
+    assert_eq!(fragments.len(), 1);
+    assert!(fragments[0].text.contains("Section: Thanks Matthew! Your booking in Kuala Lumpur is confirmed."));
+    assert!(fragments[0].text.contains("Subsection: Twin Towers View Room King Bed."));
+    assert!(fragments[0].text.contains("Subsection: Stay safe online."));
+    assert!(fragments[0].text.contains("Subsection: Make your trip easy with the app."));
+    assert!(fragments[0].text.contains("Guest name Matthew Howlett"));
+    assert!(fragments[0].text.contains("Protect your security"));
+    assert!(fragments[0].text.contains("Change or cancel bookings on the go"));
   }
 }

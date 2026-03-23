@@ -758,9 +758,6 @@ mod tests {
     )
     .unwrap();
 
-    assert_eq!(
-      String::from_utf8(parsed).unwrap(),
-      "First fragment\n\n-----------------\n\nSecond fragment"
-    );
+    assert_eq!(String::from_utf8(parsed).unwrap(), "First fragment\n\n-----------------\n\nSecond fragment");
   }
 }
