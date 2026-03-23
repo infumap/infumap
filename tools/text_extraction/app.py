@@ -253,7 +253,31 @@ def max_upload_bytes() -> int:
 
 
 def memfd_supported() -> bool:
-    return hasattr(os, "memfd_create") and Path("/proc/self/fd").is_dir()
+    return hasattr(os, "memfd_create")
+
+
+def fd_path_candidates(fd: int) -> list[str]:
+    pid = os.getpid()
+    return [
+        f"/proc/self/fd/{fd}",
+        f"/proc/{pid}/fd/{fd}",
+        f"/dev/fd/{fd}",
+    ]
+
+
+def resolve_fd_path(fd: int) -> str:
+    for candidate in fd_path_candidates(fd):
+        try:
+            with open(candidate, "rb") as handle:
+                handle.read(0)
+            return candidate
+        except OSError:
+            continue
+    raise RuntimeError(
+        "Anonymous in-memory files are available, but this platform does not expose a usable "
+        "file-descriptor path for Marker. Tried: "
+        + ", ".join(fd_path_candidates(fd))
+    )
 
 
 def decode_header_value(value: bytes | str | None) -> str | None:
@@ -302,7 +326,7 @@ def open_in_memory_pdf_path(file_name: str, file_bytes: bytes):
         while remaining:
             written = os.write(fd, remaining)
             remaining = remaining[written:]
-        yield f"/proc/self/fd/{fd}"
+        yield resolve_fd_path(fd)
     finally:
         os.close(fd)
 
