@@ -20,15 +20,16 @@ import asyncio
 import logging
 import os
 import platform
-import tempfile
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
+from python_multipart import MultipartParser
+from python_multipart.multipart import parse_options_header
 
 from marker.config.parser import ConfigParser
 from marker.converters.pdf import PdfConverter
@@ -40,9 +41,14 @@ LOGGER = logging.getLogger("uvicorn.error")
 CONVERT_SEMAPHORE: asyncio.Semaphore | None = None
 GPU_REQUEST_CONCURRENCY = 1
 PDFTEXT_WORKERS = 1
+DEFAULT_MAX_UPLOAD_BYTES = 128 * 1024 * 1024
 
 
 class DocumentRejectedError(Exception):
+    pass
+
+
+class UploadTooLargeError(Exception):
     pass
 
 
@@ -85,6 +91,8 @@ def build_runtime_summary() -> list[str]:
         f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
         f"pdftext_workers={PDFTEXT_WORKERS}",
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
+        f"max_upload_bytes={max_upload_bytes()}",
+        f"memfd_supported={memfd_supported()}",
     ]
 
     try:
@@ -240,6 +248,25 @@ def build_config() -> dict[str, Any]:
     }
 
 
+def max_upload_bytes() -> int:
+    return max(1, env_int("TEXT_EXTRACTION_MAX_UPLOAD_BYTES", DEFAULT_MAX_UPLOAD_BYTES))
+
+
+def memfd_supported() -> bool:
+    return hasattr(os, "memfd_create") and Path("/proc/self/fd").is_dir()
+
+
+def decode_header_value(value: bytes | str | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        decoded = value.decode("utf-8", errors="replace")
+    else:
+        decoded = str(value)
+    normalized = decoded.strip()
+    return normalized or None
+
+
 def metadata_to_dict(metadata: Any) -> dict[str, Any]:
     if metadata is None:
         return {}
@@ -260,9 +287,29 @@ def classify_document_rejection(exc: Exception) -> str | None:
     return None
 
 
-def convert_file(file_path: str, file_name: str) -> ConvertResponse:
+@contextmanager
+def open_in_memory_pdf_path(file_name: str, file_bytes: bytes):
+    if not memfd_supported():
+        raise RuntimeError(
+            "Anonymous in-memory files are not supported on this platform. "
+            "This service now requires Linux memfd support to avoid disk writes."
+        )
+
+    safe_name = Path(file_name or "upload").stem or "upload"
+    fd = os.memfd_create(f"infumap-pdf-{safe_name[:32]}-{os.getpid()}", getattr(os, "MFD_CLOEXEC", 0))
+    try:
+        remaining = memoryview(file_bytes)
+        while remaining:
+            written = os.write(fd, remaining)
+            remaining = remaining[written:]
+        yield f"/proc/self/fd/{fd}"
+    finally:
+        os.close(fd)
+
+
+def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
     started_at = time.perf_counter()
-    file_size_bytes = Path(file_path).stat().st_size
+    file_size_bytes = len(file_bytes)
     LOGGER.info("Starting conversion: file=%s size_bytes=%d", file_name, file_size_bytes)
     reset_torch_cuda_peak_memory()
     try:
@@ -274,7 +321,8 @@ def convert_file(file_path: str, file_name: str) -> ConvertResponse:
             renderer=config_parser.get_renderer(),
             llm_service=config_parser.get_llm_service(),
         )
-        rendered = converter(file_path)
+        with open_in_memory_pdf_path(file_name, file_bytes) as file_path:
+            rendered = converter(file_path)
         markdown, _, _ = text_from_rendered(rendered)
         metadata = metadata_to_dict(rendered.metadata)
         duration_ms = int((time.perf_counter() - started_at) * 1000)
@@ -326,17 +374,130 @@ def convert_file(file_path: str, file_name: str) -> ConvertResponse:
         clear_torch_cuda_cache()
 
 
-def store_upload(upload: UploadFile) -> tuple[str, int]:
-    suffix = "".join(Path(upload.filename or "").suffixes) or ".bin"
-    total_bytes = 0
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as handle:
-        while True:
-            chunk = upload.file.read(1024 * 1024)
+async def read_multipart_upload(request: Request) -> tuple[str, str | None, bytes]:
+    content_type_header = request.headers.get("content-type", "")
+    parsed_content_type, params = parse_options_header(content_type_header.encode("latin-1"))
+    if parsed_content_type != b"multipart/form-data":
+        raise HTTPException(status_code=400, detail="Expected multipart/form-data.")
+
+    boundary = params.get(b"boundary")
+    if not boundary:
+        raise HTTPException(status_code=400, detail="Missing multipart boundary.")
+
+    upload_limit = max_upload_bytes()
+    body_limit = upload_limit + 1024 * 1024
+
+    current_headers: dict[bytes, bytes] = {}
+    header_name_parts: list[bytes] = []
+    header_value_parts: list[bytes] = []
+    current_field_name: str | None = None
+    current_file_name: str | None = None
+    current_content_type: str | None = None
+    collecting_target_file = False
+    seen_target_file = False
+    file_name: str | None = None
+    file_content_type: str | None = None
+    file_bytes = bytearray()
+
+    def on_part_begin() -> None:
+        nonlocal current_headers, current_field_name, current_file_name, current_content_type, collecting_target_file
+        current_headers = {}
+        current_field_name = None
+        current_file_name = None
+        current_content_type = None
+        collecting_target_file = False
+
+    def on_header_begin() -> None:
+        header_name_parts.clear()
+        header_value_parts.clear()
+
+    def on_header_field(data: bytes, start: int, end: int) -> None:
+        header_name_parts.append(data[start:end])
+
+    def on_header_value(data: bytes, start: int, end: int) -> None:
+        header_value_parts.append(data[start:end])
+
+    def on_header_end() -> None:
+        if not header_name_parts:
+            return
+        header_name = b"".join(header_name_parts).strip().lower()
+        header_value = b"".join(header_value_parts).strip()
+        current_headers[header_name] = header_value
+
+    def on_headers_finished() -> None:
+        nonlocal current_field_name, current_file_name, current_content_type
+        nonlocal collecting_target_file, seen_target_file, file_name, file_content_type
+
+        disposition = current_headers.get(b"content-disposition", b"")
+        disposition_type, disposition_params = parse_options_header(disposition)
+        if disposition_type != b"form-data":
+            return
+
+        current_field_name = decode_header_value(disposition_params.get(b"name"))
+        current_file_name = decode_header_value(disposition_params.get(b"filename"))
+        current_content_type = decode_header_value(current_headers.get(b"content-type"))
+
+        if current_field_name != "file":
+            return
+
+        if seen_target_file:
+            raise ValueError("Multipart request contained more than one 'file' part.")
+
+        collecting_target_file = True
+        file_name = Path(current_file_name or "upload").name
+        file_content_type = current_content_type
+
+    def on_part_data(data: bytes, start: int, end: int) -> None:
+        if not collecting_target_file:
+            return
+        chunk = data[start:end]
+        if len(file_bytes) + len(chunk) > upload_limit:
+            raise UploadTooLargeError(
+                f"Uploaded PDF exceeds the in-memory limit of {upload_limit} bytes. "
+                "Increase TEXT_EXTRACTION_MAX_UPLOAD_BYTES if needed."
+            )
+        file_bytes.extend(chunk)
+
+    def on_part_end() -> None:
+        nonlocal seen_target_file
+        if collecting_target_file:
+            seen_target_file = True
+
+    parser = MultipartParser(
+        boundary,
+        callbacks={
+            "on_part_begin": on_part_begin,
+            "on_part_data": on_part_data,
+            "on_part_end": on_part_end,
+            "on_header_begin": on_header_begin,
+            "on_header_field": on_header_field,
+            "on_header_value": on_header_value,
+            "on_header_end": on_header_end,
+            "on_headers_finished": on_headers_finished,
+        },
+        max_size=float(body_limit),
+    )
+
+    try:
+        async for chunk in request.stream():
             if not chunk:
-                break
-            total_bytes += len(chunk)
-            handle.write(chunk)
-        return handle.name, total_bytes
+                continue
+            parser.write(chunk)
+        parser.finalize()
+    except UploadTooLargeError:
+        raise
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not parse multipart upload: {exc}") from exc
+
+    if not seen_target_file:
+        raise HTTPException(status_code=422, detail="Missing multipart form field 'file'.")
+
+    if not file_bytes:
+        raise HTTPException(status_code=422, detail="Uploaded file was empty.")
+
+    return file_name or "upload", file_content_type, bytes(file_bytes)
 
 
 @app.get("/")
@@ -354,26 +515,20 @@ async def healthz() -> dict[str, bool]:
 
 
 @app.post("/convert", response_model=ConvertResponse)
-async def convert_upload(file: UploadFile = File(...)) -> ConvertResponse:
-    file_name = Path(file.filename or "upload").name
-    content_type = (file.content_type or "").strip().lower() or None
+async def convert_upload(request: Request) -> ConvertResponse:
     request_started_at = time.perf_counter()
-    LOGGER.info(
-        "Received text extraction request: file=%s content_type=%s",
-        file_name,
-        content_type or "<unset>",
-    )
-    upload_started_at = time.perf_counter()
-    temp_path, upload_size_bytes = store_upload(file)
-    upload_duration_ms = int((time.perf_counter() - upload_started_at) * 1000)
-    LOGGER.info(
-        "Stored text extraction upload: file=%s size_bytes=%d upload_ms=%d",
-        file_name,
-        upload_size_bytes,
-        upload_duration_ms,
-    )
-
     try:
+        upload_started_at = time.perf_counter()
+        file_name, content_type, upload_bytes = await read_multipart_upload(request)
+        upload_size_bytes = len(upload_bytes)
+        upload_duration_ms = int((time.perf_counter() - upload_started_at) * 1000)
+        LOGGER.info(
+            "Received in-memory text extraction upload: file=%s content_type=%s size_bytes=%d upload_ms=%d",
+            file_name,
+            content_type or "<unset>",
+            upload_size_bytes,
+            upload_duration_ms,
+        )
         semaphore = CONVERT_SEMAPHORE
         if semaphore is None:
             raise HTTPException(status_code=503, detail="Text extraction service is not ready.")
@@ -394,13 +549,12 @@ async def convert_upload(file: UploadFile = File(...)) -> ConvertResponse:
                 request_age_ms,
                 semaphore_wait_ms,
             )
-            return await asyncio.to_thread(convert_file, temp_path, file_name)
+            return await asyncio.to_thread(convert_file_bytes, upload_bytes, file_name)
+    except UploadTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     except DocumentRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    finally:
-        Path(temp_path).unlink(missing_ok=True)
-        await file.close()

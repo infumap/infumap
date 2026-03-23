@@ -45,6 +45,7 @@ Optional environment variables:
 - `TEXT_EXTRACTION_PORT`
 - `TEXT_EXTRACTION_VENV_DIR`
 - `TEXT_EXTRACTION_RESTART_DELAY_SECS`
+- `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`
 - `PYTHON_BIN`
 - `TORCH_DEVICE`
 - `GOOGLE_API_KEY`
@@ -126,5 +127,18 @@ curl -sS \
 - `GET /`
 - `GET /healthz`
 - `POST /convert`
+
+## Notes
+
+- The `/convert` endpoint now parses the multipart body directly from the request
+  stream instead of using FastAPI `UploadFile`, so the service code does not
+  spool uploads to temp files on disk.
+- Marker still expects a file path, so the wrapper now feeds it an anonymous
+  in-memory Linux `memfd` instead of a temp file on disk.
+- Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
+  The default is `134217728` bytes (128 MiB), configurable via
+  `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`.
+- The zero-disk upload path depends on Linux `memfd` support. That matches the
+  intended deployment environment for this service.
 
 Interactive API docs are available at `http://127.0.0.1:8787/docs`.
