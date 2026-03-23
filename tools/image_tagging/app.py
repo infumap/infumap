@@ -743,8 +743,18 @@ def compute_image_embedding_sync(prepared_bytes: bytes) -> list[float]:
         image = convert_image_to_rgb(opened)
         image.load()
 
+    if image.width < 2 or image.height < 2:
+        # Some transformers image processors mis-infer the channel dimension for
+        # tiny RGB images such as 1x1 or 1xN. Upscaling to a minimally
+        # non-ambiguous size keeps the embedding path working for placeholder
+        # and sentinel images while preserving the overall content.
+        image = image.resize((max(2, image.width), max(2, image.height)), resample=image_resampling_filter())
+
     model_dtype = next(model.parameters()).dtype
-    inputs = processor(images=image, return_tensors="pt")
+    try:
+        inputs = processor(images=image, return_tensors="pt", input_data_format="channels_last")
+    except TypeError:
+        inputs = processor(images=image, return_tensors="pt")
     normalized_inputs: dict[str, Any] = {}
     for key, value in inputs.items():
         if not hasattr(value, "to"):
