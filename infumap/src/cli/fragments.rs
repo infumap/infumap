@@ -368,7 +368,7 @@ fn build_image_fragment_text(
     sentences.push(labeled_sentence("Dimensions", &format!("{width}x{height}")));
   }
 
-  if sentences.is_empty() { None } else { Some(sentences.join(" ")) }
+  if sentences.is_empty() { None } else { Some(sentences.join("\n")) }
 }
 
 fn labeled_sentence(label: &str, value: &str) -> String {
