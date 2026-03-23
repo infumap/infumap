@@ -38,10 +38,8 @@ use crate::util::retry::endpoint_retry_delay;
 const IDLE_POLL_SECS: u64 = 60;
 const REQUEST_TIMEOUT_SECS: u64 = 4 * 60 * 60;
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
-const MAX_PENDING_PDFS: usize = 50;
-const REFILL_WHEN_QUEUE_AT_MOST: usize = 25;
 const LARGE_PDF_SIZE_BYTES: i64 = 25 * 1024 * 1024;
-const REFILL_WAIT_MILLIS: u64 = 1000;
+const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
 const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
@@ -79,8 +77,6 @@ pub(crate) struct LoadedPdfExtraction {
 struct ProcessingState {
   queue: Vec<PdfCandidate>,
   queued_item_ids: HashSet<String>,
-  scan_exhausted: bool,
-  refill_in_progress: bool,
 }
 
 #[derive(Deserialize)]
@@ -111,15 +107,6 @@ enum ExtractOutcome {
   Success(PdfToMdResponse),
   DocumentFailed(String),
   EndpointUnavailable(String),
-}
-
-struct RefillResult {
-  found_any: bool,
-  total_candidates: usize,
-  considered_candidates: usize,
-  already_succeeded: usize,
-  already_failed: usize,
-  needs_extraction: usize,
 }
 
 struct ExtractionProgress {
@@ -445,8 +432,6 @@ pub fn start_text_extraction_processing_loop(
   let state = Arc::new(Mutex::new(ProcessingState {
     queue: vec![],
     queued_item_ids: HashSet::new(),
-    scan_exhausted: false,
-    refill_in_progress: false,
   }));
   PROCESSING_STATE
     .set(state.clone())
@@ -454,7 +439,7 @@ pub fn start_text_extraction_processing_loop(
   let progress = Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   info!(
-    "Starting text extraction processing loop using '{}' with pipelined source-object prefetch and request dispatch (delay {:.3}s).",
+    "Starting text extraction processing loop using '{}' with startup queue population and live enqueue updates (no rescan, delay {:.3}s).",
     text_extraction_url,
     request_delay.as_secs_f64()
   );
@@ -474,6 +459,8 @@ async fn run_text_extraction_loop(
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<ExtractionProgress>>,
 ) {
+  populate_initial_pdf_queue(&data_dir, db.clone(), state.clone()).await;
+
   let mut next_prefetch = Some(spawn_pdf_prefetch(
     data_dir.clone(),
     text_extraction_url.clone(),
@@ -664,8 +651,7 @@ async fn prefetch_next_pdf_extraction(
   progress: Arc<Mutex<ExtractionProgress>>,
 ) -> (LoadedPdfExtraction, usize) {
   loop {
-    let (candidate, queue_remaining) =
-      wait_for_next_pdf_candidate(&data_dir, db.clone(), state.clone(), progress.clone()).await;
+    let (candidate, queue_remaining) = wait_for_next_pdf_candidate(state.clone()).await;
     if candidate.file_size_bytes.map_or(false, |s| s >= LARGE_PDF_SIZE_BYTES) {
       info!(
         "PDF '{}' (user {}): large document (~{} MB); extraction may take a long time and use significant memory.",
@@ -696,10 +682,7 @@ async fn prefetch_next_pdf_extraction(
 }
 
 async fn wait_for_next_pdf_candidate(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
   state: Arc<Mutex<ProcessingState>>,
-  progress: Arc<Mutex<ExtractionProgress>>,
 ) -> (PdfCandidate, usize) {
   loop {
     let (candidate, queue_remaining) = {
@@ -708,81 +691,8 @@ async fn wait_for_next_pdf_candidate(
     };
 
     match (candidate, queue_remaining) {
-      (Some(candidate), remaining) => {
-        if remaining <= REFILL_WHEN_QUEUE_AT_MOST {
-          match refill_queue_if_needed(data_dir, db.clone(), state.clone(), Some(&candidate.item_id)).await {
-            Ok(Some(refill)) => {
-              let progress_summary = {
-                let progress = progress.lock().await;
-                progress.summary()
-              };
-              info!(
-                "PDF text extraction queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
-                refill.considered_candidates,
-                refill.total_candidates,
-                refill.already_succeeded,
-                refill.already_failed,
-                refill.needs_extraction,
-                progress_summary
-              );
-            }
-            Ok(None) => {}
-            Err(e) => {
-              error!("Could not refill PDF text extraction queue: {}", e);
-            }
-          }
-        }
-        return (candidate, remaining);
-      }
-      (None, _) => match refill_queue_if_needed(data_dir, db.clone(), state.clone(), None).await {
-        Ok(Some(refill)) if refill.found_any => {
-          let progress_summary = {
-            let progress = progress.lock().await;
-            progress.summary()
-          };
-          info!(
-            "PDF text extraction queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
-            refill.considered_candidates,
-            refill.total_candidates,
-            refill.already_succeeded,
-            refill.already_failed,
-            refill.needs_extraction,
-            progress_summary
-          );
-          continue;
-        }
-        Ok(Some(refill)) => {
-          let progress_summary = {
-            let progress = progress.lock().await;
-            progress.summary()
-          };
-          info!(
-            "PDF text extraction queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
-            refill.considered_candidates,
-            refill.total_candidates,
-            refill.already_succeeded,
-            refill.already_failed,
-            refill.needs_extraction,
-            progress_summary
-          );
-          time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        }
-        Ok(None) => {
-          let should_idle_sleep = {
-            let state = state.lock().await;
-            state.scan_exhausted
-          };
-          if should_idle_sleep {
-            time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-          } else {
-            time::sleep(Duration::from_millis(REFILL_WAIT_MILLIS)).await;
-          }
-        }
-        Err(e) => {
-          error!("Could not refill PDF text extraction queue: {}", e);
-          time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        }
-      },
+      (Some(candidate), remaining) => return (candidate, remaining),
+      (None, _) => time::sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await,
     }
   }
 }
@@ -908,103 +818,6 @@ async fn request_text_extraction_once(
   request_text_extraction(client, text_extraction_url, &candidate.title, file_bytes.to_vec()).await
 }
 
-async fn refill_queue_if_needed(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<ProcessingState>>,
-  exclude_item_id: Option<&str>,
-) -> InfuResult<Option<RefillResult>> {
-  {
-    let mut state = state.lock().await;
-    let should_refill = !state.scan_exhausted;
-    if !should_refill || state.refill_in_progress {
-      return Ok(None);
-    }
-    state.refill_in_progress = true;
-  }
-
-  let refill = refill_queue(data_dir, db, state.clone(), exclude_item_id).await;
-
-  {
-    let mut state = state.lock().await;
-    state.refill_in_progress = false;
-  }
-
-  refill.map(Some)
-}
-
-async fn refill_queue(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<ProcessingState>>,
-  exclude_item_id: Option<&str>,
-) -> InfuResult<RefillResult> {
-  let candidates = {
-    let db = db.lock().await;
-    let mut candidates = db
-      .item
-      .all_loaded_items()
-      .into_iter()
-      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().map(Item::clone))
-      .filter(|item| item.mime_type.as_deref() == Some("application/pdf"))
-      .map(|item| PdfCandidate::from_item(&item))
-      .collect::<Vec<PdfCandidate>>();
-    candidates.sort_by(|a, b| {
-      let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
-      let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
-      a_size.cmp(&b_size).then(a.last_modified_date.cmp(&b.last_modified_date)).then(a.item_id.cmp(&b.item_id))
-    });
-    candidates
-  };
-
-  let total = candidates.len();
-  let mut refill_state = ProcessingState {
-    queue: vec![],
-    queued_item_ids: HashSet::new(),
-    scan_exhausted: false,
-    refill_in_progress: false,
-  };
-  let mut already_succeeded = 0usize;
-  let mut already_failed = 0usize;
-  let mut none = 0usize;
-  let mut checked = 0usize;
-  let mut excluded = 0usize;
-
-  for candidate in candidates {
-    if exclude_item_id == Some(candidate.item_id.as_str()) {
-      excluded += 1;
-      continue;
-    }
-    checked += 1;
-    match manifest_check(data_dir, &candidate).await? {
-      ManifestCheckResult::NeedsExtraction => {
-        none += 1;
-        enqueue_candidate(&mut refill_state, candidate);
-        if refill_state.queue.len() >= MAX_PENDING_PDFS {
-          break;
-        }
-      }
-      ManifestCheckResult::AlreadySucceeded => already_succeeded += 1,
-      ManifestCheckResult::AlreadyFailed => already_failed += 1,
-    }
-  }
-
-  let mut state = state.lock().await;
-  for candidate in refill_state.queue {
-    enqueue_candidate(&mut state, candidate);
-  }
-  state.scan_exhausted = state.queue.is_empty();
-  let considered = checked + excluded;
-  Ok(RefillResult {
-    found_any: !state.queue.is_empty(),
-    total_candidates: total,
-    considered_candidates: considered,
-    already_succeeded,
-    already_failed,
-    needs_extraction: none,
-  })
-}
-
 fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
   let candidate = match state.queue.pop() {
     Some(c) => {
@@ -1025,15 +838,10 @@ fn enqueue_candidate(state: &mut ProcessingState, candidate: PdfCandidate) {
   state.queue.push(candidate);
   state.queue.sort_by(compare_pdf_candidates_desc);
 
-  if state.queue.len() > MAX_PENDING_PDFS {
-    state.queue.remove(0);
-  }
-
   state.queued_item_ids.clear();
   for queued_candidate in &state.queue {
     state.queued_item_ids.insert(queued_candidate.item_id.clone());
   }
-  state.scan_exhausted = false;
 }
 
 fn remove_candidate(state: &mut ProcessingState, item_id: &str) {
@@ -1045,6 +853,64 @@ fn compare_pdf_candidates_desc(a: &PdfCandidate, b: &PdfCandidate) -> std::cmp::
   let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
   let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
   b_size.cmp(&a_size).then(b.last_modified_date.cmp(&a.last_modified_date)).then(b.item_id.cmp(&a.item_id))
+}
+
+async fn populate_initial_pdf_queue(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  state: Arc<Mutex<ProcessingState>>,
+) {
+  let candidates = {
+    let db = db.lock().await;
+    let mut candidates = db
+      .item
+      .all_loaded_items()
+      .into_iter()
+      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().map(Item::clone))
+      .filter(|item| item.mime_type.as_deref() == Some(PDF_SOURCE_MIME_TYPE))
+      .map(|item| PdfCandidate::from_item(&item))
+      .collect::<Vec<PdfCandidate>>();
+    candidates.sort_by(|a, b| {
+      let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
+      let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
+      a_size.cmp(&b_size).then(a.last_modified_date.cmp(&b.last_modified_date)).then(a.item_id.cmp(&b.item_id))
+    });
+    candidates
+  };
+
+  let total_candidates = candidates.len();
+  let mut pending_candidates = vec![];
+  let mut already_succeeded = 0usize;
+  let mut already_failed = 0usize;
+  let mut skipped_errors = 0usize;
+
+  for candidate in candidates {
+    match manifest_check(data_dir, &candidate).await {
+      Ok(ManifestCheckResult::NeedsExtraction) => pending_candidates.push(candidate),
+      Ok(ManifestCheckResult::AlreadySucceeded) => already_succeeded += 1,
+      Ok(ManifestCheckResult::AlreadyFailed) => already_failed += 1,
+      Err(e) => {
+        skipped_errors += 1;
+        error!(
+          "Skipping PDF '{}' (user {}) during startup queue population: {}",
+          candidate.item_id, candidate.user_id, e
+        );
+      }
+    }
+  }
+
+  let scheduled = pending_candidates.len();
+  {
+    let mut state = state.lock().await;
+    for candidate in pending_candidates {
+      enqueue_candidate(&mut state, candidate);
+    }
+  }
+
+  info!(
+    "Initialized PDF text extraction queue with {} pending item(s) from {} total PDF(s) (already succeeded: {}, already failed: {}, skipped due to errors: {}).",
+    scheduled, total_candidates, already_succeeded, already_failed, skipped_errors
+  );
 }
 
 enum ManifestCheckResult {

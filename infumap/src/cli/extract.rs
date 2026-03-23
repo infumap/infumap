@@ -44,12 +44,12 @@ use crate::util::fs::{expand_tilde, path_exists};
 use crate::web::image_tagging::{
   LoadedImageTagging, delete_item_image_tag_dir, image_tagging_url_from_config, is_supported_image_tagging_mime_type,
   item_needs_image_tagging, list_failed_images, load_image_for_tagging, mark_item_image_tagging_failed,
-  process_loaded_image_tagging, should_tag_image_item, start_image_tagging_processing_loop, tag_single_item_no_retry,
+  process_loaded_image_tagging, should_tag_image_item, tag_single_item_no_retry,
 };
 use crate::web::text_extraction::{
   LoadedPdfExtraction, delete_item_text_dir, extract_single_item_no_retry, item_needs_text_extraction,
   list_failed_pdfs, load_pdf_for_extraction, mark_item_text_extraction_failed, process_loaded_pdf_extraction,
-  start_text_extraction_processing_loop, text_extraction_url_from_config,
+  text_extraction_url_from_config,
 };
 
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
@@ -310,6 +310,12 @@ struct BatchUiText {
   throughput_unit_label: Option<&'static str>,
 }
 
+#[derive(Clone, Copy)]
+enum BatchScope<'a> {
+  Container { container_id: &'a str },
+  AllItems,
+}
+
 #[derive(Deserialize)]
 struct StoredImageEmbeddingArtifact {
   #[serde(default)]
@@ -480,11 +486,11 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
         skipped_existing, total_candidate_items, container_id
       );
     }
-    process_container_batch(
+    process_batch(
       &data_dir,
       &text_extraction_url,
       text_extraction_delay,
-      container_id,
+      BatchScope::Container { container_id },
       total_candidate_items,
       skipped_existing,
       item_ids,
@@ -506,19 +512,39 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
-  start_text_extraction_processing_loop(
-    data_dir,
-    text_extraction_url.clone(),
+  let collected_item_ids = collect_matching_item_ids_globally(db.clone(), is_extractable_pdf_item).await?;
+  let total_candidate_items = collected_item_ids.len();
+  let (item_ids, skipped_existing) =
+    filter_item_ids_to_process(&data_dir, db.clone(), collected_item_ids, item_needs_text_extraction_boxed).await?;
+  if skipped_existing > 0 {
+    info!(
+      "Skipping {} of {} PDFs because extraction artifacts already exist.",
+      skipped_existing, total_candidate_items
+    );
+  }
+  process_batch(
+    &data_dir,
+    &text_extraction_url,
     text_extraction_delay,
+    BatchScope::AllItems,
+    total_candidate_items,
+    skipped_existing,
+    item_ids,
     db,
     object_store,
-  )?;
-  info!(
-    "Running text extraction loop using '{}' with pipelined source-object prefetch and delay {:.3}s. Press Ctrl-C to stop.",
-    text_extraction_url,
-    text_extraction_delay.as_secs_f64()
-  );
-  tokio::signal::ctrl_c().await.map_err(|e| format!("Failed waiting for Ctrl-C: {}", e))?;
+    BatchUiText {
+      noun_singular: "PDF",
+      noun_plural: "PDFs",
+      action_name: "text extraction",
+      action_infinitive: "extract",
+      action_past: "extracted",
+      artifact_label: "extraction artifacts",
+      throughput_unit_label: None,
+    },
+    load_pdf_for_extraction_boxed,
+    process_loaded_pdf_extraction_boxed,
+  )
+  .await?;
   Ok(())
 }
 
@@ -604,11 +630,11 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
         skipped_existing, total_candidate_items, container_id
       );
     }
-    process_container_batch(
+    process_batch(
       &data_dir,
       &image_tagging_url,
       image_tagging_delay,
-      container_id,
+      BatchScope::Container { container_id },
       total_candidate_items,
       skipped_existing,
       item_ids,
@@ -630,13 +656,39 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
-  start_image_tagging_processing_loop(data_dir, image_tagging_url.clone(), image_tagging_delay, db, object_store)?;
-  info!(
-    "Running image tagging loop using '{}' with pipelined source-object prefetch and delay {:.3}s. Press Ctrl-C to stop.",
-    image_tagging_url,
-    image_tagging_delay.as_secs_f64()
-  );
-  tokio::signal::ctrl_c().await.map_err(|e| format!("Failed waiting for Ctrl-C: {}", e))?;
+  let collected_item_ids = collect_matching_item_ids_globally(db.clone(), should_tag_image_item).await?;
+  let total_candidate_items = collected_item_ids.len();
+  let (item_ids, skipped_existing) =
+    filter_item_ids_to_process(&data_dir, db.clone(), collected_item_ids, item_needs_image_tagging_boxed).await?;
+  if skipped_existing > 0 {
+    info!(
+      "Skipping {} of {} images because image-tag artifacts already exist.",
+      skipped_existing, total_candidate_items
+    );
+  }
+  process_batch(
+    &data_dir,
+    &image_tagging_url,
+    image_tagging_delay,
+    BatchScope::AllItems,
+    total_candidate_items,
+    skipped_existing,
+    item_ids,
+    db,
+    object_store,
+    BatchUiText {
+      noun_singular: "image",
+      noun_plural: "supported images",
+      action_name: "image tagging",
+      action_infinitive: "tag",
+      action_past: "tagged",
+      artifact_label: "image-tag artifacts",
+      throughput_unit_label: Some("images/min"),
+    },
+    load_image_for_tagging_boxed,
+    process_loaded_image_tagging_boxed,
+  )
+  .await?;
   Ok(())
 }
 
@@ -1084,6 +1136,32 @@ where
   Ok(ordered_item_ids)
 }
 
+async fn collect_matching_item_ids_globally<PredicateFn>(
+  db: Arc<Mutex<Db>>,
+  predicate: PredicateFn,
+) -> InfuResult<Vec<String>>
+where
+  PredicateFn: Fn(&Item) -> bool + Copy,
+{
+  let mut items = {
+    let db = db.lock().await;
+    db.item
+      .all_loaded_items()
+      .into_iter()
+      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().cloned())
+      .filter(predicate)
+      .collect::<Vec<Item>>()
+  };
+
+  items.sort_by(|a, b| {
+    let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
+    let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
+    a_size.cmp(&b_size).then(a.last_modified_date.cmp(&b.last_modified_date)).then(a.id.cmp(&b.id))
+  });
+
+  Ok(items.into_iter().map(|item| item.id).collect())
+}
+
 fn collect_matching_item_ids_recursive<PredicateFn>(
   db: &Db,
   item_id: &str,
@@ -1130,11 +1208,11 @@ where
   Ok(())
 }
 
-async fn process_container_batch<LoadedItem>(
+async fn process_batch<'a, LoadedItem>(
   data_dir: &str,
   service_url: &str,
   delay: Duration,
-  container_id: &str,
+  scope: BatchScope<'a>,
   total_candidate_items: usize,
   skipped_existing: usize,
   item_ids: Vec<String>,
@@ -1148,33 +1226,68 @@ where
   LoadedItem: Send + 'static,
 {
   if item_ids.is_empty() {
-    if total_candidate_items == 0 {
-      info!(
-        "No {} found under container '{}'. Nothing to {}.",
-        ui_text.noun_plural, container_id, ui_text.action_infinitive
-      );
-    } else {
-      info!(
-        "All {} {} under container '{}' already have {}. Nothing to {}. Use --overwrite to reprocess them.",
-        total_candidate_items, ui_text.noun_plural, container_id, ui_text.artifact_label, ui_text.action_infinitive
-      );
+    match scope {
+      BatchScope::Container { container_id } => {
+        if total_candidate_items == 0 {
+          info!(
+            "No {} found under container '{}'. Nothing to {}.",
+            ui_text.noun_plural, container_id, ui_text.action_infinitive
+          );
+        } else {
+          info!(
+            "All {} {} under container '{}' already have {}. Nothing to {}. Use --overwrite to reprocess them.",
+            total_candidate_items, ui_text.noun_plural, container_id, ui_text.artifact_label, ui_text.action_infinitive
+          );
+        }
+      }
+      BatchScope::AllItems => {
+        if total_candidate_items == 0 {
+          info!("No {} found. Nothing to {}.", ui_text.noun_plural, ui_text.action_infinitive);
+        } else if skipped_existing == total_candidate_items {
+          info!(
+            "All {} {} already have {}. Nothing to {}.",
+            total_candidate_items, ui_text.noun_plural, ui_text.artifact_label, ui_text.action_infinitive
+          );
+        } else {
+          info!(
+            "No {} were queued for this run. total_discovered={} skipped_existing={}.",
+            ui_text.noun_plural, total_candidate_items, skipped_existing
+          );
+        }
+      }
     }
     return Ok(());
   }
 
   let scheduled_items = item_ids.len();
   let started_at = Instant::now();
-  info!(
-    "Starting container-scoped {} for container '{}' using '{}' with pipelined source-object prefetch and delay {:.3}s. Scheduled {}: {} (existing skipped: {}, total discovered: {}).",
-    ui_text.action_name,
-    container_id,
-    service_url,
-    delay.as_secs_f64(),
-    ui_text.noun_plural,
-    scheduled_items,
-    skipped_existing,
-    total_candidate_items
-  );
+  match scope {
+    BatchScope::Container { container_id } => {
+      info!(
+        "Starting container-scoped {} for container '{}' using '{}' with pipelined source-object prefetch and delay {:.3}s. Scheduled {}: {} (existing skipped: {}, total discovered: {}).",
+        ui_text.action_name,
+        container_id,
+        service_url,
+        delay.as_secs_f64(),
+        ui_text.noun_plural,
+        scheduled_items,
+        skipped_existing,
+        total_candidate_items
+      );
+    }
+    BatchScope::AllItems => {
+      info!(
+        "Starting all-items {} using '{}' with pipelined source-object prefetch and delay {:.3}s. Scheduled {}: {} (existing skipped: {}, total discovered: {}).",
+        ui_text.action_name,
+        service_url,
+        delay.as_secs_f64(),
+        ui_text.noun_plural,
+        scheduled_items,
+        skipped_existing,
+        total_candidate_items
+      );
+    }
+  }
   let mut queue = VecDeque::from(item_ids);
   let mut progress = BatchProgress::default();
   let mut next_prefetch = queue
@@ -1187,6 +1300,10 @@ where
     object_store.clone(),
     &mut queue,
     &mut next_prefetch,
+    match scope {
+      BatchScope::Container { .. } => "Container-scoped",
+      BatchScope::AllItems => "All-items",
+    },
     &ui_text,
     &mut progress,
     load_item,
@@ -1203,6 +1320,10 @@ where
         object_store.clone(),
         &mut queue,
         &mut next_prefetch,
+        match scope {
+          BatchScope::Container { .. } => "Container-scoped",
+          BatchScope::AllItems => "All-items",
+        },
         &ui_text,
         &mut progress,
         load_item,
@@ -1213,9 +1334,17 @@ where
       None
     };
 
-    let (item_id, result) = current_handle
-      .await
-      .map_err(|e| format!("Container-scoped {} request task failed: {}", ui_text.action_name, e))?;
+    let (item_id, result) = current_handle.await.map_err(|e| {
+      format!(
+        "{} {} request task failed: {}",
+        match scope {
+          BatchScope::Container { .. } => "Container-scoped",
+          BatchScope::AllItems => "All-items",
+        },
+        ui_text.action_name,
+        e
+      )
+    })?;
 
     match result {
       Ok(()) => {
@@ -1223,20 +1352,40 @@ where
         progress.succeeded += 1;
         let throughput_suffix =
           average_throughput_suffix(&started_at, progress.processed, ui_text.throughput_unit_label);
-        info!(
-          "Container-scoped {}: {} '{}' successfully ({}/{}).{}",
-          ui_text.action_name, ui_text.action_past, item_id, progress.processed, scheduled_items, throughput_suffix
-        );
+        match scope {
+          BatchScope::Container { .. } => {
+            info!(
+              "Container-scoped {}: {} '{}' successfully ({}/{}).{}",
+              ui_text.action_name, ui_text.action_past, item_id, progress.processed, scheduled_items, throughput_suffix
+            );
+          }
+          BatchScope::AllItems => {
+            info!(
+              "All-items {}: {} '{}' successfully ({}/{}).{}",
+              ui_text.action_name, ui_text.action_past, item_id, progress.processed, scheduled_items, throughput_suffix
+            );
+          }
+        }
       }
       Err(e) => {
         progress.processed += 1;
         progress.failed += 1;
         let throughput_suffix =
           average_throughput_suffix(&started_at, progress.processed, ui_text.throughput_unit_label);
-        info!(
-          "Container-scoped {}: failed for '{}' ({}/{}): {}.{}",
-          ui_text.action_name, item_id, progress.processed, scheduled_items, e, throughput_suffix
-        );
+        match scope {
+          BatchScope::Container { .. } => {
+            info!(
+              "Container-scoped {}: failed for '{}' ({}/{}): {}.{}",
+              ui_text.action_name, item_id, progress.processed, scheduled_items, e, throughput_suffix
+            );
+          }
+          BatchScope::AllItems => {
+            info!(
+              "All-items {}: failed for '{}' ({}/{}): {}.{}",
+              ui_text.action_name, item_id, progress.processed, scheduled_items, e, throughput_suffix
+            );
+          }
+        }
       }
     }
 
@@ -1249,6 +1398,10 @@ where
         object_store.clone(),
         &mut queue,
         &mut next_prefetch,
+        match scope {
+          BatchScope::Container { .. } => "Container-scoped",
+          BatchScope::AllItems => "All-items",
+        },
         &ui_text,
         &mut progress,
         load_item,
@@ -1260,10 +1413,20 @@ where
     }
   }
 
-  info!(
-    "Container-scoped {} finished for container '{}': scheduled={} skipped_existing={} succeeded={} failed={}.",
-    ui_text.action_name, container_id, scheduled_items, skipped_existing, progress.succeeded, progress.failed
-  );
+  match scope {
+    BatchScope::Container { container_id } => {
+      info!(
+        "Container-scoped {} finished for container '{}': scheduled={} skipped_existing={} succeeded={} failed={}.",
+        ui_text.action_name, container_id, scheduled_items, skipped_existing, progress.succeeded, progress.failed
+      );
+    }
+    BatchScope::AllItems => {
+      info!(
+        "All-items {} finished: scheduled={} skipped_existing={} succeeded={} failed={}.",
+        ui_text.action_name, scheduled_items, skipped_existing, progress.succeeded, progress.failed
+      );
+    }
+  }
   Ok(())
 }
 
@@ -1293,6 +1456,7 @@ async fn advance_prefetch_to_process<LoadedItem>(
   object_store: Arc<storage_object::ObjectStore>,
   queue: &mut VecDeque<String>,
   next_prefetch: &mut Option<JoinHandle<(String, InfuResult<LoadedItem>)>>,
+  scope_label: &str,
   ui_text: &BatchUiText,
   progress: &mut BatchProgress,
   load_item: LoadItemFn<LoadedItem>,
@@ -1308,7 +1472,7 @@ where
 
     let (item_id, loaded_result) = current_prefetch
       .await
-      .map_err(|e| format!("Container-scoped {} prefetch task failed: {}", ui_text.action_name, e))?;
+      .map_err(|e| format!("{} {} prefetch task failed: {}", scope_label, ui_text.action_name, e))?;
 
     *next_prefetch = queue.pop_front().map(|next_item_id| {
       spawn_prefetch(data_dir, service_url, db.clone(), object_store.clone(), next_item_id, load_item)
@@ -1318,7 +1482,8 @@ where
     match loaded_result {
       Ok(loaded_item) => {
         info!(
-          "Container-scoped {} starting {} '{}'. Pending queue: {}. Progress: {}",
+          "{} {} starting {} '{}'. Pending queue: {}. Progress: {}",
+          scope_label,
           ui_text.action_name,
           ui_text.noun_singular,
           item_id,
@@ -1338,7 +1503,8 @@ where
         progress.processed += 1;
         progress.failed += 1;
         info!(
-          "Container-scoped {}: failed during source-object load for '{}'. {} Error: {}",
+          "{} {}: failed during source-object load for '{}'. {} Error: {}",
+          scope_label,
           ui_text.action_name,
           item_id,
           progress.summary(),
@@ -1402,13 +1568,12 @@ fn load_pdf_for_extraction_boxed<'a>(
 }
 
 fn load_image_for_tagging_boxed<'a>(
-  data_dir: &'a str,
-  service_url: &'a str,
+  _data_dir: &'a str,
+  _service_url: &'a str,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
   item_id: &'a str,
 ) -> LoadItemFuture<'a, LoadedImageTagging> {
-  let _ = (data_dir, service_url);
   Box::pin(load_image_for_tagging(db, object_store, item_id))
 }
 

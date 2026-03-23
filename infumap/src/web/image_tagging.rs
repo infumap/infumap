@@ -42,10 +42,8 @@ use crate::util::retry::endpoint_retry_delay;
 const IDLE_POLL_SECS: u64 = 60;
 const REQUEST_TIMEOUT_SECS: u64 = 30 * 60;
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
-const MAX_PENDING_IMAGES: usize = 100;
-const REFILL_WHEN_QUEUE_AT_MOST: usize = 50;
 const LARGE_IMAGE_SIZE_BYTES: i64 = 10 * 1024 * 1024;
-const REFILL_WAIT_MILLIS: u64 = 1000;
+const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS: usize = 6;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
 const JSON_CONTENT_MIME_TYPE: &str = "application/json";
@@ -90,8 +88,6 @@ pub(crate) struct LoadedImageTagging {
 struct ProcessingState {
   queue: Vec<ImageCandidate>,
   queued_item_ids: HashSet<String>,
-  scan_exhausted: bool,
-  refill_in_progress: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -235,15 +231,6 @@ fn value_as_f32_list(value: Value) -> Vec<f32> {
   };
 
   raw_values.into_iter().filter_map(value_as_f64).map(|value| value as f32).collect()
-}
-
-struct RefillResult {
-  found_any: bool,
-  total_candidates: usize,
-  considered_candidates: usize,
-  already_succeeded: usize,
-  already_failed: usize,
-  needs_tagging: usize,
 }
 
 struct TaggingProgress {
@@ -580,8 +567,6 @@ pub fn start_image_tagging_processing_loop(
   let state = Arc::new(Mutex::new(ProcessingState {
     queue: vec![],
     queued_item_ids: HashSet::new(),
-    scan_exhausted: false,
-    refill_in_progress: false,
   }));
   PROCESSING_STATE
     .set(state.clone())
@@ -589,7 +574,7 @@ pub fn start_image_tagging_processing_loop(
   let progress = Arc::new(Mutex::new(TaggingProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   info!(
-    "Starting image tagging processing loop using '{}' with pipelined source-object prefetch and request dispatch (delay {:.3}s).",
+    "Starting image tagging processing loop using '{}' with startup queue population and live enqueue updates (no rescan, delay {:.3}s).",
     image_tagging_url,
     request_delay.as_secs_f64()
   );
@@ -610,6 +595,7 @@ async fn run_image_tagging_loop(
   progress: Arc<Mutex<TaggingProgress>>,
 ) {
   let started_at = Instant::now();
+  populate_initial_image_queue(&data_dir, db.clone(), state.clone()).await;
   let mut next_prefetch = Some(spawn_image_prefetch(
     data_dir.clone(),
     image_tagging_url.clone(),
@@ -713,15 +699,13 @@ async fn run_image_tagging_loop(
 
 fn spawn_image_prefetch(
   data_dir: String,
-  image_tagging_url: String,
+  _image_tagging_url: String,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<TaggingProgress>>,
 ) -> task::JoinHandle<(LoadedImageTagging, usize)> {
-  task::spawn(async move {
-    prefetch_next_image_tagging(data_dir, image_tagging_url, db, object_store, state, progress).await
-  })
+  task::spawn(async move { prefetch_next_image_tagging(data_dir, db, object_store, state, progress).await })
 }
 
 fn spawn_image_process(
@@ -792,17 +776,14 @@ async fn advance_image_prefetch_to_process(
 }
 
 async fn prefetch_next_image_tagging(
-  data_dir: String,
-  image_tagging_url: String,
+  _data_dir: String,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<TaggingProgress>>,
 ) -> (LoadedImageTagging, usize) {
-  let _ = image_tagging_url;
   loop {
-    let (candidate, queue_remaining) =
-      wait_for_next_image_candidate(&data_dir, db.clone(), state.clone(), progress.clone()).await;
+    let (candidate, queue_remaining) = wait_for_next_image_candidate(state.clone()).await;
     if candidate.file_size_bytes.map_or(false, |size| size >= LARGE_IMAGE_SIZE_BYTES) {
       info!(
         "Image '{}' (user {}): large image (~{} MB); tagging may take longer and use significant memory.",
@@ -831,10 +812,7 @@ async fn prefetch_next_image_tagging(
 }
 
 async fn wait_for_next_image_candidate(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
   state: Arc<Mutex<ProcessingState>>,
-  progress: Arc<Mutex<TaggingProgress>>,
 ) -> (ImageCandidate, usize) {
   loop {
     let (candidate, queue_remaining) = {
@@ -843,81 +821,8 @@ async fn wait_for_next_image_candidate(
     };
 
     match (candidate, queue_remaining) {
-      (Some(candidate), remaining) => {
-        if remaining <= REFILL_WHEN_QUEUE_AT_MOST {
-          match refill_queue_if_needed(data_dir, db.clone(), state.clone(), Some(&candidate.item_id)).await {
-            Ok(Some(refill)) => {
-              let progress_summary = {
-                let progress = progress.lock().await;
-                progress.summary()
-              };
-              info!(
-                "Image tagging queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
-                refill.considered_candidates,
-                refill.total_candidates,
-                refill.already_succeeded,
-                refill.already_failed,
-                refill.needs_tagging,
-                progress_summary
-              );
-            }
-            Ok(None) => {}
-            Err(e) => {
-              error!("Could not refill image tagging queue: {}", e);
-            }
-          }
-        }
-        return (candidate, remaining);
-      }
-      (None, _) => match refill_queue_if_needed(data_dir, db.clone(), state.clone(), None).await {
-        Ok(Some(refill)) if refill.found_any => {
-          let progress_summary = {
-            let progress = progress.lock().await;
-            progress.summary()
-          };
-          info!(
-            "Image tagging queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
-            refill.considered_candidates,
-            refill.total_candidates,
-            refill.already_succeeded,
-            refill.already_failed,
-            refill.needs_tagging,
-            progress_summary
-          );
-          continue;
-        }
-        Ok(Some(refill)) => {
-          let progress_summary = {
-            let progress = progress.lock().await;
-            progress.summary()
-          };
-          info!(
-            "Image tagging queue refill: {}/{} manifest checks (success: {}, failure: {}, none: {}). Progress: {}",
-            refill.considered_candidates,
-            refill.total_candidates,
-            refill.already_succeeded,
-            refill.already_failed,
-            refill.needs_tagging,
-            progress_summary
-          );
-          time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        }
-        Ok(None) => {
-          let should_idle_sleep = {
-            let state = state.lock().await;
-            state.scan_exhausted
-          };
-          if should_idle_sleep {
-            time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-          } else {
-            time::sleep(Duration::from_millis(REFILL_WAIT_MILLIS)).await;
-          }
-        }
-        Err(e) => {
-          error!("Could not refill image tagging queue: {}", e);
-          time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        }
-      },
+      (Some(candidate), remaining) => return (candidate, remaining),
+      (None, _) => time::sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await,
     }
   }
 }
@@ -1049,102 +954,6 @@ async fn request_image_tagging_once(
   request_image_tagging(client, image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes.to_vec()).await
 }
 
-async fn refill_queue_if_needed(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<ProcessingState>>,
-  exclude_item_id: Option<&str>,
-) -> InfuResult<Option<RefillResult>> {
-  {
-    let mut state = state.lock().await;
-    let should_refill = !state.scan_exhausted;
-    if !should_refill || state.refill_in_progress {
-      return Ok(None);
-    }
-    state.refill_in_progress = true;
-  }
-
-  let refill = refill_queue(data_dir, db, state.clone(), exclude_item_id).await;
-
-  {
-    let mut state = state.lock().await;
-    state.refill_in_progress = false;
-  }
-
-  refill.map(Some)
-}
-
-async fn refill_queue(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<ProcessingState>>,
-  exclude_item_id: Option<&str>,
-) -> InfuResult<RefillResult> {
-  let candidates = {
-    let db = db.lock().await;
-    let mut candidates = db
-      .item
-      .all_loaded_items()
-      .into_iter()
-      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().map(Item::clone))
-      .filter_map(|item| ImageCandidate::from_item(&item))
-      .collect::<Vec<ImageCandidate>>();
-    candidates.sort_by(|a, b| {
-      let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
-      let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
-      a_size.cmp(&b_size).then(a.last_modified_date.cmp(&b.last_modified_date)).then(a.item_id.cmp(&b.item_id))
-    });
-    candidates
-  };
-
-  let total = candidates.len();
-  let mut refill_state = ProcessingState {
-    queue: vec![],
-    queued_item_ids: HashSet::new(),
-    scan_exhausted: false,
-    refill_in_progress: false,
-  };
-  let mut already_succeeded = 0usize;
-  let mut already_failed = 0usize;
-  let mut none = 0usize;
-  let mut checked = 0usize;
-  let mut excluded = 0usize;
-
-  for candidate in candidates {
-    if exclude_item_id == Some(candidate.item_id.as_str()) {
-      excluded += 1;
-      continue;
-    }
-    checked += 1;
-    match manifest_check(data_dir, &candidate).await? {
-      ManifestCheckResult::NeedsTagging => {
-        none += 1;
-        enqueue_candidate(&mut refill_state, candidate);
-        if refill_state.queue.len() >= MAX_PENDING_IMAGES {
-          break;
-        }
-      }
-      ManifestCheckResult::AlreadySucceeded => already_succeeded += 1,
-      ManifestCheckResult::AlreadyFailed => already_failed += 1,
-    }
-  }
-
-  let mut state = state.lock().await;
-  for candidate in refill_state.queue {
-    enqueue_candidate(&mut state, candidate);
-  }
-  state.scan_exhausted = state.queue.is_empty();
-  let considered = checked + excluded;
-  Ok(RefillResult {
-    found_any: !state.queue.is_empty(),
-    total_candidates: total,
-    considered_candidates: considered,
-    already_succeeded,
-    already_failed,
-    needs_tagging: none,
-  })
-}
-
 fn pop_candidate(state: &mut ProcessingState) -> (Option<ImageCandidate>, usize) {
   let candidate = match state.queue.pop() {
     Some(candidate) => {
@@ -1165,15 +974,10 @@ fn enqueue_candidate(state: &mut ProcessingState, candidate: ImageCandidate) {
   state.queue.push(candidate);
   state.queue.sort_by(compare_candidates_desc);
 
-  if state.queue.len() > MAX_PENDING_IMAGES {
-    state.queue.remove(0);
-  }
-
   state.queued_item_ids.clear();
   for queued_candidate in &state.queue {
     state.queued_item_ids.insert(queued_candidate.item_id.clone());
   }
-  state.scan_exhausted = false;
 }
 
 fn remove_candidate(state: &mut ProcessingState, item_id: &str) {
@@ -1185,6 +989,63 @@ fn compare_candidates_desc(a: &ImageCandidate, b: &ImageCandidate) -> std::cmp::
   let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
   let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
   b_size.cmp(&a_size).then(b.last_modified_date.cmp(&a.last_modified_date)).then(b.item_id.cmp(&a.item_id))
+}
+
+async fn populate_initial_image_queue(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  state: Arc<Mutex<ProcessingState>>,
+) {
+  let candidates = {
+    let db = db.lock().await;
+    let mut candidates = db
+      .item
+      .all_loaded_items()
+      .into_iter()
+      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().map(Item::clone))
+      .filter_map(|item| ImageCandidate::from_item(&item))
+      .collect::<Vec<ImageCandidate>>();
+    candidates.sort_by(|a, b| {
+      let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
+      let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
+      a_size.cmp(&b_size).then(a.last_modified_date.cmp(&b.last_modified_date)).then(a.item_id.cmp(&b.item_id))
+    });
+    candidates
+  };
+
+  let total_candidates = candidates.len();
+  let mut pending_candidates = vec![];
+  let mut already_succeeded = 0usize;
+  let mut already_failed = 0usize;
+  let mut skipped_errors = 0usize;
+
+  for candidate in candidates {
+    match manifest_check(data_dir, &candidate).await {
+      Ok(ManifestCheckResult::NeedsTagging) => pending_candidates.push(candidate),
+      Ok(ManifestCheckResult::AlreadySucceeded) => already_succeeded += 1,
+      Ok(ManifestCheckResult::AlreadyFailed) => already_failed += 1,
+      Err(e) => {
+        skipped_errors += 1;
+        error!(
+          "Skipping image '{}' (user {}) during startup queue population: {}",
+          candidate.item_id, candidate.user_id, e
+        );
+      }
+    }
+  }
+
+  let scheduled = pending_candidates.len();
+  {
+    let mut state = state.lock().await;
+    for candidate in pending_candidates {
+      enqueue_candidate(&mut state, candidate);
+    }
+  }
+
+  info!(
+    "Initialized image tagging queue with {} pending item(s) from {} total supported image(s) (already succeeded: {}, already failed: {}, skipped due to errors: {}).",
+    scheduled, total_candidates, already_succeeded, already_failed, skipped_errors
+  );
 }
 
 enum ManifestCheckResult {
