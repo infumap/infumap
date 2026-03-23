@@ -10,25 +10,25 @@ use tokio::fs;
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
 
 const FRAGMENTS_SCHEMA_VERSION: u32 = 1;
-const FRAGMENTER_VERSION: &str = "fragments-v1";
+const FRAGMENTER_VERSION: u32 = 1;
 
 #[derive(Clone, Copy)]
 pub enum FragmentSourceKind {
-  ItemTitle,
-  CompositeChildTitles,
+  PageContents,
+  TableContents,
 }
 
 impl FragmentSourceKind {
   fn as_str(&self) -> &'static str {
     match self {
-      FragmentSourceKind::ItemTitle => "item_title",
-      FragmentSourceKind::CompositeChildTitles => "composite_child_titles",
+      FragmentSourceKind::PageContents => "page_contents",
+      FragmentSourceKind::TableContents => "table_contents",
     }
   }
 }
 
 #[allow(dead_code)]
-fn make_fragment_id(item_id: &str, fragmenter_version: &str, ordinal: usize) -> String {
+fn make_fragment_id(item_id: &str, fragmenter_version: u32, ordinal: usize) -> String {
   format!("{}:{}:{}", item_id, fragmenter_version, ordinal)
 }
 
@@ -42,21 +42,13 @@ pub struct FragmentBuildOutcome {
 #[derive(Serialize)]
 struct FragmentRecord {
   ordinal: usize,
-  item_id: String,
-  item_type: String,
-  // This is reserved for fragments derived from immutable object-backed items
-  // like files and images. For mutable items like notes/pages, item creation
-  // time is weaker provenance for the fragment text, so we leave it unset.
-  source_item_creation_date: Option<i64>,
-  source_kind: String,
   text: String,
-  fragmenter_version: String,
 }
 
 #[derive(Serialize)]
 struct FragmentsManifest {
   schema_version: u32,
-  fragmenter_version: String,
+  fragmenter_version: u32,
   source_kind: String,
   source_text_sha256: String,
   generated_at_unix_secs: i64,
@@ -71,13 +63,15 @@ pub async fn build_fragments_for_item(
   container_title: Option<String>,
 ) -> InfuResult<FragmentBuildOutcome> {
   let source_text = source_text.trim();
-  if source_text.is_empty() {
+  let container_title = container_title.map(|title| title.trim().to_owned()).filter(|title| !title.is_empty());
+  if source_text.is_empty() && container_title.is_none() {
     let cleared = clear_item_rag_dir(data_dir, &item.owner_id, &item.id).await?;
     return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
   }
-  let fragment_text = match container_title.as_deref().map(|v| v.trim()) {
-    Some(container_title) if !container_title.is_empty() => format!("## {}\n\n{}", container_title, source_text),
-    _ => source_text.to_owned(),
+  let fragment_text = match container_title.as_deref() {
+    Some(container_title) if source_text.is_empty() => format!("## {}", container_title),
+    Some(container_title) => format!("## {}\n\n{}", container_title, source_text),
+    None => source_text.to_owned(),
   };
 
   ensure_user_rag_dir(data_dir, &item.owner_id).await?;
@@ -87,22 +81,14 @@ pub async fn build_fragments_for_item(
   let manifest_path = fragments_manifest_path(data_dir, &item.owner_id, &item.id)?;
 
   let source_text_sha256 = sha256_hex(&fragment_text);
-  let record = FragmentRecord {
-    ordinal: 0,
-    item_id: item.id.clone(),
-    item_type: item.item_type.as_str().to_owned(),
-    source_item_creation_date: None,
-    source_kind: source_kind.as_str().to_owned(),
-    text: fragment_text,
-    fragmenter_version: FRAGMENTER_VERSION.to_owned(),
-  };
+  let record = FragmentRecord { ordinal: 0, text: fragment_text };
   let mut serialized = serde_json::to_vec(&record)?;
   serialized.push(b'\n');
   fs::write(&fragments_path, &serialized).await?;
 
   let manifest = FragmentsManifest {
     schema_version: FRAGMENTS_SCHEMA_VERSION,
-    fragmenter_version: FRAGMENTER_VERSION.to_owned(),
+    fragmenter_version: FRAGMENTER_VERSION,
     source_kind: source_kind.as_str().to_owned(),
     source_text_sha256,
     generated_at_unix_secs: unix_now_secs()?,

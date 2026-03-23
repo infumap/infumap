@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 
 use clap::{Arg, ArgMatches, Command};
-use infusdk::item::{Item, ItemType, RelationshipToParent};
+use infusdk::item::{ArrangeAlgorithm, Item, ItemType, RelationshipToParent};
 use infusdk::util::infu::InfuResult;
 use log::info;
 use tokio::sync::Mutex;
@@ -101,58 +101,136 @@ struct FragmentSource {
 }
 
 fn fragment_source_for_item(db: &Db, item: &Item) -> Option<FragmentSource> {
-  if item.item_type == ItemType::Link
-    || item.item_type == ItemType::Rating
-    || item.item_type == ItemType::Password
-    || item.item_type == ItemType::Page
-    || item.item_type == ItemType::Table
-  {
-    return None;
+  match item.item_type {
+    ItemType::Page => container_fragment_source(db, item, FragmentSourceKind::PageContents),
+    ItemType::Table => container_fragment_source(db, item, FragmentSourceKind::TableContents),
+    _ => None,
   }
-  if is_child_of_composite(db, item) {
-    return None;
-  }
-
-  let container_title = container_title_for_item(db, item);
-  if item.item_type == ItemType::Composite {
-    let source_text = composite_child_titles(db, item)?;
-    return Some(FragmentSource {
-      source_kind: FragmentSourceKind::CompositeChildTitles,
-      source_text,
-      container_title,
-    });
-  }
-
-  let source_text = item.title.as_deref().map(str::trim).filter(|title| !title.is_empty())?.to_owned();
-  Some(FragmentSource { source_kind: FragmentSourceKind::ItemTitle, source_text, container_title })
 }
 
-fn is_child_of_composite(db: &Db, item: &Item) -> bool {
-  if item.relationship_to_parent != RelationshipToParent::Child {
-    return false;
+fn container_fragment_source(db: &Db, item: &Item, source_kind: FragmentSourceKind) -> Option<FragmentSource> {
+  let own_title = item.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).map(str::to_owned);
+  let lines = container_child_title_lines(db, item);
+  if lines.is_empty() && own_title.is_none() {
+    return None;
   }
-  let Some(parent_id) = item.parent_id.as_ref() else {
-    return false;
-  };
-  db.item.get(parent_id).map(|parent| parent.item_type == ItemType::Composite).unwrap_or(false)
+
+  Some(FragmentSource {
+    source_kind,
+    source_text: lines.join("\n"),
+    container_title: own_title.or_else(|| container_title_for_item(db, item)),
+  })
 }
 
-fn composite_child_titles(db: &Db, item: &Item) -> Option<String> {
-  let mut children = db.item.get_children(&item.id).ok()?;
-  children.sort_by(|a, b| match compare_orderings(&a.ordering, &b.ordering) {
+fn container_child_title_lines(db: &Db, item: &Item) -> Vec<String> {
+  ordered_container_children(db, item)
+    .into_iter()
+    .flat_map(|child| fragment_lines_for_display_item(db, child))
+    .collect()
+}
+
+fn ordered_container_children<'a>(db: &'a Db, item: &Item) -> Vec<&'a Item> {
+  let mut children = db.item.get_children(&item.id).unwrap_or_default();
+  match item.item_type {
+    ItemType::Page => match item.arrange_algorithm {
+      Some(ArrangeAlgorithm::SpatialStretch) => {
+        children.sort_by(|a, b| compare_spatial_position(a, b).then_with(|| compare_item_order(a, b)));
+      }
+      Some(ArrangeAlgorithm::Calendar) => {
+        children.sort_by(|a, b| a.datetime.cmp(&b.datetime).then_with(|| compare_item_order(a, b)));
+      }
+      _ => sort_children_for_display(db, item, &mut children),
+    },
+    ItemType::Table | ItemType::Composite => sort_children_for_display(db, item, &mut children),
+    _ => {}
+  }
+  children
+}
+
+fn sort_children_for_display(db: &Db, container: &Item, children: &mut Vec<&Item>) {
+  let order_children_by = container.order_children_by.as_deref().unwrap_or_default();
+  let use_title_sort = order_children_by == "title[ASC]"
+    && !(container.item_type == ItemType::Page && container.arrange_algorithm == Some(ArrangeAlgorithm::Document));
+
+  if use_title_sort {
+    children.sort_by(|a, b| compare_items_by_display_title(db, a, b));
+  } else {
+    children.sort_by(|a, b| compare_item_order(a, b));
+  }
+}
+
+fn compare_items_by_display_title(db: &Db, a: &Item, b: &Item) -> Ordering {
+  let a_resolved = resolved_link_target(db, a);
+  let b_resolved = resolved_link_target(db, b);
+
+  let a_is_unresolved = a.item_type == ItemType::Link && a_resolved.is_none();
+  let b_is_unresolved = b.item_type == ItemType::Link && b_resolved.is_none();
+
+  match (a_is_unresolved, b_is_unresolved) {
+    (true, false) => Ordering::Greater,
+    (false, true) => Ordering::Less,
+    _ => display_title_for_sort(a_resolved.unwrap_or(a))
+      .cmp(&display_title_for_sort(b_resolved.unwrap_or(b)))
+      .then_with(|| a.id.cmp(&b.id)),
+  }
+}
+
+fn compare_item_order(a: &Item, b: &Item) -> Ordering {
+  compare_ordering_bytes(&a.ordering, &b.ordering).then_with(|| a.id.cmp(&b.id))
+}
+
+fn compare_spatial_position(a: &Item, b: &Item) -> Ordering {
+  let (a_y, a_x) = item_position_sort_key(a);
+  let (b_y, b_x) = item_position_sort_key(b);
+  a_y.cmp(&b_y).then(a_x.cmp(&b_x))
+}
+
+fn item_position_sort_key(item: &Item) -> (i64, i64) {
+  item.spatial_position_gr.as_ref().map(|pos| (pos.y, pos.x)).unwrap_or((0, 0))
+}
+
+fn compare_ordering_bytes(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
+  match compare_orderings(a, b) {
     -1 => Ordering::Less,
     1 => Ordering::Greater,
     _ => Ordering::Equal,
-  });
+  }
+}
 
-  let child_titles = children
-    .into_iter()
-    .filter_map(|child| child.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).map(str::to_owned))
-    .collect::<Vec<String>>();
-  if child_titles.is_empty() {
+fn display_title_for_sort(item: &Item) -> String {
+  item.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).unwrap_or("").to_lowercase()
+}
+
+fn fragment_lines_for_display_item(db: &Db, item: &Item) -> Vec<String> {
+  if item.item_type == ItemType::Link {
+    return resolved_link_target(db, item)
+      .map(|target| fragment_lines_for_non_link_item(db, target))
+      .unwrap_or_default();
+  }
+  fragment_lines_for_non_link_item(db, item)
+}
+
+fn fragment_lines_for_non_link_item(db: &Db, item: &Item) -> Vec<String> {
+  match item.item_type {
+    ItemType::Composite => ordered_container_children(db, item)
+      .into_iter()
+      .flat_map(|child| fragment_lines_for_display_item(db, child))
+      .collect(),
+    _ => item
+      .title
+      .as_deref()
+      .map(str::trim)
+      .filter(|title| !title.is_empty())
+      .map(|title| vec![title.to_owned()])
+      .unwrap_or_default(),
+  }
+}
+
+fn resolved_link_target<'a>(db: &'a Db, item: &Item) -> Option<&'a Item> {
+  if item.item_type != ItemType::Link {
     return None;
   }
-  Some(child_titles.join("\n"))
+  item.link_to.as_ref().and_then(|target_id| db.item.get(target_id).ok())
 }
 
 fn container_title_for_item(db: &Db, item: &Item) -> Option<String> {

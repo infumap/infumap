@@ -24,10 +24,9 @@ function fileUrl(host: string, itemId: string): string {
   return new URL(`/files/${itemId}`, host).href;
 }
 
-function fileTextUrl(host: string, itemId: string): string {
-  return new URL(`/files/${itemId}/text`, host).href;
+function generatedItemUrl(host: string, itemId: string, suffix: string): string {
+  return new URL(`/files/${itemId}/${suffix}`, host).href;
 }
-
 async function fetchRemoteFileBlob(host: string, itemId: string): Promise<Blob> {
   const headers: Record<string, string> = {};
   appendRemoteSessionHeader(host, headers);
@@ -91,19 +90,19 @@ export async function openRemoteFileInNewTab(host: string, itemId: string): Prom
   }
 }
 
-export async function openRemoteItemTextInNewTab(host: string, itemId: string): Promise<void> {
+async function openRemoteGeneratedItemInNewTab(host: string, itemId: string, suffix: string): Promise<void> {
   const popup = window.open("", "_blank", "noopener");
   try {
     const headers: Record<string, string> = {};
     appendRemoteSessionHeader(host, headers);
-    const response = await fetch(fileTextUrl(host, itemId), {
+    const response = await fetch(generatedItemUrl(host, itemId, suffix), {
       method: "GET",
       headers,
     });
     applyRotatedRemoteSessionHeader(host, response);
 
     if (!response.ok || response.status !== 200) {
-      throw new Error(`Text fetch request failed: ${response.status}`);
+      throw new Error(`Generated item fetch request failed for '${suffix}': ${response.status}`);
     }
 
     const blob = await response.blob();
@@ -120,4 +119,12 @@ export async function openRemoteItemTextInNewTab(host: string, itemId: string): 
     }
     throw e;
   }
+}
+
+export async function openRemoteItemTextInNewTab(host: string, itemId: string): Promise<void> {
+  return openRemoteGeneratedItemInNewTab(host, itemId, "text");
+}
+
+export async function openRemoteItemFragmentsInNewTab(host: string, itemId: string): Promise<void> {
+  return openRemoteGeneratedItemInNewTab(host, itemId, "fragments");
 }

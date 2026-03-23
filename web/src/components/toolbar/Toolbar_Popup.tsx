@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch, createSignal, on, onMount } from "solid-js";
+import { Component, Match, Show, Switch, createSignal, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
@@ -37,7 +37,10 @@ import { asTableItem, isTable } from "../../items/table-item";
 import QRCode from "qrcode";
 import { isImage, asImageItem } from "../../items/image-item";
 import { isFile, asFileItem } from "../../items/file-item";
-import { openRemoteItemTextInNewTab } from "../../util/remoteFile";
+import {
+  openRemoteItemFragmentsInNewTab,
+  openRemoteItemTextInNewTab
+} from "../../util/remoteFile";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -329,18 +332,60 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const openItemTextClickHandler = (): void => {
+    openGeneratedItemClickHandler("text", "text");
+  }
+
+  const openItemFragmentsClickHandler = (): void => {
+    openGeneratedItemClickHandler("fragments", "fragments");
+  }
+
+  const openGeneratedItemClickHandler = (suffix: "text" | "fragments", artifactLabel: string): void => {
     const currentItem = store.history.getFocusItem();
     store.overlay.toolbarPopupInfoMaybe.set(null);
     if (currentItem.origin != null) {
-      void openRemoteItemTextInNewTab(currentItem.origin, currentItem.id).catch((e) => {
-        console.error(`Could not open text for remote item '${currentItem.id}' from '${currentItem.origin}':`, e);
-        store.overlay.toolbarTransientMessage.set({ text: "could not open text", type: TransientMessageType.Error });
+      const openPromise = suffix == "text"
+        ? openRemoteItemTextInNewTab(currentItem.origin, currentItem.id)
+        : openRemoteItemFragmentsInNewTab(currentItem.origin, currentItem.id);
+      void openPromise.catch((e) => {
+        console.error(`Could not open ${artifactLabel} for remote item '${currentItem.id}' from '${currentItem.origin}':`, e);
+        store.overlay.toolbarTransientMessage.set({ text: `could not open ${artifactLabel}`, type: TransientMessageType.Error });
         setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1500);
       });
       return;
     }
-    window.open(`/files/${currentItem.id}/text`, "_blank", "noopener");
+    window.open(`/files/${currentItem.id}/${suffix}`, "_blank", "noopener");
   }
+
+  const isDebugSupportedItem = () => {
+    const currentItem = store.history.getFocusItem();
+    return isFile(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
+  };
+
+  const showExtractedTextDebugLink = () => {
+    const currentItem = store.history.getFocusItem();
+    return isFile(currentItem) || isImage(currentItem);
+  };
+
+  const showFragmentsDebugLink = () => {
+    const currentItem = store.history.getFocusItem();
+    return isFile(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
+  };
+
+  const renderDebugLinks = () => {
+    return (
+      <>
+        <Show when={showExtractedTextDebugLink()}>
+          <span class="ml-2 text-blue-700 cursor-pointer hover:underline" onClick={openItemTextClickHandler}>extracted text</span>
+        </Show>
+        <Show when={showExtractedTextDebugLink() && showFragmentsDebugLink()}>
+          <span class="ml-2 text-slate-400">|</span>
+        </Show>
+        <Show when={showFragmentsDebugLink()}>
+          <span class="ml-2 text-blue-700 cursor-pointer hover:underline" onClick={openItemFragmentsClickHandler}>fragments</span>
+        </Show>
+      </>
+    );
+  };
 
   const handleAutoClick = (): void => {
     const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
@@ -497,10 +542,10 @@ export const Toolbar_Popup: Component = () => {
                 <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyCompositeIdClickHandler} />
               </div>
             </Show>
-            <Show when={isFile(store.history.getFocusItem()) || isImage(store.history.getFocusItem())}>
+            <Show when={isDebugSupportedItem()}>
               <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
-                <span class="font-mono text-slate-400">Text:</span>
-                <span class="ml-2 text-blue-700 cursor-pointer hover:underline" onClick={openItemTextClickHandler}>view</span>
+                <span class="font-mono text-slate-400">Debug:</span>
+                {renderDebugLinks()}
               </div>
             </Show>
             <Show when={isPage(store.history.getFocusItem()) || isTable(store.history.getFocusItem())}>

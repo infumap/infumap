@@ -184,7 +184,7 @@ Options:
 
 ### fragments
 
-Build on-disk RAG fragment artifacts without starting the web server. The initial implementation writes fragments from the item `title` field only. This includes note text, since notes store their text in `title`.
+Build on-disk RAG fragment artifacts without starting the web server. Fragments are written for pages and tables using the container title when present plus the titles of the items they contain. Composite children contribute the title text of the items inside the composite.
 
 Options:
 

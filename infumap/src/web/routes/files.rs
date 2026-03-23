@@ -60,6 +60,7 @@ const LABEL_MISS_CREATE: &'static str = "miss";
 const LABEL_FULL: &'static str = "full";
 const LABEL_FAILED: &'static str = "failed";
 const TEXT_NOT_AVAILABLE_MESSAGE: &str = "[text not available]";
+const FRAGMENTS_NOT_AVAILABLE_MESSAGE: &str = "[fragments not available]";
 const GEO_INFO_NOT_AVAILABLE_MESSAGE: &str = "[geo info not available]";
 
 // 90 => very high-quality with significant reduction in file size.
@@ -72,6 +73,12 @@ const JPEG_QUALITY: u8 = 80;
 struct ItemTextManifest {
   status: String,
   content_mime_type: String,
+}
+
+#[derive(Deserialize)]
+struct FragmentRecord {
+  ordinal: usize,
+  text: String,
 }
 
 fn is_safe_inline_mime(mime_type: &str) -> bool {
@@ -198,6 +205,17 @@ pub async fn serve_files_route(
       Err(e) => {
         METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
         internal_server_error_response(&format!("get_item_text failed: {}", e))
+      }
+    }
+  } else if let Some(uid) = name.strip_suffix("/fragments") {
+    if uid.is_empty() || uid.contains('/') {
+      return not_found_response();
+    }
+    match get_item_fragments(db, &session_user_id_maybe, uid).await {
+      Ok(fragments_response) => fragments_response,
+      Err(e) => {
+        METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
+        internal_server_error_response(&format!("get_item_fragments failed: {}", e))
       }
     }
   } else if name.contains("_") {
@@ -525,6 +543,47 @@ async fn get_item_text(
   )
 }
 
+async fn get_item_fragments(
+  db: &Arc<Mutex<Db>>,
+  session_user_id_maybe: &Option<String>,
+  uid: &str,
+) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
+  let (item, data_dir) = {
+    let db = db.lock().await;
+    let item = db.item.get(&String::from(uid))?.clone();
+    authorize_item(&db, &item, session_user_id_maybe, 0)?;
+    (item, db.item.data_dir().to_owned())
+  };
+
+  if fs::metadata(item_fragments_manifest_path(&data_dir, &item.owner_id, uid)?).await.is_err() {
+    return Ok(fragments_not_available_response());
+  }
+
+  let fragments_path = item_fragments_path(&data_dir, &item.owner_id, uid)?;
+  let fragments_bytes = match fs::read(&fragments_path).await {
+    Ok(bytes) => bytes,
+    Err(_) => return Ok(fragments_not_available_response()),
+  };
+
+  let fragments_text = match parse_fragments_text(&fragments_bytes) {
+    Ok(text) if !text.is_empty() => text,
+    _ => return Ok(fragments_not_available_response()),
+  };
+
+  let filename = item_fragments_filename(uid);
+  let (content_type, content_disposition) = response_content_headers_for_generated_item_text(&filename, "text/plain");
+
+  Ok(
+    Response::builder()
+      .header(hyper::header::CONTENT_TYPE, content_type)
+      .header("Content-Disposition", content_disposition)
+      .header("X-Content-Type-Options", "nosniff")
+      .header(hyper::header::CACHE_CONTROL, "no-cache")
+      .body(full_body(fragments_text))
+      .unwrap(),
+  )
+}
+
 fn text_not_available_response() -> Response<BoxBody<Bytes, hyper::Error>> {
   Response::builder()
     .header(hyper::header::CONTENT_TYPE, "text/plain; charset=utf-8")
@@ -533,6 +592,34 @@ fn text_not_available_response() -> Response<BoxBody<Bytes, hyper::Error>> {
     .header(hyper::header::CACHE_CONTROL, "no-cache")
     .body(full_body(TEXT_NOT_AVAILABLE_MESSAGE))
     .unwrap()
+}
+
+fn fragments_not_available_response() -> Response<BoxBody<Bytes, hyper::Error>> {
+  Response::builder()
+    .header(hyper::header::CONTENT_TYPE, "text/plain; charset=utf-8")
+    .header("Content-Disposition", content_disposition_header("fragments", true))
+    .header("X-Content-Type-Options", "nosniff")
+    .header(hyper::header::CACHE_CONTROL, "no-cache")
+    .body(full_body(FRAGMENTS_NOT_AVAILABLE_MESSAGE))
+    .unwrap()
+}
+
+fn parse_fragments_text(data: &[u8]) -> InfuResult<Vec<u8>> {
+  let mut fragments = vec![];
+  for line in String::from_utf8_lossy(data).lines() {
+    if line.trim().is_empty() {
+      continue;
+    }
+    fragments.push(serde_json::from_str::<FragmentRecord>(line)?);
+  }
+  fragments.sort_by(|a, b| a.ordinal.cmp(&b.ordinal));
+  let text = fragments
+    .into_iter()
+    .map(|fragment| fragment.text.trim().to_owned())
+    .filter(|fragment| !fragment.is_empty())
+    .collect::<Vec<String>>()
+    .join("\n\n");
+  Ok(text.into_bytes())
 }
 
 fn item_text_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
@@ -553,6 +640,18 @@ fn item_geo_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Pat
   Ok(path)
 }
 
+fn item_fragments_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = item_rag_dir(data_dir, user_id, item_id)?;
+  path.push("fragments_manifest.json");
+  Ok(path)
+}
+
+fn item_fragments_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = item_rag_dir(data_dir, user_id, item_id)?;
+  path.push("fragments.jsonl");
+  Ok(path)
+}
+
 fn item_text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   if item_id.len() < 2 {
     return Err(format!("Item id '{}' is too short.", item_id).into());
@@ -564,6 +663,18 @@ fn item_text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResu
   Ok(path)
 }
 
+fn item_rag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  if item_id.len() < 2 {
+    return Err(format!("Item id '{}' is too short.", item_id).into());
+  }
+  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  path.push(format!("user_{}", user_id));
+  path.push("rag");
+  path.push(&item_id[..2]);
+  path.push(item_id);
+  Ok(path)
+}
+
 fn item_text_filename(uid: &str, content_mime_type: &str) -> String {
   let extension = match content_mime_type {
     "text/markdown" => ".md",
@@ -572,6 +683,10 @@ fn item_text_filename(uid: &str, content_mime_type: &str) -> String {
     _ => "",
   };
   format!("{}_text{}", uid, extension)
+}
+
+fn item_fragments_filename(uid: &str) -> String {
+  format!("{}_fragments.txt", uid)
 }
 
 fn calc_cache_control(max_age: i64) -> String {
