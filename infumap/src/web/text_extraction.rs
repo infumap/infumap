@@ -50,7 +50,6 @@ static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new()
 struct PdfCandidate {
   user_id: String,
   item_id: String,
-  title: String,
   file_size_bytes: Option<i64>,
   creation_date: i64,
   last_modified_date: i64,
@@ -61,7 +60,6 @@ impl PdfCandidate {
     PdfCandidate {
       user_id: item.owner_id.clone(),
       item_id: item.id.clone(),
-      title: item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)),
       file_size_bytes: item.file_size_bytes,
       creation_date: item.creation_date,
       last_modified_date: item.last_modified_date,
@@ -729,7 +727,7 @@ async fn request_text_extraction_with_retries(
   let mut unavailable_attempt = 0usize;
 
   loop {
-    let outcome = request_text_extraction(client, text_extraction_url, &candidate.title, file_bytes.to_vec()).await;
+    let outcome = request_text_extraction(client, text_extraction_url, file_bytes.to_vec()).await;
     match outcome {
       ExtractOutcome::EndpointUnavailable(message) => {
         let delay = endpoint_retry_delay(unavailable_attempt);
@@ -812,10 +810,10 @@ mod tests {
 async fn request_text_extraction_once(
   client: &reqwest::Client,
   text_extraction_url: &str,
-  candidate: &PdfCandidate,
+  _candidate: &PdfCandidate,
   file_bytes: &[u8],
 ) -> ExtractOutcome {
-  request_text_extraction(client, text_extraction_url, &candidate.title, file_bytes.to_vec()).await
+  request_text_extraction(client, text_extraction_url, file_bytes.to_vec()).await
 }
 
 fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
@@ -966,10 +964,9 @@ async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> InfuResult<
 async fn request_text_extraction(
   client: &reqwest::Client,
   text_extraction_url: &str,
-  file_name: &str,
   file_bytes: Vec<u8>,
 ) -> ExtractOutcome {
-  let part = match Part::bytes(file_bytes).file_name(file_name.to_owned()).mime_str("application/pdf") {
+  let part = match Part::bytes(file_bytes).mime_str("application/pdf") {
     Ok(part) => part,
     Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not build multipart upload: {}", e)),
   };

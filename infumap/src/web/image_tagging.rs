@@ -55,7 +55,6 @@ static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new()
 struct ImageCandidate {
   user_id: String,
   item_id: String,
-  title: String,
   mime_type: String,
   file_size_bytes: Option<i64>,
   creation_date: i64,
@@ -71,7 +70,6 @@ impl ImageCandidate {
     Some(ImageCandidate {
       user_id: item.owner_id.clone(),
       item_id: item.id.clone(),
-      title: item.title.clone().unwrap_or_else(|| format!("{}.bin", item.id)),
       mime_type: mime_type.to_owned(),
       file_size_bytes: item.file_size_bytes,
       creation_date: item.creation_date,
@@ -860,9 +858,7 @@ async fn request_image_tagging_with_retries(
   let mut response_format_attempt = 0usize;
 
   loop {
-    let outcome =
-      request_image_tagging(client, image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes.to_vec())
-        .await;
+    let outcome = request_image_tagging(client, image_tagging_url, &candidate.mime_type, file_bytes.to_vec()).await;
     match outcome {
       TagOutcome::ResponseFormatFailed(message) => {
         if response_format_attempt >= MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS {
@@ -951,7 +947,7 @@ async fn request_image_tagging_once(
   candidate: &ImageCandidate,
   file_bytes: &[u8],
 ) -> TagOutcome {
-  request_image_tagging(client, image_tagging_url, &candidate.title, &candidate.mime_type, file_bytes.to_vec()).await
+  request_image_tagging(client, image_tagging_url, &candidate.mime_type, file_bytes.to_vec()).await
 }
 
 fn pop_candidate(state: &mut ProcessingState) -> (Option<ImageCandidate>, usize) {
@@ -1102,11 +1098,10 @@ async fn manifest_check(data_dir: &str, candidate: &ImageCandidate) -> InfuResul
 async fn request_image_tagging(
   client: &reqwest::Client,
   image_tagging_url: &str,
-  file_name: &str,
   mime_type: &str,
   file_bytes: Vec<u8>,
 ) -> TagOutcome {
-  let part = match Part::bytes(file_bytes).file_name(file_name.to_owned()).mime_str(mime_type) {
+  let part = match Part::bytes(file_bytes).mime_str(mime_type) {
     Ok(part) => part,
     Err(e) => return TagOutcome::EndpointUnavailable(format!("Could not build multipart upload: {}", e)),
   };
