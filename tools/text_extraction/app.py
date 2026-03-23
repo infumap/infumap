@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import logging
 import os
 import platform
@@ -42,6 +43,12 @@ CONVERT_SEMAPHORE: asyncio.Semaphore | None = None
 GPU_REQUEST_CONCURRENCY = 1
 PDFTEXT_WORKERS = 1
 DEFAULT_MAX_UPLOAD_BYTES = 128 * 1024 * 1024
+LIBC = ctypes.CDLL(None, use_errno=True)
+SYS_MEMFD_CREATE_BY_ARCH = {
+    "x86_64": 319,
+    "aarch64": 279,
+    "arm64": 279,
+}
 
 
 class DocumentRejectedError(Exception):
@@ -93,6 +100,7 @@ def build_runtime_summary() -> list[str]:
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
         f"max_upload_bytes={max_upload_bytes()}",
         f"memfd_supported={memfd_supported()}",
+        f"o_tmpfile_supported={o_tmpfile_supported()}",
     ]
 
     try:
@@ -252,8 +260,49 @@ def max_upload_bytes() -> int:
     return max(1, env_int("TEXT_EXTRACTION_MAX_UPLOAD_BYTES", DEFAULT_MAX_UPLOAD_BYTES))
 
 
+def raw_memfd_supported() -> bool:
+    return hasattr(LIBC, "memfd_create") or platform.machine().lower() in SYS_MEMFD_CREATE_BY_ARCH
+
+
 def memfd_supported() -> bool:
-    return hasattr(os, "memfd_create")
+    return hasattr(os, "memfd_create") or raw_memfd_supported()
+
+
+def o_tmpfile_supported() -> bool:
+    return getattr(os, "O_TMPFILE", None) is not None and Path("/dev/shm").is_dir()
+
+
+def create_memfd(file_name: str) -> int:
+    safe_name = (Path(file_name or "upload").stem or "upload")[:32]
+    flags = getattr(os, "MFD_CLOEXEC", 0)
+    name = f"infumap-pdf-{safe_name}-{os.getpid()}"
+
+    if hasattr(os, "memfd_create"):
+        return os.memfd_create(name, flags)
+
+    encoded_name = name.encode("utf-8", errors="ignore")
+    if hasattr(LIBC, "memfd_create"):
+        fd = LIBC.memfd_create(ctypes.c_char_p(encoded_name), ctypes.c_uint(flags))
+        if fd >= 0:
+            return fd
+        errno_value = ctypes.get_errno()
+        raise OSError(errno_value, os.strerror(errno_value))
+
+    syscall_nr = SYS_MEMFD_CREATE_BY_ARCH.get(platform.machine().lower())
+    if syscall_nr is None:
+        raise OSError(None, f"memfd_create syscall number is unknown for architecture '{platform.machine()}'.")
+    fd = LIBC.syscall(ctypes.c_long(syscall_nr), ctypes.c_char_p(encoded_name), ctypes.c_uint(flags))
+    if fd >= 0:
+        return int(fd)
+    errno_value = ctypes.get_errno()
+    raise OSError(errno_value, os.strerror(errno_value))
+
+
+def create_o_tmpfile_fd() -> int:
+    flags = getattr(os, "O_TMPFILE", None)
+    if flags is None:
+        raise OSError(None, "O_TMPFILE is not available in this Python runtime.")
+    return os.open("/dev/shm", os.O_RDWR | flags, 0o600)
 
 
 def fd_path_candidates(fd: int) -> list[str]:
@@ -277,6 +326,26 @@ def resolve_fd_path(fd: int) -> str:
         "Anonymous in-memory files are available, but this platform does not expose a usable "
         "file-descriptor path for Marker. Tried: "
         + ", ".join(fd_path_candidates(fd))
+    )
+
+
+def create_anonymous_pdf_fd(file_name: str) -> tuple[int, str]:
+    errors: list[str] = []
+
+    try:
+        return create_memfd(file_name), "memfd"
+    except OSError as exc:
+        errors.append(f"memfd: {exc}")
+
+    try:
+        return create_o_tmpfile_fd(), "o_tmpfile:/dev/shm"
+    except OSError as exc:
+        errors.append(f"o_tmpfile: {exc}")
+
+    raise RuntimeError(
+        "Could not create an anonymous temporary file for Marker without using a named disk file. "
+        + "Tried "
+        + "; ".join(errors)
     )
 
 
@@ -313,20 +382,15 @@ def classify_document_rejection(exc: Exception) -> str | None:
 
 @contextmanager
 def open_in_memory_pdf_path(file_name: str, file_bytes: bytes):
-    if not memfd_supported():
-        raise RuntimeError(
-            "Anonymous in-memory files are not supported on this platform. "
-            "This service now requires Linux memfd support to avoid disk writes."
-        )
-
-    safe_name = Path(file_name or "upload").stem or "upload"
-    fd = os.memfd_create(f"infumap-pdf-{safe_name[:32]}-{os.getpid()}", getattr(os, "MFD_CLOEXEC", 0))
+    fd, strategy = create_anonymous_pdf_fd(file_name)
     try:
         remaining = memoryview(file_bytes)
         while remaining:
             written = os.write(fd, remaining)
             remaining = remaining[written:]
-        yield resolve_fd_path(fd)
+        file_path = resolve_fd_path(fd)
+        LOGGER.debug("Using anonymous PDF path strategy=%s path=%s", strategy, file_path)
+        yield file_path
     finally:
         os.close(fd)
 
