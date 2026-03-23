@@ -10,13 +10,14 @@ use tokio::fs;
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
 
 const FRAGMENTS_SCHEMA_VERSION: u32 = 1;
-const FRAGMENTER_VERSION: u32 = 1;
+const FRAGMENTER_VERSION: u32 = 2;
 
 #[derive(Clone, Copy)]
 pub enum FragmentSourceKind {
   PageContents,
   TableContents,
   ImageContents,
+  PdfMarkdown,
 }
 
 impl FragmentSourceKind {
@@ -25,6 +26,7 @@ impl FragmentSourceKind {
       FragmentSourceKind::PageContents => "page_contents",
       FragmentSourceKind::TableContents => "table_contents",
       FragmentSourceKind::ImageContents => "image_contents",
+      FragmentSourceKind::PdfMarkdown => "pdf_markdown",
     }
   }
 }
@@ -41,10 +43,32 @@ pub struct FragmentBuildOutcome {
   pub cleared_existing_fragments: bool,
 }
 
+pub struct FragmentInput {
+  pub text: String,
+  pub page_start: Option<usize>,
+  pub page_end: Option<usize>,
+}
+
+impl FragmentInput {
+  pub fn new(text: String) -> FragmentInput {
+    FragmentInput { text, page_start: None, page_end: None }
+  }
+
+  pub fn with_page_range(mut self, page_start: Option<usize>, page_end: Option<usize>) -> FragmentInput {
+    self.page_start = page_start;
+    self.page_end = page_end;
+    self
+  }
+}
+
 #[derive(Serialize)]
 struct FragmentRecord {
   ordinal: usize,
   text: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  page_start: Option<usize>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  page_end: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -57,6 +81,7 @@ struct FragmentsManifest {
   fragment_count: usize,
 }
 
+#[allow(dead_code)]
 pub async fn build_fragments_for_item(
   data_dir: &str,
   item: &Item,
@@ -76,16 +101,52 @@ pub async fn build_fragments_for_item(
     None => source_text.to_owned(),
   };
 
+  build_fragment_inputs_for_item(data_dir, item, source_kind, vec![FragmentInput::new(fragment_text)]).await
+}
+
+pub async fn build_fragment_inputs_for_item(
+  data_dir: &str,
+  item: &Item,
+  source_kind: FragmentSourceKind,
+  fragments: Vec<FragmentInput>,
+) -> InfuResult<FragmentBuildOutcome> {
+  let fragments = fragments
+    .into_iter()
+    .filter_map(|fragment| {
+      let text = fragment.text.trim().to_owned();
+      if text.is_empty() {
+        None
+      } else {
+        Some(FragmentInput { text, page_start: fragment.page_start, page_end: fragment.page_end })
+      }
+    })
+    .collect::<Vec<FragmentInput>>();
+
+  if fragments.is_empty() {
+    let cleared = clear_item_rag_dir(data_dir, &item.owner_id, &item.id).await?;
+    return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
+  }
+
   ensure_user_rag_dir(data_dir, &item.owner_id).await?;
   let item_dir = item_rag_dir(data_dir, &item.owner_id, &item.id)?;
   fs::create_dir_all(&item_dir).await?;
   let fragments_path = fragments_path(data_dir, &item.owner_id, &item.id)?;
   let manifest_path = fragments_manifest_path(data_dir, &item.owner_id, &item.id)?;
 
-  let source_text_sha256 = sha256_hex(&fragment_text);
-  let record = FragmentRecord { ordinal: 0, text: fragment_text };
-  let mut serialized = serde_json::to_vec(&record)?;
-  serialized.push(b'\n');
+  let source_text_sha256 =
+    sha256_hex(&fragments.iter().map(|fragment| fragment.text.as_str()).collect::<Vec<_>>().join("\n\n"));
+  let mut serialized = Vec::new();
+  for (ordinal, fragment) in fragments.iter().enumerate() {
+    let record = FragmentRecord {
+      ordinal,
+      text: fragment.text.clone(),
+      page_start: fragment.page_start,
+      page_end: fragment.page_end,
+    };
+    let mut line = serde_json::to_vec(&record)?;
+    line.push(b'\n');
+    serialized.extend_from_slice(&line);
+  }
   fs::write(&fragments_path, &serialized).await?;
 
   let manifest = FragmentsManifest {
@@ -94,11 +155,11 @@ pub async fn build_fragments_for_item(
     source_kind: source_kind.as_str().to_owned(),
     source_text_sha256,
     generated_at_unix_secs: unix_now_secs()?,
-    fragment_count: 1,
+    fragment_count: fragments.len(),
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
 
-  Ok(FragmentBuildOutcome { wrote_fragments: true, fragment_count: 1, cleared_existing_fragments: false })
+  Ok(FragmentBuildOutcome { wrote_fragments: true, fragment_count: fragments.len(), cleared_existing_fragments: false })
 }
 
 pub async fn clear_fragments_for_item(data_dir: &str, item: &Item) -> InfuResult<FragmentBuildOutcome> {

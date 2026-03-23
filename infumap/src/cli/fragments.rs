@@ -8,23 +8,33 @@ use clap::{Arg, ArgMatches, Command};
 use infusdk::item::{ArrangeAlgorithm, Item, ItemType, RelationshipToParent};
 use infusdk::util::infu::InfuResult;
 use log::info;
+use reqwest::Url;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::config::CONFIG_DATA_DIR;
-use crate::rag::{FragmentBuildOutcome, FragmentSourceKind, build_fragments_for_item, clear_fragments_for_item};
+use crate::rag::{
+  FragmentBuildOutcome, FragmentInput, FragmentSourceKind, build_fragment_inputs_for_item, clear_fragments_for_item,
+};
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::fs::expand_tilde;
 use crate::util::ordering::compare_orderings;
 use crate::web::image_tagging::should_tag_image_item;
 
+const PDF_MIME_TYPE: &str = "application/pdf";
+const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
+const PDF_FRAGMENT_SOFT_LIMIT_CHARS: usize = 1400;
+const PDF_FRAGMENT_HARD_LIMIT_CHARS: usize = 1900;
+const PDF_PAGE_BREAK_MIN_DASH_COUNT: usize = 8;
+
 #[derive(Clone, Copy)]
 enum FragmentTargetKind {
   Content,
   Image,
+  Pdf,
 }
 
 impl FragmentTargetKind {
@@ -32,6 +42,7 @@ impl FragmentTargetKind {
     match self {
       FragmentTargetKind::Content => matches!(item.item_type, ItemType::Page | ItemType::Table),
       FragmentTargetKind::Image => should_tag_image_item(item),
+      FragmentTargetKind::Pdf => item.item_type == ItemType::File && item.mime_type.as_deref() == Some(PDF_MIME_TYPE),
     }
   }
 
@@ -39,6 +50,7 @@ impl FragmentTargetKind {
     match self {
       FragmentTargetKind::Content => "page or table",
       FragmentTargetKind::Image => "supported image",
+      FragmentTargetKind::Pdf => "PDF file",
     }
   }
 
@@ -46,6 +58,7 @@ impl FragmentTargetKind {
     match self {
       FragmentTargetKind::Content => "page/table",
       FragmentTargetKind::Image => "image",
+      FragmentTargetKind::Pdf => "pdf",
     }
   }
 }
@@ -64,6 +77,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg_required_else_help(true)
     .subcommand(make_content_subcommand())
     .subcommand(make_image_subcommand())
+    .subcommand(make_pdf_subcommand())
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
@@ -72,7 +86,9 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     Some(("page-table", sub_matches)) => execute_content(sub_matches).await,
     Some(("image", sub_matches)) => execute_image(sub_matches).await,
     Some(("images", sub_matches)) => execute_image(sub_matches).await,
-    _ => Err("Missing fragments subcommand. Use 'fragments content' or 'fragments image'.".into()),
+    Some(("pdf", sub_matches)) => execute_pdf(sub_matches).await,
+    Some(("pdfs", sub_matches)) => execute_pdf(sub_matches).await,
+    _ => Err("Missing fragments subcommand. Use 'fragments content', 'fragments image', or 'fragments pdf'.".into()),
   }
 }
 
@@ -92,6 +108,14 @@ fn make_image_subcommand() -> Command {
     )
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this supported image item."))
+}
+
+fn make_pdf_subcommand() -> Command {
+  Command::new("pdf")
+    .visible_alias("pdfs")
+    .about("Build semantic text fragments from extracted markdown for PDF file items.")
+    .arg(settings_arg())
+    .arg(item_id_arg("Build fragments only for this PDF item."))
 }
 
 fn settings_arg() -> Arg {
@@ -142,6 +166,24 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
   Ok(())
 }
 
+async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let (data_dir, db, items) = load_db_and_items(sub_matches, FragmentTargetKind::Pdf).await?;
+  let mut summary = FragmentRunSummary::default();
+
+  for item in items {
+    let context_title = {
+      let db = db.lock().await;
+      embedding_context_title_for_item(&db, &item)
+    };
+    let fragment_source = pdf_fragment_source_for_item(&data_dir, &item, context_title).await?;
+    let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
+    record_fragment_outcome(&mut summary, &outcome);
+  }
+
+  log_fragment_summary(FragmentTargetKind::Pdf, &summary);
+  Ok(())
+}
+
 async fn load_db_and_items(
   sub_matches: &ArgMatches,
   target_kind: FragmentTargetKind,
@@ -189,14 +231,7 @@ async fn apply_fragment_source(
 ) -> InfuResult<FragmentBuildOutcome> {
   match fragment_source {
     Some(fragment_source) => {
-      build_fragments_for_item(
-        data_dir,
-        item,
-        fragment_source.source_kind,
-        &fragment_source.source_text,
-        fragment_source.container_title,
-      )
-      .await
+      build_fragment_inputs_for_item(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await
     }
     None => clear_fragments_for_item(data_dir, item).await,
   }
@@ -223,8 +258,7 @@ fn log_fragment_summary(target_kind: FragmentTargetKind, summary: &FragmentRunSu
 
 struct FragmentSource {
   source_kind: FragmentSourceKind,
-  source_text: String,
-  container_title: Option<String>,
+  fragments: Vec<FragmentInput>,
 }
 
 fn content_fragment_source_for_item(db: &Db, item: &Item) -> Option<FragmentSource> {
@@ -242,11 +276,10 @@ fn container_fragment_source(db: &Db, item: &Item, source_kind: FragmentSourceKi
     return None;
   }
 
-  Some(FragmentSource {
+  Some(single_fragment_source(
     source_kind,
-    source_text: lines.join("\n"),
-    container_title: own_title.or_else(|| container_title_for_item(db, item)),
-  })
+    build_titled_fragment_text(lines.join("\n"), own_title.or_else(|| container_title_for_item(db, item))),
+  ))
 }
 
 async fn image_fragment_source_for_item(
@@ -265,11 +298,661 @@ async fn image_fragment_source_for_item(
     geo_artifact.as_ref(),
   );
 
-  Ok(fragment_text.map(|source_text| FragmentSource {
-    source_kind: FragmentSourceKind::ImageContents,
-    source_text,
-    container_title: None,
-  }))
+  Ok(fragment_text.map(|source_text| single_fragment_source(FragmentSourceKind::ImageContents, source_text)))
+}
+
+async fn pdf_fragment_source_for_item(
+  data_dir: &str,
+  item: &Item,
+  context_title: Option<String>,
+) -> InfuResult<Option<FragmentSource>> {
+  let Some(markdown) = load_pdf_markdown_artifact(data_dir, &item.owner_id, &item.id).await? else {
+    return Ok(None);
+  };
+
+  let fragments = build_pdf_fragment_inputs(item.title.as_deref(), context_title.as_deref(), &markdown);
+  if fragments.is_empty() {
+    return Ok(None);
+  }
+
+  Ok(Some(FragmentSource { source_kind: FragmentSourceKind::PdfMarkdown, fragments }))
+}
+
+fn single_fragment_source(source_kind: FragmentSourceKind, text: String) -> FragmentSource {
+  FragmentSource { source_kind, fragments: vec![FragmentInput::new(text)] }
+}
+
+fn build_titled_fragment_text(source_text: String, container_title: Option<String>) -> String {
+  let source_text = source_text.trim();
+  let container_title = container_title.map(|title| title.trim().to_owned()).filter(|title| !title.is_empty());
+
+  match container_title.as_deref() {
+    Some(container_title) if source_text.is_empty() => format!("## {}", container_title),
+    Some(container_title) => format!("## {}\n\n{}", container_title, source_text),
+    None => source_text.to_owned(),
+  }
+}
+
+async fn load_pdf_markdown_artifact(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Option<String>> {
+  let Some(manifest) = load_pdf_text_manifest(data_dir, user_id, item_id).await? else {
+    return Ok(None);
+  };
+  if manifest.status != "succeeded" || manifest.content_mime_type != MARKDOWN_CONTENT_MIME_TYPE {
+    return Ok(None);
+  }
+
+  let path = pdf_text_path(data_dir, user_id, item_id)?;
+  let text = match fs::read_to_string(&path).await {
+    Ok(text) => text,
+    Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+    Err(error) => return Err(format!("Could not read extracted PDF markdown '{}': {}", path.display(), error).into()),
+  };
+
+  Ok(normalize_markdown_source(&text))
+}
+
+async fn load_pdf_text_manifest(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<Option<StoredPdfTextManifest>> {
+  let path = pdf_manifest_path(data_dir, user_id, item_id)?;
+  read_json_if_exists(&path, "pdf text manifest").await
+}
+
+fn build_pdf_fragment_inputs(
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+  markdown: &str,
+) -> Vec<FragmentInput> {
+  let document_title = normalized_text(document_title);
+  let context_title = normalized_text(context_title)
+    .filter(|context| document_title.as_deref().map(|title| !title.eq_ignore_ascii_case(context)).unwrap_or(true));
+
+  let pages = resolve_pdf_pages(split_pdf_markdown_pages(markdown));
+  let blocks = build_pdf_text_blocks(&pages);
+  if blocks.is_empty() {
+    return vec![];
+  }
+
+  let mut fragments = Vec::new();
+  let mut current: Option<PdfFragmentAccumulator> = None;
+
+  for block in blocks {
+    for part in split_pdf_block_text(&block.text) {
+      let should_flush = current.as_ref().is_some_and(|current| {
+        current.page_end != block.page_number
+          || current.headings != block.headings
+          || rendered_pdf_fragment_len(
+            document_title.as_deref(),
+            context_title.as_deref(),
+            &current.headings,
+            current.page_start,
+            block.page_number,
+            &current.blocks,
+            Some(part.as_str()),
+          ) > PDF_FRAGMENT_SOFT_LIMIT_CHARS
+      });
+
+      if should_flush {
+        push_pdf_fragment_input(&mut fragments, current.take(), document_title.as_deref(), context_title.as_deref());
+      }
+
+      let current_fragment =
+        current.get_or_insert_with(|| PdfFragmentAccumulator::new(block.page_number, block.headings.clone()));
+      current_fragment.push(part, block.page_number);
+    }
+  }
+
+  push_pdf_fragment_input(&mut fragments, current, document_title.as_deref(), context_title.as_deref());
+  fragments
+}
+
+fn push_pdf_fragment_input(
+  out: &mut Vec<FragmentInput>,
+  fragment: Option<PdfFragmentAccumulator>,
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+) {
+  let Some(fragment) = fragment else {
+    return;
+  };
+  let text = render_pdf_fragment_text(
+    document_title,
+    context_title,
+    &fragment.headings,
+    fragment.page_start,
+    fragment.page_end,
+    &fragment.blocks,
+  );
+  if text.trim().is_empty() {
+    return;
+  }
+  out.push(FragmentInput::new(text).with_page_range(Some(fragment.page_start), Some(fragment.page_end)));
+}
+
+fn rendered_pdf_fragment_len(
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+  headings: &[String],
+  page_start: usize,
+  page_end: usize,
+  blocks: &[String],
+  next_block: Option<&str>,
+) -> usize {
+  let mut candidate_blocks = blocks.to_vec();
+  if let Some(next_block) = next_block {
+    candidate_blocks.push(next_block.to_owned());
+  }
+  render_pdf_fragment_text(document_title, context_title, headings, page_start, page_end, &candidate_blocks).len()
+}
+
+fn render_pdf_fragment_text(
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+  headings: &[String],
+  page_start: usize,
+  page_end: usize,
+  blocks: &[String],
+) -> String {
+  let mut lines = Vec::new();
+
+  if let Some(document_title) = normalized_text(document_title) {
+    lines.push(labeled_sentence("Document", &document_title));
+  }
+
+  if let Some(context_title) = normalized_text(context_title)
+    .filter(|context| document_title.map(|title| !title.trim().eq_ignore_ascii_case(context)).unwrap_or(true))
+  {
+    lines.push(labeled_sentence("Context", &context_title));
+  }
+
+  let section_path = normalized_heading_path(headings, document_title, context_title);
+  if !section_path.is_empty() {
+    lines.push(labeled_sentence("Section", &section_path.join(" > ")));
+  }
+
+  let page_label = if page_start == page_end { page_start.to_string() } else { format!("{page_start}-{page_end}") };
+  lines.push(labeled_sentence(if page_start == page_end { "Page" } else { "Pages" }, &page_label));
+
+  let body = blocks.iter().map(|block| block.trim()).filter(|block| !block.is_empty()).collect::<Vec<_>>().join("\n\n");
+  if body.is_empty() {
+    lines.join("\n")
+  } else if lines.is_empty() {
+    body
+  } else {
+    format!("{}\n\n{}", lines.join("\n"), body)
+  }
+}
+
+fn normalized_heading_path(
+  headings: &[String],
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+) -> Vec<String> {
+  let document_title = normalized_text(document_title);
+  let context_title = normalized_text(context_title);
+  let mut out = Vec::new();
+
+  for heading in headings {
+    let Some(heading) = normalized_text(Some(heading.as_str())) else {
+      continue;
+    };
+    if document_title.as_deref().map(|title| title.eq_ignore_ascii_case(&heading)).unwrap_or(false) {
+      continue;
+    }
+    if context_title.as_deref().map(|context| context.eq_ignore_ascii_case(&heading)).unwrap_or(false) {
+      continue;
+    }
+    if out.last().map(|prev: &String| prev.eq_ignore_ascii_case(&heading)).unwrap_or(false) {
+      continue;
+    }
+    out.push(heading);
+  }
+
+  out
+}
+
+fn split_pdf_block_text(text: &str) -> Vec<String> {
+  let text = text.trim();
+  if text.is_empty() {
+    return vec![];
+  }
+  if text.len() <= PDF_FRAGMENT_HARD_LIMIT_CHARS {
+    return vec![text.to_owned()];
+  }
+
+  let sentences = split_text_into_sentences(text);
+  if sentences.len() <= 1 {
+    return split_text_by_words(text, PDF_FRAGMENT_SOFT_LIMIT_CHARS, PDF_FRAGMENT_HARD_LIMIT_CHARS);
+  }
+
+  let mut out = Vec::new();
+  let mut current = String::new();
+
+  for sentence in sentences {
+    if sentence.len() > PDF_FRAGMENT_HARD_LIMIT_CHARS {
+      if !current.is_empty() {
+        out.push(current);
+        current = String::new();
+      }
+      out.extend(split_text_by_words(&sentence, PDF_FRAGMENT_SOFT_LIMIT_CHARS, PDF_FRAGMENT_HARD_LIMIT_CHARS));
+      continue;
+    }
+
+    if current.is_empty() {
+      current = sentence;
+      continue;
+    }
+
+    if current.len() + 1 + sentence.len() > PDF_FRAGMENT_SOFT_LIMIT_CHARS {
+      out.push(current);
+      current = sentence;
+    } else {
+      current.push(' ');
+      current.push_str(&sentence);
+    }
+  }
+
+  if !current.is_empty() {
+    out.push(current);
+  }
+
+  out
+}
+
+fn split_text_into_sentences(text: &str) -> Vec<String> {
+  let mut out = Vec::new();
+  let mut current = String::new();
+  let chars = text.chars().collect::<Vec<char>>();
+
+  for (index, ch) in chars.iter().enumerate() {
+    current.push(*ch);
+    let next_char = chars.get(index + 1).copied();
+    if matches!(ch, '.' | '!' | '?' | ';') && next_char.map(|next| next.is_whitespace()).unwrap_or(true) {
+      if let Some(normalized) = normalized_text(Some(current.as_str())) {
+        out.push(normalized);
+      }
+      current.clear();
+    }
+  }
+
+  if let Some(normalized) = normalized_text(Some(current.as_str())) {
+    out.push(normalized);
+  }
+
+  out
+}
+
+fn split_text_by_words(text: &str, soft_limit: usize, hard_limit: usize) -> Vec<String> {
+  let words = text.split_whitespace().collect::<Vec<&str>>();
+  let mut out = Vec::new();
+  let mut current = String::new();
+
+  for word in words {
+    if word.len() > hard_limit {
+      if !current.is_empty() {
+        out.push(current);
+        current = String::new();
+      }
+      let mut remaining = word;
+      while remaining.len() > hard_limit {
+        out.push(remaining[..hard_limit].to_owned());
+        remaining = &remaining[hard_limit..];
+      }
+      if !remaining.is_empty() {
+        current = remaining.to_owned();
+      }
+      continue;
+    }
+
+    if current.is_empty() {
+      current.push_str(word);
+      continue;
+    }
+
+    if current.len() + 1 + word.len() > soft_limit {
+      out.push(current);
+      current = word.to_owned();
+    } else {
+      current.push(' ');
+      current.push_str(word);
+    }
+  }
+
+  if !current.is_empty() {
+    out.push(current);
+  }
+
+  out
+}
+
+fn build_pdf_text_blocks(pages: &[ResolvedPdfPage]) -> Vec<PdfTextBlock> {
+  let mut blocks = Vec::new();
+  let mut heading_stack = Vec::<String>::new();
+
+  for page in pages {
+    let mut paragraph_lines = Vec::<String>::new();
+    for line in page.text.lines() {
+      let trimmed = line.trim();
+      if trimmed.is_empty() {
+        flush_pdf_paragraph_block(&mut blocks, &mut paragraph_lines, page.page_number, &heading_stack);
+        continue;
+      }
+      if is_markdown_rule_line(trimmed) {
+        flush_pdf_paragraph_block(&mut blocks, &mut paragraph_lines, page.page_number, &heading_stack);
+        continue;
+      }
+      if let Some((level, text)) = parse_markdown_heading(trimmed) {
+        flush_pdf_paragraph_block(&mut blocks, &mut paragraph_lines, page.page_number, &heading_stack);
+        while heading_stack.len() >= level {
+          heading_stack.pop();
+        }
+        heading_stack.push(text);
+        continue;
+      }
+      if let Some(list_item) = parse_markdown_list_item(trimmed) {
+        flush_pdf_paragraph_block(&mut blocks, &mut paragraph_lines, page.page_number, &heading_stack);
+        blocks.push(PdfTextBlock { page_number: page.page_number, headings: heading_stack.clone(), text: list_item });
+        continue;
+      }
+
+      let sanitized = sanitize_markdown_inline(trimmed);
+      if sanitized.is_empty() {
+        flush_pdf_paragraph_block(&mut blocks, &mut paragraph_lines, page.page_number, &heading_stack);
+        continue;
+      }
+      paragraph_lines.push(sanitized);
+    }
+    flush_pdf_paragraph_block(&mut blocks, &mut paragraph_lines, page.page_number, &heading_stack);
+  }
+
+  blocks
+}
+
+fn flush_pdf_paragraph_block(
+  blocks: &mut Vec<PdfTextBlock>,
+  paragraph_lines: &mut Vec<String>,
+  page_number: usize,
+  headings: &[String],
+) {
+  let text = paragraph_lines.join(" ");
+  paragraph_lines.clear();
+  let Some(text) = normalized_multiline_text(&text) else {
+    return;
+  };
+  blocks.push(PdfTextBlock { page_number, headings: headings.to_vec(), text });
+}
+
+fn sanitize_markdown_inline(text: &str) -> String {
+  let with_links = replace_markdown_links(text);
+  let mut out = Vec::new();
+  let mut previous_domain = None::<String>;
+
+  for token in with_links.split_whitespace() {
+    let normalized = normalize_inline_token(token);
+    if normalized.is_empty() {
+      continue;
+    }
+
+    if is_domain_like(&normalized)
+      && previous_domain.as_deref().map(|previous| previous.eq_ignore_ascii_case(&normalized)).unwrap_or(false)
+    {
+      continue;
+    }
+
+    previous_domain = if is_domain_like(&normalized) { Some(normalized.to_lowercase()) } else { None };
+    out.push(normalized);
+  }
+
+  cleanup_spacing(&out.join(" "))
+}
+
+fn replace_markdown_links(text: &str) -> String {
+  let mut out = String::new();
+  let mut cursor = 0usize;
+
+  while let Some(open_bracket_offset) = text[cursor..].find('[') {
+    let open_bracket = cursor + open_bracket_offset;
+    out.push_str(&text[cursor..open_bracket]);
+
+    let label_start = open_bracket + 1;
+    let Some(label_end_offset) = text[label_start..].find("](") else {
+      out.push_str(&text[open_bracket..]);
+      return out;
+    };
+    let label_end = label_start + label_end_offset;
+    let url_start = label_end + 2;
+    let Some(url_end_offset) = text[url_start..].find(')') else {
+      out.push_str(&text[open_bracket..]);
+      return out;
+    };
+    let url_end = url_start + url_end_offset;
+
+    let replacement = markdown_link_replacement(&text[label_start..label_end], &text[url_start..url_end]);
+    if !replacement.is_empty() {
+      if !out.is_empty() && !out.chars().last().map(|ch| ch.is_whitespace()).unwrap_or(false) {
+        out.push(' ');
+      }
+      out.push_str(&replacement);
+      out.push(' ');
+    }
+
+    cursor = url_end + 1;
+  }
+
+  out.push_str(&text[cursor..]);
+  out
+}
+
+fn markdown_link_replacement(label: &str, url: &str) -> String {
+  let label = strip_inline_markdown(label);
+  let label = normalized_text(Some(label.as_str())).filter(|label| !label.starts_with('/'));
+  let host = extract_url_host(url);
+
+  match (label, host) {
+    (Some(label), Some(host)) if label.eq_ignore_ascii_case(&host) => host,
+    (Some(label), Some(host)) if is_domain_like(&label) => host,
+    (Some(label), _) => label,
+    (None, Some(host)) => host,
+    (None, None) => String::new(),
+  }
+}
+
+fn normalize_inline_token(token: &str) -> String {
+  let trailing = token
+    .chars()
+    .rev()
+    .take_while(|ch| matches!(ch, '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']'))
+    .collect::<String>()
+    .chars()
+    .rev()
+    .collect::<String>();
+  let core = token
+    .trim_matches(|ch: char| matches!(ch, '(' | '[' | '{' | '"' | '\''))
+    .trim_matches(|ch: char| matches!(ch, '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']' | '}' | '"' | '\''));
+  if core.is_empty() {
+    return String::new();
+  }
+
+  if core.starts_with('/') {
+    return trailing;
+  }
+
+  let normalized_core = extract_url_host(core).unwrap_or_else(|| strip_inline_markdown(core));
+  if normalized_core.is_empty() {
+    return trailing;
+  }
+
+  format!("{}{}", normalized_core, trailing)
+}
+
+fn strip_inline_markdown(text: &str) -> String {
+  text.chars().filter(|ch| !matches!(ch, '*' | '_' | '`' | '~')).collect::<String>()
+}
+
+fn cleanup_spacing(text: &str) -> String {
+  text
+    .split_whitespace()
+    .collect::<Vec<_>>()
+    .join(" ")
+    .replace(" .", ".")
+    .replace(" ,", ",")
+    .replace(" ;", ";")
+    .replace(" :", ":")
+    .replace(" !", "!")
+    .replace(" ?", "?")
+}
+
+fn extract_url_host(value: &str) -> Option<String> {
+  if !(value.starts_with("http://") || value.starts_with("https://")) {
+    return None;
+  }
+  Url::parse(value).ok()?.host_str().map(|host| host.to_owned())
+}
+
+fn is_domain_like(value: &str) -> bool {
+  let trimmed = value.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '.' && ch != '-');
+  trimmed.contains('.') && trimmed.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-'))
+}
+
+fn parse_markdown_heading(line: &str) -> Option<(usize, String)> {
+  let hashes = line.chars().take_while(|ch| *ch == '#').count();
+  if hashes == 0 || hashes > 6 {
+    return None;
+  }
+  let remainder = line[hashes..].trim_start();
+  if remainder.is_empty() {
+    return None;
+  }
+  let text = sanitize_markdown_inline(remainder);
+  if text.is_empty() { None } else { Some((hashes, text)) }
+}
+
+fn parse_markdown_list_item(line: &str) -> Option<String> {
+  let content = if let Some(stripped) = line.strip_prefix("- ") {
+    stripped
+  } else if let Some(stripped) = line.strip_prefix("* ") {
+    stripped
+  } else if let Some(stripped) = line.strip_prefix("+ ") {
+    stripped
+  } else {
+    let digits = line.chars().take_while(|ch| ch.is_ascii_digit()).count();
+    if digits == 0 || !line[digits..].starts_with(". ") {
+      return None;
+    }
+    &line[(digits + 2)..]
+  };
+
+  let text = sanitize_markdown_inline(content);
+  if text.is_empty() { None } else { Some(format!("- {}", text)) }
+}
+
+fn is_markdown_rule_line(line: &str) -> bool {
+  line.len() >= 3 && line.chars().all(|ch| matches!(ch, '-' | '*' | '_' | '='))
+}
+
+fn normalized_multiline_text(text: &str) -> Option<String> {
+  let normalized = text.replace("\r\n", "\n").replace('\r', "\n").split_whitespace().collect::<Vec<_>>().join(" ");
+  if normalized.is_empty() { None } else { Some(normalized) }
+}
+
+fn normalize_markdown_source(text: &str) -> Option<String> {
+  let normalized = text.replace("\r\n", "\n").replace('\r', "\n").trim().to_owned();
+  if normalized.is_empty() { None } else { Some(normalized) }
+}
+
+fn split_pdf_markdown_pages(markdown: &str) -> Vec<PdfPage> {
+  let normalized = markdown.replace("\r\n", "\n").replace('\r', "\n");
+  let mut pages = Vec::new();
+  let mut current_raw_page = None::<usize>;
+  let mut current_lines = Vec::<String>::new();
+  let mut saw_marker = false;
+
+  for line in normalized.lines() {
+    if let Some(raw_page_number) = parse_pdf_page_break_marker(line) {
+      saw_marker = true;
+      if !current_lines.is_empty() || current_raw_page.is_some() {
+        pages.push(PdfPage { raw_page_number: current_raw_page, text: current_lines.join("\n") });
+        current_lines.clear();
+      }
+      current_raw_page = Some(raw_page_number);
+      continue;
+    }
+    current_lines.push(line.to_owned());
+  }
+
+  if !current_lines.is_empty() || current_raw_page.is_some() || !saw_marker {
+    pages.push(PdfPage { raw_page_number: current_raw_page, text: current_lines.join("\n") });
+  }
+
+  pages
+}
+
+fn parse_pdf_page_break_marker(line: &str) -> Option<usize> {
+  let trimmed = line.trim();
+  let closing_brace = trimmed.find('}')?;
+  if !trimmed.starts_with('{') || closing_brace <= 1 {
+    return None;
+  }
+  let raw_page_number = trimmed[1..closing_brace].parse::<usize>().ok()?;
+  let dashes = trimmed[(closing_brace + 1)..].trim();
+  if dashes.len() < PDF_PAGE_BREAK_MIN_DASH_COUNT || !dashes.chars().all(|ch| ch == '-') {
+    return None;
+  }
+  Some(raw_page_number)
+}
+
+fn resolve_pdf_pages(pages: Vec<PdfPage>) -> Vec<ResolvedPdfPage> {
+  let has_zero_based_markers = pages.iter().filter_map(|page| page.raw_page_number).any(|page_number| page_number == 0);
+
+  let mut next_page_number = 1usize;
+  pages
+    .into_iter()
+    .map(|page| {
+      let page_number = match page.raw_page_number {
+        Some(raw_page_number) if has_zero_based_markers => raw_page_number + 1,
+        Some(raw_page_number) => raw_page_number.max(1),
+        None => next_page_number,
+      };
+      next_page_number = page_number + 1;
+      ResolvedPdfPage { page_number, text: page.text }
+    })
+    .collect()
+}
+
+struct PdfFragmentAccumulator {
+  page_start: usize,
+  page_end: usize,
+  headings: Vec<String>,
+  blocks: Vec<String>,
+}
+
+impl PdfFragmentAccumulator {
+  fn new(page_number: usize, headings: Vec<String>) -> PdfFragmentAccumulator {
+    PdfFragmentAccumulator { page_start: page_number, page_end: page_number, headings, blocks: Vec::new() }
+  }
+
+  fn push(&mut self, text: String, page_number: usize) {
+    self.page_end = page_number;
+    self.blocks.push(text);
+  }
+}
+
+struct PdfPage {
+  raw_page_number: Option<usize>,
+  text: String,
+}
+
+struct ResolvedPdfPage {
+  page_number: usize,
+  text: String,
+}
+
+struct PdfTextBlock {
+  page_number: usize,
+  headings: Vec<String>,
+  text: String,
 }
 
 async fn load_image_tag_artifact(
@@ -525,6 +1208,12 @@ struct StoredGeoArtifact {
 }
 
 #[derive(Default, Deserialize)]
+struct StoredPdfTextManifest {
+  status: String,
+  content_mime_type: String,
+}
+
+#[derive(Default, Deserialize)]
 struct StoredGeoQuery {
   lat: Option<f64>,
   lon: Option<f64>,
@@ -684,6 +1373,18 @@ fn image_tag_text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResu
   Ok(path)
 }
 
+fn pdf_text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_text", item_id));
+  Ok(path)
+}
+
+fn pdf_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
+  path.push(format!("{}_manifest.json", item_id));
+  Ok(path)
+}
+
 fn geo_content_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   let mut path = text_shard_dir(data_dir, user_id, item_id)?;
   path.push(format!("{}_geo.json", item_id));
@@ -705,7 +1406,8 @@ fn text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Pa
 mod tests {
   use super::{
     StoredGeoArtifact, StoredGeoQuery, StoredGeoResult, StoredImageMetadata, StoredImageTagArtifact,
-    build_image_fragment_text,
+    build_image_fragment_text, build_pdf_fragment_inputs, resolve_pdf_pages, sanitize_markdown_inline,
+    split_pdf_markdown_pages,
   };
   use std::collections::BTreeMap;
 
@@ -797,5 +1499,72 @@ mod tests {
   fn returns_none_when_no_embedding_useful_text_exists() {
     let text = build_image_fragment_text(None, None, None, None, None);
     assert!(text.is_none());
+  }
+
+  #[test]
+  fn sanitizes_markdown_links_for_pdf_embeddings() {
+    let text = sanitize_markdown_inline(
+      "**chatgpt.com**[/c/6923](https://chatgpt.com/c/6923) and [American Express](https://www.americanexpress.com/en-ca/travel/discover/property/Vietnam/Ninh-Hoa/six-senses-ninh-van-bay#:~:text=At)",
+    );
+
+    assert!(text.contains("chatgpt.com"));
+    assert!(text.contains("American Express"));
+    assert!(!text.contains("https://"));
+    assert!(!text.contains("/c/6923"));
+    assert!(!text.contains("#:~:text"));
+  }
+
+  #[test]
+  fn resolves_zero_based_pdf_page_markers_to_human_page_numbers() {
+    let pages = resolve_pdf_pages(split_pdf_markdown_pages("{0}--------\nFirst page\n\n{1}--------\nSecond page"));
+
+    assert_eq!(pages.len(), 2);
+    assert_eq!(pages[0].page_number, 1);
+    assert_eq!(pages[1].page_number, 2);
+  }
+
+  #[test]
+  fn builds_multiple_pdf_fragments_without_full_urls() {
+    let markdown = r#"
+{0}------------------------------------------------
+
+# **Best agent for resorts**
+
+**chatgpt.com**[/c/6923be50-86f0-8321-a4d5-c1c38e42d63a](https://chatgpt.com/c/6923be50-86f0-8321-a4d5-c1c38e42d63a)
+
+### **Six Senses Ninh Van Bay - Agents, Deals & Relationships**
+
+- **QX Travel** This agency is an IHG-preferred advisor. Guests receive a US$100 property credit, daily breakfast for two, upgrades, and late checkout [qxtravel.io](https://www.qxtravel.io/properties/amanoi#:~:text=Enjoy%20amazing%20benefits).
+- **Lyxresan Travels** As a Virtuoso affiliate, Lyxresan offers complimentary breakfast, room upgrades, early check-in, and a special perk such as a complimentary massage [lyxresantravels.com](https://lyxresantravels.com/en/six-senses/#:~:text=Six%20Senses%20Ninh%20Van%20Bay).
+- **American Express Fine Hotels + Resorts** FHR bookings provide noon check-in, daily breakfast for two, a unique US$100 property credit, and a guaranteed 4 p.m. checkout [americanexpress.com](https://www.americanexpress.com/en-ca/travel/discover/property/Vietnam/Ninh-Hoa/six-senses-ninh-van-bay#:~:text=At%20Six%20Senses).
+
+{1}------------------------------------------------
+
+- **Mr & Mrs Smith** This boutique-hotel club frequently offers deep discounts, breakfast, and an extra such as champagne or a spa treatment [mrandmrssmith.com](https://www.mrandmrssmith.com/luxury-hotels/six-senses-ninh-van-bay/offers#:~:text=Smith%20Member%20Exclusive).
+- **ASmallWorld Premium** Members gain access to an exclusive VIP rate with room upgrades, hotel credit, early check-in and special discounted rates [asmallworld.com](https://www.asmallworld.com/collection/hotels/six-senses-ninh-van-bay#:~:text=VIP%20Rate).
+
+### **Which agent is best for Six Senses Ninh Van Bay?**
+
+- **For loyalty benefits and preferential treatment:** book through QX Travel or another Virtuoso advisor because those channels can stack perks with direct-hotel style treatment.
+- **For substantial discounts:** PrivateUpgrades and Mr & Mrs Smith often run promotions, so use them when price matters more than earning points.
+- **For cardholders seeking guaranteed late checkout:** Amex FHR may be ideal because it offers a guaranteed 4 p.m. checkout and a US$100 credit.
+"#;
+
+    let fragments = build_pdf_fragment_inputs(Some("Best agent for resorts"), Some("Travel research"), markdown);
+
+    assert!(fragments.len() >= 3);
+    assert_eq!(fragments[0].page_start, Some(1));
+    assert!(fragments.iter().any(|fragment| fragment.page_start == Some(2)));
+    assert!(fragments.iter().all(|fragment| fragment.text.contains("Document: Best agent for resorts.")));
+    assert!(fragments.iter().all(|fragment| fragment.text.contains("Context: Travel research.")));
+    assert!(fragments.iter().all(|fragment| !fragment.text.contains("https://")));
+    assert!(fragments.iter().all(|fragment| !fragment.text.contains("#:~:text")));
+    assert!(fragments.iter().any(|fragment| fragment.text.contains("Page: 1.")));
+    assert!(fragments.iter().any(|fragment| fragment.text.contains("Page: 2.")));
+    assert!(
+      fragments
+        .iter()
+        .any(|fragment| fragment.text.contains("Section: Six Senses Ninh Van Bay - Agents, Deals & Relationships."))
+    );
   }
 }
