@@ -437,7 +437,6 @@ fn should_flush_pdf_fragment(
     &current.blocks,
     None,
   );
-  let crossed_page_boundary = current.page_end != next_page_number;
   let candidate_len = rendered_pdf_fragment_len(
     document_title,
     context_title,
@@ -451,38 +450,7 @@ fn should_flush_pdf_fragment(
     return true;
   }
 
-  if crossed_page_boundary {
-    return !should_merge_pdf_page_boundary(current, next_page_number, next_block, current_len, candidate_len);
-  }
-
   candidate_len > PDF_FRAGMENT_SOFT_LIMIT_CHARS && current_len >= PDF_FRAGMENT_MIN_CHARS
-}
-
-fn should_merge_pdf_page_boundary(
-  current: &PdfFragmentAccumulator,
-  next_page_number: usize,
-  next_block: &PdfFragmentBlock,
-  current_len: usize,
-  candidate_len: usize,
-) -> bool {
-  if next_page_number != current.page_end + 1 {
-    return false;
-  }
-
-  let Some(last_block) = current.blocks.last() else {
-    return false;
-  };
-
-  let same_heading_path = heading_paths_equal(&last_block.headings, &next_block.headings);
-  if !same_heading_path {
-    return false;
-  }
-
-  if looks_like_pdf_page_continuation(&last_block.text, &next_block.text) {
-    return true;
-  }
-
-  current_len < PDF_FRAGMENT_MIN_CHARS && candidate_len <= PDF_FRAGMENT_SOFT_LIMIT_CHARS
 }
 
 fn rendered_pdf_fragment_len(
@@ -642,34 +610,6 @@ fn heading_path_remainder(path: &[String], shared_prefix: &[String]) -> Vec<Stri
 
 fn heading_paths_equal(left: &[String], right: &[String]) -> bool {
   left.len() == right.len() && left.iter().zip(right.iter()).all(|(left, right)| left.eq_ignore_ascii_case(right))
-}
-
-fn looks_like_pdf_page_continuation(previous_text: &str, next_text: &str) -> bool {
-  let previous_text = previous_text.trim();
-  let next_text = next_text.trim();
-  if previous_text.is_empty() || next_text.is_empty() {
-    return false;
-  }
-
-  if previous_text.chars().last().map(pdf_text_ends_sentence).unwrap_or(false) {
-    return false;
-  }
-
-  let Some(first_char) = next_text.chars().find(|ch| !ch.is_whitespace()) else {
-    return false;
-  };
-
-  first_char.is_lowercase()
-    || first_char.is_ascii_digit()
-    || matches!(first_char, ')' | ']' | ',' | ';' | ':' | '%' | '&' | '/')
-    || previous_text.ends_with(',')
-    || previous_text.ends_with('-')
-    || previous_text.ends_with('/')
-    || previous_text.ends_with('(')
-}
-
-fn pdf_text_ends_sentence(ch: char) -> bool {
-  matches!(ch, '.' | '!' | '?' | ':' | ';')
 }
 
 fn split_pdf_block_text(text: &str) -> Vec<String> {
@@ -1723,22 +1663,19 @@ mod tests {
 
     assert!(fragments.len() >= 2);
     assert_eq!(fragments[0].page_start, Some(1));
-    assert!(fragments.iter().any(|fragment| fragment.page_start == Some(2)));
+    assert!(fragments.iter().any(|fragment| fragment.page_end == Some(2)));
     assert!(fragments.iter().all(|fragment| fragment.text.contains("Document: Best agent for resorts.")));
     assert!(fragments.iter().all(|fragment| fragment.text.contains("Context: Travel research.")));
     assert!(fragments.iter().all(|fragment| !fragment.text.contains("https://")));
     assert!(fragments.iter().all(|fragment| !fragment.text.contains("#:~:text")));
-    assert!(fragments.iter().any(|fragment| fragment.text.contains("Page: 1.")));
-    assert!(fragments.iter().any(|fragment| fragment.text.contains("Page: 2.")));
+    assert!(fragments.iter().all(|fragment| fragment.text.contains("Page:") || fragment.text.contains("Pages:")));
     assert!(
       fragments
         .iter()
         .any(|fragment| fragment.text.contains("Section: Six Senses Ninh Van Bay - Agents, Deals & Relationships."))
     );
     assert!(
-      fragments
-        .iter()
-        .any(|fragment| fragment.text.contains("Subsection: Which agent is best for Six Senses Ninh Van Bay?"))
+      fragments.iter().any(|fragment| fragment.text.contains("Which agent is best for Six Senses Ninh Van Bay?"))
     );
   }
 
@@ -1814,5 +1751,32 @@ Free private parking is available on site.
     assert!(fragments[0].text.contains("Pages: 1-2."));
     assert!(fragments[0].text.contains("same\n\nguest name is not allowed."));
     assert!(fragments[0].text.contains("Free private parking is available on site."));
+  }
+
+  #[test]
+  fn does_not_split_fragment_just_because_page_changes() {
+    let markdown = r#"
+{1}------------------------------------------------
+
+# Important Details
+
+Arrival time is 3pm and checkout is at noon.
+
+{2}------------------------------------------------
+
+Breakfast is served from 6am to 10:30am.
+
+Parking is complimentary for one vehicle per room.
+"#;
+
+    let fragments = build_pdf_fragment_inputs(Some("Hotel booking.pdf"), Some("Malaysia 2025-02"), markdown);
+
+    assert_eq!(fragments.len(), 1);
+    assert_eq!(fragments[0].page_start, Some(1));
+    assert_eq!(fragments[0].page_end, Some(2));
+    assert!(fragments[0].text.contains("Pages: 1-2."));
+    assert!(fragments[0].text.contains("Arrival time is 3pm and checkout is at noon."));
+    assert!(fragments[0].text.contains("Breakfast is served from 6am to 10:30am."));
+    assert!(fragments[0].text.contains("Parking is complimentary for one vehicle per room."));
   }
 }
