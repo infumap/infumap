@@ -16,6 +16,7 @@ const FRAGMENTER_VERSION: u32 = 1;
 pub enum FragmentSourceKind {
   PageContents,
   TableContents,
+  ImageContents,
 }
 
 impl FragmentSourceKind {
@@ -23,6 +24,7 @@ impl FragmentSourceKind {
     match self {
       FragmentSourceKind::PageContents => "page_contents",
       FragmentSourceKind::TableContents => "table_contents",
+      FragmentSourceKind::ImageContents => "image_contents",
     }
   }
 }
