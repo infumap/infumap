@@ -378,30 +378,37 @@ fn build_pdf_fragment_inputs(
   if blocks.is_empty() {
     return vec![];
   }
+  let prepared_blocks = blocks
+    .into_iter()
+    .flat_map(|block| {
+      split_pdf_block_text(&block.text).into_iter().map(move |part| PdfFragmentBlock {
+        page_number: block.page_number,
+        headings: block.headings.clone(),
+        text: part,
+      })
+    })
+    .collect::<Vec<_>>();
 
   let mut fragments = Vec::new();
   let mut current: Option<PdfFragmentAccumulator> = None;
 
-  for block in blocks {
-    for part in split_pdf_block_text(&block.text) {
-      let next_block = PdfFragmentBlock { headings: block.headings.clone(), text: part };
-      let should_flush = current.as_ref().is_some_and(|current| {
-        should_flush_pdf_fragment(
-          document_title.as_deref(),
-          context_title.as_deref(),
-          current,
-          block.page_number,
-          &next_block,
-        )
-      });
+  for (index, next_block) in prepared_blocks.iter().enumerate() {
+    let should_flush = current.as_ref().is_some_and(|current| {
+      should_flush_pdf_fragment(
+        document_title.as_deref(),
+        context_title.as_deref(),
+        current,
+        next_block,
+        &prepared_blocks[index..],
+      )
+    });
 
-      if should_flush {
-        push_pdf_fragment_input(&mut fragments, current.take(), document_title.as_deref(), context_title.as_deref());
-      }
-
-      let current_fragment = current.get_or_insert_with(|| PdfFragmentAccumulator::new(block.page_number));
-      current_fragment.push(next_block, block.page_number);
+    if should_flush {
+      push_pdf_fragment_input(&mut fragments, current.take(), document_title.as_deref(), context_title.as_deref());
     }
+
+    let current_fragment = current.get_or_insert_with(|| PdfFragmentAccumulator::new(next_block.page_number));
+    current_fragment.push(next_block.clone());
   }
 
   push_pdf_fragment_input(&mut fragments, current, document_title.as_deref(), context_title.as_deref());
@@ -429,9 +436,11 @@ fn should_flush_pdf_fragment(
   document_title: Option<&str>,
   context_title: Option<&str>,
   current: &PdfFragmentAccumulator,
-  next_page_number: usize,
   next_block: &PdfFragmentBlock,
+  upcoming_blocks: &[PdfFragmentBlock],
 ) -> bool {
+  let continues_same_heading =
+    current.blocks.last().map(|block| heading_paths_equal(&block.headings, &next_block.headings)).unwrap_or(false);
   let current_len = rendered_pdf_fragment_len(
     document_title,
     context_title,
@@ -444,7 +453,7 @@ fn should_flush_pdf_fragment(
     document_title,
     context_title,
     current.page_start,
-    next_page_number,
+    next_block.page_number,
     &current.blocks,
     Some(next_block),
   );
@@ -452,7 +461,7 @@ fn should_flush_pdf_fragment(
     document_title,
     context_title,
     current.page_start,
-    next_page_number,
+    next_block.page_number,
     &current.blocks,
     Some(next_block),
   );
@@ -461,8 +470,90 @@ fn should_flush_pdf_fragment(
     return true;
   }
 
+  if continues_same_heading {
+    return false;
+  }
+
+  if should_flush_before_new_heading_run(document_title, context_title, current, upcoming_blocks, current_len) {
+    return true;
+  }
+
   (candidate_len > PDF_FRAGMENT_SOFT_LIMIT_CHARS || candidate_tokens > PDF_FRAGMENT_SOFT_LIMIT_TOKENS)
     && current_len >= PDF_FRAGMENT_MIN_CHARS
+}
+
+fn should_flush_before_new_heading_run(
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+  current: &PdfFragmentAccumulator,
+  upcoming_blocks: &[PdfFragmentBlock],
+  current_len: usize,
+) -> bool {
+  let Some(next_block) = upcoming_blocks.first() else {
+    return false;
+  };
+  let Some(last_block) = current.blocks.last() else {
+    return false;
+  };
+  if heading_paths_equal(&last_block.headings, &next_block.headings) || current_len < PDF_FRAGMENT_MIN_CHARS {
+    return false;
+  }
+
+  let heading_run_len = consecutive_heading_run_len(upcoming_blocks);
+  let heading_run = &upcoming_blocks[..heading_run_len];
+  let heading_run_page_start = heading_run.first().map(|block| block.page_number).unwrap_or(next_block.page_number);
+  let heading_run_page_end = heading_run.last().map(|block| block.page_number).unwrap_or(next_block.page_number);
+
+  let heading_run_render_len = rendered_pdf_fragment_len(
+    document_title,
+    context_title,
+    heading_run_page_start,
+    heading_run_page_end,
+    heading_run,
+    None,
+  );
+  let heading_run_render_tokens = rendered_pdf_fragment_token_estimate(
+    document_title,
+    context_title,
+    heading_run_page_start,
+    heading_run_page_end,
+    heading_run,
+    None,
+  );
+  let heading_run_fits_hard_limits = heading_run_render_len <= PDF_FRAGMENT_HARD_LIMIT_CHARS
+    && heading_run_render_tokens <= PDF_FRAGMENT_HARD_LIMIT_TOKENS;
+
+  let mut combined_blocks = current.blocks.clone();
+  combined_blocks.extend(heading_run.iter().cloned());
+  let combined_render_len = rendered_pdf_fragment_len(
+    document_title,
+    context_title,
+    current.page_start,
+    heading_run_page_end,
+    &combined_blocks,
+    None,
+  );
+  let combined_render_tokens = rendered_pdf_fragment_token_estimate(
+    document_title,
+    context_title,
+    current.page_start,
+    heading_run_page_end,
+    &combined_blocks,
+    None,
+  );
+
+  if combined_render_len <= PDF_FRAGMENT_SOFT_LIMIT_CHARS && combined_render_tokens <= PDF_FRAGMENT_SOFT_LIMIT_TOKENS {
+    return false;
+  }
+
+  heading_run_fits_hard_limits || heading_run_len > 1
+}
+
+fn consecutive_heading_run_len(blocks: &[PdfFragmentBlock]) -> usize {
+  let Some(first_block) = blocks.first() else {
+    return 0;
+  };
+  blocks.iter().take_while(|block| heading_paths_equal(&block.headings, &first_block.headings)).count()
 }
 
 fn rendered_pdf_fragment_len(
@@ -1127,14 +1218,15 @@ impl PdfFragmentAccumulator {
     PdfFragmentAccumulator { page_start: page_number, page_end: page_number, blocks: Vec::new() }
   }
 
-  fn push(&mut self, block: PdfFragmentBlock, page_number: usize) {
-    self.page_end = page_number;
+  fn push(&mut self, block: PdfFragmentBlock) {
+    self.page_end = block.page_number;
     self.blocks.push(block);
   }
 }
 
 #[derive(Clone)]
 struct PdfFragmentBlock {
+  page_number: usize,
   headings: Vec<String>,
   text: String,
 }
@@ -1889,5 +1981,54 @@ Parking is complimentary for one vehicle per room.
       fragments.iter().all(|fragment| estimate_embedding_token_count(&fragment.text) <= PDF_FRAGMENT_HARD_LIMIT_TOKENS)
     );
     assert!(fragments.iter().all(|fragment| fragment.text.contains("Section: Tiny Words.")));
+  }
+
+  #[test]
+  fn prefers_clean_subsection_boundaries_for_long_runs() {
+    let markdown = r#"
+{6}------------------------------------------------
+
+# In Real Estate
+
+## Preparing For Wealth - The 7 Wealth Habits
+
+### Habit 1 - Pay Yourself First
+
+#### Habit 4 - Avoid Debt
+
+Australians are notorious for the use of consumer type debt to buy items that rapidly decrease in value in order to fund a high lifestyle. Credit card debt is at alarming levels and is directly related to the record number of bankruptcies in what has been an otherwise powerhouse economic period. The acceptance of the buy now, pay later life is now complete after having it rammed down our throats by self-interested retailers and banks. Buy nothing that you cannot pay for in cash, or if you use a credit card make absolutely sure you pay it out in full at the end of each month.
+
+#### Habit 5 - Eliminate Debt
+
+Your first point of action in eliminating debt is to use it no more. To get out of the debt you now have is relatively simple, but will take some time and a lot of discipline. Most people who try to pay off debt on their credit cards, store accounts, charge cards and personal loans just pay the minimum amount every month off their statements. A $1,000 debt on your credit card at 16% interest will take 3.7 years to pay off if you only make the minimum 3% ($30) of balance payment.
+
+To eliminate your consumer debt, you must attack it remorselessly. Allocate 10% of your gross income over and above your minimum monthly payments. This is every bit as important as your 10% savings. Tally up the amount you owe on each account. Take the one with the highest interest rate and pay off on that account 10% of your gross income, plus the minimum you would otherwise have paid. Pay only the minimum on your other accounts. Very soon you will have completely paid out your first account.
+
+{7}------------------------------------------------
+
+The best part of this debt elimination strategy is this - in a relatively short time, you will have no more consumer debt, but you will have formed the habit of making the payments. Use this habit to either start paying out the loan on your own home or buy another property and turn your previous bad debt dependency into a powerful investment habit.
+
+#### Habit 6 - Educate Yourself - Continually
+
+The absolute best investment you will ever make is in yourself. Make it your mission in life to find out and then apply everything there is to know about wealth creation and investing.
+
+#### Habit 7 - Believe in Yourself
+
+To achieve financial freedom you must get into the habit of telling yourself these two simple messages.
+"#;
+
+    let fragments = build_pdf_fragment_inputs(Some("47tipsandtricks.pdf"), Some("Entrepreneur"), markdown);
+
+    assert!(fragments.iter().any(|fragment| {
+      fragment.text.contains("Section: In Real Estate > Preparing For Wealth - The 7 Wealth Habits > Habit 1 - Pay Yourself First > Habit 5 - Eliminate Debt.")
+        && fragment.text.contains("Your first point of action in eliminating debt")
+        && fragment.text.contains("To eliminate your consumer debt, you must attack it remorselessly")
+        && fragment.text.contains("The best part of this debt elimination strategy")
+        && fragment.text.contains("Pages: 6-7.")
+    }));
+    assert!(!fragments.iter().any(|fragment| {
+      fragment.text.contains("Subsection: Habit 4 - Avoid Debt.")
+        && fragment.text.contains("Subsection: Habit 5 - Eliminate Debt.")
+    }));
   }
 }
