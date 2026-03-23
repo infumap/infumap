@@ -84,9 +84,8 @@ export enum VisualElementFlags {
   EmbeddedInteractiveRoot = 0x020000, // Is an embedded interactive page.
   DockItem = 0x040000, // Is an item inside the dock.
   FocusPageSelected = 0x080000, // Line item is in focussed page and selected.
-  FlipCardPage = 0x100000, // A flipcard page.
-  FindHighlighted = 0x200000, // The item is highlighted by find-on-page.
-  SelectionHighlighted = 0x400000, // Highlighted by selection marquee.
+  FindHighlighted = 0x100000, // The item is highlighted by find-on-page.
+  SelectionHighlighted = 0x200000, // Highlighted by selection marquee.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {
@@ -110,7 +109,6 @@ export function isVeTranslucentPage(ve: VisualElement): boolean {
   // Check if it's any of the specific page types that are NOT translucent
   if (
     flags & VisualElementFlags.UmbrellaPage ||
-    flags & VisualElementFlags.FlipCardPage ||
     flags & VisualElementFlags.IsDock ||
     flags & VisualElementFlags.IsTrash ||
     flags & VisualElementFlags.Popup ||

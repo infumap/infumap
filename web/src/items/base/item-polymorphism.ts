@@ -37,7 +37,6 @@ import { calcGeometryOfEmptyItem_ListItem } from './item-common-fns';
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
 import { ExpressionFns, asExpressionItem, isExpression } from '../expression-item';
 import { LINE_HEIGHT_PX, GRID_SIZE } from '../../constants';
-import { asFlipCardItem, FlipCardFns, isFlipCard } from '../flipcard-item';
 import { hashStringToUid, hashI64ToUid, hashF64ToUid, hashU8VecToUid, combineHashes } from '../../util/hash';
 import { Uid } from '../../util/uid';
 import { isContainer } from './container-item';
@@ -74,7 +73,6 @@ export const ItemFns = {
     if (isPassword(measurable)) { return PasswordFns.calcSpatialDimensionsBl(PasswordFns.asPasswordMeasurable(measurable)); }
     if (isRating(measurable)) { return RatingFns.calcSpatialDimensionsBl(RatingFns.asRatingMeasurable(measurable)); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcSpatialDimensionsBl(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
-    if (isFlipCard(measurable)) { return FlipCardFns.calcSpatialDimensionsBl(FlipCardFns.asFlipCardMeasurable(measurable)); }
     panic(`calcSpatialDimensionsBl: unknown item type: ${measurable.itemType}`);
   },
 
@@ -101,7 +99,6 @@ export const ItemFns = {
     if (isRating(measurable)) { return RatingFns.calcGeometry_Spatial(RatingFns.asRatingMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_Spatial(asLinkItem(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasChildChanges, hasDefaultChanges, editing, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Spatial(PlaceholderFns.asPlaceholderMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
-    if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_Spatial(FlipCardFns.asFlipCardMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, editing); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
@@ -122,7 +119,6 @@ export const ItemFns = {
     if (isRating(measurable)) { return RatingFns.calcGeometry_Attachment(RatingFns.asRatingMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_Attachment(asLinkItem(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Attachment(PlaceholderFns.asPlaceholderMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
-    if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_Attachment(FlipCardFns.asFlipCardMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
@@ -148,7 +144,6 @@ export const ItemFns = {
     if (isRating(measurable)) { return RatingFns.calcGeometry_ListItem(RatingFns.asRatingMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_ListItem(asLinkItem(measurable), blockSizePx, row, col, widthBl, parentIsPopup, padTop, expandable, inTable); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_ListItem(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
-    if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_ListItem(FlipCardFns.asFlipCardMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
@@ -175,7 +170,6 @@ export const ItemFns = {
     if (isRating(measurable)) { return RatingFns.calcGeometry_InCell(RatingFns.asRatingMeasurable(measurable), cellBoundsPx, maximize); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasChildChanges, hasDefaultChanges, maximize, ignoreCellHeight, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InCell(PlaceholderFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
-    if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_InCell(FlipCardFns.asFlipCardMeasurable(measurable), cellBoundsPx, maximize); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
@@ -217,7 +211,6 @@ export const ItemFns = {
     if (isRating(measurable)) { return RatingFns.calcGeometry_InComposite(RatingFns.asRatingMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InComposite(asLinkItem(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InComposite(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
-    if (isFlipCard(measurable)) { return FlipCardFns.calcGeometry_InComposite(FlipCardFns.asFlipCardMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
@@ -238,7 +231,6 @@ export const ItemFns = {
     if (isRating(item)) { return RatingFns.getFingerprint(asRatingItem(item)); }
     if (isLink(item)) { return LinkFns.getFingerprint(asLinkItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.getFingerprint(asPlaceholderItem(item)); }
-    if (isFlipCard(item)) { return FlipCardFns.getFingerprint(asFlipCardItem(item)); }
     panic(`Unknown item type: ${item.itemType}`);
   },
 
@@ -254,7 +246,6 @@ export const ItemFns = {
     if (isRating(o)) { return RatingFns.fromObject(o, origin); }
     if (isLink(o)) { return LinkFns.fromObject(o, origin); }
     if (isPlaceholder(o)) { return PlaceholderFns.fromObject(o, origin); }
-    if (isFlipCard(o)) { return FlipCardFns.fromObject(o, origin); }
     panic(`fromObject: Unknown item type: ${o.itemType}`);
   },
 
@@ -270,7 +261,6 @@ export const ItemFns = {
     if (isRating(item)) { return RatingFns.toObject(asRatingItem(item)); }
     if (isLink(item)) { return LinkFns.toObject(asLinkItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.toObject(asPlaceholderItem(item)); }
-    if (isFlipCard(item)) { return FlipCardFns.toObject(asFlipCardItem(item)); }
     panic(`toObject: Unknown item type: ${item.itemType}`);
   },
 
@@ -287,7 +277,6 @@ export const ItemFns = {
     else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal); }
     else if (isLink(item)) { }
     else if (isPlaceholder(item)) { panic("handleClick: placeholder."); }
-    else if (isFlipCard(item)) { }
     else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
@@ -304,7 +293,6 @@ export const ItemFns = {
     else if (isRating(item)) { panic("handleLinkClick: rating"); }
     else if (isLink(item)) { panic("handleLinkClick: link"); }
     else if (isPlaceholder(item)) { panic("handleLinkClick: placeholder"); }
-    else if (isFlipCard(item)) { panic("handleLinkClick: flipcard"); }
     else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
@@ -352,7 +340,6 @@ export const ItemFns = {
     else if (isRating(measurable)) { return RatingFns.cloneMeasurableFields(RatingFns.asRatingMeasurable(measurable)); }
     else if (isLink(measurable)) { return LinkFns.cloneMeasurableFields(LinkFns.asLinkMeasurable(measurable)); }
     else if (isPlaceholder(measurable)) { return PlaceholderFns.cloneMeasurableFields(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
-    else if (isFlipCard(measurable)) { return FlipCardFns.cloneMeasurableFields(FlipCardFns.asFlipCardMeasurable(measurable)); }
     else { panic(`cloneMeasurableFields: Unknown item type: ${measurable.itemType}`); }
   },
 
@@ -369,7 +356,6 @@ export const ItemFns = {
     if (isImage(item)) { return ImageFns.debugSummary(asImageItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.debugSummary(asPlaceholderItem(item)); }
     if (isLink(item)) { return LinkFns.debugSummary(asLinkItem(item)); }
-    if (isFlipCard(item)) { return FlipCardFns.debugSummary(asFlipCardItem(item)); }
     return "[unknown]";
   },
 
@@ -597,14 +583,6 @@ export const ItemFns = {
       const linkItem = item as any;
       if (linkItem.linkTo) {
         hashes.push(hashStringToUid(linkItem.linkTo));
-      }
-    }
-
-    // FlipCard-specific properties
-    if (isFlipCard(item)) {
-      const flipCardItem = item as any;
-      if (flipCardItem.scale !== undefined) {
-        hashes.push(hashF64ToUid(flipCardItem.scale));
       }
     }
 

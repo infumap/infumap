@@ -16,14 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../constants";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { TabularFns } from "../items/base/tabular-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
-import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
 import { asImageItem, isImage } from "../items/image-item";
 import { asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
@@ -229,15 +227,6 @@ export const itemState = {
       throw new Error(`Cannot set ${childItems.length} child items of parent '${parentId}' because it is not a container.`);
     }
     const parent = itemState.getAsContainerItem(parentId)!;
-    if (isFlipCard(parent)) {
-      const parentFlipCardItem = asFlipCardItem(parent);
-      childItems.forEach(childItem => {
-        if (!isPage(childItem)) { panic(`flipcard ${parentId} child item ${childItem.id} is not a page.`); }
-        const childPageItem = asPageItem(childItem);
-        childPageItem.innerSpatialWidthGr = Math.round(parentFlipCardItem.spatialWidthGr / parentFlipCardItem.scale / GRID_SIZE) * GRID_SIZE;
-        childPageItem.naturalAspect = parentFlipCardItem.naturalAspect;
-      });
-    }
     let children: Array<Uid> = [];
     childItems.forEach(childItem => {
       if (childItem.parentId == EMPTY_UID) { panic("setChildItemsFromServerObjects: parent is empty."); }

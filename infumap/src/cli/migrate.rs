@@ -113,6 +113,27 @@ fn migrate_item_log(
   let mut mime_type_migration_state_by_id = std::collections::HashMap::new();
   let mut mime_type_migration_stats = crate::storage::db::item_db::MimeTypeMigrationStats::default();
 
+  if from_version == 29 {
+    let mut records = Vec::<Map<String, Value>>::new();
+    for item in iterator {
+      match item? {
+        Object(kvs) => records.push(kvs),
+        unexpected_type => {
+          return Err(
+            format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
+          );
+        }
+      }
+    }
+
+    for migrated in crate::storage::db::item_db::migrate_records_v29_to_v30(&records)? {
+      writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
+      writer.write_all("\n".as_bytes())?;
+    }
+    writer.flush()?;
+    return Ok(());
+  }
+
   for item in iterator {
     match item? {
       Object(kvs) => {
@@ -149,6 +170,11 @@ fn migrate_item_log(
             &mut mime_type_migration_state_by_id,
             &mut mime_type_migration_stats,
           )?,
+          29 => {
+            return Err(
+              "Version 29 item logs require whole-log migration and should have been handled earlier.".into(),
+            );
+          }
           _ => {
             return Err(format!("Unexpected item log version: {}.", from_version).into());
           }

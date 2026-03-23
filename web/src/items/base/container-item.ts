@@ -21,7 +21,7 @@ import { Uid } from "../../util/uid";
 import { Item, ItemTypeMixin, ItemType } from "./item";
 
 
-const ITEM_TYPES = [ItemType.Page, ItemType.Table, ItemType.Composite, ItemType.FlipCard];
+const ITEM_TYPES = [ItemType.Page, ItemType.Table, ItemType.Composite];
 
 export interface ContainerMixin {
   orderChildrenBy: string | null;

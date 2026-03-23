@@ -22,7 +22,6 @@ import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { ExpressionFns } from "../items/expression-item";
-import { asFlipCardItem, FlipCardFns, isFlipCard } from "../items/flipcard-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
 import { PageFns, asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
@@ -60,31 +59,10 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
     newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "expression") {
     newItem = ExpressionFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
-  } else if (type == "flipcard") {
-    newItem = FlipCardFns.create(store.user.getUser().userId, parentId, relationship, ordering);
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
   }
   return newItem;
-}
-
-export function maybeAddNewChildItems(store: StoreContextModel, item: PositionalItem) {
-  if (isFlipCard(item)) {
-    const fcItem = asFlipCardItem(item);
-    const parentId = item.id;
-
-    const frontSidePageItem = PageFns.create(store.user.getUser().userId, parentId, RelationshipToParent.Child, "", itemState.newOrderingAtEndOfChildren(parentId));
-    itemState.add(frontSidePageItem);
-    frontSidePageItem.innerSpatialWidthGr = Math.round(fcItem.spatialWidthGr / fcItem.scale / GRID_SIZE) * GRID_SIZE;
-    frontSidePageItem.naturalAspect = fcItem.naturalAspect;
-    server.addItem(frontSidePageItem, null, store.general.networkStatus);
-
-    const backSidePageItem = PageFns.create(store.user.getUser().userId, parentId, RelationshipToParent.Child, "", itemState.newOrderingAtEndOfChildren(parentId));
-    itemState.add(backSidePageItem);
-    backSidePageItem.innerSpatialWidthGr = Math.round(fcItem.spatialWidthGr / fcItem.scale / GRID_SIZE) * GRID_SIZE;
-    backSidePageItem.naturalAspect = fcItem.naturalAspect;
-    server.addItem(backSidePageItem, null, store.general.networkStatus);
-  }
 }
 
 
@@ -108,7 +86,6 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     server.deleteItem(overElementVe.displayItem.id, store.general.networkStatus);
     itemState.add(newItem);
     server.addItem(newItem, null, store.general.networkStatus);
-    maybeAddNewChildItems(store, newItem);
 
     store.overlay.contextMenuInfo.set(null);
     fullArrange(store);
@@ -162,7 +139,6 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
     itemState.add(newItem);
     server.addItem(newItem, null, store.general.networkStatus);
-    maybeAddNewChildItems(store, newItem);
 
     store.overlay.contextMenuInfo.set(null);
     fullArrange(store);
@@ -218,7 +194,6 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
         itemState.add(newItem);
         server.addItem(newItem, null, store.general.networkStatus);
-        maybeAddNewChildItems(store, newItem);
 
         store.overlay.contextMenuInfo.set(null);
         fullArrange(store);
@@ -254,7 +229,6 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
       itemState.add(newItem);
       server.addItem(newItem, null, store.general.networkStatus);
-      maybeAddNewChildItems(store, newItem);
 
       store.overlay.contextMenuInfo.set(null);
       fullArrange(store);
@@ -295,7 +269,6 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
     itemState.add(newItem);
     server.addItem(newItem, null, store.general.networkStatus);
-    maybeAddNewChildItems(store, newItem);
 
     link.linkTo = newItem.id;
     serverOrRemote.updateItem(link, store.general.networkStatus);

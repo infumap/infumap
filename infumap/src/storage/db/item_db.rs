@@ -19,9 +19,7 @@ use infusdk::db::kv_store::KVStore;
 use infusdk::item::TableColumn;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
-use infusdk::item::is_data_item_type;
-use infusdk::item::is_positionable_type;
-use infusdk::item::{Item, ItemType, RelationshipToParent};
+use infusdk::item::{Item, RelationshipToParent};
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::geometry::Vector;
 use infusdk::util::infu::{InfuError, InfuResult};
@@ -40,7 +38,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 29;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 30;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -1439,7 +1437,7 @@ pub fn migrate_record_v21_to_v22(kvs: &Map<String, Value>) -> InfuResult<Map<Str
       }
 
       let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
-      if is_positionable_type(ItemType::from_str(&item_type)?) {
+      if item_type != "placeholder" {
         let existing =
           result.insert(String::from("calendarPositionGr"), json::vector_to_object(&Vector { x: 0, y: 0 }));
         if existing.is_some() {
@@ -1695,11 +1693,11 @@ pub fn migrate_record_v28_to_v29(
       let item_id = json::get_string_field(&result, "id")?.ok_or("Entry record is missing id.")?;
       let item_type =
         json::get_string_field(&result, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
-      let item_type = ItemType::from_str(&item_type)?;
-      if is_data_item_type(item_type) {
+      let is_data_item = item_type == "file" || item_type == "image";
+      if is_data_item {
         maybe_fix_mime_type_from_title(&mut result, None, None, stats, "entry")?;
       }
-      state_by_id.insert(item_id, mime_type_migration_state_from_entry(&result, item_type)?);
+      state_by_id.insert(item_id, mime_type_migration_state_from_entry(&result, is_data_item)?);
       Ok(result)
     }
     "update" => {
@@ -1761,10 +1759,10 @@ fn maybe_fix_mime_type_from_title(
 
 fn mime_type_migration_state_from_entry(
   kvs: &Map<String, Value>,
-  item_type: ItemType,
+  is_data_item: bool,
 ) -> InfuResult<MimeTypeMigrationState> {
   Ok(MimeTypeMigrationState {
-    is_data_item: is_data_item_type(item_type),
+    is_data_item,
     title: json::get_string_field(kvs, "title")?,
     mime_type: json::get_string_field(kvs, "mimeType")?.map(|mime_type| normalized_mime_type(&mime_type)),
   })
@@ -1784,9 +1782,76 @@ fn apply_mime_type_migration_update(
   Ok(next_state)
 }
 
+#[derive(Clone)]
+struct ItemRemovalMigrationState {
+  item_type: String,
+  parent_id: Option<String>,
+}
+
+pub fn migrate_records_v29_to_v30(records: &[Map<String, Value>]) -> InfuResult<Vec<Map<String, Value>>> {
+  let mut final_state_by_id = HashMap::<String, ItemRemovalMigrationState>::new();
+
+  for kvs in records {
+    match json::get_string_field(kvs, "__recordType")?
+      .ok_or("'__recordType' field is missing from log record.")?
+      .as_str()
+    {
+      "entry" => {
+        let item_id = json::get_string_field(kvs, "id")?.ok_or("Entry record is missing id.")?;
+        let item_type =
+          json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+        let parent_id = json::get_string_field(kvs, "parentId")?;
+        final_state_by_id.insert(item_id, ItemRemovalMigrationState { item_type, parent_id });
+      }
+      "update" => {
+        let item_id = json::get_string_field(kvs, "id")?.ok_or("Update record does not have 'id' field.")?;
+        let state = final_state_by_id
+          .get_mut(&item_id)
+          .ok_or(format!("Update record has id '{}', but this is unknown.", item_id))?;
+        if kvs.contains_key("parentId") {
+          state.parent_id = json::get_string_field(kvs, "parentId")?;
+        }
+      }
+      "delete" => {
+        let item_id = json::get_string_field(kvs, "id")?.ok_or("Delete record does not have 'id' field.")?;
+        final_state_by_id.remove(&item_id);
+      }
+      unexpected_record_type => {
+        return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+      }
+    }
+  }
+
+  let mut removed_ids = HashSet::<String>::new();
+  let mut changed = true;
+  while changed {
+    changed = false;
+    for (item_id, state) in &final_state_by_id {
+      let parent_removed = state.parent_id.as_ref().map(|parent_id| removed_ids.contains(parent_id)).unwrap_or(false);
+      if (state.item_type == "flipcard" || parent_removed) && removed_ids.insert(item_id.clone()) {
+        changed = true;
+      }
+    }
+  }
+
+  let mut migrated = Vec::with_capacity(records.len());
+  for kvs in records {
+    let item_id = json::get_string_field(kvs, "id")?;
+    if item_id.as_ref().map(|item_id| removed_ids.contains(item_id)).unwrap_or(false) {
+      continue;
+    }
+    migrated.push(kvs.clone());
+  }
+
+  Ok(migrated)
+}
+
 #[cfg(test)]
 mod tests {
-  use super::{MimeTypeMigrationState, MimeTypeMigrationStats, migrate_record_v27_to_v28, migrate_record_v28_to_v29};
+  use super::{
+    MimeTypeMigrationState, MimeTypeMigrationStats, migrate_record_v27_to_v28, migrate_record_v28_to_v29,
+    migrate_records_v29_to_v30,
+  };
   use serde_json::{Map, Value};
   use std::collections::HashMap;
 
@@ -1913,5 +1978,52 @@ mod tests {
       stats.render_summary(),
       vec!["Scanned 1 item records.".to_owned(), "Changed MIME type on 0 records across 0 items.".to_owned(),]
     );
+  }
+
+  #[test]
+  fn removes_flipcard_records_and_final_descendants() {
+    let mut flipcard_entry = Map::new();
+    flipcard_entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    flipcard_entry.insert("id".to_owned(), Value::String("FC1".to_owned()));
+    flipcard_entry.insert("itemType".to_owned(), Value::String("flipcard".to_owned()));
+    flipcard_entry.insert("parentId".to_owned(), Value::String("ROOT".to_owned()));
+
+    let mut page_entry = Map::new();
+    page_entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    page_entry.insert("id".to_owned(), Value::String("PAGE1".to_owned()));
+    page_entry.insert("itemType".to_owned(), Value::String("page".to_owned()));
+    page_entry.insert("parentId".to_owned(), Value::String("FC1".to_owned()));
+
+    let mut note_entry = Map::new();
+    note_entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    note_entry.insert("id".to_owned(), Value::String("NOTE1".to_owned()));
+    note_entry.insert("itemType".to_owned(), Value::String("note".to_owned()));
+    note_entry.insert("parentId".to_owned(), Value::String("PAGE1".to_owned()));
+
+    let migrated = migrate_records_v29_to_v30(&vec![flipcard_entry, page_entry, note_entry]).unwrap();
+    assert!(migrated.is_empty());
+  }
+
+  #[test]
+  fn keeps_items_moved_out_of_flipcard_before_final_state() {
+    let mut flipcard_entry = Map::new();
+    flipcard_entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    flipcard_entry.insert("id".to_owned(), Value::String("FC2".to_owned()));
+    flipcard_entry.insert("itemType".to_owned(), Value::String("flipcard".to_owned()));
+    flipcard_entry.insert("parentId".to_owned(), Value::String("ROOT".to_owned()));
+
+    let mut note_entry = Map::new();
+    note_entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    note_entry.insert("id".to_owned(), Value::String("NOTE2".to_owned()));
+    note_entry.insert("itemType".to_owned(), Value::String("note".to_owned()));
+    note_entry.insert("parentId".to_owned(), Value::String("FC2".to_owned()));
+
+    let mut note_update = Map::new();
+    note_update.insert("__recordType".to_owned(), Value::String("update".to_owned()));
+    note_update.insert("id".to_owned(), Value::String("NOTE2".to_owned()));
+    note_update.insert("parentId".to_owned(), Value::String("ROOT".to_owned()));
+
+    let migrated = migrate_records_v29_to_v30(&vec![flipcard_entry, note_entry.clone(), note_update.clone()]).unwrap();
+    assert_eq!(migrated, vec![note_entry, note_update]);
   }
 }

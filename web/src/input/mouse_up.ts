@@ -43,7 +43,6 @@ import { panic } from "../util/lang";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
-import { isFlipCard } from "../items/flipcard-item";
 import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 
@@ -121,10 +120,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       if (xsized ||
         (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
         (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight) && MouseActionState.get().startHeightBl! * GRID_SIZE != asNoteItem(activeItem).spatialHeightGr) ||
-        // TODO (LOW): don't update if there are no changes.
-        (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem))) ||
-        isFlipCard(activeItem) ||
-        (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem))) {
+        (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem)))) {
         serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
       }
       // mouseActionState.activeVisualElement.update(ve => {
@@ -251,27 +247,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         );
         store.history.setFocus(focusPath);
 
-      } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Flip) ||
-        (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TimedFlip)) {
-        DoubleClickState.preventDoubleClick();
-        const veid = VeFns.veidFromPath(MouseActionState.get().activeElementPath);
-        store.perItem.setFlipCardVisibleSide(veid, store.perItem.getFlipCardVisibleSide(veid) == 0 ? 1 : 0);
-        fullArrange(store);
-        if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TimedFlip) {
-          setTimeout(() => {
-            store.perItem.setFlipCardVisibleSide(veid, 0);
-            fullArrange(store);
-          }, 750);
-        }
-
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Edit) {
-        store.perVe.setFlipCardIsEditing(
-          MouseActionState.get().activeElementPath,
-          !store.perVe.getFlipCardIsEditing(MouseActionState.get().activeElementPath)
-        );
-
-        fullArrange(store);
-
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
         store.overlay.tableColumnContextMenuInfo.set({
           posPx: CursorEventState.getLatestDesktopPx(store),
@@ -349,9 +324,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else if (activeVisualElementSignal.get().flags & VisualElementFlags.IsDock) {
         DoubleClickState.preventDoubleClick();
 
-      } else if (activeVisualElementSignal.get().flags & VisualElementFlags.FlipCardPage) {
-        // nothing.
-
       } else {
         if (isComposite(activeVisualElement.displayItem) || isPlaceholder(activeVisualElement.displayItem)) {
           // noop.
@@ -374,13 +346,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
               // of the root page to the outermost list page in its hierarchy.
               PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
             }
-          }
-
-          if (isFlipCard(activeVisualElement.displayItem)) {
-            store.perVe.setFlipCardIsEditing(
-              MouseActionState.get().activeElementPath,
-              !store.perVe.getFlipCardIsEditing(MouseActionState.get().activeElementPath)
-            );
           }
 
           // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
@@ -425,10 +390,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
   }
 
   if (overContainerVe.displayItem.id != activeItem.parentId) {
-    if (isFlipCard(overContainerVe.displayItem)) {
-      mouseUpHandler_moving_toFlipCard(store, activeItem, overContainerVe);
-      return;
-    } else if (isPage(overContainerVe.displayItem)) {
+    if (isPage(overContainerVe.displayItem)) {
       const targetPageItem = asPageItem(overContainerVe.displayItem);
       if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
         const path = VeFns.veToPath(overContainerVe);
@@ -708,20 +670,6 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
   const newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedParent.id, insertPosition);
   itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-  serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-
-  finalizeMouseUp(store);
-  fullArrange(store);
-}
-
-function mouseUpHandler_moving_toFlipCard(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
-  const containerVeid = VeFns.veidFromVe(overContainerVe);
-  const flipCardItem = asContainerItem(itemState.get(containerVeid.itemId)!);
-  const visibleSide = store.perItem.getFlipCardVisibleSide(containerVeid);
-  const pageItem = asPageItem(itemState.get(flipCardItem.computed_children[visibleSide])!);
-
-  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  itemState.moveToNewParent(activeItem, pageItem.id, RelationshipToParent.Child);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
   finalizeMouseUp(store);

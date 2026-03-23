@@ -33,7 +33,6 @@ export const ItemType = {
   Link: "link",
   Placeholder: "placeholder",
   Expression: "expression",
-  FlipCard: "flipcard",
 };
 
 

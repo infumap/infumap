@@ -19,7 +19,7 @@
 import { Item, ItemType, ItemTypeMixin } from "./item";
 
 
-const ITEM_TYPES = [ItemType.Page, ItemType.FlipCard];
+const ITEM_TYPES = [ItemType.Page];
 
 export interface ColorableMixin {
   backgroundColorIndex: number;

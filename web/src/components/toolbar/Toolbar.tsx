@@ -49,8 +49,6 @@ import { Toolbar_File } from './item/Toolbar_File';
 import { isLink } from '../../items/link-item';
 import { Toolbar_Link } from './item/Toolbar_Link';
 import { VesCache } from '../../layout/ves-cache';
-import { isFlipCard } from '../../items/flipcard-item';
-import { Toolbar_FlipCard } from './item/Toolbar_FlipCard';
 import { logout } from '../Main';
 
 
@@ -267,9 +265,6 @@ export const Toolbar: Component = () => {
           </Match>
           <Match when={isLink(store.history.getFocusItem())}>
             <Toolbar_Link />
-          </Match>
-          <Match when={isFlipCard(store.history.getFocusItem())}>
-            <Toolbar_FlipCard />
           </Match>
         </Switch>
       </Show>

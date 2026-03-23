@@ -36,8 +36,6 @@ import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
 import { isExpression } from "../../items/expression-item";
-import { asFlipCardItem, isFlipCard } from "../../items/flipcard-item";
-import { arrangeFlipCard } from "./flipcard";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 
@@ -121,12 +119,6 @@ export const arrangeItem = (
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeComposite(
       store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
-  }
-
-  if (isFlipCard(displayItem)) {
-    initiateLoadChildItemsMaybe(store, itemVeid);
-    return arrangeFlipCard(
-      store, parentPath, asFlipCardItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
   const renderAsOutline = !(flags & ArrangeItemFlags.RenderChildrenAsFull);

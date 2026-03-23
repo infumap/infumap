@@ -22,7 +22,6 @@ use hyper::{Request, Response};
 use image::ImageFormat;
 use image::ImageReader;
 use image::imageops::FilterType;
-use infusdk::item::is_flipcard_item;
 use infusdk::item::{
   Item, ItemType, PermissionFlags, RelationshipToParent, is_attachments_item_type, is_composite_item,
   is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item,
@@ -251,7 +250,7 @@ pub struct GetItemsRequest {
  * 1.  the session user owns the item.
  * 2.  the item is a page that is marked as public.
  * 3.  the item is in a page that is marked as public.
- * 4.  the item is in a table or composite or flipcard child page in a page that is marked as public.
+ * 4.  the item is in a table or composite child page in a page that is marked as public.
  * 5.  the item is an attachment of a page that is marked as public.
  * 6.  the item is an attachment of an item in a page that is marked as public.
  * 7.  the item is an attachment of an item in a table or composite in a page that is marked as public.
@@ -300,7 +299,7 @@ pub fn authorize_item(
     match item.relationship_to_parent {
       RelationshipToParent::Child => {
         let item_parent = db.item.get(&item_parent_id)?;
-        if is_composite_item(item_parent) || is_flipcard_item(item_parent) {
+        if is_composite_item(item_parent) {
           // If the item is inside a composite, then what is effectively needed is authorization of the composite.
           match authorize_item(db, item_parent, session_user_id_maybe, recursion_level + 1) {
             Ok(_) => return Ok(()),

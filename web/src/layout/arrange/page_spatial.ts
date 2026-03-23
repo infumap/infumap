@@ -130,7 +130,7 @@ export function arrange_spatial_page(
       childItemIsPopup,
       hasChildChanges,
       hasDefaultChanges,
-      store.perVe.getFlipCardIsEditing(VeFns.addVeidToPath(VeFns.veidFromItems(childItem, actualLinkItemMaybe), pageWithChildrenVePath)),
+      false,
       store.smallScreenMode());
     if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
       const ves = arrangeItem(
@@ -179,4 +179,3 @@ export function arrange_spatial_page(
 
   return { spec: pageSpec, relationships: pageRelationships };
 }
-

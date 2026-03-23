@@ -44,7 +44,6 @@ import { MouseEventActionFlags } from "./enums";
 import { asNoteItem, isNote, NoteFns } from "../items/note-item";
 import { asFileItem, FileFns, isFile } from "../items/file-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
-import { isFlipCard } from "../items/flipcard-item";
 import { asPasswordItem } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 
@@ -396,7 +395,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   longHoldTimeoutId = setTimeout(() => {
     if (MouseActionState.empty()) { return; }
     if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
-    if (isPage(overDisplayItem) && !veFlagIsRoot(hitVe.flags) && !(hitVe.flags & VisualElementFlags.FlipCardPage)) {
+    if (isPage(overDisplayItem) && !veFlagIsRoot(hitVe.flags)) {
       PageFns.handleEditTitleClick(hitVe, store);
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
@@ -642,12 +641,6 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   if (ves) {
     const ve = ves.get();
     if (ve.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
-      store.history.setFocus(ve.parentPath!);
-      fullArrange(store);
-      return;
-    }
-
-    if (isFlipCard(ve.displayItem)) {
       store.history.setFocus(ve.parentPath!);
       fullArrange(store);
       return;

@@ -37,12 +37,9 @@ export enum HitboxFlags {
   Expand = 0x002000,
   TableColumnContextMenu = 0x004000,
   VerticalResize = 0x008000,
-  Flip = 0x010000,
-  TimedFlip = 0x020000,
-  Edit = 0x040000,
-  ShowPointer = 0x080000,
-  CalendarOverflow = 0x100000,
-  AnchorDefault = 0x200000,
+  ShowPointer = 0x010000,
+  CalendarOverflow = 0x020000,
+  AnchorDefault = 0x040000,
 }
 
 export function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -64,9 +61,6 @@ export function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.ContentEditable) { result += "ContentEditable "; }
   if (flags & HitboxFlags.Expand) { result += "Expand "; }
   if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu "; }
-  if (flags & HitboxFlags.Flip) { result += "Flip "; }
-  if (flags & HitboxFlags.TimedFlip) { result += "TimedFlip "; }
-  if (flags & HitboxFlags.Edit) { result += "Edit"; }
   if (flags & HitboxFlags.ShowPointer) { result += "ShowPointer "; }
   if (flags & HitboxFlags.CalendarOverflow) { result += "CalendarOverflow "; }
   result += "(" + flags + ")";

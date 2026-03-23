@@ -35,7 +35,6 @@ import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asFormatItem } from "../../items/base/format-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import QRCode from "qrcode";
-import { asFlipCardItem, isFlipCard } from "../../items/flipcard-item";
 import { isImage, asImageItem } from "../../items/image-item";
 import { isFile, asFileItem } from "../../items/file-item";
 import { openRemoteItemTextInNewTab } from "../../util/remoteFile";
@@ -52,7 +51,6 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageCalendarDayRowHeight) { return 60; }
-  if (overlayType == ToolbarPopupType.Scale) { return 92; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
       return 500;
@@ -154,7 +152,6 @@ export const Toolbar_Popup: Component = () => {
   let textElement: HTMLInputElement | undefined;
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
-  const flipCardItem = () => asFlipCardItem(store.history.getFocusItem());
   const noteItem = () => asNoteItem(store.history.getFocusItem());
   const tableItem = () => asTableItem(store.history.getFocusItem());
   const ratingItem = () => asRatingItem(store.history.getFocusItem());
@@ -210,13 +207,6 @@ export const Toolbar_Popup: Component = () => {
       pageItem().innerSpatialWidthGr = Math.round(parseFloat(textElement!.value)) * GRID_SIZE;
     } else if (overlayTypeConst == ToolbarPopupType.PageAspect) {
       pageItem().naturalAspect = parseFloat(textElement!.value);
-    } else if (overlayTypeConst == ToolbarPopupType.Scale) {
-      const fcItem = flipCardItem();
-      fcItem.scale = parseFloat(textElement!.value) / 100.0;
-      for (let i = 0; i < fcItem.computed_children.length; ++i) {
-        const childPage = asPageItem(itemState.get(fcItem.computed_children[i])!);
-        childPage.innerSpatialWidthGr = Math.round(flipCardItem().spatialWidthGr * flipCardItem().scale / GRID_SIZE) * GRID_SIZE;
-      }
     } else if (overlayTypeConst == ToolbarPopupType.PageCellAspect) {
       pageItem().gridCellAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {
@@ -240,7 +230,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return 292; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return 196; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
-    if (overlayType() == ToolbarPopupType.Scale) { return 180; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return 260; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
@@ -271,13 +260,10 @@ export const Toolbar_Popup: Component = () => {
   });
 
   const handleColorClick = (col: number) => {
-    if (isPage(store.history.getFocusItem())) {
-      pageItem().backgroundColorIndex = col;
-    } else if (isFlipCard(store.history.getFocusItem())) {
-      flipCardItem().backgroundColorIndex = col;
-    } else {
+    if (!isPage(store.history.getFocusItem())) {
       panic(`unexpected item type ${store.history.getFocusItem().itemType} changing color.`);
     }
+    pageItem().backgroundColorIndex = col;
     store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
     serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -289,7 +275,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return noteItem().url; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
-    if (overlayType() == ToolbarPopupType.Scale) { return "" + Math.round(flipCardItem().scale * 1000.0) / 10.0; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
@@ -304,7 +289,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return "Url"; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "Inner Block Width"; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
-    if (overlayType() == ToolbarPopupType.Scale) { return "Scale"; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "Num Cols"; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
@@ -319,7 +303,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0, 1,000, 1,000.00 or empty"; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
-    if (overlayType() == ToolbarPopupType.Scale) { return "Inner page scale."; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "The aspect ratio (width / height) of one row of items."; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
@@ -362,13 +345,10 @@ export const Toolbar_Popup: Component = () => {
   const handleAutoClick = (): void => {
     const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
     textElement!.value = aspect;
-    if (isPage(store.history.getFocusItem())) {
-      pageItem().naturalAspect = parseFloat(textElement!.value);
-    } else if (isFlipCard(store.history.getFocusItem())) {
-      flipCardItem().naturalAspect = parseFloat(textElement!.value);
-    } else {
+    if (!isPage(store.history.getFocusItem())) {
       panic(`unexpected item type ${store.history.getFocusItem().itemType} changing aspect (auto).`);
     }
+    pageItem().naturalAspect = parseFloat(textElement!.value);
     fullArrange(store);
   }
 

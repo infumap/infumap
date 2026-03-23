@@ -43,7 +43,6 @@ import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { dockInsertIndexAndPositionFromDesktopY } from "../layout/arrange/dock";
 import { asContainerItem } from "../items/base/container-item";
 import { newUid } from "../util/uid";
-import { maybeAddNewChildItems } from "./create";
 import { isDataItem } from "../items/base/data-item";
 import createJustifiedLayout from "justified-layout";
 import { createJustifyOptions } from "../layout/arrange/page_justified";
@@ -111,9 +110,6 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
       itemState.add(cloned);
       server.addItem(cloned, null, store.general.networkStatus);
-      if (isPositionalItem(cloned)) {
-        maybeAddNewChildItems(store, asPositionalItem(cloned));
-      }
 
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
       const newLinkVeid = VeFns.veidFromId(cloned.id);
@@ -505,7 +501,6 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     cloned.parentId = moveToPage.id;
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
-    maybeAddNewChildItems(store, asPositionalItem(cloned));
 
     fullArrange(store);
     let ve = VesCache.findSingle({ itemId: cloned.id, linkIdMaybe: null });
@@ -638,7 +633,6 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     cloned.parentId = moveToPage.id;
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
-    maybeAddNewChildItems(store, asPositionalItem(cloned));
 
     fullArrange(store);
     let ve = VesCache.findSingle({ itemId: cloned.id, linkIdMaybe: null });

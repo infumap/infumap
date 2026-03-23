@@ -40,7 +40,6 @@ import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
-import { asFlipCardItem, isFlipCard } from "../items/flipcard-item";
 import { itemState } from "../store/ItemState";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { calcSpatialPopupGeometry } from "../layout/arrange/popup";
@@ -214,12 +213,6 @@ function changeMouseActionStateMaybe(
         MouseActionState.get().startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
       } else if (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem))) {
         MouseActionState.get().startHeightBl = asLinkItem(activeItem).spatialHeightGr / GRID_SIZE;
-
-      } else if (isFlipCard(activeItem)) {
-        MouseActionState.get().startHeightBl = asXSizableItem(activeItem).spatialWidthGr / asFlipCardItem(activeItem).naturalAspect / GRID_SIZE;
-      } else if (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem)) {
-        MouseActionState.get().startHeightBl = asXSizableItem(activeVisualElement.displayItem).spatialWidthGr / asFlipCardItem(activeVisualElement.displayItem).naturalAspect / GRID_SIZE;
-
       } else if (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight)) {
         MouseActionState.get().startHeightBl = asNoteItem(activeItem).spatialHeightGr / GRID_SIZE;
       } else {
@@ -316,8 +309,7 @@ function changeMouseActionStateMaybe(
     } else {
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
-  } else if (veFlagIsRoot(activeVisualElement.flags) ||
-    (activeVisualElement.flags & VisualElementFlags.FlipCardPage)) {
+  } else if (veFlagIsRoot(activeVisualElement.flags)) {
     MouseActionState.get().action = MouseAction.Selecting;
     store.overlay.selectionMarqueePx.set({ x: MouseActionState.get().startPx!.x, y: MouseActionState.get().startPx!.y, w: 0, h: 0 });
     store.overlay.selectedVeids.set([]);
@@ -491,28 +483,7 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     }
   }
 
-  if (isFlipCard(activeItem) || (isLink(activeItem) && isFlipCard(activeVisualElement.displayItem))) {
-    let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
-    newHeightBl = Math.round(newHeightBl);
-    if (newHeightBl < 1) { newHeightBl = 1.0; }
-    const newHeightGr = newHeightBl * GRID_SIZE;
-    const newAspect = newWidthGr / newHeightGr;
-    if (isLink(activeItem)) {
-      // Don't allow y height adjust for linked to flip cards.
-    } else {
-      // TODO (LOW): don't require arrange if there was no change.
-      const flipCardItem = asFlipCardItem(activeItem);
-      flipCardItem.naturalAspect = newAspect;
-      const frontPage = asPageItem(itemState.get(flipCardItem.computed_children[0])!);
-      frontPage.naturalAspect = newAspect;
-      frontPage.innerSpatialWidthGr = Math.round(newWidthGr / asFlipCardItem(activeItem).scale / GRID_SIZE) * GRID_SIZE;
-      const backPage = asPageItem(itemState.get(flipCardItem.computed_children[1])!);
-      backPage.naturalAspect = newAspect;
-      backPage.innerSpatialWidthGr = Math.round(newWidthGr / asFlipCardItem(activeItem).scale / GRID_SIZE) * GRID_SIZE;
-    }
-    requireArrange = true;
-  }
-  else if (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight)) {
+  if (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight)) {
     let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
     newHeightBl = Math.round(newHeightBl);
 
@@ -923,10 +894,6 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     } else if (hitInfo.hitboxType & HitboxFlags.Move &&
       isComposite(HitInfoFns.getOverContainerVe(hitInfo).displayItem)) {
       document.body.style.cursor = "default";
-    } else if (hitInfo.hitboxType & HitboxFlags.Flip ||
-      hitInfo.hitboxType & HitboxFlags.TimedFlip ||
-      hitInfo.hitboxType & HitboxFlags.Edit) {
-      document.body.style.cursor = "pointer";
     } else {
       document.body.style.cursor = "default";
     }

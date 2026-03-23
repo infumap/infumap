@@ -17,7 +17,6 @@
 */
 
 import { isComposite } from "../../items/composite-item";
-import { isFlipCard } from "../../items/flipcard-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { isTable } from "../../items/table-item";
 import { isContainer } from "../../items/base/container-item";
@@ -147,7 +146,6 @@ export function getHitInfo(
     (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems),
     (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
     (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive),
-    (info) => hitFlipCardRootMaybe(info, ignoreItems),
   ];
   for (const resolve of resolvers) {
     rootInfo = resolve(rootInfo);
@@ -538,32 +536,6 @@ function hitEmbeddedRootMaybe(
       const newPosRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x - scrollPropX * (childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.boundsPx.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
       const { flags: hitboxType } = scanHitboxes(childVe, newPosRelativeToRootVeBoundsPx);
       return ({ parentRootVe: parentRootInfo.rootVe, rootVes: childVes, rootVe: childVe, posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx, posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx, hitMaybe: hitboxType != HitboxFlags.None ? new HitBuilder(parentRootInfo.rootVe, childVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(null).pos(newPosRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determineEmbeddedRootMaybe").build() : null });
-    }
-  }
-  return parentRootInfo;
-}
-
-
-function hitFlipCardRootMaybe(
-  parentRootInfo: RootInfo,
-  ignoreItems: Set<Uid>,
-): RootInfo {
-  const { rootVe, posRelativeToRootVeViewportPx } = parentRootInfo;
-  const rootVeChildren = VesCache.getChildrenVes(VeFns.veToPath(rootVe))();
-  for (let i = 0; i < rootVeChildren.length; ++i) {
-    const childVes = rootVeChildren[i];
-    const childVe = childVes.get();
-    if (isIgnored(childVe.displayItem.id, ignoreItems)) { continue; }
-    if (!isFlipCard(childVe.displayItem)) { continue; }
-    if (isInside(posRelativeToRootVeViewportPx, childVe.viewportBoundsPx!)) {
-      const newPosRelativeToRootVeViewportPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.viewportBoundsPx!.x, y: childVe.viewportBoundsPx!.y });
-      const newPosRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x, y: childVe.boundsPx.y });
-      const { flags: hitboxType } = scanHitboxes(childVe, newPosRelativeToRootVeBoundsPx);
-      if (hitboxType) {
-        return ({ parentRootVe: parentRootInfo.rootVe, rootVes: childVes, rootVe: childVe, posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx, posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx, hitMaybe: new HitBuilder(parentRootInfo.rootVe, childVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(null).pos(newPosRelativeToRootVeViewportPx).allowEmbeddedInteractive(true).createdAt("determineFlipCardRootMaybe").build() });
-      }
-      const pageVes = VesCache.getChildrenVes(VeFns.veToPath(childVe))()[0];
-      return ({ parentRootVe: childVe, rootVes: pageVes, rootVe: pageVes.get(), posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx, posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx, hitMaybe: null });
     }
   }
   return parentRootInfo;

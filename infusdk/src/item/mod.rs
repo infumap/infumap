@@ -184,7 +184,6 @@ pub enum ItemType {
   Link,
   Placeholder,
   Expression,
-  FlipCard,
 }
 
 impl ItemType {
@@ -201,7 +200,6 @@ impl ItemType {
       ItemType::Link => "link",
       ItemType::Placeholder => "placeholder",
       ItemType::Expression => "expression",
-      ItemType::FlipCard => "flipcard",
     }
   }
 
@@ -218,7 +216,6 @@ impl ItemType {
       "link" => Ok(ItemType::Link),
       "placeholder" => Ok(ItemType::Placeholder),
       "expression" => Ok(ItemType::Expression),
-      "flipcard" => Ok(ItemType::FlipCard),
       other => Err(format!("Invalid ItemType value: '{}'.", other).into()),
     }
   }
@@ -241,14 +238,10 @@ pub fn is_attachments_item_type(item_type: ItemType) -> bool {
     || item_type == ItemType::Table
     || item_type == ItemType::Image
     || item_type == ItemType::Password
-    || item_type == ItemType::FlipCard
 }
 
 pub fn is_container_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Page
-    || item_type == ItemType::Table
-    || item_type == ItemType::Composite
-    || item_type == ItemType::FlipCard
+  item_type == ItemType::Page || item_type == ItemType::Table || item_type == ItemType::Composite
 }
 
 pub fn is_data_item_type(item_type: ItemType) -> bool {
@@ -264,7 +257,6 @@ pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
     || item_type == ItemType::Password
     || item_type == ItemType::Composite
     || item_type == ItemType::Expression
-    || item_type == ItemType::FlipCard
 }
 
 pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
@@ -285,11 +277,11 @@ pub fn is_tabular_item_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_colorable_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::FlipCard || item_type == ItemType::Page
+  item_type == ItemType::Page
 }
 
 pub fn is_aspect_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::FlipCard || item_type == ItemType::Page
+  item_type == ItemType::Page
 }
 
 pub fn is_image_item(item: &Item) -> bool {
@@ -310,10 +302,6 @@ pub fn is_composite_item(item: &Item) -> bool {
 
 pub fn is_link_item(item: &Item) -> bool {
   item.item_type == ItemType::Link
-}
-
-pub fn is_flipcard_item(item: &Item) -> bool {
-  item.item_type == ItemType::FlipCard
 }
 
 pub fn is_flags_item_type(item_type: ItemType) -> bool {
@@ -337,7 +325,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 48] = [
+const ALL_JSON_FIELDS: [&'static str; 47] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -385,7 +373,6 @@ const ALL_JSON_FIELDS: [&'static str; 48] = [
   "justifiedRowAspect",
   "calendarDayRowHeightBl",
   "numberOfVisibleColumns",
-  "scale",
 ];
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -486,13 +473,7 @@ pub struct Item {
 
   // link
   pub link_to: Option<Uid>,
-
   // composite
-
-  // expression
-
-  // flipcard
-  pub scale: Option<f64>,
 }
 
 impl Clone for Item {
@@ -544,7 +525,6 @@ impl Clone for Item {
       rating_type: self.rating_type.clone(),
       link_to: self.link_to.clone(),
       text: self.text.clone(),
-      scale: self.scale.clone(),
     }
   }
 }
@@ -1114,21 +1094,6 @@ impl JsonLogSerializable<Item> for Item {
     }
 
     // composite
-
-    // flipcard
-    if let Some(new_scale) = new.scale {
-      if match old.scale {
-        Some(o) => o != new_scale,
-        None => true,
-      } {
-        if old.item_type != ItemType::FlipCard {
-          cannot_modify_err("scale", &old.id)?;
-        }
-        result
-          .insert(String::from("scale"), Value::Number(Number::from_f64(new_scale).ok_or(nan_err("scale", &old.id))?));
-      }
-    }
-
     Ok(result)
   }
 
@@ -1501,15 +1466,6 @@ impl JsonLogSerializable<Item> for Item {
     }
 
     // composite
-
-    // flipcard
-    if let Some(v) = json::get_float_field(map, "scale")? {
-      if self.item_type != ItemType::FlipCard {
-        not_applicable_err("scale", self.item_type, &self.id)?;
-      }
-      self.scale = Some(v);
-    }
-
     Ok(())
   }
 }
@@ -1830,15 +1786,6 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   }
 
   // composite
-
-  // flipcard
-  if let Some(scale) = item.scale {
-    if item.item_type != ItemType::FlipCard {
-      unexpected_field_err("scale", &item.id, item.item_type)?
-    }
-    result.insert(String::from("scale"), Value::Number(Number::from_f64(scale).ok_or(nan_err("scale", &item.id))?));
-  }
-
   Ok(result)
 }
 
@@ -2510,26 +2457,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
     }?,
-
     // composite
-
-    // flipcard
-    scale: match json::get_float_field(map, "scale")? {
-      Some(v) => {
-        if item_type == ItemType::FlipCard {
-          Ok(Some(v))
-        } else {
-          Err(not_applicable_err("scale", item_type, &id))
-        }
-      }
-      None => {
-        if item_type == ItemType::FlipCard {
-          Err(expected_for_err("scale", item_type, &id))
-        } else {
-          Ok(None)
-        }
-      }
-    }?,
   };
 
   Ok(r)
@@ -2598,7 +2526,6 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
-      scale: None,
     }
   }
 
@@ -2658,7 +2585,6 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
-      scale: None,
     }
   }
 
@@ -2722,7 +2648,6 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
-      scale: None,
     }
   }
 
@@ -2774,7 +2699,6 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
-      scale: None,
     }
   }
 
@@ -2856,7 +2780,6 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
-      scale: None,
     }
   }
 
@@ -3086,14 +3009,6 @@ impl Item {
         }
       }
     }
-
-    // FlipCard-specific properties
-    if self.item_type == ItemType::FlipCard {
-      if let Some(scale) = self.scale {
-        hashes.push(hash_f64_to_uid(scale));
-      }
-    }
-
     // Combine all hashes
     let hash_refs: Vec<&Uid> = hashes.iter().collect();
     combine_hashes(&hash_refs)

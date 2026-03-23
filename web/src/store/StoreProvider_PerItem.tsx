@@ -37,9 +37,6 @@ export interface PerItemStoreContextModel {
   getPageScrollYProp: (veid: Veid) => number,
   setPageScrollYProp: (veid: Veid, prop: number) => void,
 
-  getFlipCardVisibleSide: (flipCardVeid: Veid) => number,
-  setFlipCardVisibleSide: (flipCardVeid: Veid, side: number) => void,
-
   clear: () => void,
 }
 
@@ -51,7 +48,6 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const pageScrollYPxs = new Map<string, NumberSignal>();
   const selectedItems = new Map<string, InfuSignal<Veid>>();
   const focusedItems = new Map<string, InfuSignal<Veid>>();
-  const flipCardVisibleSides = new Map<string, NumberSignal>();
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
@@ -68,23 +64,6 @@ export function makePerItemStore(): PerItemStoreContextModel {
       return;
     }
     tableScrollPositions.get(key)!.set(pos);
-  };
-
-  const getFlipCardVisibleSide = (veid: Veid): number => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!flipCardVisibleSides.get(key)) {
-      flipCardVisibleSides.set(key, createNumberSignal(0.0));
-    }
-    return flipCardVisibleSides.get(key)!.get();
-  };
-
-  const setFlipCardVisibleSide = (veid: Veid, side: number): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!flipCardVisibleSides.get(key)) {
-      flipCardVisibleSides.set(key, createNumberSignal(side));
-      return;
-    }
-    flipCardVisibleSides.get(key)!.set(side);
   };
 
   const getPageScrollXProp = (veid: Veid): number => {
@@ -168,7 +147,6 @@ export function makePerItemStore(): PerItemStoreContextModel {
     pageScrollYPxs.clear();
     selectedItems.clear();
     focusedItems.clear();
-    flipCardVisibleSides.clear();
   }
 
   return ({
@@ -177,7 +155,6 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getTableScrollYPos, setTableScrollYPos,
     getPageScrollXProp, setPageScrollXProp,
     getPageScrollYProp, setPageScrollYProp,
-    getFlipCardVisibleSide, setFlipCardVisibleSide,
     clear
   });
 }
