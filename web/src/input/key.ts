@@ -249,7 +249,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   else if (ev.code == "KeyE") {
     ev.preventDefault();
-    newItemInContext(store, "expression", hitInfo, CursorEventState.getLatestDesktopPx(store));
+    return;
   }
 
   else if (ev.code == "KeyF") {

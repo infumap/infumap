@@ -103,7 +103,6 @@ struct FragmentSource {
 fn fragment_source_for_item(db: &Db, item: &Item) -> Option<FragmentSource> {
   if item.item_type == ItemType::Link
     || item.item_type == ItemType::Rating
-    || item.item_type == ItemType::Expression
     || item.item_type == ItemType::Password
     || item.item_type == ItemType::Page
     || item.item_type == ItemType::Table

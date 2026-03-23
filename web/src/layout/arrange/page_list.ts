@@ -24,7 +24,6 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { isComposite } from "../../items/composite-item";
-import { isExpression } from "../../items/expression-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
@@ -240,10 +239,6 @@ export function arrange_list_page(
     const listItemRelationships: VisualElementRelationships = {};
     const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
     listVeChildren.push(listItemVisualElementSignal);
-
-    if (isExpression(childItem)) {
-      VesCache.markEvaluationRequired(VeFns.veToPath(listItemVisualElementSignal.get()));
-    }
   }
 
   if (movingItemInThisPage) {

@@ -214,7 +214,6 @@ function updateReactiveChildren(path: VisualElementPath, value: Array<VisualElem
 // Static map for tableVesRows (Not reactive, just storage)
 let staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
 
-let evaluationRequired = new Set<VisualElementPath>();
 let currentlyInFullArrange = false;
 
 type VesAuxData = {
@@ -326,7 +325,6 @@ export let VesCache = {
     underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
     underConstructionAux = createEmptyAuxData();
 
-    evaluationRequired = new Set<VisualElementPath>();
   },
 
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
@@ -391,7 +389,6 @@ export let VesCache = {
   },
 
   full_initArrange: (): void => {
-    evaluationRequired = new Set<VisualElementPath>();
     currentlyInFullArrange = true;
     resetArrangeStats();
   },
@@ -746,16 +743,6 @@ export let VesCache = {
     staticTableVesRows.delete(path);
 
     deleteFromVessVsDisplayIdLookup(path);
-  },
-
-  markEvaluationRequired: (path: VisualElementPath): void => {
-    evaluationRequired.add(path);
-  },
-
-  getEvaluationRequired: (): Array<VisualElementPath> => {
-    let result: Array<VisualElementPath> = [];
-    evaluationRequired.forEach(s => result.push(s));
-    return result;
   },
 
   debugLog: (): void => {

@@ -29,7 +29,6 @@ import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
 import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
 import { isComposite } from "../../items/composite-item";
-import { isExpression } from "../../items/expression-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VisualElementSignal } from "../../util/signals";
 import { HitboxFns, HitboxFlags } from "../hitbox";
@@ -373,10 +372,6 @@ export function arrange_calendar_page(
       const calendarItemRelationships: VisualElementRelationships = {};
       const calendarItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(calendarItemVeSpec, calendarItemRelationships, childPath);
       calendarVeChildren.push(calendarItemVisualElementSignal);
-
-      if (isExpression(childItem)) {
-        VesCache.markEvaluationRequired(VeFns.veToPath(calendarItemVisualElementSignal.get()));
-      }
     });
   });
 
@@ -507,10 +502,6 @@ export function arrange_calendar_page(
     const movingItemRelationships: VisualElementRelationships = {};
     const movingItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(movingItemVeSpec, movingItemRelationships, childPath);
     calendarVeChildren.push(movingItemVisualElementSignal);
-
-    if (isExpression(movingItemInThisPage)) {
-      VesCache.markEvaluationRequired(VeFns.veToPath(movingItemVisualElementSignal.get()));
-    }
   }
 
   pageRelationships.childrenVes = calendarVeChildren;

@@ -38,7 +38,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 30;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 31;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -1846,11 +1846,39 @@ pub fn migrate_records_v29_to_v30(records: &[Map<String, Value>]) -> InfuResult<
   Ok(migrated)
 }
 
+/**
+ * Rewrite expression items to note items.
+ */
+pub fn migrate_record_v30_to_v31(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 30),
+
+    "entry" => {
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type != "expression" {
+        return Ok(kvs.clone());
+      }
+
+      let mut result = kvs.clone();
+      result.insert(String::from("itemType"), Value::String(String::from("note")));
+      result.entry(String::from("url")).or_insert_with(|| Value::String(String::new()));
+      Ok(result)
+    }
+
+    "update" => Ok(kvs.clone()),
+
+    "delete" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::{
     MimeTypeMigrationState, MimeTypeMigrationStats, migrate_record_v27_to_v28, migrate_record_v28_to_v29,
-    migrate_records_v29_to_v30,
+    migrate_record_v30_to_v31, migrate_records_v29_to_v30,
   };
   use serde_json::{Map, Value};
   use std::collections::HashMap;
@@ -2025,5 +2053,22 @@ mod tests {
 
     let migrated = migrate_records_v29_to_v30(&vec![flipcard_entry, note_entry.clone(), note_update.clone()]).unwrap();
     assert_eq!(migrated, vec![note_entry, note_update]);
+  }
+
+  #[test]
+  fn rewrites_expression_entries_to_notes() {
+    let mut expression_entry = Map::new();
+    expression_entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    expression_entry.insert("id".to_owned(), Value::String("EX1".to_owned()));
+    expression_entry.insert("itemType".to_owned(), Value::String("expression".to_owned()));
+    expression_entry.insert("title".to_owned(), Value::String("1 + 1".to_owned()));
+    expression_entry.insert("flags".to_owned(), Value::Number(0.into()));
+    expression_entry.insert("format".to_owned(), Value::String("0.00".to_owned()));
+
+    let migrated = migrate_record_v30_to_v31(&expression_entry).unwrap();
+    assert_eq!(migrated.get("itemType").unwrap().as_str().unwrap(), "note");
+    assert_eq!(migrated.get("url").unwrap().as_str().unwrap(), "");
+    assert_eq!(migrated.get("title").unwrap().as_str().unwrap(), "1 + 1");
+    assert_eq!(migrated.get("format").unwrap().as_str().unwrap(), "0.00");
   }
 }

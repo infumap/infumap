@@ -175,6 +175,7 @@ fn migrate_item_log(
               "Version 29 item logs require whole-log migration and should have been handled earlier.".into(),
             );
           }
+          30 => crate::storage::db::item_db::migrate_record_v30_to_v31(&kvs)?,
           _ => {
             return Err(format!("Unexpected item log version: {}.", from_version).into());
           }

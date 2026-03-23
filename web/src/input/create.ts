@@ -21,7 +21,6 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
-import { ExpressionFns } from "../items/expression-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
 import { PageFns, asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
@@ -57,8 +56,6 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
     newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "password")  {
     newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
-  } else if (type == "expression") {
-    newItem = ExpressionFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
   }
@@ -285,7 +282,6 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
   if (type == ItemType.Page ||
       type == ItemType.Note ||
-      type == ItemType.Expression ||
       type == ItemType.Password ||
       type == ItemType.Table) {
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: type });

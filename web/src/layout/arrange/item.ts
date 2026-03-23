@@ -35,7 +35,6 @@ import { MouseAction, MouseActionState } from "../../input/state";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
-import { isExpression } from "../../items/expression-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 
@@ -182,10 +181,5 @@ export const arrangeItemNoChildren = (
   }
 
   const itemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(itemVisualElementSpec, itemRelationships, currentVePath);
-
-  if (isExpression(displayItem)) {
-    VesCache.markEvaluationRequired(VeFns.veToPath(itemVisualElementSignal.get()));
-  }
-
   return itemVisualElementSignal;
 }

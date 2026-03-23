@@ -34,9 +34,7 @@ import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
 import { fullArrange } from '../../layout/arrange';
 import { GRID_SIZE, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
-import { Toolbar_Expression } from './item/Toolbar_Expression';
 import { isNote } from '../../items/note-item';
-import { isExpression } from '../../items/expression-item';
 import { isTable } from '../../items/table-item';
 import { isRating } from '../../items/rating-item';
 import { Toolbar_Rating } from './item/Toolbar_Rating';
@@ -244,9 +242,6 @@ export const Toolbar: Component = () => {
           </Match>
           <Match when={isNote(store.history.getFocusItem())}>
             <Toolbar_Note />
-          </Match>
-          <Match when={isExpression(store.history.getFocusItem())}>
-            <Toolbar_Expression />
           </Match>
           <Match when={isTable(store.history.getFocusItem())}>
             <Toolbar_Table />

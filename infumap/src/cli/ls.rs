@@ -153,7 +153,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       ItemType::Link => "L",
       ItemType::Image => "I",
       ItemType::Placeholder => "H",
-      ItemType::Expression => "E",
     };
     let title_str = match child_map.get("title") {
       Some(s) => s.as_str().ok_or("Item title is not of type string.")?,

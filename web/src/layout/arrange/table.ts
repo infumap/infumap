@@ -18,14 +18,12 @@
 
 import { fullArrange } from ".";
 import { GRID_SIZE } from "../../constants";
-import { evaluateExpressions } from "../../expression/evaluate";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../../items/base/container-item";
 import { TableFlags } from "../../items/base/flags-item";
 import { Item, uniqueEmptyItem } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isComposite } from "../../items/composite-item";
-import { isExpression } from "../../items/expression-item";
 import { LinkItem } from "../../items/link-item";
 import { TableItem, asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
@@ -231,8 +229,6 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     fullArrange(store);
     return;
   }
-
-  const existingEvaluationQueue = VesCache.getEvaluationRequired();
 
   let needToRearrange = () => {
     const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
@@ -453,11 +449,6 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     // don't log.
   }
 
-  for (const path of existingEvaluationQueue) {
-    VesCache.markEvaluationRequired(path);
-  }
-
-  evaluateExpressions(false);
 }
 
 
@@ -563,10 +554,6 @@ function createRow(
         tableChildAttachmentVes = VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentRelationships, tableChildAttachmentVePath);
       }
 
-      if (isExpression(tableChildAttachmentVeSpec.displayItem)) {
-        VesCache.markEvaluationRequired(VeFns.veToPath(tableChildAttachmentVes.get()));
-      }
-
       tableItemVeAttachments.push(tableChildAttachmentVes);
 
       leftBl += di_Table.tableColumns[i + 1].widthGr / GRID_SIZE;
@@ -582,10 +569,6 @@ function createRow(
     tableItemVisualElementSignal = vesToOverwrite;
   } else {
     tableItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildRelationships, tableChildVePath);
-  }
-
-  if (isExpression(tableChildVeSpec.displayItem)) {
-    VesCache.markEvaluationRequired(VeFns.veToPath(tableItemVisualElementSignal.get()));
   }
 
   return tableItemVisualElementSignal;

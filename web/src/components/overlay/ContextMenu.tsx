@@ -40,10 +40,9 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
   const newRatingInContext = () => newItemInContext(store, "rating", props.hitInfo, props.desktopPosPx);
   const newLinkInContext = () => newItemInContext(store, "link", props.hitInfo, props.desktopPosPx);
   const newPasswordInContext = () => newItemInContext(store, "password", props.hitInfo, props.desktopPosPx);
-  const newExpressionInContext = () => newItemInContext(store, "expression", props.hitInfo, props.desktopPosPx);
 
   return (
-    <div class="border rounded w-[115px] h-[242px] bg-slate-50 mb-1 shadow-lg">
+    <div class="border rounded w-[115px] h-[212px] bg-slate-50 mb-1 shadow-lg">
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newNoteInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-sticky-note" /></div> Note
       </div>
@@ -55,9 +54,6 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
       </div>
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newRatingInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-star" /></div> Rating
-      </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newExpressionInContext}>
-        <div class="inline-block text-center w-[18px]"><span class="w-[16px] h-[16px] inline-block text-center relative">∑</span></div> Expression
       </div>
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newLinkInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-link" /></div> Link

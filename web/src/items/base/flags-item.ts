@@ -60,7 +60,7 @@ export enum ImageFlags {
   NoCrop = 0x002,
 }
 
-const ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image, ItemType.Expression];
+const ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image];
 
 
 export interface FlagsMixin {

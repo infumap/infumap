@@ -22,7 +22,6 @@ import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { getPanickedMessage } from "../../util/lang";
-import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
@@ -124,13 +123,11 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     const umbrellaVeSpec = { ...umbrellaSpec, ...umbrellaRelationships };
     const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaVeSpec));
     VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
-    evaluateExpressions(true);
   } else {
     // console.time("fullArrange-finalizeArrange");
     VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
     // console.timeEnd("fullArrange-finalizeArrange");
     VesCache.addWatchContainerUid(currentPage.id, currentPage.origin);
-    evaluateExpressions(false);
   }
 
   const hasUser = store.user.getUserMaybe() != null;

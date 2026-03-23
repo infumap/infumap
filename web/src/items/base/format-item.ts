@@ -20,7 +20,7 @@ import { panic } from "../../util/lang";
 import { Item, ItemTypeMixin, ItemType } from "./item";
 
 
-const ITEM_TYPES = [ItemType.Note, ItemType.Expression];
+const ITEM_TYPES = [ItemType.Note];
 
 
 export interface FormatMixin {

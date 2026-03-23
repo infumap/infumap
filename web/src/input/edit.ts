@@ -28,7 +28,6 @@ import { asFileItem, isFile } from "../items/file-item";
 import { ItemType } from "../items/base/item";
 import { asPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem } from "../items/base/x-sizeable-item";
-import { asExpressionItem, isExpression } from "../items/expression-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
@@ -93,8 +92,6 @@ const keyUp_Arrow = (store: StoreContextModel) => {
       store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Note });
     } else if (isFile(newVe.displayItem)) {
       store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.File });
-    } else if (isExpression(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Expression });
     } else if (isPassword(newVe.displayItem)) {
       store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Password });
     } else if (isTable(newVe.displayItem)) {
@@ -279,9 +276,6 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
           item.title = trimNewline(newText);
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
           let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-          item.title = trimNewline(newText);
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Expression) {
-          let item = asExpressionItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
           item.title = trimNewline(newText);
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
           let item = asPasswordItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
