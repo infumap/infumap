@@ -427,10 +427,7 @@ pub fn start_text_extraction_processing_loop(
   if PROCESSING_STATE.get().is_some() {
     return Err("Text extraction processing loop is already running in this process.".into());
   }
-  let state = Arc::new(Mutex::new(ProcessingState {
-    queue: vec![],
-    queued_item_ids: HashSet::new(),
-  }));
+  let state = Arc::new(Mutex::new(ProcessingState { queue: vec![], queued_item_ids: HashSet::new() }));
   PROCESSING_STATE
     .set(state.clone())
     .map_err(|_| "Text extraction processing loop is already running in this process.".to_owned())?;
@@ -679,9 +676,7 @@ async fn prefetch_next_pdf_extraction(
   }
 }
 
-async fn wait_for_next_pdf_candidate(
-  state: Arc<Mutex<ProcessingState>>,
-) -> (PdfCandidate, usize) {
+async fn wait_for_next_pdf_candidate(state: Arc<Mutex<ProcessingState>>) -> (PdfCandidate, usize) {
   loop {
     let (candidate, queue_remaining) = {
       let mut state = state.lock().await;
@@ -782,7 +777,7 @@ async fn request_text_extraction_with_retries(
 
 #[cfg(test)]
 mod tests {
-  use super::manifest_failure_for_object_read_error;
+  use super::{is_terminal_document_response, manifest_failure_for_object_read_error};
 
   #[test]
   fn classifies_s3_404_as_terminal_document_failure() {
@@ -804,6 +799,16 @@ mod tests {
   fn leaves_transient_storage_errors_retryable() {
     let message = "Timeout waiting for first byte from S3 for 'user_item'";
     assert!(manifest_failure_for_object_read_error(message).is_none());
+  }
+
+  #[test]
+  fn classifies_payload_too_large_as_terminal_document_failure() {
+    assert!(is_terminal_document_response(reqwest::StatusCode::PAYLOAD_TOO_LARGE));
+  }
+
+  #[test]
+  fn leaves_internal_server_errors_retryable() {
+    assert!(!is_terminal_document_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR));
   }
 }
 
@@ -853,11 +858,7 @@ fn compare_pdf_candidates_desc(a: &PdfCandidate, b: &PdfCandidate) -> std::cmp::
   b_size.cmp(&a_size).then(b.last_modified_date.cmp(&a.last_modified_date)).then(b.item_id.cmp(&a.item_id))
 }
 
-async fn populate_initial_pdf_queue(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<ProcessingState>>,
-) {
+async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: Arc<Mutex<ProcessingState>>) {
   let candidates = {
     let db = db.lock().await;
     let mut candidates = db
@@ -996,11 +997,15 @@ async fn request_text_extraction(
     };
   }
 
-  if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY {
+  if is_terminal_document_response(status) {
     return ExtractOutcome::DocumentFailed(format!("HTTP {}: {}", status, body));
   }
 
   ExtractOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body))
+}
+
+fn is_terminal_document_response(status: reqwest::StatusCode) -> bool {
+  matches!(status, reqwest::StatusCode::UNPROCESSABLE_ENTITY | reqwest::StatusCode::PAYLOAD_TOO_LARGE)
 }
 
 async fn write_success_artifacts(

@@ -562,10 +562,7 @@ pub fn start_image_tagging_processing_loop(
   if PROCESSING_STATE.get().is_some() {
     return Err("Image tagging processing loop is already running in this process.".into());
   }
-  let state = Arc::new(Mutex::new(ProcessingState {
-    queue: vec![],
-    queued_item_ids: HashSet::new(),
-  }));
+  let state = Arc::new(Mutex::new(ProcessingState { queue: vec![], queued_item_ids: HashSet::new() }));
   PROCESSING_STATE
     .set(state.clone())
     .map_err(|_| "Image tagging processing loop is already running in this process.".to_owned())?;
@@ -809,9 +806,7 @@ async fn prefetch_next_image_tagging(
   }
 }
 
-async fn wait_for_next_image_candidate(
-  state: Arc<Mutex<ProcessingState>>,
-) -> (ImageCandidate, usize) {
+async fn wait_for_next_image_candidate(state: Arc<Mutex<ProcessingState>>) -> (ImageCandidate, usize) {
   loop {
     let (candidate, queue_remaining) = {
       let mut state = state.lock().await;
@@ -987,11 +982,7 @@ fn compare_candidates_desc(a: &ImageCandidate, b: &ImageCandidate) -> std::cmp::
   b_size.cmp(&a_size).then(b.last_modified_date.cmp(&a.last_modified_date)).then(b.item_id.cmp(&a.item_id))
 }
 
-async fn populate_initial_image_queue(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<ProcessingState>>,
-) {
+async fn populate_initial_image_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: Arc<Mutex<ProcessingState>>) {
   let candidates = {
     let db = db.lock().await;
     let mut candidates = db
@@ -1128,7 +1119,7 @@ async fn request_image_tagging(
     return TagOutcome::Success(tag_data, duration_ms);
   }
 
-  if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY {
+  if is_terminal_document_response(status) {
     return TagOutcome::DocumentFailed(format!("HTTP {}: {}", status, body));
   }
 
@@ -1137,6 +1128,10 @@ async fn request_image_tagging(
   }
 
   TagOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body))
+}
+
+fn is_terminal_document_response(status: reqwest::StatusCode) -> bool {
+  matches!(status, reqwest::StatusCode::UNPROCESSABLE_ENTITY | reqwest::StatusCode::PAYLOAD_TOO_LARGE)
 }
 
 fn classify_malformed_structured_output_response(status: reqwest::StatusCode, body: &str) -> Option<String> {
@@ -1286,7 +1281,7 @@ async fn ensure_user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathB
 
 #[cfg(test)]
 mod tests {
-  use super::classify_malformed_structured_output_response;
+  use super::{classify_malformed_structured_output_response, is_terminal_document_response};
 
   #[test]
   fn detects_model_output_json_object_failures() {
@@ -1307,5 +1302,10 @@ mod tests {
     let body = r#"{"detail":"Image tagging service is not ready."}"#;
     let classified = classify_malformed_structured_output_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR, body);
     assert!(classified.is_none());
+  }
+
+  #[test]
+  fn classifies_payload_too_large_as_terminal_document_failure() {
+    assert!(is_terminal_document_response(reqwest::StatusCode::PAYLOAD_TOO_LARGE));
   }
 }
