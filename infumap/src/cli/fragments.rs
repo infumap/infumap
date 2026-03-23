@@ -29,6 +29,9 @@ const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
 const PDF_FRAGMENT_MIN_CHARS: usize = 500;
 const PDF_FRAGMENT_SOFT_LIMIT_CHARS: usize = 1400;
 const PDF_FRAGMENT_HARD_LIMIT_CHARS: usize = 1900;
+const PDF_FRAGMENT_SOFT_LIMIT_TOKENS: usize = 380;
+const PDF_FRAGMENT_HARD_LIMIT_TOKENS: usize = 440;
+const EMBEDDING_TOKEN_ESTIMATE_CHARS_PER_TOKEN: usize = 4;
 const PDF_PAGE_BREAK_MIN_DASH_COUNT: usize = 8;
 
 #[derive(Clone, Copy)]
@@ -445,12 +448,21 @@ fn should_flush_pdf_fragment(
     &current.blocks,
     Some(next_block),
   );
+  let candidate_tokens = rendered_pdf_fragment_token_estimate(
+    document_title,
+    context_title,
+    current.page_start,
+    next_page_number,
+    &current.blocks,
+    Some(next_block),
+  );
 
-  if candidate_len > PDF_FRAGMENT_HARD_LIMIT_CHARS {
+  if candidate_len > PDF_FRAGMENT_HARD_LIMIT_CHARS || candidate_tokens > PDF_FRAGMENT_HARD_LIMIT_TOKENS {
     return true;
   }
 
-  candidate_len > PDF_FRAGMENT_SOFT_LIMIT_CHARS && current_len >= PDF_FRAGMENT_MIN_CHARS
+  (candidate_len > PDF_FRAGMENT_SOFT_LIMIT_CHARS || candidate_tokens > PDF_FRAGMENT_SOFT_LIMIT_TOKENS)
+    && current_len >= PDF_FRAGMENT_MIN_CHARS
 }
 
 fn rendered_pdf_fragment_len(
@@ -466,6 +478,27 @@ fn rendered_pdf_fragment_len(
     candidate_blocks.push(next_block.clone());
   }
   render_pdf_fragment_text(document_title, context_title, page_start, page_end, &candidate_blocks).len()
+}
+
+fn rendered_pdf_fragment_token_estimate(
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+  page_start: usize,
+  page_end: usize,
+  blocks: &[PdfFragmentBlock],
+  next_block: Option<&PdfFragmentBlock>,
+) -> usize {
+  let mut candidate_blocks = blocks.to_vec();
+  if let Some(next_block) = next_block {
+    candidate_blocks.push(next_block.clone());
+  }
+  estimate_embedding_token_count(&render_pdf_fragment_text(
+    document_title,
+    context_title,
+    page_start,
+    page_end,
+    &candidate_blocks,
+  ))
 }
 
 fn render_pdf_fragment_text(
@@ -617,25 +650,41 @@ fn split_pdf_block_text(text: &str) -> Vec<String> {
   if text.is_empty() {
     return vec![];
   }
-  if text.len() <= PDF_FRAGMENT_HARD_LIMIT_CHARS {
+  if text.len() <= PDF_FRAGMENT_HARD_LIMIT_CHARS
+    && estimate_embedding_token_count(text) <= PDF_FRAGMENT_HARD_LIMIT_TOKENS
+  {
     return vec![text.to_owned()];
   }
 
   let sentences = split_text_into_sentences(text);
   if sentences.len() <= 1 {
-    return split_text_by_words(text, PDF_FRAGMENT_SOFT_LIMIT_CHARS, PDF_FRAGMENT_HARD_LIMIT_CHARS);
+    return split_text_by_words(
+      text,
+      PDF_FRAGMENT_SOFT_LIMIT_CHARS,
+      PDF_FRAGMENT_HARD_LIMIT_CHARS,
+      PDF_FRAGMENT_SOFT_LIMIT_TOKENS,
+      PDF_FRAGMENT_HARD_LIMIT_TOKENS,
+    );
   }
 
   let mut out = Vec::new();
   let mut current = String::new();
 
   for sentence in sentences {
-    if sentence.len() > PDF_FRAGMENT_HARD_LIMIT_CHARS {
+    if sentence.len() > PDF_FRAGMENT_HARD_LIMIT_CHARS
+      || estimate_embedding_token_count(&sentence) > PDF_FRAGMENT_HARD_LIMIT_TOKENS
+    {
       if !current.is_empty() {
         out.push(current);
         current = String::new();
       }
-      out.extend(split_text_by_words(&sentence, PDF_FRAGMENT_SOFT_LIMIT_CHARS, PDF_FRAGMENT_HARD_LIMIT_CHARS));
+      out.extend(split_text_by_words(
+        &sentence,
+        PDF_FRAGMENT_SOFT_LIMIT_CHARS,
+        PDF_FRAGMENT_HARD_LIMIT_CHARS,
+        PDF_FRAGMENT_SOFT_LIMIT_TOKENS,
+        PDF_FRAGMENT_HARD_LIMIT_TOKENS,
+      ));
       continue;
     }
 
@@ -644,7 +693,10 @@ fn split_pdf_block_text(text: &str) -> Vec<String> {
       continue;
     }
 
-    if current.len() + 1 + sentence.len() > PDF_FRAGMENT_SOFT_LIMIT_CHARS {
+    let candidate = format!("{current} {sentence}");
+    if candidate.len() > PDF_FRAGMENT_SOFT_LIMIT_CHARS
+      || estimate_embedding_token_count(&candidate) > PDF_FRAGMENT_SOFT_LIMIT_TOKENS
+    {
       out.push(current);
       current = sentence;
     } else {
@@ -683,21 +735,28 @@ fn split_text_into_sentences(text: &str) -> Vec<String> {
   out
 }
 
-fn split_text_by_words(text: &str, soft_limit: usize, hard_limit: usize) -> Vec<String> {
+fn split_text_by_words(
+  text: &str,
+  soft_limit_chars: usize,
+  hard_limit_chars: usize,
+  soft_limit_tokens: usize,
+  hard_limit_tokens: usize,
+) -> Vec<String> {
   let words = text.split_whitespace().collect::<Vec<&str>>();
   let mut out = Vec::new();
   let mut current = String::new();
 
   for word in words {
-    if word.len() > hard_limit {
+    if word.len() > hard_limit_chars {
       if !current.is_empty() {
         out.push(current);
         current = String::new();
       }
       let mut remaining = word;
-      while remaining.len() > hard_limit {
-        out.push(remaining[..hard_limit].to_owned());
-        remaining = &remaining[hard_limit..];
+      while remaining.len() > hard_limit_chars {
+        let split_at = split_index_for_char_budget(remaining, hard_limit_chars);
+        out.push(remaining[..split_at].to_owned());
+        remaining = &remaining[split_at..];
       }
       if !remaining.is_empty() {
         current = remaining.to_owned();
@@ -710,7 +769,8 @@ fn split_text_by_words(text: &str, soft_limit: usize, hard_limit: usize) -> Vec<
       continue;
     }
 
-    if current.len() + 1 + word.len() > soft_limit {
+    let candidate = format!("{current} {word}");
+    if candidate.len() > soft_limit_chars || estimate_embedding_token_count(&candidate) > soft_limit_tokens {
       out.push(current);
       current = word.to_owned();
     } else {
@@ -724,6 +784,42 @@ fn split_text_by_words(text: &str, soft_limit: usize, hard_limit: usize) -> Vec<
   }
 
   out
+    .into_iter()
+    .flat_map(|part| {
+      if part.len() > hard_limit_chars || estimate_embedding_token_count(&part) > hard_limit_tokens {
+        split_oversized_word_fallback(&part, hard_limit_chars)
+      } else {
+        vec![part]
+      }
+    })
+    .collect()
+}
+
+fn split_oversized_word_fallback(text: &str, hard_limit_chars: usize) -> Vec<String> {
+  let mut out = Vec::new();
+  let mut remaining = text.trim();
+
+  while !remaining.is_empty() {
+    if remaining.len() <= hard_limit_chars {
+      out.push(remaining.to_owned());
+      break;
+    }
+    let split_at = split_index_for_char_budget(remaining, hard_limit_chars);
+    out.push(remaining[..split_at].to_owned());
+    remaining = remaining[split_at..].trim_start();
+  }
+
+  out
+}
+
+fn split_index_for_char_budget(text: &str, max_chars: usize) -> usize {
+  text.char_indices().nth(max_chars).map(|(index, _)| index).unwrap_or(text.len())
+}
+
+fn estimate_embedding_token_count(text: &str) -> usize {
+  let char_based = text.chars().count().div_ceil(EMBEDDING_TOKEN_ESTIMATE_CHARS_PER_TOKEN);
+  let word_based = text.split_whitespace().count();
+  char_based.max(word_based)
 }
 
 fn build_pdf_text_blocks(pages: &[ResolvedPdfPage]) -> Vec<PdfTextBlock> {
@@ -1514,9 +1610,9 @@ fn text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Pa
 #[cfg(test)]
 mod tests {
   use super::{
-    StoredGeoArtifact, StoredGeoQuery, StoredGeoResult, StoredImageMetadata, StoredImageTagArtifact,
-    build_image_fragment_text, build_pdf_fragment_inputs, resolve_pdf_pages, sanitize_markdown_inline,
-    split_pdf_markdown_pages,
+    PDF_FRAGMENT_HARD_LIMIT_TOKENS, StoredGeoArtifact, StoredGeoQuery, StoredGeoResult, StoredImageMetadata,
+    StoredImageTagArtifact, build_image_fragment_text, build_pdf_fragment_inputs, estimate_embedding_token_count,
+    resolve_pdf_pages, sanitize_markdown_inline, split_pdf_markdown_pages,
   };
   use std::collections::BTreeMap;
 
@@ -1778,5 +1874,20 @@ Parking is complimentary for one vehicle per room.
     assert!(fragments[0].text.contains("Arrival time is 3pm and checkout is at noon."));
     assert!(fragments[0].text.contains("Breakfast is served from 6am to 10:30am."));
     assert!(fragments[0].text.contains("Parking is complimentary for one vehicle per room."));
+  }
+
+  #[test]
+  fn splits_pdf_fragments_that_exceed_estimated_token_budget() {
+    let repeated_short_words = std::iter::repeat("a").take(460).collect::<Vec<_>>().join(" ");
+    let markdown =
+      format!("{{1}}------------------------------------------------\n\n# Tiny Words\n\n{}\n", repeated_short_words);
+
+    let fragments = build_pdf_fragment_inputs(Some("Tiny words.pdf"), Some("Token budget"), &markdown);
+
+    assert!(fragments.len() >= 2);
+    assert!(
+      fragments.iter().all(|fragment| estimate_embedding_token_count(&fragment.text) <= PDF_FRAGMENT_HARD_LIMIT_TOKENS)
+    );
+    assert!(fragments.iter().all(|fragment| fragment.text.contains("Section: Tiny Words.")));
   }
 }
