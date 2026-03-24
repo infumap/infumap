@@ -1480,12 +1480,7 @@ fn best_geo_location_text(geo_artifact: Option<&StoredGeoArtifact>) -> Option<St
   let mut parts = Vec::new();
   let mut seen = HashSet::new();
 
-  for value in [
-    best_result.name.as_deref(),
-    best_result.city.as_deref(),
-    best_result.province.as_deref(),
-    best_result.country.as_deref(),
-  ] {
+  for value in [best_result.city.as_deref(), best_result.province.as_deref(), best_result.country.as_deref()] {
     let Some(part) = normalized_text(value) else {
       continue;
     };
@@ -1577,7 +1572,6 @@ struct StoredGeoQuery {
 
 #[derive(Default, Deserialize)]
 struct StoredGeoResult {
-  name: Option<String>,
   city: Option<String>,
   province: Option<String>,
   country: Option<String>,
