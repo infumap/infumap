@@ -11,6 +11,8 @@ use log::info;
 use reqwest::Url;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
 use tokio::fs;
 use tokio::sync::Mutex;
 
@@ -293,11 +295,9 @@ async fn image_fragment_source_for_item(
 ) -> InfuResult<Option<FragmentSource>> {
   let image_tag_artifact = load_image_tag_artifact(data_dir, &item.owner_id, &item.id).await?;
   let geo_artifact = load_geo_artifact(data_dir, &item.owner_id, &item.id).await?;
-  let dimensions = item.image_size_px.as_ref().map(|dims| (dims.w, dims.h));
   let fragment_text = build_image_fragment_text(
     item.title.as_deref(),
     context_title.as_deref(),
-    dimensions,
     image_tag_artifact.as_ref(),
     geo_artifact.as_ref(),
   );
@@ -1281,7 +1281,6 @@ async fn read_json_if_exists<T: DeserializeOwned>(path: &PathBuf, artifact_label
 fn build_image_fragment_text(
   title: Option<&str>,
   context_title: Option<&str>,
-  item_dimensions: Option<(i64, i64)>,
   image_tag_artifact: Option<&StoredImageTagArtifact>,
   geo_artifact: Option<&StoredGeoArtifact>,
 ) -> Option<String> {
@@ -1333,19 +1332,10 @@ fn build_image_fragment_text(
 
   if let Some(captured_at) = image_tag_artifact
     .and_then(|artifact| artifact.image_metadata.as_ref())
-    .and_then(|metadata| normalized_text(metadata.captured_at.as_deref()))
+    .and_then(|metadata| metadata.captured_at.as_deref())
+    .and_then(format_image_capture_date)
   {
-    sentences.push(labeled_sentence("Captured at", &captured_at));
-  }
-
-  if let Some(camera) =
-    image_tag_artifact.and_then(|artifact| artifact.image_metadata.as_ref()).and_then(camera_description)
-  {
-    sentences.push(labeled_sentence("Camera", &camera));
-  }
-
-  if let Some((width, height)) = best_image_dimensions(item_dimensions, image_tag_artifact) {
-    sentences.push(labeled_sentence("Dimensions", &format!("{width}x{height}")));
+    sentences.push(labeled_sentence("Date", &captured_at));
   }
 
   if sentences.is_empty() { None } else { Some(sentences.join("\n")) }
@@ -1388,6 +1378,52 @@ fn normalized_text_list(values: &[String]) -> Vec<String> {
 fn positive_face_count(value: Option<&str>) -> Option<usize> {
   let parsed = value?.trim().parse::<usize>().ok()?;
   (parsed > 0).then_some(parsed)
+}
+
+fn format_image_capture_date(value: &str) -> Option<String> {
+  let normalized = normalized_text(Some(value))?;
+
+  if let Ok(datetime) = OffsetDateTime::parse(&normalized, &Rfc3339) {
+    return Some(format_date_and_month_year(datetime.year(), datetime.month() as u8, datetime.day()));
+  }
+
+  parse_leading_iso_date(&normalized)
+    .map(|(year, month, day)| format_date_and_month_year(year, month, day))
+    .or(Some(normalized))
+}
+
+fn parse_leading_iso_date(value: &str) -> Option<(i32, u8, u8)> {
+  let date_prefix = value.get(0..10)?;
+  let mut parts = date_prefix.split('-');
+  let year = parts.next()?.parse::<i32>().ok()?;
+  let month = parts.next()?.parse::<u8>().ok()?;
+  let day = parts.next()?.parse::<u8>().ok()?;
+  if parts.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    return None;
+  }
+  Some((year, month, day))
+}
+
+fn format_date_and_month_year(year: i32, month: u8, day: u8) -> String {
+  format!("{year:04}-{month:02}-{day:02}; {} {year}", month_name(month))
+}
+
+fn month_name(month: u8) -> &'static str {
+  match month {
+    1 => "January",
+    2 => "February",
+    3 => "March",
+    4 => "April",
+    5 => "May",
+    6 => "June",
+    7 => "July",
+    8 => "August",
+    9 => "September",
+    10 => "October",
+    11 => "November",
+    12 => "December",
+    _ => "Unknown",
+  }
 }
 
 fn best_geo_location_text(geo_artifact: Option<&StoredGeoArtifact>) -> Option<String> {
@@ -1448,32 +1484,6 @@ fn best_coordinate_pair(
   }
 }
 
-fn camera_description(metadata: &StoredImageMetadata) -> Option<String> {
-  let make = normalized_text(metadata.camera_make.as_deref());
-  let model = normalized_text(metadata.camera_model.as_deref());
-
-  match (make, model) {
-    (Some(make), Some(model)) if model.to_lowercase().starts_with(&make.to_lowercase()) => Some(model),
-    (Some(make), Some(model)) => Some(format!("{make} {model}")),
-    (Some(make), None) => Some(make),
-    (None, Some(model)) => Some(model),
-    (None, None) => None,
-  }
-}
-
-fn best_image_dimensions(
-  item_dimensions: Option<(i64, i64)>,
-  image_tag_artifact: Option<&StoredImageTagArtifact>,
-) -> Option<(i64, i64)> {
-  if let Some(metadata) = image_tag_artifact.and_then(|artifact| artifact.image_metadata.as_ref()) {
-    if let (Some(width), Some(height)) = (metadata.exif_pixel_width, metadata.exif_pixel_height) {
-      return Some((i64::from(width), i64::from(height)));
-    }
-  }
-
-  item_dimensions.filter(|(width, height)| *width > 0 && *height > 0)
-}
-
 #[derive(Default, Deserialize)]
 struct StoredImageTagArtifact {
   detailed_caption: Option<String>,
@@ -1491,10 +1501,6 @@ struct StoredImageMetadata {
   captured_at: Option<String>,
   gps_latitude: Option<f64>,
   gps_longitude: Option<f64>,
-  camera_make: Option<String>,
-  camera_model: Option<String>,
-  exif_pixel_width: Option<u32>,
-  exif_pixel_height: Option<u32>,
 }
 
 #[derive(Default, Deserialize)]
@@ -1720,10 +1726,6 @@ mod tests {
         captured_at: Some("2025-12-03T08:24:45.233+07:00".to_owned()),
         gps_latitude: Some(13.682677777777776),
         gps_longitude: Some(100.74934444444445),
-        camera_make: Some("Apple".to_owned()),
-        camera_model: Some("iPhone 15 Pro".to_owned()),
-        exif_pixel_width: Some(4032),
-        exif_pixel_height: Some(3024),
       }),
     };
 
@@ -1743,14 +1745,9 @@ mod tests {
       }],
     };
 
-    let text = build_image_fragment_text(
-      Some("Thai Airways Business Class Seat"),
-      Some("Bangkok Trip"),
-      Some((1200, 800)),
-      Some(&tag),
-      Some(&geo),
-    )
-    .unwrap();
+    let text =
+      build_image_fragment_text(Some("Thai Airways Business Class Seat"), Some("Bangkok Trip"), Some(&tag), Some(&geo))
+        .unwrap();
 
     assert!(text.contains("Title: Thai Airways Business Class Seat."));
     assert!(text.contains("Context: Bangkok Trip."));
@@ -1760,9 +1757,9 @@ mod tests {
     assert!(text.contains("Tags: airplane, business class, travel."));
     assert!(text.contains("Location: Suvarnabhumi Airport, Kingkaew 31/2, Racha Thewa Subdistrict, 10520, Thailand."));
     assert!(text.contains("Location codes: BKK, VTBS."));
-    assert!(text.contains("Captured at: 2025-12-03T08:24:45.233+07:00."));
-    assert!(text.contains("Camera: Apple iPhone 15 Pro."));
-    assert!(text.contains("Dimensions: 4032x3024."));
+    assert!(text.contains("Date: 2025-12-03; December 2025."));
+    assert!(!text.contains("Camera:"));
+    assert!(!text.contains("Dimensions:"));
   }
 
   #[test]
@@ -1777,25 +1774,41 @@ mod tests {
         captured_at: None,
         gps_latitude: Some(1.25),
         gps_longitude: Some(103.75),
-        camera_make: None,
-        camera_model: None,
-        exif_pixel_width: None,
-        exif_pixel_height: None,
       }),
     };
 
-    let text = build_image_fragment_text(Some("Family photo"), None, Some((1600, 900)), Some(&tag), None).unwrap();
+    let text = build_image_fragment_text(Some("Family photo"), None, Some(&tag), None).unwrap();
 
     assert!(text.contains("Title: Family photo."));
     assert!(text.contains("Visible faces: 2."));
     assert!(text.contains("Coordinates: 1.250000, 103.750000."));
-    assert!(text.contains("Dimensions: 1600x900."));
+    assert!(!text.contains("Dimensions:"));
   }
 
   #[test]
   fn returns_none_when_no_embedding_useful_text_exists() {
-    let text = build_image_fragment_text(None, None, None, None, None);
+    let text = build_image_fragment_text(None, None, None, None);
     assert!(text.is_none());
+  }
+
+  #[test]
+  fn falls_back_to_raw_date_when_capture_timestamp_is_not_rfc3339() {
+    let tag = StoredImageTagArtifact {
+      detailed_caption: None,
+      scene: None,
+      visible_face_count_estimate: None,
+      tags: vec![],
+      ocr_text: vec![],
+      image_metadata: Some(StoredImageMetadata {
+        captured_at: Some("December 2025".to_owned()),
+        gps_latitude: None,
+        gps_longitude: None,
+      }),
+    };
+
+    let text = build_image_fragment_text(Some("Beach photo"), None, Some(&tag), None).unwrap();
+
+    assert!(text.contains("Date: December 2025."));
   }
 
   #[test]
