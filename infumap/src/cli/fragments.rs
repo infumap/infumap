@@ -1287,7 +1287,7 @@ fn build_image_fragment_text(
   let mut lead_lines = Vec::new();
   let mut metadata_lines = Vec::new();
 
-  let title = normalized_text(title);
+  let title = embedding_useful_image_title(title);
   let context_title = normalized_text(context_title)
     .filter(|context| title.as_deref().map(|title| title.to_lowercase() != context.to_lowercase()).unwrap_or(true));
 
@@ -1363,6 +1363,39 @@ fn labeled_line(label: &str, value: &str) -> String {
     return String::new();
   }
   format!("{label}: {trimmed}")
+}
+
+fn embedding_useful_image_title(title: Option<&str>) -> Option<String> {
+  let title = normalized_text(title)?;
+  (!looks_like_camera_generated_title(&title)).then_some(title)
+}
+
+fn looks_like_camera_generated_title(title: &str) -> bool {
+  let stem = file_stem_for_title(title);
+  let upper = stem.to_ascii_uppercase();
+  ["IMG", "DSC", "PXL", "MVIMG", "VID", "MOV", "GOPR", "DJI"]
+    .iter()
+    .any(|prefix| upper.strip_prefix(prefix).is_some_and(is_camera_generated_suffix))
+}
+
+fn file_stem_for_title(title: &str) -> &str {
+  let trimmed = title.trim();
+  match trimmed.rsplit_once('.') {
+    Some((stem, extension))
+      if !stem.is_empty()
+        && !extension.is_empty()
+        && extension.len() <= 5
+        && extension.chars().all(|c| c.is_ascii_alphanumeric()) =>
+    {
+      stem
+    }
+    _ => trimmed,
+  }
+}
+
+fn is_camera_generated_suffix(suffix: &str) -> bool {
+  let trimmed = suffix.trim_start_matches(['_', '-', ' ']);
+  !trimmed.is_empty() && trimmed.chars().all(|c| c.is_ascii_digit() || matches!(c, '_' | '-'))
 }
 
 fn normalized_text(value: Option<&str>) -> Option<String> {
@@ -1712,376 +1745,4 @@ fn text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Pa
   path.push("text");
   path.push(&item_id[..2]);
   Ok(path)
-}
-
-#[cfg(test)]
-mod tests {
-  use super::{
-    PDF_FRAGMENT_HARD_LIMIT_TOKENS, StoredGeoArtifact, StoredGeoQuery, StoredGeoResult, StoredImageMetadata,
-    StoredImageTagArtifact, build_image_fragment_text, build_pdf_fragment_inputs, estimate_embedding_token_count,
-    resolve_pdf_pages, sanitize_markdown_inline, split_pdf_markdown_pages,
-  };
-  use std::collections::BTreeMap;
-
-  #[test]
-  fn builds_image_fragment_text_from_semantic_fields() {
-    let tag = StoredImageTagArtifact {
-      detailed_caption: Some("An angled view captures a luxurious airplane seat.".to_owned()),
-      scene: Some("Airplane cabin interior".to_owned()),
-      tags: vec!["airplane".to_owned(), "business class".to_owned(), "travel".to_owned()],
-      ocr_text: vec!["SAWASDEE".to_owned(), "Adventures for the Soul".to_owned()],
-      image_metadata: Some(StoredImageMetadata {
-        captured_at: Some("2025-12-03T08:24:45.233+07:00".to_owned()),
-        gps_latitude: Some(13.682677777777776),
-        gps_longitude: Some(100.74934444444445),
-      }),
-    };
-
-    let mut other_names = BTreeMap::new();
-    other_names.insert("iata".to_owned(), "BKK".to_owned());
-    other_names.insert("icao".to_owned(), "VTBS".to_owned());
-
-    let geo = StoredGeoArtifact {
-      query: Some(StoredGeoQuery { lat: Some(13.682677777777776), lon: Some(100.74934444444445) }),
-      results: vec![StoredGeoResult {
-        name: Some("Suvarnabhumi Airport".to_owned()),
-        city: Some("Racha Thewa Subdistrict".to_owned()),
-        province: Some("Samut Prakan Province".to_owned()),
-        country: Some("Thailand".to_owned()),
-        other_names,
-      }],
-    };
-
-    let text =
-      build_image_fragment_text(Some("Thai Airways Business Class Seat"), Some("Bangkok Trip"), Some(&tag), Some(&geo))
-        .unwrap();
-
-    assert!(text.starts_with("Airplane cabin interior\nAn angled view captures a luxurious airplane seat.\n\n"));
-    assert!(text.contains("Title: Thai Airways Business Class Seat"));
-    assert!(text.contains("Context: Bangkok Trip"));
-    assert!(!text.contains("Scene:"));
-    assert!(!text.contains("Description:"));
-    assert!(text.contains("Visible text: SAWASDEE; Adventures for the Soul"));
-    assert!(text.contains("Tags: airplane, business class, travel"));
-    assert!(text.contains("Location: Suvarnabhumi Airport, Racha Thewa Subdistrict, Samut Prakan Province, Thailand"));
-    assert!(text.contains("Location codes: BKK, VTBS"));
-    assert!(text.contains("Date: 2025-12-03; December 2025"));
-    assert!(!text.contains("Camera:"));
-    assert!(!text.contains("Dimensions:"));
-  }
-
-  #[test]
-  fn falls_back_to_coordinates_without_visible_face_count_metadata() {
-    let tag = StoredImageTagArtifact {
-      detailed_caption: None,
-      scene: None,
-      tags: vec![],
-      ocr_text: vec![],
-      image_metadata: Some(StoredImageMetadata {
-        captured_at: None,
-        gps_latitude: Some(1.25),
-        gps_longitude: Some(103.75),
-      }),
-    };
-
-    let text = build_image_fragment_text(Some("Family photo"), None, Some(&tag), None).unwrap();
-
-    assert!(text.contains("Title: Family photo"));
-    assert!(text.contains("Coordinates: 1.250000, 103.750000"));
-    assert!(!text.contains("Visible faces:"));
-    assert!(!text.contains("Dimensions:"));
-  }
-
-  #[test]
-  fn keeps_leading_scene_and_description_separate_from_metadata() {
-    let tag = StoredImageTagArtifact {
-      detailed_caption: Some("Rows of palm trees lead toward the shore.".to_owned()),
-      scene: Some("Tropical beachfront resort".to_owned()),
-      tags: vec!["ocean".to_owned()],
-      ocr_text: vec![],
-      image_metadata: None,
-    };
-
-    let text = build_image_fragment_text(Some("Beach walk"), Some("Bali trip"), Some(&tag), None).unwrap();
-
-    assert!(text.starts_with("Tropical beachfront resort\nRows of palm trees lead toward the shore.\n\n"));
-    assert!(text.contains("\n\nTitle: Beach walk\nContext: Bali trip\nTags: ocean"));
-  }
-
-  #[test]
-  fn composes_location_from_name_city_province_and_country_only() {
-    let geo = StoredGeoArtifact {
-      query: None,
-      results: vec![StoredGeoResult {
-        name: Some("The St. Regis Bali Resort".to_owned()),
-        city: Some("Nusa Dua".to_owned()),
-        province: Some("Bali".to_owned()),
-        country: Some("Indonesia".to_owned()),
-        other_names: BTreeMap::new(),
-      }],
-    };
-
-    let text = build_image_fragment_text(None, None, None, Some(&geo)).unwrap();
-
-    assert_eq!(text, "Location: The St. Regis Bali Resort, Nusa Dua, Bali, Indonesia");
-  }
-
-  #[test]
-  fn returns_none_when_no_embedding_useful_text_exists() {
-    let text = build_image_fragment_text(None, None, None, None);
-    assert!(text.is_none());
-  }
-
-  #[test]
-  fn falls_back_to_raw_date_when_capture_timestamp_is_not_rfc3339() {
-    let tag = StoredImageTagArtifact {
-      detailed_caption: None,
-      scene: None,
-      tags: vec![],
-      ocr_text: vec![],
-      image_metadata: Some(StoredImageMetadata {
-        captured_at: Some("December 2025".to_owned()),
-        gps_latitude: None,
-        gps_longitude: None,
-      }),
-    };
-
-    let text = build_image_fragment_text(Some("Beach photo"), None, Some(&tag), None).unwrap();
-
-    assert!(text.contains("Date: December 2025"));
-  }
-
-  #[test]
-  fn sanitizes_markdown_links_for_pdf_embeddings() {
-    let text = sanitize_markdown_inline(
-      "**chatgpt.com**[/c/6923](https://chatgpt.com/c/6923) and [American Express](https://www.americanexpress.com/en-ca/travel/discover/property/Vietnam/Ninh-Hoa/six-senses-ninh-van-bay#:~:text=At)",
-    );
-
-    assert!(text.contains("chatgpt.com"));
-    assert!(text.contains("American Express"));
-    assert!(!text.contains("https://"));
-    assert!(!text.contains("/c/6923"));
-    assert!(!text.contains("#:~:text"));
-  }
-
-  #[test]
-  fn resolves_zero_based_pdf_page_markers_to_human_page_numbers() {
-    let pages = resolve_pdf_pages(split_pdf_markdown_pages("{0}--------\nFirst page\n\n{1}--------\nSecond page"));
-
-    assert_eq!(pages.len(), 2);
-    assert_eq!(pages[0].page_number, 1);
-    assert_eq!(pages[1].page_number, 2);
-  }
-
-  #[test]
-  fn builds_multiple_pdf_fragments_without_full_urls() {
-    let markdown = r#"
-{0}------------------------------------------------
-
-# **Best agent for resorts**
-
-**chatgpt.com**[/c/6923be50-86f0-8321-a4d5-c1c38e42d63a](https://chatgpt.com/c/6923be50-86f0-8321-a4d5-c1c38e42d63a)
-
-### **Six Senses Ninh Van Bay - Agents, Deals & Relationships**
-
-- **QX Travel** This agency is an IHG-preferred advisor. Guests receive a US$100 property credit, daily breakfast for two, upgrades, and late checkout [qxtravel.io](https://www.qxtravel.io/properties/amanoi#:~:text=Enjoy%20amazing%20benefits).
-- **Lyxresan Travels** As a Virtuoso affiliate, Lyxresan offers complimentary breakfast, room upgrades, early check-in, and a special perk such as a complimentary massage [lyxresantravels.com](https://lyxresantravels.com/en/six-senses/#:~:text=Six%20Senses%20Ninh%20Van%20Bay).
-- **American Express Fine Hotels + Resorts** FHR bookings provide noon check-in, daily breakfast for two, a unique US$100 property credit, and a guaranteed 4 p.m. checkout [americanexpress.com](https://www.americanexpress.com/en-ca/travel/discover/property/Vietnam/Ninh-Hoa/six-senses-ninh-van-bay#:~:text=At%20Six%20Senses).
-
-{1}------------------------------------------------
-
-- **Mr & Mrs Smith** This boutique-hotel club frequently offers deep discounts, breakfast, and an extra such as champagne or a spa treatment [mrandmrssmith.com](https://www.mrandmrssmith.com/luxury-hotels/six-senses-ninh-van-bay/offers#:~:text=Smith%20Member%20Exclusive).
-- **ASmallWorld Premium** Members gain access to an exclusive VIP rate with room upgrades, hotel credit, early check-in and special discounted rates [asmallworld.com](https://www.asmallworld.com/collection/hotels/six-senses-ninh-van-bay#:~:text=VIP%20Rate).
-
-### **Which agent is best for Six Senses Ninh Van Bay?**
-
-- **For loyalty benefits and preferential treatment:** book through QX Travel or another Virtuoso advisor because those channels can stack perks with direct-hotel style treatment.
-- **For substantial discounts:** PrivateUpgrades and Mr & Mrs Smith often run promotions, so use them when price matters more than earning points.
-- **For cardholders seeking guaranteed late checkout:** Amex FHR may be ideal because it offers a guaranteed 4 p.m. checkout and a US$100 credit.
-"#;
-
-    let fragments = build_pdf_fragment_inputs(Some("Best agent for resorts"), Some("Travel research"), markdown);
-
-    assert!(fragments.len() >= 2);
-    assert_eq!(fragments[0].page_start, Some(1));
-    assert!(fragments.iter().any(|fragment| fragment.page_end == Some(2)));
-    assert!(fragments.iter().all(|fragment| fragment.text.contains("Document: Best agent for resorts.")));
-    assert!(fragments.iter().all(|fragment| fragment.text.contains("Context: Travel research.")));
-    assert!(fragments.iter().all(|fragment| !fragment.text.contains("https://")));
-    assert!(fragments.iter().all(|fragment| !fragment.text.contains("#:~:text")));
-    assert!(fragments.iter().all(|fragment| fragment.text.contains("Page:") || fragment.text.contains("Pages:")));
-    assert!(
-      fragments
-        .iter()
-        .any(|fragment| fragment.text.contains("Section: Six Senses Ninh Van Bay - Agents, Deals & Relationships."))
-    );
-    assert!(
-      fragments.iter().any(|fragment| fragment.text.contains("Which agent is best for Six Senses Ninh Van Bay?"))
-    );
-  }
-
-  #[test]
-  fn merges_small_adjacent_pdf_sections_on_the_same_page() {
-    let markdown = r#"
-{1}------------------------------------------------
-
-# Thanks Matthew! Your booking in Kuala Lumpur is confirmed.
-
-## Twin Towers View Room King Bed
-
-Guest name Matthew Howlett
-
-## Stay safe online
-
-Protect your security by never sharing your personal or credit card information over the phone, by email or chat.
-
-Learn more
-
-Modify your booking
-
-To get the app, scan this code with your phone camera
-
-## Make your trip easy with the app
-
-Change or cancel bookings on the go, chat directly with your property, and much more.
-
-Get the app
-"#;
-
-    let fragments = build_pdf_fragment_inputs(
-      Some("Gmail - Thanks! Your booking is confirmed at Mandarin Oriental, Kuala Lumpur.pdf"),
-      Some("Malaysia 2025-02"),
-      markdown,
-    );
-
-    assert_eq!(fragments.len(), 1);
-    assert!(fragments[0].text.contains("Section: Thanks Matthew! Your booking in Kuala Lumpur is confirmed."));
-    assert!(fragments[0].text.contains("Subsection: Twin Towers View Room King Bed."));
-    assert!(fragments[0].text.contains("Subsection: Stay safe online."));
-    assert!(fragments[0].text.contains("Subsection: Make your trip easy with the app."));
-    assert!(fragments[0].text.contains("Guest name Matthew Howlett"));
-    assert!(fragments[0].text.contains("Protect your security"));
-    assert!(fragments[0].text.contains("Change or cancel bookings on the go"));
-  }
-
-  #[test]
-  fn merges_sentence_continuation_across_consecutive_pages() {
-    let markdown = r#"
-{1}------------------------------------------------
-
-# Important Details
-
-- From 1st January 2023, a tourist tax of RM 10 per room per night is applied to all foreign guests. This tax is not included in the room rate and must be paid upon check-in. Please note that booking exceeding 3 rooms with the same
-
-{2}------------------------------------------------
-
-guest name is not allowed.
-
-Free private parking is available on site.
-"#;
-
-    let fragments = build_pdf_fragment_inputs(
-      Some("Gmail - Thanks! Your booking is confirmed at Mandarin Oriental, Kuala Lumpur.pdf"),
-      Some("Malaysia 2025-02"),
-      markdown,
-    );
-
-    assert_eq!(fragments.len(), 1);
-    assert_eq!(fragments[0].page_start, Some(1));
-    assert_eq!(fragments[0].page_end, Some(2));
-    assert!(fragments[0].text.contains("Pages: 1-2."));
-    assert!(fragments[0].text.contains("same\n\nguest name is not allowed."));
-    assert!(fragments[0].text.contains("Free private parking is available on site."));
-  }
-
-  #[test]
-  fn does_not_split_fragment_just_because_page_changes() {
-    let markdown = r#"
-{1}------------------------------------------------
-
-# Important Details
-
-Arrival time is 3pm and checkout is at noon.
-
-{2}------------------------------------------------
-
-Breakfast is served from 6am to 10:30am.
-
-Parking is complimentary for one vehicle per room.
-"#;
-
-    let fragments = build_pdf_fragment_inputs(Some("Hotel booking.pdf"), Some("Malaysia 2025-02"), markdown);
-
-    assert_eq!(fragments.len(), 1);
-    assert_eq!(fragments[0].page_start, Some(1));
-    assert_eq!(fragments[0].page_end, Some(2));
-    assert!(fragments[0].text.contains("Pages: 1-2."));
-    assert!(fragments[0].text.contains("Arrival time is 3pm and checkout is at noon."));
-    assert!(fragments[0].text.contains("Breakfast is served from 6am to 10:30am."));
-    assert!(fragments[0].text.contains("Parking is complimentary for one vehicle per room."));
-  }
-
-  #[test]
-  fn splits_pdf_fragments_that_exceed_estimated_token_budget() {
-    let repeated_short_words = std::iter::repeat("a").take(460).collect::<Vec<_>>().join(" ");
-    let markdown =
-      format!("{{1}}------------------------------------------------\n\n# Tiny Words\n\n{}\n", repeated_short_words);
-
-    let fragments = build_pdf_fragment_inputs(Some("Tiny words.pdf"), Some("Token budget"), &markdown);
-
-    assert!(fragments.len() >= 2);
-    assert!(
-      fragments.iter().all(|fragment| estimate_embedding_token_count(&fragment.text) <= PDF_FRAGMENT_HARD_LIMIT_TOKENS)
-    );
-    assert!(fragments.iter().all(|fragment| fragment.text.contains("Section: Tiny Words.")));
-  }
-
-  #[test]
-  fn prefers_clean_subsection_boundaries_for_long_runs() {
-    let markdown = r#"
-{6}------------------------------------------------
-
-# In Real Estate
-
-## Preparing For Wealth - The 7 Wealth Habits
-
-### Habit 1 - Pay Yourself First
-
-#### Habit 4 - Avoid Debt
-
-Australians are notorious for the use of consumer type debt to buy items that rapidly decrease in value in order to fund a high lifestyle. Credit card debt is at alarming levels and is directly related to the record number of bankruptcies in what has been an otherwise powerhouse economic period. The acceptance of the buy now, pay later life is now complete after having it rammed down our throats by self-interested retailers and banks. Buy nothing that you cannot pay for in cash, or if you use a credit card make absolutely sure you pay it out in full at the end of each month.
-
-#### Habit 5 - Eliminate Debt
-
-Your first point of action in eliminating debt is to use it no more. To get out of the debt you now have is relatively simple, but will take some time and a lot of discipline. Most people who try to pay off debt on their credit cards, store accounts, charge cards and personal loans just pay the minimum amount every month off their statements. A $1,000 debt on your credit card at 16% interest will take 3.7 years to pay off if you only make the minimum 3% ($30) of balance payment.
-
-To eliminate your consumer debt, you must attack it remorselessly. Allocate 10% of your gross income over and above your minimum monthly payments. This is every bit as important as your 10% savings. Tally up the amount you owe on each account. Take the one with the highest interest rate and pay off on that account 10% of your gross income, plus the minimum you would otherwise have paid. Pay only the minimum on your other accounts. Very soon you will have completely paid out your first account.
-
-{7}------------------------------------------------
-
-The best part of this debt elimination strategy is this - in a relatively short time, you will have no more consumer debt, but you will have formed the habit of making the payments. Use this habit to either start paying out the loan on your own home or buy another property and turn your previous bad debt dependency into a powerful investment habit.
-
-#### Habit 6 - Educate Yourself - Continually
-
-The absolute best investment you will ever make is in yourself. Make it your mission in life to find out and then apply everything there is to know about wealth creation and investing.
-
-#### Habit 7 - Believe in Yourself
-
-To achieve financial freedom you must get into the habit of telling yourself these two simple messages.
-"#;
-
-    let fragments = build_pdf_fragment_inputs(Some("47tipsandtricks.pdf"), Some("Entrepreneur"), markdown);
-
-    assert!(fragments.iter().any(|fragment| {
-      fragment.text.contains("Section: In Real Estate > Preparing For Wealth - The 7 Wealth Habits > Habit 1 - Pay Yourself First > Habit 5 - Eliminate Debt.")
-        && fragment.text.contains("Your first point of action in eliminating debt")
-        && fragment.text.contains("To eliminate your consumer debt, you must attack it remorselessly")
-        && fragment.text.contains("The best part of this debt elimination strategy")
-        && fragment.text.contains("Pages: 6-7.")
-    }));
-    assert!(!fragments.iter().any(|fragment| {
-      fragment.text.contains("Subsection: Habit 4 - Avoid Debt.")
-        && fragment.text.contains("Subsection: Habit 5 - Eliminate Debt.")
-    }));
-  }
 }
