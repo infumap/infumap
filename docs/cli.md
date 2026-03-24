@@ -213,7 +213,7 @@ Options:
 
 Show comprehensive local instance statistics without starting the web server.
 
-The report includes overall item counts, per-item-type counts, supported image and PDF counts, declared data byte totals, image-tagging coverage, geo coverage, PDF text-extraction coverage, and per-user summaries. With `--json`, the same information is emitted as structured JSON.
+The report includes overall item counts, per-item-type counts, supported image and PDF counts, declared data byte totals, image coverage (tagging plus geo), PDF text-extraction coverage, and per-user summaries. In the human-readable report, geo is grouped under the Images section. With `--json`, the same information is emitted as structured JSON.
 
 Options:
 

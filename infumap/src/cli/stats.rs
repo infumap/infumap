@@ -471,6 +471,11 @@ async fn scan_orphaned_manifests(
           continue;
         }
         let file_name = file_entry.file_name().to_string_lossy().into_owned();
+        if matches!(kind, DerivedKind::Image | DerivedKind::Pdf)
+          && file_name.ends_with(DerivedKind::Geo.manifest_suffix())
+        {
+          continue;
+        }
         let Some(item_id) = file_name.strip_suffix(kind.manifest_suffix()) else {
           continue;
         };
@@ -573,16 +578,12 @@ fn print_human_report(report: &StatsReport) {
   print_item_stats(&report.items, true, 2);
   println!();
 
-  println!("Image tagging");
-  print_derived_stats(&report.image_tagging, 2);
+  println!("Images");
+  print_images_stats(&report.image_tagging, &report.geo, 2);
   println!();
 
-  println!("Geo");
-  print_derived_stats(&report.geo, 2);
-  println!();
-
-  println!("PDF text extraction");
-  print_derived_stats(&report.pdf_text_extraction, 2);
+  println!("PDFs");
+  print_pdf_stats(&report.pdf_text_extraction, 2);
 
   if !report.per_user.is_empty() {
     println!();
@@ -596,18 +597,19 @@ fn print_human_report(report: &StatsReport) {
       println!("    pdfs: {}", user.items.pdf_items);
       println!("    declared data bytes: {}", format_bytes(user.items.declared_data_bytes));
       println!(
-        "    image tagging: succeeded={} failed={} pending={} orphaned={}",
+        "    images: tagging(succeeded={} failed={} pending={} orphaned={}) geo(succeeded={} failed={} skipped={} pending={} orphaned={})",
         user.image_tagging.succeeded,
         user.image_tagging.failed,
         user.image_tagging.pending,
-        user.image_tagging.orphaned_manifests
+        user.image_tagging.orphaned_manifests,
+        user.geo.succeeded,
+        user.geo.failed,
+        user.geo.skipped,
+        user.geo.pending,
+        user.geo.orphaned_manifests
       );
       println!(
-        "    geo: succeeded={} failed={} skipped={} pending={} orphaned={}",
-        user.geo.succeeded, user.geo.failed, user.geo.skipped, user.geo.pending, user.geo.orphaned_manifests
-      );
-      println!(
-        "    pdf extraction: succeeded={} failed={} pending={} orphaned={}",
+        "    pdfs: extracted(succeeded={} failed={} pending={} orphaned={})",
         user.pdf_text_extraction.succeeded,
         user.pdf_text_extraction.failed,
         user.pdf_text_extraction.pending,
@@ -636,18 +638,45 @@ fn print_item_stats(stats: &ItemStatsReport, include_by_type: bool, indent: usiz
   }
 }
 
-fn print_derived_stats(stats: &DerivedStatsReport, indent: usize) {
+fn print_images_stats(image_tagging: &DerivedStatsReport, geo: &DerivedStatsReport, indent: usize) {
+  let pad = " ".repeat(indent);
+  println!("{}candidates: {}", pad, image_tagging.candidates);
+  println!(
+    "{}tagging: succeeded={} failed={} pending={}",
+    pad, image_tagging.succeeded, image_tagging.failed, image_tagging.pending
+  );
+  println!(
+    "{}geo: succeeded={} failed={} skipped={} pending={}",
+    pad, geo.succeeded, geo.failed, geo.skipped, geo.pending
+  );
+  print_derived_anomalies("tagging", image_tagging, indent);
+  print_derived_anomalies("geo", geo, indent);
+}
+
+fn print_pdf_stats(stats: &DerivedStatsReport, indent: usize) {
   let pad = " ".repeat(indent);
   println!("{}candidates: {}", pad, stats.candidates);
-  println!("{}succeeded: {}", pad, stats.succeeded);
-  println!("{}failed: {}", pad, stats.failed);
-  println!("{}skipped: {}", pad, stats.skipped);
-  println!("{}pending: {}", pad, stats.pending);
-  println!("{}invalid manifests: {}", pad, stats.invalid_manifest);
-  println!("{}success manifests missing content: {}", pad, stats.success_missing_content);
-  println!("{}failed manifests with content: {}", pad, stats.failed_with_content);
-  println!("{}content files without manifest: {}", pad, stats.content_without_manifest);
-  println!("{}orphaned manifests: {}", pad, stats.orphaned_manifests);
+  println!("{}extracted: succeeded={} failed={} pending={}", pad, stats.succeeded, stats.failed, stats.pending);
+  print_derived_anomalies("extraction", stats, indent);
+}
+
+fn print_derived_anomalies(label: &str, stats: &DerivedStatsReport, indent: usize) {
+  let pad = " ".repeat(indent);
+  if stats.invalid_manifest > 0 {
+    println!("{}{} invalid manifests: {}", pad, label, stats.invalid_manifest);
+  }
+  if stats.success_missing_content > 0 {
+    println!("{}{} manifests missing content after success: {}", pad, label, stats.success_missing_content);
+  }
+  if stats.failed_with_content > 0 {
+    println!("{}{} manifests with content despite failed/skipped status: {}", pad, label, stats.failed_with_content);
+  }
+  if stats.content_without_manifest > 0 {
+    println!("{}{} content files without manifest: {}", pad, label, stats.content_without_manifest);
+  }
+  if stats.orphaned_manifests > 0 {
+    println!("{}{} orphaned manifests: {}", pad, label, stats.orphaned_manifests);
+  }
 }
 
 fn format_bytes(bytes: u64) -> String {
