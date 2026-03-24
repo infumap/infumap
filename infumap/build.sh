@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Copyright (C) The Infumap Authors
 # This file is part of Infumap.
@@ -16,11 +17,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pushd "$(dirname "$0")"
-if [ -z $1 ]
-  then
-    cargo build --release
-  else
-    cargo build --release --target $1
+pushd "$(dirname "$0")" >/dev/null
+if [[ $# -eq 0 ]]; then
+  cargo build --release
+elif [[ "$1" != -* ]]; then
+  target="$1"
+  shift
+  cargo build --release --target "$target" "$@"
+else
+  cargo build --release "$@"
 fi
-popd
+popd >/dev/null

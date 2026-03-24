@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Arg, ArgMatches, Command};
+#[cfg(feature = "embed-onnx")]
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
@@ -12,7 +13,9 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::fs::expand_tilde;
 
+#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 const MODEL_NAME: &str = "BAAI/bge-base-en-v1.5";
+const EMBED_ONNX_FEATURE: &str = "embed-onnx";
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("embed")
@@ -28,6 +31,19 @@ pub fn make_clap_subcommand() -> Command {
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  if !embedding_capability_enabled() {
+    eprintln!(
+      "This infumap build does not include ONNX embedding support. Rebuild with `cargo build --features {}` to enable the embed command.",
+      EMBED_ONNX_FEATURE
+    );
+    return Ok(());
+  }
+
+  execute_with_onnx(sub_matches).await
+}
+
+#[cfg(feature = "embed-onnx")]
+async fn execute_with_onnx(sub_matches: &ArgMatches) -> InfuResult<()> {
   let (data_dir, item) = load_data_dir_and_item(sub_matches).await?;
   let fragments_path = fragments_path_for_item(&data_dir, &item.owner_id, &item.id)?;
   let embedding_cache_dir = embedding_cache_dir(&data_dir)?;
@@ -74,6 +90,12 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   Ok(())
 }
 
+#[cfg(not(feature = "embed-onnx"))]
+async fn execute_with_onnx(_sub_matches: &ArgMatches) -> InfuResult<()> {
+  Ok(())
+}
+
+#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 async fn load_data_dir_and_item(sub_matches: &ArgMatches) -> InfuResult<(String, Item)> {
   let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
@@ -89,6 +111,7 @@ async fn load_data_dir_and_item(sub_matches: &ArgMatches) -> InfuResult<(String,
   Ok((data_dir, item))
 }
 
+#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 async fn load_fragment_records(path: &Path) -> InfuResult<Vec<StoredFragmentRecord>> {
   let contents =
     fs::read_to_string(path).await.map_err(|e| format!("Could not read fragments file '{}': {}", path.display(), e))?;
@@ -113,6 +136,11 @@ fn parse_fragment_records(contents: &str) -> InfuResult<Vec<StoredFragmentRecord
   Ok(out)
 }
 
+pub fn embedding_capability_enabled() -> bool {
+  cfg!(feature = "embed-onnx")
+}
+
+#[cfg(feature = "embed-onnx")]
 fn embed_texts(texts: Vec<String>, cache_dir: PathBuf) -> InfuResult<Vec<Vec<f32>>> {
   let mut model = TextEmbedding::try_new(
     InitOptions::new(EmbeddingModel::BGEBaseENV15).with_cache_dir(cache_dir).with_show_download_progress(true),
@@ -130,6 +158,7 @@ fn settings_arg() -> Arg {
     .required(false)
 }
 
+#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 fn fragments_path_for_item(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   if item_id.len() < 2 {
     return Err(format!("Item id '{}' is too short.", item_id).into());
@@ -144,13 +173,16 @@ fn fragments_path_for_item(data_dir: &str, user_id: &str, item_id: &str) -> Infu
 }
 
 fn embedding_cache_dir(data_dir: &str) -> InfuResult<PathBuf> {
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  let data_path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  let mut path =
+    data_path.parent().ok_or(format!("Data directory '{}' has no parent.", data_path.display()))?.to_path_buf();
   path.push("models");
   path.push("fastembed");
   Ok(path)
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 struct StoredFragmentRecord {
   ordinal: usize,
   text: String,
@@ -159,6 +191,7 @@ struct StoredFragmentRecord {
 }
 
 #[derive(Serialize)]
+#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 struct PrintedEmbeddingRecord {
   item_id: String,
   model: &'static str,
@@ -173,7 +206,7 @@ struct PrintedEmbeddingRecord {
 mod tests {
   use std::path::PathBuf;
 
-  use super::{embedding_cache_dir, parse_fragment_records};
+  use super::{EMBED_ONNX_FEATURE, embedding_cache_dir, embedding_capability_enabled, parse_fragment_records};
 
   #[test]
   fn parses_fragment_jsonl_records() {
@@ -194,7 +227,13 @@ mod tests {
 
   #[test]
   fn embedding_cache_path_is_under_data_dir() {
-    let path = embedding_cache_dir("/tmp/infumap-data").unwrap();
+    let path = embedding_cache_dir("/tmp/infumap-data/data").unwrap();
     assert_eq!(path, PathBuf::from("/tmp/infumap-data/models/fastembed"));
+  }
+
+  #[test]
+  fn embedding_capability_matches_build_feature() {
+    assert_eq!(embedding_capability_enabled(), cfg!(feature = "embed-onnx"));
+    assert_eq!(EMBED_ONNX_FEATURE, "embed-onnx");
   }
 }
