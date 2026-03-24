@@ -1291,43 +1291,43 @@ fn build_image_fragment_text(
     .filter(|context| title.as_deref().map(|title| title.to_lowercase() != context.to_lowercase()).unwrap_or(true));
 
   if let Some(title) = title {
-    sentences.push(labeled_sentence("Title", &title));
+    sentences.push(labeled_line("Title", &title));
   }
   if let Some(context_title) = context_title {
-    sentences.push(labeled_sentence("Context", &context_title));
+    sentences.push(labeled_line("Context", &context_title));
   }
 
   if let Some(image_tag_artifact) = image_tag_artifact {
     if let Some(scene) = normalized_text(image_tag_artifact.scene.as_deref()) {
-      sentences.push(labeled_sentence("Scene", &scene));
+      sentences.push(labeled_line("Scene", &scene));
     }
     if let Some(caption) = normalized_text(image_tag_artifact.detailed_caption.as_deref()) {
-      sentences.push(labeled_sentence("Description", &caption));
+      sentences.push(labeled_line("Description", &caption));
     }
 
     let ocr_text = normalized_text_list(&image_tag_artifact.ocr_text);
     if !ocr_text.is_empty() {
-      sentences.push(labeled_sentence("Visible text", &ocr_text.join("; ")));
+      sentences.push(labeled_line("Visible text", &ocr_text.join("; ")));
     }
 
     let tags = normalized_text_list(&image_tag_artifact.tags);
     if !tags.is_empty() {
-      sentences.push(labeled_sentence("Tags", &tags.join(", ")));
+      sentences.push(labeled_line("Tags", &tags.join(", ")));
     }
 
     if let Some(face_count) = positive_face_count(image_tag_artifact.visible_face_count_estimate.as_deref()) {
-      sentences.push(labeled_sentence("Visible faces", &face_count.to_string()));
+      sentences.push(labeled_line("Visible faces", &face_count.to_string()));
     }
   }
 
   if let Some(location) = best_geo_location_text(geo_artifact) {
-    sentences.push(labeled_sentence("Location", &location));
+    sentences.push(labeled_line("Location", &location));
   } else if let Some((lat, lon)) = best_coordinate_pair(image_tag_artifact, geo_artifact) {
-    sentences.push(labeled_sentence("Coordinates", &format!("{lat:.6}, {lon:.6}")));
+    sentences.push(labeled_line("Coordinates", &format!("{lat:.6}, {lon:.6}")));
   }
 
   if let Some(location_codes) = best_geo_location_codes(geo_artifact) {
-    sentences.push(labeled_sentence("Location codes", &location_codes.join(", ")));
+    sentences.push(labeled_line("Location codes", &location_codes.join(", ")));
   }
 
   if let Some(captured_at) = image_tag_artifact
@@ -1335,7 +1335,7 @@ fn build_image_fragment_text(
     .and_then(|metadata| metadata.captured_at.as_deref())
     .and_then(format_image_capture_date)
   {
-    sentences.push(labeled_sentence("Date", &captured_at));
+    sentences.push(labeled_line("Date", &captured_at));
   }
 
   if sentences.is_empty() { None } else { Some(sentences.join("\n")) }
@@ -1350,6 +1350,14 @@ fn labeled_sentence(label: &str, value: &str) -> String {
     Some('.' | '!' | '?') => format!("{label}: {trimmed}"),
     _ => format!("{label}: {trimmed}."),
   }
+}
+
+fn labeled_line(label: &str, value: &str) -> String {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return String::new();
+  }
+  format!("{label}: {trimmed}")
 }
 
 fn normalized_text(value: Option<&str>) -> Option<String> {
@@ -1749,15 +1757,15 @@ mod tests {
       build_image_fragment_text(Some("Thai Airways Business Class Seat"), Some("Bangkok Trip"), Some(&tag), Some(&geo))
         .unwrap();
 
-    assert!(text.contains("Title: Thai Airways Business Class Seat."));
-    assert!(text.contains("Context: Bangkok Trip."));
-    assert!(text.contains("Scene: Airplane cabin interior."));
+    assert!(text.contains("Title: Thai Airways Business Class Seat"));
+    assert!(text.contains("Context: Bangkok Trip"));
+    assert!(text.contains("Scene: Airplane cabin interior"));
     assert!(text.contains("Description: An angled view captures a luxurious airplane seat."));
-    assert!(text.contains("Visible text: SAWASDEE; Adventures for the Soul."));
-    assert!(text.contains("Tags: airplane, business class, travel."));
-    assert!(text.contains("Location: Suvarnabhumi Airport, Kingkaew 31/2, Racha Thewa Subdistrict, 10520, Thailand."));
-    assert!(text.contains("Location codes: BKK, VTBS."));
-    assert!(text.contains("Date: 2025-12-03; December 2025."));
+    assert!(text.contains("Visible text: SAWASDEE; Adventures for the Soul"));
+    assert!(text.contains("Tags: airplane, business class, travel"));
+    assert!(text.contains("Location: Suvarnabhumi Airport, Kingkaew 31/2, Racha Thewa Subdistrict, 10520, Thailand"));
+    assert!(text.contains("Location codes: BKK, VTBS"));
+    assert!(text.contains("Date: 2025-12-03; December 2025"));
     assert!(!text.contains("Camera:"));
     assert!(!text.contains("Dimensions:"));
   }
@@ -1779,9 +1787,9 @@ mod tests {
 
     let text = build_image_fragment_text(Some("Family photo"), None, Some(&tag), None).unwrap();
 
-    assert!(text.contains("Title: Family photo."));
-    assert!(text.contains("Visible faces: 2."));
-    assert!(text.contains("Coordinates: 1.250000, 103.750000."));
+    assert!(text.contains("Title: Family photo"));
+    assert!(text.contains("Visible faces: 2"));
+    assert!(text.contains("Coordinates: 1.250000, 103.750000"));
     assert!(!text.contains("Dimensions:"));
   }
 
@@ -1808,7 +1816,7 @@ mod tests {
 
     let text = build_image_fragment_text(Some("Beach photo"), None, Some(&tag), None).unwrap();
 
-    assert!(text.contains("Date: December 2025."));
+    assert!(text.contains("Date: December 2025"));
   }
 
   #[test]
