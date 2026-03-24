@@ -29,6 +29,7 @@ use crate::util::fs::{expand_tilde, path_exists};
 use crate::web::cookie::{InfuSession, SESSION_COOKIE_NAME};
 
 pub mod compact;
+pub mod embed;
 pub mod emergency;
 pub mod extract;
 pub mod fragments;
