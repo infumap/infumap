@@ -30,6 +30,10 @@ pub fn make_clap_subcommand() -> Command {
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let (data_dir, item) = load_data_dir_and_item(sub_matches).await?;
   let fragments_path = fragments_path_for_item(&data_dir, &item.owner_id, &item.id)?;
+  let embedding_cache_dir = embedding_cache_dir(&data_dir)?;
+  fs::create_dir_all(&embedding_cache_dir)
+    .await
+    .map_err(|e| format!("Could not create embedding cache directory '{}': {}", embedding_cache_dir.display(), e))?;
   let fragments = load_fragment_records(&fragments_path).await?;
   if fragments.is_empty() {
     return Err(
@@ -43,8 +47,14 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   let texts = fragments.iter().map(|fragment| fragment.text.clone()).collect::<Vec<String>>();
-  eprintln!("Embedding {} fragment(s) for item '{}' with {}.", fragments.len(), item.id, MODEL_NAME);
-  let embeddings = tokio::task::spawn_blocking(move || embed_texts(texts))
+  eprintln!(
+    "Embedding {} fragment(s) for item '{}' with {}. Model cache: {}.",
+    fragments.len(),
+    item.id,
+    MODEL_NAME,
+    embedding_cache_dir.display()
+  );
+  let embeddings = tokio::task::spawn_blocking(move || embed_texts(texts, embedding_cache_dir))
     .await
     .map_err(|e| format!("Embedding task failed: {}", e))??;
 
@@ -103,10 +113,11 @@ fn parse_fragment_records(contents: &str) -> InfuResult<Vec<StoredFragmentRecord
   Ok(out)
 }
 
-fn embed_texts(texts: Vec<String>) -> InfuResult<Vec<Vec<f32>>> {
-  let mut model =
-    TextEmbedding::try_new(InitOptions::new(EmbeddingModel::BGEBaseENV15).with_show_download_progress(true))
-      .map_err(|e| format!("Could not initialize fastembed model {}: {}", MODEL_NAME, e))?;
+fn embed_texts(texts: Vec<String>, cache_dir: PathBuf) -> InfuResult<Vec<Vec<f32>>> {
+  let mut model = TextEmbedding::try_new(
+    InitOptions::new(EmbeddingModel::BGEBaseENV15).with_cache_dir(cache_dir).with_show_download_progress(true),
+  )
+  .map_err(|e| format!("Could not initialize fastembed model {}: {}", MODEL_NAME, e))?;
   model.embed(texts, None).map_err(|e| format!("Could not embed fragments with {}: {}", MODEL_NAME, e).into())
 }
 
@@ -132,6 +143,13 @@ fn fragments_path_for_item(data_dir: &str, user_id: &str, item_id: &str) -> Infu
   Ok(path)
 }
 
+fn embedding_cache_dir(data_dir: &str) -> InfuResult<PathBuf> {
+  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  path.push("models");
+  path.push("fastembed");
+  Ok(path)
+}
+
 #[derive(Deserialize)]
 struct StoredFragmentRecord {
   ordinal: usize,
@@ -153,7 +171,9 @@ struct PrintedEmbeddingRecord {
 
 #[cfg(test)]
 mod tests {
-  use super::parse_fragment_records;
+  use std::path::PathBuf;
+
+  use super::{embedding_cache_dir, parse_fragment_records};
 
   #[test]
   fn parses_fragment_jsonl_records() {
@@ -170,5 +190,11 @@ mod tests {
     assert_eq!(records[0].page_start, Some(1));
     assert_eq!(records[1].ordinal, 1);
     assert_eq!(records[1].page_start, None);
+  }
+
+  #[test]
+  fn embedding_cache_path_is_under_data_dir() {
+    let path = embedding_cache_dir("/tmp/infumap-data").unwrap();
+    assert_eq!(path, PathBuf::from("/tmp/infumap-data/models/fastembed"));
   }
 }
