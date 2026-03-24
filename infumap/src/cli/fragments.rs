@@ -1304,7 +1304,7 @@ fn build_image_fragment_text(
       upper_lines.push(labeled_line("Tags", &tags.join(", ")));
     }
 
-    let ocr_text = normalized_text_list(&image_tag_artifact.ocr_text);
+    let ocr_text = embedding_visible_text(&image_tag_artifact.ocr_text, image_tag_artifact.document_confidence);
     if !ocr_text.is_empty() {
       lower_lines.push(labeled_line("Visible text", &ocr_text.join("; ")));
     }
@@ -1421,6 +1421,14 @@ fn normalized_text_list(values: &[String]) -> Vec<String> {
   out
 }
 
+fn embedding_visible_text(values: &[String], document_confidence: f64) -> Vec<String> {
+  let mut out = normalized_text_list(values);
+  if document_confidence < 0.85 && out.len() > 2 {
+    out.truncate(2);
+  }
+  out
+}
+
 fn format_image_capture_date(value: &str) -> Option<String> {
   let normalized = normalized_text(Some(value))?;
 
@@ -1532,6 +1540,8 @@ fn best_coordinate_pair(
 struct StoredImageTagArtifact {
   detailed_caption: Option<String>,
   scene: Option<String>,
+  #[serde(default)]
+  document_confidence: f64,
   #[serde(default)]
   tags: Vec<String>,
   #[serde(default)]
