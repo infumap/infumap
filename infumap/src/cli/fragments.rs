@@ -1315,10 +1315,6 @@ fn build_image_fragment_text(
     if !tags.is_empty() {
       metadata_lines.push(labeled_line("Tags", &tags.join(", ")));
     }
-
-    if let Some(face_count) = positive_face_count(image_tag_artifact.visible_face_count_estimate.as_deref()) {
-      metadata_lines.push(labeled_line("Visible faces", &face_count.to_string()));
-    }
   }
 
   if let Some(location) = best_geo_location_text(geo_artifact) {
@@ -1390,11 +1386,6 @@ fn normalized_text_list(values: &[String]) -> Vec<String> {
   }
 
   out
-}
-
-fn positive_face_count(value: Option<&str>) -> Option<usize> {
-  let parsed = value?.trim().parse::<usize>().ok()?;
-  (parsed > 0).then_some(parsed)
 }
 
 fn format_image_capture_date(value: &str) -> Option<String> {
@@ -1508,7 +1499,6 @@ fn best_coordinate_pair(
 struct StoredImageTagArtifact {
   detailed_caption: Option<String>,
   scene: Option<String>,
-  visible_face_count_estimate: Option<String>,
   #[serde(default)]
   tags: Vec<String>,
   #[serde(default)]
@@ -1738,7 +1728,6 @@ mod tests {
     let tag = StoredImageTagArtifact {
       detailed_caption: Some("An angled view captures a luxurious airplane seat.".to_owned()),
       scene: Some("Airplane cabin interior".to_owned()),
-      visible_face_count_estimate: Some("0".to_owned()),
       tags: vec!["airplane".to_owned(), "business class".to_owned(), "travel".to_owned()],
       ocr_text: vec!["SAWASDEE".to_owned(), "Adventures for the Soul".to_owned()],
       image_metadata: Some(StoredImageMetadata {
@@ -1782,11 +1771,10 @@ mod tests {
   }
 
   #[test]
-  fn falls_back_to_coordinates_and_positive_face_count() {
+  fn falls_back_to_coordinates_without_visible_face_count_metadata() {
     let tag = StoredImageTagArtifact {
       detailed_caption: None,
       scene: None,
-      visible_face_count_estimate: Some("2".to_owned()),
       tags: vec![],
       ocr_text: vec![],
       image_metadata: Some(StoredImageMetadata {
@@ -1799,8 +1787,8 @@ mod tests {
     let text = build_image_fragment_text(Some("Family photo"), None, Some(&tag), None).unwrap();
 
     assert!(text.contains("Title: Family photo"));
-    assert!(text.contains("Visible faces: 2"));
     assert!(text.contains("Coordinates: 1.250000, 103.750000"));
+    assert!(!text.contains("Visible faces:"));
     assert!(!text.contains("Dimensions:"));
   }
 
@@ -1809,7 +1797,6 @@ mod tests {
     let tag = StoredImageTagArtifact {
       detailed_caption: Some("Rows of palm trees lead toward the shore.".to_owned()),
       scene: Some("Tropical beachfront resort".to_owned()),
-      visible_face_count_estimate: None,
       tags: vec!["ocean".to_owned()],
       ocr_text: vec![],
       image_metadata: None,
@@ -1850,7 +1837,6 @@ mod tests {
     let tag = StoredImageTagArtifact {
       detailed_caption: None,
       scene: None,
-      visible_face_count_estimate: None,
       tags: vec![],
       ocr_text: vec![],
       image_metadata: Some(StoredImageMetadata {
