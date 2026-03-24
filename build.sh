@@ -20,6 +20,7 @@ set -euo pipefail
 WEB_BUILD_ARGS=()
 INFUMAP_BUILD_ARGS=()
 INCLUDE_ONNX=1
+MINIFY_WEB=1
 
 print_usage() {
   cat <<'EOF'
@@ -48,12 +49,11 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     --no-minify)
-      echo "🔧 Development build requested: disabling web minification for better debugging"
+      MINIFY_WEB=0
       WEB_BUILD_ARGS+=(--no-minify)
       shift
       ;;
     --no-onnx)
-      echo "🔧 Building infumap without ONNX embedding support"
       INCLUDE_ONNX=0
       shift
       ;;
@@ -66,6 +66,19 @@ done
 
 if [[ $INCLUDE_ONNX -eq 1 ]]; then
   INFUMAP_BUILD_ARGS+=(--features embed-onnx)
+fi
+
+echo "Build options:"
+if [[ $MINIFY_WEB -eq 1 ]]; then
+  echo "  - Web minification: enabled"
+else
+  echo "  - Web minification: disabled (--no-minify)"
+fi
+
+if [[ $INCLUDE_ONNX -eq 1 ]]; then
+  echo "  - ONNX embedding support: enabled"
+else
+  echo "  - ONNX embedding support: disabled (--no-onnx)"
 fi
 
 pushd "$(dirname "$0")"
