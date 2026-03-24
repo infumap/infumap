@@ -1284,47 +1284,40 @@ fn build_image_fragment_text(
   image_tag_artifact: Option<&StoredImageTagArtifact>,
   geo_artifact: Option<&StoredGeoArtifact>,
 ) -> Option<String> {
-  let mut lead_lines = Vec::new();
-  let mut metadata_lines = Vec::new();
+  let mut upper_lines = Vec::new();
+  let mut lower_lines = Vec::new();
 
   let title = embedding_useful_image_title(title);
   let context_title = normalized_text(context_title)
     .filter(|context| title.as_deref().map(|title| title.to_lowercase() != context.to_lowercase()).unwrap_or(true));
 
-  if let Some(title) = title {
-    metadata_lines.push(labeled_line("Title", &title));
-  }
-  if let Some(context_title) = context_title {
-    metadata_lines.push(labeled_line("Context", &context_title));
-  }
-
   if let Some(image_tag_artifact) = image_tag_artifact {
     if let Some(scene) = normalized_text(image_tag_artifact.scene.as_deref()) {
-      lead_lines.push(scene);
+      upper_lines.push(scene);
     }
     if let Some(caption) = normalized_text(image_tag_artifact.detailed_caption.as_deref()) {
-      lead_lines.push(caption);
-    }
-
-    let ocr_text = normalized_text_list(&image_tag_artifact.ocr_text);
-    if !ocr_text.is_empty() {
-      metadata_lines.push(labeled_line("Visible text", &ocr_text.join("; ")));
+      upper_lines.push(caption);
     }
 
     let tags = normalized_text_list(&image_tag_artifact.tags);
     if !tags.is_empty() {
-      metadata_lines.push(labeled_line("Tags", &tags.join(", ")));
+      upper_lines.push(labeled_line("Tags", &tags.join(", ")));
+    }
+
+    let ocr_text = normalized_text_list(&image_tag_artifact.ocr_text);
+    if !ocr_text.is_empty() {
+      lower_lines.push(labeled_line("Visible text", &ocr_text.join("; ")));
     }
   }
 
   if let Some(location) = best_geo_location_text(geo_artifact) {
-    metadata_lines.push(labeled_line("Location", &location));
+    lower_lines.push(labeled_line("Location", &location));
   } else if let Some((lat, lon)) = best_coordinate_pair(image_tag_artifact, geo_artifact) {
-    metadata_lines.push(labeled_line("Coordinates", &format!("{lat:.6}, {lon:.6}")));
+    lower_lines.push(labeled_line("Coordinates", &format!("{lat:.6}, {lon:.6}")));
   }
 
   if let Some(location_codes) = best_geo_location_codes(geo_artifact) {
-    metadata_lines.push(labeled_line("Location codes", &location_codes.join(", ")));
+    lower_lines.push(labeled_line("Location codes", &location_codes.join(", ")));
   }
 
   if let Some(captured_at) = image_tag_artifact
@@ -1332,15 +1325,22 @@ fn build_image_fragment_text(
     .and_then(|metadata| metadata.captured_at.as_deref())
     .and_then(format_image_capture_date)
   {
-    metadata_lines.push(labeled_line("Date", &captured_at));
+    lower_lines.push(labeled_line("Date", &captured_at));
+  }
+
+  if let Some(context_title) = context_title {
+    lower_lines.push(labeled_line("Context", &context_title));
+  }
+  if let Some(title) = title {
+    lower_lines.push(labeled_line("Title", &title));
   }
 
   let mut sections = Vec::new();
-  if !lead_lines.is_empty() {
-    sections.push(lead_lines.join("\n"));
+  if !upper_lines.is_empty() {
+    sections.push(upper_lines.join("\n"));
   }
-  if !metadata_lines.is_empty() {
-    sections.push(metadata_lines.join("\n"));
+  if !lower_lines.is_empty() {
+    sections.push(lower_lines.join("\n"));
   }
 
   if sections.is_empty() { None } else { Some(sections.join("\n\n")) }

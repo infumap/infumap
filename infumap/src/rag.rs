@@ -10,7 +10,7 @@ use tokio::fs;
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
 
 const FRAGMENTS_SCHEMA_VERSION: u32 = 1;
-const FRAGMENTER_VERSION: u32 = 9;
+const FRAGMENTER_VERSION: u32 = 10;
 
 #[derive(Clone, Copy)]
 pub enum FragmentSourceKind {
