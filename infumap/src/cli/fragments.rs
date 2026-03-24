@@ -1284,50 +1284,51 @@ fn build_image_fragment_text(
   image_tag_artifact: Option<&StoredImageTagArtifact>,
   geo_artifact: Option<&StoredGeoArtifact>,
 ) -> Option<String> {
-  let mut sentences = Vec::new();
+  let mut lead_lines = Vec::new();
+  let mut metadata_lines = Vec::new();
 
   let title = normalized_text(title);
   let context_title = normalized_text(context_title)
     .filter(|context| title.as_deref().map(|title| title.to_lowercase() != context.to_lowercase()).unwrap_or(true));
 
   if let Some(title) = title {
-    sentences.push(labeled_line("Title", &title));
+    metadata_lines.push(labeled_line("Title", &title));
   }
   if let Some(context_title) = context_title {
-    sentences.push(labeled_line("Context", &context_title));
+    metadata_lines.push(labeled_line("Context", &context_title));
   }
 
   if let Some(image_tag_artifact) = image_tag_artifact {
     if let Some(scene) = normalized_text(image_tag_artifact.scene.as_deref()) {
-      sentences.push(labeled_line("Scene", &scene));
+      lead_lines.push(scene);
     }
     if let Some(caption) = normalized_text(image_tag_artifact.detailed_caption.as_deref()) {
-      sentences.push(labeled_line("Description", &caption));
+      lead_lines.push(caption);
     }
 
     let ocr_text = normalized_text_list(&image_tag_artifact.ocr_text);
     if !ocr_text.is_empty() {
-      sentences.push(labeled_line("Visible text", &ocr_text.join("; ")));
+      metadata_lines.push(labeled_line("Visible text", &ocr_text.join("; ")));
     }
 
     let tags = normalized_text_list(&image_tag_artifact.tags);
     if !tags.is_empty() {
-      sentences.push(labeled_line("Tags", &tags.join(", ")));
+      metadata_lines.push(labeled_line("Tags", &tags.join(", ")));
     }
 
     if let Some(face_count) = positive_face_count(image_tag_artifact.visible_face_count_estimate.as_deref()) {
-      sentences.push(labeled_line("Visible faces", &face_count.to_string()));
+      metadata_lines.push(labeled_line("Visible faces", &face_count.to_string()));
     }
   }
 
   if let Some(location) = best_geo_location_text(geo_artifact) {
-    sentences.push(labeled_line("Location", &location));
+    metadata_lines.push(labeled_line("Location", &location));
   } else if let Some((lat, lon)) = best_coordinate_pair(image_tag_artifact, geo_artifact) {
-    sentences.push(labeled_line("Coordinates", &format!("{lat:.6}, {lon:.6}")));
+    metadata_lines.push(labeled_line("Coordinates", &format!("{lat:.6}, {lon:.6}")));
   }
 
   if let Some(location_codes) = best_geo_location_codes(geo_artifact) {
-    sentences.push(labeled_line("Location codes", &location_codes.join(", ")));
+    metadata_lines.push(labeled_line("Location codes", &location_codes.join(", ")));
   }
 
   if let Some(captured_at) = image_tag_artifact
@@ -1335,10 +1336,18 @@ fn build_image_fragment_text(
     .and_then(|metadata| metadata.captured_at.as_deref())
     .and_then(format_image_capture_date)
   {
-    sentences.push(labeled_line("Date", &captured_at));
+    metadata_lines.push(labeled_line("Date", &captured_at));
   }
 
-  if sentences.is_empty() { None } else { Some(sentences.join("\n")) }
+  let mut sections = Vec::new();
+  if !lead_lines.is_empty() {
+    sections.push(lead_lines.join("\n"));
+  }
+  if !metadata_lines.is_empty() {
+    sections.push(metadata_lines.join("\n"));
+  }
+
+  if sections.is_empty() { None } else { Some(sections.join("\n\n")) }
 }
 
 fn labeled_sentence(label: &str, value: &str) -> String {
@@ -1436,22 +1445,25 @@ fn month_name(month: u8) -> &'static str {
 
 fn best_geo_location_text(geo_artifact: Option<&StoredGeoArtifact>) -> Option<String> {
   let best_result = geo_artifact?.results.first()?;
-  normalized_text(best_result.formatted.as_deref()).or_else(|| {
-    let mut parts = Vec::new();
-    if let Some(name) = normalized_text(best_result.name.as_deref()) {
-      parts.push(name);
+  let mut parts = Vec::new();
+  let mut seen = HashSet::new();
+
+  for value in [
+    best_result.name.as_deref(),
+    best_result.city.as_deref(),
+    best_result.province.as_deref(),
+    best_result.country.as_deref(),
+  ] {
+    let Some(part) = normalized_text(value) else {
+      continue;
+    };
+    let key = part.to_lowercase();
+    if seen.insert(key) {
+      parts.push(part);
     }
-    if let Some(city) = normalized_text(best_result.city.as_deref()) {
-      parts.push(city);
-    }
-    if let Some(province) = normalized_text(best_result.province.as_deref()) {
-      parts.push(province);
-    }
-    if let Some(country) = normalized_text(best_result.country.as_deref()) {
-      parts.push(country);
-    }
-    if parts.is_empty() { None } else { Some(parts.join(", ")) }
-  })
+  }
+
+  if parts.is_empty() { None } else { Some(parts.join(", ")) }
 }
 
 fn best_geo_location_codes(geo_artifact: Option<&StoredGeoArtifact>) -> Option<Vec<String>> {
@@ -1533,7 +1545,6 @@ struct StoredGeoQuery {
 #[derive(Default, Deserialize)]
 struct StoredGeoResult {
   name: Option<String>,
-  formatted: Option<String>,
   city: Option<String>,
   province: Option<String>,
   country: Option<String>,
@@ -1745,7 +1756,6 @@ mod tests {
       query: Some(StoredGeoQuery { lat: Some(13.682677777777776), lon: Some(100.74934444444445) }),
       results: vec![StoredGeoResult {
         name: Some("Suvarnabhumi Airport".to_owned()),
-        formatted: Some("Suvarnabhumi Airport, Kingkaew 31/2, Racha Thewa Subdistrict, 10520, Thailand".to_owned()),
         city: Some("Racha Thewa Subdistrict".to_owned()),
         province: Some("Samut Prakan Province".to_owned()),
         country: Some("Thailand".to_owned()),
@@ -1757,13 +1767,14 @@ mod tests {
       build_image_fragment_text(Some("Thai Airways Business Class Seat"), Some("Bangkok Trip"), Some(&tag), Some(&geo))
         .unwrap();
 
+    assert!(text.starts_with("Airplane cabin interior\nAn angled view captures a luxurious airplane seat.\n\n"));
     assert!(text.contains("Title: Thai Airways Business Class Seat"));
     assert!(text.contains("Context: Bangkok Trip"));
-    assert!(text.contains("Scene: Airplane cabin interior"));
-    assert!(text.contains("Description: An angled view captures a luxurious airplane seat."));
+    assert!(!text.contains("Scene:"));
+    assert!(!text.contains("Description:"));
     assert!(text.contains("Visible text: SAWASDEE; Adventures for the Soul"));
     assert!(text.contains("Tags: airplane, business class, travel"));
-    assert!(text.contains("Location: Suvarnabhumi Airport, Kingkaew 31/2, Racha Thewa Subdistrict, 10520, Thailand"));
+    assert!(text.contains("Location: Suvarnabhumi Airport, Racha Thewa Subdistrict, Samut Prakan Province, Thailand"));
     assert!(text.contains("Location codes: BKK, VTBS"));
     assert!(text.contains("Date: 2025-12-03; December 2025"));
     assert!(!text.contains("Camera:"));
@@ -1791,6 +1802,41 @@ mod tests {
     assert!(text.contains("Visible faces: 2"));
     assert!(text.contains("Coordinates: 1.250000, 103.750000"));
     assert!(!text.contains("Dimensions:"));
+  }
+
+  #[test]
+  fn keeps_leading_scene_and_description_separate_from_metadata() {
+    let tag = StoredImageTagArtifact {
+      detailed_caption: Some("Rows of palm trees lead toward the shore.".to_owned()),
+      scene: Some("Tropical beachfront resort".to_owned()),
+      visible_face_count_estimate: None,
+      tags: vec!["ocean".to_owned()],
+      ocr_text: vec![],
+      image_metadata: None,
+    };
+
+    let text = build_image_fragment_text(Some("Beach walk"), Some("Bali trip"), Some(&tag), None).unwrap();
+
+    assert!(text.starts_with("Tropical beachfront resort\nRows of palm trees lead toward the shore.\n\n"));
+    assert!(text.contains("\n\nTitle: Beach walk\nContext: Bali trip\nTags: ocean"));
+  }
+
+  #[test]
+  fn composes_location_from_name_city_province_and_country_only() {
+    let geo = StoredGeoArtifact {
+      query: None,
+      results: vec![StoredGeoResult {
+        name: Some("The St. Regis Bali Resort".to_owned()),
+        city: Some("Nusa Dua".to_owned()),
+        province: Some("Bali".to_owned()),
+        country: Some("Indonesia".to_owned()),
+        other_names: BTreeMap::new(),
+      }],
+    };
+
+    let text = build_image_fragment_text(None, None, None, Some(&geo)).unwrap();
+
+    assert_eq!(text, "Location: The St. Regis Bali Resort, Nusa Dua, Bali, Indonesia");
   }
 
   #[test]
