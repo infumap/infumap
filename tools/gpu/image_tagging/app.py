@@ -238,6 +238,8 @@ def image_embedding_device() -> str:
 
     if torch.cuda.is_available():
         return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
     return "cpu"
 
 
@@ -754,6 +756,13 @@ def compute_image_embedding_sync(prepared_bytes: bytes) -> list[float]:
     if torch is None or processor is None or model is None or not isinstance(device, str):
         raise RuntimeError("Image embedding model is not ready.")
 
+    LOGGER.info(
+        "Starting image embedding: device=%s bytes=%d model=%s",
+        device,
+        len(prepared_bytes),
+        APP_STATE.get("image_embedding_model_id"),
+    )
+
     with Image.open(io.BytesIO(prepared_bytes)) as opened:
         image = convert_image_to_rgb(opened)
         image.load()
@@ -786,7 +795,13 @@ def compute_image_embedding_sync(prepared_bytes: bytes) -> list[float]:
         embedding = torch.nn.functional.normalize(embedding, p=2, dim=-1)
         vector = embedding[0].detach().to("cpu", dtype=torch.float32).tolist()
 
-    return [round(float(value), 8) for value in vector]
+    rounded = [round(float(value), 8) for value in vector]
+    LOGGER.info(
+        "Completed image embedding: device=%s dims=%d",
+        device,
+        len(rounded),
+    )
+    return rounded
 
 
 async def compute_image_embedding(prepared_bytes: bytes) -> list[float]:
