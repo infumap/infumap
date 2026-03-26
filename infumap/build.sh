@@ -19,12 +19,12 @@ set -euo pipefail
 
 pushd "$(dirname "$0")" >/dev/null
 if [[ $# -eq 0 ]]; then
-  cargo build --release
+  cargo build --locked --release
 elif [[ "$1" != -* ]]; then
   target="$1"
   shift
-  cargo build --release --target "$target" "$@"
+  cargo build --locked --release --target "$target" "$@"
 else
-  cargo build --release "$@"
+  cargo build --locked --release "$@"
 fi
 popd >/dev/null
