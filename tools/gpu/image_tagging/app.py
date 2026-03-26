@@ -795,6 +795,14 @@ async def compute_image_embedding(prepared_bytes: bytes) -> list[float]:
     return await asyncio.to_thread(compute_image_embedding_sync, prepared_bytes)
 
 
+def validate_image_embedding_result(image_embedding: list[float]) -> None:
+    if not APP_STATE.get("image_embedding_enabled"):
+        return
+    if image_embedding:
+        return
+    raise RuntimeError("Image embedding was enabled, but no embedding vector was produced.")
+
+
 async def read_multipart_upload(request: Request) -> tuple[str, str | None, bytes]:
     content_type_header = request.headers.get("content-type", "")
     parsed_content_type, params = parse_options_header(content_type_header.encode("latin-1"))
@@ -1141,6 +1149,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
                 ),
                 compute_image_embedding(prepared_bytes),
             )
+            validate_image_embedding_result(image_embedding)
 
         detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
         tags = normalize_labels(coerce_string_list(parsed.get("tags"), limit=24))
