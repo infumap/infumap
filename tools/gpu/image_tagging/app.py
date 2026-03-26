@@ -155,6 +155,28 @@ def env_str(name: str, default: str) -> str:
     return normalized or default
 
 
+def llama_request_format_preference() -> str:
+    configured = env_str("IMAGE_TAGGING_LLAMA_REQUEST_FORMAT", "auto").lower()
+    if configured in {"openai-image_url", "legacy-image_data", "auto"}:
+        return configured
+    LOGGER.warning(
+        "Invalid IMAGE_TAGGING_LLAMA_REQUEST_FORMAT=%r; using auto.",
+        configured,
+    )
+    return "auto"
+
+
+def effective_llama_request_format() -> str:
+    configured = llama_request_format_preference()
+    if configured != "auto":
+        return configured
+    if platform.system().lower() == "darwin":
+        # In practice the legacy payload path has been more reliable with
+        # llama-server multimodal builds on macOS/Metal.
+        return "legacy-image_data"
+    return "openai-image_url"
+
+
 def root_path() -> str:
     configured = os.environ.get("IMAGE_TAGGING_ROOT_PATH", "").strip()
     if not configured or configured == "/":
@@ -256,6 +278,7 @@ def build_runtime_summary() -> list[str]:
         f"transformers={package_version('transformers')}",
         f"backend={LLAMA_BACKEND_NAME}",
         f"llama_server_url={llama_server_url()}",
+        f"llama_request_format={effective_llama_request_format()}",
         f"model_id={llama_model_id()}",
         f"model_name={llama_model_name()}",
         f"image_embedding_enabled={embedding_enabled}",
@@ -998,19 +1021,30 @@ async def post_chat_completion(payload: dict[str, Any]) -> dict[str, Any]:
 async def request_analysis(prepared_bytes: bytes, prepared_mime_type: str) -> tuple[dict[str, Any], str]:
     data_url, image_base64 = make_data_url(prepared_mime_type, prepared_bytes)
 
-    request_format = "openai-image_url"
+    request_format = effective_llama_request_format()
+    fallback_format = "legacy-image_data" if request_format == "openai-image_url" else "openai-image_url"
+
     try:
-        payload = await post_chat_completion(build_openai_payload(data_url))
+        if request_format == "legacy-image_data":
+            payload = await post_chat_completion(build_legacy_payload(image_base64))
+        else:
+            payload = await post_chat_completion(build_openai_payload(data_url))
     except LlamaServerError as exc:
         fallback_needed = (
-            exc.status_code is not None
+            request_format == "openai-image_url"
+            and exc.status_code is not None
             and exc.status_code >= 400
             and "image_url" in exc.message.lower()
             and "unsupported" in exc.message.lower()
         )
         if not fallback_needed:
             raise
-        request_format = "legacy-image_data"
+        LOGGER.warning(
+            "llama-server rejected request format %s; retrying with %s.",
+            request_format,
+            fallback_format,
+        )
+        request_format = fallback_format
         payload = await post_chat_completion(build_legacy_payload(image_base64))
 
     try:
