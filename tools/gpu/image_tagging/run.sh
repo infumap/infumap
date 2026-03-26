@@ -300,6 +300,40 @@ cleanup() {
     fi
 }
 
+supports_wait_n() {
+    local major="${BASH_VERSINFO[0]:-0}"
+    local minor="${BASH_VERSINFO[1]:-0}"
+    if [ "$major" -gt 4 ]; then
+        return 0
+    fi
+    if [ "$major" -eq 4 ] && [ "$minor" -ge 3 ]; then
+        return 0
+    fi
+    return 1
+}
+
+wait_for_first_child_exit() {
+    local first_pid="$1"
+    local second_pid="$2"
+
+    if supports_wait_n; then
+        wait -n "$first_pid" "$second_pid"
+        return $?
+    fi
+
+    while true; do
+        if ! kill -0 "$first_pid" 2>/dev/null; then
+            wait "$first_pid"
+            return $?
+        fi
+        if ! kill -0 "$second_pid" 2>/dev/null; then
+            wait "$second_pid"
+            return $?
+        fi
+        sleep 1
+    done
+}
+
 trap cleanup EXIT INT TERM
 
 if ! command_exists "$PYTHON_BIN"; then
@@ -414,7 +448,7 @@ api_pid="$!"
 
 set +e
 if [ -n "$llama_pid" ]; then
-    wait -n "$api_pid" "$llama_pid"
+    wait_for_first_child_exit "$api_pid" "$llama_pid"
 else
     wait "$api_pid"
 fi
