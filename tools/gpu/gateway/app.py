@@ -211,7 +211,13 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
         headers=forwarded_headers(request),
         content=request.stream(),
     )
-    upstream_response = await client.send(upstream_request, stream=True)
+    try:
+        upstream_response = await client.send(upstream_request, stream=True)
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Upstream GPU service '{service.service_name}' is unavailable: {exc}",
+        ) from exc
     return StreamingResponse(
         upstream_response.aiter_raw(),
         status_code=upstream_response.status_code,
