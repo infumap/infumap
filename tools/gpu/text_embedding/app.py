@@ -26,7 +26,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from fastembed import TextEmbedding
@@ -107,6 +107,13 @@ def max_concurrency() -> int:
     return max(1, env_int("TEXT_EMBEDDING_MAX_CONCURRENCY", DEFAULT_MAX_CONCURRENCY))
 
 
+def root_path() -> str:
+    configured = os.environ.get("TEXT_EMBEDDING_ROOT_PATH", "").strip()
+    if not configured or configured == "/":
+        return ""
+    return "/" + configured.strip("/")
+
+
 def model_cache_dir() -> Path:
     configured = os.environ.get("TEXT_EMBEDDING_MODELS_DIR", "").strip()
     if configured:
@@ -119,6 +126,19 @@ def onnx_providers() -> list[str] | None:
     if not configured:
         return None
     return [provider.strip() for provider in configured.split(",") if provider.strip()]
+
+
+def active_onnx_providers(model: TextEmbedding) -> list[str]:
+    try:
+        session = getattr(getattr(model, "model", None), "model", None)
+        get_providers = getattr(session, "get_providers", None)
+        if callable(get_providers):
+            providers = get_providers()
+            if isinstance(providers, list):
+                return [str(provider) for provider in providers]
+    except Exception:
+        pass
+    return []
 
 
 def ensure_compatible_model_registered() -> None:
@@ -144,6 +164,7 @@ def ensure_compatible_model_registered() -> None:
 def build_runtime_summary() -> list[str]:
     providers = onnx_providers()
     provider_summary = ",".join(providers) if providers else "<default>"
+    active_provider_summary = ",".join(APP_STATE.get("active_providers", [])) or "<unknown>"
     return [
         f"python={platform.python_version()}",
         f"platform={platform.platform()}",
@@ -158,7 +179,8 @@ def build_runtime_summary() -> list[str]:
         f"pooling={COMPATIBLE_MODEL_POOLING}",
         f"normalization={COMPATIBLE_MODEL_NORMALIZATION}",
         f"model_cache_dir={model_cache_dir()}",
-        f"providers={provider_summary}",
+        f"providers_configured={provider_summary}",
+        f"providers_active={active_provider_summary}",
         f"max_batch_items={max_batch_items()}",
         f"max_text_chars={max_text_chars()}",
         f"max_concurrency={max_concurrency()}",
@@ -177,8 +199,25 @@ def build_embedding_model() -> TextEmbedding:
     providers = onnx_providers()
     if providers:
         kwargs["providers"] = providers
-
-    return TextEmbedding(**kwargs)
+    try:
+        return TextEmbedding(**kwargs)
+    except Exception:
+        auto_gpu_fallback = os.environ.get("TEXT_EMBEDDING_AUTO_GPU_FALLBACK", "1").strip().lower() not in {
+            "0",
+            "false",
+            "no",
+            "off",
+        }
+        if not providers or not auto_gpu_fallback or "CUDAExecutionProvider" not in providers:
+            raise
+        LOGGER.warning(
+            "Could not initialize FastEmbed with providers=%s; falling back to CPUExecutionProvider.",
+            providers,
+            exc_info=True,
+        )
+        fallback_kwargs = dict(kwargs)
+        fallback_kwargs["providers"] = ["CPUExecutionProvider"]
+        return TextEmbedding(**fallback_kwargs)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -215,7 +254,9 @@ async def lifespan(_: FastAPI):
     global EMBED_SEMAPHORE
 
     started_at = time.perf_counter()
-    APP_STATE["embedding_model"] = build_embedding_model()
+    embedding_model = build_embedding_model()
+    APP_STATE["embedding_model"] = embedding_model
+    APP_STATE["active_providers"] = active_onnx_providers(embedding_model)
     EMBED_SEMAPHORE = asyncio.Semaphore(max_concurrency())
     startup_duration_ms = int((time.perf_counter() - started_at) * 1000)
     LOGGER.info("Text embedding startup: %s", " ".join(build_runtime_summary()))
@@ -231,15 +272,26 @@ app = FastAPI(
     title="Infumap Text Embedding Service",
     version="0.1.0",
     lifespan=lifespan,
+    root_path=root_path(),
 )
 
 
+def rooted_path(request: Request, suffix: str) -> str:
+    current_root = request.scope.get("root_path", "").rstrip("/")
+    if not current_root:
+        return suffix
+    return f"{current_root}{suffix}"
+
+
 @app.get("/")
-async def root() -> dict[str, Any]:
+async def root(request: Request) -> dict[str, Any]:
     providers = onnx_providers()
     return {
         "service": "Infumap Text Embedding Service",
         "ready": "embedding_model" in APP_STATE,
+        "docs": rooted_path(request, "/docs"),
+        "health": rooted_path(request, "/healthz"),
+        "embed": rooted_path(request, "/embed"),
         "model": COMPATIBLE_MODEL_NAME,
         "fastembed_builtin_alias": FASTEMBED_PUBLIC_ALIAS,
         "compatible_with_rust_model": COMPATIBLE_WITH_RUST_MODEL,
@@ -248,6 +300,7 @@ async def root() -> dict[str, Any]:
         "pooling": COMPATIBLE_MODEL_POOLING,
         "normalized": COMPATIBLE_MODEL_NORMALIZATION,
         "providers": providers or [],
+        "active_providers": APP_STATE.get("active_providers", []),
         "model_cache_dir": str(model_cache_dir()),
         "max_batch_items": max_batch_items(),
         "max_text_chars": max_text_chars(),
@@ -260,6 +313,7 @@ async def healthz() -> dict[str, Any]:
         "ok": "embedding_model" in APP_STATE,
         "model": COMPATIBLE_MODEL_NAME,
         "dimensions": COMPATIBLE_MODEL_DIMENSIONS,
+        "active_providers": APP_STATE.get("active_providers", []),
     }
 
 

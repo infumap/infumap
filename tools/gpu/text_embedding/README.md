@@ -21,16 +21,17 @@ compiled in.
 - accepts JSON batches at `POST /embed`
 - loads the embedding model once at startup
 - returns one embedding per input in request order
-- caches the model files under `tools/text_embedding/models` by default
+- caches the model files under `tools/gpu/text_embedding/models` by default
 
 ## Default Layout
 
 By default:
 
 - the HTTP service listens on `127.0.0.1:8789`
-- model files live under `tools/text_embedding/models`
-- the launcher creates or reuses `tools/text_embedding/.venv`
-- the launcher installs Python `fastembed`, `fastapi`, and `uvicorn`
+- model files live under `tools/gpu/text_embedding/models`
+- the launcher creates or reuses `tools/gpu/text_embedding/.venv`
+- the launcher installs Python `fastembed-gpu`, `fastapi`, and `uvicorn` on
+  GPU hosts by default, and otherwise falls back to `fastembed`
 
 ## Start The Service
 
@@ -42,12 +43,12 @@ Requirements:
 From the repo root:
 
 ```bash
-./tools/text_embedding/run.sh
+./tools/gpu/text_embedding/run.sh
 ```
 
 On first run that command:
 
-1. creates `tools/text_embedding/.venv`
+1. creates `tools/gpu/text_embedding/.venv`
 2. installs Python dependencies
 3. starts the FastAPI service
 4. downloads the compatible model into the local model cache on first startup
@@ -75,9 +76,13 @@ Notes:
   `EmbeddingModel::BGEBaseENV15`.
 - `TEXT_EMBEDDING_PROVIDERS` is optional and can be used to force a specific
   ONNX Runtime provider list such as `CUDAExecutionProvider,CPUExecutionProvider`.
-- `TEXT_EMBEDDING_FASTEMBED_PACKAGE` defaults to `fastembed`. If you want to
-  experiment with a GPU-enabled Python package, you can override it, for
-  example with `fastembed-gpu`, while keeping the same model and API contract.
+- On hosts where `nvidia-smi` is available, the launcher now defaults to
+  `fastembed-gpu` and `TEXT_EMBEDDING_PROVIDERS=CUDAExecutionProvider,CPUExecutionProvider`.
+- `TEXT_EMBEDDING_FASTEMBED_PACKAGE` can still be overridden explicitly if you
+  want to force `fastembed` or a different compatible package choice.
+- `TEXT_EMBEDDING_AUTO_GPU_FALLBACK` defaults to `1`. If CUDA provider startup
+  fails, the service logs the problem and retries with `CPUExecutionProvider`
+  so the endpoint still comes up.
 
 ## Example Requests
 
@@ -144,3 +149,7 @@ Each result contains:
   embedded Rust `fastembed` path. If the Rust path changes model, pooling,
   normalization, or query-prefix behavior later, this service should be updated
   in lockstep.
+- That compatibility guarantee is about model choice and embedding semantics.
+  GPU vs CPU execution may still introduce small floating-point differences, so
+  use the `embed` CLI comparison mode if you want to verify drift on a
+  particular machine.

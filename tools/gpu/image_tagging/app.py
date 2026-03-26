@@ -155,6 +155,13 @@ def env_str(name: str, default: str) -> str:
     return normalized or default
 
 
+def root_path() -> str:
+    configured = os.environ.get("IMAGE_TAGGING_ROOT_PATH", "").strip()
+    if not configured or configured == "/":
+        return ""
+    return "/" + configured.strip("/")
+
+
 def llama_server_url() -> str:
     configured = os.environ.get("IMAGE_TAGGING_LLAMA_SERVER_URL", "").strip()
     if configured:
@@ -324,7 +331,15 @@ app = FastAPI(
     title="Infumap Image Tagging Service",
     version="0.2.0",
     lifespan=lifespan,
+    root_path=root_path(),
 )
+
+
+def rooted_path(request: Request, suffix: str) -> str:
+    current_root = request.scope.get("root_path", "").rstrip("/")
+    if not current_root:
+        return suffix
+    return f"{current_root}{suffix}"
 
 
 def collapse_whitespace(value: str) -> str:
@@ -1031,12 +1046,13 @@ async def probe_llama_server() -> tuple[bool, str | None]:
 
 
 @app.get("/")
-async def root() -> dict[str, str]:
+async def root(request: Request) -> dict[str, str]:
     return {
         "service": "infumap-image-tagging",
         "backend": LLAMA_BACKEND_NAME,
-        "docs": "/docs",
-        "health": "/healthz",
+        "docs": rooted_path(request, "/docs"),
+        "health": rooted_path(request, "/healthz"),
+        "tag": rooted_path(request, "/tag"),
     }
 
 

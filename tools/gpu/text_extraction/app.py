@@ -79,6 +79,13 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
+def root_path() -> str:
+    configured = os.environ.get("TEXT_EXTRACTION_ROOT_PATH", "").strip()
+    if not configured or configured == "/":
+        return ""
+    return "/" + configured.strip("/")
+
+
 def build_runtime_summary() -> list[str]:
     summary = [
         f"python={platform.python_version()}",
@@ -235,6 +242,7 @@ app = FastAPI(
     title="Infumap Text Extraction Service",
     version="0.1.0",
     lifespan=lifespan,
+    root_path=root_path(),
 )
 
 
@@ -250,6 +258,13 @@ def build_config() -> dict[str, Any]:
 
 def max_upload_bytes() -> int:
     return max(1, env_int("TEXT_EXTRACTION_MAX_UPLOAD_BYTES", DEFAULT_MAX_UPLOAD_BYTES))
+
+
+def rooted_path(request: Request, suffix: str) -> str:
+    current_root = request.scope.get("root_path", "").rstrip("/")
+    if not current_root:
+        return suffix
+    return f"{current_root}{suffix}"
 
 
 def decode_header_value(value: bytes | str | None) -> str | None:
@@ -485,11 +500,12 @@ async def read_multipart_upload(request: Request) -> tuple[str, str | None, byte
 
 
 @app.get("/")
-async def root() -> dict[str, str]:
+async def root(request: Request) -> dict[str, str]:
     return {
         "service": "infumap-text-extraction",
-        "docs": "/docs",
-        "health": "/healthz",
+        "docs": rooted_path(request, "/docs"),
+        "health": rooted_path(request, "/healthz"),
+        "convert": rooted_path(request, "/convert"),
     }
 
 

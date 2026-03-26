@@ -4,6 +4,6 @@ dist
 Settings.toml
 dist_handlers.rs
 __pycache__/
-tools/text_extraction/.venv/
-tools/text_embedding/.venv/
-tools/text_embedding/models/
+tools/gpu/text_extraction/.venv/
+tools/gpu/text_embedding/.venv/
+tools/gpu/text_embedding/models/

@@ -266,11 +266,14 @@ async fn fetch_service_embeddings(
 
 #[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 fn service_embed_url(base_url: &str) -> InfuResult<Url> {
-  let parsed = Url::parse(base_url).map_err(|e| format!("Could not parse service URL '{}': {}", base_url, e))?;
+  let mut parsed = Url::parse(base_url).map_err(|e| format!("Could not parse service URL '{}': {}", base_url, e))?;
   if parsed.path().ends_with("/embed") {
     Ok(parsed)
   } else {
-    parsed.join("/embed").map_err(|e| format!("Could not build /embed URL from '{}': {}", base_url, e).into())
+    let trimmed = parsed.path().trim_end_matches('/');
+    let embed_path = if trimmed.is_empty() { "/embed".to_owned() } else { format!("{}/embed", trimmed) };
+    parsed.set_path(&embed_path);
+    Ok(parsed)
   }
 }
 

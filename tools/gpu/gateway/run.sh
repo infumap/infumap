@@ -20,12 +20,10 @@ set -euo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
-readonly VENV_DIR="${TEXT_EMBEDDING_VENV_DIR:-$ROOT_DIR/.venv}"
-readonly HOST="${TEXT_EMBEDDING_HOST:-127.0.0.1}"
-readonly PORT="${TEXT_EMBEDDING_PORT:-8789}"
-readonly RESTART_DELAY_SECS="${TEXT_EMBEDDING_RESTART_DELAY_SECS:-5}"
-readonly FASTEMBED_PACKAGE="${TEXT_EMBEDDING_FASTEMBED_PACKAGE:-fastembed}"
-export TEXT_EMBEDDING_MODELS_DIR="${TEXT_EMBEDDING_MODELS_DIR:-$ROOT_DIR/models}"
+readonly VENV_DIR="${GPU_GATEWAY_VENV_DIR:-$ROOT_DIR/.venv}"
+readonly HOST="${GPU_GATEWAY_HOST:-127.0.0.1}"
+readonly PORT="${GPU_GATEWAY_PORT:-8786}"
+readonly RESTART_DELAY_SECS="${GPU_GATEWAY_RESTART_DELAY_SECS:-5}"
 
 fail() {
     echo "Error: $1" >&2
@@ -101,29 +99,16 @@ fi
 readonly VENV_PYTHON="$VENV_DIR/bin/python"
 ensure_venv_pip
 
-if ! "$VENV_PYTHON" -c "import fastapi, uvicorn, fastembed" >/dev/null 2>&1; then
+if ! "$VENV_PYTHON" -c "import fastapi, uvicorn, httpx" >/dev/null 2>&1; then
     "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip install --upgrade fastapi uvicorn "$FASTEMBED_PACKAGE"
+    "$VENV_PYTHON" -m pip install --upgrade fastapi uvicorn httpx
 fi
 
-mkdir -p "$TEXT_EMBEDDING_MODELS_DIR"
-
-echo "Starting Infumap text embedding service"
+echo "Starting Infumap GPU gateway"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
-echo "TEXT_EMBEDDING_MODELS_DIR=${TEXT_EMBEDDING_MODELS_DIR}"
-echo "TEXT_EMBEDDING_FASTEMBED_PACKAGE=${FASTEMBED_PACKAGE}"
-echo "TEXT_EMBEDDING_MAX_BATCH_ITEMS=${TEXT_EMBEDDING_MAX_BATCH_ITEMS:-256}"
-echo "TEXT_EMBEDDING_MAX_TEXT_CHARS=${TEXT_EMBEDDING_MAX_TEXT_CHARS:-32768}"
-echo "TEXT_EMBEDDING_MAX_CONCURRENCY=${TEXT_EMBEDDING_MAX_CONCURRENCY:-1}"
-echo "TEXT_EMBEDDING_PROVIDERS=${TEXT_EMBEDDING_PROVIDERS:-<default>}"
-echo "TEXT_EMBEDDING_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
-if command -v nvidia-smi >/dev/null 2>&1; then
-    echo "Detected GPUs via nvidia-smi:"
-    nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true
-else
-    echo "nvidia-smi: not found"
-fi
+echo "Forwarded endpoints: /tag /embed /convert"
+echo "GPU_GATEWAY_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
 
 child_pid=""
 shutdown_requested=0
@@ -154,17 +139,17 @@ while true; do
     fi
 
     if [ "$exit_code" -eq 0 ]; then
-        echo "Text embedding service exited cleanly. Not restarting."
+        echo "GPU gateway exited cleanly. Not restarting."
         exit 0
     fi
 
     restart_count="$((restart_count + 1))"
     if [ "$exit_code" -eq 139 ]; then
-        echo "Text embedding service crashed with SIGSEGV (exit 139). Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
+        echo "GPU gateway crashed with SIGSEGV (exit 139). Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
     elif [ "$exit_code" -gt 128 ]; then
-        echo "Text embedding service exited due to signal $((exit_code - 128)) (exit ${exit_code}). Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
+        echo "GPU gateway exited due to signal $((exit_code - 128)) (exit ${exit_code}). Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
     else
-        echo "Text embedding service exited with status ${exit_code}. Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
+        echo "GPU gateway exited with status ${exit_code}. Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
     fi
 
     sleep "$RESTART_DELAY_SECS"

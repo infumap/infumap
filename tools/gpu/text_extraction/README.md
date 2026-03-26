@@ -23,10 +23,10 @@ Requirements:
 From the repo root:
 
 ```bash
-./tools/text_extraction/run.sh
+./tools/gpu/text_extraction/run.sh
 ```
 
-On first run this creates `tools/text_extraction/.venv` and installs:
+On first run this creates `tools/gpu/text_extraction/.venv` and installs:
 
 - `marker-pdf[full]`
 - `fastapi`
@@ -53,11 +53,11 @@ Optional environment variables:
 Examples:
 
 ```bash
-TORCH_DEVICE=cpu ./tools/text_extraction/run.sh
+TORCH_DEVICE=cpu ./tools/gpu/text_extraction/run.sh
 ```
 
 ```bash
-TORCH_DEVICE=cuda TEXT_EXTRACTION_PORT=9000 ./tools/text_extraction/run.sh
+TORCH_DEVICE=cuda TEXT_EXTRACTION_PORT=9000 ./tools/gpu/text_extraction/run.sh
 ```
 
 The service uses a fixed extraction policy:
@@ -85,7 +85,7 @@ If you bind the service to `0.0.0.0` and want to reach it directly over a WireGu
 Example service startup on the admin Mac (`10.0.0.10`):
 
 ```bash
-TEXT_EXTRACTION_HOST=0.0.0.0 ./tools/text_extraction/run.sh
+TEXT_EXTRACTION_HOST=0.0.0.0 ./tools/gpu/text_extraction/run.sh
 ```
 
 If your VPN hub is the VPS from the Raspberry Pi deployment guide and it uses `sudo ufw default deny routed`, add an explicit routed allow rule there for the Infumap host (`10.0.0.2`) to reach the text extraction service on the admin Mac (`10.0.0.10`):
