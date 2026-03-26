@@ -183,6 +183,30 @@ def active_compatible_gpu_providers(configured: list[str], active: list[str]) ->
     return [provider for provider in active if provider in requested]
 
 
+def preload_onnxruntime_gpu_libraries(providers: list[str]) -> None:
+    if "CUDAExecutionProvider" not in providers:
+        return
+
+    try:
+        import onnxruntime as ort
+    except Exception:
+        LOGGER.warning("CUDA provider requested, but onnxruntime could not be imported for DLL preloading.")
+        return
+
+    preload_dlls = getattr(ort, "preload_dlls", None)
+    if callable(preload_dlls):
+        try:
+            preload_dlls(directory="")
+            return
+        except Exception:
+            LOGGER.warning("onnxruntime.preload_dlls() failed before FastEmbed initialization.", exc_info=True)
+
+    try:
+        import torch  # noqa: F401
+    except Exception:
+        LOGGER.warning("CUDA provider requested, but torch import fallback for ORT preload is unavailable.", exc_info=True)
+
+
 def active_onnx_providers(model: TextEmbedding) -> list[str]:
     try:
         session = getattr(getattr(model, "model", None), "model", None)
@@ -260,6 +284,7 @@ def build_embedding_model() -> TextEmbedding:
     providers = effective_onnx_providers()
     if providers:
         kwargs["providers"] = providers
+        preload_onnxruntime_gpu_libraries(providers)
     try:
         return TextEmbedding(**kwargs)
     except Exception:

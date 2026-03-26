@@ -230,6 +230,14 @@ package_installed() {
     "$VENV_PYTHON" -m pip show "$1" >/dev/null 2>&1
 }
 
+has_ort_cuda12_runtime_libs() {
+    local matches=()
+    shopt -s nullglob
+    matches=("$VENV_DIR"/lib/python*/site-packages/nvidia/cublas/lib/libcublasLt.so.12)
+    shopt -u nullglob
+    [ "${#matches[@]}" -gt 0 ]
+}
+
 ensure_python_packages() {
     local reinstall=0
     local conflicting_package=""
@@ -246,7 +254,13 @@ ensure_python_packages() {
     if ! package_installed "$FASTEMBED_PACKAGE"; then
         reinstall=1
     fi
+    if [ "$FASTEMBED_PACKAGE" = "fastembed-gpu" ] && ! package_installed "onnxruntime-gpu"; then
+        reinstall=1
+    fi
     if package_installed "$conflicting_package"; then
+        reinstall=1
+    fi
+    if [ "$FASTEMBED_PACKAGE" = "fastembed-gpu" ] && ! has_ort_cuda12_runtime_libs; then
         reinstall=1
     fi
 
@@ -256,6 +270,10 @@ ensure_python_packages() {
 
     "$VENV_PYTHON" -m pip install --upgrade pip
     "$VENV_PYTHON" -m pip uninstall -y fastembed fastembed-gpu onnxruntime onnxruntime-gpu >/dev/null 2>&1 || true
+    if [ "$FASTEMBED_PACKAGE" = "fastembed-gpu" ]; then
+        "$VENV_PYTHON" -m pip install --upgrade fastapi uvicorn "$FASTEMBED_PACKAGE" "onnxruntime-gpu[cuda,cudnn]>=1.21.0"
+        return 0
+    fi
     "$VENV_PYTHON" -m pip install --upgrade fastapi uvicorn "$FASTEMBED_PACKAGE"
 }
 

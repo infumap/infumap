@@ -93,6 +93,9 @@ Notes:
 - On Linux NVIDIA hosts, the launcher now prepends the CUDA runtime libraries
   bundled in the venv to `LD_LIBRARY_PATH` before starting the service so
   ONNX Runtime can resolve `libcublas`, `libcudnn`, and related dependencies.
+- On Linux NVIDIA hosts, the launcher also installs `onnxruntime-gpu[cuda,cudnn]`
+  so the CUDA 12 / cuDNN 9 runtime expected by current ONNX Runtime GPU wheels
+  is present inside the venv.
 
 ## Example Requests
 
