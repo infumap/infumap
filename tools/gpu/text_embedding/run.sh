@@ -150,6 +150,10 @@ has_nvidia_gpu() {
     command_exists nvidia-smi
 }
 
+is_macos() {
+    [ "$(uname -s)" = "Darwin" ]
+}
+
 effective_fastembed_package() {
     if [ -n "${TEXT_EMBEDDING_FASTEMBED_PACKAGE:-}" ]; then
         printf '%s\n' "${TEXT_EMBEDDING_FASTEMBED_PACKAGE}"
@@ -175,7 +179,51 @@ effective_providers() {
         printf '%s\n' "CUDAExecutionProvider,CPUExecutionProvider"
         return 0
     fi
+    if is_macos; then
+        printf '%s\n' "CoreMLExecutionProvider,CPUExecutionProvider"
+        return 0
+    fi
     printf '%s\n' ""
+}
+
+prepend_env_path() {
+    local variable_name="$1"
+    local path_value="$2"
+    local current_value=""
+    [ -n "$path_value" ] || return 0
+
+    current_value="$(printenv "$variable_name" 2>/dev/null || true)"
+    if [ -n "$current_value" ]; then
+        export "${variable_name}=${path_value}:${current_value}"
+    else
+        export "${variable_name}=${path_value}"
+    fi
+}
+
+export_cuda_runtime_paths() {
+    local lib_dirs=()
+    local joined=""
+    local dir=""
+
+    if ! has_nvidia_gpu; then
+        return 0
+    fi
+
+    shopt -s nullglob
+    for dir in "$VENV_DIR"/lib/python*/site-packages/nvidia/*/lib "$VENV_DIR"/lib/python*/site-packages/torch/lib; do
+        if [ -d "$dir" ]; then
+            lib_dirs+=("$dir")
+        fi
+    done
+    shopt -u nullglob
+
+    if [ "${#lib_dirs[@]}" -eq 0 ]; then
+        return 0
+    fi
+
+    joined="$(printf '%s:' "${lib_dirs[@]}")"
+    joined="${joined%:}"
+    prepend_env_path "LD_LIBRARY_PATH" "$joined"
 }
 
 package_installed() {
@@ -232,9 +280,17 @@ readonly EFFECTIVE_PROVIDERS="$(effective_providers)"
 if [ -n "$EFFECTIVE_PROVIDERS" ]; then
     export TEXT_EMBEDDING_PROVIDERS="$EFFECTIVE_PROVIDERS"
 fi
+if [ -n "${TEXT_EMBEDDING_REQUIRE_GPU:-}" ]; then
+    export TEXT_EMBEDDING_REQUIRE_GPU
+elif has_nvidia_gpu; then
+    export TEXT_EMBEDDING_REQUIRE_GPU="1"
+else
+    export TEXT_EMBEDDING_REQUIRE_GPU="0"
+fi
 export TEXT_EMBEDDING_AUTO_GPU_FALLBACK="${TEXT_EMBEDDING_AUTO_GPU_FALLBACK:-1}"
 
 ensure_python_packages
+export_cuda_runtime_paths
 
 mkdir -p "$TEXT_EMBEDDING_MODELS_DIR"
 
@@ -247,7 +303,9 @@ echo "TEXT_EMBEDDING_MAX_BATCH_ITEMS=${TEXT_EMBEDDING_MAX_BATCH_ITEMS:-256}"
 echo "TEXT_EMBEDDING_MAX_TEXT_CHARS=${TEXT_EMBEDDING_MAX_TEXT_CHARS:-32768}"
 echo "TEXT_EMBEDDING_MAX_CONCURRENCY=${TEXT_EMBEDDING_MAX_CONCURRENCY:-1}"
 echo "TEXT_EMBEDDING_PROVIDERS=${TEXT_EMBEDDING_PROVIDERS:-<default>}"
+echo "TEXT_EMBEDDING_REQUIRE_GPU=${TEXT_EMBEDDING_REQUIRE_GPU}"
 echo "TEXT_EMBEDDING_AUTO_GPU_FALLBACK=${TEXT_EMBEDDING_AUTO_GPU_FALLBACK}"
+echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-<unset>}"
 echo "TEXT_EMBEDDING_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
 if has_nvidia_gpu; then
     echo "Detected GPUs via nvidia-smi:"

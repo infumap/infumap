@@ -31,7 +31,7 @@ By default:
 - model files live under `tools/gpu/text_embedding/models`
 - the launcher creates or reuses `tools/gpu/text_embedding/.venv`
 - the launcher installs Python `fastembed-gpu`, `fastapi`, and `uvicorn` on
-  GPU hosts by default, and otherwise falls back to `fastembed`
+  NVIDIA GPU hosts by default, and otherwise falls back to `fastembed`
 
 ## Start The Service
 
@@ -65,6 +65,7 @@ On first run that command:
 - `TEXT_EMBEDDING_RESTART_DELAY_SECS`
 - `TEXT_EMBEDDING_PROVIDERS`
 - `TEXT_EMBEDDING_FASTEMBED_PACKAGE`
+- `TEXT_EMBEDDING_REQUIRE_GPU`
 
 Notes:
 
@@ -75,14 +76,23 @@ Notes:
   instead of the Xenova ONNX file that Rust fastembed uses for
   `EmbeddingModel::BGEBaseENV15`.
 - `TEXT_EMBEDDING_PROVIDERS` is optional and can be used to force a specific
-  ONNX Runtime provider list such as `CUDAExecutionProvider,CPUExecutionProvider`.
+  ONNX Runtime provider list such as `CUDAExecutionProvider,CPUExecutionProvider`
+  or `CoreMLExecutionProvider,CPUExecutionProvider`.
 - On hosts where `nvidia-smi` is available, the launcher now defaults to
-  `fastembed-gpu` and `TEXT_EMBEDDING_PROVIDERS=CUDAExecutionProvider,CPUExecutionProvider`.
+  `fastembed-gpu`, `TEXT_EMBEDDING_PROVIDERS=CUDAExecutionProvider,CPUExecutionProvider`,
+  and `TEXT_EMBEDDING_REQUIRE_GPU=1`.
+- On macOS, the app will use `CoreMLExecutionProvider` automatically when the
+  installed ONNX Runtime build exposes it. If the runtime does not expose a
+  CoreML provider, the service stays on CPU unless you install a CoreML-capable
+  ONNX Runtime yourself.
 - `TEXT_EMBEDDING_FASTEMBED_PACKAGE` can still be overridden explicitly if you
   want to force `fastembed` or a different compatible package choice.
 - `TEXT_EMBEDDING_AUTO_GPU_FALLBACK` defaults to `1`. If CUDA provider startup
   fails, the service logs the problem and retries with `CPUExecutionProvider`
-  so the endpoint still comes up.
+  so the endpoint still comes up when `TEXT_EMBEDDING_REQUIRE_GPU=0`.
+- On Linux NVIDIA hosts, the launcher now prepends the CUDA runtime libraries
+  bundled in the venv to `LD_LIBRARY_PATH` before starting the service so
+  ONNX Runtime can resolve `libcublas`, `libcudnn`, and related dependencies.
 
 ## Example Requests
 
@@ -118,6 +128,9 @@ curl -sS \
 - `GET /`
 - `GET /healthz`
 - `POST /embed`
+
+`GET /` and `GET /healthz` both report the configured, available, and active
+ONNX providers so you can confirm whether the service is actually on GPU.
 
 Interactive API docs are available at `http://127.0.0.1:8789/docs`.
 

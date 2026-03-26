@@ -40,6 +40,10 @@ DEFAULT_MAX_BATCH_ITEMS = 256
 DEFAULT_MAX_TEXT_CHARS = 32_768
 DEFAULT_MAX_CONCURRENCY = 1
 DEFAULT_MODEL_CACHE_DIR = Path(__file__).resolve().parent / "models"
+GPU_EXECUTION_PROVIDERS = {
+    "CUDAExecutionProvider",
+    "CoreMLExecutionProvider",
+}
 
 COMPATIBLE_MODEL_NAME = "Xenova/bge-base-en-v1.5"
 FASTEMBED_PUBLIC_ALIAS = "BAAI/bge-base-en-v1.5"
@@ -82,6 +86,14 @@ def package_version(package_name: str) -> str:
         return version(package_name)
     except PackageNotFoundError:
         return "unknown"
+
+
+def package_version_any(*package_names: str) -> str:
+    for package_name in package_names:
+        resolved = package_version(package_name)
+        if resolved != "unknown":
+            return resolved
+    return "unknown"
 
 
 def env_int(name: str, default: int) -> int:
@@ -128,6 +140,49 @@ def onnx_providers() -> list[str] | None:
     return [provider.strip() for provider in configured.split(",") if provider.strip()]
 
 
+def available_onnx_providers() -> list[str]:
+    try:
+        import onnxruntime as ort
+    except Exception:
+        return []
+
+    try:
+        providers = ort.get_available_providers()
+    except Exception:
+        return []
+
+    if not isinstance(providers, list):
+        return []
+    return [str(provider) for provider in providers]
+
+
+def effective_onnx_providers() -> list[str]:
+    configured = onnx_providers()
+    if configured is not None:
+        return configured
+
+    available = available_onnx_providers()
+    if "CUDAExecutionProvider" in available:
+        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    if platform.system() == "Darwin" and "CoreMLExecutionProvider" in available:
+        return ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+    return []
+
+
+def require_gpu() -> bool:
+    raw = os.environ.get("TEXT_EMBEDDING_REQUIRE_GPU", "0").strip().lower()
+    return raw not in {"", "0", "false", "no", "off"}
+
+
+def requested_gpu_providers(providers: list[str]) -> list[str]:
+    return [provider for provider in providers if provider in GPU_EXECUTION_PROVIDERS]
+
+
+def active_compatible_gpu_providers(configured: list[str], active: list[str]) -> list[str]:
+    requested = requested_gpu_providers(configured)
+    return [provider for provider in active if provider in requested]
+
+
 def active_onnx_providers(model: TextEmbedding) -> list[str]:
     try:
         session = getattr(getattr(model, "model", None), "model", None)
@@ -162,16 +217,19 @@ def ensure_compatible_model_registered() -> None:
 
 
 def build_runtime_summary() -> list[str]:
-    providers = onnx_providers()
-    provider_summary = ",".join(providers) if providers else "<default>"
+    configured_providers = onnx_providers()
+    provider_summary = ",".join(configured_providers) if configured_providers else "<auto>"
+    selected_providers = APP_STATE.get("configured_providers", effective_onnx_providers())
+    selected_provider_summary = ",".join(selected_providers) if selected_providers else "<default>"
+    available_provider_summary = ",".join(APP_STATE.get("available_providers", available_onnx_providers())) or "<unknown>"
     active_provider_summary = ",".join(APP_STATE.get("active_providers", [])) or "<unknown>"
     return [
         f"python={platform.python_version()}",
         f"platform={platform.platform()}",
         f"fastapi={package_version('fastapi')}",
         f"uvicorn={package_version('uvicorn')}",
-        f"fastembed={package_version('fastembed')}",
-        f"onnxruntime={package_version('onnxruntime')}",
+        f"fastembed={package_version_any('fastembed-gpu', 'fastembed')}",
+        f"onnxruntime={package_version_any('onnxruntime-gpu', 'onnxruntime')}",
         f"model={COMPATIBLE_MODEL_NAME}",
         f"fastembed_builtin_alias={FASTEMBED_PUBLIC_ALIAS}",
         f"compatible_with_rust_model={COMPATIBLE_WITH_RUST_MODEL}",
@@ -180,7 +238,10 @@ def build_runtime_summary() -> list[str]:
         f"normalization={COMPATIBLE_MODEL_NORMALIZATION}",
         f"model_cache_dir={model_cache_dir()}",
         f"providers_configured={provider_summary}",
+        f"providers_selected={selected_provider_summary}",
+        f"providers_available={available_provider_summary}",
         f"providers_active={active_provider_summary}",
+        f"require_gpu={require_gpu()}",
         f"max_batch_items={max_batch_items()}",
         f"max_text_chars={max_text_chars()}",
         f"max_concurrency={max_concurrency()}",
@@ -196,7 +257,7 @@ def build_embedding_model() -> TextEmbedding:
         "model_name": COMPATIBLE_MODEL_NAME,
         "cache_dir": str(cache_dir),
     }
-    providers = onnx_providers()
+    providers = effective_onnx_providers()
     if providers:
         kwargs["providers"] = providers
     try:
@@ -208,7 +269,7 @@ def build_embedding_model() -> TextEmbedding:
             "no",
             "off",
         }
-        if not providers or not auto_gpu_fallback or "CUDAExecutionProvider" not in providers:
+        if not providers or not auto_gpu_fallback or not requested_gpu_providers(providers) or require_gpu():
             raise
         LOGGER.warning(
             "Could not initialize FastEmbed with providers=%s; falling back to CPUExecutionProvider.",
@@ -224,6 +285,26 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     model: TextEmbedding = APP_STATE["embedding_model"]
     vectors = list(model.embed(texts))
     return [vector.tolist() for vector in vectors]
+
+
+def validate_active_providers() -> None:
+    configured = APP_STATE.get("configured_providers", [])
+    active = APP_STATE.get("active_providers", [])
+    gpu_requested = requested_gpu_providers(configured)
+    if not gpu_requested:
+        return
+
+    gpu_active = active_compatible_gpu_providers(configured, active)
+    if gpu_active:
+        return
+
+    message = (
+        f"Configured GPU provider(s) {gpu_requested} were requested, "
+        f"but active providers are {active or ['<none>']}."
+    )
+    if require_gpu():
+        raise RuntimeError(message)
+    LOGGER.warning(message)
 
 
 def validate_inputs(request: EmbedRequest) -> list[str]:
@@ -254,9 +335,12 @@ async def lifespan(_: FastAPI):
     global EMBED_SEMAPHORE
 
     started_at = time.perf_counter()
+    APP_STATE["available_providers"] = available_onnx_providers()
+    APP_STATE["configured_providers"] = effective_onnx_providers()
     embedding_model = build_embedding_model()
     APP_STATE["embedding_model"] = embedding_model
     APP_STATE["active_providers"] = active_onnx_providers(embedding_model)
+    validate_active_providers()
     EMBED_SEMAPHORE = asyncio.Semaphore(max_concurrency())
     startup_duration_ms = int((time.perf_counter() - started_at) * 1000)
     LOGGER.info("Text embedding startup: %s", " ".join(build_runtime_summary()))
@@ -285,7 +369,6 @@ def rooted_path(request: Request, suffix: str) -> str:
 
 @app.get("/")
 async def root(request: Request) -> dict[str, Any]:
-    providers = onnx_providers()
     return {
         "service": "Infumap Text Embedding Service",
         "ready": "embedding_model" in APP_STATE,
@@ -299,7 +382,8 @@ async def root(request: Request) -> dict[str, Any]:
         "dimensions": COMPATIBLE_MODEL_DIMENSIONS,
         "pooling": COMPATIBLE_MODEL_POOLING,
         "normalized": COMPATIBLE_MODEL_NORMALIZATION,
-        "providers": providers or [],
+        "providers": APP_STATE.get("configured_providers", []),
+        "available_providers": APP_STATE.get("available_providers", []),
         "active_providers": APP_STATE.get("active_providers", []),
         "model_cache_dir": str(model_cache_dir()),
         "max_batch_items": max_batch_items(),
@@ -313,7 +397,10 @@ async def healthz() -> dict[str, Any]:
         "ok": "embedding_model" in APP_STATE,
         "model": COMPATIBLE_MODEL_NAME,
         "dimensions": COMPATIBLE_MODEL_DIMENSIONS,
+        "configured_providers": APP_STATE.get("configured_providers", []),
+        "available_providers": APP_STATE.get("available_providers", []),
         "active_providers": APP_STATE.get("active_providers", []),
+        "require_gpu": require_gpu(),
     }
 
 
