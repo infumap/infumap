@@ -24,6 +24,7 @@ readonly VENV_DIR="${GPU_GATEWAY_VENV_DIR:-$ROOT_DIR/.venv}"
 readonly HOST="${GPU_GATEWAY_HOST:-127.0.0.1}"
 readonly PORT="${GPU_GATEWAY_PORT:-8786}"
 readonly RESTART_DELAY_SECS="${GPU_GATEWAY_RESTART_DELAY_SECS:-5}"
+LAUNCHED_CHILD_PID=""
 
 fail() {
     echo "Error: $1" >&2
@@ -40,7 +41,7 @@ launch_child() {
     else
         "$@" &
     fi
-    printf '%s\n' "$!"
+    LAUNCHED_CHILD_PID="$!"
 }
 
 terminate_child() {
@@ -185,7 +186,8 @@ stop_supervisor() {
 trap stop_supervisor INT TERM
 
 while true; do
-    child_pid="$(launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT")"
+    launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT"
+    child_pid="$LAUNCHED_CHILD_PID"
 
     set +e
     wait "$child_pid"

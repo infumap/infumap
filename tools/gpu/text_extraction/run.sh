@@ -25,6 +25,7 @@ readonly HOST="${TEXT_EXTRACTION_HOST:-${MARKER_SERVICE_HOST:-127.0.0.1}}"
 readonly PORT="${TEXT_EXTRACTION_PORT:-${MARKER_SERVICE_PORT:-8787}}"
 readonly RESTART_DELAY_SECS="${TEXT_EXTRACTION_RESTART_DELAY_SECS:-5}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+LAUNCHED_CHILD_PID=""
 
 gpu_total_memory_mib() {
     if ! command -v nvidia-smi >/dev/null 2>&1; then
@@ -62,7 +63,7 @@ launch_child() {
     else
         "$@" &
     fi
-    printf '%s\n' "$!"
+    LAUNCHED_CHILD_PID="$!"
 }
 
 terminate_child() {
@@ -221,7 +222,8 @@ stop_supervisor() {
 trap stop_supervisor INT TERM
 
 while true; do
-    child_pid="$(launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT")"
+    launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT"
+    child_pid="$LAUNCHED_CHILD_PID"
 
     set +e
     wait "$child_pid"

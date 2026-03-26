@@ -55,6 +55,7 @@ readonly LLAMA_UPDATE_CHECKOUT="${IMAGE_TAGGING_LLAMA_UPDATE_CHECKOUT:-0}"
 
 llama_pid=""
 api_pid=""
+LAUNCHED_CHILD_PID=""
 
 fail() {
     echo "Error: $1" >&2
@@ -125,7 +126,7 @@ launch_child() {
     else
         "$@" &
     fi
-    printf '%s\n' "$!"
+    LAUNCHED_CHILD_PID="$!"
 }
 
 terminate_child() {
@@ -492,7 +493,8 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
         llama_cmd+=("${llama_extra_args[@]}")
     fi
 
-    llama_pid="$(launch_child "${llama_cmd[@]}")"
+    launch_child "${llama_cmd[@]}"
+    llama_pid="$LAUNCHED_CHILD_PID"
 
     echo "Waiting for llama-server to become ready..."
     wait_for_llama_server "$IMAGE_TAGGING_LLAMA_SERVER_URL" "$llama_pid"
@@ -500,7 +502,8 @@ else
     echo "Using externally managed llama-server at $IMAGE_TAGGING_LLAMA_SERVER_URL"
 fi
 
-api_pid="$(launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT")"
+launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT"
+api_pid="$LAUNCHED_CHILD_PID"
 
 set +e
 if [ -n "$llama_pid" ]; then

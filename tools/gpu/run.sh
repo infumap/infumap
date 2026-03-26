@@ -29,6 +29,7 @@ readonly SERVICES=(
 
 supervisor_pids=()
 shutdown_requested=0
+LAUNCHED_CHILD_PID=""
 
 fail() {
     echo "Error: $1" >&2
@@ -45,7 +46,7 @@ launch_child() {
     else
         "$@" &
     fi
-    printf '%s\n' "$!"
+    LAUNCHED_CHILD_PID="$!"
 }
 
 terminate_child() {
@@ -126,7 +127,8 @@ supervise_service() {
 
     while true; do
         log_service "$service_name" "starting ${run_script#$ROOT_DIR/}"
-        child_pid="$(launch_child "$run_script")"
+        launch_child "$run_script"
+        child_pid="$LAUNCHED_CHILD_PID"
 
         set +e
         wait "$child_pid"
