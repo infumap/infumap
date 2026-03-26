@@ -86,6 +86,7 @@ llama-server management:
 - `IMAGE_TAGGING_LLAMA_UPDATE_CHECKOUT`
 - `IMAGE_TAGGING_LLAMA_CMAKE_ARGS`
 - `IMAGE_TAGGING_LLAMA_EXTRA_ARGS`
+- `IMAGE_TAGGING_LLAMA_REQUEST_FORMAT` values: `auto`, `openai-image_url`, `legacy-image_data`
 
 Model selection:
 
@@ -160,6 +161,10 @@ curl -sS \
 - When `run.sh` manages `llama-server`, it now defaults to
   `--reasoning-format none` so the model returns final JSON instead of
   spending the token budget on reasoning traces.
+- On macOS, the wrapper defaults to the older `legacy-image_data` llama-server
+  request format because that path has been more reliable with Metal-backed
+  multimodal builds. You can override that with
+  `IMAGE_TAGGING_LLAMA_REQUEST_FORMAT=openai-image_url` or `auto`.
 - The wrapper first tries the standard OpenAI `image_url` chat format. If the
   running `llama-server` build rejects that format, it automatically retries
   using the older `image_data` payload style.
