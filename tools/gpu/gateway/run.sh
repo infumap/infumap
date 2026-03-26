@@ -22,7 +22,7 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${GPU_GATEWAY_VENV_DIR:-$ROOT_DIR/.venv}"
 readonly HOST="${GPU_GATEWAY_HOST:-127.0.0.1}"
-readonly PORT="${GPU_GATEWAY_PORT:-8786}"
+readonly PORT="${GPU_GATEWAY_PORT:-8787}"
 readonly RESTART_DELAY_SECS="${GPU_GATEWAY_RESTART_DELAY_SECS:-5}"
 LAUNCHED_CHILD_PID=""
 

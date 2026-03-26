@@ -61,12 +61,12 @@
 # Optional URL for the external text extraction service. If set, Infumap will run a
 # background loop that extracts markdown for PDF file items and stores the
 # results under each user's text directory in the data directory.
-#text_extraction_url = "http://127.0.0.1:8786/convert"
+#text_extraction_url = "http://127.0.0.1:8787/convert"
 
 # Optional URL for the external image tagging service. If set, Infumap will run a
 # background loop that tags supported image items and stores the JSON results
 # under each user's text directory in the data directory.
-#image_tagging_url = "http://127.0.0.1:8786/tag"
+#image_tagging_url = "http://127.0.0.1:8787/tag"
 
 # Maximum aggregate size (in megabytes) of all files in the cache. Files are
 # removed using an LRU policy if this size is exceeded.

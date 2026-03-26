@@ -68,7 +68,7 @@ def service_registry() -> dict[str, ServiceProxy]:
         ServiceProxy(
             service_name="text_extraction",
             public_paths=("/convert",),
-            upstream_base_url=upstream_base_url("GPU_TEXT_EXTRACTION_UPSTREAM_URL", "127.0.0.1", 8787),
+            upstream_base_url=upstream_base_url("GPU_TEXT_EXTRACTION_UPSTREAM_URL", "127.0.0.1", 8790),
         ),
     ]
     return {service.service_name: service for service in services}

@@ -13,11 +13,17 @@ To start all three together from the repo root:
 ./tools/gpu/run.sh
 ```
 
-By default the gateway listens on `127.0.0.1:8786` and forwards:
+By default the gateway listens on `127.0.0.1:8787` and forwards:
 
 - `/tag` to the image tagging service
 - `/embed` to the text embedding service
 - `/convert` to the text extraction service
+
+The child services keep their own defaults:
+
+- `image_tagging`: `127.0.0.1:8788`
+- `text_embedding`: `127.0.0.1:8789`
+- `text_extraction`: `127.0.0.1:8790`
 
 The combined launcher keeps each service independent:
 

@@ -33,7 +33,7 @@ On first run this creates `tools/gpu/text_extraction/.venv` and installs:
 - `uvicorn`
 - `python-multipart`
 
-By default the service listens on `127.0.0.1:8787`.
+By default the service listens on `127.0.0.1:8790`.
 
 `run.sh` supervises a `uvicorn` process. If the text extraction service crashes
 (including a segfault), the script logs the exit and restarts it automatically after
@@ -71,12 +71,12 @@ The service uses a fixed extraction policy:
 If the service is running on `my-host`:
 
 ```bash
-ssh -L 8787:127.0.0.1:8787 my-host
+ssh -L 8790:127.0.0.1:8790 my-host
 ```
 
 (locally)
 
-Then use `http://127.0.0.1:8787` locally as if the service were running on your laptop.
+Then use `http://127.0.0.1:8790` locally as if the service were running on your laptop.
 
 ## Access Over VPN
 
@@ -91,14 +91,14 @@ TEXT_EXTRACTION_HOST=0.0.0.0 ./tools/gpu/text_extraction/run.sh
 If your VPN hub is the VPS from the Raspberry Pi deployment guide and it uses `sudo ufw default deny routed`, add an explicit routed allow rule there for the Infumap host (`10.0.0.2`) to reach the text extraction service on the admin Mac (`10.0.0.10`):
 
 ```bash
-sudo ufw route allow in on wg0 out on wg0 from 10.0.0.2/32 to 10.0.0.10/32 port 8787 proto tcp
+sudo ufw route allow in on wg0 out on wg0 from 10.0.0.2/32 to 10.0.0.10/32 port 8790 proto tcp
 sudo ufw reload
 ```
 
 Then point Infumap at:
 
 ```text
-http://10.0.0.10:8787/convert
+http://10.0.0.10:8790/convert
 ```
 
 If `10.0.0.1` can reach the service but `10.0.0.2` cannot, that usually means the VPN hub is still dropping forwarded `wg0` peer-to-peer traffic.
@@ -110,7 +110,7 @@ Example upload request:
 ```bash
 curl -sS \
   -F "file=@/path/to/document.pdf" \
-  http://127.0.0.1:8787/convert
+  http://127.0.0.1:8790/convert
 ```
 
 Print only the markdown:
@@ -118,7 +118,7 @@ Print only the markdown:
 ```bash
 curl -sS \
   -F "file=@/path/to/document.pdf" \
-  http://127.0.0.1:8787/convert \
+  http://127.0.0.1:8790/convert \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["markdown"])'
 ```
 
@@ -141,4 +141,4 @@ curl -sS \
 - The zero-disk upload path depends on Linux `memfd` support. That matches the
   intended deployment environment for this service.
 
-Interactive API docs are available at `http://127.0.0.1:8787/docs`.
+Interactive API docs are available at `http://127.0.0.1:8790/docs`.
