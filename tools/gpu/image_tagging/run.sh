@@ -119,6 +119,62 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+launch_child() {
+    if command_exists setsid; then
+        setsid "$@" &
+    else
+        "$@" &
+    fi
+    printf '%s\n' "$!"
+}
+
+terminate_child() {
+    local pid="${1:-}"
+    [ -n "$pid" ] || return 0
+
+    if command_exists setsid; then
+        kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+        return 0
+    fi
+
+    if command_exists pkill; then
+        pkill -TERM -P "$pid" 2>/dev/null || true
+    fi
+    kill -TERM "$pid" 2>/dev/null || true
+}
+
+force_kill_child() {
+    local pid="${1:-}"
+    [ -n "$pid" ] || return 0
+
+    if command_exists setsid; then
+        kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+        return 0
+    fi
+
+    if command_exists pkill; then
+        pkill -KILL -P "$pid" 2>/dev/null || true
+    fi
+    kill -KILL "$pid" 2>/dev/null || true
+}
+
+wait_for_child_shutdown() {
+    local pid="${1:-}"
+    local attempt
+    [ -n "$pid" ] || return 0
+
+    for attempt in 1 2 3 4 5; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" 2>/dev/null || true
+            return 0
+        fi
+        sleep 1
+    done
+
+    force_kill_child "$pid"
+    wait "$pid" 2>/dev/null || true
+}
+
 require_command() {
     if ! command_exists "$1"; then
         fail "Required command not found: $1"
@@ -293,11 +349,13 @@ PY
 
 cleanup() {
     if [ -n "$api_pid" ] && kill -0 "$api_pid" 2>/dev/null; then
-        kill -TERM "$api_pid" 2>/dev/null || true
+        terminate_child "$api_pid"
     fi
     if [ -n "$llama_pid" ] && kill -0 "$llama_pid" 2>/dev/null; then
-        kill -TERM "$llama_pid" 2>/dev/null || true
+        terminate_child "$llama_pid"
     fi
+    wait_for_child_shutdown "$api_pid"
+    wait_for_child_shutdown "$llama_pid"
 }
 
 supports_wait_n() {
@@ -434,8 +492,7 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
         llama_cmd+=("${llama_extra_args[@]}")
     fi
 
-    "${llama_cmd[@]}" &
-    llama_pid="$!"
+    llama_pid="$(launch_child "${llama_cmd[@]}")"
 
     echo "Waiting for llama-server to become ready..."
     wait_for_llama_server "$IMAGE_TAGGING_LLAMA_SERVER_URL" "$llama_pid"
@@ -443,8 +500,7 @@ else
     echo "Using externally managed llama-server at $IMAGE_TAGGING_LLAMA_SERVER_URL"
 fi
 
-"$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT" &
-api_pid="$!"
+api_pid="$(launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT")"
 
 set +e
 if [ -n "$llama_pid" ]; then

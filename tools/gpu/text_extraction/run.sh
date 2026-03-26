@@ -52,6 +52,66 @@ fail() {
     exit 1
 }
 
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+launch_child() {
+    if command_exists setsid; then
+        setsid "$@" &
+    else
+        "$@" &
+    fi
+    printf '%s\n' "$!"
+}
+
+terminate_child() {
+    local pid="${1:-}"
+    [ -n "$pid" ] || return 0
+
+    if command_exists setsid; then
+        kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+        return 0
+    fi
+
+    if command_exists pkill; then
+        pkill -TERM -P "$pid" 2>/dev/null || true
+    fi
+    kill -TERM "$pid" 2>/dev/null || true
+}
+
+force_kill_child() {
+    local pid="${1:-}"
+    [ -n "$pid" ] || return 0
+
+    if command_exists setsid; then
+        kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+        return 0
+    fi
+
+    if command_exists pkill; then
+        pkill -KILL -P "$pid" 2>/dev/null || true
+    fi
+    kill -KILL "$pid" 2>/dev/null || true
+}
+
+wait_for_child_shutdown() {
+    local pid="${1:-}"
+    local attempt
+    [ -n "$pid" ] || return 0
+
+    for attempt in 1 2 3 4 5; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" 2>/dev/null || true
+            return 0
+        fi
+        sleep 1
+    done
+
+    force_kill_child "$pid"
+    wait "$pid" 2>/dev/null || true
+}
+
 venv_package_name() {
     "$PYTHON_BIN" - <<'PY'
 import sys
@@ -153,15 +213,15 @@ restart_count=0
 stop_supervisor() {
     shutdown_requested=1
     if [ -n "${child_pid}" ]; then
-        kill -TERM "$child_pid" 2>/dev/null || true
+        terminate_child "$child_pid"
+        wait_for_child_shutdown "$child_pid"
     fi
 }
 
 trap stop_supervisor INT TERM
 
 while true; do
-    "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT" &
-    child_pid="$!"
+    child_pid="$(launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT")"
 
     set +e
     wait "$child_pid"
