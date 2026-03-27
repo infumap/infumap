@@ -520,12 +520,11 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     }
     itemState.add(link);
     server.addItem(link, null, store.general.networkStatus);
-    fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
-    let ve = VesCache.findSingle({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id });
-    MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
-    MouseActionState.get().activeElementSignalMaybe = ve;
-    MouseActionState.get().activeLinkIdMaybe = ve.get().actualLinkItemMaybe?.id ?? ve.get().linkItemMaybe?.id ?? null;
-    MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? ve.get().displayItem : null;
+    const newLinkVeid = { itemId: activeElement.displayItem.id, linkIdMaybe: link.id };
+    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, moveToPath);
+    MouseActionState.get().activeElementSignalMaybe = null;
+    MouseActionState.get().activeLinkIdMaybe = link.id;
+    MouseActionState.get().activeLinkedDisplayItemMaybe = activeElement.displayItem;
     MouseActionState.get().linkCreatedOnMoveStart = true;
 
   } else {
