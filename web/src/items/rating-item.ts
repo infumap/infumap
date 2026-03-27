@@ -29,7 +29,7 @@ import { serverOrRemote } from '../server';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
-import { fullArrange } from '../layout/arrange';
+import { requestArrange } from '../layout/arrange';
 
 
 export type RatingType = "Number" | "Star" | "HorizontalBar" | "VerticalBar";
@@ -218,7 +218,7 @@ export const RatingFns = {
     const item = asRatingItem(visualElementSignal.get().displayItem);
     item.rating += 1;
     if (item.rating == 6) { item.rating = 0; }
-    fullArrange(store);
+    requestArrange(store, "rating-click");
 
     function clickTimerHandler() {
       serverOrRemote.updateItem(item, store.general.networkStatus);
