@@ -28,7 +28,7 @@ import { VesCache } from "./layout/ves-cache";
 import { asContainerItem, isContainer } from "./items/base/container-item";
 import { asAttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { TabularFns } from "./items/base/tabular-item";
-import { fullArrange } from "./layout/arrange";
+import { requestArrange } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
 import { MouseActionState } from "./input/state";
 import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./util/remoteSession";
@@ -784,7 +784,7 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
       TabularFns.validateNumberOfVisibleColumnsMaybe(modifiedContainer.id);
       containerItem.childrenLoaded = true;
 
-      fullArrange(store);
+      requestArrange(store);
     }
   }
 }

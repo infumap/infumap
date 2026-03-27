@@ -37,7 +37,7 @@ import { mouseMoveHandler, clearMouseOverState } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyDownHandler } from "../input/key";
-import { fullArrange } from "../layout/arrange";
+import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 import { composite_selectionChangeListener } from "../input/edit";
@@ -192,7 +192,7 @@ export const Main: Component = () => {
 
   const windowResizeListener = () => {
     store.resetDesktopSizePx();
-    fullArrange(store);
+    requestArrange(store);
   };
 
   const contextMenuListener = (ev: Event) => {

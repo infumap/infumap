@@ -31,6 +31,49 @@ import { NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { asLinkItem } from "../../items/link-item";
 import { createVisualElementSignal } from "../../util/signals";
 
+let arrangeRequestPending = false;
+let arrangeRequestGeneration = 0;
+let pendingArrangeStore: StoreContextModel | null = null;
+
+/**
+ * Coalesce multiple "please re-layout" requests into a single arrange at the
+ * end of the current task. This keeps the explicit arrange model, but reduces
+ * the number of places that need to eagerly force layout immediately.
+ *
+ * Callers that need geometry synchronously should continue using `fullArrange`.
+ */
+export function requestArrange(store: StoreContextModel): void {
+  pendingArrangeStore = store;
+  if (arrangeRequestPending) { return; }
+
+  arrangeRequestPending = true;
+  const generation = ++arrangeRequestGeneration;
+  queueMicrotask(() => {
+    if (!arrangeRequestPending || generation !== arrangeRequestGeneration) { return; }
+
+    const storeToArrange = pendingArrangeStore;
+    arrangeRequestPending = false;
+    pendingArrangeStore = null;
+
+    if (storeToArrange) {
+      fullArrange(storeToArrange);
+    }
+  });
+}
+
+export function flushRequestedArrange(store?: StoreContextModel): void {
+  if (!arrangeRequestPending) { return; }
+
+  const storeToArrange = store ?? pendingArrangeStore;
+  arrangeRequestPending = false;
+  arrangeRequestGeneration += 1;
+  pendingArrangeStore = null;
+
+  if (storeToArrange) {
+    fullArrange(storeToArrange);
+  }
+}
+
 /**
  * Create a visual element tree for the current page, or if virtualPageVeid is specified, that page instead. A
  * visual element tree for other than the current page is required for keyboard navigation where that requires
@@ -58,6 +101,12 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   // console.time("fullArrange-total");
 
   if (store.history.currentPageVeid() == null) { return; }
+
+  if (virtualPageVeid == null) {
+    arrangeRequestPending = false;
+    arrangeRequestGeneration += 1;
+    pendingArrangeStore = null;
+  }
 
   if (getPanickedMessage() != null) {
     store.overlay.isPanicked.set(true);

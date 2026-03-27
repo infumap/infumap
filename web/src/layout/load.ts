@@ -24,7 +24,7 @@ import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { itemState } from "../store/ItemState";
-import { fullArrange } from "./arrange";
+import { requestArrange } from "./arrange";
 import { PageFns } from "../items/page-item";
 import { Veid, VeFns } from "./visual-element";
 import { TabularFns } from "../items/base/tabular-item";
@@ -93,7 +93,7 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
         TabularFns.validateNumberOfVisibleColumnsMaybe(containerVeid.itemId);
         asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
         try {
-          fullArrange(store);
+          requestArrange(store);
         } catch (e: any) {
           throw new Error(`Arrange failed: ${e}`);
         };
@@ -137,7 +137,7 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
           }
         }
         try {
-          fullArrange(store);
+          requestArrange(store);
         } catch (e: any) {
           throw new Error(`Arrange failed after load item: ${e}`);
         };
@@ -219,7 +219,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
           }
         }
         try {
-          fullArrange(store);
+          requestArrange(store);
         } catch (e: any) {
           throw new Error(`Arrange after remote fetch failed: ${e}`);
         };
@@ -231,7 +231,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
         }
         itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Failed;
         try {
-          fullArrange(store);
+          requestArrange(store);
         } catch (_e) { }
       }
     })
@@ -252,7 +252,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
       }
       console.error(`Error occurred fetching item '${itemId}' from '${baseUrl}': ${e.message}.`);
       try {
-        fullArrange(store);
+        requestArrange(store);
       } catch (_e) { }
     });
 }

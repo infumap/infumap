@@ -21,7 +21,7 @@ import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { asLinkItem } from "../../../items/link-item";
-import { fullArrange } from "../../../layout/arrange";
+import { requestArrange } from "../../../layout/arrange";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
@@ -61,7 +61,7 @@ export const Toolbar_Link: Component = () => {
 
   onCleanup(() => {
     linkItemOnMount.linkTo = linkResourceInput!.value;
-    fullArrange(store);
+    requestArrange(store);
     serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus);
   });
 

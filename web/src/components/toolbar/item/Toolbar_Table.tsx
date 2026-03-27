@@ -25,7 +25,7 @@ import { serverOrRemote } from "../../../server";
 import { TableFlags } from "../../../items/base/flags-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
-import { fullArrange } from "../../../layout/arrange";
+import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
@@ -50,7 +50,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().orderChildrenBy = "";
     }
     itemState.sortChildren(tableItem().id);
-    fullArrange(store);
+    requestArrange(store);
     serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -67,7 +67,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().flags |= TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableItem().id);
-    fullArrange(store);
+    requestArrange(store);
   }
 
   const handleQr = () => {

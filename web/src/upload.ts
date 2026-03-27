@@ -26,7 +26,7 @@ import { newUid } from "./util/uid";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { itemState } from "./store/ItemState";
-import { fullArrange } from "./layout/arrange";
+import { requestArrange } from "./layout/arrange";
 import { HitInfoFns } from "./input/hit";
 import { sanitizeOriginalCreationDate } from "./util/time";
 
@@ -112,7 +112,7 @@ export async function handleUpload(
         const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data, store.general.networkStatus);
         // TODO (MEDIUM): immediately put an item in the UI, have image update later.
         itemState.add(ItemFns.fromObject(returnedItem, null));
-        fullArrange(store);
+        requestArrange(store);
       } catch (error) {
         console.warn(`Failed to add image ${file.name}:`, error);
         // Error is already tracked in erroredNetworkRequests by serveWaiting()
@@ -144,7 +144,7 @@ export async function handleUpload(
         const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data, store.general.networkStatus);
         // TODO (MEDIUM): immediately put an item in the UI.
         itemState.add(ItemFns.fromObject(returnedItem, null));
-        fullArrange(store);
+        requestArrange(store);
       } catch (error) {
         console.warn(`Failed to add file ${file.name}:`, error);
         // Error is already tracked in erroredNetworkRequests by serveWaiting()

@@ -29,7 +29,7 @@ import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
 import { getMonthInfo } from "../../util/time";
 import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
-import { fullArrange } from "../../layout/arrange";
+import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
@@ -286,7 +286,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
               onClick={() => {
                 store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
-                fullArrange(store);
+                requestArrange(store);
               }}>
               <i class="fas fa-angle-left" />
             </div>
@@ -294,7 +294,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
               onClick={() => {
                 store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
-                fullArrange(store);
+                requestArrange(store);
               }}>
               <i class="fas fa-angle-right" />
             </div>

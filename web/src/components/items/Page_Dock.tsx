@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { fullArrange } from "../../layout/arrange";
+import { requestArrange } from "../../layout/arrange";
 import { VisualElement_Desktop } from "../VisualElement";
 import { mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { itemState } from "../../store/ItemState";
@@ -36,7 +36,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const showDock = () => {
     store.dockVisible.set(true);
-    fullArrange(store);
+    requestArrange(store);
   }
 
   const renderDockMoveOverIndexMaybe = () =>

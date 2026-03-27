@@ -25,7 +25,7 @@ import { VesCache } from "../../../layout/ves-cache";
 import { ImageFlags } from "../../../items/base/flags-item";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
-import { fullArrange } from "../../../layout/arrange";
+import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
@@ -61,7 +61,7 @@ export const Toolbar_Image: Component = () => {
     } else {
       imageItem().flags |= ImageFlags.HideBorder;
     }
-    fullArrange(store);
+    requestArrange(store);
     serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
   }
 
@@ -75,7 +75,7 @@ export const Toolbar_Image: Component = () => {
     } else {
       imageItem().flags |= ImageFlags.NoCrop;
     }
-    fullArrange(store);
+    requestArrange(store);
     serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
   }
 

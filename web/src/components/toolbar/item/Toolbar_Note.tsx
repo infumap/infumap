@@ -26,7 +26,7 @@ import { VeFns } from "../../../layout/visual-element";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
-import { fullArrange } from "../../../layout/arrange";
+import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { GRID_SIZE } from "../../../constants";
 
@@ -56,17 +56,17 @@ export const Toolbar_Note: Component = () => {
 
   const isInTable = (): boolean => VeFns.isInTable(noteVisualElement());
 
-  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); fullArrange(store); };
-  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; fullArrange(store); };
-  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; fullArrange(store); };
-  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; fullArrange(store); };
-  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; fullArrange(store); };
-  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; fullArrange(store); };
+  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); requestArrange(store); };
+  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; requestArrange(store); };
+  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; requestArrange(store); };
+  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; requestArrange(store); };
+  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; requestArrange(store); };
+  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; requestArrange(store); };
 
-  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); fullArrange(store); };
-  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; fullArrange(store); };
-  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; fullArrange(store); };
-  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; fullArrange(store); };
+  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); requestArrange(store); };
+  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; requestArrange(store); };
+  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; requestArrange(store); };
+  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; requestArrange(store); };
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -81,7 +81,7 @@ export const Toolbar_Note: Component = () => {
     } else {
       noteItem().flags |= NoteFlags.ShowCopyIcon;
     }
-    fullArrange(store);
+    requestArrange(store);
   };
 
   const borderButtonHandler = (): void => {
@@ -98,7 +98,7 @@ export const Toolbar_Note: Component = () => {
         noteItem().flags |= NoteFlags.HideBorder;
       }
     }
-    fullArrange(store);
+    requestArrange(store);
   };
 
   const explicitHeightEnabled = (): boolean => {
@@ -114,7 +114,7 @@ export const Toolbar_Note: Component = () => {
       noteItem().flags |= NoteFlags.ExplicitHeight;
       noteItem().spatialHeightGr = naturalDims.h * GRID_SIZE;
     }
-    fullArrange(store);
+    requestArrange(store);
   };
 
   // QR

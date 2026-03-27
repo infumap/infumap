@@ -31,7 +31,7 @@ import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-
 import { PageVisualElementProps } from "./Page";
 import { getMonthInfo } from "../../util/time";
 import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
-import { fullArrange } from "../../layout/arrange";
+import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
@@ -390,7 +390,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
-                  fullArrange(store);
+                  requestArrange(store);
                 }}>
                 <i class="fas fa-angle-left" />
               </div>
@@ -399,7 +399,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
-                  fullArrange(store);
+                  requestArrange(store);
                 }}>
                 <i class="fas fa-angle-right" />
               </div>

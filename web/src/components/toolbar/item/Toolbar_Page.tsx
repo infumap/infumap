@@ -23,7 +23,7 @@ import { itemState } from "../../../store/ItemState";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { InfuColorButton } from "../../library/InfuColorButton";
 import { panic } from "../../../util/lang";
-import { fullArrange } from "../../../layout/arrange";
+import { requestArrange } from "../../../layout/arrange";
 import { GRID_SIZE } from "../../../constants";
 import { server, serverOrRemote } from "../../../server";
 import { PermissionFlags } from "../../../items/base/permission-flags-item";
@@ -188,7 +188,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().orderChildrenBy = "";
     }
     itemState.sortChildren(pageItem().id);
-    fullArrange(store);
+    requestArrange(store);
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -199,7 +199,7 @@ export const Toolbar_Page: Component = () => {
     } else {
       pageItem().permissionFlags |= PermissionFlags.Public;
     }
-    fullArrange(store);
+    requestArrange(store);
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -210,7 +210,7 @@ export const Toolbar_Page: Component = () => {
     } else {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
-    fullArrange(store);
+    requestArrange(store);
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -226,7 +226,7 @@ export const Toolbar_Page: Component = () => {
       const trashPage = itemState.getAsContainerItem(trashPageId);
       if (trashPage) {
         trashPage.computed_children = [];
-        fullArrange(store);
+        requestArrange(store);
       }
     } finally {
       store.overlay.emptyTrashInProgress.set(false);

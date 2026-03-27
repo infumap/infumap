@@ -32,7 +32,7 @@ import { BORDER_COLOR, BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForCol
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
-import { fullArrange } from '../../layout/arrange';
+import { requestArrange } from '../../layout/arrange';
 import { GRID_SIZE, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
 import { isNote } from '../../items/note-item';
 import { isTable } from '../../items/table-item';
@@ -176,13 +176,13 @@ export const Toolbar: Component = () => {
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
     store.resetDesktopSizePx();
-    fullArrange(store);
+    requestArrange(store);
   }
 
   const showToolbar = () => {
     store.topToolbarVisible.set(true);
     store.resetDesktopSizePx();
-    fullArrange(store);
+    requestArrange(store);
   }
 
   const handleTitleClick = () => {
