@@ -39,7 +39,7 @@ import { LINE_HEIGHT_PX, GRID_SIZE } from '../../constants';
 import { hashStringToUid, hashI64ToUid, hashF64ToUid, hashU8VecToUid, combineHashes } from '../../util/hash';
 import { Uid } from '../../util/uid';
 import { isContainer } from './container-item';
-import { fullArrange } from '../../layout/arrange';
+import { requestArrange } from '../../layout/arrange';
 import { VesCache } from '../../layout/ves-cache';
 import { VisualElementFlags, VeFns } from '../../layout/visual-element';
 import { isPositionalItem } from './positional-item';
@@ -312,7 +312,7 @@ export const ItemFns = {
     } else {
       store.history.replacePopup(popupSpec);
     }
-    fullArrange(store);
+    requestArrange(store, "open-popup");
   },
 
   cloneMeasurableFields: (measurable: Measurable): Measurable => {

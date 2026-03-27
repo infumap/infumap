@@ -34,7 +34,7 @@ import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { switchToPage } from '../layout/navigation';
-import { fullArrange } from '../layout/arrange';
+import { fullArrange, requestArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/text';
 import { FlagsMixin, NoteFlags, PageFlags } from './base/flags-item';
@@ -902,7 +902,7 @@ export const PageFns = {
       } else {
         store.history.replacePopup(popupSpec);
       }
-      fullArrange(store);
+      requestArrange(store, "page-popup-open");
       return;
     }
 
@@ -919,7 +919,7 @@ export const PageFns = {
         isFromAttachment,
         sourcePositionGr
       });
-      fullArrange(store);
+      requestArrange(store, "page-popup-open");
       return;
     }
 
@@ -930,7 +930,7 @@ export const PageFns = {
       isFromAttachment,
       sourcePositionGr
     });
-    fullArrange(store);
+    requestArrange(store, "page-popup-open");
   },
 
   handleAnchorChildClick: (visualElement: VisualElement, store: StoreContextModel): void => {
@@ -959,7 +959,7 @@ export const PageFns = {
       }
     }
     serverOrRemote.updateItem(popupPage, store.general.networkStatus);
-    fullArrange(store);
+    requestArrange(store, "page-popup-anchor-child");
   },
 
   handleAnchorDefaultClick: (visualElement: VisualElement, store: StoreContextModel): void => {
@@ -1026,7 +1026,7 @@ export const PageFns = {
     }
 
     serverOrRemote.updateItem(parentPageItem, store.general.networkStatus);
-    fullArrange(store);
+    requestArrange(store, "page-popup-anchor-default");
   },
 
   handleShiftLeftClick: (visualElement: VisualElement, store: StoreContextModel): void => {
@@ -1051,7 +1051,7 @@ export const PageFns = {
     if (isInPopup) {
       // Push to history so user can go back to current popup state
       store.history.pushPopup({ actualVeid: selectedVeid, vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
+      requestArrange(store, "page-shift-left-popup");
     } else {
       // Switch to the page as the main application page
       switchToPage(store, selectedVeid, true, false, false);
@@ -1092,7 +1092,7 @@ export const PageFns = {
 
     itemState.sortChildren(pageItem.id);
     serverOrRemote.updateItem(firstItem, store.general.networkStatus);
-    fullArrange(store);
+    requestArrange(store, "page-calendar-overflow");
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {

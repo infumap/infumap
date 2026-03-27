@@ -23,7 +23,7 @@ import { asTableItem, isTable } from "../items/table-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Uid } from "../util/uid";
-import { fullArrange } from "./arrange";
+import { requestArrange } from "./arrange";
 import { VesCache } from "./ves-cache";
 import { VeFns, VisualElementPath, isVeTranslucentPage } from "./visual-element";
 import { asContainerItem, isContainer } from "../items/base/container-item";
@@ -146,19 +146,19 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
   const ves = VesCache.get(matchPath);
   if (!ves) {
     const veid = VeFns.veidFromPath(matchPath);
-    const item = itemState.get(veid.itemId);
-    if (!item) {
-      console.warn("Match item not found in itemState:", veid.itemId);
-      fullArrange(store);
-      return;
-    }
+      const item = itemState.get(veid.itemId);
+      if (!item) {
+        console.warn("Match item not found in itemState:", veid.itemId);
+        requestArrange(store, "find-navigate-match");
+        return;
+      }
 
-    const parentItem = itemState.get(item.parentId);
-    if (!parentItem) {
-      console.warn("Parent item not found:", item.parentId);
-      fullArrange(store);
-      return;
-    }
+      const parentItem = itemState.get(item.parentId);
+      if (!parentItem) {
+        console.warn("Parent item not found:", item.parentId);
+        requestArrange(store, "find-navigate-match");
+        return;
+      }
 
     let parentPath = VeFns.parentPath(matchPath);
     let parentVes = null;
@@ -169,11 +169,11 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
       }
     }
 
-    if (!parentVes) {
-      console.warn("No parent VES found in path");
-      fullArrange(store);
-      return;
-    }
+      if (!parentVes) {
+        console.warn("No parent VES found in path");
+        requestArrange(store, "find-navigate-match");
+        return;
+      }
 
     const parentVe = parentVes.get();
 
@@ -192,7 +192,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
 
       if (rowIndex === -1) {
         console.warn("Item not found in table children");
-        fullArrange(store);
+        requestArrange(store, "find-navigate-match");
         return;
       }
 
@@ -222,7 +222,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
 
         if (itemIndex === -1) {
           console.warn("Item not found in parent children");
-          fullArrange(store);
+          requestArrange(store, "find-navigate-match");
           return;
         }
 
@@ -305,7 +305,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
       }
     }
 
-    fullArrange(store);
+    requestArrange(store, "find-navigate-match");
     return;
   }
 
@@ -319,7 +319,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
       const rowNumber = ve.row;
       if (rowNumber === null || rowNumber === undefined) {
         console.warn("Row number not found for table item");
-        fullArrange(store);
+        requestArrange(store, "find-navigate-match");
         return;
       }
 
@@ -339,7 +339,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
     }
   }
 
-  fullArrange(store);
+  requestArrange(store, "find-navigate-match");
 }
 
 export function performFind(store: StoreContextModel, findText: string) {
@@ -347,7 +347,7 @@ export function performFind(store: StoreContextModel, findText: string) {
     clearAllHighlights(store);
     store.find.findMatches.set([]);
     store.find.currentMatchIndex.set(-1);
-    fullArrange(store);
+    requestArrange(store, "find-clear-results");
     return;
   }
 
@@ -397,7 +397,7 @@ export function performFind(store: StoreContextModel, findText: string) {
   } else {
     clearAllHighlights(store);
     store.find.currentMatchIndex.set(-1);
-    fullArrange(store);
+    requestArrange(store, "find-no-match");
   }
 }
 
@@ -433,5 +433,5 @@ export function closeFindOverlay(store: StoreContextModel) {
   clearAllHighlights(store);
   store.find.clear();
   store.overlay.findOverlayVisible.set(false);
-  fullArrange(store);
+  requestArrange(store, "find-close-overlay");
 }

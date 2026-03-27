@@ -32,7 +32,7 @@ import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemCli
 import { ItemFns } from './base/item-polymorphism';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
-import { fullArrange } from '../layout/arrange';
+import { fullArrange, requestArrange } from '../layout/arrange';
 import { VesCache } from '../layout/ves-cache';
 
 
@@ -276,11 +276,10 @@ export const PasswordFns = {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     }
+    requestArrange(store, "item-popup-open");
   },
 
 };

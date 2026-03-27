@@ -34,7 +34,7 @@ import { CompositeFlags, FlagsMixin, PageFlags } from './base/flags-item';
 import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { VesCache } from '../layout/ves-cache';
-import { fullArrange } from '../layout/arrange';
+import { requestArrange } from '../layout/arrange';
 import { asPageItem, isPage } from './page-item';
 import { asImageItem, isImage } from './image-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
@@ -306,11 +306,10 @@ export const CompositeFns = {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     }
+    requestArrange(store, "item-popup-open");
   },
 
   debugSummary: (_compositeItem: CompositeItem) => {

@@ -31,7 +31,7 @@ import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-eleme
 import { StoreContextModel } from "../store/StoreProvider";
 import { VesCache } from "../layout/ves-cache";
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
-import { fullArrange } from "../layout/arrange";
+import { fullArrange, requestArrange } from "../layout/arrange";
 import { ItemFns } from "./base/item-polymorphism";
 import { FlagsMixin } from "./base/flags-item";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
@@ -352,26 +352,26 @@ export const ImageFns = {
       }
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
+      requestArrange(store, "image-popup-open");
     } else if (store.history.currentPopupSpec() != null) {
       // Inside a popup hierarchy (e.g., image inside a page displayed from a popup list)
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
+      requestArrange(store, "image-popup-open");
     } else {
       if (visualElement.flags & VisualElementFlags.LineItem) {
         if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
         store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-        fullArrange(store);
+        requestArrange(store, "image-popup-open");
       } else {
         store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-        fullArrange(store);
+        requestArrange(store, "image-popup-open");
       }
     }
   },
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
     store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-    fullArrange(store);
+    requestArrange(store, "image-popup-open");
   },
 
   handleEditClick: (visualElement: VisualElement, store: StoreContextModel): void => {
@@ -392,7 +392,7 @@ export const ImageFns = {
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-    fullArrange(store);
+    requestArrange(store, "image-popup-open");
   },
 
   cloneMeasurableFields: (image: ImageMeasurable): ImageMeasurable => {
@@ -583,7 +583,7 @@ export const ImageFns = {
       }
     }
     // Note: serverOrRemote.updateItem is called by the caller
-    fullArrange(store);
+    requestArrange(store, "image-popup-anchor-child");
   },
 
   // For images: home button clears stored position (resets to computed default)
@@ -617,7 +617,7 @@ export const ImageFns = {
     if (needsUpdate) {
       serverOrRemote.updateItem(imageItem, store.general.networkStatus);
     }
-    fullArrange(store);
+    requestArrange(store, "image-popup-anchor-default");
   }
 };
 

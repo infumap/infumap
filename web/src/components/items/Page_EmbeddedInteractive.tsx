@@ -19,7 +19,7 @@
 import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { fullArrange } from "../../layout/arrange";
+import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
 import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
@@ -81,7 +81,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       ev.preventDefault();
       ev.stopPropagation();
       store.overlay.setTextEditInfo(store.history, null, true);
-      fullArrange(store);
+      requestArrange(store, "embedded-interactive-escape");
     }
   };
 

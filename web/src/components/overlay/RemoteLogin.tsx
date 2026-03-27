@@ -27,7 +27,7 @@ import { retryLoadItemFromRemote, retryVisibleLinksForHost } from "../../layout/
 import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
-import { fullArrange } from "../../layout/arrange";
+import { requestArrange } from "../../layout/arrange";
 
 
 export const RemoteLoginOverlay: Component = () => {
@@ -61,7 +61,7 @@ export const RemoteLoginOverlay: Component = () => {
   const handleUpdateLink = () => {
     if (!loginInfo()) { return; }
     store.history.setFocus(loginInfo()!.linkPath);
-    fullArrange(store);
+    requestArrange(store, "remote-login-update-link");
     closeOverlay();
   };
 

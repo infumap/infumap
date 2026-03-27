@@ -39,7 +39,7 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { server } from "../server";
 import { ItemFns } from "./base/item-polymorphism";
 import { VesCache } from "../layout/ves-cache";
-import { fullArrange } from "../layout/arrange";
+import { fullArrange, requestArrange } from "../layout/arrange";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { CursorEventState } from "../input/state";
 import { asCompositeItem, isComposite } from "./composite-item";
@@ -290,11 +290,10 @@ export const TableFns = {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     }
+    requestArrange(store, "item-popup-open");
   },
 
   cloneMeasurableFields: (table: TableMeasurable): TableMeasurable => {

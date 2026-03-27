@@ -34,7 +34,7 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount, getTextStyleForNote } from '../layout/text';
-import { fullArrange } from '../layout/arrange';
+import { fullArrange, requestArrange } from '../layout/arrange';
 import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
@@ -303,11 +303,10 @@ export const NoteFns = {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     }
+    requestArrange(store, "item-popup-open");
   },
 
   cloneMeasurableFields: (note: NoteMeasurable): NoteMeasurable => {

@@ -34,7 +34,7 @@ import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
 import { NoteFlags } from './base/flags-item';
 import { VesCache } from '../layout/ves-cache';
-import { fullArrange } from '../layout/arrange';
+import { fullArrange, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { downloadRemoteFile } from '../util/remoteFile';
@@ -265,11 +265,10 @@ export const FileFns = {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      fullArrange(store);
     }
+    requestArrange(store, "item-popup-open");
   },
 
   cloneMeasurableFields: (file: FileMeasurable): FileMeasurable => {
