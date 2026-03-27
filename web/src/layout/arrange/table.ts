@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { fullArrange } from ".";
+import { recoverWithFullArrange } from ".";
 import { GRID_SIZE } from "../../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../../items/base/container-item";
@@ -226,7 +226,7 @@ function createFillerRow(
 export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: VisualElementPath, tableVeid: Veid, prevScrollYPos: number) {
   if (VesCache.isCurrentlyInFullArrange()) { return; }
   if (store.anItemIsMoving.get()) {
-    fullArrange(store);
+    recoverWithFullArrange(store, "table-scroll-while-moving");
     return;
   }
 
@@ -257,7 +257,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     });
     // Clear text editing state to prevent race conditions with DOM elements
     store.overlay.setTextEditInfo(store.history, null);
-    fullArrange(store);
+    recoverWithFullArrange(store, "table-scroll-invalid-row-cache");
     return;
   }
 
@@ -320,7 +320,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
 
         if (existingPath && !existingPath.includes(tableVePath)) {
           console.debug("rearrangeTableAfterScroll: stale VE signal detected, resorting to fullArrange.");
-          fullArrange(store);
+          recoverWithFullArrange(store, "table-scroll-stale-row-signal");
           return;
         }
 
@@ -351,7 +351,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
           });
           console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
           store.overlay.setTextEditInfo(store.history, null);
-          fullArrange(store);
+          recoverWithFullArrange(store, "table-scroll-create-row-failed");
           return;
         }
         tableVesRows[outIdx] = rowIdx;

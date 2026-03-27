@@ -22,7 +22,7 @@ import { PageFlags } from "../items/base/flags-item";
 import { isImage } from "../items/image-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { arrangeNow, fullArrange } from "../layout/arrange";
+import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
 import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, isVeTranslucentPage } from "../layout/visual-element";
@@ -308,7 +308,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         const historyParentVeid = store.history.peekPrevPageVeid();
         console.log("[DEBUG] Strategy 1 - historyParentVeid:", historyParentVeid);
         if (historyParentVeid) {
-          fullArrange(store, historyParentVeid);
+          arrangeVirtual(store, historyParentVeid, "key-arrow-nav-parent-history");
           const parentFocusPath = store.history.getParentPageFocusPath();
           console.log("[DEBUG] Strategy 1 - parentFocusPath:", parentFocusPath);
           // Check if the path exists in the virtual cache (it might not if it includes a link ID from a popup)
@@ -341,7 +341,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           console.log("[DEBUG] Strategy 2 - found parent page:", parentId);
           if (parentItem && isPage(parentItem)) {
             const parentVeid = { itemId: parentId, linkIdMaybe: null };
-            fullArrange(store, parentVeid);
+            arrangeVirtual(store, parentVeid, "key-arrow-nav-parent-hierarchy");
             // Find the current page's path in the virtual cache (handles tables and other containers)
             const virtualVesList = VesCache.findVirtual(currentPageVeid);
             console.log("[DEBUG] Strategy 2 - virtualVesList length:", virtualVesList.length);

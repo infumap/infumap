@@ -80,6 +80,22 @@ export function arrangeNow(store: StoreContextModel, _reason: string): void {
 }
 
 /**
+ * Preferred entry point for synchronous virtual arrange at call sites that need
+ * parent-context navigation or other non-current-page layout snapshots.
+ */
+export function arrangeVirtual(store: StoreContextModel, virtualPageVeid: Veid, _reason: string): void {
+  fullArrange(store, virtualPageVeid);
+}
+
+/**
+ * Preferred entry point for "partial logic failed, fall back to a real full
+ * arrange" recovery paths.
+ */
+export function recoverWithFullArrange(store: StoreContextModel, _reason: string): void {
+  fullArrange(store);
+}
+
+/**
  * Create a visual element tree for the current page, or if virtualPageVeid is specified, that page instead. A
  * visual element tree for other than the current page is required for keyboard navigation where that requires
  * knowledge of the layout of the parent page.
