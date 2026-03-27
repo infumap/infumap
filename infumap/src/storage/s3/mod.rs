@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use infusdk::util::infu::InfuResult;
+use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::uid::Uid;
 use log::debug;
 use s3::creds::Credentials;
@@ -36,6 +36,11 @@ const FIRST_BYTE_TIMEOUT_SECS: u64 = 10;
 /// Timeout for receiving subsequent chunks after the first byte. This is more generous
 /// since we know the connection is working at that point.
 const FULL_TRANSFER_TIMEOUT_SECS: u64 = 120;
+
+/// A couple of quick retries absorb transient transport issues without adding
+/// much latency before the object layer falls back to the secondary store.
+const GET_MAX_ATTEMPTS: usize = 3;
+const GET_RETRY_DELAYS_MILLIS: [u64; GET_MAX_ATTEMPTS - 1] = [250, 1000];
 
 fn validate_endpoint(endpoint: &str) -> InfuResult<String> {
   let endpoint = endpoint.trim();
@@ -91,7 +96,7 @@ pub fn init_bucket(
 
 #[cfg(test)]
 mod tests {
-  use super::validate_endpoint;
+  use super::{is_retryable_get_error_message, validate_endpoint};
 
   #[test]
   fn validate_endpoint_allows_https_and_host_only() {
@@ -103,6 +108,23 @@ mod tests {
   fn validate_endpoint_rejects_http() {
     assert!(validate_endpoint("http://s3.example.com").is_err());
     assert!(validate_endpoint("HTTP://s3.example.com").is_err());
+  }
+
+  #[test]
+  fn retries_connection_closed_stream_errors() {
+    assert!(is_retryable_get_error_message(
+      "Error opening S3 response stream for 'user_item' before first chunk: hyper: connection closed before message completed"
+    ));
+  }
+
+  #[test]
+  fn retries_retryable_s3_status_codes() {
+    assert!(is_retryable_get_error_message("Unexpected status code getting S3 object 'user_item': 503"));
+  }
+
+  #[test]
+  fn leaves_not_found_terminal() {
+    assert!(!is_retryable_get_error_message("Unexpected status code getting S3 object 'user_item': 404"));
   }
 }
 
@@ -143,7 +165,7 @@ pub async fn get_streaming(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> Inf
     tokio::time::timeout(Duration::from_secs(FIRST_BYTE_TIMEOUT_SECS), s3_store.bucket.get_object_stream(&s3_path))
       .await
       .map_err(|_| format!("Timeout waiting for S3 stream to start for '{}'", s3_path))?
-      .map_err(|e| format!("Error getting S3 object stream for '{}': {}", s3_path, e))?;
+      .map_err(|e| format!("Error opening S3 response stream for '{}' before first chunk: {}", s3_path, e))?;
 
   // Check status code
   if response_stream.status_code != 200 {
@@ -167,7 +189,9 @@ pub async fn get_streaming(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> Inf
     let next_chunk_result = tokio::time::timeout(timeout_duration, stream.next()).await;
     match next_chunk_result {
       Ok(Some(chunk_result)) => {
-        let chunk = chunk_result.map_err(|e| format!("Error reading S3 stream chunk for '{}': {}", s3_path, e))?;
+        let chunk = chunk_result.map_err(|e| {
+          format!("Error reading S3 stream chunk for '{}' after {} bytes: {}", s3_path, buffer.len(), e)
+        })?;
         if !first_chunk_received {
           debug!("First chunk received for S3 object '{}'", s3_path);
           first_chunk_received = true;
@@ -195,7 +219,61 @@ pub async fn get_streaming(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> Inf
 }
 
 pub async fn get(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<Vec<u8>> {
-  get_streaming(s3_store, user_id, id).await
+  let s3_path = format!("{}_{}", user_id, id);
+
+  for attempt in 0..GET_MAX_ATTEMPTS {
+    match get_streaming(s3_store.clone(), user_id.clone(), id.clone()).await {
+      Ok(bytes) => {
+        if attempt > 0 {
+          debug!("Recovered S3 object read for '{}' after {} attempt(s)", s3_path, attempt + 1);
+        }
+        return Ok(bytes);
+      }
+      Err(err) => {
+        if !is_retryable_get_error(&err) || attempt + 1 == GET_MAX_ATTEMPTS {
+          return Err(err);
+        }
+
+        let delay = Duration::from_millis(GET_RETRY_DELAYS_MILLIS[attempt]);
+        debug!(
+          "Retrying transient S3 read failure for '{}' after attempt {} of {}: {}",
+          s3_path,
+          attempt + 1,
+          GET_MAX_ATTEMPTS,
+          err
+        );
+        tokio::time::sleep(delay).await;
+      }
+    }
+  }
+
+  Err("S3 get retry loop exited unexpectedly".into())
+}
+
+fn is_retryable_get_error(err: &InfuError) -> bool {
+  is_retryable_get_error_message(err.message())
+}
+
+fn is_retryable_get_error_message(message: &str) -> bool {
+  if message.contains("Unexpected status code getting S3 object") {
+    return ["408", "429", "500", "502", "503", "504"].iter().any(|status| message.contains(&format!(": {}", status)));
+  }
+
+  if message.contains("Timeout waiting for S3 stream to start")
+    || message.contains("Timeout waiting for first byte from S3")
+    || message.contains("Timeout during S3 transfer")
+    || message.contains("Error opening S3 response stream")
+    || message.contains("Error reading S3 stream chunk")
+  {
+    return true;
+  }
+
+  let lower = message.to_ascii_lowercase();
+  lower.contains("connection closed before message completed")
+    || lower.contains("connection reset")
+    || lower.contains("unexpected eof")
+    || lower.contains("broken pipe")
+    || lower.contains("timed out")
 }
 
 pub async fn put(s3_store: Arc<S3Store>, user_id: Uid, id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
