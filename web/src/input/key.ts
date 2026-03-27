@@ -22,7 +22,7 @@ import { PageFlags } from "../items/base/flags-item";
 import { isImage } from "../items/image-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { fullArrange } from "../layout/arrange";
+import { arrangeNow, fullArrange } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
 import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, isVeTranslucentPage } from "../layout/visual-element";
@@ -85,7 +85,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
           itemState.sortChildren(focusItem.parentId);
         }
       }
-      fullArrange(store);
+      arrangeNow(store, "key-toolbar-title-commit");
       serverOrRemote.updateItem(focusItem, store.general.networkStatus);
       ev.preventDefault();
     }
@@ -125,7 +125,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     // Exit text edit mode while keeping focus on the item
     if (store.overlay.textEditInfo()) {
       store.overlay.setTextEditInfo(store.history, null, true);
-      fullArrange(store);
+      arrangeNow(store, "key-escape-exit-edit");
       return;
     }
     if (store.history.currentPopupSpec()) {
@@ -133,7 +133,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       const topRootVes = VesCache.getChildrenVes(VeFns.veToPath(store.umbrellaVisualElement.get()))()[0];
       VesCache.clearPopupVes(VeFns.veToPath(topRootVes.get()));
       topRootVes.set(topRootVes.get());
-      fullArrange(store);
+      arrangeNow(store, "key-escape-close-popup");
       return;
     }
 
@@ -144,7 +144,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       const parentPath = VeFns.parentPath(focusPath);
       if (parentPath && parentPath !== UMBRELLA_PAGE_UID && parentPath !== "") {
         store.history.setFocus(parentPath);
-        fullArrange(store);
+        arrangeNow(store, "key-escape-focus-parent");
       }
     }
   }
@@ -162,7 +162,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
         store.dockVisible.set(false);
         store.topToolbarVisible.set(false);
       }
-      fullArrange(store);
+      arrangeNow(store, "key-toggle-dock-toolbar");
       return;
     }
 
@@ -294,7 +294,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       if (closest != null) {
         // Just set focus to the new item - don't pop up pages
         store.history.setFocus(closest);
-        fullArrange(store);
+        arrangeNow(store, "key-arrow-focus-closest");
         return;
       }
       // If no visible sibling found and focus is on a page, try navigating in parent container
@@ -505,12 +505,12 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         isFromAttachment: treatAsAttachment ? true : undefined,
         sourcePositionGr,
       });
-      fullArrange(store);
+      arrangeNow(store, "key-arrow-replace-popup");
     } else {
       // Non-attachment child items: just set focus, pop the popup
       store.history.popPopup();
       store.history.setFocus(closest);
-      fullArrange(store);
+      arrangeNow(store, "key-arrow-close-popup-focus-item");
     }
   } else {
     // for grid and justified pages, use ordering to wrap around to next or prev line.
@@ -540,7 +540,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
             vePath: newPath,
             actualVeid: newChildVeid,
           });
-          fullArrange(store);
+          arrangeNow(store, "key-arrow-replace-grid-popup");
         }
       }
     }
@@ -565,13 +565,13 @@ function handleArrowKeyCalendarPageMaybe(store: StoreContextModel, ev: KeyboardE
 
   if (ev.code == "ArrowLeft") {
     store.perVe.setCalendarYear(focusPath, currentYear - 1);
-    fullArrange(store);
+    arrangeNow(store, "key-calendar-prev-year");
     return true;
   }
 
   if (ev.code == "ArrowRight") {
     store.perVe.setCalendarYear(focusPath, currentYear + 1);
-    fullArrange(store);
+    arrangeNow(store, "key-calendar-next-year");
     return true;
   }
 
@@ -616,7 +616,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     const selectedVeid = store.perItem.getSelectedListPageItem(focusPageVeid);
     if (selectedVeid == EMPTY_VEID) {
       PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageVeid);
-      fullArrange(store);
+      arrangeNow(store, "key-list-page-set-default-selection");
       return true;
     }
     const selectedItemPath = VeFns.addVeidToPath(selectedVeid, focusPagePath);
@@ -625,7 +625,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     if (closest != null) {
       const closestVeid = VeFns.veidFromPath(closest);
       store.perItem.setSelectedListPageItem(focusPageVeid, closestVeid);
-      fullArrange(store);
+      arrangeNow(store, "key-list-page-move-selection");
     } else {
       // At boundary (topmost/bottommost item) - fall through to parent context navigation
       return false;
@@ -637,7 +637,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
       return true;
     }
     store.history.setFocus(newFocusPagePath);
-    fullArrange(store);
+    arrangeNow(store, "key-list-page-focus-parent");
   } else if (ev.code == "ArrowRight") {
     const focusPagePath = store.history.getFocusPath();
     const focusPageVe = VesCache.get(focusPagePath)!.get();
@@ -674,7 +674,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
             }
           }
 
-          fullArrange(store);
+          arrangeNow(store, "key-list-page-focus-child-page");
         }
       }
     }
@@ -788,7 +788,7 @@ function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualEle
     : Math.min(1, currentScrollProp + scrollStep);
 
   store.perItem.setPageScrollYProp(pageVeid, newScrollProp);
-  fullArrange(store);
+  arrangeNow(store, "key-scroll-grid-or-justified-page");
 
   return true;
 }
@@ -860,7 +860,7 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
 
   const targetVeid = VeFns.veidFromPath(targetPath);
   store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-  fullArrange(store);
+  arrangeNow(store, "key-table-attachment-popup-nav");
   return true;
 }
 
@@ -901,14 +901,14 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
     // Find the first attachment (col=1)
     for (const attachmentSignal of currentAttachmentsVes) {
       const attachmentVe = attachmentSignal.get();
-      if (attachmentVe.col === 1) {
-        const targetPath = VeFns.veToPath(attachmentVe);
-        const targetVeid = VeFns.veidFromPath(targetPath);
-        store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-        fullArrange(store);
-        return true;
+        if (attachmentVe.col === 1) {
+          const targetPath = VeFns.veToPath(attachmentVe);
+          const targetVeid = VeFns.veidFromPath(targetPath);
+          store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+          arrangeNow(store, "key-table-popup-right-to-first-attachment");
+          return true;
+        }
       }
-    }
     return false;
   }
 
@@ -925,7 +925,7 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
         const targetPath = VeFns.veToPath(rowVe);
         const targetVeid = VeFns.veidFromPath(targetPath);
         store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-        fullArrange(store);
+        arrangeNow(store, "key-table-popup-left-to-row");
         return true;
       } else if (currentCol > 1) {
         // Go to previous attachment
@@ -937,7 +937,7 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
             const targetPath = VeFns.veToPath(attachmentVe);
             const targetVeid = VeFns.veidFromPath(targetPath);
             store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-            fullArrange(store);
+            arrangeNow(store, "key-table-popup-left-to-attachment");
             return true;
           }
         }
@@ -952,7 +952,7 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
           const targetPath = VeFns.veToPath(attachmentVe);
           const targetVeid = VeFns.veidFromPath(targetPath);
           store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-          fullArrange(store);
+          arrangeNow(store, "key-table-popup-right-to-attachment");
           return true;
         }
       }
