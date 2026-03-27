@@ -28,7 +28,7 @@ import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-ite
 import { PlaceholderFns } from "../items/placeholder-item";
 import { calculateCalendarPosition, encodeCalendarCombinedIndex } from "../util/calendar-layout";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
-import { fullArrange } from "../layout/arrange";
+import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -58,17 +58,17 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   const parentItem = itemState.get(activeItem.parentId)!;
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
     moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
-    fullArrange(store);
+    arrangeNow(store, "moving-init-out-of-table");
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
     const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone);
-    fullArrange(store);
+    arrangeNow(store, "moving-init-out-of-attachment");
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
     const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
-    fullArrange(store);
+    arrangeNow(store, "moving-init-out-of-composite");
   }
   else {
     MouseActionState.get().startPosBl = {
@@ -123,7 +123,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = false;
 
-      // Preserve calendar page scroll position during fullArrange
+      // Preserve calendar page scroll position during synchronous arrange.
       const parentPageVeid = VeFns.veidFromPath(activeParentPath);
       const parentPage = itemState.get(parentPageVeid.itemId)!;
       let savedScrollY = null;
@@ -133,7 +133,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
         savedScrollX = store.perItem.getPageScrollXProp(parentPageVeid);
       }
 
-      fullArrange(store);
+      arrangeNow(store, "moving-init-clone-current-page");
 
       // Restore calendar page scroll position
       if (savedScrollY !== null && savedScrollX !== null) {
@@ -174,7 +174,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = true;
 
-      // Preserve calendar page scroll position during fullArrange
+      // Preserve calendar page scroll position during synchronous arrange.
       const parentPageVeid = VeFns.veidFromPath(activeParentPath);
       const parentPage = itemState.get(parentPageVeid.itemId)!;
       let savedScrollY = null;
@@ -184,7 +184,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
         savedScrollX = store.perItem.getPageScrollXProp(parentPageVeid);
       }
 
-      fullArrange(store);
+      arrangeNow(store, "moving-init-link-current-page");
 
       // Restore calendar page scroll position
       if (savedScrollY !== null && savedScrollX !== null) {
@@ -337,7 +337,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   if (VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false, false);
-    fullArrange(store);
+    arrangeNow(store, "moving-enter-new-container");
     return;
   }
 
@@ -427,10 +427,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
           itm.spatialPositionGr = { x: g.startPosGr.x + deltaFromStart.x, y: g.startPosGr.y + deltaFromStart.y };
         }
       }
-      fullArrange(store);
+      arrangeNow(store, "moving-update-group-position");
     } else {
       activeItem.spatialPositionGr = newPosGr;
-      fullArrange(store);
+      arrangeNow(store, "moving-update-position");
     }
   }
 }
