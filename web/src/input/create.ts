@@ -29,7 +29,7 @@ import { calculateCalendarDateTime } from "../util/calendar-layout";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
-import { fullArrange } from "../layout/arrange";
+import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VeFns, VisualElementFlags } from "../layout/visual-element";
@@ -85,7 +85,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     server.addItem(newItem, null, store.general.networkStatus);
 
     store.overlay.contextMenuInfo.set(null);
-    fullArrange(store);
+    arrangeNow(store, "create-from-placeholder");
 
     newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, overElementVe.parentPath! );
   }
@@ -138,7 +138,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     server.addItem(newItem, null, store.general.networkStatus);
 
     store.overlay.contextMenuInfo.set(null);
-    fullArrange(store);
+    arrangeNow(store, "create-in-page");
 
     newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
   }
@@ -159,7 +159,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);
-        fullArrange(store);
+        arrangeNow(store, "create-in-table-end");
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 
       } else {
@@ -193,7 +193,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         server.addItem(newItem, null, store.general.networkStatus);
 
         store.overlay.contextMenuInfo.set(null);
-        fullArrange(store);
+        arrangeNow(store, "create-in-table-attachment");
 
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.addVeidToPath(VeFns.veidFromId(childId), VeFns.veToPath(overElementVe)));
       }
@@ -228,7 +228,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       server.addItem(newItem, null, store.general.networkStatus);
 
       store.overlay.contextMenuInfo.set(null);
-      fullArrange(store);
+      arrangeNow(store, "create-in-page-from-table");
 
       newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
     }
@@ -271,7 +271,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     serverOrRemote.updateItem(link, store.general.networkStatus);
 
     store.overlay.contextMenuInfo.set(null);
-    fullArrange(store);
+    arrangeNow(store, "create-from-link");
 
     newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: overElementVe.linkItemMaybe!.id}, overElementVe.parentPath!);
   }

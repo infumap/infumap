@@ -31,7 +31,7 @@ import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-eleme
 import { StoreContextModel } from "../store/StoreProvider";
 import { VesCache } from "../layout/ves-cache";
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
-import { fullArrange, requestArrange } from "../layout/arrange";
+import { arrangeNow, requestArrange } from "../layout/arrange";
 import { ItemFns } from "./base/item-polymorphism";
 import { FlagsMixin } from "./base/flags-item";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
@@ -381,7 +381,7 @@ export const ImageFns = {
     const el = document.getElementById(editingDomId)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
-    fullArrange(store);
+    arrangeNow(store, "image-enter-edit-mode");
     const freshEl = document.getElementById(editingDomId)!;
     if (freshEl) {
       freshEl.focus();
