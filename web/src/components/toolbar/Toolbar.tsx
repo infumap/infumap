@@ -176,13 +176,13 @@ export const Toolbar: Component = () => {
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
     store.resetDesktopSizePx();
-    requestArrange(store);
+    requestArrange(store, "toolbar-visibility-change");
   }
 
   const showToolbar = () => {
     store.topToolbarVisible.set(true);
     store.resetDesktopSizePx();
-    requestArrange(store);
+    requestArrange(store, "toolbar-visibility-change");
   }
 
   const handleTitleClick = () => {

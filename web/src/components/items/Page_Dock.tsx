@@ -36,7 +36,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const showDock = () => {
     store.dockVisible.set(true);
-    requestArrange(store);
+    requestArrange(store, "dock-show");
   }
 
   const renderDockMoveOverIndexMaybe = () =>

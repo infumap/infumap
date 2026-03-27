@@ -390,7 +390,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
-                  requestArrange(store);
+                  requestArrange(store, "page-calendar-year-change");
                 }}>
                 <i class="fas fa-angle-left" />
               </div>
@@ -399,7 +399,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
-                  requestArrange(store);
+                  requestArrange(store, "page-calendar-year-change");
                 }}>
                 <i class="fas fa-angle-right" />
               </div>

@@ -92,11 +92,7 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
         });
         TabularFns.validateNumberOfVisibleColumnsMaybe(containerVeid.itemId);
         asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
-        try {
-          requestArrange(store);
-        } catch (e: any) {
-          throw new Error(`Arrange failed: ${e}`);
-        };
+        requestArrange(store, "load-child-items");
       } else {
         console.error(`No items were fetched for '${containerVeid.itemId}'.`);
       }
@@ -136,11 +132,7 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
             else if (isAttachmentsItem(parentForSort)) { itemState.sortAttachments(containerToSortId); }
           }
         }
-        try {
-          requestArrange(store);
-        } catch (e: any) {
-          throw new Error(`Arrange failed after load item: ${e}`);
-        };
+        requestArrange(store, "load-item");
       } else {
         console.error(`Empty result fetching '${id}'.`);
       }
@@ -218,11 +210,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
             else if (isAttachmentsItem(parentForSort)) { itemState.sortAttachments(containerToSortId); }
           }
         }
-        try {
-          requestArrange(store);
-        } catch (e: any) {
-          throw new Error(`Arrange after remote fetch failed: ${e}`);
-        };
+        requestArrange(store, "remote-load-item-success");
       } else {
         console.error(`Empty result fetching '${itemId}' from ${baseUrl}.`);
         const linkItemMaybe = itemState.get(resolveId);
@@ -230,9 +218,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
           asLinkItem(linkItemMaybe).linkRequiresRemoteLogin = null;
         }
         itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Failed;
-        try {
-          requestArrange(store);
-        } catch (_e) { }
+        requestArrange(store, "remote-load-item-empty");
       }
     })
     .catch((e: any) => {
@@ -251,9 +237,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
         }
       }
       console.error(`Error occurred fetching item '${itemId}' from '${baseUrl}': ${e.message}.`);
-      try {
-        requestArrange(store);
-      } catch (_e) { }
+      requestArrange(store, "remote-load-item-failed");
     });
 }
 

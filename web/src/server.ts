@@ -784,7 +784,7 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
       TabularFns.validateNumberOfVisibleColumnsMaybe(modifiedContainer.id);
       containerItem.childrenLoaded = true;
 
-      requestArrange(store);
+      requestArrange(store, "container-auto-refresh");
     }
   }
 }

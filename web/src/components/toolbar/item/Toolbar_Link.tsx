@@ -61,7 +61,7 @@ export const Toolbar_Link: Component = () => {
 
   onCleanup(() => {
     linkItemOnMount.linkTo = linkResourceInput!.value;
-    requestArrange(store);
+    requestArrange(store, "toolbar-link-target-change");
     serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus);
   });
 

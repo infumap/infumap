@@ -34,6 +34,7 @@ import { createVisualElementSignal } from "../../util/signals";
 let arrangeRequestPending = false;
 let arrangeRequestGeneration = 0;
 let pendingArrangeStore: StoreContextModel | null = null;
+let pendingArrangeReason: string | null = null;
 
 /**
  * Coalesce multiple "please re-layout" requests into a single arrange at the
@@ -42,8 +43,9 @@ let pendingArrangeStore: StoreContextModel | null = null;
  *
  * Callers that need geometry synchronously should continue using `fullArrange`.
  */
-export function requestArrange(store: StoreContextModel): void {
+export function requestArrange(store: StoreContextModel, reason: string): void {
   pendingArrangeStore = store;
+  pendingArrangeReason = reason;
   if (arrangeRequestPending) { return; }
 
   arrangeRequestPending = true;
@@ -52,26 +54,20 @@ export function requestArrange(store: StoreContextModel): void {
     if (!arrangeRequestPending || generation !== arrangeRequestGeneration) { return; }
 
     const storeToArrange = pendingArrangeStore;
+    const reasonToArrange = pendingArrangeReason;
     arrangeRequestPending = false;
     pendingArrangeStore = null;
+    pendingArrangeReason = null;
 
     if (storeToArrange) {
-      fullArrange(storeToArrange);
+      try {
+        fullArrange(storeToArrange);
+      } catch (e: any) {
+        const message = e instanceof Error ? e.message : String(e);
+        throw new Error(`Deferred arrange failed (${reasonToArrange ?? "unspecified"}): ${message}`);
+      }
     }
   });
-}
-
-export function flushRequestedArrange(store?: StoreContextModel): void {
-  if (!arrangeRequestPending) { return; }
-
-  const storeToArrange = store ?? pendingArrangeStore;
-  arrangeRequestPending = false;
-  arrangeRequestGeneration += 1;
-  pendingArrangeStore = null;
-
-  if (storeToArrange) {
-    fullArrange(storeToArrange);
-  }
 }
 
 /**
@@ -106,6 +102,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     arrangeRequestPending = false;
     arrangeRequestGeneration += 1;
     pendingArrangeStore = null;
+    pendingArrangeReason = null;
   }
 
   if (getPanickedMessage() != null) {

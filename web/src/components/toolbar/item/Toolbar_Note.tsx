@@ -56,17 +56,17 @@ export const Toolbar_Note: Component = () => {
 
   const isInTable = (): boolean => VeFns.isInTable(noteVisualElement());
 
-  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); requestArrange(store); };
-  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; requestArrange(store); };
-  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; requestArrange(store); };
-  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; requestArrange(store); };
-  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; requestArrange(store); };
-  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; requestArrange(store); };
+  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); requestArrange(store, "toolbar-note-text-style"); };
+  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; requestArrange(store, "toolbar-note-text-style"); };
+  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; requestArrange(store, "toolbar-note-text-style"); };
+  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; requestArrange(store, "toolbar-note-text-style"); };
+  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; requestArrange(store, "toolbar-note-text-style"); };
+  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; requestArrange(store, "toolbar-note-text-style"); };
 
-  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); requestArrange(store); };
-  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; requestArrange(store); };
-  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; requestArrange(store); };
-  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; requestArrange(store); };
+  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); requestArrange(store, "toolbar-note-alignment"); };
+  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; requestArrange(store, "toolbar-note-alignment"); };
+  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; requestArrange(store, "toolbar-note-alignment"); };
+  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; requestArrange(store, "toolbar-note-alignment"); };
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -81,7 +81,7 @@ export const Toolbar_Note: Component = () => {
     } else {
       noteItem().flags |= NoteFlags.ShowCopyIcon;
     }
-    requestArrange(store);
+    requestArrange(store, "toolbar-note-copy-icon");
   };
 
   const borderButtonHandler = (): void => {
@@ -98,7 +98,7 @@ export const Toolbar_Note: Component = () => {
         noteItem().flags |= NoteFlags.HideBorder;
       }
     }
-    requestArrange(store);
+    requestArrange(store, "toolbar-note-border");
   };
 
   const explicitHeightEnabled = (): boolean => {
@@ -114,7 +114,7 @@ export const Toolbar_Note: Component = () => {
       noteItem().flags |= NoteFlags.ExplicitHeight;
       noteItem().spatialHeightGr = naturalDims.h * GRID_SIZE;
     }
-    requestArrange(store);
+    requestArrange(store, "toolbar-note-explicit-height");
   };
 
   // QR

@@ -48,7 +48,7 @@ export const TableColumnContextMenu: Component = () => {
     tableItem().tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
     TableFns.insertEmptyColAt(tableId(), colNum(), store);
     tableItem().numberOfVisibleColumns += 1;
-    requestArrange(store);
+    requestArrange(store, "table-column-insert-right");
     serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.overlay.tableColumnContextMenuInfo.set(null);
   };
@@ -57,7 +57,7 @@ export const TableColumnContextMenu: Component = () => {
     const insertHeaderIdx = Math.min(colNum() + 1, tableItem().tableColumns.length);
     tableItem().tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
     tableItem().numberOfVisibleColumns += 1;
-    requestArrange(store);
+    requestArrange(store, "table-column-insert-header-right");
     serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.overlay.tableColumnContextMenuInfo.set(null);
   };
@@ -66,7 +66,7 @@ export const TableColumnContextMenu: Component = () => {
     TableFns.removeColItemsAt(tableId(), colNum()-1, store);
     tableItem().tableColumns.splice(colNum(), 1);
     tableItem().numberOfVisibleColumns -= 1;
-    requestArrange(store);
+    requestArrange(store, "table-column-delete");
     serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.overlay.tableColumnContextMenuInfo.set(null);
   }
@@ -74,7 +74,7 @@ export const TableColumnContextMenu: Component = () => {
   const deleteColumnHeaderOnly = () => {
     tableItem().tableColumns.splice(colNum(), 1);
     tableItem().numberOfVisibleColumns -= 1;
-    requestArrange(store);
+    requestArrange(store, "table-column-delete-header");
     serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.overlay.tableColumnContextMenuInfo.set(null);
   }

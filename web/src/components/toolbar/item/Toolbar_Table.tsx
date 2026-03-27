@@ -50,7 +50,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().orderChildrenBy = "";
     }
     itemState.sortChildren(tableItem().id);
-    requestArrange(store);
+    requestArrange(store, "toolbar-table-order-children");
     serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -67,7 +67,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().flags |= TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableItem().id);
-    requestArrange(store);
+    requestArrange(store, "toolbar-table-header-visibility");
   }
 
   const handleQr = () => {

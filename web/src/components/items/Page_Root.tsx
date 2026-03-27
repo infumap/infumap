@@ -286,7 +286,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
               onClick={() => {
                 store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
-                requestArrange(store);
+                requestArrange(store, "page-calendar-year-change");
               }}>
               <i class="fas fa-angle-left" />
             </div>
@@ -294,7 +294,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
               onClick={() => {
                 store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
-                requestArrange(store);
+                requestArrange(store, "page-calendar-year-change");
               }}>
               <i class="fas fa-angle-right" />
             </div>

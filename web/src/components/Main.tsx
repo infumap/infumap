@@ -192,7 +192,7 @@ export const Main: Component = () => {
 
   const windowResizeListener = () => {
     store.resetDesktopSizePx();
-    requestArrange(store);
+    requestArrange(store, "window-resize");
   };
 
   const contextMenuListener = (ev: Event) => {

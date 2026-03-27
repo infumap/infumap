@@ -188,7 +188,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().orderChildrenBy = "";
     }
     itemState.sortChildren(pageItem().id);
-    requestArrange(store);
+    requestArrange(store, "toolbar-page-order-children");
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -199,7 +199,7 @@ export const Toolbar_Page: Component = () => {
     } else {
       pageItem().permissionFlags |= PermissionFlags.Public;
     }
-    requestArrange(store);
+    requestArrange(store, "toolbar-page-permissions");
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -210,7 +210,7 @@ export const Toolbar_Page: Component = () => {
     } else {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
-    requestArrange(store);
+    requestArrange(store, "toolbar-page-interactive");
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -226,7 +226,7 @@ export const Toolbar_Page: Component = () => {
       const trashPage = itemState.getAsContainerItem(trashPageId);
       if (trashPage) {
         trashPage.computed_children = [];
-        requestArrange(store);
+        requestArrange(store, "toolbar-page-empty-trash");
       }
     } finally {
       store.overlay.emptyTrashInProgress.set(false);

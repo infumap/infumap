@@ -61,7 +61,7 @@ export const Toolbar_Image: Component = () => {
     } else {
       imageItem().flags |= ImageFlags.HideBorder;
     }
-    requestArrange(store);
+    requestArrange(store, "toolbar-image-border");
     serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
   }
 
@@ -75,7 +75,7 @@ export const Toolbar_Image: Component = () => {
     } else {
       imageItem().flags |= ImageFlags.NoCrop;
     }
-    requestArrange(store);
+    requestArrange(store, "toolbar-image-crop");
     serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
   }
 

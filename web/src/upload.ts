@@ -112,7 +112,7 @@ export async function handleUpload(
         const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data, store.general.networkStatus);
         // TODO (MEDIUM): immediately put an item in the UI, have image update later.
         itemState.add(ItemFns.fromObject(returnedItem, null));
-        requestArrange(store);
+        requestArrange(store, "upload-image");
       } catch (error) {
         console.warn(`Failed to add image ${file.name}:`, error);
         // Error is already tracked in erroredNetworkRequests by serveWaiting()
@@ -144,7 +144,7 @@ export async function handleUpload(
         const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data, store.general.networkStatus);
         // TODO (MEDIUM): immediately put an item in the UI.
         itemState.add(ItemFns.fromObject(returnedItem, null));
-        requestArrange(store);
+        requestArrange(store, "upload-file");
       } catch (error) {
         console.warn(`Failed to add file ${file.name}:`, error);
         // Error is already tracked in erroredNetworkRequests by serveWaiting()

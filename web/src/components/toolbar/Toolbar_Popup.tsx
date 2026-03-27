@@ -191,7 +191,6 @@ export const Toolbar_Popup: Component = () => {
     if (ev.code == "Enter") {
       handleTextChange();
       store.touchToolbar();
-      requestArrange(store);
       if (isNote(store.history.getFocusItem())) {
         serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
         setTimeout(() => {
@@ -225,7 +224,7 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
       panic("unexpected overlay type in handleTextChange: " + overlayTypeConst);
     }
-    requestArrange(store);
+    requestArrange(store, "toolbar-popup-text-change");
   };
 
   const inputWidthPx = (): number => {
@@ -270,7 +269,7 @@ export const Toolbar_Popup: Component = () => {
     store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
     serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    requestArrange(store);
+    requestArrange(store, "toolbar-popup-page-color");
   }
 
   const textEntryValue = (): string | null => {
@@ -394,12 +393,12 @@ export const Toolbar_Popup: Component = () => {
       panic(`unexpected item type ${store.history.getFocusItem().itemType} changing aspect (auto).`);
     }
     pageItem().naturalAspect = parseFloat(textElement!.value);
-    requestArrange(store);
+    requestArrange(store, "toolbar-popup-page-aspect-auto");
   }
 
   const finalizeAAChange = () => {
     itemState.sortChildren(pageItem().id);
-    requestArrange(store);
+    requestArrange(store, "toolbar-popup-arrange-algorithm");
     store.touchToolbar();
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -444,7 +443,7 @@ export const Toolbar_Popup: Component = () => {
       }
     }
     store.touchToolbar();
-    requestArrange(store);
+    requestArrange(store, "toolbar-popup-slider");
   };
 
   return (
@@ -504,16 +503,16 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={() => { ratingItem().ratingType = "Star"; requestArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={() => { ratingItem().ratingType = "Star"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
               Star
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "Number"; requestArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "Number"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
               Number
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "HorizontalBar"; requestArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "HorizontalBar"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
               Horizontal Bar
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "VerticalBar"; requestArrange(store); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "VerticalBar"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
               Vertical Bar
             </div>
           </div>
