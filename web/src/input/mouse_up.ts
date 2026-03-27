@@ -30,7 +30,7 @@ import { asNoteItem, isNote } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { fullArrange } from "../layout/arrange";
+import { arrangeNow } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -183,7 +183,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           const clickedIsSelected = sel.some(v => v.itemId === clickedVeid.itemId && v.linkIdMaybe === clickedVeid.linkIdMaybe);
           if (clickedIsSelected) {
             store.overlay.selectedVeids.set([]);
-            fullArrange(store);
+            arrangeNow(store, "mouse-up-clear-multi-selection");
           }
         }
       }
@@ -235,7 +235,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           activeVisualElement.parentPath!
         );
         store.history.setFocus(linkFocusPath);
-        fullArrange(store);
+        arrangeNow(store, "mouse-up-focus-link");
 
       } else if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement, store);
@@ -259,7 +259,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           MouseActionState.get().activeElementPath,
           !store.perVe.getIsExpanded(MouseActionState.get().activeElementPath)
         );
-        fullArrange(store);
+        arrangeNow(store, "mouse-up-toggle-expand");
 
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
@@ -314,12 +314,12 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         }
 
         // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
-        fullArrange(store);
+        arrangeNow(store, "mouse-up-focus-noncurrent-root");
 
       } else if (activeVisualElementSignal.get().flags & VisualElementFlags.Popup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
-        fullArrange(store);
+        arrangeNow(store, "mouse-up-click-popup");
 
       } else if (activeVisualElementSignal.get().flags & VisualElementFlags.IsDock) {
         DoubleClickState.preventDoubleClick();
@@ -349,7 +349,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           }
 
           // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
-          fullArrange(store);
+          arrangeNow(store, "mouse-up-focus-item");
         }
       }
 
@@ -418,7 +418,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         persistMovedItems(store, [activeItem.id]);
         finalizeMouseUp(store);
         MouseActionState.set(null);
-        fullArrange(store);
+        arrangeNow(store, "mouse-up-move-to-calendar-page");
         return;
       } else {
         mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
@@ -488,7 +488,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
 
   finalizeMouseUp(store);
   MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
-  fullArrange(store);
+  arrangeNow(store, "mouse-up-finish-move");
 }
 
 function persistMovedItems(store: StoreContextModel, defaultIds: string[]) {
@@ -583,7 +583,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 
   finalizeMouseUp(store);
   MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
-  fullArrange(store);
+  arrangeNow(store, "mouse-up-attach-to-composite");
 }
 
 
@@ -619,7 +619,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
         itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
         serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
         finalizeMouseUp(store);
-        fullArrange(store);
+        arrangeNow(store, "mouse-up-attach-end-placeholder");
         return;
       }
     }
@@ -628,7 +628,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
     itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
     serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
     finalizeMouseUp(store);
-    fullArrange(store);
+    arrangeNow(store, "mouse-up-attach-end");
     return;
   }
 
@@ -644,7 +644,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
     itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
     serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
     finalizeMouseUp(store);
-    fullArrange(store);
+    arrangeNow(store, "mouse-up-attach-replace-placeholder");
     return;
   }
 
@@ -661,7 +661,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
       itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
       serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
       finalizeMouseUp(store);
-      fullArrange(store);
+      arrangeNow(store, "mouse-up-attach-prev-placeholder");
       return;
     }
   }
@@ -673,7 +673,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
   finalizeMouseUp(store);
-  fullArrange(store);
+  arrangeNow(store, "mouse-up-attach-insert");
 }
 
 function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
@@ -693,7 +693,7 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
   finalizeMouseUp(store);
-  fullArrange(store);
+  arrangeNow(store, "mouse-up-move-to-opaque-page");
 }
 
 
@@ -717,7 +717,7 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
   finalizeMouseUp(store);
-  fullArrange(store);
+  arrangeNow(store, "mouse-up-move-to-table");
 }
 
 
@@ -756,7 +756,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
       itemState.moveToNewParent(activeItem, displayedChild.id, RelationshipToParent.Attachment, newOrdering);
       serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
       finalizeMouseUp(store);
-      fullArrange(store);
+      arrangeNow(store, "mouse-up-move-to-table-attachment-placeholder");
       return;
     }
   }
@@ -787,7 +787,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
   finalizeMouseUp(store);
-  fullArrange(store);
+  arrangeNow(store, "mouse-up-move-to-table-attachment");
 }
 
 
@@ -859,7 +859,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
     if (popupVes) { stack.push(VeFns.veToPath(popupVes.get())); }
   }
   store.overlay.selectedVeids.set(selected);
-  fullArrange(store);
+  arrangeNow(store, "mouse-up-finish-selection");
 }
 
 

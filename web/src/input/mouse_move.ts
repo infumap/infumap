@@ -34,7 +34,7 @@ import { asPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
-import { fullArrange } from "../layout/arrange";
+import { arrangeNow } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
@@ -406,7 +406,7 @@ function mouseAction_selecting(store: StoreContextModel) {
   if (signature !== lastSelectionSignature && (now - lastSelectionArrangeTimeMs) > SELECTION_ARRANGE_THROTTLE_MS) {
     lastSelectionSignature = signature;
     lastSelectionArrangeTimeMs = now;
-    fullArrange(store);
+    arrangeNow(store, "selection-marquee-update");
   }
 }
 
@@ -417,7 +417,7 @@ function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
   if (store.getCurrentDockWidthPx() != newDockWidthPx) {
     store.setDockWidthPx(newDockWidthPx);
-    fullArrange(store);
+    arrangeNow(store, "resize-dock");
   }
 }
 
@@ -515,7 +515,7 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   }
 
   if (requireArrange) {
-    fullArrange(store);
+    arrangeNow(store, "resize-item");
   }
 }
 
@@ -545,7 +545,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
       if (newWidthGr != popupItem.pendingPopupWidthGr) {
         popupItem.pendingPopupWidthGr = newWidthGr;
-        fullArrange(store);
+        arrangeNow(store, "resize-popup-page-spatial");
       }
     } else {
       const deltaNorm = {
@@ -558,7 +558,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
       if (newWidthNorm != popupItem.pendingCellPopupWidthNorm) {
         popupItem.pendingCellPopupWidthNorm = newWidthNorm;
-        fullArrange(store);
+        arrangeNow(store, "resize-popup-page-cell");
       }
     }
     return;
@@ -581,7 +581,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
       if (newWidthGr != popupItem.pendingPopupWidthGr) {
         popupItem.pendingPopupWidthGr = newWidthGr;
-        fullArrange(store);
+        arrangeNow(store, "resize-popup-image-spatial");
       }
     } else {
       const deltaNorm = {
@@ -594,7 +594,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
       if (newWidthNorm != popupItem.pendingCellPopupWidthNorm) {
         popupItem.pendingCellPopupWidthNorm = newWidthNorm;
-        fullArrange(store);
+        arrangeNow(store, "resize-popup-image-cell");
       }
     }
     return;
@@ -657,7 +657,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   }
 
   if (requireArrange) {
-    fullArrange(store);
+    arrangeNow(store, "resize-popup-item");
   }
 }
 
@@ -680,7 +680,7 @@ function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContext
   const newWidthGr = newWidthBl * GRID_SIZE;
 
   asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr = newWidthGr;
-  fullArrange(store);
+  arrangeNow(store, "resize-list-page-column");
 }
 
 
@@ -698,7 +698,7 @@ function mouseAction_resizingDockItem(deltaPx: Vector, store: StoreContextModel)
   if (newAspect < 0.125) { newAspect = 0.125; }
   if (newAspect > 8.0) { newAspect = 8.0; }
   activePage.naturalAspect = newAspect;
-  fullArrange(store);
+  arrangeNow(store, "resize-dock-item");
 }
 
 function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
@@ -723,12 +723,12 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   if (activeVisualElement.linkItemMaybe != null) {
     if (newWidthGr != asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr) {
       asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthGr;
-      fullArrange(store);
+      arrangeNow(store, "resize-table-column-linked");
     }
   } else {
     if (newWidthGr != asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr) {
       asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthGr;
-      fullArrange(store);
+      arrangeNow(store, "resize-table-column");
     }
   }
 }
@@ -759,21 +759,21 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       if (currentPopupSpec!.pendingPositionGr == null ||
         compareVector(newPositionGr, currentPopupSpec!.pendingPositionGr!) != 0) {
         currentPopupSpec!.pendingPositionGr = newPositionGr;
-        fullArrange(store);
+        arrangeNow(store, "move-popup-attachment-spatial");
       }
     } else if (isPage(popupItem)) {
       const pageItem = asPageItem(popupItem);
       if (pageItem.pendingPopupPositionGr == null ||
         compareVector(newPositionGr, pageItem.pendingPopupPositionGr!) != 0) {
         pageItem.pendingPopupPositionGr = newPositionGr;
-        fullArrange(store);
+        arrangeNow(store, "move-popup-page-spatial");
       }
     } else if (isImage(popupItem)) {
       const imageItem = asImageItem(popupItem);
       if (imageItem.pendingPopupPositionGr == null ||
         compareVector(newPositionGr, imageItem.pendingPopupPositionGr!) != 0) {
         imageItem.pendingPopupPositionGr = newPositionGr;
-        fullArrange(store);
+        arrangeNow(store, "move-popup-image-spatial");
       }
     }
   } else {
@@ -791,14 +791,14 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       if (pageItem.pendingCellPopupPositionNorm == null ||
         compareVector(newPositionNorm, pageItem.pendingCellPopupPositionNorm!) != 0) {
         pageItem.pendingCellPopupPositionNorm = newPositionNorm;
-        fullArrange(store);
+        arrangeNow(store, "move-popup-page-cell");
       }
     } else if (isImage(popupItem)) {
       const imageItem = asImageItem(popupItem);
       if (imageItem.pendingCellPopupPositionNorm == null ||
         compareVector(newPositionNorm, imageItem.pendingCellPopupPositionNorm!) != 0) {
         imageItem.pendingCellPopupPositionNorm = newPositionNorm;
-        fullArrange(store);
+        arrangeNow(store, "move-popup-image-cell");
       }
     }
   }

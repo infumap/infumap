@@ -20,7 +20,7 @@ import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-it
 import { Item, ItemType } from "../items/base/item";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { asTableItem, isTable, TableFns } from "../items/table-item";
-import { fullArrange } from "../layout/arrange";
+import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -72,7 +72,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
-    fullArrange(store);
+    arrangeNow(store, "mouse-down-close-toolbar-popup");
     serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
@@ -117,7 +117,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       setTimeout(() => {
         const caretPosition = getCaretPosition(toolbarTitleDiv);
         store.history.setFocus(ttpPath);
-        fullArrange(store);
+        arrangeNow(store, "mouse-down-switch-toolbar-title-focus");
         const newToolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${i}`)!;
         setCaretPosition(newToolbarTitleDiv, caretPosition);
       }, 0);
@@ -127,7 +127,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   // If here, click was NOT inside a toolbar title div. If one is active, update the page item.
   if (document.activeElement!.id.includes("toolbarTitleDiv")) {
     saveActiveTitleDivState();
-    fullArrange(store);
+    arrangeNow(store, "mouse-down-exit-toolbar-title-edit");
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
@@ -140,7 +140,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (store.user.getUserMaybe() == null || store.history.getFocusItem().ownerId != store.user.getUser().userId) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       store.overlay.setTextEditInfo(store.history, null);
-      fullArrange(store);
+      arrangeNow(store, "mouse-down-end-text-edit-readonly");
       if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
       defaultResult = MouseEventActionFlags.None;
     }
@@ -169,7 +169,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           store.history.setFocus(editingItemPath);
         }
 
-        fullArrange(store);
+        arrangeNow(store, "mouse-down-end-text-edit-missing-dom");
         if (buttonNumber != MOUSE_LEFT) { return defaultResult; }
         defaultResult = MouseEventActionFlags.None;
       } else {
@@ -223,7 +223,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           store.history.setFocus(editingItemPath);
         }
 
-        fullArrange(store);
+        arrangeNow(store, "mouse-down-end-text-edit");
         if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
         defaultResult = MouseEventActionFlags.None;
       }
@@ -462,7 +462,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       const clickedIsBackground = veFlagIsRoot(hitVe.flags) && !(hitInfo.hitboxType & HitboxFlags.ContentEditable);
       if (!clickedIsSelected || clickedIsBackground) {
         store.overlay.selectedVeids.set([]);
-        fullArrange(store);
+        arrangeNow(store, "mouse-down-clear-selection");
       }
     }
   } catch { }
@@ -506,7 +506,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   // Always clear current selection set if present
   if (store.overlay.selectedVeids.get() && store.overlay.selectedVeids.get()!.length > 0) {
     store.overlay.selectedVeids.set([]);
-    fullArrange(store);
+    arrangeNow(store, "mouse-right-clear-selection");
     return;
   }
 
@@ -556,7 +556,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     const itemPath = VeFns.veToPath(HitInfoFns.getHitVe(hi));
     if (store.perVe.getIsExpanded(itemPath)) {
       store.perVe.setIsExpanded(itemPath, !store.perVe.getIsExpanded(itemPath));
-      fullArrange(store);
+      arrangeNow(store, "mouse-right-collapse-expanded-item");
       return;
     }
   }
@@ -575,7 +575,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
         const parentVes = VesCache.get(parentPath);
         if (parentVes) {
           store.history.setFocus(parentPath);
-          fullArrange(store);
+          arrangeNow(store, "mouse-right-focus-parent-before-nav");
           return;
         }
       }
@@ -642,7 +642,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     const ve = ves.get();
     if (ve.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
       store.history.setFocus(ve.parentPath!);
-      fullArrange(store);
+      arrangeNow(store, "mouse-right-exit-embedded-interactive");
       return;
     }
   }
