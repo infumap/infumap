@@ -652,13 +652,12 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     }
     itemState.add(link);
     server.addItem(link, null, store.general.networkStatus);
-    fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
-    let ve = VesCache.findSingle({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id });
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
-    MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
-    MouseActionState.get().activeElementSignalMaybe = ve;
-    MouseActionState.get().activeLinkIdMaybe = ve.get().actualLinkItemMaybe?.id ?? ve.get().linkItemMaybe?.id ?? null;
-    MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? ve.get().displayItem : null;
+    const newLinkVeid = { itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id };
+    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, VeFns.veToPath(moveToPageVe));
+    MouseActionState.get().activeElementSignalMaybe = null;
+    MouseActionState.get().activeLinkIdMaybe = link.id;
+    MouseActionState.get().activeLinkedDisplayItemMaybe = activeVisualElement.displayItem;
     MouseActionState.get().linkCreatedOnMoveStart = true;
 
   } else {
