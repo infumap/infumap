@@ -34,7 +34,7 @@ import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
 import { NoteFlags } from './base/flags-item';
 import { VesCache } from '../layout/ves-cache';
-import { fullArrange, requestArrange } from '../layout/arrange';
+import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { downloadRemoteFile } from '../util/remoteFile';
@@ -253,7 +253,7 @@ export const FileFns = {
     const el = document.getElementById(editingDomId)!;
     el.focus();
     const closestIdx = caretAtEnd ? el.innerText.length : closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
-    fullArrange(store);
+    arrangeNow(store, "file-enter-edit-mode");
     const freshEl = document.getElementById(editingDomId)!;
     if (freshEl) {
       freshEl.focus();

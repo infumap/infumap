@@ -41,7 +41,7 @@ let pendingArrangeReason: string | null = null;
  * end of the current task. This keeps the explicit arrange model, but reduces
  * the number of places that need to eagerly force layout immediately.
  *
- * Callers that need geometry synchronously should continue using `fullArrange`.
+ * Callers that need geometry synchronously should continue using `arrangeNow`.
  */
 export function requestArrange(store: StoreContextModel, reason: string): void {
   pendingArrangeStore = store;
@@ -68,6 +68,15 @@ export function requestArrange(store: StoreContextModel, reason: string): void {
       }
     }
   });
+}
+
+/**
+ * Preferred entry point for synchronous current-page arrange at call sites.
+ * This preserves the existing behavior while making "needs fresh layout now"
+ * explicit in the code that depends on it.
+ */
+export function arrangeNow(store: StoreContextModel, _reason: string): void {
+  fullArrange(store);
 }
 
 /**

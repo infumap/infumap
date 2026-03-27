@@ -22,7 +22,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
-import { fullArrange } from "./arrange";
+import { arrangeNow } from "./arrange";
 import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { VeFns, Veid, VisualElementPath } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
@@ -78,7 +78,7 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   } else {
     store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
   }
-  fullArrange(store);
+  arrangeNow(store, "switch-to-item");
 
   const url = currentUrl(store, itemId);
   window.history.pushState(null, "", url);
@@ -95,7 +95,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     store.history.pushPageVeid(pageVeid, focusPath);
   }
 
-  fullArrange(store);
+  arrangeNow(store, "switch-to-page");
 
   const url = currentUrl(store, null);
   if ((!replace && updateHistory) || clearHistory) {
@@ -147,14 +147,14 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
         // Don't override it here - let the page retain focus
       }
     }
-    fullArrange(store);
+    arrangeNow(store, "navigate-back-pop-popup");
 
     return true;
   }
 
   if (store.history.peekPrevPageVeid() != null) {
     window.history.back();
-    fullArrange(store);
+    arrangeNow(store, "navigate-back-history");
     return true;
   }
 

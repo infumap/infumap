@@ -19,7 +19,7 @@
 import { server, serverOrRemote } from "../server";
 import { NoteFns, asNoteItem, isNote } from "../items/note-item";
 import { trimNewline, isUrl } from "../util/string";
-import { fullArrange } from "../layout/arrange";
+import { arrangeNow } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { assert, panic } from "../util/lang";
@@ -154,7 +154,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
   upFocusItem.title = upFocusItem.title + asTitledItem(editingVe.displayItem).title;
 
   store.history.setFocus(closestPathUp);
-  fullArrange(store);
+  arrangeNow(store, "join-items-focus-up-item");
 
   server.updateItem(upFocusItem, store.general.networkStatus);
   itemState.delete(initialEditingItem.id);
@@ -171,7 +171,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
     server.updateItem(upFocusItem, store.general.networkStatus);
     itemState.delete(compositeItem.id);
     server.deleteItem(compositeItem.id, store.general.networkStatus);
-    fullArrange(store);
+    arrangeNow(store, "join-items-collapse-composite");
     const itemPath = VeFns.addVeidToPath(upVeid, compositeParentPath);
     store.history.setFocus(itemPath);
     store.overlay.setTextEditInfo(store.history, { itemPath: itemPath, itemType: upFocusItem.itemType });
@@ -181,7 +181,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
     textElement!.focus();
   }
   else {
-    fullArrange(store);
+    arrangeNow(store, "join-items-restore-edit-focus");
     const allUpVes = VesCache.find(upVeid);
     const currentCompositeVePath = VeFns.veToPath(compositeVe);
     const upVes = allUpVes.find(ves => {
@@ -237,7 +237,7 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
   note.title = afterText;
   itemState.add(note);
   server.addItem(note, null, store.general.networkStatus);
-  fullArrange(store);
+  arrangeNow(store, "enter-key-create-note");
 
   const veid = { itemId: note.id, linkIdMaybe: null };
   const allNewVes = VesCache.find(veid);
@@ -297,7 +297,7 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
           console.warn("input handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
         }
         const caretPosition = getCaretPosition(el!);
-        fullArrange(store);
+        arrangeNow(store, "text-edit-input-preserve-caret");
         const el_ = document.getElementById(focusItemDomId);
         setCaretPosition(el_!, caretPosition);
       }

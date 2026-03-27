@@ -34,7 +34,7 @@ import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { switchToPage } from '../layout/navigation';
-import { fullArrange, requestArrange } from '../layout/arrange';
+import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/text';
 import { FlagsMixin, NoteFlags, PageFlags } from './base/flags-item';
@@ -182,7 +182,7 @@ export const PageFns = {
 
           if (targetPath) {
             store.history.setFocus(targetPath);
-            fullArrange(store);
+            arrangeNow(store, "switch-to-outermost-list-page-restore-focus");
             store.touchToolbar();
           }
         }
@@ -851,7 +851,7 @@ export const PageFns = {
     const el = document.getElementById(editingPath)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
-    fullArrange(store);
+    arrangeNow(store, "page-enter-title-edit-mode");
     const freshEl = document.getElementById(editingPath)!;
     if (freshEl) {
       freshEl.focus();

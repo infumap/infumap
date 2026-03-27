@@ -33,7 +33,7 @@ import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
-import { fullArrange } from "../../layout/arrange";
+import { arrangeNow } from "../../layout/arrange";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -171,7 +171,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         let item = asPasswordItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
         item.text = trimNewline(newText);
         const caretPosition = getCaretPosition(el!);
-        fullArrange(store);
+        arrangeNow(store, "password-input-preserve-caret");
         setCaretPosition(el!, caretPosition);
       }
     }, 0);
@@ -187,7 +187,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         ev.preventDefault();
         ev.stopPropagation();
         store.overlay.setTextEditInfo(store.history, null, true);
-        fullArrange(store);
+        arrangeNow(store, "password-escape-exit-edit");
         return;
     }
   }

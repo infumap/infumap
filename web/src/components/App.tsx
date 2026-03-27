@@ -23,7 +23,7 @@ import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
 import { switchToNonPage, switchToPage } from '../layout/navigation';
 import { isUid } from '../util/uid';
-import { fullArrange } from '../layout/arrange';
+import { arrangeNow } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 
 
@@ -85,7 +85,7 @@ const App: Component = () => {
           } else {
             store.history.setFocus(store.history.currentPagePath()!);
           }
-          fullArrange(store);
+          arrangeNow(store, "popstate-back-in-history");
         } else {
           if (currentUrlUidMaybe == "") {
             if (store.user.getUser().homePageId == prevHistoryVeid.itemId) {
@@ -96,7 +96,7 @@ const App: Component = () => {
               } else {
                 store.history.setFocus(store.history.currentPagePath()!);
               }
-              fullArrange(store);
+              arrangeNow(store, "popstate-back-to-root");
             } else {
               if (debug) { console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid (2).", prevHistoryVeid.itemId, currentUrlUidMaybe); }
               switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);

@@ -33,7 +33,7 @@ import { itemState } from "../../store/ItemState";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { FEATURE_COLOR } from "../../style";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { fullArrange } from "../../layout/arrange";
+import { arrangeNow } from "../../layout/arrange";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -158,7 +158,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       ev.preventDefault();
       ev.stopPropagation();
       store.overlay.setTextEditInfo(store.history, null, true);
-      fullArrange(store);
+      arrangeNow(store, "table-escape-exit-edit");
     }
   };
 

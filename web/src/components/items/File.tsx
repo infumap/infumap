@@ -37,7 +37,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { CompositeFns, isComposite } from "../../items/composite-item";
 import { FEATURE_COLOR } from "../../style";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
-import { fullArrange } from "../../layout/arrange";
+import { arrangeNow } from "../../layout/arrange";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
 
 import { panic } from "../../util/lang";
@@ -156,7 +156,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         let item = asFileItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
         item.title = trimNewline(newText);
         const caretPosition = getCaretPosition(el!);
-        fullArrange(store);
+        arrangeNow(store, "file-input-preserve-caret");
         setCaretPosition(el!, caretPosition);
       }
     }, 0);
@@ -173,7 +173,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         ev.preventDefault();
         ev.stopPropagation();
         store.overlay.setTextEditInfo(store.history, null, true);
-        fullArrange(store);
+        arrangeNow(store, "file-escape-exit-edit");
         return;
     }
   }
@@ -216,7 +216,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
       itemState.add(note);
       server.addItem(note, null, store.general.networkStatus);
 
-      fullArrange(store);
+      arrangeNow(store, "file-enter-create-composite");
       const veid = { itemId: note.id, linkIdMaybe: null };
       const newVes = VesCache.findSingle(veid);
       store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), itemType: ItemType.Note });

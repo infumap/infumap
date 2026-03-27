@@ -39,7 +39,7 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { VesCache } from "../../layout/ves-cache";
 import { FEATURE_COLOR } from "../../style";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { fullArrange } from "../../layout/arrange";
+import { arrangeNow } from "../../layout/arrange";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 
@@ -207,7 +207,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
         item.title = trimNewline(newText);
         const caretPosition = getCaretPosition(el!);
-        fullArrange(store);
+        arrangeNow(store, "note-input-preserve-caret");
         setCaretPosition(el!, caretPosition);
       }
     }, 0);
@@ -224,7 +224,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         ev.preventDefault();
         ev.stopPropagation();
         store.overlay.setTextEditInfo(store.history, null, true);
-        fullArrange(store);
+        arrangeNow(store, "note-escape-exit-edit");
         return;
     }
   }
@@ -274,7 +274,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       itemState.add(note);
       server.addItem(note, null, store.general.networkStatus);
 
-      fullArrange(store);
+      arrangeNow(store, "note-enter-create-composite");
 
       // If in a popup context, redirect the popup to show the composite
       if (isPopup()) {
@@ -283,7 +283,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           actualVeid: compositeVeid,
           vePath: VeFns.addVeidToPath(compositeVeid, ve.parentPath!)
         });
-        fullArrange(store);
+        arrangeNow(store, "note-enter-redirect-popup");
       }
 
       const veid = { itemId: note.id, linkIdMaybe: null };
@@ -301,7 +301,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         } else if (attempt < 3) {
           // Retry with another arrange - needed for popups
           setTimeout(() => {
-            fullArrange(store);
+            arrangeNow(store, "note-enter-retry-find-new-editor");
             attemptToSetEditFocus(attempt + 1);
           }, 10);
         }

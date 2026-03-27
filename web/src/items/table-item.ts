@@ -39,7 +39,7 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { server } from "../server";
 import { ItemFns } from "./base/item-polymorphism";
 import { VesCache } from "../layout/ves-cache";
-import { fullArrange, requestArrange } from "../layout/arrange";
+import { arrangeNow, requestArrange } from "../layout/arrange";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { CursorEventState } from "../input/state";
 import { asCompositeItem, isComposite } from "./composite-item";
@@ -280,7 +280,7 @@ export const TableFns = {
     const el = document.getElementById(editingPath)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
-    fullArrange(store);
+    arrangeNow(store, "table-enter-edit-mode");
     const freshEl = document.getElementById(editingPath)!;
     setCaretPosition(freshEl, closestIdx);
   },

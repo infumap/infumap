@@ -34,7 +34,7 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount, getTextStyleForNote } from '../layout/text';
-import { fullArrange, requestArrange } from '../layout/arrange';
+import { arrangeNow, requestArrange } from '../layout/arrange';
 import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
@@ -291,7 +291,7 @@ export const NoteFns = {
     const el = document.getElementById(editingDomId)!;
     el.focus();
     const closestIdx = caretAtEnd ? el.innerText.length : closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
-    fullArrange(store);
+    arrangeNow(store, "note-enter-edit-mode");
     const freshEl = document.getElementById(editingDomId)!;
     if (freshEl) {
       freshEl.focus();
