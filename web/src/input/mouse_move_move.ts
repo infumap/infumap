@@ -502,12 +502,11 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
 
-    fullArrange(store);
-    let ve = VesCache.findSingle({ itemId: cloned.id, linkIdMaybe: null });
-    MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
-    MouseActionState.get().activeElementSignalMaybe = ve;
-    MouseActionState.get().activeLinkIdMaybe = ve.get().actualLinkItemMaybe?.id ?? ve.get().linkItemMaybe?.id ?? null;
-    MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? ve.get().displayItem : null;
+    const clonedVeid = VeFns.veidFromId(cloned.id);
+    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(clonedVeid, moveToPath);
+    MouseActionState.get().activeElementSignalMaybe = null;
+    MouseActionState.get().activeLinkIdMaybe = null;
+    MouseActionState.get().activeLinkedDisplayItemMaybe = null;
     MouseActionState.get().linkCreatedOnMoveStart = false;
 
 
@@ -633,12 +632,11 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
 
-    fullArrange(store);
-    let ve = VesCache.findSingle({ itemId: cloned.id, linkIdMaybe: null });
-    MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
-    MouseActionState.get().activeElementSignalMaybe = ve;
-    MouseActionState.get().activeLinkIdMaybe = ve.get().actualLinkItemMaybe?.id ?? ve.get().linkItemMaybe?.id ?? null;
-    MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? ve.get().displayItem : null;
+    const clonedVeid = VeFns.veidFromId(cloned.id);
+    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(clonedVeid, VeFns.veToPath(moveToPageVe));
+    MouseActionState.get().activeElementSignalMaybe = null;
+    MouseActionState.get().activeLinkIdMaybe = null;
+    MouseActionState.get().activeLinkedDisplayItemMaybe = null;
     MouseActionState.get().linkCreatedOnMoveStart = false;
 
     fullArrange(store);
