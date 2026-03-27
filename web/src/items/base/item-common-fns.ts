@@ -17,7 +17,7 @@
 */
 
 import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
-import { fullArrange } from "../../layout/arrange";
+import { requestArrange } from "../../layout/arrange";
 import { HitboxFns, HitboxFlags } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { switchToPage } from "../../layout/navigation";
@@ -56,7 +56,7 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
     const parentVeid = VeFns.actualVeidFromVe(parentVe);
     store.history.setFocus(VeFns.veToPath(parentVe));
     store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
-    fullArrange(store);
+    requestArrange(store, "list-page-line-item-click");
     return true;
   }
   return false;
