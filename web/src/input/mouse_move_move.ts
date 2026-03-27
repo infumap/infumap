@@ -639,8 +639,6 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     MouseActionState.get().activeLinkedDisplayItemMaybe = null;
     MouseActionState.get().linkCreatedOnMoveStart = false;
 
-    fullArrange(store);
-
   } else if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
     const link = LinkFns.createFromItem(activeVisualElement.displayItem, moveToPage.id, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
     link.spatialPositionGr = itemPosInPageQuantizedGr;
