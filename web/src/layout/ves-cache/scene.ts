@@ -22,7 +22,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { panic } from "../../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
-import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import {
   addIndexedScenePath,
   deindexVisualElement,
@@ -32,6 +32,7 @@ import {
   veidIndexKey,
 } from "./indexes";
 import { ProjectionOps } from "./projection";
+import { createRelationshipOps, sceneRelationshipDataEqual } from "./relationships";
 import { cloneVisualElementSnapshot, visualElementMatchesPreparedSpec } from "./spec";
 import {
   createEmptyVirtualSceneState,
@@ -61,6 +62,12 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
   function getSceneNode(scene: SceneState, path: VisualElementPath): VisualElement | undefined {
     return scene.cache.get(path);
   }
+
+  const relationshipOps = createRelationshipOps(state, getSceneNode);
+  const {
+    deleteSceneRelationships,
+    prepareSceneRelationshipData,
+  } = relationshipOps;
 
   function setSceneNode(scene: SceneState, path: VisualElementPath, ve: VisualElement) {
     scene.cache.set(path, ve);
@@ -377,33 +384,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     return canonicalVe;
   }
 
-  function arraysShallowEqual<T>(a: Array<T>, b: Array<T>): boolean {
-    if (a === b) {
-      return true;
-    }
-    if (a.length !== b.length) {
-      return false;
-    }
-    for (let i = 0; i < a.length; i++) {
-      if (a[i] !== b[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  function sceneRelationshipDataEqual(a: SceneRelationshipData, b: SceneRelationshipData): boolean {
-    return arraysShallowEqual(a.attachments, b.attachments) &&
-      a.popup === b.popup &&
-      a.selected === b.selected &&
-      a.dock === b.dock &&
-      arraysShallowEqual(a.children, b.children) &&
-      arraysShallowEqual(a.lineChildren, b.lineChildren) &&
-      arraysShallowEqual(a.desktopChildren, b.desktopChildren) &&
-      arraysShallowEqual(a.nonMovingChildren, b.nonMovingChildren) &&
-      ((a.focusedChildItemMaybe?.id ?? null) === (b.focusedChildItemMaybe?.id ?? null));
-  }
-
   function reuseSceneRelationshipDataIfEqual(
     path: VisualElementPath,
     relationshipData: SceneRelationshipData,
@@ -501,101 +481,12 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     }
   }
 
-  function toSceneRelationshipPath(node: VisualElementSignal | null | undefined): VisualElementPath | null {
-    return node ? VeFns.veToPath(node.get()) : null;
-  }
-
-  function toSceneRelationshipPaths(nodes: Array<VisualElementSignal> | undefined): Array<VisualElementPath> {
-    return (nodes ?? []).map(node => VeFns.veToPath(node.get()));
-  }
-
-  function splitChildPathsByRenderBehavior(scene: SceneState, childPaths: Array<VisualElementPath> | undefined) {
-    const allChildren = childPaths ?? [];
-    const allChildPaths: Array<VisualElementPath> = [];
-    const lineChildren: Array<VisualElementPath> = [];
-    const desktopChildren: Array<VisualElementPath> = [];
-    const nonMovingChildren: Array<VisualElementPath> = [];
-
-    for (const childPath of allChildren) {
-      const flags = getSceneNode(scene, childPath)?.flags ?? VisualElementFlags.None;
-      allChildPaths.push(childPath);
-      if (flags & VisualElementFlags.LineItem) {
-        lineChildren.push(childPath);
-      } else {
-        desktopChildren.push(childPath);
-      }
-      if (!(flags & VisualElementFlags.Moving)) {
-        nonMovingChildren.push(childPath);
-      }
-    }
-
-    return {
-      allChildren: allChildPaths,
-      lineChildren,
-      desktopChildren,
-      nonMovingChildren,
-    };
-  }
-
-  function reuseChildBucketsIfUnchanged(
-    scene: SceneState,
-    path: VisualElementPath | undefined,
-    childPaths: Array<VisualElementPath>,
-  ) {
-    if (!path) {
-      return null;
-    }
-
-    const previousRelationships = state.currentScene.relationshipsByPath.get(path);
-    if (!previousRelationships || !arraysShallowEqual(previousRelationships.children, childPaths)) {
-      return null;
-    }
-
-    for (const childPath of childPaths) {
-      if (getSceneNode(scene, childPath) !== getSceneNode(state.currentScene, childPath)) {
-        return null;
-      }
-    }
-
-    return {
-      allChildren: previousRelationships.children,
-      lineChildren: previousRelationships.lineChildren,
-      desktopChildren: previousRelationships.desktopChildren,
-      nonMovingChildren: previousRelationships.nonMovingChildren,
-    };
-  }
-
-  function prepareSceneRelationshipData(
-    scene: SceneState,
-    relationships: VisualElementRelationships | null,
-    path?: VisualElementPath,
-  ): SceneRelationshipData {
-    const childPaths = relationships?.childrenPaths ?? toSceneRelationshipPaths(relationships?.childrenVes);
-    const reusedChildBuckets = reuseChildBucketsIfUnchanged(scene, path, childPaths);
-    const childBuckets = reusedChildBuckets ?? splitChildPathsByRenderBehavior(scene, childPaths);
-    return {
-      attachments: relationships?.attachmentsPaths ?? toSceneRelationshipPaths(relationships?.attachmentsVes),
-      popup: typeof relationships?.popupPath !== "undefined" ? relationships.popupPath : toSceneRelationshipPath(relationships?.popupVes),
-      selected: typeof relationships?.selectedPath !== "undefined" ? relationships.selectedPath : toSceneRelationshipPath(relationships?.selectedVes),
-      dock: typeof relationships?.dockPath !== "undefined" ? relationships.dockPath : toSceneRelationshipPath(relationships?.dockVes),
-      children: childBuckets.allChildren,
-      lineChildren: childBuckets.lineChildren,
-      desktopChildren: childBuckets.desktopChildren,
-      nonMovingChildren: childBuckets.nonMovingChildren,
-      focusedChildItemMaybe: relationships?.focusedChildItemMaybe ?? null,
-    };
-  }
-
   function writeSceneRelationshipData(
     relationshipsByPath: SceneRelationshipsByPath,
     path: VisualElementPath,
     relationshipData: SceneRelationshipData,
   ) {
     relationshipsByPath.set(path, relationshipData);
-  }
-
-  function deleteSceneRelationships(relationshipsByPath: SceneRelationshipsByPath, path: VisualElementPath) {
-    relationshipsByPath.delete(path);
   }
 
   function syncRenderProjectionFromScene(
