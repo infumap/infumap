@@ -761,7 +761,7 @@ function syncRenderProjectionNode(
     return;
   }
 
-  if (!preferredSignal && previousVe === nextVe) {
+  if (previousVe === nextVe) {
     updateRenderProjectionNode(path, signal);
     return;
   }
@@ -1227,8 +1227,6 @@ export let VesCache = {
     addSceneWatchContainerUid(currentSceneOutputs, uid, origin);
   },
 
-
-
   getCurrentWatchContainerUidsByOrigin: (): Map<string | null, Set<Uid>> => {
     return currentSceneOutputs.watchContainerUidsByOrigin;
   },
@@ -1334,7 +1332,7 @@ export let VesCache = {
     }
 
     if (!deleteSceneNode(currentScene, existingPath)) {
-      throw "vesToOverwrite did not exist";
+      throw new Error("vesToOverwrite did not exist");
     }
     deleteFromVessVsDisplayIdLookup(currentScene, existingPath);
     deindexVisualElement(currentScene, existingPath, veToOverwrite);
