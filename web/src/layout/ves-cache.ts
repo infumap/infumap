@@ -163,27 +163,27 @@ function setRenderProjectionTableRows(path: VisualElementPath, rows: Array<numbe
 
 let currentlyInFullArrange = false;
 
-type SceneRelationshipData<Node> = {
-  attachments: Array<Node>;
-  popup: Node | null;
-  selected: Node | null;
-  dock: Node | null;
-  children: Array<Node>;
-  lineChildren: Array<Node>;
-  desktopChildren: Array<Node>;
-  nonMovingChildren: Array<Node>;
+type SceneRelationshipData = {
+  attachments: Array<VisualElementPath>;
+  popup: VisualElementPath | null;
+  selected: VisualElementPath | null;
+  dock: VisualElementPath | null;
+  children: Array<VisualElementPath>;
+  lineChildren: Array<VisualElementPath>;
+  desktopChildren: Array<VisualElementPath>;
+  nonMovingChildren: Array<VisualElementPath>;
   tableRows: Array<number> | null;
   focusedChildItemMaybe: Item | null;
 }
 
-type SceneRelationshipsByPath<Node> = Map<VisualElementPath, SceneRelationshipData<Node>>;
+type SceneRelationshipsByPath = Map<VisualElementPath, SceneRelationshipData>;
 
 type SceneState = {
   cache: Map<VisualElementPath, VisualElementSignal>;
   vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
   childrenByParent: Map<VisualElementPath, Array<VisualElementSignal>>;
   vessByVeid: Map<string, Array<VisualElementSignal>>;
-  relationshipsByPath: SceneRelationshipsByPath<VisualElementSignal>;
+  relationshipsByPath: SceneRelationshipsByPath;
 }
 
 type VirtualSceneState = {
@@ -191,7 +191,7 @@ type VirtualSceneState = {
   vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
   childrenByParent: Map<VisualElementPath, Array<VisualElement>>;
   vessByVeid: Map<string, Array<VisualElement>>;
-  relationshipsByPath: SceneRelationshipsByPath<VisualElement>;
+  relationshipsByPath: SceneRelationshipsByPath;
 }
 
 function createEmptySceneState(): SceneState {
@@ -257,7 +257,7 @@ function getSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPat
 }
 
 function getSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
-  return (scene.relationshipsByPath.get(parentPath)?.children ?? []).slice();
+  return resolveSceneRelationshipNodes(scene, scene.relationshipsByPath.get(parentPath)?.children);
 }
 
 function getSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElementSignal> {
@@ -302,6 +302,43 @@ function readSignalNodeList(list: Array<VisualElementSignal> | undefined): Array
   return (list ?? []).map(ves => ves.get());
 }
 
+function resolveSceneRelationshipNode(scene: SceneState, path: VisualElementPath | null | undefined): VisualElementSignal | null {
+  if (path == null) {
+    return null;
+  }
+  return getSceneNode(scene, path) ?? null;
+}
+
+function resolveSceneRelationshipNodes(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElementSignal> {
+  const resolved: Array<VisualElementSignal> = [];
+  for (const path of paths ?? []) {
+    const node = getSceneNode(scene, path);
+    if (node) {
+      resolved.push(node);
+    }
+  }
+  return resolved;
+}
+
+function readSceneRelationshipNode(scene: SceneState, path: VisualElementPath | null | undefined): VisualElement | null {
+  return readSignalNode(resolveSceneRelationshipNode(scene, path));
+}
+
+function readSceneRelationshipNodes(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
+  return readSignalNodeList(resolveSceneRelationshipNodes(scene, paths));
+}
+
+function readVirtualRelationshipNodes(paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
+  const resolved: Array<VisualElement> = [];
+  for (const path of paths ?? []) {
+    const node = virtualScene.cache.get(path);
+    if (node) {
+      resolved.push(node);
+    }
+  }
+  return resolved;
+}
+
 function readSceneNode(scene: SceneState, path: VisualElementPath): VisualElement | undefined {
   return getSceneNode(scene, path)?.get();
 }
@@ -311,7 +348,7 @@ function readSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPa
 }
 
 function readSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
-  return readSignalNodeList(getSceneStructuralChildren(scene, parentPath));
+  return readSceneRelationshipNodes(scene, scene.relationshipsByPath.get(parentPath)?.children);
 }
 
 function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
@@ -319,19 +356,19 @@ function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<Vi
 }
 
 function readSceneAttachments(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
-  return readSignalNodeList(scene.relationshipsByPath.get(path)?.attachments);
+  return readSceneRelationshipNodes(scene, scene.relationshipsByPath.get(path)?.attachments);
 }
 
 function readScenePopup(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSignalNode(scene.relationshipsByPath.get(path)?.popup);
+  return readSceneRelationshipNode(scene, scene.relationshipsByPath.get(path)?.popup);
 }
 
 function readSceneSelected(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSignalNode(scene.relationshipsByPath.get(path)?.selected);
+  return readSceneRelationshipNode(scene, scene.relationshipsByPath.get(path)?.selected);
 }
 
 function readSceneDock(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSignalNode(scene.relationshipsByPath.get(path)?.dock);
+  return readSceneRelationshipNode(scene, scene.relationshipsByPath.get(path)?.dock);
 }
 
 function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
@@ -361,45 +398,38 @@ function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
     snapshot.vessVsDisplayId.set(displayId, paths.slice());
   }
 
-  const detachedNodes = new Map<VisualElementPath, VisualElement>();
-  const resolveVirtualNode = (ves: VisualElementSignal | null): VisualElement | null => {
-    if (ves == null) {
-      return null;
-    }
+  const resolveSnapshotNode = (ves: VisualElementSignal): VisualElement => {
     const path = VeFns.veToPath(ves.get());
-    const existing = snapshot.cache.get(path) ?? detachedNodes.get(path);
+    const existing = snapshot.cache.get(path);
     if (existing) {
       return existing;
     }
-    const detached = cloneVisualElementSnapshot(ves.get());
-    detachedNodes.set(path, detached);
-    return detached;
+    const cloned = cloneVisualElementSnapshot(ves.get());
+    snapshot.cache.set(path, cloned);
+    return cloned;
   };
-  const resolveVirtualNodes = (list: Array<VisualElementSignal> | undefined): Array<VisualElement> => {
-    if (!list) {
-      return [];
-    }
-    return list.map(ves => resolveVirtualNode(ves)!);
+  const resolveSnapshotNodes = (list: Array<VisualElementSignal> | undefined): Array<VisualElement> => {
+    return (list ?? []).map(resolveSnapshotNode);
   };
 
   for (const [parentPath, children] of scene.childrenByParent) {
-    snapshot.childrenByParent.set(parentPath, resolveVirtualNodes(children));
+    snapshot.childrenByParent.set(parentPath, resolveSnapshotNodes(children));
   }
 
   for (const [veidKey, matches] of scene.vessByVeid) {
-    snapshot.vessByVeid.set(veidKey, resolveVirtualNodes(matches));
+    snapshot.vessByVeid.set(veidKey, resolveSnapshotNodes(matches));
   }
 
   for (const [path, relationships] of scene.relationshipsByPath) {
     snapshot.relationshipsByPath.set(path, {
-      attachments: resolveVirtualNodes(relationships.attachments),
-      popup: resolveVirtualNode(relationships.popup),
-      selected: resolveVirtualNode(relationships.selected),
-      dock: resolveVirtualNode(relationships.dock),
-      children: resolveVirtualNodes(relationships.children),
-      lineChildren: resolveVirtualNodes(relationships.lineChildren),
-      desktopChildren: resolveVirtualNodes(relationships.desktopChildren),
-      nonMovingChildren: resolveVirtualNodes(relationships.nonMovingChildren),
+      attachments: relationships.attachments.slice(),
+      popup: relationships.popup,
+      selected: relationships.selected,
+      dock: relationships.dock,
+      children: relationships.children.slice(),
+      lineChildren: relationships.lineChildren.slice(),
+      desktopChildren: relationships.desktopChildren.slice(),
+      nonMovingChildren: relationships.nonMovingChildren.slice(),
       tableRows: relationships.tableRows ? relationships.tableRows.slice() : null,
       focusedChildItemMaybe: relationships.focusedChildItemMaybe,
     });
@@ -417,7 +447,7 @@ function readVirtualSceneIndexedChildren(parentPath: VisualElementPath): Array<V
 }
 
 function readVirtualSceneStructuralChildren(parentPath: VisualElementPath): Array<VisualElement> {
-  return (virtualScene.relationshipsByPath.get(parentPath)?.children ?? []).slice();
+  return readVirtualRelationshipNodes(virtualScene.relationshipsByPath.get(parentPath)?.children);
 }
 
 function readVirtualSceneSiblings(path: VisualElementPath): Array<VisualElement> {
@@ -478,14 +508,14 @@ function writeScenePath(
 function syncRenderProjectionForPath(scene: SceneState, path: VisualElementPath) {
   updateRenderProjectionNode(path, getSceneNode(scene, path));
   const relationships = scene.relationshipsByPath.get(path);
-  updateRenderProjectionPopup(path, relationships?.popup ?? null);
-  updateRenderProjectionSelected(path, relationships?.selected ?? null);
-  updateRenderProjectionDock(path, relationships?.dock ?? null);
-  updateRenderProjectionAttachments(path, relationships?.attachments);
-  updateRenderProjectionChildren(path, relationships?.children);
-  updateRenderProjectionLineChildren(path, relationships?.lineChildren);
-  updateRenderProjectionDesktopChildren(path, relationships?.desktopChildren);
-  updateRenderProjectionNonMovingChildren(path, relationships?.nonMovingChildren);
+  updateRenderProjectionPopup(path, resolveSceneRelationshipNode(scene, relationships?.popup));
+  updateRenderProjectionSelected(path, resolveSceneRelationshipNode(scene, relationships?.selected));
+  updateRenderProjectionDock(path, resolveSceneRelationshipNode(scene, relationships?.dock));
+  updateRenderProjectionAttachments(path, resolveSceneRelationshipNodes(scene, relationships?.attachments));
+  updateRenderProjectionChildren(path, resolveSceneRelationshipNodes(scene, relationships?.children));
+  updateRenderProjectionLineChildren(path, resolveSceneRelationshipNodes(scene, relationships?.lineChildren));
+  updateRenderProjectionDesktopChildren(path, resolveSceneRelationshipNodes(scene, relationships?.desktopChildren));
+  updateRenderProjectionNonMovingChildren(path, resolveSceneRelationshipNodes(scene, relationships?.nonMovingChildren));
   updateRenderProjectionFocused(path, relationships?.focusedChildItemMaybe ?? null);
   setRenderProjectionTableRows(path, getSceneTableRows(scene, path));
 }
@@ -582,26 +612,37 @@ function deindexVisualElement(
   removeFromIndex(scene.vessByVeid, veidIndexKeyFromPath(path), ves);
 }
 
-function splitChildrenVesByRenderBehavior(childrenVes: Array<VisualElementSignal> | undefined) {
+function toSceneRelationshipPath(node: VisualElementSignal | null | undefined): VisualElementPath | null {
+  return node ? VeFns.veToPath(node.get()) : null;
+}
+
+function toSceneRelationshipPaths(nodes: Array<VisualElementSignal> | undefined): Array<VisualElementPath> {
+  return (nodes ?? []).map(node => VeFns.veToPath(node.get()));
+}
+
+function splitChildPathsByRenderBehavior(childrenVes: Array<VisualElementSignal> | undefined) {
   const allChildren = childrenVes ?? [];
-  const lineChildren: Array<VisualElementSignal> = [];
-  const desktopChildren: Array<VisualElementSignal> = [];
-  const nonMovingChildren: Array<VisualElementSignal> = [];
+  const allChildPaths: Array<VisualElementPath> = [];
+  const lineChildren: Array<VisualElementPath> = [];
+  const desktopChildren: Array<VisualElementPath> = [];
+  const nonMovingChildren: Array<VisualElementPath> = [];
 
   for (const childVe of allChildren) {
+    const childPath = VeFns.veToPath(childVe.get());
     const flags = childVe.get().flags;
+    allChildPaths.push(childPath);
     if (flags & VisualElementFlags.LineItem) {
-      lineChildren.push(childVe);
+      lineChildren.push(childPath);
     } else {
-      desktopChildren.push(childVe);
+      desktopChildren.push(childPath);
     }
     if (!(flags & VisualElementFlags.Moving)) {
-      nonMovingChildren.push(childVe);
+      nonMovingChildren.push(childPath);
     }
   }
 
   return {
-    allChildren,
+    allChildren: allChildPaths,
     lineChildren,
     desktopChildren,
     nonMovingChildren,
@@ -609,16 +650,16 @@ function splitChildrenVesByRenderBehavior(childrenVes: Array<VisualElementSignal
 }
 
 function syncSceneRelationships(
-  relationshipsByPath: SceneRelationshipsByPath<VisualElementSignal>,
+  relationshipsByPath: SceneRelationshipsByPath,
   path: VisualElementPath,
   relationships: VisualElementRelationships | null,
 ) {
-  const childBuckets = splitChildrenVesByRenderBehavior(relationships?.childrenVes);
+  const childBuckets = splitChildPathsByRenderBehavior(relationships?.childrenVes);
   relationshipsByPath.set(path, {
-    attachments: relationships?.attachmentsVes ?? [],
-    popup: relationships?.popupVes ?? null,
-    selected: relationships?.selectedVes ?? null,
-    dock: relationships?.dockVes ?? null,
+    attachments: toSceneRelationshipPaths(relationships?.attachmentsVes),
+    popup: toSceneRelationshipPath(relationships?.popupVes),
+    selected: toSceneRelationshipPath(relationships?.selectedVes),
+    dock: toSceneRelationshipPath(relationships?.dockVes),
     children: childBuckets.allChildren,
     lineChildren: childBuckets.lineChildren,
     desktopChildren: childBuckets.desktopChildren,
@@ -628,7 +669,7 @@ function syncSceneRelationships(
   });
 }
 
-function deleteSceneRelationships(relationshipsByPath: SceneRelationshipsByPath<VisualElementSignal>, path: VisualElementPath) {
+function deleteSceneRelationships(relationshipsByPath: SceneRelationshipsByPath, path: VisualElementPath) {
   relationshipsByPath.delete(path);
 }
 
@@ -1110,7 +1151,7 @@ export let VesCache = {
   },
 
   getTableVesRows: (path: VisualElementPath): Array<number> | null => {
-    if (currentlyInFullArrange && underConstructionScene.relationshipsByPath.has(path)) {
+    if (currentlyInFullArrange && sceneHasNode(underConstructionScene, path)) {
       return getSceneTableRows(underConstructionScene, path);
     }
     return renderProjectionByPath.get(path)?.tableRows ?? getSceneTableRows(currentScene, path);
