@@ -312,13 +312,13 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           const parentFocusPath = store.history.getParentPageFocusPath();
           console.log("[DEBUG] Strategy 1 - parentFocusPath:", parentFocusPath);
           // Check if the path exists in the virtual cache (it might not if it includes a link ID from a popup)
-          if (parentFocusPath && VesCache.virtual.getNode(parentFocusPath)) {
+          if (parentFocusPath && VesCache.virtual.readNode(parentFocusPath)) {
             const closestInParent = findClosest(parentFocusPath, direction, false, true);
             console.log("[DEBUG] Strategy 1 - closestInParent:", closestInParent);
             if (closestInParent) {
-              const closestVe = VesCache.virtual.getNode(closestInParent);
+              const closestVe = VesCache.virtual.readNode(closestInParent);
               console.log("[DEBUG] Strategy 1 - closestVe:", closestVe ? "found" : "not found");
-              if (closestVe && isPage(closestVe.get().displayItem)) {
+              if (closestVe && isPage(closestVe.displayItem)) {
                 store.history.changeParentPageFocusPath(closestInParent);
                 switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
                 return;
@@ -343,17 +343,17 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
             const parentVeid = { itemId: parentId, linkIdMaybe: null };
             arrangeVirtual(store, parentVeid, "key-arrow-nav-parent-hierarchy");
             // Find the current page's path in the virtual cache (handles tables and other containers)
-            const virtualVesList = VesCache.virtual.find(currentPageVeid);
+            const virtualVesList = VesCache.virtual.findNodes(currentPageVeid);
             console.log("[DEBUG] Strategy 2 - virtualVesList length:", virtualVesList.length);
             if (virtualVesList.length > 0) {
-              const virtualVe = virtualVesList[0].get();
+              const virtualVe = virtualVesList[0];
               const currentPagePath = VeFns.veToPath(virtualVe);
               console.log("[DEBUG] Strategy 2 - currentPagePath:", currentPagePath);
               const closestInParent = findClosest(currentPagePath, direction, false, true);
               console.log("[DEBUG] Strategy 2 - closestInParent:", closestInParent);
               if (closestInParent) {
-                const closestVe = VesCache.virtual.getNode(closestInParent);
-                if (closestVe && isPage(closestVe.get().displayItem)) {
+                const closestVe = VesCache.virtual.readNode(closestInParent);
+                if (closestVe && isPage(closestVe.displayItem)) {
                   switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
                   return;
                 }
@@ -367,12 +367,12 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
                 console.log("[DEBUG] Strategy 3 - table attachment nav, col:", virtualVe.col, "row:", virtualVe.row);
                 if (direction == FindDirection.Up || direction == FindDirection.Down) {
                   // Navigate between attachments in different table rows
-                  const rowVes = VesCache.virtual.getNode(virtualVe.parentPath);
-                  if (rowVes && rowVes.get().parentPath) {
-                    const tableVes = VesCache.virtual.getNode(rowVes.get().parentPath!);
+                  const rowVes = VesCache.virtual.readNode(virtualVe.parentPath);
+                  if (rowVes && rowVes.parentPath) {
+                    const tableVes = VesCache.virtual.readNode(rowVes.parentPath);
                     if (tableVes) {
                       // Get sibling rows (other rows in the table)
-                      const siblingRows = VesCache.virtual.getSiblings(virtualVe.parentPath);
+                      const siblingRows = VesCache.virtual.readSiblings(virtualVe.parentPath);
                       console.log("[DEBUG] Strategy 3 - siblingRows count:", siblingRows.length);
 
                       let targetPath: string | null = null;
@@ -380,8 +380,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
                       const columnIndex = virtualVe.col;
                       const currentRow = virtualVe.row;
 
-                      for (const rowSignal of siblingRows) {
-                        const rowVe = rowSignal.get();
+                      for (const rowVe of siblingRows) {
                         if (rowVe.row == null) continue;
 
                         const childRow = rowVe.row;
@@ -397,10 +396,9 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
 
                         // Find attachments of this row using virtual indexed children.
                         const rowPath = VeFns.veToPath(rowVe);
-                        const rowChildren = VesCache.virtual.getIndexedChildren(rowPath);
+                        const rowChildren = VesCache.virtual.readIndexedChildren(rowPath);
                         console.log("[DEBUG] Strategy 3 - checking row", childRow, "children:", rowChildren.length);
-                        for (const attSignal of rowChildren) {
-                          const attVe = attSignal.get();
+                        for (const attVe of rowChildren) {
                           if ((attVe.flags & VisualElementFlags.Attachment) && attVe.col === columnIndex) {
                             console.log("[DEBUG] Strategy 3 - found matching attachment in row", childRow);
                             // Only consider pages

@@ -418,6 +418,26 @@ function getSceneTableRows(scene: SceneState, path: VisualElementPath): Array<nu
   return scene.aux.tableVesRows.get(path) ?? null;
 }
 
+function readSceneNode(scene: SceneState, path: VisualElementPath): VisualElement | undefined {
+  return getSceneNode(scene, path)?.get();
+}
+
+function readSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
+  return getSceneIndexedChildren(scene, parentPath).map(ves => ves.get());
+}
+
+function readSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
+  return getSceneStructuralChildren(scene, parentPath).map(ves => ves.get());
+}
+
+function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
+  return getSceneSiblings(scene, path).map(ves => ves.get());
+}
+
+function readSceneVeidMatches(scene: SceneState, veid: Veid): Array<VisualElement> {
+  return getSceneVeidMatches(scene, veid).map(ves => ves.get());
+}
+
 function findCurrentSceneMatches(veid: Veid): Array<VisualElementSignal> {
   const result: Array<VisualElementSignal> = [];
   for (const ves of getSceneVeidMatches(underConstructionScene, veid)) {
@@ -785,24 +805,24 @@ const currentSceneQueries = {
 };
 
 const virtualSceneQueries = {
-  getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return getSceneNode(virtualScene, path);
+  readNode: (path: VisualElementPath): VisualElement | undefined => {
+    return readSceneNode(virtualScene, path);
   },
 
-  getIndexedChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
-    return getSceneIndexedChildren(virtualScene, parentPath);
+  readIndexedChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
+    return readSceneIndexedChildren(virtualScene, parentPath);
   },
 
-  getStructuralChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
-    return getSceneStructuralChildren(virtualScene, parentPath);
+  readStructuralChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
+    return readSceneStructuralChildren(virtualScene, parentPath);
   },
 
-  getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
-    return getSceneSiblings(virtualScene, path);
+  readSiblings: (path: VisualElementPath): Array<VisualElement> => {
+    return readSceneSiblings(virtualScene, path);
   },
 
-  find: (veid: Veid): Array<VisualElementSignal> => {
-    return getSceneVeidMatches(virtualScene, veid);
+  findNodes: (veid: Veid): Array<VisualElement> => {
+    return readSceneVeidMatches(virtualScene, veid);
   },
 };
 
