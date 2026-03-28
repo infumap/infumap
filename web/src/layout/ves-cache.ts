@@ -213,6 +213,17 @@ function maybeTrackLoadedContainer(outputs: SceneOutputs, spec: VisualElementSpe
   }
 }
 
+function createVisualElementWithDebug(spec: VisualElementSpec): VisualElement {
+  if (!activeArrangeDebugSample) {
+    return VeFns.create(spec);
+  }
+  const startMs = debugNowMs();
+  const ve = VeFns.create(spec);
+  activeArrangeDebugSample.veCreateCalls += 1;
+  activeArrangeDebugSample.veCreateMs += debugNowMs() - startMs;
+  return ve;
+}
+
 let currentlyInFullArrange = false;
 
 type SceneRelationshipData = {
@@ -302,6 +313,17 @@ type ArrangeDebugSample = {
   nodeWrites: number;
   nodeReused: number;
   nodeCreated: number;
+  preparedSpecCompareCalls: number;
+  preparedSpecCompareMs: number;
+  preparedSpecCompareFailures: number;
+  preparedSpecCompareKeyChecks: number;
+  relationshipPrepCalls: number;
+  relationshipPrepMs: number;
+  childBucketSplitCalls: number;
+  childBucketSplitMs: number;
+  childBucketChildCount: number;
+  veCreateCalls: number;
+  veCreateMs: number;
   relationshipWrites: number;
   relationshipReused: number;
   childBucketsReused: number;
@@ -329,6 +351,10 @@ const DEFAULT_ARRANGE_DEBUG_CONFIG: ArrangeDebugConfig = {
 let nextArrangeDebugId = 1;
 let activeArrangeDebugSample: ArrangeDebugSample | null = null;
 let arrangeDebugHistory: Array<ArrangeDebugSample> = [];
+
+function debugNowMs(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
 
 function parseArrangeDebugConfigValue(value: unknown): ArrangeDebugConfig {
   if (value === true || value === "1" || value === "true") {
@@ -418,6 +444,17 @@ function beginArrangeDebugSample(virtual: boolean) {
     nodeWrites: 0,
     nodeReused: 0,
     nodeCreated: 0,
+    preparedSpecCompareCalls: 0,
+    preparedSpecCompareMs: 0,
+    preparedSpecCompareFailures: 0,
+    preparedSpecCompareKeyChecks: 0,
+    relationshipPrepCalls: 0,
+    relationshipPrepMs: 0,
+    childBucketSplitCalls: 0,
+    childBucketSplitMs: 0,
+    childBucketChildCount: 0,
+    veCreateCalls: 0,
+    veCreateMs: 0,
     relationshipWrites: 0,
     relationshipReused: 0,
     childBucketsReused: 0,
@@ -447,6 +484,10 @@ function averageArrangeDebugHistory(history: Array<ArrangeDebugSample>) {
     finalizeMs: 0,
     nodeCreated: 0,
     nodeReused: 0,
+    preparedSpecCompareMs: 0,
+    relationshipPrepMs: 0,
+    childBucketSplitMs: 0,
+    veCreateMs: 0,
     relationshipReused: 0,
     childBucketsReused: 0,
     projectionNodeSignalsUpdated: 0,
@@ -461,6 +502,10 @@ function averageArrangeDebugHistory(history: Array<ArrangeDebugSample>) {
     total.finalizeMs += sample.finalizeMs;
     total.nodeCreated += sample.nodeCreated;
     total.nodeReused += sample.nodeReused;
+    total.preparedSpecCompareMs += sample.preparedSpecCompareMs;
+    total.relationshipPrepMs += sample.relationshipPrepMs;
+    total.childBucketSplitMs += sample.childBucketSplitMs;
+    total.veCreateMs += sample.veCreateMs;
     total.relationshipReused += sample.relationshipReused;
     total.childBucketsReused += sample.childBucketsReused;
     total.projectionNodeSignalsUpdated += sample.projectionNodeSignalsUpdated;
@@ -476,6 +521,10 @@ function averageArrangeDebugHistory(history: Array<ArrangeDebugSample>) {
     finalizeMs: total.finalizeMs / history.length,
     nodeCreated: total.nodeCreated / history.length,
     nodeReused: total.nodeReused / history.length,
+    preparedSpecCompareMs: total.preparedSpecCompareMs / history.length,
+    relationshipPrepMs: total.relationshipPrepMs / history.length,
+    childBucketSplitMs: total.childBucketSplitMs / history.length,
+    veCreateMs: total.veCreateMs / history.length,
     relationshipReused: total.relationshipReused / history.length,
     childBucketsReused: total.childBucketsReused / history.length,
     projectionNodeSignalsUpdated: total.projectionNodeSignalsUpdated / history.length,
@@ -490,7 +539,7 @@ function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnTyp
   const kind = sample.virtual ? "virtual" : "current";
   const relationshipRebuilt = sample.relationshipWrites - sample.relationshipReused;
   const avgText = average
-    ? ` avg(total=${average.totalMs.toFixed(1)} arrange=${average.arrangeItemMs.toFixed(1)} finalize=${average.finalizeMs.toFixed(1)} over ${average.count})`
+    ? ` avg(total=${average.totalMs.toFixed(1)} arrange=${average.arrangeItemMs.toFixed(1)} finalize=${average.finalizeMs.toFixed(1)} compare=${average.preparedSpecCompareMs.toFixed(1)} relPrep=${average.relationshipPrepMs.toFixed(1)} bucket=${average.childBucketSplitMs.toFixed(1)} create=${average.veCreateMs.toFixed(1)} over ${average.count})`
     : "";
   return `[ARRANGE_DEBUG] #${sample.id} ${kind}` +
     ` total=${sample.totalMs.toFixed(1)}ms` +
@@ -504,6 +553,7 @@ function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnTyp
     ` projection(paths=${sample.projectionPathsSynced} clear=${sample.projectionPathsCleared} drop=${sample.projectionEntriesDropped} fast=${sample.projectionRelationshipFastPaths} resolve=${sample.projectionRelationshipResolved})` +
     ` nodeSignals(create=${sample.projectionNodeSignalsCreated} reuse=${sample.projectionNodeSignalsReused} update=${sample.projectionNodeSignalsUpdated} clear=${sample.projectionNodeSignalsCleared})` +
     ` signalWrites(list=${sample.projectionListSignalWrites} scalar=${sample.projectionScalarSignalWrites} focused=${sample.projectionFocusedSignalWrites})` +
+    ` hot(compare=${sample.preparedSpecCompareMs.toFixed(1)}ms/${sample.preparedSpecCompareCalls} miss=${sample.preparedSpecCompareFailures} keys=${sample.preparedSpecCompareKeyChecks} relPrep=${sample.relationshipPrepMs.toFixed(1)}ms/${sample.relationshipPrepCalls} bucket=${sample.childBucketSplitMs.toFixed(1)}ms/${sample.childBucketSplitCalls} children=${sample.childBucketChildCount} create=${sample.veCreateMs.toFixed(1)}ms/${sample.veCreateCalls})` +
     avgText;
 }
 
@@ -804,19 +854,34 @@ function valuesDeepEqual(a: unknown, b: unknown): boolean {
 }
 
 function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
+  const debug = activeArrangeDebugSample;
+  const startMs = debug ? debugNowMs() : 0;
+  if (debug) {
+    debug.preparedSpecCompareCalls += 1;
+  }
   const preparedValues = preparedSpec as unknown as Record<string, unknown>;
   const existingValues = existingVe as unknown as Record<string, unknown>;
   const defaultValues = NONE_VISUAL_ELEMENT as unknown as Record<string, unknown>;
 
   for (const key of Object.keys(defaultValues)) {
+    if (debug) {
+      debug.preparedSpecCompareKeyChecks += 1;
+    }
     const expectedValue = typeof preparedValues[key] !== "undefined"
       ? preparedValues[key]
       : defaultValues[key];
     if (!valuesDeepEqual(existingValues[key], expectedValue)) {
+      if (debug) {
+        debug.preparedSpecCompareFailures += 1;
+        debug.preparedSpecCompareMs += debugNowMs() - startMs;
+      }
       return false;
     }
   }
 
+  if (debug) {
+    debug.preparedSpecCompareMs += debugNowMs() - startMs;
+  }
   return true;
 }
 
@@ -950,7 +1015,7 @@ function writePreparedUnderConstructionVisualElement(
   activeArrangeDebugSample && (activeArrangeDebugSample.nodeWrites += 1);
   const canonicalVe = existingVe && visualElementMatchesPreparedSpec(preparedSpec, existingVe)
     ? (activeArrangeDebugSample && (activeArrangeDebugSample.nodeReused += 1), existingVe)
-    : (activeArrangeDebugSample && (activeArrangeDebugSample.nodeCreated += 1), VeFns.create(preparedSpec));
+    : (activeArrangeDebugSample && (activeArrangeDebugSample.nodeCreated += 1), createVisualElementWithDebug(preparedSpec));
   writeUnderConstructionSceneNode(path, canonicalVe, preparedRelationships);
   return canonicalVe;
 }
@@ -1161,6 +1226,8 @@ function toSceneRelationshipPaths(nodes: Array<VisualElementSignal> | undefined)
 }
 
 function splitChildPathsByRenderBehavior(scene: SceneState, childPaths: Array<VisualElementPath> | undefined) {
+  const debug = activeArrangeDebugSample;
+  const startMs = debug ? debugNowMs() : 0;
   const allChildren = childPaths ?? [];
   const allChildPaths: Array<VisualElementPath> = [];
   const lineChildren: Array<VisualElementPath> = [];
@@ -1178,6 +1245,12 @@ function splitChildPathsByRenderBehavior(scene: SceneState, childPaths: Array<Vi
     if (!(flags & VisualElementFlags.Moving)) {
       nonMovingChildren.push(childPath);
     }
+  }
+
+  if (debug && allChildren.length > 0) {
+    debug.childBucketSplitCalls += 1;
+    debug.childBucketSplitMs += debugNowMs() - startMs;
+    debug.childBucketChildCount += allChildren.length;
   }
 
   return {
@@ -1225,13 +1298,18 @@ function prepareSceneRelationshipData(
   relationships: VisualElementRelationships | null,
   path?: VisualElementPath,
 ): SceneRelationshipData {
+  const debug = activeArrangeDebugSample;
+  const startMs = debug ? debugNowMs() : 0;
+  if (debug) {
+    debug.relationshipPrepCalls += 1;
+  }
   const childPaths = relationships?.childrenPaths ?? toSceneRelationshipPaths(relationships?.childrenVes);
   const reusedChildBuckets = reuseChildBucketsIfUnchanged(scene, path, childPaths);
   if (!reusedChildBuckets && childPaths.length > 0) {
     activeArrangeDebugSample && (activeArrangeDebugSample.childBucketsRebuilt += 1);
   }
   const childBuckets = reusedChildBuckets ?? splitChildPathsByRenderBehavior(scene, childPaths);
-  return {
+  const relationshipData = {
     attachments: relationships?.attachmentsPaths ?? toSceneRelationshipPaths(relationships?.attachmentsVes),
     popup: typeof relationships?.popupPath !== "undefined" ? relationships.popupPath : toSceneRelationshipPath(relationships?.popupVes),
     selected: typeof relationships?.selectedPath !== "undefined" ? relationships.selectedPath : toSceneRelationshipPath(relationships?.selectedVes),
@@ -1242,6 +1320,10 @@ function prepareSceneRelationshipData(
     nonMovingChildren: childBuckets.nonMovingChildren,
     focusedChildItemMaybe: relationships?.focusedChildItemMaybe ?? null,
   };
+  if (debug) {
+    debug.relationshipPrepMs += debugNowMs() - startMs;
+  }
+  return relationshipData;
 }
 
 function writeSceneRelationshipData(
@@ -1516,7 +1598,7 @@ export let VesCache = {
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
     const preparedUmbrellaSpec = prepareVisualElementSpec(umbrellaSpec);
     const preparedUmbrellaRelationships = prepareSceneRelationshipData(underConstructionScene, umbrellaRelationships, umbrellaPath);
-    const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : VeFns.create(preparedUmbrellaSpec);
+    const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : createVisualElementWithDebug(preparedUmbrellaSpec);
 
     if (virtualUmbrellaVes) {
       writeScenePath(underConstructionScene, umbrellaPath, umbrellaVe, preparedUmbrellaRelationships);
@@ -1575,7 +1657,7 @@ export let VesCache = {
   partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const preparedSpec = prepareVisualElementSpec(spec);
     const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships, path);
-    const newElement = VeFns.create(preparedSpec);
+    const newElement = createVisualElementWithDebug(preparedSpec);
     writeScenePath(currentScene, path, newElement, preparedRelationships);
     syncRenderProjectionForPath(currentScene, path);
 
@@ -1595,7 +1677,7 @@ export let VesCache = {
     const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships, newPath);
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
-    const nextVe = VeFns.create(preparedSpec);
+    const nextVe = createVisualElementWithDebug(preparedSpec);
 
     // Debug logging for potential path conflicts
     if (existingPath === newPath) {
