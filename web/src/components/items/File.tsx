@@ -181,7 +181,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const enterKeyHandler = () => {
     if (store.user.getUserMaybe() == null || fileItem().ownerId != store.user.getUser().userId) { return; }
     const ve = props.visualElement;
-    const parentVe = VesCache.get(ve.parentPath!)!.get();
+    const parentVe = VesCache.render.getNode(ve.parentPath!)!.get();
 
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
@@ -218,7 +218,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
       arrangeNow(store, "file-enter-create-composite");
       const veid = { itemId: note.id, linkIdMaybe: null };
-      const newVes = VesCache.findSingle(veid);
+      const newVes = VesCache.render.findSingle(veid);
       store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), itemType: ItemType.Note });
 
       let editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
@@ -321,7 +321,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
           </span>
         </Match>
       </Switch>
-      <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
+      <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>

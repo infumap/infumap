@@ -32,7 +32,7 @@ import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 export const Toolbar_Image: Component = () => {
   const store = useStore();
 
-  const imageVisualElement = () => VesCache.get(store.history.getFocusPath())!.get();
+  const imageVisualElement = () => VesCache.render.getNode(store.history.getFocusPath())!.get();
   const imageItem = () => asImageItem(imageVisualElement().displayItem);
 
   let qrDiv: HTMLDivElement | undefined;

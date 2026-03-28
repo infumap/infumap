@@ -116,7 +116,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const isInsideTranslucentPage = () => {
     const parentPath = props.visualElement.parentPath;
     if (!parentPath) return false;
-    const parentVes = VesCache.get(parentPath);
+    const parentVes = VesCache.render.getNode(parentPath);
     if (!parentVes) return false;
     return isVeTranslucentPage(parentVes.get());
   };
@@ -155,7 +155,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           {renderMovingOverAttachMaybe()}
           {renderMovingOverAttachCompositeMaybe()}
           {renderPopupSelectedOverlayMaybe()}
-          <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
+          <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           <Show when={pageFns().showMoveOutOfCompositeArea()}>

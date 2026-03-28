@@ -145,8 +145,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))() != null}>
-          <VisualElement_Desktop visualElement={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get()} />
+        <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null}>
+          <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()} />
         </Show>
       </div>
     </>;
@@ -170,7 +170,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         <div class="absolute"
           style={`left: ${0}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-          <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
 
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
@@ -428,7 +428,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
               `width: 100%; height: 100%; ` +
               `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
         </Show>
-        <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
+        <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={pageFns().showMoveOutOfCompositeArea()}>

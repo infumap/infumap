@@ -306,7 +306,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
           `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
           `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
-        <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
+        <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>

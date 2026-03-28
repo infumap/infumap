@@ -58,7 +58,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
             `background-color: #ffffff; ` +
             `border-right-width: ${mainPageBorderWidth(store)}px; ` +
             `border-color: ${mainPageBorderColor(store, itemState.get)}; `}>
-          <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVe =>
+          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
 
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>

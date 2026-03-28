@@ -39,12 +39,12 @@ export const Toolbar_Note: Component = () => {
   let formatDiv: HTMLDivElement | undefined;
   let urlDiv: HTMLDivElement | undefined;
 
-  const noteVisualElementSignal = () => VesCache.get(store.history.getFocusPath())!;
+  const noteVisualElementSignal = () => VesCache.render.getNode(store.history.getFocusPath())!;
   const noteVisualElement = () => noteVisualElementSignal().get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
 
   const compositeVisualElementMaybe = () => {
-    const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
+    const parentVe = VesCache.render.getNode(noteVisualElement().parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return null; }
     return parentVe;
   };

@@ -99,8 +99,8 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     if (!isNote(store.history.getFocusItem())) {
       return null;
     }
-    const noteVisualElement = () => VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
-    const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
+    const noteVisualElement = () => VesCache.render.getNode(store.overlay.textEditInfo()!.itemPath)!.get();
+    const parentVe = VesCache.render.getNode(noteVisualElement().parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return null; }
     return parentVe;
   };
@@ -160,12 +160,12 @@ export const Toolbar_Popup: Component = () => {
   const ratingItem = () => asRatingItem(store.history.getFocusItem());
   const formatItem = () => asFormatItem(store.history.getFocusItem());
 
-  const noteVisualElement = () => VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.render.getNode(store.overlay.textEditInfo()!.itemPath)!.get();
   const compositeVisualElementMaybe = () => {
     if (!isNote(store.history.getFocusItem())) {
       return null;
     }
-    const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
+    const parentVe = VesCache.render.getNode(noteVisualElement().parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return null; }
     return parentVe;
   };

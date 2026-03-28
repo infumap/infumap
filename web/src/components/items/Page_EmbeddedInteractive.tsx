@@ -191,11 +191,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <For each={pageFns().desktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
-      <Show when={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
-        <VisualElement_Desktop visualElement={VesCache.getSelectedVes(VeFns.veToPath(props.visualElement))()!.get()} />
+      <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
+        <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()} />
       </Show>
-      <Show when={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
-        <VisualElement_Desktop visualElement={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get()!} />
+      <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
+        <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
       </Show>
     </div>;
 
@@ -219,11 +219,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
-        <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+        <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
-        <Show when={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
-          <VisualElement_Desktop visualElement={VesCache.getPopupVes(VeFns.veToPath(props.visualElement))()!.get()!} />
+        <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
+          <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
         </Show>
         <Show when={isPage(VeFns.treeItem(props.visualElement)) && asPageItem(VeFns.treeItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
           <>

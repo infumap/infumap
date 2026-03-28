@@ -240,7 +240,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
         </Show>
 
-        <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
+        <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
@@ -380,11 +380,11 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   });
 
   const renderVisibleItems = () =>
-    <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+    <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
 
       <>
         <VisualElement_LineItem visualElement={childVes.get()} />
-        <For each={VesCache.getAttachmentsVes(VeFns.veToPath(childVes.get()))()}>{attachment =>
+        <For each={VesCache.render.getAttachments(VeFns.veToPath(childVes.get()))()}>{attachment =>
           <VisualElement_LineItem visualElement={attachment.get()} />
         }</For>
       </>

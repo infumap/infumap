@@ -1048,11 +1048,63 @@ const virtualSceneQueries = {
   },
 };
 
+const renderSceneQueries = {
+  getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
+    return getSceneNode(currentScene, path);
+  },
+
+  find: (veid: Veid): Array<VisualElementSignal> => {
+    return findCurrentSceneMatches(veid);
+  },
+
+  findSingle: (veid: Veid): VisualElementSignal => {
+    return findSingleCurrentSceneMatch(veid);
+  },
+
+  getAttachments: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveAttachmentsSignal(path)[0];
+  },
+
+  getPopup: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
+    return getReactivePopupSignal(path)[0];
+  },
+
+  getSelected: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
+    return getReactiveSelectedSignal(path)[0];
+  },
+
+  getDock: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
+    return getReactiveDockSignal(path)[0];
+  },
+
+  getChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveChildrenSignal(path)[0];
+  },
+
+  getLineChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveLineChildrenSignal(path)[0];
+  },
+
+  getDesktopChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveDesktopChildrenSignal(path)[0];
+  },
+
+  getNonMovingChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveNonMovingChildrenSignal(path)[0];
+  },
+
+  getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {
+    return getReactiveFocusedSignal(path)[0];
+  },
+};
+
 export let VesCache = {
 
   current: currentSceneQueries,
 
   virtual: virtualSceneQueries,
+
+  render: renderSceneQueries,
 
   /**
    * Re-initialize - clears all cached data.
@@ -1067,8 +1119,10 @@ export let VesCache = {
 
   },
 
+  // Legacy top-level accessors. Prefer `VesCache.render.*` in component code and
+  // `VesCache.current.*` / `VesCache.virtual.*` in non-render logic.
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return currentSceneQueries.getNode(path);
+    return renderSceneQueries.getNode(path);
   },
 
   getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
@@ -1251,7 +1305,7 @@ export let VesCache = {
    * any from the last completed one.
    */
   find: (veid: Veid): Array<VisualElementSignal> => {
-    return currentSceneQueries.find(veid);
+    return renderSceneQueries.find(veid);
   },
 
   /**
@@ -1262,7 +1316,7 @@ export let VesCache = {
    * any from the last completed one.
    */
   findSingle: (veid: Veid): VisualElementSignal => {
-    return currentSceneQueries.findSingle(veid);
+    return renderSceneQueries.findSingle(veid);
   },
 
   removeByPath: (path: VisualElementPath): void => {
@@ -1303,40 +1357,39 @@ export let VesCache = {
   },
 
   getAttachmentsVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveAttachmentsSignal(path)[0];
+    return renderSceneQueries.getAttachments(path);
   },
 
   getPopupVes: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    // Return the reactive accessor
-    return getReactivePopupSignal(path)[0];
+    return renderSceneQueries.getPopup(path);
   },
 
   getSelectedVes: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return getReactiveSelectedSignal(path)[0];
+    return renderSceneQueries.getSelected(path);
   },
 
   getDockVes: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return getReactiveDockSignal(path)[0];
+    return renderSceneQueries.getDock(path);
   },
 
   getChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveChildrenSignal(path)[0];
+    return renderSceneQueries.getChildren(path);
   },
 
   getLineChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveLineChildrenSignal(path)[0];
+    return renderSceneQueries.getLineChildren(path);
   },
 
   getDesktopChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveDesktopChildrenSignal(path)[0];
+    return renderSceneQueries.getDesktopChildren(path);
   },
 
   getNonMovingChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveNonMovingChildrenSignal(path)[0];
+    return renderSceneQueries.getNonMovingChildren(path);
   },
 
   getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {
-    return getReactiveFocusedSignal(path)[0];
+    return renderSceneQueries.getFocusedChild(path);
   },
 
   getTableVesRows: (path: VisualElementPath): Array<number> | null => {

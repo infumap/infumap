@@ -30,12 +30,12 @@ export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisu
     <div class={`absolute`}
       style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
         `background-color: #ffffff;`}>
-      <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVes =>
+      <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
 
         <VisualElement_Desktop visualElement={childVes.get()} />
       }</For>
-      <Show when={VesCache.getDockVes(VeFns.veToPath(props.visualElement))() != null && VesCache.getDockVes(VeFns.veToPath(props.visualElement))()!.get() != null}>
-        <VisualElement_Desktop visualElement={VesCache.getDockVes(VeFns.veToPath(props.visualElement))()!.get()!} />
+      <Show when={VesCache.render.getDock(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getDock(VeFns.veToPath(props.visualElement))()!.get() != null}>
+        <VisualElement_Desktop visualElement={VesCache.render.getDock(VeFns.veToPath(props.visualElement))()!.get()!} />
       </Show>
     </div>
   );

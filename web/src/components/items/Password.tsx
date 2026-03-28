@@ -254,7 +254,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         onclick={VisibleClickHandler}>
         <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
       </div>
-      <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
+      <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>

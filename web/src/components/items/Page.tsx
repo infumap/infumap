@@ -149,11 +149,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       store.overlay.textEditInfo() == null &&
       pageFns.isInComposite(),
 
-    lineChildren: () => VesCache.getLineChildrenVes(VeFns.veToPath(props.visualElement))(),
+    lineChildren: () => VesCache.render.getLineChildren(VeFns.veToPath(props.visualElement))(),
 
-    desktopChildren: () => VesCache.getDesktopChildrenVes(VeFns.veToPath(props.visualElement))(),
+    desktopChildren: () => VesCache.render.getDesktopChildren(VeFns.veToPath(props.visualElement))(),
 
-    nonMovingChildren: () => VesCache.getNonMovingChildrenVes(VeFns.veToPath(props.visualElement))(),
+    nonMovingChildren: () => VesCache.render.getNonMovingChildren(VeFns.veToPath(props.visualElement))(),
 
 
     showTriangleDetail: () => (pageFns.boundsPx().w / (pageFns.pageItem().spatialWidthGr / GRID_SIZE)) > 0.5,

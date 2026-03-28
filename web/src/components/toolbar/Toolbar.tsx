@@ -90,7 +90,7 @@ export const Toolbar: Component = () => {
     }
 
     let aTopPageHasFocus = isPage(store.history.getFocusItem());
-    const fVes = VesCache.get(store.history.getFocusPath()!);
+    const fVes = VesCache.render.getNode(store.history.getFocusPath()!);
     if (fVes) {
       const fVe = fVes.get();
       // Check if focus is inside a popup (has Popup flag or is descendant of popup)

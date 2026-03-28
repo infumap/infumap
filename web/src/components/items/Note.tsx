@@ -239,7 +239,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
 
     const ve = props.visualElement;
-    const parentVe = VesCache.get(ve.parentPath!)!.get();
+    const parentVe = VesCache.render.getNode(ve.parentPath!)!.get();
 
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
@@ -289,7 +289,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       const veid = { itemId: note.id, linkIdMaybe: null };
 
       const attemptToSetEditFocus = (attempt: number = 0) => {
-        const foundVes = VesCache.find(veid);
+        const foundVes = VesCache.render.find(veid);
         if (foundVes.length > 0) {
           store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(foundVes[0].get()), itemType: ItemType.Note });
           let editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
@@ -421,7 +421,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           </Match>
         </Switch>
       </div>
-      <For each={VesCache.getAttachmentsVes(VeFns.veToPath(props.visualElement))()}>{attachment =>
+      <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>

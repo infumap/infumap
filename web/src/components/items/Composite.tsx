@@ -105,7 +105,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
               `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
               `z-index: ${Z_INDEX_HIGHLIGHT};`} />
         </Show>
-        <For each={VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))()}>{childVe =>
+        <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
