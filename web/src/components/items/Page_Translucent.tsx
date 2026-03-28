@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, createEffect, createMemo, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, createMemo, createSignal, onMount } from "solid-js";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 
@@ -36,7 +36,8 @@ import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
-import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { childIntersectsViewport, isPageChildVirtualizationEnabled, pageChildVirtualizationOverscanPx, scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { BoundingBox } from "../../util/geometry";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -46,8 +47,34 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   let updatingTranslucentScrollTop = false;
   let translucentDiv: any = undefined; // HTMLDivElement | undefined
+  const [childViewportBoundsPx, setChildViewportBoundsPx] = createSignal<BoundingBox | null>(null);
 
   const pageFns = () => props.pageFns;
+
+  const updateChildViewportBounds = () => {
+    if (!translucentDiv) {
+      return;
+    }
+    setChildViewportBoundsPx({
+      x: translucentDiv.scrollLeft,
+      y: translucentDiv.scrollTop,
+      w: pageFns().boundsPx().w,
+      h: pageFns().boundsPx().h,
+    });
+  };
+
+  const pageChildren = () => {
+    const children = VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
+    if (!isPageChildVirtualizationEnabled()) {
+      return children;
+    }
+    const viewportBoundsPx = childViewportBoundsPx();
+    if (viewportBoundsPx == null) {
+      return children;
+    }
+    const overscanPx = pageChildVirtualizationOverscanPx();
+    return children.filter(childVes => childIntersectsViewport(childVes.get(), viewportBoundsPx, overscanPx));
+  };
 
   onMount(() => {
     let veid = VeFns.veidFromVe(props.visualElement);
@@ -60,6 +87,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
     translucentDiv.scrollTop = scrollYPx;
     translucentDiv.scrollLeft = scrollXPx;
+    updateChildViewportBounds();
   });
 
   createEffect(() => {
@@ -74,6 +102,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       translucentDiv.scrollLeft =
         store.perItem.getPageScrollXProp(VeFns.veidFromVe(props.visualElement)) *
         (pageFns().childAreaBoundsPx().w - props.visualElement.boundsPx.w);
+      updateChildViewportBounds();
     }
 
     setTimeout(() => {
@@ -103,6 +132,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const translucentScrollHandler = (_ev: Event) => {
     if (!translucentDiv) { return; }
     if (updatingTranslucentScrollTop) { return; }
+    updateChildViewportBounds();
 
     const pageBoundsPx = props.visualElement.boundsPx;
     const childAreaBounds = pageFns().childAreaBoundsPx();
@@ -170,7 +200,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         <div class="absolute"
           style={`left: ${0}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
+          <For each={pageChildren()}>{childVes =>
 
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
