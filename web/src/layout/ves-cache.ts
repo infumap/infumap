@@ -1157,7 +1157,13 @@ function syncRenderProjectionNode(
     return;
   }
 
-  let signal = preferredSignal ?? getRenderNode(path);
+  if (preferredSignal) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsReused += 1);
+    updateRenderProjectionNode(path, preferredSignal);
+    return;
+  }
+
+  let signal = getRenderNode(path);
   if (!signal) {
     signal = createVisualElementSignal(cloneVisualElementSnapshot(nextVe));
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsCreated += 1);
@@ -1176,15 +1182,12 @@ function syncRenderProjectionNode(
   updateRenderProjectionNode(path, signal);
 }
 
-function syncRenderProjectionForPath(
+function syncRenderProjectionRelationshipsForPath(
   scene: SceneState,
   path: VisualElementPath,
-  previousVe?: VisualElement,
   previousRelationships?: SceneRelationshipData,
-  preferredSignal?: VisualElementSignal,
   renderTableRows?: Array<number> | null,
 ) {
-  syncRenderProjectionNode(path, getSceneNode(scene, path), previousVe, preferredSignal);
   const relationships = scene.relationshipsByPath.get(path);
   if (relationships === previousRelationships) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionRelationshipFastPaths += 1);
@@ -1464,13 +1467,19 @@ function syncRenderProjectionFromScene(
     }
   }
   for (const [path] of scene.cache) {
+    syncRenderProjectionNode(
+      path,
+      getSceneNode(scene, path),
+      previousScene?.cache.get(path),
+      previousScene.cache.has(path) ? undefined : underConstructionArrangeSignalsByPath.get(path),
+    );
+  }
+  for (const [path] of scene.cache) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsSynced += 1);
-    syncRenderProjectionForPath(
+    syncRenderProjectionRelationshipsForPath(
       scene,
       path,
-      previousScene?.cache.get(path),
       previousScene?.relationshipsByPath.get(path),
-      undefined,
       renderTableRowsByPath?.get(path) ?? null,
     );
   }
@@ -1757,7 +1766,8 @@ export let VesCache = {
     const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships, path);
     const newElement = createVisualElementWithDebug(preparedSpec);
     writeScenePath(currentScene, path, newElement, preparedRelationships);
-    syncRenderProjectionForPath(currentScene, path);
+    syncRenderProjectionNode(path, newElement);
+    syncRenderProjectionRelationshipsForPath(currentScene, path);
 
     maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
 
@@ -1825,7 +1835,8 @@ export let VesCache = {
     }
     vesToOverwrite.set(cloneVisualElementSnapshot(nextVe));
     writeScenePath(currentScene, newPath, nextVe, preparedRelationships);
-    syncRenderProjectionForPath(currentScene, newPath, undefined, undefined, vesToOverwrite);
+    syncRenderProjectionNode(newPath, nextVe, undefined, vesToOverwrite);
+    syncRenderProjectionRelationshipsForPath(currentScene, newPath);
 
     maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
   },
