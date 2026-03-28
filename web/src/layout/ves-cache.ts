@@ -181,16 +181,16 @@ type SceneRelationshipsByPath = Map<VisualElementPath, SceneRelationshipData>;
 type SceneState = {
   cache: Map<VisualElementPath, VisualElementSignal>;
   vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
-  childrenByParent: Map<VisualElementPath, Array<VisualElementSignal>>;
-  vessByVeid: Map<string, Array<VisualElementSignal>>;
+  childrenByParent: Map<VisualElementPath, Array<VisualElementPath>>;
+  vessByVeid: Map<string, Array<VisualElementPath>>;
   relationshipsByPath: SceneRelationshipsByPath;
 }
 
 type VirtualSceneState = {
   cache: Map<VisualElementPath, VisualElement>;
   vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
-  childrenByParent: Map<VisualElementPath, Array<VisualElement>>;
-  vessByVeid: Map<string, Array<VisualElement>>;
+  childrenByParent: Map<VisualElementPath, Array<VisualElementPath>>;
+  vessByVeid: Map<string, Array<VisualElementPath>>;
   relationshipsByPath: SceneRelationshipsByPath;
 }
 
@@ -198,8 +198,8 @@ function createEmptySceneState(): SceneState {
   return {
     cache: new Map<VisualElementPath, VisualElementSignal>(),
     vessVsDisplayId: new Map<Uid, Array<VisualElementPath>>(),
-    childrenByParent: new Map<VisualElementPath, Array<VisualElementSignal>>(),
-    vessByVeid: new Map<string, Array<VisualElementSignal>>(),
+    childrenByParent: new Map<VisualElementPath, Array<VisualElementPath>>(),
+    vessByVeid: new Map<string, Array<VisualElementPath>>(),
     relationshipsByPath: new Map(),
   };
 }
@@ -208,8 +208,8 @@ function createEmptyVirtualSceneState(): VirtualSceneState {
   return {
     cache: new Map<VisualElementPath, VisualElement>(),
     vessVsDisplayId: new Map<Uid, Array<VisualElementPath>>(),
-    childrenByParent: new Map<VisualElementPath, Array<VisualElement>>(),
-    vessByVeid: new Map<string, Array<VisualElement>>(),
+    childrenByParent: new Map<VisualElementPath, Array<VisualElementPath>>(),
+    vessByVeid: new Map<string, Array<VisualElementPath>>(),
     relationshipsByPath: new Map(),
   };
 }
@@ -253,11 +253,11 @@ function getSceneParentPath(scene: SceneState, path: VisualElementPath): VisualE
 }
 
 function getSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
-  return (scene.childrenByParent.get(parentPath) ?? []).slice();
+  return resolveSceneNodePaths(scene, scene.childrenByParent.get(parentPath));
 }
 
 function getSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
-  return resolveSceneRelationshipNodes(scene, scene.relationshipsByPath.get(parentPath)?.children);
+  return resolveSceneNodePaths(scene, scene.relationshipsByPath.get(parentPath)?.children);
 }
 
 function getSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElementSignal> {
@@ -283,7 +283,7 @@ function addScenePathForDisplayId(scene: SceneState, displayId: Uid, path: Visua
 }
 
 function getSceneVeidMatches(scene: SceneState, veid: Veid): Array<VisualElementSignal> {
-  return (scene.vessByVeid.get(veidIndexKey(veid)) ?? []).slice();
+  return resolveSceneNodePaths(scene, scene.vessByVeid.get(veidIndexKey(veid)));
 }
 
 function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPath): string | undefined {
@@ -302,14 +302,14 @@ function readSignalNodeList(list: Array<VisualElementSignal> | undefined): Array
   return (list ?? []).map(ves => ves.get());
 }
 
-function resolveSceneRelationshipNode(scene: SceneState, path: VisualElementPath | null | undefined): VisualElementSignal | null {
+function resolveSceneNodePath(scene: SceneState, path: VisualElementPath | null | undefined): VisualElementSignal | null {
   if (path == null) {
     return null;
   }
   return getSceneNode(scene, path) ?? null;
 }
 
-function resolveSceneRelationshipNodes(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElementSignal> {
+function resolveSceneNodePaths(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElementSignal> {
   const resolved: Array<VisualElementSignal> = [];
   for (const path of paths ?? []) {
     const node = getSceneNode(scene, path);
@@ -320,15 +320,15 @@ function resolveSceneRelationshipNodes(scene: SceneState, paths: Array<VisualEle
   return resolved;
 }
 
-function readSceneRelationshipNode(scene: SceneState, path: VisualElementPath | null | undefined): VisualElement | null {
-  return readSignalNode(resolveSceneRelationshipNode(scene, path));
+function readSceneNodePath(scene: SceneState, path: VisualElementPath | null | undefined): VisualElement | null {
+  return readSignalNode(resolveSceneNodePath(scene, path));
 }
 
-function readSceneRelationshipNodes(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
-  return readSignalNodeList(resolveSceneRelationshipNodes(scene, paths));
+function readSceneNodePaths(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
+  return readSignalNodeList(resolveSceneNodePaths(scene, paths));
 }
 
-function readVirtualRelationshipNodes(paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
+function readVirtualNodePaths(paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
   const resolved: Array<VisualElement> = [];
   for (const path of paths ?? []) {
     const node = virtualScene.cache.get(path);
@@ -348,7 +348,7 @@ function readSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPa
 }
 
 function readSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
-  return readSceneRelationshipNodes(scene, scene.relationshipsByPath.get(parentPath)?.children);
+  return readSceneNodePaths(scene, scene.relationshipsByPath.get(parentPath)?.children);
 }
 
 function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
@@ -356,19 +356,19 @@ function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<Vi
 }
 
 function readSceneAttachments(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
-  return readSceneRelationshipNodes(scene, scene.relationshipsByPath.get(path)?.attachments);
+  return readSceneNodePaths(scene, scene.relationshipsByPath.get(path)?.attachments);
 }
 
 function readScenePopup(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSceneRelationshipNode(scene, scene.relationshipsByPath.get(path)?.popup);
+  return readSceneNodePath(scene, scene.relationshipsByPath.get(path)?.popup);
 }
 
 function readSceneSelected(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSceneRelationshipNode(scene, scene.relationshipsByPath.get(path)?.selected);
+  return readSceneNodePath(scene, scene.relationshipsByPath.get(path)?.selected);
 }
 
 function readSceneDock(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSceneRelationshipNode(scene, scene.relationshipsByPath.get(path)?.dock);
+  return readSceneNodePath(scene, scene.relationshipsByPath.get(path)?.dock);
 }
 
 function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
@@ -398,26 +398,12 @@ function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
     snapshot.vessVsDisplayId.set(displayId, paths.slice());
   }
 
-  const resolveSnapshotNode = (ves: VisualElementSignal): VisualElement => {
-    const path = VeFns.veToPath(ves.get());
-    const existing = snapshot.cache.get(path);
-    if (existing) {
-      return existing;
-    }
-    const cloned = cloneVisualElementSnapshot(ves.get());
-    snapshot.cache.set(path, cloned);
-    return cloned;
-  };
-  const resolveSnapshotNodes = (list: Array<VisualElementSignal> | undefined): Array<VisualElement> => {
-    return (list ?? []).map(resolveSnapshotNode);
-  };
-
   for (const [parentPath, children] of scene.childrenByParent) {
-    snapshot.childrenByParent.set(parentPath, resolveSnapshotNodes(children));
+    snapshot.childrenByParent.set(parentPath, children.slice());
   }
 
   for (const [veidKey, matches] of scene.vessByVeid) {
-    snapshot.vessByVeid.set(veidKey, resolveSnapshotNodes(matches));
+    snapshot.vessByVeid.set(veidKey, matches.slice());
   }
 
   for (const [path, relationships] of scene.relationshipsByPath) {
@@ -443,11 +429,11 @@ function readVirtualSceneNode(path: VisualElementPath): VisualElement | undefine
 }
 
 function readVirtualSceneIndexedChildren(parentPath: VisualElementPath): Array<VisualElement> {
-  return (virtualScene.childrenByParent.get(parentPath) ?? []).slice();
+  return readVirtualNodePaths(virtualScene.childrenByParent.get(parentPath));
 }
 
 function readVirtualSceneStructuralChildren(parentPath: VisualElementPath): Array<VisualElement> {
-  return readVirtualRelationshipNodes(virtualScene.relationshipsByPath.get(parentPath)?.children);
+  return readVirtualNodePaths(virtualScene.relationshipsByPath.get(parentPath)?.children);
 }
 
 function readVirtualSceneSiblings(path: VisualElementPath): Array<VisualElement> {
@@ -460,7 +446,7 @@ function readVirtualSceneSiblings(path: VisualElementPath): Array<VisualElement>
 }
 
 function readVirtualSceneVeidMatches(veid: Veid): Array<VisualElement> {
-  return (virtualScene.vessByVeid.get(veidIndexKey(veid)) ?? []).slice();
+  return readVirtualNodePaths(virtualScene.vessByVeid.get(veidIndexKey(veid)));
 }
 
 function findCurrentSceneMatches(veid: Veid): Array<VisualElementSignal> {
@@ -508,14 +494,14 @@ function writeScenePath(
 function syncRenderProjectionForPath(scene: SceneState, path: VisualElementPath) {
   updateRenderProjectionNode(path, getSceneNode(scene, path));
   const relationships = scene.relationshipsByPath.get(path);
-  updateRenderProjectionPopup(path, resolveSceneRelationshipNode(scene, relationships?.popup));
-  updateRenderProjectionSelected(path, resolveSceneRelationshipNode(scene, relationships?.selected));
-  updateRenderProjectionDock(path, resolveSceneRelationshipNode(scene, relationships?.dock));
-  updateRenderProjectionAttachments(path, resolveSceneRelationshipNodes(scene, relationships?.attachments));
-  updateRenderProjectionChildren(path, resolveSceneRelationshipNodes(scene, relationships?.children));
-  updateRenderProjectionLineChildren(path, resolveSceneRelationshipNodes(scene, relationships?.lineChildren));
-  updateRenderProjectionDesktopChildren(path, resolveSceneRelationshipNodes(scene, relationships?.desktopChildren));
-  updateRenderProjectionNonMovingChildren(path, resolveSceneRelationshipNodes(scene, relationships?.nonMovingChildren));
+  updateRenderProjectionPopup(path, resolveSceneNodePath(scene, relationships?.popup));
+  updateRenderProjectionSelected(path, resolveSceneNodePath(scene, relationships?.selected));
+  updateRenderProjectionDock(path, resolveSceneNodePath(scene, relationships?.dock));
+  updateRenderProjectionAttachments(path, resolveSceneNodePaths(scene, relationships?.attachments));
+  updateRenderProjectionChildren(path, resolveSceneNodePaths(scene, relationships?.children));
+  updateRenderProjectionLineChildren(path, resolveSceneNodePaths(scene, relationships?.lineChildren));
+  updateRenderProjectionDesktopChildren(path, resolveSceneNodePaths(scene, relationships?.desktopChildren));
+  updateRenderProjectionNonMovingChildren(path, resolveSceneNodePaths(scene, relationships?.nonMovingChildren));
   updateRenderProjectionFocused(path, relationships?.focusedChildItemMaybe ?? null);
   setRenderProjectionTableRows(path, getSceneTableRows(scene, path));
 }
@@ -564,16 +550,16 @@ function veidIndexKeyFromPath(path: VisualElementPath): string {
   return veidIndexKey(VeFns.veidFromPath(path));
 }
 
-function addToIndex<K>(index: Map<K, Array<VisualElementSignal>>, key: K, ves: VisualElementSignal) {
+function addToIndex<K>(index: Map<K, Array<VisualElementPath>>, key: K, path: VisualElementPath) {
   const existing = index.get(key);
   if (!existing) {
-    index.set(key, [ves]);
+    index.set(key, [path]);
     return;
   }
-  existing.push(ves);
+  existing.push(path);
 }
 
-function removeFromIndex<K>(index: Map<K, Array<VisualElementSignal>>, key: K | null | undefined, ves: VisualElementSignal) {
+function removeFromIndex<K>(index: Map<K, Array<VisualElementPath>>, key: K | null | undefined, path: VisualElementPath) {
   if (key == null) {
     return;
   }
@@ -581,9 +567,9 @@ function removeFromIndex<K>(index: Map<K, Array<VisualElementSignal>>, key: K | 
   if (!existing) {
     panic(`missing index entry for '${String(key)}'.`);
   }
-  const existingIndex = existing.findIndex(v => v === ves);
+  const existingIndex = existing.findIndex(v => v === path);
   if (existingIndex === -1) {
-    panic(`signal missing from index entry for '${String(key)}'.`);
+    panic(`path missing from index entry for '${String(key)}'.`);
   }
   existing.splice(existingIndex, 1);
   if (existing.length === 0) {
@@ -598,9 +584,9 @@ function indexVisualElement(
 ) {
   const parentPath = ves.get().parentPath;
   if (parentPath != null) {
-    addToIndex(scene.childrenByParent, parentPath, ves);
+    addToIndex(scene.childrenByParent, parentPath, path);
   }
-  addToIndex(scene.vessByVeid, veidIndexKeyFromPath(path), ves);
+  addToIndex(scene.vessByVeid, veidIndexKeyFromPath(path), path);
 }
 
 function deindexVisualElement(
@@ -608,8 +594,8 @@ function deindexVisualElement(
   path: VisualElementPath,
   ves: VisualElementSignal,
 ) {
-  removeFromIndex(scene.childrenByParent, ves.get().parentPath, ves);
-  removeFromIndex(scene.vessByVeid, veidIndexKeyFromPath(path), ves);
+  removeFromIndex(scene.childrenByParent, ves.get().parentPath, path);
+  removeFromIndex(scene.vessByVeid, veidIndexKeyFromPath(path), path);
 }
 
 function toSceneRelationshipPath(node: VisualElementSignal | null | undefined): VisualElementPath | null {
