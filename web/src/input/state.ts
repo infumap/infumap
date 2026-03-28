@@ -55,7 +55,6 @@ export interface MouseActionStateType {
   startActiveElementParent: VisualElementPath,
   activeElementPath: VisualElementPath,
   activeCompositeElementMaybe: VisualElementPath | null,
-  activeElementSignalMaybe: VisualElementSignal | null,
 
   activeRoot: VisualElementPath,
 
@@ -89,6 +88,7 @@ export interface MouseActionStateType {
 
 
 let mouseActionState: MouseActionStateType | null = null;
+let activeElementSignalCache: VisualElementSignal | null = null;
 
 function getRenderSignalForPath(path: VisualElementPath | null | undefined): VisualElementSignal | null {
   if (!path) { return null; }
@@ -115,7 +115,7 @@ function signalMatchesPath(path: VisualElementPath, signal: VisualElementSignal 
 
 function deriveActiveElementLinkState(
   state: MouseActionStateType,
-  signalMaybe: VisualElementSignal | null = state.activeElementSignalMaybe,
+  signalMaybe: VisualElementSignal | null = activeElementSignalCache,
 ): { activeLinkIdMaybe: string | null, activeLinkedDisplayItemMaybe: Item | null } {
   let activeVe: VisualElement | null = null;
 
@@ -151,23 +151,23 @@ function setActiveElementPathInternal(state: MouseActionStateType, path: VisualE
   state.activeElementPath = path;
   const resolvedSignal = getRenderSignalForPath(path);
   if (resolvedSignal) {
-    state.activeElementSignalMaybe = resolvedSignal;
+    activeElementSignalCache = resolvedSignal;
   } else if (signalHint && signalMatchesPath(path, signalHint)) {
-    state.activeElementSignalMaybe = signalHint;
+    activeElementSignalCache = signalHint;
   } else {
-    state.activeElementSignalMaybe = null;
+    activeElementSignalCache = null;
   }
 }
 
 function normalizeMouseActionState(state: MouseActionStateType): void {
-  setActiveElementPathInternal(state, state.activeElementPath, state.activeElementSignalMaybe);
+  setActiveElementPathInternal(state, state.activeElementPath, activeElementSignalCache);
 }
 
 function resolveActiveElementSignal(state: MouseActionStateType): VisualElementSignal | null {
   let signal = getRenderSignalForPath(state.activeElementPath);
 
-  if (!signal && signalMatchesPath(state.activeElementPath, state.activeElementSignalMaybe)) {
-    signal = state.activeElementSignalMaybe;
+  if (!signal && signalMatchesPath(state.activeElementPath, activeElementSignalCache)) {
+    signal = activeElementSignalCache;
   }
 
   if (!signal) {
@@ -252,7 +252,7 @@ function resolveActiveElementSignal(state: MouseActionStateType): VisualElementS
     state.activeElementPath = VeFns.veToPath(signal.get());
   }
 
-  state.activeElementSignalMaybe = signal;
+  activeElementSignalCache = signal;
   return signal;
 }
 
@@ -260,6 +260,8 @@ export let MouseActionState = {
   set: (state: MouseActionStateType | null): void => {
     if (state) {
       normalizeMouseActionState(state);
+    } else {
+      activeElementSignalCache = null;
     }
     mouseActionState = state;
   },

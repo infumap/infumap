@@ -425,7 +425,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     startActiveElementParent: hitVe.parentPath!,
     activeElementPath,
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(HitInfoFns.getCompositeContainerVe(hitInfo)!) : null,
-    activeElementSignalMaybe: null,
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
     moveOver_attachCompositeHitboxElement: null,
