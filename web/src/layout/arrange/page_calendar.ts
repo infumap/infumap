@@ -476,9 +476,10 @@ export function arrange_calendar_page(
       if (linkedItem) {
         movingDisplayItem = linkedItem;
       } else {
-        const actionState = MouseActionState.empty() ? null : MouseActionState.get();
-        if (actionState && actionState.activeLinkIdMaybe === actualMovingItemLinkItemMaybe.id && actionState.activeLinkedDisplayItemMaybe) {
-          movingDisplayItem = actionState.activeLinkedDisplayItemMaybe;
+        const activeLinkIdMaybe = MouseActionState.getActiveLinkIdMaybe();
+        const activeLinkedDisplayItemMaybe = MouseActionState.getActiveLinkedDisplayItemMaybe();
+        if (!MouseActionState.empty() && activeLinkIdMaybe === actualMovingItemLinkItemMaybe.id && activeLinkedDisplayItemMaybe) {
+          movingDisplayItem = activeLinkedDisplayItemMaybe;
         }
       }
     }

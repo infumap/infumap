@@ -49,15 +49,16 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
 
   linkItemMaybe = asLinkItem(item);
   const linkToId = LinkFns.getLinkToId(linkItemMaybe);
-  const activeState = !MouseActionState.empty() ? MouseActionState.get() : null;
+  const activeLinkIdMaybe = MouseActionState.getActiveLinkIdMaybe();
+  const activeLinkedDisplayItemMaybe = MouseActionState.getActiveLinkedDisplayItemMaybe();
   const displayItemMaybe = itemState.get(linkToId)!;
   if (displayItemMaybe != null) {
     displayItem = displayItemMaybe!;
     if (isXSizableItem(displayItem)) {
       spatialWidthGr = linkItemMaybe.spatialWidthGr;
     }
-  } else if (activeState && activeState.activeLinkIdMaybe === linkItemMaybe.id && activeState.activeLinkedDisplayItemMaybe) {
-    displayItem = activeState.activeLinkedDisplayItemMaybe;
+  } else if (!MouseActionState.empty() && activeLinkIdMaybe === linkItemMaybe.id && activeLinkedDisplayItemMaybe) {
+    displayItem = activeLinkedDisplayItemMaybe;
     if (isXSizableItem(displayItem)) {
       spatialWidthGr = linkItemMaybe.spatialWidthGr;
     }

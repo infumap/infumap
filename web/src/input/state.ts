@@ -56,8 +56,6 @@ export interface MouseActionStateType {
   activeElementPath: VisualElementPath,
   activeCompositeElementMaybe: VisualElementPath | null,
   activeElementSignalMaybe: VisualElementSignal | null,
-  activeLinkIdMaybe: string | null,
-  activeLinkedDisplayItemMaybe: Item | null,
 
   activeRoot: VisualElementPath,
 
@@ -115,7 +113,10 @@ function signalMatchesPath(path: VisualElementPath, signal: VisualElementSignal 
   return tryGetSignalPath(signal) === path;
 }
 
-function syncActiveElementDerivedFields(state: MouseActionStateType, signalMaybe: VisualElementSignal | null = state.activeElementSignalMaybe): void {
+function deriveActiveElementLinkState(
+  state: MouseActionStateType,
+  signalMaybe: VisualElementSignal | null = state.activeElementSignalMaybe,
+): { activeLinkIdMaybe: string | null, activeLinkedDisplayItemMaybe: Item | null } {
   let activeVe: VisualElement | null = null;
 
   if (signalMaybe && signalMatchesPath(state.activeElementPath, signalMaybe)) {
@@ -131,14 +132,19 @@ function syncActiveElementDerivedFields(state: MouseActionStateType, signalMaybe
   }
 
   if (activeVe) {
-    state.activeLinkIdMaybe = activeVe.actualLinkItemMaybe?.id ?? activeVe.linkItemMaybe?.id ?? null;
-    state.activeLinkedDisplayItemMaybe = state.activeLinkIdMaybe ? activeVe.displayItem : null;
-    return;
+    const activeLinkIdMaybe = activeVe.actualLinkItemMaybe?.id ?? activeVe.linkItemMaybe?.id ?? null;
+    return {
+      activeLinkIdMaybe,
+      activeLinkedDisplayItemMaybe: activeLinkIdMaybe ? activeVe.displayItem : null,
+    };
   }
 
   const veid = VeFns.veidFromPath(state.activeElementPath);
-  state.activeLinkIdMaybe = veid.linkIdMaybe ?? null;
-  state.activeLinkedDisplayItemMaybe = state.activeLinkIdMaybe ? itemState.get(veid.itemId) ?? null : null;
+  const activeLinkIdMaybe = veid.linkIdMaybe ?? null;
+  return {
+    activeLinkIdMaybe,
+    activeLinkedDisplayItemMaybe: activeLinkIdMaybe ? itemState.get(veid.itemId) ?? null : null,
+  };
 }
 
 function setActiveElementPathInternal(state: MouseActionStateType, path: VisualElementPath, signalHint: VisualElementSignal | null = null): void {
@@ -151,7 +157,10 @@ function setActiveElementPathInternal(state: MouseActionStateType, path: VisualE
   } else {
     state.activeElementSignalMaybe = null;
   }
-  syncActiveElementDerivedFields(state, state.activeElementSignalMaybe);
+}
+
+function normalizeMouseActionState(state: MouseActionStateType): void {
+  setActiveElementPathInternal(state, state.activeElementPath, state.activeElementSignalMaybe);
 }
 
 function resolveActiveElementSignal(state: MouseActionStateType): VisualElementSignal | null {
@@ -244,12 +253,16 @@ function resolveActiveElementSignal(state: MouseActionStateType): VisualElementS
   }
 
   state.activeElementSignalMaybe = signal;
-  syncActiveElementDerivedFields(state, signal);
   return signal;
 }
 
 export let MouseActionState = {
-  set: (state: MouseActionStateType | null): void => { mouseActionState = state; },
+  set: (state: MouseActionStateType | null): void => {
+    if (state) {
+      normalizeMouseActionState(state);
+    }
+    mouseActionState = state;
+  },
 
   empty: (): boolean => mouseActionState == null,
 
@@ -268,6 +281,18 @@ export let MouseActionState = {
 
   setActiveElementPath: (path: VisualElementPath, signalHint: VisualElementSignal | null = null): void => {
     setActiveElementPathInternal(MouseActionState.get(), path, signalHint);
+  },
+
+  getActiveLinkIdMaybe: (): string | null => {
+    const state = mouseActionState;
+    if (state == null) { return null; }
+    return deriveActiveElementLinkState(state).activeLinkIdMaybe;
+  },
+
+  getActiveLinkedDisplayItemMaybe: (): Item | null => {
+    const state = mouseActionState;
+    if (state == null) { return null; }
+    return deriveActiveElementLinkState(state).activeLinkedDisplayItemMaybe;
   },
 
   getActiveVisualElementSignal: (): VisualElementSignal | null => {
