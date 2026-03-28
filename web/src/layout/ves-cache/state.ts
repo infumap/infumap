@@ -122,5 +122,3 @@ export function createVesCacheState(): VesCacheState {
     underConstructionSceneOutputs: createEmptySceneOutputs(),
   };
 }
-
-export const vesCacheState = createVesCacheState();

@@ -25,9 +25,9 @@ import { VeFns, VisualElement, VisualElementPath, VisualElementRelationships, Vi
 import {
   createProjectionOps,
 } from "./projection";
-import { createSceneOps } from "./scene";
+import { createSceneOps } from "./core";
 import { cloneVisualElementSnapshot, prepareVisualElementSpec } from "./spec";
-import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualSceneState, vesCacheState } from "./state";
+import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualSceneState, createVesCacheState } from "./state";
 
 /*
   Explanation:
@@ -47,6 +47,7 @@ import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualScene
   elements and replace them.
 */
 
+const vesCacheState = createVesCacheState();
 const projectionOps = createProjectionOps(vesCacheState);
 const sceneOps = createSceneOps(vesCacheState, projectionOps);
 const {
