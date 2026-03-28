@@ -325,8 +325,6 @@ type SceneState = {
   vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
   childrenByParent: Map<VisualElementPath, Array<VisualElementSignal>>;
   vessByVeid: Map<string, Array<VisualElementSignal>>;
-  topTitledPages: Array<VisualElementPath>;
-  watchContainerUidsByOrigin: Map<string | null, Set<Uid>>;
   aux: VesAuxData;
 }
 
@@ -336,15 +334,27 @@ function createEmptySceneState(): SceneState {
     vessVsDisplayId: new Map<Uid, Array<VisualElementPath>>(),
     childrenByParent: new Map<VisualElementPath, Array<VisualElementSignal>>(),
     vessByVeid: new Map<string, Array<VisualElementSignal>>(),
+    aux: createEmptyAuxData(),
+  };
+}
+
+type SceneOutputs = {
+  topTitledPages: Array<VisualElementPath>;
+  watchContainerUidsByOrigin: Map<string | null, Set<Uid>>;
+}
+
+function createEmptySceneOutputs(): SceneOutputs {
+  return {
     topTitledPages: [],
     watchContainerUidsByOrigin: new Map<string | null, Set<Uid>>(),
-    aux: createEmptyAuxData(),
   };
 }
 
 let currentScene = createEmptySceneState();
 let virtualScene = createEmptySceneState();
 let underConstructionScene = createEmptySceneState();
+let currentSceneOutputs = createEmptySceneOutputs();
+let underConstructionSceneOutputs = createEmptySceneOutputs();
 
 function getSceneNode(scene: SceneState, path: VisualElementPath): VisualElementSignal | undefined {
   return scene.cache.get(path);
@@ -408,11 +418,26 @@ function getSceneTableRows(scene: SceneState, path: VisualElementPath): Array<nu
   return scene.aux.tableVesRows.get(path) ?? null;
 }
 
-function addSceneWatchContainerUid(scene: SceneState, uid: Uid, origin: string | null) {
-  if (!scene.watchContainerUidsByOrigin.has(origin)) {
-    scene.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
+function addSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
+  if (!outputs.watchContainerUidsByOrigin.has(origin)) {
+    outputs.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
   }
-  scene.watchContainerUidsByOrigin.get(origin)!.add(uid);
+  outputs.watchContainerUidsByOrigin.get(origin)!.add(uid);
+}
+
+function pushTopTitledPage(outputs: SceneOutputs, vePath: VisualElementPath) {
+  outputs.topTitledPages.push(vePath);
+}
+
+function removeSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
+  const uidSet = outputs.watchContainerUidsByOrigin.get(origin);
+  if (!uidSet) {
+    return;
+  }
+  uidSet.delete(uid);
+  if (uidSet.size === 0) {
+    outputs.watchContainerUidsByOrigin.delete(origin);
+  }
 }
 
 function veidIndexKey(veid: Veid): string {
@@ -656,9 +681,10 @@ function promoteVirtualScene(scene: SceneState) {
   virtualScene = scene;
 }
 
-function promoteCurrentScene(store: StoreContextModel, scene: SceneState) {
+function promoteCurrentScene(store: StoreContextModel, scene: SceneState, outputs: SceneOutputs) {
   currentScene = scene;
-  store.topTitledPages.set(scene.topTitledPages);
+  currentSceneOutputs = outputs;
+  store.topTitledPages.set(outputs.topTitledPages);
   logOrphanedVes(scene.cache, "full_finalizeArrange");
   logArrangeStats();
   syncReactiveStateFromScene(scene);
@@ -671,9 +697,11 @@ export let VesCache = {
    */
   clear: (): void => {
     currentScene = createEmptySceneState();
+    currentSceneOutputs = createEmptySceneOutputs();
     staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
     virtualScene = createEmptySceneState();
     underConstructionScene = createEmptySceneState();
+    underConstructionSceneOutputs = createEmptySceneOutputs();
 
   },
 
@@ -710,13 +738,13 @@ export let VesCache = {
   },
 
   addWatchContainerUid: (uid: Uid, origin: string | null): void => {
-    addSceneWatchContainerUid(currentScene, uid, origin);
+    addSceneWatchContainerUid(currentSceneOutputs, uid, origin);
   },
 
 
 
   getCurrentWatchContainerUidsByOrigin: (): Map<string | null, Set<Uid>> => {
-    return currentScene.watchContainerUidsByOrigin;
+    return currentSceneOutputs.watchContainerUidsByOrigin;
   },
 
   full_initArrange: (): void => {
@@ -753,10 +781,11 @@ export let VesCache = {
       setSceneNode(underConstructionScene, umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
       syncAuxData(underConstructionScene.aux, umbrellaPath, store.umbrellaVisualElement.get(), umbrellaVeSpec);
-      promoteCurrentScene(store, underConstructionScene);
+      promoteCurrentScene(store, underConstructionScene, underConstructionSceneOutputs);
     }
 
     underConstructionScene = createEmptySceneState();
+    underConstructionSceneOutputs = createEmptySceneOutputs();
 
     currentlyInFullArrange = false;
   },
@@ -804,7 +833,7 @@ export let VesCache = {
     if (isContainer(visualElementOverride.displayItem) &&
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
-      addSceneWatchContainerUid(currentScene, visualElementOverride.displayItem.id, visualElementOverride.displayItem.origin);
+      addSceneWatchContainerUid(currentSceneOutputs, visualElementOverride.displayItem.id, visualElementOverride.displayItem.origin);
     }
     const displayItemId = newElement.get().displayItem.id;
 
@@ -886,7 +915,7 @@ export let VesCache = {
     if (isContainer(visualElementOverride.displayItem) &&
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
-      addSceneWatchContainerUid(underConstructionScene, spec.displayItem.id, visualElementOverride.displayItem.origin);
+      addSceneWatchContainerUid(underConstructionSceneOutputs, spec.displayItem.id, visualElementOverride.displayItem.origin);
     }
 
     addScenePathForDisplayId(currentScene, VeFns.itemIdFromPath(newPath), newPath);
@@ -951,14 +980,7 @@ export let VesCache = {
   removeByPath: (path: VisualElementPath): void => {
     const ve = getSceneNode(currentScene, path); // TODO (LOW): displayItem.id can be determined from the path.
     if (ve && isContainer(ve.get().displayItem) && asContainerItem(ve.get().displayItem).childrenLoaded) {
-      const origin = ve.get().displayItem.origin;
-      const uidSet = currentScene.watchContainerUidsByOrigin.get(origin);
-      if (uidSet) {
-        uidSet.delete(ve.get().displayItem.id);
-        if (uidSet.size === 0) {
-          currentScene.watchContainerUidsByOrigin.delete(origin);
-        }
-      }
+      removeSceneWatchContainerUid(currentSceneOutputs, ve.get().displayItem.id, ve.get().displayItem.origin);
     }
     if (ve) {
       deindexVisualElement(currentScene, path, ve);
@@ -987,7 +1009,7 @@ export let VesCache = {
   },
 
   pushTopTitledPage: (vePath: VisualElementPath) => {
-    underConstructionScene.topTitledPages.push(vePath);
+    pushTopTitledPage(underConstructionSceneOutputs, vePath);
   },
 
   clearPopupVes: (path: VisualElementPath) => {
@@ -1060,7 +1082,7 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
   if (isContainer(spec.displayItem) &&
     (spec.flags! & VisualElementFlags.ShowChildren) &&
     asContainerItem(spec.displayItem).childrenLoaded) {
-    addSceneWatchContainerUid(underConstructionScene, visualElementOverride.displayItem.id, spec.displayItem.origin);
+    addSceneWatchContainerUid(underConstructionSceneOutputs, visualElementOverride.displayItem.id, spec.displayItem.origin);
   }
 
   function compareArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
