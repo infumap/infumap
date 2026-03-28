@@ -304,7 +304,37 @@ type VesAuxData = {
   focusedChildItemMaybe: Map<VisualElementPath, Item | null>;
 }
 
+type VirtualAuxData = {
+  displayItemFingerprint: Map<VisualElementPath, string>;
+  attachmentsVes: Map<VisualElementPath, Array<VisualElement>>;
+  popupVes: Map<VisualElementPath, VisualElement | null>;
+  selectedVes: Map<VisualElementPath, VisualElement | null>;
+  dockVes: Map<VisualElementPath, VisualElement | null>;
+  childrenVes: Map<VisualElementPath, Array<VisualElement>>;
+  lineChildrenVes: Map<VisualElementPath, Array<VisualElement>>;
+  desktopChildrenVes: Map<VisualElementPath, Array<VisualElement>>;
+  nonMovingChildrenVes: Map<VisualElementPath, Array<VisualElement>>;
+  tableVesRows: Map<VisualElementPath, Array<number> | null>;
+  focusedChildItemMaybe: Map<VisualElementPath, Item | null>;
+}
+
 function createEmptyAuxData(): VesAuxData {
+  return {
+    displayItemFingerprint: new Map(),
+    attachmentsVes: new Map(),
+    popupVes: new Map(),
+    selectedVes: new Map(),
+    dockVes: new Map(),
+    childrenVes: new Map(),
+    lineChildrenVes: new Map(),
+    desktopChildrenVes: new Map(),
+    nonMovingChildrenVes: new Map(),
+    tableVesRows: new Map(),
+    focusedChildItemMaybe: new Map(),
+  };
+}
+
+function createEmptyVirtualAuxData(): VirtualAuxData {
   return {
     displayItemFingerprint: new Map(),
     attachmentsVes: new Map(),
@@ -328,6 +358,14 @@ type SceneState = {
   aux: VesAuxData;
 }
 
+type VirtualSceneState = {
+  cache: Map<VisualElementPath, VisualElement>;
+  vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
+  childrenByParent: Map<VisualElementPath, Array<VisualElement>>;
+  vessByVeid: Map<string, Array<VisualElement>>;
+  aux: VirtualAuxData;
+}
+
 function createEmptySceneState(): SceneState {
   return {
     cache: new Map<VisualElementPath, VisualElementSignal>(),
@@ -335,6 +373,16 @@ function createEmptySceneState(): SceneState {
     childrenByParent: new Map<VisualElementPath, Array<VisualElementSignal>>(),
     vessByVeid: new Map<string, Array<VisualElementSignal>>(),
     aux: createEmptyAuxData(),
+  };
+}
+
+function createEmptyVirtualSceneState(): VirtualSceneState {
+  return {
+    cache: new Map<VisualElementPath, VisualElement>(),
+    vessVsDisplayId: new Map<Uid, Array<VisualElementPath>>(),
+    childrenByParent: new Map<VisualElementPath, Array<VisualElement>>(),
+    vessByVeid: new Map<string, Array<VisualElement>>(),
+    aux: createEmptyVirtualAuxData(),
   };
 }
 
@@ -351,7 +399,7 @@ function createEmptySceneOutputs(): SceneOutputs {
 }
 
 let currentScene = createEmptySceneState();
-let virtualScene = createEmptySceneState();
+let virtualScene = createEmptyVirtualSceneState();
 let underConstructionScene = createEmptySceneState();
 let currentSceneOutputs = createEmptySceneOutputs();
 let underConstructionSceneOutputs = createEmptySceneOutputs();
@@ -434,8 +482,122 @@ function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<Vi
   return getSceneSiblings(scene, path).map(ves => ves.get());
 }
 
-function readSceneVeidMatches(scene: SceneState, veid: Veid): Array<VisualElement> {
-  return getSceneVeidMatches(scene, veid).map(ves => ves.get());
+function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
+  return {
+    ...ve,
+    resizingFromBoundsPx: ve.resizingFromBoundsPx ? { ...ve.resizingFromBoundsPx } : null,
+    boundsPx: { ...ve.boundsPx },
+    viewportBoundsPx: ve.viewportBoundsPx ? { ...ve.viewportBoundsPx } : null,
+    childAreaBoundsPx: ve.childAreaBoundsPx ? { ...ve.childAreaBoundsPx } : null,
+    listViewportBoundsPx: ve.listViewportBoundsPx ? { ...ve.listViewportBoundsPx } : null,
+    listChildAreaBoundsPx: ve.listChildAreaBoundsPx ? { ...ve.listChildAreaBoundsPx } : null,
+    tableDimensionsPx: ve.tableDimensionsPx ? { ...ve.tableDimensionsPx } : null,
+    blockSizePx: ve.blockSizePx ? { ...ve.blockSizePx } : null,
+    cellSizePx: ve.cellSizePx ? { ...ve.cellSizePx } : null,
+    hitboxes: ve.hitboxes.slice(),
+  };
+}
+
+function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
+  const snapshot = createEmptyVirtualSceneState();
+
+  for (const [path, ves] of scene.cache) {
+    snapshot.cache.set(path, cloneVisualElementSnapshot(ves.get()));
+  }
+
+  for (const [displayId, paths] of scene.vessVsDisplayId) {
+    snapshot.vessVsDisplayId.set(displayId, paths.slice());
+  }
+
+  const detachedNodes = new Map<VisualElementPath, VisualElement>();
+  const resolveVirtualNode = (ves: VisualElementSignal | null): VisualElement | null => {
+    if (ves == null) {
+      return null;
+    }
+    const path = VeFns.veToPath(ves.get());
+    const existing = snapshot.cache.get(path) ?? detachedNodes.get(path);
+    if (existing) {
+      return existing;
+    }
+    const detached = cloneVisualElementSnapshot(ves.get());
+    detachedNodes.set(path, detached);
+    return detached;
+  };
+  const resolveVirtualNodes = (list: Array<VisualElementSignal> | undefined): Array<VisualElement> => {
+    if (!list) {
+      return [];
+    }
+    return list.map(ves => resolveVirtualNode(ves)!);
+  };
+
+  for (const [parentPath, children] of scene.childrenByParent) {
+    snapshot.childrenByParent.set(parentPath, resolveVirtualNodes(children));
+  }
+
+  for (const [veidKey, matches] of scene.vessByVeid) {
+    snapshot.vessByVeid.set(veidKey, resolveVirtualNodes(matches));
+  }
+
+  for (const [path, fingerprint] of scene.aux.displayItemFingerprint) {
+    snapshot.aux.displayItemFingerprint.set(path, fingerprint);
+  }
+  for (const [path, attachments] of scene.aux.attachmentsVes) {
+    snapshot.aux.attachmentsVes.set(path, resolveVirtualNodes(attachments));
+  }
+  for (const [path, popup] of scene.aux.popupVes) {
+    snapshot.aux.popupVes.set(path, resolveVirtualNode(popup));
+  }
+  for (const [path, selected] of scene.aux.selectedVes) {
+    snapshot.aux.selectedVes.set(path, resolveVirtualNode(selected));
+  }
+  for (const [path, dock] of scene.aux.dockVes) {
+    snapshot.aux.dockVes.set(path, resolveVirtualNode(dock));
+  }
+  for (const [path, children] of scene.aux.childrenVes) {
+    snapshot.aux.childrenVes.set(path, resolveVirtualNodes(children));
+  }
+  for (const [path, children] of scene.aux.lineChildrenVes) {
+    snapshot.aux.lineChildrenVes.set(path, resolveVirtualNodes(children));
+  }
+  for (const [path, children] of scene.aux.desktopChildrenVes) {
+    snapshot.aux.desktopChildrenVes.set(path, resolveVirtualNodes(children));
+  }
+  for (const [path, children] of scene.aux.nonMovingChildrenVes) {
+    snapshot.aux.nonMovingChildrenVes.set(path, resolveVirtualNodes(children));
+  }
+  for (const [path, rows] of scene.aux.tableVesRows) {
+    snapshot.aux.tableVesRows.set(path, rows ? rows.slice() : null);
+  }
+  for (const [path, item] of scene.aux.focusedChildItemMaybe) {
+    snapshot.aux.focusedChildItemMaybe.set(path, item);
+  }
+
+  return snapshot;
+}
+
+function readVirtualSceneNode(path: VisualElementPath): VisualElement | undefined {
+  return virtualScene.cache.get(path);
+}
+
+function readVirtualSceneIndexedChildren(parentPath: VisualElementPath): Array<VisualElement> {
+  return (virtualScene.childrenByParent.get(parentPath) ?? []).slice();
+}
+
+function readVirtualSceneStructuralChildren(parentPath: VisualElementPath): Array<VisualElement> {
+  return (virtualScene.aux.childrenVes.get(parentPath) ?? []).slice();
+}
+
+function readVirtualSceneSiblings(path: VisualElementPath): Array<VisualElement> {
+  const parentPath = readVirtualSceneNode(path)?.parentPath ?? VeFns.parentPath(path) ?? null;
+  if (parentPath == null) {
+    return [];
+  }
+  return readVirtualSceneIndexedChildren(parentPath)
+    .filter(ve => VeFns.veToPath(ve) != path);
+}
+
+function readVirtualSceneVeidMatches(veid: Veid): Array<VisualElement> {
+  return (virtualScene.vessByVeid.get(veidIndexKey(veid)) ?? []).slice();
 }
 
 function findCurrentSceneMatches(veid: Veid): Array<VisualElementSignal> {
@@ -766,7 +928,7 @@ function syncReactiveStateFromScene(scene: SceneState) {
 }
 
 function promoteVirtualScene(scene: SceneState) {
-  virtualScene = scene;
+  virtualScene = snapshotVirtualScene(scene);
 }
 
 function promoteCurrentScene(store: StoreContextModel, scene: SceneState, outputs: SceneOutputs) {
@@ -826,23 +988,23 @@ const currentSceneQueries = {
 
 const virtualSceneQueries = {
   readNode: (path: VisualElementPath): VisualElement | undefined => {
-    return readSceneNode(virtualScene, path);
+    return readVirtualSceneNode(path);
   },
 
   readIndexedChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
-    return readSceneIndexedChildren(virtualScene, parentPath);
+    return readVirtualSceneIndexedChildren(parentPath);
   },
 
   readStructuralChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
-    return readSceneStructuralChildren(virtualScene, parentPath);
+    return readVirtualSceneStructuralChildren(parentPath);
   },
 
   readSiblings: (path: VisualElementPath): Array<VisualElement> => {
-    return readSceneSiblings(virtualScene, path);
+    return readVirtualSceneSiblings(path);
   },
 
   findNodes: (veid: Veid): Array<VisualElement> => {
-    return readSceneVeidMatches(virtualScene, veid);
+    return readVirtualSceneVeidMatches(veid);
   },
 };
 
@@ -859,7 +1021,7 @@ export let VesCache = {
     currentScene = createEmptySceneState();
     currentSceneOutputs = createEmptySceneOutputs();
     staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
-    virtualScene = createEmptySceneState();
+    virtualScene = createEmptyVirtualSceneState();
     underConstructionScene = createEmptySceneState();
     underConstructionSceneOutputs = createEmptySceneOutputs();
 
