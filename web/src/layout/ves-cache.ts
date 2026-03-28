@@ -308,6 +308,7 @@ type ArrangeDebugSample = {
   childBucketsRebuilt: number;
   projectionPathsSynced: number;
   projectionPathsCleared: number;
+  projectionEntriesDropped: number;
   projectionNodeSignalsCreated: number;
   projectionNodeSignalsUpdated: number;
   projectionNodeSignalsReused: number;
@@ -423,6 +424,7 @@ function beginArrangeDebugSample(virtual: boolean) {
     childBucketsRebuilt: 0,
     projectionPathsSynced: 0,
     projectionPathsCleared: 0,
+    projectionEntriesDropped: 0,
     projectionNodeSignalsCreated: 0,
     projectionNodeSignalsUpdated: 0,
     projectionNodeSignalsReused: 0,
@@ -499,7 +501,7 @@ function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnTyp
     ` writes=${sample.nodeWrites} (reuse=${sample.nodeReused} create=${sample.nodeCreated})` +
     ` rel=${sample.relationshipWrites} (reuse=${sample.relationshipReused} rebuild=${relationshipRebuilt})` +
     ` buckets(reuse=${sample.childBucketsReused} rebuild=${sample.childBucketsRebuilt})` +
-    ` projection(paths=${sample.projectionPathsSynced} clear=${sample.projectionPathsCleared} fast=${sample.projectionRelationshipFastPaths} resolve=${sample.projectionRelationshipResolved})` +
+    ` projection(paths=${sample.projectionPathsSynced} clear=${sample.projectionPathsCleared} drop=${sample.projectionEntriesDropped} fast=${sample.projectionRelationshipFastPaths} resolve=${sample.projectionRelationshipResolved})` +
     ` nodeSignals(create=${sample.projectionNodeSignalsCreated} reuse=${sample.projectionNodeSignalsReused} update=${sample.projectionNodeSignalsUpdated} clear=${sample.projectionNodeSignalsCleared})` +
     ` signalWrites(list=${sample.projectionListSignalWrites} scalar=${sample.projectionScalarSignalWrites} focused=${sample.projectionFocusedSignalWrites})` +
     avgText;
@@ -1066,6 +1068,12 @@ function clearRenderProjectionForPath(path: VisualElementPath) {
   setRenderProjectionTableRows(path, null);
 }
 
+function deleteRenderProjectionForPath(path: VisualElementPath) {
+  if (renderProjectionByPath.delete(path)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionEntriesDropped += 1);
+  }
+}
+
 function addSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
   if (!outputs.watchContainerUidsByOrigin.has(origin)) {
     outputs.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
@@ -1272,10 +1280,11 @@ function syncRenderProjectionFromScene(
   scene: SceneState,
   renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
 ) {
-  for (const [path] of renderProjectionByPath) {
+  for (const [path] of previousScene.cache) {
     if (!sceneHasNode(scene, path)) {
       activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsCleared += 1);
       clearRenderProjectionForPath(path);
+      deleteRenderProjectionForPath(path);
     }
   }
   for (const [path] of scene.cache) {
@@ -1632,6 +1641,7 @@ export let VesCache = {
     deleteSceneRelationships(currentScene.relationshipsByPath, existingPath);
     if (existingPath != newPath) {
       clearRenderProjectionForPath(existingPath);
+      deleteRenderProjectionForPath(existingPath);
     }
     vesToOverwrite.set(cloneVisualElementSnapshot(nextVe));
     writeScenePath(currentScene, newPath, nextVe, preparedRelationships);
@@ -1674,6 +1684,7 @@ export let VesCache = {
     if (!deleteSceneNode(currentScene, path)) { panic(`item ${path} is not in ves cache.`); }
     deleteSceneRelationships(currentScene.relationshipsByPath, path);
     clearRenderProjectionForPath(path);
+    deleteRenderProjectionForPath(path);
 
     deleteFromVessVsDisplayIdLookup(currentScene, path);
   },
