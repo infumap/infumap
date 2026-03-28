@@ -53,3 +53,12 @@ export const scrollGestureStyleForArrangeAlgorithm = (arrangeAlgorithm: ArrangeA
   }
   return "overscroll-behavior: contain; touch-action: pan-x pan-y; ";
 }
+
+export const scheduleDeferredScrollRestore = (fn: () => void): (() => void) => {
+  if (typeof requestAnimationFrame === "function") {
+    const handle = requestAnimationFrame(() => fn());
+    return () => cancelAnimationFrame(handle);
+  }
+  const handle = setTimeout(() => fn(), 0);
+  return () => clearTimeout(handle);
+}

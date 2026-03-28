@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, createEffect, createMemo, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, createMemo, onCleanup, onMount } from "solid-js";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 
@@ -36,7 +36,7 @@ import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
-import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { scheduleDeferredScrollRestore, scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -46,10 +46,15 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   let updatingTranslucentScrollTop = false;
   let translucentDiv: any = undefined; // HTMLDivElement | undefined
+  let cancelPendingTranslucentScrollRestore: (() => void) | null = null;
 
   const pageFns = () => props.pageFns;
 
-  onMount(() => {
+  const applyTranslucentScrollRestore = () => {
+    if (!translucentDiv) {
+      updatingTranslucentScrollTop = false;
+      return;
+    }
     let veid = VeFns.veidFromVe(props.visualElement);
 
     const scrollXProp = store.perItem.getPageScrollXProp(veid);
@@ -60,25 +65,32 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
     translucentDiv.scrollTop = scrollYPx;
     translucentDiv.scrollLeft = scrollXPx;
+    setTimeout(() => {
+      updatingTranslucentScrollTop = false;
+    }, 0);
+  };
+
+  const scheduleTranslucentScrollRestore = () => {
+    cancelPendingTranslucentScrollRestore?.();
+    updatingTranslucentScrollTop = true;
+    cancelPendingTranslucentScrollRestore = scheduleDeferredScrollRestore(() => {
+      cancelPendingTranslucentScrollRestore = null;
+      applyTranslucentScrollRestore();
+    });
+  };
+
+  onMount(() => {
+    scheduleTranslucentScrollRestore();
   });
 
   createEffect(() => {
     // occurs on page arrange algorithm change.
     if (!pageFns().childAreaBoundsPx()) { return; }
+    scheduleTranslucentScrollRestore();
+  });
 
-    updatingTranslucentScrollTop = true;
-    if (translucentDiv) {
-      translucentDiv.scrollTop =
-        store.perItem.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
-        (pageFns().childAreaBoundsPx().h - props.visualElement.boundsPx.h);
-      translucentDiv.scrollLeft =
-        store.perItem.getPageScrollXProp(VeFns.veidFromVe(props.visualElement)) *
-        (pageFns().childAreaBoundsPx().w - props.visualElement.boundsPx.w);
-    }
-
-    setTimeout(() => {
-      updatingTranslucentScrollTop = false;
-    }, 0);
+  onCleanup(() => {
+    cancelPendingTranslucentScrollRestore?.();
   });
 
   const translucentTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("lg"));

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, Show } from "solid-js";
 import { VisualElement_Desktop } from "../VisualElement";
 import { PageVisualElementProps } from "./Page";
 import { VesCache } from "../../layout/ves-cache";
@@ -26,14 +26,15 @@ import { VeFns } from "../../layout/visual-element";
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
+  const rootChildVisualElement = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()[0]?.get() ?? null;
+
   return (
     <div class={`absolute`}
       style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
         `background-color: #ffffff;`}>
-      <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
-
-        <VisualElement_Desktop visualElement={childVes.get()} />
-      }</For>
+      <Show when={rootChildVisualElement() != null}>
+        <VisualElement_Desktop visualElement={rootChildVisualElement()!} />
+      </Show>
       <Show when={VesCache.render.getDock(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getDock(VeFns.veToPath(props.visualElement))()!.get() != null}>
         <VisualElement_Desktop visualElement={VesCache.render.getDock(VeFns.veToPath(props.visualElement))()!.get()!} />
       </Show>

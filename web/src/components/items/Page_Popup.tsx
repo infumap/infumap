@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, onCleanup, onMount } from "solid-js";
 import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, GRID_SIZE } from "../../constants";
 import { VeFns, VisualElementFlags, VisualElement } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
@@ -33,7 +33,7 @@ import { getMonthInfo } from "../../util/time";
 import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
-import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { scheduleDeferredScrollRestore, scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -43,10 +43,15 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
   let updatingPopupScrollTop = false;
   let popupDiv: any = undefined; // HTMLDivElement | undefined
+  let cancelPendingPopupScrollRestore: (() => void) | null = null;
 
   const pageFns = () => props.pageFns;
 
-  onMount(() => {
+  const applyPopupScrollRestore = () => {
+    if (!popupDiv || !store.history.currentPopupSpec()) {
+      updatingPopupScrollTop = false;
+      return;
+    }
     const veid = store.history.currentPopupSpec()!.actualVeid;
 
     // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
@@ -70,41 +75,32 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       popupDiv.scrollTop = scrollYPx;
       popupDiv.scrollLeft = scrollXPx;
     }
+    setTimeout(() => {
+      updatingPopupScrollTop = false;
+    }, 0);
+  };
+
+  const schedulePopupScrollRestore = () => {
+    cancelPendingPopupScrollRestore?.();
+    updatingPopupScrollTop = true;
+    cancelPendingPopupScrollRestore = scheduleDeferredScrollRestore(() => {
+      cancelPendingPopupScrollRestore = null;
+      applyPopupScrollRestore();
+    });
+  };
+
+  onMount(() => {
+    schedulePopupScrollRestore();
   });
 
   createEffect(() => {
     // occurs on page arrange algorithm change.
     if (!pageFns().childAreaBoundsPx()) { return; }
+    schedulePopupScrollRestore();
+  });
 
-    updatingPopupScrollTop = true;
-
-    if (popupDiv && store.history.currentPopupSpec()) {
-      const veid = store.history.currentPopupSpec()!.actualVeid;
-
-      // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
-      const isListPage = (props.visualElement.linkItemMaybe as any)?.overrideArrangeAlgorithm === ArrangeAlgorithm.List ||
-        pageFns().pageItem().arrangeAlgorithm === ArrangeAlgorithm.List;
-
-      if (isListPage && props.visualElement.listChildAreaBoundsPx) {
-        const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
-        const viewportH = pageFns().viewportBoundsPx().h;
-        popupDiv.scrollTop =
-          store.perItem.getPageScrollYProp(veid) *
-          (listChildAreaH - viewportH);
-        popupDiv.scrollLeft = 0;
-      } else {
-        popupDiv.scrollTop =
-          store.perItem.getPageScrollYProp(veid) *
-          (pageFns().childAreaBoundsPx().h - props.visualElement.viewportBoundsPx!.h);
-        popupDiv.scrollLeft =
-          store.perItem.getPageScrollXProp(veid) *
-          (pageFns().childAreaBoundsPx().w - props.visualElement.viewportBoundsPx!.w);
-      }
-    }
-
-    setTimeout(() => {
-      updatingPopupScrollTop = false;
-    }, 0);
+  onCleanup(() => {
+    cancelPendingPopupScrollRestore?.();
   });
 
   const borderColorVal = () => {
