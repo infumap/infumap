@@ -83,7 +83,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
 
     case MouseAction.MovingPopup: {
-      if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
+      if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorChild)) {
         DoubleClickState.preventDoubleClick();
         if (isPage(activeVisualElement.displayItem)) {
           PageFns.handleAnchorChildClick(activeVisualElement, store);
@@ -96,7 +96,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         }
         break;
       }
-      if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorDefault) {
+      if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorDefault)) {
         DoubleClickState.preventDoubleClick();
         if (isPage(activeVisualElement.displayItem)) {
           PageFns.handleAnchorDefaultClick(activeVisualElement, store);
@@ -140,9 +140,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
     case MouseAction.ResizingColumn:
       DoubleClickState.preventDoubleClick();
+      const hitMeta = MouseActionState.getHitMeta()!;
       const widthGr = activeVisualElement.linkItemMaybe == null
-        ? asTableItem(activeItem).tableColumns[MouseActionState.get().hitMeta!.colNum!].widthGr
-        : asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get().hitMeta!.colNum!].widthGr;
+        ? asTableItem(activeItem).tableColumns[hitMeta.colNum!].widthGr
+        : asTableItem(activeVisualElement.displayItem).tableColumns[hitMeta.colNum!].widthGr;
       if (MouseActionState.get().startWidthBl! * GRID_SIZE != widthGr) {
         serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
       }
@@ -188,7 +189,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         }
       }
 
-      if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorChild) {
+      if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorChild)) {
         DoubleClickState.preventDoubleClick();
         if (isPage(activeVisualElement.displayItem)) {
           PageFns.handleAnchorChildClick(activeVisualElement, store);
@@ -200,7 +201,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           serverOrRemote.updateItem(imageItem, store.general.networkStatus);
         }
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.AnchorDefault) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorDefault)) {
         DoubleClickState.preventDoubleClick();
         if (isPage(activeVisualElement.displayItem)) {
           PageFns.handleAnchorDefaultClick(activeVisualElement, store);
@@ -213,7 +214,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       } else if (isLink(activeVisualElement.displayItem) &&
         asLinkItem(activeVisualElement.displayItem).linkRequiresRemoteLogin &&
-        !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings)) {
+        !MouseActionState.hitboxTypeIncludes(HitboxFlags.TriangleLinkSettings)) {
         DoubleClickState.preventDoubleClick();
         const linkItem = asLinkItem(activeVisualElement.displayItem);
         const linkFocusPath = VeFns.addVeidToPath(
@@ -227,7 +228,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         });
 
       } else if (isLink(activeVisualElement.displayItem) &&
-        !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) &&
+        !MouseActionState.hitboxTypeIncludes(HitboxFlags.TriangleLinkSettings) &&
         ClickState.getLinkWasClicked()) {
         const linkItem = asLinkItem(activeVisualElement.displayItem);
         const linkFocusPath = VeFns.addVeidToPath(
@@ -240,116 +241,121 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement, store);
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TriangleLinkSettings)) {
         const focusPath = VeFns.addVeidToPath(
           { itemId: VeFns.veidFromPath(MouseActionState.get().activeElementPath).linkIdMaybe!, linkIdMaybe: null },
           VeFns.parentPath(MouseActionState.get().activeElementPath)
         );
         store.history.setFocus(focusPath);
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TableColumnContextMenu)) {
+        const hitMeta = MouseActionState.getHitMeta();
         store.overlay.tableColumnContextMenuInfo.set({
           posPx: CursorEventState.getLatestDesktopPx(store),
           tablePath: MouseActionState.get().activeElementPath,
-          colNum: MouseActionState.get().hitMeta?.colNum ? MouseActionState.get().hitMeta?.colNum! : 0,
+          colNum: hitMeta?.colNum ? hitMeta.colNum : 0,
         });
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Expand)) {
         store.perVe.setIsExpanded(
           MouseActionState.get().activeElementPath,
           !store.perVe.getIsExpanded(MouseActionState.get().activeElementPath)
         );
         arrangeNow(store, "mouse-up-toggle-expand");
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenPopup)) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store, false, MouseActionState.get().startPx);
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenAttachment)) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store, true, MouseActionState.get().startPx);
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.CalendarOverflow) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.CalendarOverflow)) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleCalendarOverflowClick(activeVisualElement, store, MouseActionState.get().hitMeta ?? null);
+        PageFns.handleCalendarOverflowClick(activeVisualElement, store, MouseActionState.getHitMeta());
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Click)) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
+        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
 
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ShiftLeft) {
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.ShiftLeft)) {
         DoubleClickState.preventDoubleClick();
         PageFns.handleShiftLeftClick(activeVisualElement, store);
 
-      } else if (veFlagIsRoot(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
-        !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Move)) {
-        DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
-
-      } else if (veFlagIsRoot(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!.flags) &&
-        !(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!.flags & VisualElementFlags.IsDock) &&
-        ((VeFns.veidFromVe(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!).itemId != store.history.currentPageVeid()!.itemId) ||
-          (VeFns.veidFromVe(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
-        (CursorEventState.getLatestDesktopPx(store).y > 0)) {
-        DoubleClickState.preventDoubleClick();
-        store.history.setFocus(MouseActionState.get().activeElementPath);
-
-        {
-          const focusPagePath = store.history.getFocusPath();
-          const focusPageVe = MouseActionState.readVisualElement(focusPagePath)!;
-          const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
-          const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-          if (selectedVeid == EMPTY_VEID) {
-            PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
-          }
-
-          // If we clicked on a page that is the selected item in a list page (ListPageRoot),
-          // just focus it (already done above) - don't switch to it as the root page.
-          // For other cases (e.g. a popup background or a nested list page), handle potential
-          // switching of the root page.
-          if (!(isPage(activeVisualElement.displayItem) &&
-            (activeVisualElement.flags & VisualElementFlags.ListPageRoot))) {
-            PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
-          }
-        }
-
-        // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
-        arrangeNow(store, "mouse-up-focus-noncurrent-root");
-
-      } else if (activeVisualElementSignal.get().flags & VisualElementFlags.Popup) {
-        DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
-        arrangeNow(store, "mouse-up-click-popup");
-
-      } else if (activeVisualElementSignal.get().flags & VisualElementFlags.IsDock) {
-        DoubleClickState.preventDoubleClick();
-
       } else {
-        if (isComposite(activeVisualElement.displayItem) || isPlaceholder(activeVisualElement.displayItem)) {
-          // noop.
+        const activeRootVe = MouseActionState.readActiveRoot()!;
 
-        } else {
+        if (veFlagIsRoot(activeRootVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
+        !MouseActionState.hitboxTypeIncludes(HitboxFlags.Move)) {
+          DoubleClickState.preventDoubleClick();
+          ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
+
+        } else if (veFlagIsRoot(activeRootVe.flags) &&
+        !(activeRootVe.flags & VisualElementFlags.IsDock) &&
+        ((VeFns.veidFromVe(activeRootVe).itemId != store.history.currentPageVeid()!.itemId) ||
+          (VeFns.veidFromVe(activeRootVe).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
+        (CursorEventState.getLatestDesktopPx(store).y > 0)) {
+          DoubleClickState.preventDoubleClick();
           store.history.setFocus(MouseActionState.get().activeElementPath);
 
           {
             const focusPagePath = store.history.getFocusPath();
-            const focusPageSignal = MouseActionState.getVisualElementSignal(focusPagePath);
-            if (focusPageSignal) {
-              const focusPageVe = focusPageSignal.get();
-              const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
-              const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-              if (selectedVeid == EMPTY_VEID) {
-                PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
-              }
+            const focusPageVe = MouseActionState.readVisualElement(focusPagePath)!;
+            const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+            const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+            if (selectedVeid == EMPTY_VEID) {
+              PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+            }
 
-              // If we clicked on an item that is not a root (e.g. a note), handle potential switching 
-              // of the root page to the outermost list page in its hierarchy.
+            // If we clicked on a page that is the selected item in a list page (ListPageRoot),
+            // just focus it (already done above) - don't switch to it as the root page.
+            // For other cases (e.g. a popup background or a nested list page), handle potential
+            // switching of the root page.
+            if (!(isPage(activeVisualElement.displayItem) &&
+              (activeVisualElement.flags & VisualElementFlags.ListPageRoot))) {
               PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
             }
           }
 
-          // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
-          arrangeNow(store, "mouse-up-focus-item");
+          // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
+          arrangeNow(store, "mouse-up-focus-noncurrent-root");
+
+        } else if (activeVisualElementSignal.get().flags & VisualElementFlags.Popup) {
+          DoubleClickState.preventDoubleClick();
+          ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
+          arrangeNow(store, "mouse-up-click-popup");
+
+        } else if (activeVisualElementSignal.get().flags & VisualElementFlags.IsDock) {
+          DoubleClickState.preventDoubleClick();
+
+        } else {
+          if (isComposite(activeVisualElement.displayItem) || isPlaceholder(activeVisualElement.displayItem)) {
+            // noop.
+
+          } else {
+            store.history.setFocus(MouseActionState.get().activeElementPath);
+
+            {
+              const focusPagePath = store.history.getFocusPath();
+              const focusPageSignal = MouseActionState.getVisualElementSignal(focusPagePath);
+              if (focusPageSignal) {
+                const focusPageVe = focusPageSignal.get();
+                const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+                const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+                if (selectedVeid == EMPTY_VEID) {
+                  PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+                }
+
+                // If we clicked on an item that is not a root (e.g. a note), handle potential switching
+                // of the root page to the outermost list page in its hierarchy.
+                PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
+              }
+            }
+
+            // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
+            arrangeNow(store, "mouse-up-focus-item");
+          }
         }
       }
 
@@ -801,7 +807,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
   store.overlay.selectionMarqueePx.set(null);
   if (rect == null) { return; }
 
-  const activeRootVe = MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!;
+  const activeRootVe = MouseActionState.readActiveRoot()!;
   const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, activeRootVe);
   const selectionRect = {
     x: Math.max(rect.x, activeRootBounds.x),
@@ -816,7 +822,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
 
   const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
   const selectedSet = new Set<string>();
-  const rootPath = MouseActionState.get().activeRoot;
+  const rootPath = MouseActionState.getActiveRootPath()!;
   const stack: string[] = [rootPath];
   while (stack.length > 0) {
     const path = stack.pop()!;

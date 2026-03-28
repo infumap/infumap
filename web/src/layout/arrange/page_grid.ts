@@ -72,7 +72,7 @@ export function arrange_grid_page(
   // change until after the move is complete to avoid a very disruptive jump in y scroll px.
   let nItemAdj = 0;
   if (movingItemInThisPage && !MouseActionState.get().linkCreatedOnMoveStart) {
-    const startParent = VesCache.current.readNode(MouseActionState.get().startActiveElementParent)!.displayItem;
+    const startParent = MouseActionState.readStartActiveElementParent()!.displayItem;
     if (startParent.id == displayItem_pageWithChildren.id && movingItem!.parentId != startParent.id) {
       nItemAdj = 1;
     }

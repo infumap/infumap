@@ -418,13 +418,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     }
   }, 750);
 
-  MouseActionState.begin({
-    activeRoot: VeFns.veToPath(hitInfo.rootVes.get().flags & VisualElementFlags.Popup
-      ? VesCache.current.readNode(hitInfo.rootVes.get().parentPath!)!
-      : hitInfo.rootVes.get()),
-    startActiveElementParent: hitVe.parentPath!,
+  MouseActionState.beginFromHit({
+    hitInfo,
+    hitVe,
     activeElementPath,
-    activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(HitInfoFns.getCompositeContainerVe(hitInfo)!) : null,
     moveOver_scaleDefiningElement: scaleDefiningElement,
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     compositeHitboxTypeMaybeOnMouseDown: hitInfo.compositeHitboxTypeMaybe,
@@ -439,7 +436,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     clickOffsetProp,
     onePxSizeBl,
     hitMeta: hitInfo.overElementMeta,
-    hitEmbeddedInteractive: canHitEmbeddedInteractive
   });
 
   // Clear selection set when clicking away from current selection

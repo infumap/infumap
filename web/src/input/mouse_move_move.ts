@@ -263,7 +263,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     }
   }
 
-  const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, MouseActionState.get().hitEmbeddedInteractive);
+  const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, MouseActionState.usesEmbeddedInteractiveHitTesting());
 
   // update move over element state.
   const moveOverContainerPath = VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds));

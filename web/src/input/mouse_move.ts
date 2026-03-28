@@ -157,7 +157,7 @@ function changeMouseActionStateMaybe(
   let activeVisualElement = activeVisualElementSignal.get();
   let activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
-  if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Resize) > 0) {
+  if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
     MouseActionState.get().startPosBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
@@ -222,7 +222,7 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.Resizing;
     }
 
-  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.HorizontalResize) > 0) {
+  } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.HorizontalResize)) {
     MouseActionState.get().startPosBl = null;
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.IsDock) {
@@ -232,7 +232,7 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().startWidthBl = asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr / GRID_SIZE;
       MouseActionState.get().action = MouseAction.ResizingListPageColumn;
     } else {
-      const colNum = MouseActionState.get().hitMeta!.colNum!;
+      const colNum = MouseActionState.getHitMeta()!.colNum!;
       if (activeVisualElement.linkItemMaybe != null) {
         MouseActionState.get().startWidthBl = asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE;
       } else {
@@ -241,17 +241,19 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.ResizingColumn;
     }
 
-  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.VerticalResize) > 0) {
+  } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.VerticalResize)) {
     MouseActionState.get().action = MouseAction.ResizingDockItem;
 
-  } else if (((MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) > 0) ||
-    ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move))) {
-    if (!(MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) &&
-      (MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move)) {
+  } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Move) ||
+    MouseActionState.compositeHitboxTypeIncludes(HitboxFlags.Move)) {
+    if (!MouseActionState.hitboxTypeIncludes(HitboxFlags.Move) &&
+      MouseActionState.compositeHitboxTypeIncludes(HitboxFlags.Move)) {
       // if the composite move hitbox is hit, but not the child, then swap out the active element.
-      MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
-      MouseActionState.setActiveElementPath(MouseActionState.get().activeCompositeElementMaybe!);
-      MouseActionState.get().startActiveElementParent = VeFns.parentPath(MouseActionState.get().activeCompositeElementMaybe!);
+      MouseActionState.setHitboxTypeOnMouseDown(MouseActionState.getCompositeHitboxTypeOnMouseDown());
+      if (!MouseActionState.switchActiveElementToComposite()) {
+        store.anItemIsMoving.set(false);
+        return;
+      }
       const newActiveSignal = MouseActionState.getActiveVisualElementSignal();
       if (!newActiveSignal) {
         store.anItemIsMoving.set(false);
@@ -331,7 +333,7 @@ function mouseAction_selecting(store: StoreContextModel) {
     return;
   }
 
-  const activeRootVe = MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!;
+  const activeRootVe = MouseActionState.readActiveRoot()!;
   const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, activeRootVe);
   const selectionRect = {
     x: Math.max(rect.x, activeRootBounds.x),
@@ -346,7 +348,7 @@ function mouseAction_selecting(store: StoreContextModel) {
 
   const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
   const selectedSet = new Set<string>();
-  const rootPath = MouseActionState.get().activeRoot;
+  const rootPath = MouseActionState.getActiveRootPath()!;
   const stack: string[] = [rootPath];
   while (stack.length > 0) {
     const path = stack.pop()!;
@@ -406,7 +408,7 @@ function mouseAction_selecting(store: StoreContextModel) {
 
 
 function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
-  const startPx = MouseActionState.get().startDockWidthPx!;
+  const startPx = MouseActionState.getStartDockWidthPx()!;
   let newDockWidthPx = Math.round((startPx + deltaPx.x) / NATURAL_BLOCK_SIZE_PX.w) * NATURAL_BLOCK_SIZE_PX.w;
   if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
   if (store.getCurrentDockWidthPx() != newDockWidthPx) {
@@ -713,15 +715,16 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
   if (newWidthBl < 1) { newWidthBl = 1.0; }
   const newWidthGr = newWidthBl * GRID_SIZE;
+  const colNum = MouseActionState.getHitMeta()!.colNum!;
 
   if (activeVisualElement.linkItemMaybe != null) {
-    if (newWidthGr != asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr) {
-      asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthGr;
+    if (newWidthGr != asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr) {
+      asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr = newWidthGr;
       arrangeNow(store, "resize-table-column-linked");
     }
   } else {
-    if (newWidthGr != asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr) {
-      asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthGr;
+    if (newWidthGr != asTableItem(activeItem).tableColumns[colNum].widthGr) {
+      asTableItem(activeItem).tableColumns[colNum].widthGr = newWidthGr;
       arrangeNow(store, "resize-table-column");
     }
   }

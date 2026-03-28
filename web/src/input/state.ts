@@ -21,13 +21,14 @@ import { CompositeItem } from "../items/composite-item";
 import { PlaceholderItem } from "../items/placeholder-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementPath } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "../layout/visual-element";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { BoundingBox, Vector, desktopPxFromMouseEvent } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal } from "../util/signals";
 import { Item } from "../items/base/item";
+import { HitInfo, HitInfoFns } from "./hit";
 
 
 // ### MouseAction State
@@ -95,6 +96,14 @@ type MouseActionStateInit = Omit<
   "linkCreatedOnMoveStart" |
   "newPlaceholderItem"
 > & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem">>;
+
+type MouseActionStateFromHitInit = Omit<
+  MouseActionStateInit,
+  "activeRoot" | "activeCompositeElementMaybe" | "hitEmbeddedInteractive" | "startActiveElementParent"
+> & {
+  hitInfo: HitInfo,
+  hitVe: VisualElement,
+};
 
 
 let mouseActionState: MouseActionStateType | null = null;
@@ -171,6 +180,20 @@ function setActiveElementPathInternal(state: MouseActionStateType, path: VisualE
 
 function normalizeMouseActionState(state: MouseActionStateType): void {
   setActiveElementPathInternal(state, state.activeElementPath, activeElementSignalCache);
+}
+
+function deriveActiveRootPath(rootVes: VisualElementSignal): VisualElementPath {
+  const rootVe = rootVes.get();
+  if (rootVe.flags & VisualElementFlags.Popup) {
+    return VeFns.veToPath(VesCache.current.readNode(rootVe.parentPath!)!);
+  }
+  return VeFns.veToPath(rootVe);
+}
+
+function deriveActiveCompositeElementPath(hitInfo: HitInfo): VisualElementPath | null {
+  if (!hitInfo.compositeHitboxTypeMaybe) { return null; }
+  const compositeVe = HitInfoFns.getCompositeContainerVe(hitInfo);
+  return compositeVe ? VeFns.veToPath(compositeVe) : null;
 }
 
 function resolveActiveElementSignal(state: MouseActionStateType): VisualElementSignal | null {
@@ -288,11 +311,45 @@ export let MouseActionState = {
     });
   },
 
+  beginFromHit: (init: MouseActionStateFromHitInit): void => {
+    MouseActionState.begin({
+      ...init,
+      startActiveElementParent: init.hitVe.parentPath!,
+      activeRoot: deriveActiveRootPath(init.hitInfo.rootVes),
+      activeCompositeElementMaybe: deriveActiveCompositeElementPath(init.hitInfo),
+      hitEmbeddedInteractive: !!(init.hitVe.flags & VisualElementFlags.EmbeddedInteractiveRoot),
+    });
+  },
+
   empty: (): boolean => mouseActionState == null,
 
   get: (): MouseActionStateType => {
     if (mouseActionState == null) { panic!("MouseActionState.get: no mouseActionState."); }
     return mouseActionState!;
+  },
+
+  getHitboxTypeOnMouseDown: (): HitboxFlags => {
+    return MouseActionState.get().hitboxTypeOnMouseDown;
+  },
+
+  setHitboxTypeOnMouseDown: (hitboxType: HitboxFlags): void => {
+    MouseActionState.get().hitboxTypeOnMouseDown = hitboxType;
+  },
+
+  hitboxTypeIncludes: (flags: HitboxFlags): boolean => {
+    return (MouseActionState.get().hitboxTypeOnMouseDown & flags) > 0;
+  },
+
+  getCompositeHitboxTypeOnMouseDown: (): HitboxFlags => {
+    return MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown;
+  },
+
+  compositeHitboxTypeIncludes: (flags: HitboxFlags): boolean => {
+    return (MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & flags) > 0;
+  },
+
+  getHitMeta: (): HitboxMeta | null => {
+    return MouseActionState.get().hitMeta;
   },
 
   readVisualElement: (path: VisualElementPath | null | undefined): VisualElement | null => {
@@ -301,6 +358,42 @@ export let MouseActionState = {
 
   getVisualElementSignal: (path: VisualElementPath | null | undefined): VisualElementSignal | null => {
     return getRenderSignalForPath(path);
+  },
+
+  getActiveRootPath: (): VisualElementPath | null => {
+    return mouseActionState?.activeRoot ?? null;
+  },
+
+  readActiveRoot: (): VisualElement | null => {
+    return readCurrentVisualElement(mouseActionState?.activeRoot ?? null);
+  },
+
+  getActiveCompositeElementPath: (): VisualElementPath | null => {
+    return mouseActionState?.activeCompositeElementMaybe ?? null;
+  },
+
+  switchActiveElementToComposite: (): boolean => {
+    if (mouseActionState == null || mouseActionState.activeCompositeElementMaybe == null) { return false; }
+    const compositePath = mouseActionState.activeCompositeElementMaybe;
+    MouseActionState.setActiveElementPath(compositePath);
+    mouseActionState.startActiveElementParent = VeFns.parentPath(compositePath);
+    return true;
+  },
+
+  getStartActiveElementParentPath: (): VisualElementPath | null => {
+    return mouseActionState?.startActiveElementParent ?? null;
+  },
+
+  readStartActiveElementParent: (): VisualElement | null => {
+    return readCurrentVisualElement(mouseActionState?.startActiveElementParent ?? null);
+  },
+
+  getStartDockWidthPx: (): number | null => {
+    return mouseActionState?.startDockWidthPx ?? null;
+  },
+
+  usesEmbeddedInteractiveHitTesting: (): boolean => {
+    return mouseActionState?.hitEmbeddedInteractive ?? false;
   },
 
   getMoveOverContainerPath: (): VisualElementPath | null => {
