@@ -564,6 +564,106 @@ function logOrphanedVes(cache: Map<VisualElementPath, VisualElementSignal>, cont
   }
 }
 
+function syncReactiveStateFromScene(scene: SceneState) {
+  for (const [path, signal] of scene.aux.popupVes) {
+    updateReactivePopup(path, signal);
+  }
+  for (const [path, _] of reactivePopups) {
+    if (!scene.aux.popupVes.has(path)) {
+      updateReactivePopup(path, null);
+    }
+  }
+
+  for (const [path, signal] of scene.aux.selectedVes) {
+    updateReactiveSelected(path, signal);
+  }
+  for (const [path, _] of reactiveSelecteds) {
+    if (!scene.aux.selectedVes.has(path)) {
+      updateReactiveSelected(path, null);
+    }
+  }
+
+  for (const [path, signal] of scene.aux.dockVes) {
+    updateReactiveDock(path, signal);
+  }
+  for (const [path, _] of reactiveDocks) {
+    if (!scene.aux.dockVes.has(path)) {
+      updateReactiveDock(path, null);
+    }
+  }
+
+  for (const [path, list] of scene.aux.attachmentsVes) {
+    updateReactiveAttachments(path, list);
+  }
+  for (const [path, _] of reactiveAttachments) {
+    if (!scene.aux.attachmentsVes.has(path)) {
+      updateReactiveAttachments(path, []);
+    }
+  }
+
+  for (const [path, list] of scene.aux.childrenVes) {
+    updateReactiveChildren(path, list);
+  }
+  for (const [path, _] of reactiveChildren) {
+    if (!scene.aux.childrenVes.has(path)) {
+      updateReactiveChildren(path, []);
+    }
+  }
+
+  for (const [path, list] of scene.aux.lineChildrenVes) {
+    updateReactiveLineChildren(path, list);
+  }
+  for (const [path, _] of reactiveLineChildren) {
+    if (!scene.aux.lineChildrenVes.has(path)) {
+      updateReactiveLineChildren(path, []);
+    }
+  }
+
+  for (const [path, list] of scene.aux.desktopChildrenVes) {
+    updateReactiveDesktopChildren(path, list);
+  }
+  for (const [path, _] of reactiveDesktopChildren) {
+    if (!scene.aux.desktopChildrenVes.has(path)) {
+      updateReactiveDesktopChildren(path, []);
+    }
+  }
+
+  for (const [path, list] of scene.aux.nonMovingChildrenVes) {
+    updateReactiveNonMovingChildren(path, list);
+  }
+  for (const [path, _] of reactiveNonMovingChildren) {
+    if (!scene.aux.nonMovingChildrenVes.has(path)) {
+      updateReactiveNonMovingChildren(path, []);
+    }
+  }
+
+  staticTableVesRows.clear();
+  for (const [path, rows] of scene.aux.tableVesRows) {
+    staticTableVesRows.set(path, rows);
+  }
+
+  for (const [path, item] of scene.aux.focusedChildItemMaybe) {
+    updateReactiveFocused(path, item);
+  }
+  for (const [path, _] of reactiveFocused) {
+    if (!scene.aux.focusedChildItemMaybe.has(path)) {
+      updateReactiveFocused(path, null);
+    }
+  }
+}
+
+function promoteVirtualScene(scene: SceneState) {
+  virtualScene = scene;
+}
+
+function promoteCurrentScene(store: StoreContextModel, scene: SceneState) {
+  currentScene = scene;
+  store.topTitledPages.set(scene.topTitledPages);
+  logOrphanedVes(scene.cache, "full_finalizeArrange");
+  logArrangeStats();
+  syncReactiveStateFromScene(scene);
+}
+
 export let VesCache = {
 
   /**
@@ -648,116 +748,15 @@ export let VesCache = {
       // If `virtualUmbrellaVes` comes from `virtualScene.cache` previously?
       // For now, I'll pass umbrellaVeSpec which is available in the function arguments.
       syncAuxData(underConstructionScene.aux, umbrellaPath, virtualUmbrellaVes.get(), umbrellaVeSpec);
-      virtualScene = underConstructionScene;
+      promoteVirtualScene(underConstructionScene);
     } else {
       setSceneNode(underConstructionScene, umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
       syncAuxData(underConstructionScene.aux, umbrellaPath, store.umbrellaVisualElement.get(), umbrellaVeSpec);
-
-      currentScene = underConstructionScene;
-
-      store.topTitledPages.set(currentScene.topTitledPages);
-      logOrphanedVes(currentScene.cache, "full_finalizeArrange");
-      logArrangeStats();
+      promoteCurrentScene(store, underConstructionScene);
     }
 
     underConstructionScene = createEmptySceneState();
-
-    // Sync reactive popups from currentScene.aux.popupVes
-    for (const [path, signal] of currentScene.aux.popupVes) {
-      updateReactivePopup(path, signal);
-    }
-    for (const [path, _] of reactivePopups) {
-      if (!currentScene.aux.popupVes.has(path)) {
-        updateReactivePopup(path, null);
-      }
-    }
-
-    // Sync reactive selecteds from currentScene.aux.selectedVes
-    for (const [path, signal] of currentScene.aux.selectedVes) {
-      updateReactiveSelected(path, signal);
-    }
-    for (const [path, _] of reactiveSelecteds) {
-      if (!currentScene.aux.selectedVes.has(path)) {
-        updateReactiveSelected(path, null);
-      }
-    }
-
-    // Sync reactive docks from currentScene.aux.dockVes
-    for (const [path, signal] of currentScene.aux.dockVes) {
-      updateReactiveDock(path, signal);
-    }
-    for (const [path, _] of reactiveDocks) {
-      if (!currentScene.aux.dockVes.has(path)) {
-        updateReactiveDock(path, null);
-      }
-    }
-
-    // Sync reactive attachments from currentScene.aux.attachmentsVes
-    for (const [path, list] of currentScene.aux.attachmentsVes) {
-      updateReactiveAttachments(path, list);
-    }
-    for (const [path, _] of reactiveAttachments) {
-      if (!currentScene.aux.attachmentsVes.has(path)) {
-        updateReactiveAttachments(path, []);
-      }
-    }
-
-    // Sync reactive children from currentScene.aux.childrenVes
-    for (const [path, list] of currentScene.aux.childrenVes) {
-      updateReactiveChildren(path, list);
-    }
-    for (const [path, _] of reactiveChildren) {
-      if (!currentScene.aux.childrenVes.has(path)) {
-        updateReactiveChildren(path, []);
-      }
-    }
-
-    // Sync reactive line children from currentScene.aux.lineChildrenVes
-    for (const [path, list] of currentScene.aux.lineChildrenVes) {
-      updateReactiveLineChildren(path, list);
-    }
-    for (const [path, _] of reactiveLineChildren) {
-      if (!currentScene.aux.lineChildrenVes.has(path)) {
-        updateReactiveLineChildren(path, []);
-      }
-    }
-
-    // Sync reactive desktop children from currentScene.aux.desktopChildrenVes
-    for (const [path, list] of currentScene.aux.desktopChildrenVes) {
-      updateReactiveDesktopChildren(path, list);
-    }
-    for (const [path, _] of reactiveDesktopChildren) {
-      if (!currentScene.aux.desktopChildrenVes.has(path)) {
-        updateReactiveDesktopChildren(path, []);
-      }
-    }
-
-    // Sync reactive non-moving children from currentScene.aux.nonMovingChildrenVes
-    for (const [path, list] of currentScene.aux.nonMovingChildrenVes) {
-      updateReactiveNonMovingChildren(path, list);
-    }
-    for (const [path, _] of reactiveNonMovingChildren) {
-      if (!currentScene.aux.nonMovingChildrenVes.has(path)) {
-        updateReactiveNonMovingChildren(path, []);
-      }
-    }
-
-    // Sync static tableVesRows from currentScene.aux.tableVesRows
-    staticTableVesRows.clear();
-    for (const [path, rows] of currentScene.aux.tableVesRows) {
-      staticTableVesRows.set(path, rows);
-    }
-
-    // Sync reactive focusedChildItemMaybe from currentScene.aux.focusedChildItemMaybe
-    for (const [path, item] of currentScene.aux.focusedChildItemMaybe) {
-      updateReactiveFocused(path, item);
-    }
-    for (const [path, _] of reactiveFocused) {
-      if (!currentScene.aux.focusedChildItemMaybe.has(path)) {
-        updateReactiveFocused(path, null);
-      }
-    }
 
     currentlyInFullArrange = false;
   },
