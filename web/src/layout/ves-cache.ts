@@ -482,6 +482,49 @@ function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
   };
 }
 
+function valuesDeepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a == null || b == null) {
+    return a === b;
+  }
+  if (typeof a !== typeof b) {
+    return false;
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+      return false;
+    }
+    for (let i = 0; i < a.length; i++) {
+      if (!valuesDeepEqual(a[i], b[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  if (typeof a !== "object" || typeof b !== "object") {
+    return false;
+  }
+
+  const aObj = a as Record<string, unknown>;
+  const bObj = b as Record<string, unknown>;
+  const aKeys = Object.keys(aObj);
+  const bKeys = Object.keys(bObj);
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(bObj, key)) {
+      return false;
+    }
+    if (!valuesDeepEqual(aObj[key], bObj[key])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
   const snapshot = createEmptyVirtualSceneState();
 
@@ -609,8 +652,12 @@ function writePreparedUnderConstructionVisualElement(
 ): VisualElement {
   maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
   const nextVe = VeFns.create(preparedSpec);
-  writeUnderConstructionSceneNode(path, nextVe, preparedRelationships);
-  return nextVe;
+  const existingVe = getSceneNode(currentScene, path);
+  const canonicalVe = existingVe && valuesDeepEqual(existingVe, nextVe)
+    ? existingVe
+    : nextVe;
+  writeUnderConstructionSceneNode(path, canonicalVe, preparedRelationships);
+  return canonicalVe;
 }
 
 function syncRenderProjectionNode(
