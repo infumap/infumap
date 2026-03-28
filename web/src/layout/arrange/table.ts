@@ -111,11 +111,11 @@ export const arrangeTable = (
 
   const tableRelationships: VisualElementRelationships = {
     childrenVes,
-    tableVesRows,
     attachmentsPaths: attachments,
   };
 
   const tableVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableSpec, tableRelationships, tableVePath);
+  VesCache.setTableRenderRows(tableVePath, tableVesRows);
 
   return tableVisualElementSignal;
 }
@@ -410,7 +410,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const tableVe = VesCache.current.readNode(tableVePath)!;
   const displayItem_table = asTableItem(tableVe.displayItem);
   const childrenVes = VesCache.render.getChildren(tableVePath)();
-  const tableVesRows = VesCache.getTableVesRows(tableVePath);
+  const tableVesRows = VesCache.getTableRenderRows(tableVePath);
   if (tableVesRows == null || tableVesRows!.length != childrenVes.length) {
     // TODO (LOW): should really implement logic such that this never happens. This is lazy.
     console.debug("rearrangeTableAfterScroll: invalid tableVesRows, resorting to fullArrange.");

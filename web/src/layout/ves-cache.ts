@@ -169,6 +169,14 @@ function setUnderConstructionRenderTableRows(path: VisualElementPath, rows: Arra
   underConstructionRenderTableRowsByPath.set(path, rows.slice());
 }
 
+function getCurrentRenderTableRows(path: VisualElementPath): Array<number> | null {
+  return renderProjectionByPath.get(path)?.tableRows ?? null;
+}
+
+function getUnderConstructionRenderTableRows(path: VisualElementPath): Array<number> | null {
+  return underConstructionRenderTableRowsByPath.get(path) ?? null;
+}
+
 function prepareVisualElementSpec(spec: VisualElementSpec): VisualElementSpec {
   if (spec.displayItemFingerprint) {
     panic("displayItemFingerprint is already set.");
@@ -1109,7 +1117,7 @@ export let VesCache = {
     const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships);
     const newElement = VeFns.create(preparedSpec);
     writeScenePath(currentScene, path, newElement, preparedRelationships);
-    syncRenderProjectionForPath(currentScene, path, undefined, undefined, relationships.tableVesRows ?? null);
+    syncRenderProjectionForPath(currentScene, path);
 
     maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
 
@@ -1176,7 +1184,7 @@ export let VesCache = {
     }
     vesToOverwrite.set(cloneVisualElementSnapshot(nextVe));
     writeScenePath(currentScene, newPath, nextVe, preparedRelationships);
-    syncRenderProjectionForPath(currentScene, newPath, undefined, vesToOverwrite, relationships.tableVesRows ?? null);
+    syncRenderProjectionForPath(currentScene, newPath, undefined, vesToOverwrite);
 
     maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
   },
@@ -1280,11 +1288,23 @@ export let VesCache = {
     return renderSceneQueries.getFocusedChild(path);
   },
 
-  getTableVesRows: (path: VisualElementPath): Array<number> | null => {
+  getTableRenderRows: (path: VisualElementPath): Array<number> | null => {
     if (currentlyInFullArrange && sceneHasNode(underConstructionScene, path)) {
-      return underConstructionRenderTableRowsByPath.get(path) ?? null;
+      return getUnderConstructionRenderTableRows(path);
     }
-    return renderProjectionByPath.get(path)?.tableRows ?? null;
+    return getCurrentRenderTableRows(path);
+  },
+
+  setTableRenderRows: (path: VisualElementPath, rows: Array<number> | null): void => {
+    if (currentlyInFullArrange && sceneHasNode(underConstructionScene, path)) {
+      setUnderConstructionRenderTableRows(path, rows);
+      return;
+    }
+    setRenderProjectionTableRows(path, rows);
+  },
+
+  getTableVesRows: (path: VisualElementPath): Array<number> | null => {
+    return VesCache.getTableRenderRows(path);
   },
 }
 
@@ -1292,7 +1312,6 @@ export let VesCache = {
 function buildUnderConstructionVisualElementSignal(spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal {
   const preparedSpec = prepareVisualElementSpec(spec);
   const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
-  setUnderConstructionRenderTableRows(path, relationships.tableVesRows);
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
