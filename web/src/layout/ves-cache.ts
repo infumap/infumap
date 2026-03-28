@@ -161,6 +161,24 @@ function setRenderProjectionTableRows(path: VisualElementPath, rows: Array<numbe
   getRenderProjection(path).tableRows = rows;
 }
 
+function prepareVisualElementSpec(spec: VisualElementSpec): VisualElementSpec {
+  if (spec.displayItemFingerprint) {
+    panic("displayItemFingerprint is already set.");
+  }
+  return {
+    ...spec,
+    displayItemFingerprint: ItemFns.getFingerprint(spec.displayItem),
+  };
+}
+
+function maybeTrackLoadedContainer(outputs: SceneOutputs, spec: VisualElementSpec) {
+  if (isContainer(spec.displayItem) &&
+    ((spec.flags ?? VisualElementFlags.None) & VisualElementFlags.ShowChildren) &&
+    asContainerItem(spec.displayItem).childrenLoaded) {
+    addSceneWatchContainerUid(outputs, spec.displayItem.id, spec.displayItem.origin);
+  }
+}
+
 let currentlyInFullArrange = false;
 
 type SceneRelationshipData = {
@@ -550,6 +568,16 @@ function writeScenePath(
   setSceneNode(scene, path, ve);
   syncSceneRelationships(scene.relationshipsByPath, path, relationships);
   indexVisualElement(scene, path, ve);
+  addScenePathForDisplayId(scene, ve.displayItem.id, path);
+}
+
+function writeUnderConstructionScenePath(
+  path: VisualElementPath,
+  ve: VisualElement,
+  relationships: VisualElementRelationships,
+): VisualElementSignal {
+  writeScenePath(underConstructionScene, path, ve, relationships);
+  return setUnderConstructionArrangeSignal(path, ve);
 }
 
 function syncRenderProjectionNode(
@@ -1001,19 +1029,15 @@ export let VesCache = {
   },
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
-    if (umbrellaSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
-    umbrellaSpec.displayItemFingerprint = ItemFns.getFingerprint(umbrellaSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
-    const umbrellaVeSpec = { ...umbrellaSpec, ...umbrellaRelationships };
-    const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : VeFns.create(umbrellaVeSpec);
+    const preparedUmbrellaSpec = prepareVisualElementSpec(umbrellaSpec);
+    const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : VeFns.create(preparedUmbrellaSpec);
 
     if (virtualUmbrellaVes) {
-      setSceneNode(underConstructionScene, umbrellaPath, umbrellaVe);
-      syncSceneRelationships(underConstructionScene.relationshipsByPath, umbrellaPath, umbrellaVeSpec);
+      writeScenePath(underConstructionScene, umbrellaPath, umbrellaVe, umbrellaRelationships);
       promoteVirtualScene(underConstructionScene);
     } else {
-      setSceneNode(underConstructionScene, umbrellaPath, umbrellaVe);
+      writeScenePath(underConstructionScene, umbrellaPath, umbrellaVe, umbrellaRelationships);
       store.umbrellaVisualElement.set(umbrellaVe);
-      syncSceneRelationships(underConstructionScene.relationshipsByPath, umbrellaPath, umbrellaVeSpec);
       promoteCurrentScene(store, underConstructionScene, underConstructionSceneOutputs);
     }
 
@@ -1029,36 +1053,24 @@ export let VesCache = {
   },
 
   /**
-   * Creates or recycles an existing VisualElementSignal, if one exists for the specified path.
-   * In the case of recycling, the overridden values (only) are checked against the existing visual element values.
-   * I.e. a previously overridden value that is not overridden in the new ve spec will not be detected.
-   * Note that this check always includes the display item fingerprint, to pick up on any non-geometric changes that still affect the item render.
-   * I think the above strategy should always work in practice, but a more comprehensive (and expensive) comparison may be required in some instances.
-   * The entire cache should cleared on page change (since there will be little or no overlap anyway).
-   * This is achieved using initFullArrange and finalizeFullArrange methods.
+   * Builds the next under-construction scene node for the specified path and returns
+   * a temporary arrange-time signal view over that node. The signal is only an arrange
+   * convenience; the canonical data is written into the under-construction scene first.
    */
   full_createOrRecycleVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
-    return createOrRecycleVisualElementSignalImpl(spec, relationships, path);
+    return buildUnderConstructionVisualElementSignal(spec, relationships, path);
   },
 
   /**
    * Create a new VisualElementSignal and insert it into the current cache.
    */
   partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
-    const visualElementOverride = { ...spec, ...relationships };
-    const newElement = VeFns.create(visualElementOverride);
+    const preparedSpec = prepareVisualElementSpec(spec);
+    const newElement = VeFns.create(preparedSpec);
     writeScenePath(currentScene, path, newElement, relationships);
     syncRenderProjectionForPath(currentScene, path);
 
-
-    if (isContainer(visualElementOverride.displayItem) &&
-      (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
-      asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
-      addSceneWatchContainerUid(currentSceneOutputs, visualElementOverride.displayItem.id, visualElementOverride.displayItem.origin);
-    }
-    const displayItemId = newElement.displayItem.id;
-
-    addScenePathForDisplayId(currentScene, displayItemId, path);
+    maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
 
     return renderSceneQueries.getNode(path) ?? panic("partial_create failed to create render node signal.");
   },
@@ -1070,10 +1082,10 @@ export let VesCache = {
    * TODO (HIGH): should also delete children..., though this is never used
    */
   partial_overwriteVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
-    const visualElementOverride = { ...spec, ...relationships };
+    const preparedSpec = prepareVisualElementSpec(spec);
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
-    const nextVe = VeFns.create(visualElementOverride);
+    const nextVe = VeFns.create(preparedSpec);
 
     // Debug logging for potential path conflicts
     if (existingPath === newPath) {
@@ -1088,9 +1100,9 @@ export let VesCache = {
         existingPath: existingPath,
         newPath: newPath,
         existingDisplayItemId: veToOverwrite.displayItem.id,
-        newDisplayItemId: visualElementOverride.displayItem.id,
+        newDisplayItemId: preparedSpec.displayItem.id,
         existingItemType: veToOverwrite.displayItem.itemType,
-        newItemType: visualElementOverride.displayItem.itemType,
+        newItemType: preparedSpec.displayItem.itemType,
         timestamp: new Date().toISOString()
       });
     }
@@ -1124,14 +1136,7 @@ export let VesCache = {
     writeScenePath(currentScene, newPath, nextVe, relationships);
     syncRenderProjectionForPath(currentScene, newPath, undefined, vesToOverwrite);
 
-
-    if (isContainer(visualElementOverride.displayItem) &&
-      (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
-      asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
-      addSceneWatchContainerUid(underConstructionSceneOutputs, spec.displayItem.id, visualElementOverride.displayItem.origin);
-    }
-
-    addScenePathForDisplayId(currentScene, VeFns.itemIdFromPath(newPath), newPath);
+    maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
   },
 
   /**
@@ -1242,41 +1247,21 @@ export let VesCache = {
 }
 
 
-function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal {
-  const visualElementOverride = { ...spec, ...relationships };
+function buildUnderConstructionVisualElementSignal(spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal {
+  const preparedSpec = prepareVisualElementSpec(spec);
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
-  if (spec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
-  spec.displayItemFingerprint = ItemFns.getFingerprint(spec.displayItem); // TODO (LOW): Modifying the input object is a bit dirty.
-  visualElementOverride.displayItemFingerprint = spec.displayItemFingerprint;
-
-  if (isContainer(spec.displayItem) &&
-    (spec.flags! & VisualElementFlags.ShowChildren) &&
-    asContainerItem(spec.displayItem).childrenLoaded) {
-    addSceneWatchContainerUid(underConstructionSceneOutputs, visualElementOverride.displayItem.id, spec.displayItem.origin);
-  }
-
-  function addVesVsDisplayItem(displayItemId: Uid, path: VisualElementPath) {
-    addScenePathForDisplayId(underConstructionScene, displayItemId, path);
-  }
-
-  function addUnderConstructionIndexes(path: VisualElementPath, ve: VisualElement) {
-    indexVisualElement(underConstructionScene, path, ve);
-  }
+  maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
 
   const existing = getSceneNode(currentScene, path);
   if (existing) {
     const existingVe = existing;
-    if (existingVe.displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
-      if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
+    if (existingVe.displayItemFingerprint != preparedSpec.displayItemFingerprint) {
+      if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, preparedSpec.displayItemFingerprint); }
       logDirtyReason("fingerprint");
-      const nextVe = VeFns.create(visualElementOverride);
-      setSceneNode(underConstructionScene, path, nextVe);
-      syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
-      addVesVsDisplayItem(nextVe.displayItem.id, path);
-      addUnderConstructionIndexes(path, nextVe);
-      return setUnderConstructionArrangeSignal(path, nextVe);
+      const nextVe = VeFns.create(preparedSpec);
+      return writeUnderConstructionScenePath(path, nextVe, relationships);
     }
 
     // Check if the LineItem flag is changing. If it is, we should not recycle
@@ -1284,37 +1269,23 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
     // (VisualElement_LineItem vs VisualElement_Desktop), so there's no DOM reuse
     // benefit. Creating a new visual element ensures a clean state transition.
     const oldHasLineItemFlag = !!(existingVe.flags & VisualElementFlags.LineItem);
-    const newHasLineItemFlag = !!((visualElementOverride.flags || VisualElementFlags.None) & VisualElementFlags.LineItem);
+    const newHasLineItemFlag = !!((preparedSpec.flags || VisualElementFlags.None) & VisualElementFlags.LineItem);
 
     if (oldHasLineItemFlag !== newHasLineItemFlag) {
       if (debug) { console.debug("LineItem flag changed, creating new visual element instead of recycling:", path); }
       logDirtyReason("lineItemChange");
       arrangeStats.new++; // This creates a new signal rather than recycling
-      const newElement = VeFns.create(visualElementOverride);
-      setSceneNode(underConstructionScene, path, newElement);
-      syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
-      addVesVsDisplayItem(newElement.displayItem.id, path);
-      addUnderConstructionIndexes(path, newElement);
-      return setUnderConstructionArrangeSignal(path, newElement);
+      const newElement = VeFns.create(preparedSpec);
+      return writeUnderConstructionScenePath(path, newElement, relationships);
     }
 
-    const newVals: any = visualElementOverride;
+    const newVals: any = preparedSpec;
     const oldVals: any = existingVe;
-    const newProps = Object.getOwnPropertyNames(visualElementOverride);
+    const newProps = Object.getOwnPropertyNames(preparedSpec);
     let dirty = false;
-    if (debug) { console.debug(newProps, oldVals, visualElementOverride); }
+    if (debug) { console.debug(newProps, oldVals, preparedSpec); }
     for (let i = 0; i < newProps.length; ++i) {
       if (debug) { console.debug("considering", newProps[i]); }
-      if (newProps[i] == "childrenVes" ||
-        newProps[i] == "attachmentsVes" ||
-        newProps[i] == "tableVesRows" ||
-        newProps[i] == "popupVes" ||
-        newProps[i] == "selectedVes" ||
-        newProps[i] == "dockVes" ||
-        newProps[i] == "focusedChildItemMaybe") {
-        continue;
-      }
-
       if (typeof (oldVals[newProps[i]]) == 'undefined') {
         if (debug) { console.debug('no current ve property for:', newProps[i]); }
         dirty = true;
@@ -1387,31 +1358,19 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
       arrangeStats.recycled++;
-      setSceneNode(underConstructionScene, path, existingVe);
-      syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
-      addVesVsDisplayItem(existingVe.displayItem.id, path);
-      addUnderConstructionIndexes(path, existingVe);
-      return setUnderConstructionArrangeSignal(path, existingVe);
+      return writeUnderConstructionScenePath(path, existingVe, relationships);
     }
     if (debug) { console.debug("dirty:", path); }
     arrangeStats.dirty++;
 
-    const nextVe = VeFns.create(visualElementOverride);
-    setSceneNode(underConstructionScene, path, nextVe);
-    syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
-    addVesVsDisplayItem(nextVe.displayItem.id, path);
-    addUnderConstructionIndexes(path, nextVe);
-    return setUnderConstructionArrangeSignal(path, nextVe);
+    const nextVe = VeFns.create(preparedSpec);
+    return writeUnderConstructionScenePath(path, nextVe, relationships);
   }
 
   if (debug) { console.debug("creating:", path); }
   arrangeStats.new++;
-  const newElement = VeFns.create(visualElementOverride);
-  setSceneNode(underConstructionScene, path, newElement);
-  syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
-  addVesVsDisplayItem(newElement.displayItem.id, path);
-  addUnderConstructionIndexes(path, newElement);
-  return setUnderConstructionArrangeSignal(path, newElement);
+  const newElement = VeFns.create(preparedSpec);
+  return writeUnderConstructionScenePath(path, newElement, relationships);
 }
 
 function deleteFromVessVsDisplayIdLookup(scene: SceneState, path: string) {
