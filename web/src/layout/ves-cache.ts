@@ -211,6 +211,90 @@ function updateReactiveChildren(path: VisualElementPath, value: Array<VisualElem
   }
 }
 
+// Reactive map for lineChildrenVes
+let reactiveLineChildren = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
+
+function getReactiveLineChildrenSignal(path: VisualElementPath) {
+  let entry = reactiveLineChildren.get(path);
+  if (!entry) {
+    entry = createSignal<Array<VisualElementSignal>>([]);
+    reactiveLineChildren.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactiveLineChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+  const actualValue = value ?? [];
+  const [read, write] = getReactiveLineChildrenSignal(path);
+  const current = read();
+  if (current.length !== actualValue.length) {
+    write(actualValue);
+    return;
+  }
+  for (let i = 0; i < current.length; i++) {
+    if (current[i] !== actualValue[i]) {
+      write(actualValue);
+      return;
+    }
+  }
+}
+
+// Reactive map for desktopChildrenVes
+let reactiveDesktopChildren = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
+
+function getReactiveDesktopChildrenSignal(path: VisualElementPath) {
+  let entry = reactiveDesktopChildren.get(path);
+  if (!entry) {
+    entry = createSignal<Array<VisualElementSignal>>([]);
+    reactiveDesktopChildren.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactiveDesktopChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+  const actualValue = value ?? [];
+  const [read, write] = getReactiveDesktopChildrenSignal(path);
+  const current = read();
+  if (current.length !== actualValue.length) {
+    write(actualValue);
+    return;
+  }
+  for (let i = 0; i < current.length; i++) {
+    if (current[i] !== actualValue[i]) {
+      write(actualValue);
+      return;
+    }
+  }
+}
+
+// Reactive map for nonMovingChildrenVes
+let reactiveNonMovingChildren = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
+
+function getReactiveNonMovingChildrenSignal(path: VisualElementPath) {
+  let entry = reactiveNonMovingChildren.get(path);
+  if (!entry) {
+    entry = createSignal<Array<VisualElementSignal>>([]);
+    reactiveNonMovingChildren.set(path, entry);
+  }
+  return entry;
+}
+
+function updateReactiveNonMovingChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+  const actualValue = value ?? [];
+  const [read, write] = getReactiveNonMovingChildrenSignal(path);
+  const current = read();
+  if (current.length !== actualValue.length) {
+    write(actualValue);
+    return;
+  }
+  for (let i = 0; i < current.length; i++) {
+    if (current[i] !== actualValue[i]) {
+      write(actualValue);
+      return;
+    }
+  }
+}
+
 // Static map for tableVesRows (Not reactive, just storage)
 let staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
 
@@ -223,6 +307,9 @@ type VesAuxData = {
   selectedVes: Map<VisualElementPath, VisualElementSignal | null>;
   dockVes: Map<VisualElementPath, VisualElementSignal | null>;
   childrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
+  lineChildrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
+  desktopChildrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
+  nonMovingChildrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
   tableVesRows: Map<VisualElementPath, Array<number> | null>;
   focusedChildItemMaybe: Map<VisualElementPath, Item | null>;
 }
@@ -235,6 +322,9 @@ function createEmptyAuxData(): VesAuxData {
     selectedVes: new Map(),
     dockVes: new Map(),
     childrenVes: new Map(),
+    lineChildrenVes: new Map(),
+    desktopChildrenVes: new Map(),
+    nonMovingChildrenVes: new Map(),
     tableVesRows: new Map(),
     focusedChildItemMaybe: new Map(),
   };
@@ -244,13 +334,43 @@ let currentAux = createEmptyAuxData();
 let virtualAux = createEmptyAuxData();
 let underConstructionAux = createEmptyAuxData();
 
+function splitChildrenVesByRenderBehavior(childrenVes: Array<VisualElementSignal> | undefined) {
+  const allChildren = childrenVes ?? [];
+  const lineChildren: Array<VisualElementSignal> = [];
+  const desktopChildren: Array<VisualElementSignal> = [];
+  const nonMovingChildren: Array<VisualElementSignal> = [];
+
+  for (const childVe of allChildren) {
+    const flags = childVe.get().flags;
+    if (flags & VisualElementFlags.LineItem) {
+      lineChildren.push(childVe);
+    } else {
+      desktopChildren.push(childVe);
+    }
+    if (!(flags & VisualElementFlags.Moving)) {
+      nonMovingChildren.push(childVe);
+    }
+  }
+
+  return {
+    allChildren,
+    lineChildren,
+    desktopChildren,
+    nonMovingChildren,
+  };
+}
+
 function syncAuxData(aux: VesAuxData, path: VisualElementPath, ve: VisualElement, relationships: VisualElementRelationships | null) {
+  const childBuckets = splitChildrenVesByRenderBehavior(relationships?.childrenVes);
   aux.displayItemFingerprint.set(path, ve.displayItemFingerprint);
   aux.attachmentsVes.set(path, relationships?.attachmentsVes ?? []);
   aux.popupVes.set(path, relationships?.popupVes ?? null);
   aux.selectedVes.set(path, relationships?.selectedVes ?? null);
   aux.dockVes.set(path, relationships?.dockVes ?? null);
-  aux.childrenVes.set(path, relationships?.childrenVes ?? []);
+  aux.childrenVes.set(path, childBuckets.allChildren);
+  aux.lineChildrenVes.set(path, childBuckets.lineChildren);
+  aux.desktopChildrenVes.set(path, childBuckets.desktopChildren);
+  aux.nonMovingChildrenVes.set(path, childBuckets.nonMovingChildren);
   aux.tableVesRows.set(path, relationships?.tableVesRows ?? null);
   aux.focusedChildItemMaybe.set(path, relationships?.focusedChildItemMaybe ?? null);
 }
@@ -262,6 +382,9 @@ function deleteAuxData(aux: VesAuxData, path: VisualElementPath) {
   aux.selectedVes.delete(path);
   aux.dockVes.delete(path);
   aux.childrenVes.delete(path);
+  aux.lineChildrenVes.delete(path);
+  aux.desktopChildrenVes.delete(path);
+  aux.nonMovingChildrenVes.delete(path);
   aux.tableVesRows.delete(path);
   aux.focusedChildItemMaybe.delete(path);
 }
@@ -491,6 +614,36 @@ export let VesCache = {
       }
     }
 
+    // Sync reactive line children from currentAux.lineChildrenVes
+    for (const [path, list] of currentAux.lineChildrenVes) {
+      updateReactiveLineChildren(path, list);
+    }
+    for (const [path, _] of reactiveLineChildren) {
+      if (!currentAux.lineChildrenVes.has(path)) {
+        updateReactiveLineChildren(path, []);
+      }
+    }
+
+    // Sync reactive desktop children from currentAux.desktopChildrenVes
+    for (const [path, list] of currentAux.desktopChildrenVes) {
+      updateReactiveDesktopChildren(path, list);
+    }
+    for (const [path, _] of reactiveDesktopChildren) {
+      if (!currentAux.desktopChildrenVes.has(path)) {
+        updateReactiveDesktopChildren(path, []);
+      }
+    }
+
+    // Sync reactive non-moving children from currentAux.nonMovingChildrenVes
+    for (const [path, list] of currentAux.nonMovingChildrenVes) {
+      updateReactiveNonMovingChildren(path, list);
+    }
+    for (const [path, _] of reactiveNonMovingChildren) {
+      if (!currentAux.nonMovingChildrenVes.has(path)) {
+        updateReactiveNonMovingChildren(path, []);
+      }
+    }
+
     // Sync static tableVesRows from currentAux.tableVesRows
     staticTableVesRows.clear();
     for (const [path, rows] of currentAux.tableVesRows) {
@@ -541,6 +694,9 @@ export let VesCache = {
     updateReactiveDock(path, relationships.dockVes ?? null);
     updateReactiveAttachments(path, relationships.attachmentsVes);
     updateReactiveChildren(path, relationships.childrenVes);
+    updateReactiveLineChildren(path, currentAux.lineChildrenVes.get(path));
+    updateReactiveDesktopChildren(path, currentAux.desktopChildrenVes.get(path));
+    updateReactiveNonMovingChildren(path, currentAux.nonMovingChildrenVes.get(path));
     updateReactiveFocused(path, visualElementOverride.focusedChildItemMaybe ?? null);
 
     staticTableVesRows.set(path, relationships.tableVesRows ?? null);
@@ -626,6 +782,9 @@ export let VesCache = {
     updateReactiveDock(newPath, relationships.dockVes ?? null);
     updateReactiveAttachments(newPath, relationships.attachmentsVes);
     updateReactiveChildren(newPath, relationships.childrenVes);
+    updateReactiveLineChildren(newPath, currentAux.lineChildrenVes.get(newPath));
+    updateReactiveDesktopChildren(newPath, currentAux.desktopChildrenVes.get(newPath));
+    updateReactiveNonMovingChildren(newPath, currentAux.nonMovingChildrenVes.get(newPath));
     staticTableVesRows.set(newPath, relationships.tableVesRows ?? null);
 
 
@@ -739,6 +898,9 @@ export let VesCache = {
     updateReactiveDock(path, null); // Duplicate line in original, leaving as is or fixing? Original had dup.
     updateReactiveAttachments(path, []);
     updateReactiveChildren(path, []);
+    updateReactiveLineChildren(path, []);
+    updateReactiveDesktopChildren(path, []);
+    updateReactiveNonMovingChildren(path, []);
     updateReactiveFocused(path, null);
     staticTableVesRows.delete(path);
 
@@ -786,6 +948,18 @@ export let VesCache = {
 
   getChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
     return getReactiveChildrenSignal(path)[0];
+  },
+
+  getLineChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveLineChildrenSignal(path)[0];
+  },
+
+  getDesktopChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveDesktopChildrenSignal(path)[0];
+  },
+
+  getNonMovingChildrenVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
+    return getReactiveNonMovingChildrenSignal(path)[0];
   },
 
   getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {

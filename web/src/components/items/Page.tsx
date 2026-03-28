@@ -149,9 +149,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       store.overlay.textEditInfo() == null &&
       pageFns.isInComposite(),
 
-    lineChildren: () => VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))().filter(c => c.get().flags & VisualElementFlags.LineItem),
+    lineChildren: () => VesCache.getLineChildrenVes(VeFns.veToPath(props.visualElement))(),
 
-    desktopChildren: () => VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))().filter(c => !(c.get().flags & VisualElementFlags.LineItem)),
+    desktopChildren: () => VesCache.getDesktopChildrenVes(VeFns.veToPath(props.visualElement))(),
+
+    nonMovingChildren: () => VesCache.getNonMovingChildrenVes(VeFns.veToPath(props.visualElement))(),
 
 
     showTriangleDetail: () => (pageFns.boundsPx().w / (pageFns.pageItem().spatialWidthGr / GRID_SIZE)) > 0.5,
@@ -257,11 +259,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     renderJustifiedMoveOverHighlight: () => {
       const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
 
-      // Filter out moving items to get the non-moving visual elements
-      const childrenVes = VesCache.getChildrenVes(VeFns.veToPath(props.visualElement))();
-      const nonMovingChildrenVes = childrenVes.filter(childVe =>
-        !(childVe.get().flags & VisualElementFlags.Moving)
-      );
+      const nonMovingChildrenVes = pageFns.nonMovingChildren();
 
       if (moveOverIndex >= 0 && moveOverIndex <= nonMovingChildrenVes.length) {
         let leftPx: number;
