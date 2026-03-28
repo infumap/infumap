@@ -39,37 +39,6 @@ import { asPageItem } from "../../items/page-item";
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
-let nextDetailedImageRequestAtMs = 0;
-
-function imageStaggerDelayMs(): number {
-  const runtimeConfig = (globalThis as any).__INFUMAP_IMAGE_STAGGER_DEBUG__;
-  if (!runtimeConfig) {
-    return 0;
-  }
-
-  const stepMs = typeof runtimeConfig === "number"
-    ? runtimeConfig
-    : typeof runtimeConfig === "object" && runtimeConfig != null && typeof runtimeConfig.stepMs === "number"
-      ? runtimeConfig.stepMs
-      : 24;
-  const maxDelayMs = typeof runtimeConfig === "object" && runtimeConfig != null && typeof runtimeConfig.maxDelayMs === "number"
-    ? runtimeConfig.maxDelayMs
-    : 2000;
-
-  if (stepMs <= 0) {
-    return 0;
-  }
-
-  const now = Date.now();
-  nextDetailedImageRequestAtMs = Math.max(nextDetailedImageRequestAtMs, now);
-  const scheduledAtMs = nextDetailedImageRequestAtMs;
-  nextDetailedImageRequestAtMs += stepMs;
-  const delayMs = Math.min(maxDelayMs, Math.max(0, scheduledAtMs - now));
-
-  (globalThis as any).__INFUMAP_LAST_IMAGE_STAGGER_DELAY_MS__ = delayMs;
-  return delayMs;
-}
-
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
@@ -113,6 +82,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
   const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true);
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
+  const showImagePlaceholderDebug = () => Boolean((globalThis as any).__INFUMAP_IMAGE_PLACEHOLDER_DEBUG__);
 
   const imgSrcSignal = createInfuSignal<string | undefined>(undefined);
 
@@ -195,85 +165,67 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   let isDetailed_OnLoad = isDetailed();
   let currentImgSrc = "";
-  let retainedImgSrc = "";
   let imgOriginOnLoad = imgOrigin();
   let isMounting = true;
+  let hasFetchedDetailedImage = false;
   let isShowingThumbnail = createInfuSignal<boolean>(true);
-  let pendingFetchTimeoutId: number | undefined = undefined;
 
   // TODO (LOW): Better behavior when imageWidthToRequestPx <= MIN_IMAGE_WIDTH_PX.
   createEffect(() => {
     if (currentImgSrc != imgSrc() && !store.anItemIsResizing.get()) {
       if (isDetailed_OnLoad) {
-        if (pendingFetchTimeoutId !== undefined) {
-          clearTimeout(pendingFetchTimeoutId);
-          pendingFetchTimeoutId = undefined;
-        }
-        if (!isMounting) {
-          if (retainedImgSrc !== "") {
-            releaseImage(retainedImgSrc, imgOriginOnLoad);
-            retainedImgSrc = "";
-          }
+        if (!isMounting && hasFetchedDetailedImage) {
+          releaseImage(currentImgSrc, imgOriginOnLoad);
+          hasFetchedDetailedImage = false;
         }
         isMounting = false;
         currentImgSrc = imgSrc();
         const imageIdOnRequest = props.visualElement.displayItem.id;
+        if (showImagePlaceholderDebug()) {
+          imgSrcSignal.set(undefined);
+          isShowingThumbnail.set(false);
+          return;
+        }
         imgSrcSignal.set(thumbnailSrc());
         isShowingThumbnail.set(true);
         const isHighPriority = isPopup();
-        const requestDelayMs = isHighPriority ? 0 : imageStaggerDelayMs();
-        const startFetch = () => {
-          pendingFetchTimeoutId = undefined;
-          retainedImgSrc = currentImgSrc;
-          getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
-            .then((objectUrl) => {
-              try {
-                // props.visualElement is actually a function call, which will fail if the component is unmounted.
-                if (props.visualElement == null) {
-                  // dummy statement to ensure the check is not optimized away.
-                  return;
-                }
-              }
-              catch (e) {
-                // expected behavior when the component is unmounted.
+        hasFetchedDetailedImage = true;
+        getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
+          .then((objectUrl) => {
+            try {
+              // props.visualElement is actually a function call, which will fail if the component is unmounted.
+              if (props.visualElement == null) {
+                // dummy statement to ensure the check is not optimized away.
                 return;
               }
-              if (isPopup()) {
-                if (imageIdOnRequest == props.visualElement.displayItem.id) {
-                  imgSrcSignal.set(objectUrl);
-                  isShowingThumbnail.set(false);
-                } else {
-                  const prevObjectUrl = imgSrcSignal.get();
-                  // temporarily set the image src to the out-of-date fetched image to force the browser to cache the image.
-                  // if this is not done, the image will need to be re-fetched if the user re-selects the image (which they will often do).
-                  imgSrcSignal.set(objectUrl);
-                  setTimeout(() => { imgSrcSignal.set(prevObjectUrl) }, 0);
-                }
-              } else {
+            }
+            catch (e) {
+              // expected behavior when the component is unmounted.
+              return;
+            }
+            if (isPopup()) {
+              if (imageIdOnRequest == props.visualElement.displayItem.id) {
                 imgSrcSignal.set(objectUrl);
                 isShowingThumbnail.set(false);
+              } else {
+                const prevObjectUrl = imgSrcSignal.get();
+                // temporarily set the image src to the out-of-date fetched image to force the browser to cache the image.
+                // if this is not done, the image will need to be re-fetched if the user re-selects the image (which they will often do).
+                imgSrcSignal.set(objectUrl);
+                setTimeout(() => { imgSrcSignal.set(prevObjectUrl) }, 0);
               }
-            });
-        };
-
-        if (requestDelayMs > 0) {
-          pendingFetchTimeoutId = globalThis.setTimeout(startFetch, requestDelayMs);
-        } else {
-          startFetch();
-        }
+            } else {
+              imgSrcSignal.set(objectUrl);
+              isShowingThumbnail.set(false);
+            }
+          });
       }
     }
   });
 
   onCleanup(() => {
-    if (pendingFetchTimeoutId !== undefined) {
-      clearTimeout(pendingFetchTimeoutId);
-      pendingFetchTimeoutId = undefined;
-    }
-    if (isDetailed_OnLoad) {
-      if (retainedImgSrc !== "") {
-        releaseImage(retainedImgSrc, imgOriginOnLoad);
-      }
+    if (isDetailed_OnLoad && hasFetchedDetailedImage) {
+      releaseImage(currentImgSrc, imgOriginOnLoad);
     }
   });
 
@@ -320,11 +272,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           `width: ${quantizedBoundsPx().w}px; ` +
           `height: ${quantizedBoundsPx().h}px;` +
           `${VeFns.zIndexStyle(props.visualElement)}`}>
-        <img class="max-w-none absolute pointer-events-none"
-          style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-          width={imageWidthToRequestPx(false)}
-          height={imageWidthToRequestPx(false) / imageAspect()}
-          src={thumbnailSrc()} />
+        <Show when={!showImagePlaceholderDebug()} fallback={renderImagePlaceholder()}>
+          <img class="max-w-none absolute pointer-events-none"
+            style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+            width={imageWidthToRequestPx(false)}
+            height={imageWidthToRequestPx(false) / imageAspect()}
+            src={thumbnailSrc()} />
+        </Show>
       </div>
     </Show>;
 
@@ -336,11 +290,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`} />;
 
   const notDetailedFallback = (): JSX.Element =>
-    <img class="max-w-none absolute pointer-events-none"
-      style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-      width={imageWidthToRequestPx(false)}
-      height={imageWidthToRequestPx(false) / imageAspect()}
-      src={thumbnailSrc()} />;
+    <Show when={!showImagePlaceholderDebug()} fallback={renderImagePlaceholder()}>
+      <img class="max-w-none absolute pointer-events-none"
+        style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+        width={imageWidthToRequestPx(false)}
+        height={imageWidthToRequestPx(false) / imageAspect()}
+        src={thumbnailSrc()} />
+    </Show>;
 
   const renderTitleMaybe = (): JSX.Element =>
     <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
@@ -464,22 +420,33 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
 
   const renderCroppedImage = (): JSX.Element =>
-    <img src={imgSrcSignal.get()}
-      class="max-w-none absolute pointer-events-none"
-      style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w) / 2.0) + BORDER_WIDTH_PX)}px; ` +
-        `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) / imageAspect() - quantizedBoundsPx().h) / 2.0) + BORDER_WIDTH_PX)}px; ` +
-        (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
-        `${VeFns.zIndexStyle(props.visualElement)}`}
-      width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />;
+    <Show when={!showImagePlaceholderDebug()} fallback={renderImagePlaceholder()}>
+      <img src={imgSrcSignal.get()}
+        class="max-w-none absolute pointer-events-none"
+        style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w) / 2.0) + BORDER_WIDTH_PX)}px; ` +
+          `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) / imageAspect() - quantizedBoundsPx().h) / 2.0) + BORDER_WIDTH_PX)}px; ` +
+          (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
+          `${VeFns.zIndexStyle(props.visualElement)}`}
+        width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />
+    </Show>;
 
   const renderNoCropImage = (): JSX.Element =>
-    <img src={imgSrcSignal.get()}
-      class="max-w-none absolute pointer-events-none"
-      style={`${VeFns.zIndexStyle(props.visualElement)} ` +
-        (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
-        `left: ${isShowingThumbnail.get() ? 0 : noCropPaddingLeftPx(false)}px; ` +
-        `top: ${isShowingThumbnail.get() ? 0 : noCropPaddingTopPx(false)}px;`}
-      width={isShowingThumbnail.get() ? undefined : noCropWidth(false)} />;
+    <Show when={!showImagePlaceholderDebug()} fallback={renderImagePlaceholder()}>
+      <img src={imgSrcSignal.get()}
+        class="max-w-none absolute pointer-events-none"
+        style={`${VeFns.zIndexStyle(props.visualElement)} ` +
+          (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '') +
+          `left: ${isShowingThumbnail.get() ? 0 : noCropPaddingLeftPx(false)}px; ` +
+          `top: ${isShowingThumbnail.get() ? 0 : noCropPaddingTopPx(false)}px;`}
+        width={isShowingThumbnail.get() ? undefined : noCropWidth(false)} />
+    </Show>;
+
+  const renderImagePlaceholder = (): JSX.Element =>
+    <div class="absolute flex items-center justify-center pointer-events-none select-none bg-slate-200 text-slate-500"
+      style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
+        `${VeFns.zIndexStyle(props.visualElement)}`}>
+      <div class="text-[10px] font-semibold uppercase tracking-wide">image</div>
+    </div>;
 
   return (
     <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX} fallback={tooSmallFallback()}>
