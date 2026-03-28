@@ -19,7 +19,7 @@
 import { ArrangeAlgorithm } from "../../items/page-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { VisualElement } from "../../layout/visual-element";
-import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
+import { cloneBoundingBox } from "../../util/geometry";
 
 
 export const createHighlightBoundsPxFn = (veFn: () => VisualElement) => {
@@ -52,30 +52,4 @@ export const scrollGestureStyleForArrangeAlgorithm = (arrangeAlgorithm: ArrangeA
     return "";
   }
   return "overscroll-behavior: contain; touch-action: pan-x pan-y; ";
-}
-
-export const isPageChildVirtualizationEnabled = (): boolean =>
-  Boolean((globalThis as any).__INFUMAP_VIRTUALIZE_PAGE_CHILDREN_DEBUG__);
-
-export const pageChildVirtualizationOverscanPx = (): number => {
-  const runtimeConfig = (globalThis as any).__INFUMAP_VIRTUALIZE_PAGE_CHILDREN_DEBUG__;
-  if (!runtimeConfig) {
-    return 0;
-  }
-  if (typeof runtimeConfig === "number") {
-    return Math.max(0, runtimeConfig);
-  }
-  if (typeof runtimeConfig === "object" && runtimeConfig != null && typeof runtimeConfig.overscanPx === "number") {
-    return Math.max(0, runtimeConfig.overscanPx);
-  }
-  return 800;
-}
-
-export const childIntersectsViewport = (visualElement: VisualElement, viewportBoundsPx: BoundingBox, overscanPx: number): boolean => {
-  return !(
-    visualElement.boundsPx.x + visualElement.boundsPx.w < viewportBoundsPx.x - overscanPx ||
-    visualElement.boundsPx.x > viewportBoundsPx.x + viewportBoundsPx.w + overscanPx ||
-    visualElement.boundsPx.y + visualElement.boundsPx.h < viewportBoundsPx.y - overscanPx ||
-    visualElement.boundsPx.y > viewportBoundsPx.y + viewportBoundsPx.h + overscanPx
-  );
 }

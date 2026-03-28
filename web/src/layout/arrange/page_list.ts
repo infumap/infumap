@@ -181,133 +181,124 @@ export function arrange_list_page(
   );
 
   let skippedCount = 0;
-  let listChildPaths: Array<VisualElementPath> = VesCache.debug_measureArrangeSection("page:list:children", () => {
-    const childPaths: Array<VisualElementPath> = [];
-    for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
-      const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
-      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+  let listChildPaths: Array<VisualElementPath> = [];
+  for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
+    const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
-      if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
+    if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
+      skippedCount += 1;
+      continue;
+    }
+
+    if (isComposite(displayItem)) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+    }
+
+    // Optional date filter via link override (client-only)
+    if (linkItemMaybe_pageWithChildren?.filterDate) {
+      const d = new Date(childItem.dateTime * 1000);
+      const f = linkItemMaybe_pageWithChildren.filterDate;
+      if (d.getFullYear() !== f.year || (d.getMonth() + 1) !== f.month || d.getDate() !== f.day) {
         skippedCount += 1;
         continue;
       }
-
-      if (isComposite(displayItem)) {
-        initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
-      }
-
-      // Optional date filter via link override (client-only)
-      if (linkItemMaybe_pageWithChildren?.filterDate) {
-        const d = new Date(childItem.dateTime * 1000);
-        const f = linkItemMaybe_pageWithChildren.filterDate;
-        if (d.getFullYear() !== f.year || (d.getMonth() + 1) !== f.month || d.getDate() !== f.day) {
-          skippedCount += 1;
-          continue;
-        }
-      }
-
-      const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
-
-      const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, parentIsPopup, true, false, false);
-
-      const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
-
-      const highlightedPath = store.find.highlightedPath.get();
-      const isHighlighted = highlightedPath !== null && highlightedPath === childPath;
-
-      const listItemVeSpec: VisualElementSpec = {
-        displayItem,
-        linkItemMaybe,
-        actualLinkItemMaybe: linkItemMaybe,
-        flags: VisualElementFlags.LineItem |
-          (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
-            ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
-            : VisualElementFlags.None) |
-          (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
-        _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
-        boundsPx: listItemGeometry.boundsPx,
-        hitboxes: listItemGeometry.hitboxes,
-        parentPath: pageWithChildrenVePath,
-        col: 0,
-        row: idx - skippedCount,
-        blockSizePx,
-      };
-      const listItemRelationships: VisualElementRelationships = {};
-      VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
-      childPaths.push(childPath);
     }
-    return childPaths;
-  });
+
+    const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
+
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, parentIsPopup, true, false, false);
+
+    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
+
+    const highlightedPath = store.find.highlightedPath.get();
+    const isHighlighted = highlightedPath !== null && highlightedPath === childPath;
+
+    const listItemVeSpec: VisualElementSpec = {
+      displayItem,
+      linkItemMaybe,
+      actualLinkItemMaybe: linkItemMaybe,
+      flags: VisualElementFlags.LineItem |
+        (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
+          ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
+          : VisualElementFlags.None) |
+        (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
+      boundsPx: listItemGeometry.boundsPx,
+      hitboxes: listItemGeometry.hitboxes,
+      parentPath: pageWithChildrenVePath,
+      col: 0,
+      row: idx - skippedCount,
+      blockSizePx,
+    };
+    const listItemRelationships: VisualElementRelationships = {};
+    VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
+    listChildPaths.push(childPath);
+  }
 
   if (movingItemInThisPage) {
-    VesCache.debug_measureArrangeSection("page:list:moving", () => {
-      const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
+    const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
 
-      let scrollPropY;
-      let scrollPropX;
-      if (flags & ArrangeItemFlags.IsPopupRoot) {
-        const popupSpec = store.history.currentPopupSpec();
-        assert(itemState.get(popupSpec!.actualVeid.itemId)!.itemType == ItemType.Page, "popup spec does not have type page.");
-        scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
-        scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
-      } else {
-        scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-        scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-      }
+    let scrollPropY;
+    let scrollPropX;
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
+      const popupSpec = store.history.currentPopupSpec();
+      assert(itemState.get(popupSpec!.actualVeid.itemId)!.itemType == ItemType.Page, "popup spec does not have type page.");
+      scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
+      scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
+    } else {
+      scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+      scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+    }
 
-      const umbrellaVisualElement = store.umbrellaVisualElement.get();
-      const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
-      const desktopSizePx = store.desktopBoundsPx();
-      const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
-      const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
+    const umbrellaVisualElement = store.umbrellaVisualElement.get();
+    const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
+    const desktopSizePx = store.desktopBoundsPx();
+    const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
+    const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
 
-      const yOffsetPx = scrollPropY * (listChildAreaBoundsPx.h - geometry.boundsPx.h);
-      const xOffsetPx = scrollPropX * (listChildAreaBoundsPx.w - geometry.boundsPx.w);
-      const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
-      const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-      const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
-      // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
-      const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
-      const cellBoundsPx = {
-        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
-        y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
-        w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
-        h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
-      };
+    const yOffsetPx = scrollPropY * (listChildAreaBoundsPx.h - geometry.boundsPx.h);
+    const xOffsetPx = scrollPropX * (listChildAreaBoundsPx.w - geometry.boundsPx.w);
+    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
+    const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+    // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
+    const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+    const cellBoundsPx = {
+      x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
+      y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
+      w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
+      h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
+    };
 
-      const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
-      cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
-      cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
-      const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false, false, false, false, store.smallScreenMode());
-      listChildPaths.push(arrangeItemPath(
-        store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
-        ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
-    });
+    const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
+    cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
+    cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
+    const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false, false, false, false, store.smallScreenMode());
+    listChildPaths.push(arrangeItemPath(
+      store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
+      ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
 
   pageRelationships.childrenPaths = listChildPaths;
 
   if (selectedVeid != EMPTY_VEID) {
-    VesCache.debug_measureArrangeSection("page:list:selected", () => {
-      const boundsPx = {
-        x: listWidthBl * LINE_HEIGHT_PX * scale,
-        y: 0,
-        w: geometry.viewportBoundsPx!.w - (listWidthBl * LINE_HEIGHT_PX) * scale,
-        h: geometry.viewportBoundsPx!.h
-      };
-      const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
-      const canShiftLeft = selectedIsRoot;
-      pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot);
-    });
+    const boundsPx = {
+      x: listWidthBl * LINE_HEIGHT_PX * scale,
+      y: 0,
+      w: geometry.viewportBoundsPx!.w - (listWidthBl * LINE_HEIGHT_PX) * scale,
+      h: geometry.viewportBoundsPx!.h
+    };
+    const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
+    const canShiftLeft = selectedIsRoot;
+    pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot);
   }
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
-    VesCache.debug_measureArrangeSection("page:list:popup", () => {
-      const currentPopupSpec = store.history.currentPopupSpec();
-      if (currentPopupSpec != null) {
-        pageRelationships.popupPath = arrangeCellPopupPath(store);
-      }
-    });
+    const currentPopupSpec = store.history.currentPopupSpec();
+    if (currentPopupSpec != null) {
+      pageRelationships.popupPath = arrangeCellPopupPath(store);
+    }
   }
 
   return { spec: pageSpec, relationships: pageRelationships };

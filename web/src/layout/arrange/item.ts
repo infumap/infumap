@@ -115,27 +115,25 @@ export const arrangeItem = (
 
   if (renderPageWithChildren) {
     initiateLoadChildItemsMaybe(store, itemVeid);
-    const effectiveArrange = linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(displayItem).arrangeAlgorithm;
-    return VesCache.debug_measureArrangeSection(`item:page:${effectiveArrange}`, () => arrangePageWithChildren(
-      store, parentPath, asPageItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags));
+    return arrangePageWithChildren(
+      store, parentPath, asPageItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
   if (isTable(displayItem) && (itemWhichMightBeLink.parentId == store.history.currentPageVeid()!.itemId || flags & ArrangeItemFlags.RenderChildrenAsFull)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
-    return VesCache.debug_measureArrangeSection("item:table", () => arrangeTable(
-      store, parentPath, asTableItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags));
+    return arrangeTable(
+      store, parentPath, asTableItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
   if (isComposite(displayItem)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
-    return VesCache.debug_measureArrangeSection("item:composite", () => arrangeComposite(
-      store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags));
+    return arrangeComposite(
+      store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
   const renderAsOutline = !(flags & ArrangeItemFlags.RenderChildrenAsFull);
   flags |= (renderAsOutline ? ArrangeItemFlags.RenderAsOutline : ArrangeItemFlags.None);
-  return VesCache.debug_measureArrangeSection(`item:leaf:${displayItem.itemType}`, () =>
-    arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags));
+  return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
 }
 
 export const arrangeItemPath = (

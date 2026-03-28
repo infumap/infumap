@@ -84,12 +84,11 @@ function createRenderProjectionEntry(): RenderProjectionEntry {
   };
 }
 
-function getRenderProjection(path: VisualElementPath, reason: string): RenderProjectionEntry {
+function getRenderProjection(path: VisualElementPath): RenderProjectionEntry {
   let entry = renderProjectionByPath.get(path);
   if (!entry) {
     entry = createRenderProjectionEntry();
     renderProjectionByPath.set(path, entry);
-    debugRecordProjectionEntryCreate(reason);
   }
   return entry;
 }
@@ -148,93 +147,57 @@ function shouldUpdateSignalList(current: Array<VisualElementSignal>, next: Array
 }
 
 function updateRenderProjectionPopup(path: VisualElementPath, value: VisualElementSignal | null): boolean {
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:popup").popup, value)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
-    return true;
-  }
-  return false;
+  return updateRenderProjectionSlot(getRenderProjection(path).popup, value);
 }
 
 function updateRenderProjectionNode(path: VisualElementPath, value: VisualElementSignal | undefined) {
-  updateRenderProjectionSlot(getRenderProjection(path, "update:node").node, value);
+  updateRenderProjectionSlot(getRenderProjection(path).node, value);
 }
 
 function updateRenderProjectionSelected(path: VisualElementPath, value: VisualElementSignal | null): boolean {
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:selected").selected, value)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
-    return true;
-  }
-  return false;
+  return updateRenderProjectionSlot(getRenderProjection(path).selected, value);
 }
 
 function updateRenderProjectionDock(path: VisualElementPath, value: VisualElementSignal | null): boolean {
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:dock").dock, value)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
-    return true;
-  }
-  return false;
+  return updateRenderProjectionSlot(getRenderProjection(path).dock, value);
 }
 
 function updateRenderProjectionFocused(path: VisualElementPath, value: Item | null): boolean {
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:focused").focused, value, (current, next) => {
+  return updateRenderProjectionSlot(getRenderProjection(path).focused, value, (current, next) => {
     if (current?.id !== next?.id) {
       return true;
     }
     return current !== next;
-  })) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionFocusedSignalWrites += 1);
-    return true;
-  }
-  return false;
+  });
 }
 
 function updateRenderProjectionAttachments(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:attachments").attachments, actualValue, shouldUpdateSignalList)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
-    return true;
-  }
-  return false;
+  return updateRenderProjectionSlot(getRenderProjection(path).attachments, actualValue, shouldUpdateSignalList);
 }
 
 function updateRenderProjectionChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:children").children, actualValue, shouldUpdateSignalList)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
-    return true;
-  }
-  return false;
+  return updateRenderProjectionSlot(getRenderProjection(path).children, actualValue, shouldUpdateSignalList);
 }
 
 function updateRenderProjectionLineChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:lineChildren").lineChildren, actualValue, shouldUpdateSignalList)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
-    return true;
-  }
-  return false;
+  return updateRenderProjectionSlot(getRenderProjection(path).lineChildren, actualValue, shouldUpdateSignalList);
 }
 
 function updateRenderProjectionDesktopChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:desktopChildren").desktopChildren, actualValue, shouldUpdateSignalList)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
-    return true;
-  }
-  return false;
+  return updateRenderProjectionSlot(getRenderProjection(path).desktopChildren, actualValue, shouldUpdateSignalList);
 }
 
 function updateRenderProjectionNonMovingChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSlot(getRenderProjection(path, "update:nonMovingChildren").nonMovingChildren, actualValue, shouldUpdateSignalList)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
-    return true;
-  }
-  return false;
+  return updateRenderProjectionSlot(getRenderProjection(path).nonMovingChildren, actualValue, shouldUpdateSignalList);
 }
 
 function setRenderProjectionTableRows(path: VisualElementPath, rows: Array<number> | null) {
-  getRenderProjection(path, "update:tableRows").tableRows = rows ? rows.slice() : null;
+  getRenderProjection(path).tableRows = rows ? rows.slice() : null;
 }
 
 function setUnderConstructionRenderTableRows(path: VisualElementPath, rows: Array<number> | null | undefined) {
@@ -271,15 +234,8 @@ function maybeTrackLoadedContainer(outputs: SceneOutputs, spec: VisualElementSpe
   }
 }
 
-function createVisualElementWithDebug(spec: VisualElementSpec): VisualElement {
-  if (!activeArrangeDebugSample) {
-    return VeFns.create(spec);
-  }
-  const startMs = debugNowMs();
-  const ve = VeFns.create(spec);
-  activeArrangeDebugSample.veCreateCalls += 1;
-  activeArrangeDebugSample.veCreateMs += debugNowMs() - startMs;
-  return ve;
+function createVisualElement(spec: VisualElementSpec): VisualElement {
+  return VeFns.create(spec);
 }
 
 let currentlyInFullArrange = false;
@@ -353,412 +309,6 @@ let underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualEle
 let underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
 let currentSceneOutputs = createEmptySceneOutputs();
 let underConstructionSceneOutputs = createEmptySceneOutputs();
-
-type ArrangeDebugConfig = {
-  enabled: boolean;
-  logEvery: number;
-  keepHistory: number;
-};
-
-type ArrangeDebugSample = {
-  id: number;
-  virtual: boolean;
-  totalMs: number;
-  arrangeItemMs: number;
-  finalizeMs: number;
-  sceneNodeCount: number;
-  renderProjectionEntryCount: number;
-  nodeWrites: number;
-  nodeReused: number;
-  nodeCreated: number;
-  preparedSpecCompareCalls: number;
-  preparedSpecCompareMs: number;
-  preparedSpecCompareFailures: number;
-  preparedSpecCompareKeyChecks: number;
-  relationshipPrepCalls: number;
-  relationshipPrepMs: number;
-  childBucketSplitCalls: number;
-  childBucketSplitMs: number;
-  childBucketChildCount: number;
-  veCreateCalls: number;
-  veCreateMs: number;
-  relationshipWrites: number;
-  relationshipReused: number;
-  childBucketsReused: number;
-  childBucketsRebuilt: number;
-  projectionPathsSynced: number;
-  projectionPathsCleared: number;
-  projectionEntriesDropped: number;
-  projectionNodeSignalsCreated: number;
-  projectionNodeSignalsUpdated: number;
-  projectionNodeSignalsReused: number;
-  projectionNodeSignalsCleared: number;
-  projectionRelationshipFastPaths: number;
-  projectionRelationshipResolved: number;
-  projectionScalarSignalWrites: number;
-  projectionListSignalWrites: number;
-  projectionFocusedSignalWrites: number;
-  projectionRelationshipWriteStats: Record<string, { writes: number, ms: number }>;
-  slowestProjectionRelationshipWrite: {
-    label: string;
-    path: VisualElementPath;
-    itemId: Uid | null;
-    size: number;
-    ms: number;
-  } | null;
-  arrangeSectionStats: Record<string, { calls: number, ms: number }>;
-  projectionEntryCreateReasons: Record<string, number>;
-};
-
-const DEFAULT_ARRANGE_DEBUG_CONFIG: ArrangeDebugConfig = {
-  enabled: false,
-  logEvery: 1,
-  keepHistory: 20,
-};
-
-let nextArrangeDebugId = 1;
-let activeArrangeDebugSample: ArrangeDebugSample | null = null;
-let arrangeDebugHistory: Array<ArrangeDebugSample> = [];
-
-function debugNowMs(): number {
-  return typeof performance !== "undefined" ? performance.now() : Date.now();
-}
-
-function parseArrangeDebugConfigValue(value: unknown): ArrangeDebugConfig {
-  if (value === true || value === "1" || value === "true") {
-    return { ...DEFAULT_ARRANGE_DEBUG_CONFIG, enabled: true };
-  }
-  if (value === false || value === "0" || value === "false" || value == null) {
-    return DEFAULT_ARRANGE_DEBUG_CONFIG;
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return {
-      enabled: value > 0,
-      logEvery: Math.max(1, Math.floor(value)),
-      keepHistory: DEFAULT_ARRANGE_DEBUG_CONFIG.keepHistory,
-    };
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed === "") {
-      return DEFAULT_ARRANGE_DEBUG_CONFIG;
-    }
-    if (trimmed.startsWith("{")) {
-      try {
-        return parseArrangeDebugConfigValue(JSON.parse(trimmed));
-      } catch {
-        return DEFAULT_ARRANGE_DEBUG_CONFIG;
-      }
-    }
-    const asNumber = Number(trimmed);
-    if (!Number.isNaN(asNumber)) {
-      return parseArrangeDebugConfigValue(asNumber);
-    }
-    if (trimmed === "on") {
-      return { ...DEFAULT_ARRANGE_DEBUG_CONFIG, enabled: true };
-    }
-    return DEFAULT_ARRANGE_DEBUG_CONFIG;
-  }
-  if (typeof value === "object") {
-    const raw = value as {
-      enabled?: unknown;
-      logEvery?: unknown;
-      keepHistory?: unknown;
-    };
-    const enabled = raw.enabled === undefined ? true : Boolean(raw.enabled);
-    const logEvery = typeof raw.logEvery === "number" && Number.isFinite(raw.logEvery)
-      ? Math.max(1, Math.floor(raw.logEvery))
-      : DEFAULT_ARRANGE_DEBUG_CONFIG.logEvery;
-    const keepHistory = typeof raw.keepHistory === "number" && Number.isFinite(raw.keepHistory)
-      ? Math.max(1, Math.floor(raw.keepHistory))
-      : DEFAULT_ARRANGE_DEBUG_CONFIG.keepHistory;
-    return { enabled, logEvery, keepHistory };
-  }
-  return DEFAULT_ARRANGE_DEBUG_CONFIG;
-}
-
-function readArrangeDebugConfig(): ArrangeDebugConfig {
-  const runtimeConfig = (globalThis as any).__INFUMAP_ARRANGE_DEBUG__;
-  if (typeof runtimeConfig !== "undefined") {
-    return parseArrangeDebugConfigValue(runtimeConfig);
-  }
-
-  try {
-    if (typeof localStorage !== "undefined") {
-      return parseArrangeDebugConfigValue(localStorage.getItem("infumap.arrangeDebug"));
-    }
-  } catch {
-    // ignore storage access failures
-  }
-
-  return DEFAULT_ARRANGE_DEBUG_CONFIG;
-}
-
-function beginArrangeDebugSample(virtual: boolean) {
-  const config = readArrangeDebugConfig();
-  if (!config.enabled) {
-    activeArrangeDebugSample = null;
-    return;
-  }
-
-  activeArrangeDebugSample = {
-    id: nextArrangeDebugId++,
-    virtual,
-    totalMs: 0,
-    arrangeItemMs: 0,
-    finalizeMs: 0,
-    sceneNodeCount: 0,
-    renderProjectionEntryCount: 0,
-    nodeWrites: 0,
-    nodeReused: 0,
-    nodeCreated: 0,
-    preparedSpecCompareCalls: 0,
-    preparedSpecCompareMs: 0,
-    preparedSpecCompareFailures: 0,
-    preparedSpecCompareKeyChecks: 0,
-    relationshipPrepCalls: 0,
-    relationshipPrepMs: 0,
-    childBucketSplitCalls: 0,
-    childBucketSplitMs: 0,
-    childBucketChildCount: 0,
-    veCreateCalls: 0,
-    veCreateMs: 0,
-    relationshipWrites: 0,
-    relationshipReused: 0,
-    childBucketsReused: 0,
-    childBucketsRebuilt: 0,
-    projectionPathsSynced: 0,
-    projectionPathsCleared: 0,
-    projectionEntriesDropped: 0,
-    projectionNodeSignalsCreated: 0,
-    projectionNodeSignalsUpdated: 0,
-    projectionNodeSignalsReused: 0,
-    projectionNodeSignalsCleared: 0,
-    projectionRelationshipFastPaths: 0,
-    projectionRelationshipResolved: 0,
-    projectionScalarSignalWrites: 0,
-    projectionListSignalWrites: 0,
-    projectionFocusedSignalWrites: 0,
-    projectionRelationshipWriteStats: {},
-    slowestProjectionRelationshipWrite: null,
-    arrangeSectionStats: {},
-    projectionEntryCreateReasons: {},
-  };
-}
-
-function averageArrangeDebugHistory(history: Array<ArrangeDebugSample>) {
-  if (history.length === 0) {
-    return null;
-  }
-  const total = {
-    totalMs: 0,
-    arrangeItemMs: 0,
-    finalizeMs: 0,
-    nodeCreated: 0,
-    nodeReused: 0,
-    preparedSpecCompareMs: 0,
-    relationshipPrepMs: 0,
-    childBucketSplitMs: 0,
-    veCreateMs: 0,
-    relationshipReused: 0,
-    childBucketsReused: 0,
-    projectionNodeSignalsUpdated: 0,
-    projectionRelationshipFastPaths: 0,
-    projectionListSignalWrites: 0,
-    projectionScalarSignalWrites: 0,
-    projectionFocusedSignalWrites: 0,
-  };
-  for (const sample of history) {
-    total.totalMs += sample.totalMs;
-    total.arrangeItemMs += sample.arrangeItemMs;
-    total.finalizeMs += sample.finalizeMs;
-    total.nodeCreated += sample.nodeCreated;
-    total.nodeReused += sample.nodeReused;
-    total.preparedSpecCompareMs += sample.preparedSpecCompareMs;
-    total.relationshipPrepMs += sample.relationshipPrepMs;
-    total.childBucketSplitMs += sample.childBucketSplitMs;
-    total.veCreateMs += sample.veCreateMs;
-    total.relationshipReused += sample.relationshipReused;
-    total.childBucketsReused += sample.childBucketsReused;
-    total.projectionNodeSignalsUpdated += sample.projectionNodeSignalsUpdated;
-    total.projectionRelationshipFastPaths += sample.projectionRelationshipFastPaths;
-    total.projectionListSignalWrites += sample.projectionListSignalWrites;
-    total.projectionScalarSignalWrites += sample.projectionScalarSignalWrites;
-    total.projectionFocusedSignalWrites += sample.projectionFocusedSignalWrites;
-  }
-  return {
-    count: history.length,
-    totalMs: total.totalMs / history.length,
-    arrangeItemMs: total.arrangeItemMs / history.length,
-    finalizeMs: total.finalizeMs / history.length,
-    nodeCreated: total.nodeCreated / history.length,
-    nodeReused: total.nodeReused / history.length,
-    preparedSpecCompareMs: total.preparedSpecCompareMs / history.length,
-    relationshipPrepMs: total.relationshipPrepMs / history.length,
-    childBucketSplitMs: total.childBucketSplitMs / history.length,
-    veCreateMs: total.veCreateMs / history.length,
-    relationshipReused: total.relationshipReused / history.length,
-    childBucketsReused: total.childBucketsReused / history.length,
-    projectionNodeSignalsUpdated: total.projectionNodeSignalsUpdated / history.length,
-    projectionRelationshipFastPaths: total.projectionRelationshipFastPaths / history.length,
-    projectionListSignalWrites: total.projectionListSignalWrites / history.length,
-    projectionScalarSignalWrites: total.projectionScalarSignalWrites / history.length,
-    projectionFocusedSignalWrites: total.projectionFocusedSignalWrites / history.length,
-  };
-}
-
-function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnType<typeof averageArrangeDebugHistory>): string {
-  const kind = sample.virtual ? "virtual" : "current";
-  const relationshipRebuilt = sample.relationshipWrites - sample.relationshipReused;
-  const topArrangeSections = Object.entries(sample.arrangeSectionStats)
-    .sort((a, b) => b[1].ms - a[1].ms)
-    .slice(0, 4)
-    .map(([label, stat]) => `${label}:${stat.calls}/${stat.ms.toFixed(1)}ms`)
-    .join(", ");
-  const projectionCreateReasons = Object.entries(sample.projectionEntryCreateReasons)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([label, count]) => `${label}:${count}`)
-    .join(", ");
-  const topRelationshipWrites = Object.entries(sample.projectionRelationshipWriteStats)
-    .sort((a, b) => b[1].ms - a[1].ms)
-    .slice(0, 4)
-    .map(([label, stat]) => `${label}:${stat.writes}/${stat.ms.toFixed(1)}ms`)
-    .join(", ");
-  const slowRelationshipWrite = sample.slowestProjectionRelationshipWrite
-    ? ` slowRel(${sample.slowestProjectionRelationshipWrite.label}@${sample.slowestProjectionRelationshipWrite.itemId ?? sample.slowestProjectionRelationshipWrite.path} size=${sample.slowestProjectionRelationshipWrite.size} ${sample.slowestProjectionRelationshipWrite.ms.toFixed(1)}ms)`
-    : "";
-  const avgText = average
-    ? ` avg(total=${average.totalMs.toFixed(1)} arrange=${average.arrangeItemMs.toFixed(1)} finalize=${average.finalizeMs.toFixed(1)} compare=${average.preparedSpecCompareMs.toFixed(1)} relPrep=${average.relationshipPrepMs.toFixed(1)} bucket=${average.childBucketSplitMs.toFixed(1)} create=${average.veCreateMs.toFixed(1)} over ${average.count})`
-    : "";
-  return `[ARRANGE_DEBUG] #${sample.id} ${kind}` +
-    ` total=${sample.totalMs.toFixed(1)}ms` +
-    ` arrange=${sample.arrangeItemMs.toFixed(1)}ms` +
-    ` finalize=${sample.finalizeMs.toFixed(1)}ms` +
-    ` sceneNodes=${sample.sceneNodeCount}` +
-    ` renderEntries=${sample.renderProjectionEntryCount}` +
-    ` writes=${sample.nodeWrites} (reuse=${sample.nodeReused} create=${sample.nodeCreated})` +
-    ` rel=${sample.relationshipWrites} (reuse=${sample.relationshipReused} rebuild=${relationshipRebuilt})` +
-    ` buckets(reuse=${sample.childBucketsReused} rebuild=${sample.childBucketsRebuilt})` +
-    ` projection(paths=${sample.projectionPathsSynced} clear=${sample.projectionPathsCleared} drop=${sample.projectionEntriesDropped} fast=${sample.projectionRelationshipFastPaths} resolve=${sample.projectionRelationshipResolved})` +
-    ` nodeSignals(create=${sample.projectionNodeSignalsCreated} reuse=${sample.projectionNodeSignalsReused} update=${sample.projectionNodeSignalsUpdated} clear=${sample.projectionNodeSignalsCleared})` +
-    ` signalWrites(list=${sample.projectionListSignalWrites} scalar=${sample.projectionScalarSignalWrites} focused=${sample.projectionFocusedSignalWrites})` +
-    ` hot(compare=${sample.preparedSpecCompareMs.toFixed(1)}ms/${sample.preparedSpecCompareCalls} miss=${sample.preparedSpecCompareFailures} keys=${sample.preparedSpecCompareKeyChecks} relPrep=${sample.relationshipPrepMs.toFixed(1)}ms/${sample.relationshipPrepCalls} bucket=${sample.childBucketSplitMs.toFixed(1)}ms/${sample.childBucketSplitCalls} children=${sample.childBucketChildCount} create=${sample.veCreateMs.toFixed(1)}ms/${sample.veCreateCalls})` +
-    (topArrangeSections !== "" ? ` sections(${topArrangeSections})` : "") +
-    (topRelationshipWrites !== "" ? ` relWrites(${topRelationshipWrites})` : "") +
-    slowRelationshipWrite +
-    (projectionCreateReasons !== "" ? ` projectionCreates(${projectionCreateReasons})` : "") +
-    avgText;
-}
-
-function debugRecordArrangeSection(label: string, ms: number) {
-  if (!activeArrangeDebugSample) {
-    return;
-  }
-  const existing = activeArrangeDebugSample.arrangeSectionStats[label];
-  if (existing) {
-    existing.calls += 1;
-    existing.ms += ms;
-    return;
-  }
-  activeArrangeDebugSample.arrangeSectionStats[label] = { calls: 1, ms };
-}
-
-function debugMeasureArrangeSection<T>(label: string, fn: () => T): T {
-  if (!activeArrangeDebugSample) {
-    return fn();
-  }
-  const startMs = debugNowMs();
-  try {
-    return fn();
-  } finally {
-    debugRecordArrangeSection(label, debugNowMs() - startMs);
-  }
-}
-
-function debugRecordProjectionEntryCreate(reason: string) {
-  if (!activeArrangeDebugSample) {
-    return;
-  }
-  activeArrangeDebugSample.projectionEntryCreateReasons[reason] =
-    (activeArrangeDebugSample.projectionEntryCreateReasons[reason] ?? 0) + 1;
-}
-
-function debugRecordProjectionRelationshipWrite(
-  label: string,
-  path: VisualElementPath,
-  itemId: Uid | null,
-  size: number,
-  ms: number,
-) {
-  if (!activeArrangeDebugSample) {
-    return;
-  }
-  const existing = activeArrangeDebugSample.projectionRelationshipWriteStats[label];
-  if (existing) {
-    existing.writes += 1;
-    existing.ms += ms;
-  } else {
-    activeArrangeDebugSample.projectionRelationshipWriteStats[label] = { writes: 1, ms };
-  }
-  if (!activeArrangeDebugSample.slowestProjectionRelationshipWrite || ms > activeArrangeDebugSample.slowestProjectionRelationshipWrite.ms) {
-    activeArrangeDebugSample.slowestProjectionRelationshipWrite = { label, path, itemId, size, ms };
-  }
-}
-
-function debugMeasureProjectionRelationshipWrite(
-  label: string,
-  path: VisualElementPath,
-  itemId: Uid | null,
-  size: number,
-  fn: () => boolean,
-) {
-  if (!activeArrangeDebugSample) {
-    return fn();
-  }
-  const startMs = debugNowMs();
-  const wrote = fn();
-  if (wrote) {
-    debugRecordProjectionRelationshipWrite(label, path, itemId, size, debugNowMs() - startMs);
-  }
-  return wrote;
-}
-
-function finalizeArrangeDebugSample(timings: { totalMs: number, arrangeItemMs: number, finalizeMs: number }) {
-  if (!activeArrangeDebugSample) {
-    return;
-  }
-
-  const config = readArrangeDebugConfig();
-  if (!config.enabled) {
-    activeArrangeDebugSample = null;
-    return;
-  }
-
-  const sample: ArrangeDebugSample = {
-    ...activeArrangeDebugSample,
-    totalMs: timings.totalMs,
-    arrangeItemMs: timings.arrangeItemMs,
-    finalizeMs: timings.finalizeMs,
-    sceneNodeCount: activeArrangeDebugSample.virtual ? virtualScene.cache.size : currentScene.cache.size,
-    renderProjectionEntryCount: renderProjectionByPath.size,
-  };
-
-  activeArrangeDebugSample = null;
-  arrangeDebugHistory.push(sample);
-  if (arrangeDebugHistory.length > config.keepHistory) {
-    arrangeDebugHistory.splice(0, arrangeDebugHistory.length - config.keepHistory);
-  }
-
-  const average = averageArrangeDebugHistory(arrangeDebugHistory);
-  (globalThis as any).__INFUMAP_LAST_ARRANGE_DEBUG__ = sample;
-  (globalThis as any).__INFUMAP_ARRANGE_DEBUG_HISTORY__ = arrangeDebugHistory.slice();
-  (globalThis as any).__INFUMAP_ARRANGE_DEBUG_SUMMARY__ = average;
-
-  if (sample.id % config.logEvery === 0) {
-    console.debug(formatArrangeDebugSample(sample, average));
-  }
-}
 
 function getSceneNode(scene: SceneState, path: VisualElementPath): VisualElement | undefined {
   return scene.cache.get(path);
@@ -990,70 +540,30 @@ function sameUidMaybe(a: { id: Uid } | null | undefined, b: { id: Uid } | null |
 }
 
 function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
-  const debug = activeArrangeDebugSample;
-  const startMs = debug ? debugNowMs() : 0;
-  if (debug) {
-    debug.preparedSpecCompareCalls += 1;
-  }
-  let keyChecks = 0;
+  if (existingVe.displayItemFingerprint !== preparedSpec.displayItemFingerprint) { return false; }
+  if (existingVe.displayItem.id !== preparedSpec.displayItem.id) { return false; }
+  if (!sameUidMaybe(existingVe.linkItemMaybe, specValueOrDefault(preparedSpec.linkItemMaybe, NONE_VISUAL_ELEMENT.linkItemMaybe))) { return false; }
+  if (!sameUidMaybe(existingVe.actualLinkItemMaybe, specValueOrDefault(preparedSpec.actualLinkItemMaybe, NONE_VISUAL_ELEMENT.actualLinkItemMaybe))) { return false; }
+  if (existingVe.flags !== specValueOrDefault(preparedSpec.flags, NONE_VISUAL_ELEMENT.flags)) { return false; }
+  if (existingVe._arrangeFlags_useForPartialRearrangeOnly !== specValueOrDefault(preparedSpec._arrangeFlags_useForPartialRearrangeOnly, NONE_VISUAL_ELEMENT._arrangeFlags_useForPartialRearrangeOnly)) { return false; }
+  if (compareBoundingBox(existingVe.resizingFromBoundsPx, NONE_VISUAL_ELEMENT.resizingFromBoundsPx) !== 0) { return false; }
+  if (compareBoundingBox(existingVe.boundsPx, preparedSpec.boundsPx) !== 0) { return false; }
+  if (compareBoundingBox(existingVe.viewportBoundsPx, specValueOrDefault(preparedSpec.viewportBoundsPx, NONE_VISUAL_ELEMENT.viewportBoundsPx)) !== 0) { return false; }
+  if (compareBoundingBox(existingVe.childAreaBoundsPx, specValueOrDefault(preparedSpec.childAreaBoundsPx, NONE_VISUAL_ELEMENT.childAreaBoundsPx)) !== 0) { return false; }
+  if (compareBoundingBox(existingVe.listViewportBoundsPx, specValueOrDefault(preparedSpec.listViewportBoundsPx, NONE_VISUAL_ELEMENT.listViewportBoundsPx)) !== 0) { return false; }
+  if (compareBoundingBox(existingVe.listChildAreaBoundsPx, specValueOrDefault(preparedSpec.listChildAreaBoundsPx, NONE_VISUAL_ELEMENT.listChildAreaBoundsPx)) !== 0) { return false; }
+  if (compareDimensions(existingVe.tableDimensionsPx, specValueOrDefault(preparedSpec.tableDimensionsPx, NONE_VISUAL_ELEMENT.tableDimensionsPx)) !== 0) { return false; }
+  if ((existingVe.indentBl ?? null) !== (specValueOrDefault(preparedSpec.indentBl, NONE_VISUAL_ELEMENT.indentBl) ?? null)) { return false; }
+  if (compareDimensions(existingVe.blockSizePx, specValueOrDefault(preparedSpec.blockSizePx, NONE_VISUAL_ELEMENT.blockSizePx)) !== 0) { return false; }
+  if (compareDimensions(existingVe.cellSizePx, specValueOrDefault(preparedSpec.cellSizePx, NONE_VISUAL_ELEMENT.cellSizePx)) !== 0) { return false; }
+  if ((existingVe.row ?? null) !== (specValueOrDefault(preparedSpec.row, NONE_VISUAL_ELEMENT.row) ?? null)) { return false; }
+  if ((existingVe.col ?? null) !== (specValueOrDefault(preparedSpec.col, NONE_VISUAL_ELEMENT.col) ?? null)) { return false; }
+  if ((existingVe.numRows ?? null) !== (specValueOrDefault(preparedSpec.numRows, NONE_VISUAL_ELEMENT.numRows) ?? null)) { return false; }
+  if (HitboxFns.ArrayCompare(existingVe.hitboxes, specValueOrDefault(preparedSpec.hitboxes, NONE_VISUAL_ELEMENT.hitboxes)) !== 0) { return false; }
+  if ((existingVe.parentPath ?? null) !== (specValueOrDefault(preparedSpec.parentPath, NONE_VISUAL_ELEMENT.parentPath) ?? null)) { return false; }
+  if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return false; }
 
-  const finish = (matched: boolean): boolean => {
-    if (debug) {
-      debug.preparedSpecCompareKeyChecks += keyChecks;
-      debug.preparedSpecCompareMs += debugNowMs() - startMs;
-      if (!matched) {
-        debug.preparedSpecCompareFailures += 1;
-      }
-    }
-    return matched;
-  };
-
-  keyChecks += 1;
-  if (existingVe.displayItemFingerprint !== preparedSpec.displayItemFingerprint) { return finish(false); }
-  keyChecks += 1;
-  if (existingVe.displayItem.id !== preparedSpec.displayItem.id) { return finish(false); }
-  keyChecks += 1;
-  if (!sameUidMaybe(existingVe.linkItemMaybe, specValueOrDefault(preparedSpec.linkItemMaybe, NONE_VISUAL_ELEMENT.linkItemMaybe))) { return finish(false); }
-  keyChecks += 1;
-  if (!sameUidMaybe(existingVe.actualLinkItemMaybe, specValueOrDefault(preparedSpec.actualLinkItemMaybe, NONE_VISUAL_ELEMENT.actualLinkItemMaybe))) { return finish(false); }
-  keyChecks += 1;
-  if (existingVe.flags !== specValueOrDefault(preparedSpec.flags, NONE_VISUAL_ELEMENT.flags)) { return finish(false); }
-  keyChecks += 1;
-  if (existingVe._arrangeFlags_useForPartialRearrangeOnly !== specValueOrDefault(preparedSpec._arrangeFlags_useForPartialRearrangeOnly, NONE_VISUAL_ELEMENT._arrangeFlags_useForPartialRearrangeOnly)) { return finish(false); }
-  keyChecks += 1;
-  if (compareBoundingBox(existingVe.resizingFromBoundsPx, NONE_VISUAL_ELEMENT.resizingFromBoundsPx) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if (compareBoundingBox(existingVe.boundsPx, preparedSpec.boundsPx) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if (compareBoundingBox(existingVe.viewportBoundsPx, specValueOrDefault(preparedSpec.viewportBoundsPx, NONE_VISUAL_ELEMENT.viewportBoundsPx)) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if (compareBoundingBox(existingVe.childAreaBoundsPx, specValueOrDefault(preparedSpec.childAreaBoundsPx, NONE_VISUAL_ELEMENT.childAreaBoundsPx)) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if (compareBoundingBox(existingVe.listViewportBoundsPx, specValueOrDefault(preparedSpec.listViewportBoundsPx, NONE_VISUAL_ELEMENT.listViewportBoundsPx)) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if (compareBoundingBox(existingVe.listChildAreaBoundsPx, specValueOrDefault(preparedSpec.listChildAreaBoundsPx, NONE_VISUAL_ELEMENT.listChildAreaBoundsPx)) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if (compareDimensions(existingVe.tableDimensionsPx, specValueOrDefault(preparedSpec.tableDimensionsPx, NONE_VISUAL_ELEMENT.tableDimensionsPx)) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if ((existingVe.indentBl ?? null) !== (specValueOrDefault(preparedSpec.indentBl, NONE_VISUAL_ELEMENT.indentBl) ?? null)) { return finish(false); }
-  keyChecks += 1;
-  if (compareDimensions(existingVe.blockSizePx, specValueOrDefault(preparedSpec.blockSizePx, NONE_VISUAL_ELEMENT.blockSizePx)) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if (compareDimensions(existingVe.cellSizePx, specValueOrDefault(preparedSpec.cellSizePx, NONE_VISUAL_ELEMENT.cellSizePx)) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if ((existingVe.row ?? null) !== (specValueOrDefault(preparedSpec.row, NONE_VISUAL_ELEMENT.row) ?? null)) { return finish(false); }
-  keyChecks += 1;
-  if ((existingVe.col ?? null) !== (specValueOrDefault(preparedSpec.col, NONE_VISUAL_ELEMENT.col) ?? null)) { return finish(false); }
-  keyChecks += 1;
-  if ((existingVe.numRows ?? null) !== (specValueOrDefault(preparedSpec.numRows, NONE_VISUAL_ELEMENT.numRows) ?? null)) { return finish(false); }
-  keyChecks += 1;
-  if (HitboxFns.ArrayCompare(existingVe.hitboxes, specValueOrDefault(preparedSpec.hitboxes, NONE_VISUAL_ELEMENT.hitboxes)) !== 0) { return finish(false); }
-  keyChecks += 1;
-  if ((existingVe.parentPath ?? null) !== (specValueOrDefault(preparedSpec.parentPath, NONE_VISUAL_ELEMENT.parentPath) ?? null)) { return finish(false); }
-  keyChecks += 1;
-  if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return finish(false); }
-
-  return finish(true);
+  return true;
 }
 
 function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
@@ -1183,10 +693,9 @@ function writePreparedUnderConstructionVisualElement(
 ): VisualElement {
   maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
   const existingVe = getSceneNode(currentScene, path);
-  activeArrangeDebugSample && (activeArrangeDebugSample.nodeWrites += 1);
   const canonicalVe = existingVe && visualElementMatchesPreparedSpec(preparedSpec, existingVe)
-    ? (activeArrangeDebugSample && (activeArrangeDebugSample.nodeReused += 1), existingVe)
-    : (activeArrangeDebugSample && (activeArrangeDebugSample.nodeCreated += 1), createVisualElementWithDebug(preparedSpec));
+    ? existingVe
+    : createVisualElement(preparedSpec);
   writeUnderConstructionSceneNode(path, canonicalVe, preparedRelationships);
   return canonicalVe;
 }
@@ -1222,10 +731,8 @@ function reuseSceneRelationshipDataIfEqual(
   path: VisualElementPath,
   relationshipData: SceneRelationshipData,
 ): SceneRelationshipData {
-  activeArrangeDebugSample && (activeArrangeDebugSample.relationshipWrites += 1);
   const existing = currentScene.relationshipsByPath.get(path);
   if (existing && sceneRelationshipDataEqual(existing, relationshipData)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.relationshipReused += 1);
     return existing;
   }
   return relationshipData;
@@ -1238,13 +745,11 @@ function syncRenderProjectionNode(
   preferredSignal?: VisualElementSignal,
 ) {
   if (!nextVe) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsCleared += 1);
     updateRenderProjectionNode(path, undefined);
     return;
   }
 
   if (preferredSignal) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsReused += 1);
     updateRenderProjectionNode(path, preferredSignal);
     return;
   }
@@ -1252,18 +757,15 @@ function syncRenderProjectionNode(
   let signal = getRenderNode(path);
   if (!signal) {
     signal = createVisualElementSignal(cloneVisualElementSnapshot(nextVe));
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsCreated += 1);
     updateRenderProjectionNode(path, signal);
     return;
   }
 
   if (!preferredSignal && previousVe === nextVe) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsReused += 1);
     updateRenderProjectionNode(path, signal);
     return;
   }
 
-  activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsUpdated += 1);
   signal.set(cloneVisualElementSnapshot(nextVe));
   updateRenderProjectionNode(path, signal);
 }
@@ -1276,30 +778,27 @@ function syncRenderProjectionRelationshipsForPath(
 ) {
   const relationships = scene.relationshipsByPath.get(path);
   if (relationships === previousRelationships) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionRelationshipFastPaths += 1);
     setRenderProjectionTableRows(path, renderTableRows ?? null);
     return;
   }
-  activeArrangeDebugSample && (activeArrangeDebugSample.projectionRelationshipResolved += 1);
-  const ownerItemId = getSceneNode(scene, path)?.displayItem.id ?? null;
   const popup = resolveSceneNodePath(scene, relationships?.popup);
-  debugMeasureProjectionRelationshipWrite("popup", path, ownerItemId, popup ? 1 : 0, () => updateRenderProjectionPopup(path, popup));
+  updateRenderProjectionPopup(path, popup);
   const selected = resolveSceneNodePath(scene, relationships?.selected);
-  debugMeasureProjectionRelationshipWrite("selected", path, ownerItemId, selected ? 1 : 0, () => updateRenderProjectionSelected(path, selected));
+  updateRenderProjectionSelected(path, selected);
   const dock = resolveSceneNodePath(scene, relationships?.dock);
-  debugMeasureProjectionRelationshipWrite("dock", path, ownerItemId, dock ? 1 : 0, () => updateRenderProjectionDock(path, dock));
+  updateRenderProjectionDock(path, dock);
   const attachments = resolveSceneNodePaths(scene, relationships?.attachments);
-  debugMeasureProjectionRelationshipWrite("attachments", path, ownerItemId, attachments.length, () => updateRenderProjectionAttachments(path, attachments));
+  updateRenderProjectionAttachments(path, attachments);
   const children = resolveSceneNodePaths(scene, relationships?.children);
-  debugMeasureProjectionRelationshipWrite("children", path, ownerItemId, children.length, () => updateRenderProjectionChildren(path, children));
+  updateRenderProjectionChildren(path, children);
   const lineChildren = resolveSceneNodePaths(scene, relationships?.lineChildren);
-  debugMeasureProjectionRelationshipWrite("lineChildren", path, ownerItemId, lineChildren.length, () => updateRenderProjectionLineChildren(path, lineChildren));
+  updateRenderProjectionLineChildren(path, lineChildren);
   const desktopChildren = resolveSceneNodePaths(scene, relationships?.desktopChildren);
-  debugMeasureProjectionRelationshipWrite("desktopChildren", path, ownerItemId, desktopChildren.length, () => updateRenderProjectionDesktopChildren(path, desktopChildren));
+  updateRenderProjectionDesktopChildren(path, desktopChildren);
   const nonMovingChildren = resolveSceneNodePaths(scene, relationships?.nonMovingChildren);
-  debugMeasureProjectionRelationshipWrite("nonMovingChildren", path, ownerItemId, nonMovingChildren.length, () => updateRenderProjectionNonMovingChildren(path, nonMovingChildren));
+  updateRenderProjectionNonMovingChildren(path, nonMovingChildren);
   const focusedChild = relationships?.focusedChildItemMaybe ?? null;
-  debugMeasureProjectionRelationshipWrite("focused", path, ownerItemId, focusedChild ? 1 : 0, () => updateRenderProjectionFocused(path, focusedChild));
+  updateRenderProjectionFocused(path, focusedChild);
   setRenderProjectionTableRows(path, renderTableRows ?? null);
 }
 
@@ -1328,9 +827,7 @@ function clearRenderProjectionForPath(path: VisualElementPath) {
 }
 
 function deleteRenderProjectionForPath(path: VisualElementPath) {
-  if (renderProjectionByPath.delete(path)) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionEntriesDropped += 1);
-  }
+  renderProjectionByPath.delete(path);
 }
 
 function addSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
@@ -1420,8 +917,6 @@ function toSceneRelationshipPaths(nodes: Array<VisualElementSignal> | undefined)
 }
 
 function splitChildPathsByRenderBehavior(scene: SceneState, childPaths: Array<VisualElementPath> | undefined) {
-  const debug = activeArrangeDebugSample;
-  const startMs = debug ? debugNowMs() : 0;
   const allChildren = childPaths ?? [];
   const allChildPaths: Array<VisualElementPath> = [];
   const lineChildren: Array<VisualElementPath> = [];
@@ -1439,12 +934,6 @@ function splitChildPathsByRenderBehavior(scene: SceneState, childPaths: Array<Vi
     if (!(flags & VisualElementFlags.Moving)) {
       nonMovingChildren.push(childPath);
     }
-  }
-
-  if (debug && allChildren.length > 0) {
-    debug.childBucketSplitCalls += 1;
-    debug.childBucketSplitMs += debugNowMs() - startMs;
-    debug.childBucketChildCount += allChildren.length;
   }
 
   return {
@@ -1475,10 +964,6 @@ function reuseChildBucketsIfUnchanged(
     }
   }
 
-  if (childPaths.length > 0) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.childBucketsReused += 1);
-  }
-
   return {
     allChildren: previousRelationships.children,
     lineChildren: previousRelationships.lineChildren,
@@ -1492,18 +977,10 @@ function prepareSceneRelationshipData(
   relationships: VisualElementRelationships | null,
   path?: VisualElementPath,
 ): SceneRelationshipData {
-  const debug = activeArrangeDebugSample;
-  const startMs = debug ? debugNowMs() : 0;
-  if (debug) {
-    debug.relationshipPrepCalls += 1;
-  }
   const childPaths = relationships?.childrenPaths ?? toSceneRelationshipPaths(relationships?.childrenVes);
   const reusedChildBuckets = reuseChildBucketsIfUnchanged(scene, path, childPaths);
-  if (!reusedChildBuckets && childPaths.length > 0) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.childBucketsRebuilt += 1);
-  }
   const childBuckets = reusedChildBuckets ?? splitChildPathsByRenderBehavior(scene, childPaths);
-  const relationshipData = {
+  return {
     attachments: relationships?.attachmentsPaths ?? toSceneRelationshipPaths(relationships?.attachmentsVes),
     popup: typeof relationships?.popupPath !== "undefined" ? relationships.popupPath : toSceneRelationshipPath(relationships?.popupVes),
     selected: typeof relationships?.selectedPath !== "undefined" ? relationships.selectedPath : toSceneRelationshipPath(relationships?.selectedVes),
@@ -1514,10 +991,6 @@ function prepareSceneRelationshipData(
     nonMovingChildren: childBuckets.nonMovingChildren,
     focusedChildItemMaybe: relationships?.focusedChildItemMaybe ?? null,
   };
-  if (debug) {
-    debug.relationshipPrepMs += debugNowMs() - startMs;
-  }
-  return relationshipData;
 }
 
 function writeSceneRelationshipData(
@@ -1532,61 +1005,34 @@ function deleteSceneRelationships(relationshipsByPath: SceneRelationshipsByPath,
   relationshipsByPath.delete(path);
 }
 
-function logOrphanedVes(cache: Map<VisualElementPath, VisualElement>, context: string) {
-  // Diagnostic helper: reports any visual elements whose parentPath is missing from the cache.
-  const orphans: Array<{ path: VisualElementPath, parentPath: VisualElementPath, itemId: string, flags: number }> = [];
-  for (const [path, ve] of cache.entries()) {
-    if (ve.parentPath == null) { continue; }
-    if (!cache.has(ve.parentPath)) {
-      orphans.push({
-        path,
-        parentPath: ve.parentPath,
-        itemId: ve.displayItem.id,
-        flags: ve.flags,
-      });
-    }
-  }
-  if (orphans.length > 0) {
-    console.warn("[VES_CACHE_DEBUG] Orphaned visual elements detected", { context, count: orphans.length, orphans });
-  }
-}
-
 function syncRenderProjectionFromScene(
   previousScene: SceneState,
   scene: SceneState,
   renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
 ) {
-  debugMeasureArrangeSection("finalize:projection:clear", () => {
-    for (const [path] of previousScene.cache) {
-      if (!sceneHasNode(scene, path)) {
-        activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsCleared += 1);
-        deleteRenderProjectionForPath(path);
-      }
+  for (const [path] of previousScene.cache) {
+    if (!sceneHasNode(scene, path)) {
+      deleteRenderProjectionForPath(path);
     }
-  });
+  }
 
-  debugMeasureArrangeSection("finalize:projection:nodes", () => {
-    for (const [path] of scene.cache) {
-      syncRenderProjectionNode(
-        path,
-        getSceneNode(scene, path),
-        previousScene?.cache.get(path),
-        previousScene.cache.has(path) ? undefined : underConstructionArrangeSignalsByPath.get(path),
-      );
-    }
-  });
+  for (const [path] of scene.cache) {
+    syncRenderProjectionNode(
+      path,
+      getSceneNode(scene, path),
+      previousScene?.cache.get(path),
+      previousScene.cache.has(path) ? undefined : underConstructionArrangeSignalsByPath.get(path),
+    );
+  }
 
-  debugMeasureArrangeSection("finalize:projection:relationships", () => {
-    for (const [path] of scene.cache) {
-      activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsSynced += 1);
-      syncRenderProjectionRelationshipsForPath(
-        scene,
-        path,
-        previousScene?.relationshipsByPath.get(path),
-        renderTableRowsByPath?.get(path) ?? null,
-      );
-    }
-  });
+  for (const [path] of scene.cache) {
+    syncRenderProjectionRelationshipsForPath(
+      scene,
+      path,
+      previousScene?.relationshipsByPath.get(path),
+      renderTableRowsByPath?.get(path) ?? null,
+    );
+  }
 }
 
 function promoteVirtualScene(scene: SceneState) {
@@ -1602,13 +1048,8 @@ function promoteCurrentScene(
   const previousScene = currentScene;
   currentScene = scene;
   currentSceneOutputs = outputs;
-  debugMeasureArrangeSection("finalize:topTitledPages", () => {
-    store.topTitledPages.set(outputs.topTitledPages);
-  });
-  logOrphanedVes(scene.cache, "full_finalizeArrange");
-  debugMeasureArrangeSection("finalize:promoteCurrentScene", () => {
-    syncRenderProjectionFromScene(previousScene, scene, renderTableRowsByPath);
-  });
+  store.topTitledPages.set(outputs.topTitledPages);
+  syncRenderProjectionFromScene(previousScene, scene, renderTableRowsByPath);
 }
 
 const currentSceneQueries = {
@@ -1697,7 +1138,7 @@ const virtualSceneQueries = {
 
 const renderSceneQueries = {
   getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getNode").node)[0]();
+    return ensureRenderProjectionSignal(getRenderProjection(path).node)[0]();
   },
 
   find: (veid: Veid): Array<VisualElementSignal> => {
@@ -1709,39 +1150,39 @@ const renderSceneQueries = {
   },
 
   getAttachments: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getAttachments").attachments)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).attachments)[0];
   },
 
   getPopup: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getPopup").popup)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).popup)[0];
   },
 
   getSelected: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getSelected").selected)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).selected)[0];
   },
 
   getDock: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getDock").dock)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).dock)[0];
   },
 
   getChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getChildren").children)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).children)[0];
   },
 
   getLineChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getLineChildren").lineChildren)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).lineChildren)[0];
   },
 
   getDesktopChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getDesktopChildren").desktopChildren)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).desktopChildren)[0];
   },
 
   getNonMovingChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getNonMovingChildren").nonMovingChildren)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).nonMovingChildren)[0];
   },
 
   getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getFocusedChild").focused)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path).focused)[0];
   },
 };
 
@@ -1798,31 +1239,17 @@ export let VesCache = {
     underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
   },
 
-  debug_beginFullArrange: (virtual: boolean): void => {
-    beginArrangeDebugSample(virtual);
-  },
-
-  debug_completeFullArrange: (timings: { totalMs: number, arrangeItemMs: number, finalizeMs: number }): void => {
-    finalizeArrangeDebugSample(timings);
-  },
-
-  debug_measureArrangeSection: <T>(label: string, fn: () => T): T => {
-    return debugMeasureArrangeSection(label, fn);
-  },
-
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
     const preparedUmbrellaSpec = prepareVisualElementSpec(umbrellaSpec);
     const preparedUmbrellaRelationships = prepareSceneRelationshipData(underConstructionScene, umbrellaRelationships, umbrellaPath);
-    const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : createVisualElementWithDebug(preparedUmbrellaSpec);
+    const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : createVisualElement(preparedUmbrellaSpec);
 
     if (virtualUmbrellaVes) {
       writeScenePath(underConstructionScene, umbrellaPath, umbrellaVe, preparedUmbrellaRelationships);
       promoteVirtualScene(underConstructionScene);
     } else {
       writeScenePath(underConstructionScene, umbrellaPath, umbrellaVe, preparedUmbrellaRelationships);
-      debugMeasureArrangeSection("finalize:umbrellaVisualElement", () => {
-        store.umbrellaVisualElement.set(umbrellaVe);
-      });
+      store.umbrellaVisualElement.set(umbrellaVe);
       promoteCurrentScene(store, underConstructionScene, underConstructionSceneOutputs, underConstructionRenderTableRowsByPath);
     }
 
@@ -1874,7 +1301,7 @@ export let VesCache = {
   partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const preparedSpec = prepareVisualElementSpec(spec);
     const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships, path);
-    const newElement = createVisualElementWithDebug(preparedSpec);
+    const newElement = createVisualElement(preparedSpec);
     writeScenePath(currentScene, path, newElement, preparedRelationships);
     syncRenderProjectionNode(path, newElement);
     syncRenderProjectionRelationshipsForPath(currentScene, path);
@@ -1895,27 +1322,7 @@ export let VesCache = {
     const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships, newPath);
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
-    const nextVe = createVisualElementWithDebug(preparedSpec);
-
-    // Debug logging for potential path conflicts
-    if (existingPath === newPath) {
-      console.debug("[VES_CACHE_DEBUG] Overwriting visual element with same path:", {
-        path: existingPath,
-        displayItemId: veToOverwrite.displayItem.id,
-        itemType: veToOverwrite.displayItem.itemType,
-        timestamp: new Date().toISOString()
-      });
-    } else if (sceneHasNode(currentScene, newPath)) {
-      console.error("[VES_CACHE_DEBUG] Path conflict detected - newPath already exists:", {
-        existingPath: existingPath,
-        newPath: newPath,
-        existingDisplayItemId: veToOverwrite.displayItem.id,
-        newDisplayItemId: preparedSpec.displayItem.id,
-        existingItemType: veToOverwrite.displayItem.itemType,
-        newItemType: preparedSpec.displayItem.itemType,
-        timestamp: new Date().toISOString()
-      });
-    }
+    const nextVe = createVisualElement(preparedSpec);
 
     const existingAttachments = VesCache.getAttachmentsVes(existingPath)();
     for (let i = 0; i < existingAttachments.length; ++i) {
@@ -1927,13 +1334,6 @@ export let VesCache = {
     }
 
     if (!deleteSceneNode(currentScene, existingPath)) {
-      console.error("[VES_CACHE_DEBUG] Failed to delete existing path:", {
-        existingPath: existingPath,
-        newPath: newPath,
-        displayItemId: veToOverwrite.displayItem.id,
-        cacheSize: currentScene.cache.size,
-        timestamp: new Date().toISOString()
-      });
       throw "vesToOverwrite did not exist";
     }
     deleteFromVessVsDisplayIdLookup(currentScene, existingPath);
@@ -1988,20 +1388,6 @@ export let VesCache = {
     deleteRenderProjectionForPath(path);
 
     deleteFromVessVsDisplayIdLookup(currentScene, path);
-  },
-
-  debugLog: (): void => {
-    console.debug("--- start ves cache entry list");
-    for (let v of currentScene.cache) { console.debug(v[0]); }
-    console.debug("--- end ves cache entry list");
-  },
-
-  debugGetLastArrangeSample: (): ArrangeDebugSample | null => {
-    return arrangeDebugHistory.length > 0 ? arrangeDebugHistory[arrangeDebugHistory.length - 1] : null;
-  },
-
-  debugGetArrangeHistory: (): Array<ArrangeDebugSample> => {
-    return arrangeDebugHistory.slice();
   },
 
   pushTopTitledPage: (vePath: VisualElementPath) => {

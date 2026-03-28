@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, onMount, createEffect, createSignal } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount, createEffect } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { Veid, VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
+import { Veid, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
@@ -31,69 +31,18 @@ import { getMonthInfo } from "../../util/time";
 import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
-import { childIntersectsViewport, isPageChildVirtualizationEnabled, pageChildVirtualizationOverscanPx, scrollGestureStyleForArrangeAlgorithm } from "./helper";
-import { BoundingBox } from "../../util/geometry";
+import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
-
-const MAX_PRESERVED_SELECTED_PAGES = 4;
-
-interface PreservedChildEntry {
-  key: string,
-  visualElement: () => VisualElement,
-  setVisualElement: (visualElement: VisualElement) => void,
-}
 
 export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
   let updatingRootScrollTop = false;
   let rootDiv: any = undefined;
-  const preserveMountedSubtrees = () => Boolean((globalThis as any).__INFUMAP_PRESERVE_PAGE_SUBTREE_DEBUG__);
-  const [childViewportBoundsPx, setChildViewportBoundsPx] = createSignal<BoundingBox | null>(null);
 
   const pageFns = () => props.pageFns;
-  const selectedSignal = () => VesCache.render.getSelected(VeFns.veToPath(props.visualElement))();
-  const selectedVe = () => {
-    const selected = selectedSignal();
-    if (selected == null) {
-      return null;
-    }
-    return selected.get();
-  };
-  const selectedKey = (visualElement: VisualElement) => VeFns.actualVeidFromVe(visualElement).itemId;
-  const [preservedSelectedPages, setPreservedSelectedPages] = createSignal<PreservedChildEntry[]>([]);
-
-  createEffect(() => {
-    if (!preserveMountedSubtrees()) {
-      setPreservedSelectedPages([]);
-      return;
-    }
-
-    const currentSelectedVe = selectedVe();
-    if (currentSelectedVe == null) {
-      return;
-    }
-
-    setPreservedSelectedPages((prev) => {
-      const key = selectedKey(currentSelectedVe);
-      let next = prev.slice();
-      const existing = next.find(entry => entry.key === key);
-      if (existing) {
-        existing.setVisualElement(currentSelectedVe);
-      } else {
-        const [visualElement, setVisualElement] = createSignal(currentSelectedVe);
-        next.push({ key, visualElement, setVisualElement });
-      }
-      const activeEntries = next.filter(entry => entry.key === key);
-      const inactiveEntries = next.filter(entry => entry.key !== key);
-      return [
-        ...inactiveEntries.slice(-Math.max(0, MAX_PRESERVED_SELECTED_PAGES - activeEntries.length)),
-        ...activeEntries,
-      ];
-    });
-  });
 
   const getScrollVeid = (): Veid | null => {
     let veid = store.history.currentPageVeid();
@@ -108,31 +57,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       veid = store.perItem.getSelectedListPageItem(parentVeid);
     }
     return veid;
-  };
-
-  const updateChildViewportBounds = () => {
-    if (!rootDiv) {
-      return;
-    }
-    setChildViewportBoundsPx({
-      x: rootDiv.scrollLeft,
-      y: rootDiv.scrollTop,
-      w: pageFns().viewportBoundsPx().w,
-      h: pageFns().viewportBoundsPx().h,
-    });
-  };
-
-  const pageChildren = () => {
-    const children = VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
-    if (!isPageChildVirtualizationEnabled()) {
-      return children;
-    }
-    const viewportBoundsPx = childViewportBoundsPx();
-    if (viewportBoundsPx == null) {
-      return children;
-    }
-    const overscanPx = pageChildVirtualizationOverscanPx();
-    return children.filter(childVes => childIntersectsViewport(childVes.get(), viewportBoundsPx, overscanPx));
   };
 
   onMount(() => {
@@ -161,8 +85,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       rootDiv.scrollTop = scrollYPx;
       rootDiv.scrollLeft = scrollXPx;
     }
-
-    updateChildViewportBounds();
 
     setTimeout(() => {
       updatingRootScrollTop = false;
@@ -197,7 +119,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           store.perItem.getPageScrollXProp(veid) *
           (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
       }
-      updateChildViewportBounds();
     }
 
     setTimeout(() => {
@@ -207,7 +128,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const listRootScrollHandler = (_ev: Event) => {
     if (!rootDiv || updatingRootScrollTop) { return; }
-    updateChildViewportBounds();
 
     const listChildAreaH = props.visualElement.listChildAreaBoundsPx!.h;
     const viewportH = pageFns().viewportBoundsPx().h;
@@ -289,16 +209,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={preserveMountedSubtrees()} fallback={
-          <Show when={selectedVe() != null}>
-            <VisualElement_Desktop visualElement={selectedVe()!} />
-          </Show>
-        }>
-          <For each={preservedSelectedPages()}>{selectedEntry =>
-            <div style={`display: ${selectedVe() != null && selectedKey(selectedVe()!) == selectedEntry.key ? "block" : "none"};`}>
-              <VisualElement_Desktop visualElement={selectedEntry.visualElement()} />
-            </div>
-          }</For>
+        <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
+          <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
         </Show>
         <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
           <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
@@ -322,7 +234,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const rootScrollHandler = (_ev: Event) => {
     if (!rootDiv || updatingRootScrollTop) { return; }
-    updateChildViewportBounds();
 
     const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
     const desktopSizePx = props.visualElement.boundsPx;
@@ -509,7 +420,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
-        <For each={pageChildren()}>{childVes =>
+        <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
 
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>

@@ -16,79 +16,24 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show, createEffect, createSignal } from "solid-js";
+import { Component, For, Show } from "solid-js";
 import { VisualElement_Desktop } from "../VisualElement";
 import { PageVisualElementProps } from "./Page";
 import { VesCache } from "../../layout/ves-cache";
-import { VeFns, VisualElement } from "../../layout/visual-element";
+import { VeFns } from "../../layout/visual-element";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
-const MAX_PRESERVED_UMBRELLA_CHILDREN = 4;
-
-interface PreservedChildEntry {
-  key: string,
-  visualElement: () => VisualElement,
-  setVisualElement: (visualElement: VisualElement) => void,
-}
-
 export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
-  const preserveMountedSubtrees = () => Boolean((globalThis as any).__INFUMAP_PRESERVE_PAGE_SUBTREE_DEBUG__);
-  const childSignals = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
-  const childKey = (visualElement: VisualElement) => VeFns.actualVeidFromVe(visualElement).itemId;
-  const activeChildKeys = () => new Set(childSignals().map(childVes => childKey(childVes.get())));
-  const [preservedChildren, setPreservedChildren] = createSignal<PreservedChildEntry[]>([]);
-
-  createEffect(() => {
-    if (!preserveMountedSubtrees()) {
-      setPreservedChildren([]);
-      return;
-    }
-
-    const currentChildren = childSignals().map(childVes => childVes.get());
-    if (currentChildren.length == 0) {
-      return;
-    }
-
-    setPreservedChildren((prev) => {
-      let next = prev.slice();
-      const activeKeys = new Set<string>();
-      for (const childVe of currentChildren) {
-        const key = childKey(childVe);
-        activeKeys.add(key);
-        const existing = next.find(entry => entry.key === key);
-        if (existing) {
-          existing.setVisualElement(childVe);
-          continue;
-        }
-        const [visualElement, setVisualElement] = createSignal(childVe);
-        next.push({ key, visualElement, setVisualElement });
-      }
-      const activeEntries = next.filter(entry => activeKeys.has(entry.key));
-      const inactiveEntries = next.filter(entry => !activeKeys.has(entry.key));
-      return [
-        ...inactiveEntries.slice(-Math.max(0, MAX_PRESERVED_UMBRELLA_CHILDREN - activeEntries.length)),
-        ...activeEntries,
-      ];
-    });
-  });
-
   return (
     <div class={`absolute`}
       style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
         `background-color: #ffffff;`}>
-      <Show when={preserveMountedSubtrees()} fallback={
-        <For each={childSignals()}>{childVes =>
-          <VisualElement_Desktop visualElement={childVes.get()} />
-        }</For>
-      }>
-        <For each={preservedChildren()}>{childEntry =>
-          <div style={`display: ${activeChildKeys().has(childEntry.key) ? "block" : "none"};`}>
-            <VisualElement_Desktop visualElement={childEntry.visualElement()} />
-          </div>
-        }</For>
-      </Show>
+      <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
+
+        <VisualElement_Desktop visualElement={childVes.get()} />
+      }</For>
       <Show when={VesCache.render.getDock(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getDock(VeFns.veToPath(props.visualElement))()!.get() != null}>
         <VisualElement_Desktop visualElement={VesCache.render.getDock(VeFns.veToPath(props.visualElement))()!.get()!} />
       </Show>

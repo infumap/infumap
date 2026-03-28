@@ -89,39 +89,36 @@ export const arrangeComposite = (
   const compositeSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Composite ? linkItemMaybe_Composite : displayItem_Composite);
   const blockSizePx = { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
 
-  const compositeChildPaths = VesCache.debug_measureArrangeSection("composite:children", () => {
-    const childPaths: Array<VisualElementPath> = [];
-    let topPx = 0.0;
-    for (let idx = 0; idx < displayItem_Composite.computed_children.length; ++idx) {
-      const childId = displayItem_Composite.computed_children[idx];
-      const childItem = itemState.get(childId)!;
+  let compositeChildPaths: Array<VisualElementPath> = [];
+  let topPx = 0.0;
+  for (let idx = 0; idx < displayItem_Composite.computed_children.length; ++idx) {
+    const childId = displayItem_Composite.computed_children[idx];
+    const childItem = itemState.get(childId)!;
 
-      const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
+    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
 
-      const geometry = ItemFns.calcGeometry_InComposite(
-        linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
-        blockSizePx,
-        compositeSizeBl.w,
-        0,
-        topPx,
-        store.smallScreenMode());
-      const compositeChildGeometry: ItemGeometry = {
-        ...geometry,
-        row: idx,
-        col: 0,
-      };
+    const geometry = ItemFns.calcGeometry_InComposite(
+      linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
+      blockSizePx,
+      compositeSizeBl.w,
+      0,
+      topPx,
+      store.smallScreenMode());
+    const compositeChildGeometry: ItemGeometry = {
+      ...geometry,
+      row: idx,
+      col: 0,
+    };
 
-      topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
+    topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
 
-      const compositeChildPath = arrangeCompositeChildItemPath(
-        store, compositeVePath,
-        displayItem_childItem, linkItemMaybe_childItem,
-        compositeChildGeometry, blockSizePx, compositeSizeBl.w);
+    const compositeChildPath = arrangeCompositeChildItemPath(
+      store, compositeVePath,
+      displayItem_childItem, linkItemMaybe_childItem,
+      compositeChildGeometry, blockSizePx, compositeSizeBl.w);
 
-      childPaths.push(compositeChildPath);
-    }
-    return childPaths;
-  });
+    compositeChildPaths.push(compositeChildPath);
+  }
 
   const compositeRelationships: VisualElementRelationships = {
     childrenPaths: compositeChildPaths,

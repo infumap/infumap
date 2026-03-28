@@ -159,9 +159,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     showTriangleDetail: () => (pageFns.boundsPx().w / (pageFns.pageItem().spatialWidthGr / GRID_SIZE)) > 0.5,
 
     calcTitleInBoxScale: (textSize: string) => {
-      if ((globalThis as any).__INFUMAP_SKIP_TITLE_SCALE_DEBUG__) {
-        return 1.0;
-      }
       const outerDiv = document.createElement("div");
       outerDiv.setAttribute("class", "flex items-center justify-center");
       outerDiv.setAttribute("style", `width: ${pageFns.boundsPx().w}px; height: ${pageFns.boundsPx().h}px;`);

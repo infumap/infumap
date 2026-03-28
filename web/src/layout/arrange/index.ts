@@ -36,10 +36,6 @@ let arrangeRequestGeneration = 0;
 let pendingArrangeStore: StoreContextModel | null = null;
 let pendingArrangeReason: string | null = null;
 
-function nowMs(): number {
-  return typeof performance !== "undefined" ? performance.now() : Date.now();
-}
-
 /**
  * Coalesce multiple "please re-layout" requests into a single arrange at the
  * end of the current task. This keeps the explicit arrange model, but reduces
@@ -123,6 +119,8 @@ export function recoverWithFullArrange(store: StoreContextModel, _reason: string
  * @param virtualPageVeid the page to create the visual element tree for, if not the current page.
  */
 export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): void {
+  // console.time("fullArrange-total");
+
   if (store.history.currentPageVeid() == null) { return; }
 
   if (virtualPageVeid == null) {
@@ -137,10 +135,6 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     return;
   }
 
-  const totalStartMs = nowMs();
-  let arrangeItemMs = 0;
-  let finalizeMs = 0;
-  VesCache.debug_beginFullArrange(virtualPageVeid != null);
   VesCache.full_initArrange();
 
   let currentPageVeid = virtualPageVeid ? virtualPageVeid : store.history.currentPageVeid()!;
@@ -181,34 +175,28 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   // Use SolidJS batch() to defer all reactive signal updates during arrange.
   // Without batching, each signal.set() call triggers immediate reactivity,
   // causing ~2.5 second freezes when ~1000 items need position updates.
-  const arrangeItemStartMs = nowMs();
+  // console.time("fullArrange-arrangeItem");
   batch(() => {
     arrangeItem(
       store, umbrellaPath, parentArrangeAlgorithm,
       actualLinkItemMaybe ? actualLinkItemMaybe : currentPage,
       actualLinkItemMaybe, itemGeometry, flags);
   });
-  arrangeItemMs = nowMs() - arrangeItemStartMs;
+  // console.timeEnd("fullArrange-arrangeItem");
 
   umbrellaRelationships.childrenPaths = [VeFns.addVeidToPath(currentPageVeid, umbrellaPath)];
 
   if (virtualPageVeid) {
-    const finalizeStartMs = nowMs();
     const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaSpec));
     VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
-    finalizeMs = nowMs() - finalizeStartMs;
   } else {
-    const finalizeStartMs = nowMs();
+    // console.time("fullArrange-finalizeArrange");
     VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
-    finalizeMs = nowMs() - finalizeStartMs;
+    // console.timeEnd("fullArrange-finalizeArrange");
     VesCache.addWatchContainerUid(currentPage.id, currentPage.origin);
   }
 
   const hasUser = store.user.getUserMaybe() != null;
   mouseMove_handleNoButtonDown(store, hasUser);
-  VesCache.debug_completeFullArrange({
-    totalMs: nowMs() - totalStartMs,
-    arrangeItemMs,
-    finalizeMs,
-  });
+  // console.timeEnd("fullArrange-total");
 }

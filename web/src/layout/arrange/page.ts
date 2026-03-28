@@ -52,32 +52,25 @@ export const arrangePageWithChildren = (
 
   switch (effectiveArrange) {
     case ArrangeAlgorithm.Grid:
-      ({ spec: pageSpec, relationships: pageRelationships } = VesCache.debug_measureArrangeSection("page:grid", () =>
-        arrange_grid_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags)));
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_grid_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.Justified:
-      ({ spec: pageSpec, relationships: pageRelationships } = VesCache.debug_measureArrangeSection("page:justified", () =>
-        arrange_justified_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags)));
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_justified_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.Document:
-      ({ spec: pageSpec, relationships: pageRelationships } = VesCache.debug_measureArrangeSection("page:document", () =>
-        arrange_document_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags)));
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_document_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.SpatialStretch:
-      ({ spec: pageSpec, relationships: pageRelationships } = VesCache.debug_measureArrangeSection("page:spatial", () =>
-        arrange_spatial_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags)));
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_spatial_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.List:
-      ({ spec: pageSpec, relationships: pageRelationships } = VesCache.debug_measureArrangeSection("page:list", () =>
-        arrange_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags)));
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.SingleCell:
-      ({ spec: pageSpec, relationships: pageRelationships } = VesCache.debug_measureArrangeSection("page:singleCell", () =>
-        arrange_single_cell_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags)));
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_single_cell_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.Calendar:
-      ({ spec: pageSpec, relationships: pageRelationships } = VesCache.debug_measureArrangeSection("page:calendar", () =>
-        arrange_calendar_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags)));
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_calendar_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     default:
       panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);

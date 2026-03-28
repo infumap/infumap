@@ -105,74 +105,69 @@ export function arrange_spatial_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  const childrenPaths: Array<VisualElementPath> = VesCache.debug_measureArrangeSection("page:spatial:children", () => {
-    const childPaths: Array<VisualElementPath> = [];
-    for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
-      const childId = displayItem_pageWithChildren.computed_children[i];
-      const childItem = itemState.get(childId)!;
-      const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
-      const emitHitboxes = true;
-      const childItemIsPopup = false; // never the case.
-      const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
-      const hasChildChanges = false; // it may do, but only matters for popups.
-      const hasDefaultChanges = false;
-      const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
-      const itemGeometry = ItemFns.calcGeometry_Spatial(
-        childItem,
-        zeroBoundingBoxTopLeft(pageSpec.childAreaBoundsPx!),
-        parentPageInnerDimensionsBl,
-        parentIsPopup,
-        emitHitboxes,
-        childItemIsPopup,
-        hasChildChanges,
-        hasDefaultChanges,
-        false,
-        store.smallScreenMode());
-      if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
-        childPaths.push(arrangeItemPath(
-          store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
-          ArrangeItemFlags.RenderChildrenAsFull |
-          (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
-          (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
-          (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
-      } else {
-        const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
-        childPaths.push(arrangeItemNoChildrenPath(
-          store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry,
-          (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
-          (flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None) |
-          ArrangeItemFlags.RenderAsOutline));
-      }
+  const childrenPaths: Array<VisualElementPath> = [];
+  for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
+    const childId = displayItem_pageWithChildren.computed_children[i];
+    const childItem = itemState.get(childId)!;
+    const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
+    const emitHitboxes = true;
+    const childItemIsPopup = false; // never the case.
+    const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+    const hasChildChanges = false; // it may do, but only matters for popups.
+    const hasDefaultChanges = false;
+    const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
+    const itemGeometry = ItemFns.calcGeometry_Spatial(
+      childItem,
+      zeroBoundingBoxTopLeft(pageSpec.childAreaBoundsPx!),
+      parentPageInnerDimensionsBl,
+      parentIsPopup,
+      emitHitboxes,
+      childItemIsPopup,
+      hasChildChanges,
+      hasDefaultChanges,
+      false,
+      store.smallScreenMode());
+    if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
+      childrenPaths.push(arrangeItemPath(
+        store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
+        ArrangeItemFlags.RenderChildrenAsFull |
+        (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
+        (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
+        (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
+    } else {
+      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+      childrenPaths.push(arrangeItemNoChildrenPath(
+        store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry,
+        (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
+        (flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None) |
+        ArrangeItemFlags.RenderAsOutline));
     }
-    return childPaths;
-  });
+  }
   pageRelationships.childrenPaths = childrenPaths;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
-    VesCache.debug_measureArrangeSection("page:spatial:popup", () => {
-      const currentPopupSpec = store.history.currentPopupSpec();
-      if (currentPopupSpec != null) {
-        const popupItemType = itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType;
-        const isFromAttachment = currentPopupSpec.isFromAttachment ?? false;
-        if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment) {
-          // Position of page/image popup in spatial pages is user defined.
-          // Use the shared geometry calculation from popup.ts
-          const { geometry, linkItem, actualLinkItemMaybe } = calcSpatialPopupGeometry(
-            store,
-            displayItem_pageWithChildren,
-            currentPopupSpec.actualVeid,
-            pageSpec.childAreaBoundsPx!
-          );
+    const currentPopupSpec = store.history.currentPopupSpec();
+    if (currentPopupSpec != null) {
+      const popupItemType = itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType;
+      const isFromAttachment = currentPopupSpec.isFromAttachment ?? false;
+      if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment) {
+        // Position of page/image popup in spatial pages is user defined.
+        // Use the shared geometry calculation from popup.ts
+        const { geometry, linkItem, actualLinkItemMaybe } = calcSpatialPopupGeometry(
+          store,
+          displayItem_pageWithChildren,
+          currentPopupSpec.actualVeid,
+          pageSpec.childAreaBoundsPx!
+        );
 
-          pageRelationships.popupPath = VeFns.veToPath(arrangeItem(
-            store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, linkItem, actualLinkItemMaybe, geometry,
-            ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot).get());
+        pageRelationships.popupPath = VeFns.veToPath(arrangeItem(
+          store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, linkItem, actualLinkItemMaybe, geometry,
+          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot).get());
 
-        } else {
-          pageRelationships.popupPath = arrangeCellPopupPath(store);
-        }
+      } else {
+        pageRelationships.popupPath = arrangeCellPopupPath(store);
       }
-    });
+    }
   }
 
   return { spec: pageSpec, relationships: pageRelationships };
