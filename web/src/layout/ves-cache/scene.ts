@@ -23,6 +23,14 @@ import { panic } from "../../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
 import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import {
+  addIndexedScenePath,
+  deindexVisualElement,
+  deleteFromVessVsDisplayIdLookup,
+  getScenePathsForDisplayId,
+  getSceneVeidMatchPaths,
+  veidIndexKey,
+} from "./indexes";
 import { ProjectionOps } from "./projection";
 import { cloneVisualElementSnapshot, visualElementMatchesPreparedSpec } from "./spec";
 import {
@@ -120,31 +128,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     }
     return getSceneIndexedChildren(scene, parentPath)
       .filter(ves => VeFns.veToPath(ves.get()) !== path);
-  }
-
-  function getScenePathsForDisplayId(scene: SceneState, displayId: Uid): Array<VisualElementPath> | undefined {
-    return scene.vessVsDisplayId.get(displayId);
-  }
-
-  function addScenePathForDisplayId(scene: SceneState, displayId: Uid, path: VisualElementPath) {
-    const existing = scene.vessVsDisplayId.get(displayId);
-    if (!existing) {
-      scene.vessVsDisplayId.set(displayId, [path]);
-      return;
-    }
-    existing.push(path);
-  }
-
-  function veidIndexKey(veid: Veid): string {
-    return `${veid.itemId}\u0000${veid.linkIdMaybe ?? ""}`;
-  }
-
-  function veidIndexKeyFromPath(path: VisualElementPath): string {
-    return veidIndexKey(VeFns.veidFromPath(path));
-  }
-
-  function getSceneVeidMatchPaths(scene: SceneState, veid: Veid): Array<VisualElementPath> {
-    return (scene.vessByVeid.get(veidIndexKey(veid)) ?? []).slice();
   }
 
   function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPath): string | undefined {
@@ -368,8 +351,7 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
   ) {
     setSceneNode(scene, path, ve);
     writeSceneRelationshipData(scene.relationshipsByPath, path, relationshipData);
-    indexVisualElement(scene, path, ve);
-    addScenePathForDisplayId(scene, ve.displayItem.id, path);
+    addIndexedScenePath(scene, path, ve);
   }
 
   function writeUnderConstructionSceneNode(
@@ -517,54 +499,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     if (uidSet.size === 0) {
       outputs.watchContainerUidsByOrigin.delete(origin);
     }
-  }
-
-  function addToIndex<K>(index: Map<K, Array<VisualElementPath>>, key: K, path: VisualElementPath) {
-    const existing = index.get(key);
-    if (!existing) {
-      index.set(key, [path]);
-      return;
-    }
-    existing.push(path);
-  }
-
-  function removeFromIndex<K>(index: Map<K, Array<VisualElementPath>>, key: K | null | undefined, path: VisualElementPath) {
-    if (key == null) {
-      return;
-    }
-    const existing = index.get(key);
-    if (!existing) {
-      panic(`missing index entry for '${String(key)}'.`);
-    }
-    const existingIndex = existing.findIndex(v => v === path);
-    if (existingIndex === -1) {
-      panic(`path missing from index entry for '${String(key)}'.`);
-    }
-    existing.splice(existingIndex, 1);
-    if (existing.length === 0) {
-      index.delete(key);
-    }
-  }
-
-  function indexVisualElement(
-    scene: SceneState,
-    path: VisualElementPath,
-    ve: VisualElement,
-  ) {
-    const parentPath = ve.parentPath;
-    if (parentPath != null) {
-      addToIndex(scene.childrenByParent, parentPath, path);
-    }
-    addToIndex(scene.vessByVeid, veidIndexKeyFromPath(path), path);
-  }
-
-  function deindexVisualElement(
-    scene: SceneState,
-    path: VisualElementPath,
-    ve: VisualElement,
-  ) {
-    removeFromIndex(scene.childrenByParent, ve.parentPath, path);
-    removeFromIndex(scene.vessByVeid, veidIndexKeyFromPath(path), path);
   }
 
   function toSceneRelationshipPath(node: VisualElementSignal | null | undefined): VisualElementPath | null {
@@ -844,24 +778,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
       return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).focused)[0];
     },
   };
-
-  function deleteFromVessVsDisplayIdLookup(scene: SceneState, path: string) {
-    const displayItemId = VeFns.itemIdFromPath(path);
-    const ves = scene.vessVsDisplayId.get(displayItemId);
-    if (!ves) {
-      panic(`displayItemId ${displayItemId} is not in the displayItemId -> vesPath cache.`);
-    }
-    const foundIdx = ves.findIndex((v) => v === path);
-    if (foundIdx === -1) {
-      panic(`path ${path} was not in the displayItemId -> vesPath cache.`);
-    }
-    ves.splice(foundIdx, 1);
-    if (ves.length === 0) {
-      if (!scene.vessVsDisplayId.delete(displayItemId)) {
-        panic("logic error deleting displayItemId.");
-      }
-    }
-  }
 
   return {
     maybeTrackLoadedContainer,
