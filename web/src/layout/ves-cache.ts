@@ -399,6 +399,13 @@ type ArrangeDebugSample = {
   projectionListSignalWrites: number;
   projectionFocusedSignalWrites: number;
   projectionRelationshipWriteStats: Record<string, { writes: number, ms: number }>;
+  slowestProjectionRelationshipWrite: {
+    label: string;
+    path: VisualElementPath;
+    itemId: Uid | null;
+    size: number;
+    ms: number;
+  } | null;
   arrangeSectionStats: Record<string, { calls: number, ms: number }>;
   projectionEntryCreateReasons: Record<string, number>;
 };
@@ -533,6 +540,7 @@ function beginArrangeDebugSample(virtual: boolean) {
     projectionListSignalWrites: 0,
     projectionFocusedSignalWrites: 0,
     projectionRelationshipWriteStats: {},
+    slowestProjectionRelationshipWrite: null,
     arrangeSectionStats: {},
     projectionEntryCreateReasons: {},
   };
@@ -617,6 +625,9 @@ function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnTyp
     .slice(0, 4)
     .map(([label, stat]) => `${label}:${stat.writes}/${stat.ms.toFixed(1)}ms`)
     .join(", ");
+  const slowRelationshipWrite = sample.slowestProjectionRelationshipWrite
+    ? ` slowRel(${sample.slowestProjectionRelationshipWrite.label}@${sample.slowestProjectionRelationshipWrite.itemId ?? sample.slowestProjectionRelationshipWrite.path} size=${sample.slowestProjectionRelationshipWrite.size} ${sample.slowestProjectionRelationshipWrite.ms.toFixed(1)}ms)`
+    : "";
   const avgText = average
     ? ` avg(total=${average.totalMs.toFixed(1)} arrange=${average.arrangeItemMs.toFixed(1)} finalize=${average.finalizeMs.toFixed(1)} compare=${average.preparedSpecCompareMs.toFixed(1)} relPrep=${average.relationshipPrepMs.toFixed(1)} bucket=${average.childBucketSplitMs.toFixed(1)} create=${average.veCreateMs.toFixed(1)} over ${average.count})`
     : "";
@@ -635,6 +646,7 @@ function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnTyp
     ` hot(compare=${sample.preparedSpecCompareMs.toFixed(1)}ms/${sample.preparedSpecCompareCalls} miss=${sample.preparedSpecCompareFailures} keys=${sample.preparedSpecCompareKeyChecks} relPrep=${sample.relationshipPrepMs.toFixed(1)}ms/${sample.relationshipPrepCalls} bucket=${sample.childBucketSplitMs.toFixed(1)}ms/${sample.childBucketSplitCalls} children=${sample.childBucketChildCount} create=${sample.veCreateMs.toFixed(1)}ms/${sample.veCreateCalls})` +
     (topArrangeSections !== "" ? ` sections(${topArrangeSections})` : "") +
     (topRelationshipWrites !== "" ? ` relWrites(${topRelationshipWrites})` : "") +
+    slowRelationshipWrite +
     (projectionCreateReasons !== "" ? ` projectionCreates(${projectionCreateReasons})` : "") +
     avgText;
 }
@@ -672,7 +684,13 @@ function debugRecordProjectionEntryCreate(reason: string) {
     (activeArrangeDebugSample.projectionEntryCreateReasons[reason] ?? 0) + 1;
 }
 
-function debugRecordProjectionRelationshipWrite(label: string, ms: number) {
+function debugRecordProjectionRelationshipWrite(
+  label: string,
+  path: VisualElementPath,
+  itemId: Uid | null,
+  size: number,
+  ms: number,
+) {
   if (!activeArrangeDebugSample) {
     return;
   }
@@ -680,19 +698,28 @@ function debugRecordProjectionRelationshipWrite(label: string, ms: number) {
   if (existing) {
     existing.writes += 1;
     existing.ms += ms;
-    return;
+  } else {
+    activeArrangeDebugSample.projectionRelationshipWriteStats[label] = { writes: 1, ms };
   }
-  activeArrangeDebugSample.projectionRelationshipWriteStats[label] = { writes: 1, ms };
+  if (!activeArrangeDebugSample.slowestProjectionRelationshipWrite || ms > activeArrangeDebugSample.slowestProjectionRelationshipWrite.ms) {
+    activeArrangeDebugSample.slowestProjectionRelationshipWrite = { label, path, itemId, size, ms };
+  }
 }
 
-function debugMeasureProjectionRelationshipWrite(label: string, fn: () => boolean) {
+function debugMeasureProjectionRelationshipWrite(
+  label: string,
+  path: VisualElementPath,
+  itemId: Uid | null,
+  size: number,
+  fn: () => boolean,
+) {
   if (!activeArrangeDebugSample) {
     return fn();
   }
   const startMs = debugNowMs();
   const wrote = fn();
   if (wrote) {
-    debugRecordProjectionRelationshipWrite(label, debugNowMs() - startMs);
+    debugRecordProjectionRelationshipWrite(label, path, itemId, size, debugNowMs() - startMs);
   }
   return wrote;
 }
@@ -1254,15 +1281,25 @@ function syncRenderProjectionRelationshipsForPath(
     return;
   }
   activeArrangeDebugSample && (activeArrangeDebugSample.projectionRelationshipResolved += 1);
-  debugMeasureProjectionRelationshipWrite("popup", () => updateRenderProjectionPopup(path, resolveSceneNodePath(scene, relationships?.popup)));
-  debugMeasureProjectionRelationshipWrite("selected", () => updateRenderProjectionSelected(path, resolveSceneNodePath(scene, relationships?.selected)));
-  debugMeasureProjectionRelationshipWrite("dock", () => updateRenderProjectionDock(path, resolveSceneNodePath(scene, relationships?.dock)));
-  debugMeasureProjectionRelationshipWrite("attachments", () => updateRenderProjectionAttachments(path, resolveSceneNodePaths(scene, relationships?.attachments)));
-  debugMeasureProjectionRelationshipWrite("children", () => updateRenderProjectionChildren(path, resolveSceneNodePaths(scene, relationships?.children)));
-  debugMeasureProjectionRelationshipWrite("lineChildren", () => updateRenderProjectionLineChildren(path, resolveSceneNodePaths(scene, relationships?.lineChildren)));
-  debugMeasureProjectionRelationshipWrite("desktopChildren", () => updateRenderProjectionDesktopChildren(path, resolveSceneNodePaths(scene, relationships?.desktopChildren)));
-  debugMeasureProjectionRelationshipWrite("nonMovingChildren", () => updateRenderProjectionNonMovingChildren(path, resolveSceneNodePaths(scene, relationships?.nonMovingChildren)));
-  debugMeasureProjectionRelationshipWrite("focused", () => updateRenderProjectionFocused(path, relationships?.focusedChildItemMaybe ?? null));
+  const ownerItemId = getSceneNode(scene, path)?.displayItem.id ?? null;
+  const popup = resolveSceneNodePath(scene, relationships?.popup);
+  debugMeasureProjectionRelationshipWrite("popup", path, ownerItemId, popup ? 1 : 0, () => updateRenderProjectionPopup(path, popup));
+  const selected = resolveSceneNodePath(scene, relationships?.selected);
+  debugMeasureProjectionRelationshipWrite("selected", path, ownerItemId, selected ? 1 : 0, () => updateRenderProjectionSelected(path, selected));
+  const dock = resolveSceneNodePath(scene, relationships?.dock);
+  debugMeasureProjectionRelationshipWrite("dock", path, ownerItemId, dock ? 1 : 0, () => updateRenderProjectionDock(path, dock));
+  const attachments = resolveSceneNodePaths(scene, relationships?.attachments);
+  debugMeasureProjectionRelationshipWrite("attachments", path, ownerItemId, attachments.length, () => updateRenderProjectionAttachments(path, attachments));
+  const children = resolveSceneNodePaths(scene, relationships?.children);
+  debugMeasureProjectionRelationshipWrite("children", path, ownerItemId, children.length, () => updateRenderProjectionChildren(path, children));
+  const lineChildren = resolveSceneNodePaths(scene, relationships?.lineChildren);
+  debugMeasureProjectionRelationshipWrite("lineChildren", path, ownerItemId, lineChildren.length, () => updateRenderProjectionLineChildren(path, lineChildren));
+  const desktopChildren = resolveSceneNodePaths(scene, relationships?.desktopChildren);
+  debugMeasureProjectionRelationshipWrite("desktopChildren", path, ownerItemId, desktopChildren.length, () => updateRenderProjectionDesktopChildren(path, desktopChildren));
+  const nonMovingChildren = resolveSceneNodePaths(scene, relationships?.nonMovingChildren);
+  debugMeasureProjectionRelationshipWrite("nonMovingChildren", path, ownerItemId, nonMovingChildren.length, () => updateRenderProjectionNonMovingChildren(path, nonMovingChildren));
+  const focusedChild = relationships?.focusedChildItemMaybe ?? null;
+  debugMeasureProjectionRelationshipWrite("focused", path, ownerItemId, focusedChild ? 1 : 0, () => updateRenderProjectionFocused(path, focusedChild));
   setRenderProjectionTableRows(path, renderTableRows ?? null);
 }
 
