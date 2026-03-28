@@ -113,13 +113,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
       const newLinkVeid = VeFns.veidFromId(cloned.id);
-      MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
-      const updatedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? MouseActionState.get().activeElementSignalMaybe;
-      MouseActionState.get().activeElementSignalMaybe = updatedSignal;
-      if (updatedSignal) {
-        MouseActionState.get().activeLinkIdMaybe = updatedSignal.get().actualLinkItemMaybe?.id ?? updatedSignal.get().linkItemMaybe?.id ?? null;
-        MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? updatedSignal.get().displayItem : null;
-      }
+      MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, activeParentPath));
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = false;
 
@@ -164,13 +158,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
       const newLinkVeid = VeFns.veidFromId(link.id);
-      MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
-      const updatedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? MouseActionState.get().activeElementSignalMaybe;
-      MouseActionState.get().activeElementSignalMaybe = updatedSignal;
-      if (updatedSignal) {
-        MouseActionState.get().activeLinkIdMaybe = updatedSignal.get().actualLinkItemMaybe?.id ?? updatedSignal.get().linkItemMaybe?.id ?? null;
-        MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? updatedSignal.get().displayItem : null;
-      }
+      MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, activeParentPath));
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = true;
 
@@ -281,9 +269,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   if (MouseActionState.get().moveOver_containerElement == null ||
     MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds))) {
     if (MouseActionState.get().moveOver_containerElement != null) {
-      const veMaybe = VesCache.get(MouseActionState.get().moveOver_containerElement!);
+      const veMaybe = MouseActionState.readVisualElement(MouseActionState.get().moveOver_containerElement);
       if (veMaybe) {
-        store.perVe.setMovingItemIsOver(VeFns.veToPath(veMaybe!.get()), false);
+        store.perVe.setMovingItemIsOver(VeFns.veToPath(veMaybe), false);
       }
     }
 
@@ -293,7 +281,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   // update move over attach state.
   if (MouseActionState.get().moveOver_attachHitboxElement != null) {
-    const ve = VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get();
+    const ve = MouseActionState.readVisualElement(MouseActionState.get().moveOver_attachHitboxElement)!;
     store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(ve), false);
     store.perVe.setMoveOverAttachmentIndex(VeFns.veToPath(ve), -1);
   }
@@ -325,7 +313,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   // update move over attach composite state.
   if (MouseActionState.get().moveOver_attachCompositeHitboxElement != null) {
-    const ve = VesCache.get(MouseActionState.get().moveOver_attachCompositeHitboxElement!)!.get();
+    const ve = MouseActionState.readVisualElement(MouseActionState.get().moveOver_attachCompositeHitboxElement)!;
     store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(ve), false);
   }
   if (hitInfo.hitboxType & HitboxFlags.AttachComposite) {
@@ -335,7 +323,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     MouseActionState.get().moveOver_attachCompositeHitboxElement = null;
   }
 
-  if (VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
+  if (MouseActionState.readVisualElement(MouseActionState.get().moveOver_scaleDefiningElement)!.displayItem != hitInfo.overPositionableVe!.displayItem) {
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false, false);
     arrangeNow(store, "moving-enter-new-container");
     return;
@@ -354,7 +342,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   let newPosBl = vectorAdd(MouseActionState.get().startPosBl!, deltaBl);
   newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
   newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
-  const inElementVe = VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get();
+  const inElementVe = MouseActionState.readVisualElement(MouseActionState.get().moveOver_scaleDefiningElement)!;
   const inElement = inElementVe.displayItem;
   const dimBl = PageFns.calcInnerSpatialDimensionsBl(asPageItem(inElement));
   if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
@@ -503,10 +491,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     server.addItem(cloned, null, store.general.networkStatus);
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
-    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(clonedVeid, moveToPath);
-    MouseActionState.get().activeElementSignalMaybe = null;
-    MouseActionState.get().activeLinkIdMaybe = null;
-    MouseActionState.get().activeLinkedDisplayItemMaybe = null;
+    MouseActionState.setActiveElementPath(VeFns.addVeidToPath(clonedVeid, moveToPath));
     MouseActionState.get().linkCreatedOnMoveStart = false;
 
 
@@ -520,10 +505,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     itemState.add(link);
     server.addItem(link, null, store.general.networkStatus);
     const newLinkVeid = { itemId: activeElement.displayItem.id, linkIdMaybe: link.id };
-    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, moveToPath);
-    MouseActionState.get().activeElementSignalMaybe = null;
-    MouseActionState.get().activeLinkIdMaybe = link.id;
-    MouseActionState.get().activeLinkedDisplayItemMaybe = activeElement.displayItem;
+    MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, moveToPath));
     MouseActionState.get().linkCreatedOnMoveStart = true;
 
   } else {
@@ -542,13 +524,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     treeActiveItem.spatialPositionGr = newItemPosGr;
     itemState.moveToNewParent(treeActiveItem, moveToPage.id, RelationshipToParent.Child);
 
-    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
-    const refreshedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? activeSignal;
-    MouseActionState.get().activeElementSignalMaybe = refreshedSignal;
-    if (refreshedSignal) {
-      MouseActionState.get().activeLinkIdMaybe = refreshedSignal.get().actualLinkItemMaybe?.id ?? refreshedSignal.get().linkItemMaybe?.id ?? null;
-      MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? refreshedSignal.get().displayItem : null;
-    }
+    MouseActionState.setActiveElementPath(VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath));
   }
 
   MouseActionState.get().onePxSizeBl = {
@@ -567,15 +543,15 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     return;
   }
   const activeVisualElement = activeSignal.get();
-  const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
+  const tableVisualElement = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
   itemPosInTablePx.y -= store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx;
-  const tableVe = VesCache.get(activeVisualElement.parentPath!)!.get();
-  const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
+  const tableVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
+  const tableParentVe = MouseActionState.readVisualElement(tableVe.parentPath)!;
 
   let moveToPage;
   let moveToPageVe;
@@ -583,7 +559,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     moveToPageVe = tableParentVe;
     moveToPage = asPageItem(tableParentVe.displayItem);
   } else if (isComposite(tableParentVe.displayItem)) {
-    moveToPageVe = VesCache.get(tableParentVe.parentPath!)!.get();
+    moveToPageVe = MouseActionState.readVisualElement(tableParentVe.parentPath)!;
     moveToPage = asPageItem(moveToPageVe.displayItem);
   } else {
     panic("unexpected table parent type: " + tableParentVe.displayItem.itemType);
@@ -633,10 +609,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     server.addItem(cloned, null, store.general.networkStatus);
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
-    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(clonedVeid, VeFns.veToPath(moveToPageVe));
-    MouseActionState.get().activeElementSignalMaybe = null;
-    MouseActionState.get().activeLinkIdMaybe = null;
-    MouseActionState.get().activeLinkedDisplayItemMaybe = null;
+    MouseActionState.setActiveElementPath(VeFns.addVeidToPath(clonedVeid, VeFns.veToPath(moveToPageVe)));
     MouseActionState.get().linkCreatedOnMoveStart = false;
 
   } else if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
@@ -650,23 +623,14 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     server.addItem(link, null, store.general.networkStatus);
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
     const newLinkVeid = { itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id };
-    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, VeFns.veToPath(moveToPageVe));
-    MouseActionState.get().activeElementSignalMaybe = null;
-    MouseActionState.get().activeLinkIdMaybe = link.id;
-    MouseActionState.get().activeLinkedDisplayItemMaybe = activeVisualElement.displayItem;
+    MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, VeFns.veToPath(moveToPageVe)));
     MouseActionState.get().linkCreatedOnMoveStart = true;
 
   } else {
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
     // Set active element to the moved item within the new page path
-    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe));
-    const refreshedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? activeSignal;
-    MouseActionState.get().activeElementSignalMaybe = refreshedSignal;
-    if (refreshedSignal) {
-      MouseActionState.get().activeLinkIdMaybe = refreshedSignal.get().actualLinkItemMaybe?.id ?? refreshedSignal.get().linkItemMaybe?.id ?? null;
-      MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? refreshedSignal.get().displayItem : null;
-    }
+    MouseActionState.setActiveElementPath(VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe)));
   }
 
   MouseActionState.get().onePxSizeBl = {

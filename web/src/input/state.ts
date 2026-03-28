@@ -21,7 +21,8 @@ import { CompositeItem } from "../items/composite-item";
 import { PlaceholderItem } from "../items/placeholder-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElementPath } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementPath } from "../layout/visual-element";
+import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { BoundingBox, Vector, desktopPxFromMouseEvent } from "../util/geometry";
 import { panic } from "../util/lang";
@@ -91,6 +92,162 @@ export interface MouseActionStateType {
 
 let mouseActionState: MouseActionStateType | null = null;
 
+function getRenderSignalForPath(path: VisualElementPath | null | undefined): VisualElementSignal | null {
+  if (!path) { return null; }
+  return VesCache.render.getNode(path) ?? null;
+}
+
+function readCurrentVisualElement(path: VisualElementPath | null | undefined): VisualElement | null {
+  if (!path) { return null; }
+  return VesCache.current.readNode(path) ?? null;
+}
+
+function tryGetSignalPath(signal: VisualElementSignal | null): VisualElementPath | null {
+  if (!signal) { return null; }
+  try {
+    return VeFns.veToPath(signal.get());
+  } catch {
+    return null;
+  }
+}
+
+function signalMatchesPath(path: VisualElementPath, signal: VisualElementSignal | null): boolean {
+  return tryGetSignalPath(signal) === path;
+}
+
+function syncActiveElementDerivedFields(state: MouseActionStateType, signalMaybe: VisualElementSignal | null = state.activeElementSignalMaybe): void {
+  let activeVe: VisualElement | null = null;
+
+  if (signalMaybe && signalMatchesPath(state.activeElementPath, signalMaybe)) {
+    try {
+      activeVe = signalMaybe.get();
+    } catch {
+      activeVe = null;
+    }
+  }
+
+  if (!activeVe) {
+    activeVe = readCurrentVisualElement(state.activeElementPath);
+  }
+
+  if (activeVe) {
+    state.activeLinkIdMaybe = activeVe.actualLinkItemMaybe?.id ?? activeVe.linkItemMaybe?.id ?? null;
+    state.activeLinkedDisplayItemMaybe = state.activeLinkIdMaybe ? activeVe.displayItem : null;
+    return;
+  }
+
+  const veid = VeFns.veidFromPath(state.activeElementPath);
+  state.activeLinkIdMaybe = veid.linkIdMaybe ?? null;
+  state.activeLinkedDisplayItemMaybe = state.activeLinkIdMaybe ? itemState.get(veid.itemId) ?? null : null;
+}
+
+function setActiveElementPathInternal(state: MouseActionStateType, path: VisualElementPath, signalHint: VisualElementSignal | null = null): void {
+  state.activeElementPath = path;
+  const resolvedSignal = getRenderSignalForPath(path);
+  if (resolvedSignal) {
+    state.activeElementSignalMaybe = resolvedSignal;
+  } else if (signalHint && signalMatchesPath(path, signalHint)) {
+    state.activeElementSignalMaybe = signalHint;
+  } else {
+    state.activeElementSignalMaybe = null;
+  }
+  syncActiveElementDerivedFields(state, state.activeElementSignalMaybe);
+}
+
+function resolveActiveElementSignal(state: MouseActionStateType): VisualElementSignal | null {
+  let signal = getRenderSignalForPath(state.activeElementPath);
+
+  if (!signal && signalMatchesPath(state.activeElementPath, state.activeElementSignalMaybe)) {
+    signal = state.activeElementSignalMaybe;
+  }
+
+  if (!signal) {
+    const veid = VeFns.veidFromPath(state.activeElementPath);
+
+    const findByDisplayId = (
+      displayId: string | null,
+      match: (vePath: VisualElementPath, veSignal: VisualElementSignal) => boolean,
+    ): VisualElementSignal | null => {
+      if (!displayId) { return null; }
+      let candidatePaths: Array<VisualElementPath> = [];
+      try {
+        candidatePaths = VesCache.getPathsForDisplayId(displayId) ?? [];
+      } catch {
+        candidatePaths = [];
+      }
+      for (const path of candidatePaths) {
+        const candidateSignal = getRenderSignalForPath(path);
+        if (!candidateSignal) { continue; }
+        if (match(path, candidateSignal)) {
+          return candidateSignal;
+        }
+      }
+      return null;
+    };
+
+    const matchFromParent = (parentPath: VisualElementPath | null | undefined): VisualElementSignal | null => {
+      if (!parentPath) { return null; }
+      return VesCache.render.getChildren(parentPath)().find(childSignal => {
+        const childVeid = VeFns.veidFromVe(childSignal.get());
+        return childVeid.itemId === veid.itemId && childVeid.linkIdMaybe === veid.linkIdMaybe;
+      }) ?? null;
+    };
+
+    const candidateParents: Array<VisualElementPath> = [];
+    const directParent = VeFns.parentPath(state.activeElementPath);
+    if (directParent && directParent.length > 0) { candidateParents.push(directParent); }
+    if (state.moveOver_scaleDefiningElement) { candidateParents.push(state.moveOver_scaleDefiningElement); }
+    if (state.startActiveElementParent) { candidateParents.push(state.startActiveElementParent); }
+
+    for (const parentPath of candidateParents) {
+      signal = matchFromParent(parentPath);
+      if (signal) { break; }
+    }
+
+    let findSingleError: unknown = null;
+    if (!signal) {
+      try {
+        signal = VesCache.render.findSingle(veid);
+      } catch (err) {
+        findSingleError = err;
+      }
+    }
+
+    if (!signal) {
+      signal = findByDisplayId(veid.itemId, (path, _) => {
+        const candidateVeid = VeFns.veidFromPath(path);
+        return candidateVeid.itemId === veid.itemId && candidateVeid.linkIdMaybe === veid.linkIdMaybe;
+      });
+    }
+
+    if (!signal) {
+      const treeItemId = veid.linkIdMaybe ?? veid.itemId;
+      signal = findByDisplayId(treeItemId, (_, candidateSignal) => {
+        try {
+          return VeFns.treeItem(candidateSignal.get()).id === treeItemId;
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    if (!signal) {
+      console.warn("Active visual element path still missing; abandoning current mouse action.", {
+        path: state.activeElementPath,
+        veid,
+        err: findSingleError,
+      });
+      return null;
+    }
+
+    state.activeElementPath = VeFns.veToPath(signal.get());
+  }
+
+  state.activeElementSignalMaybe = signal;
+  syncActiveElementDerivedFields(state, signal);
+  return signal;
+}
+
 export let MouseActionState = {
   set: (state: MouseActionStateType | null): void => { mouseActionState = state; },
 
@@ -101,114 +258,35 @@ export let MouseActionState = {
     return mouseActionState!;
   },
 
+  readVisualElement: (path: VisualElementPath | null | undefined): VisualElement | null => {
+    return readCurrentVisualElement(path);
+  },
+
+  getVisualElementSignal: (path: VisualElementPath | null | undefined): VisualElementSignal | null => {
+    return getRenderSignalForPath(path);
+  },
+
+  setActiveElementPath: (path: VisualElementPath, signalHint: VisualElementSignal | null = null): void => {
+    setActiveElementPathInternal(MouseActionState.get(), path, signalHint);
+  },
+
   getActiveVisualElementSignal: (): VisualElementSignal | null => {
     const state = MouseActionState.get();
-    let signal = state.activeElementSignalMaybe;
-
-    if (signal) {
-      try {
-        const signalPath = VeFns.veToPath(signal.get());
-        if (signalPath != state.activeElementPath) {
-          signal = null;
-        }
-      } catch {
-        signal = null;
-      }
-    }
-
-    if (!signal) {
-      signal = VesCache.get(state.activeElementPath) ?? null;
-    }
-
-    if (!signal) {
-      const veid = VeFns.veidFromPath(state.activeElementPath);
-
-      const findByDisplayId = (displayId: string | null, match: (vePath: VisualElementPath, veSignal: VisualElementSignal) => boolean): VisualElementSignal | null => {
-        if (!displayId) { return null; }
-        let candidatePaths: Array<VisualElementPath> = [];
-        try {
-          candidatePaths = VesCache.getPathsForDisplayId(displayId) ?? [];
-        } catch {
-          candidatePaths = [];
-        }
-        for (const path of candidatePaths) {
-          const candidateSignal = VesCache.get(path);
-          if (!candidateSignal) { continue; }
-          if (match(path, candidateSignal)) {
-            return candidateSignal;
-          }
-        }
-        return null;
-      };
-
-      const matchFromParent = (parentPath: VisualElementPath | null | undefined): VisualElementSignal | null => {
-        if (!parentPath) { return null; }
-        const parentSignal = VesCache.get(parentPath);
-        if (!parentSignal) { return null; }
-        const child = VesCache.getChildrenVes(VeFns.veToPath(parentSignal.get()))().find(childSignal => {
-          const childVeid = VeFns.veidFromVe(childSignal.get());
-          return childVeid.itemId === veid.itemId && childVeid.linkIdMaybe === veid.linkIdMaybe;
-        });
-        return child ?? null;
-      };
-
-      const candidateParents: Array<VisualElementPath> = [];
-      const directParent = VeFns.parentPath(state.activeElementPath);
-      if (directParent && directParent.length > 0) { candidateParents.push(directParent); }
-      if (state.moveOver_scaleDefiningElement) { candidateParents.push(state.moveOver_scaleDefiningElement); }
-      if (state.startActiveElementParent) { candidateParents.push(state.startActiveElementParent); }
-
-      for (const parentPath of candidateParents) {
-        signal = matchFromParent(parentPath);
-        if (signal) { break; }
-      }
-
-      let findSingleError: unknown = null;
-      if (!signal) {
-        try {
-          signal = VesCache.findSingle(veid);
-        } catch (err) {
-          findSingleError = err;
-        }
-      }
-
-      if (!signal) {
-        signal = findByDisplayId(veid.itemId, (path, _) => {
-          const candidateVeid = VeFns.veidFromPath(path);
-          return candidateVeid.itemId === veid.itemId && candidateVeid.linkIdMaybe === veid.linkIdMaybe;
-        });
-      }
-
-      if (!signal) {
-        const treeItemId = veid.linkIdMaybe ?? veid.itemId;
-        signal = findByDisplayId(treeItemId, (_, candidateSignal) => {
-          try {
-            return VeFns.treeItem(candidateSignal.get()).id === treeItemId;
-          } catch {
-            return false;
-          }
-        });
-      }
-
-      if (!signal) {
-        console.warn("Active visual element path still missing; abandoning current mouse action.", { path: state.activeElementPath, veid, err: findSingleError });
-        MouseActionState.set(null);
-        return null;
-      }
-
-      state.activeElementPath = VeFns.veToPath(signal.get());
-    }
-
+    const signal = resolveActiveElementSignal(state);
     if (!signal) {
       console.warn("Unable to resolve active visual element; cancelling current mouse action.", { path: state.activeElementPath });
       MouseActionState.set(null);
       return null;
     }
-
-    state.activeElementSignalMaybe = signal;
-    state.activeLinkIdMaybe = signal.get().actualLinkItemMaybe?.id ?? signal.get().linkItemMaybe?.id ?? null;
-    state.activeLinkedDisplayItemMaybe = state.activeLinkIdMaybe ? signal.get().displayItem : null;
     return signal;
+  },
+
+  getActiveVisualElement: (): VisualElement | null => {
+    const state = mouseActionState;
+    if (state == null) { return null; }
+    const signal = resolveActiveElementSignal(state);
+    if (signal) { return signal.get(); }
+    return readCurrentVisualElement(state.activeElementPath);
   },
 }
 

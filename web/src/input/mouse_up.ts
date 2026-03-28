@@ -89,7 +89,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           PageFns.handleAnchorChildClick(activeVisualElement, store);
         } else if (isImage(activeVisualElement.displayItem)) {
           const imageItem = asImageItem(activeVisualElement.displayItem);
-          const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+          const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
           const parentPage = asPageItem(parentVe.displayItem);
           ImageFns.handleAnchorChildClick(imageItem, parentPage, store);
           serverOrRemote.updateItem(imageItem, store.general.networkStatus);
@@ -102,7 +102,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           PageFns.handleAnchorDefaultClick(activeVisualElement, store);
         } else if (isImage(activeVisualElement.displayItem)) {
           const imageItem = asImageItem(activeVisualElement.displayItem);
-          const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+          const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
           const parentPage = asPageItem(parentVe.displayItem);
           ImageFns.handleHomeClick(imageItem, parentPage, store, serverOrRemote);
         }
@@ -194,7 +194,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           PageFns.handleAnchorChildClick(activeVisualElement, store);
         } else if (isImage(activeVisualElement.displayItem)) {
           const imageItem = asImageItem(activeVisualElement.displayItem);
-          const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+          const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
           const parentPage = asPageItem(parentVe.displayItem);
           ImageFns.handleAnchorChildClick(imageItem, parentPage, store);
           serverOrRemote.updateItem(imageItem, store.general.networkStatus);
@@ -206,7 +206,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           PageFns.handleAnchorDefaultClick(activeVisualElement, store);
         } else if (isImage(activeVisualElement.displayItem)) {
           const imageItem = asImageItem(activeVisualElement.displayItem);
-          const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+          const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
           const parentPage = asPageItem(parentVe.displayItem);
           ImageFns.handleHomeClick(imageItem, parentPage, store, serverOrRemote);
         }
@@ -281,22 +281,22 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         DoubleClickState.preventDoubleClick();
         PageFns.handleShiftLeftClick(activeVisualElement, store);
 
-      } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
+      } else if (veFlagIsRoot(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
         !(MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Move)) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
 
-      } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags) &&
-        !(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.IsDock) &&
-        ((VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).itemId != store.history.currentPageVeid()!.itemId) ||
-          (VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
+      } else if (veFlagIsRoot(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!.flags) &&
+        !(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!.flags & VisualElementFlags.IsDock) &&
+        ((VeFns.veidFromVe(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!).itemId != store.history.currentPageVeid()!.itemId) ||
+          (VeFns.veidFromVe(MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
         (CursorEventState.getLatestDesktopPx(store).y > 0)) {
         DoubleClickState.preventDoubleClick();
         store.history.setFocus(MouseActionState.get().activeElementPath);
 
         {
           const focusPagePath = store.history.getFocusPath();
-          const focusPageVe = VesCache.get(focusPagePath)!.get();
+          const focusPageVe = MouseActionState.readVisualElement(focusPagePath)!;
           const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
           const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
           if (selectedVeid == EMPTY_VEID) {
@@ -333,7 +333,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
           {
             const focusPagePath = store.history.getFocusPath();
-            const focusPageSignal = VesCache.get(focusPagePath);
+            const focusPageSignal = MouseActionState.getVisualElementSignal(focusPagePath);
             if (focusPageSignal) {
               const focusPageVe = focusPageSignal.get();
               const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
@@ -369,7 +369,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: PositionalItem) {
 
   if (MouseActionState.get().moveOver_containerElement != null) {
-    const ve = VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get();
+    const ve = MouseActionState.readVisualElement(MouseActionState.get().moveOver_containerElement)!;
     store.perVe.setMovingItemIsOver(VeFns.veToPath(ve), false);
   }
 
@@ -383,7 +383,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     return;
   }
 
-  const overContainerVe = VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get();
+  const overContainerVe = MouseActionState.readVisualElement(MouseActionState.get().moveOver_containerElement)!;
   if (isTable(overContainerVe.displayItem)) {
     mouseUpHandler_moving_toTable(store, activeItem, overContainerVe);
     return;
@@ -509,7 +509,7 @@ function persistMovedItems(store: StoreContextModel, defaultIds: string[]) {
 async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContextModel, activeItem: PositionalItem) {
   const prevParentId = activeItem.parentId;
 
-  const attachToVisualElement = VesCache.get(MouseActionState.get()!.moveOver_attachCompositeHitboxElement!)!.get();
+  const attachToVisualElement = MouseActionState.readVisualElement(MouseActionState.get()!.moveOver_attachCompositeHitboxElement)!;
   const attachToVisualElementPath = VeFns.veToPath(attachToVisualElement);
   store.perVe.setMovingItemIsOverAttachComposite(attachToVisualElementPath, false);
   MouseActionState.get()!.moveOver_attachCompositeHitboxElement = null;
@@ -588,7 +588,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 
 
 function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeItem: PositionalItem) {
-  const attachToVisualElement = VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get();
+  const attachToVisualElement = MouseActionState.readVisualElement(MouseActionState.get().moveOver_attachHitboxElement)!;
   const attachToPath = VeFns.veToPath(attachToVisualElement);
   const displayedParent = asAttachmentsItem(attachToVisualElement.displayItem);
 
@@ -801,7 +801,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
   store.overlay.selectionMarqueePx.set(null);
   if (rect == null) { return; }
 
-  const activeRootVe = VesCache.get(MouseActionState.get().activeRoot)!.get();
+  const activeRootVe = MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!;
   const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, activeRootVe);
   const selectionRect = {
     x: Math.max(rect.x, activeRootBounds.x),
@@ -820,7 +820,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
   const stack: string[] = [rootPath];
   while (stack.length > 0) {
     const path = stack.pop()!;
-    const ves = VesCache.get(path);
+    const ves = MouseActionState.getVisualElementSignal(path);
     if (!ves) { continue; }
     const ve = ves.get();
     if (ve.parentPath && !(ve.flags & VisualElementFlags.LineItem)) {
@@ -833,7 +833,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
         if (ix < ax && iy < ay) {
           // If inside a composite, select the composite parent instead of the child
           if (ve.flags & VisualElementFlags.InsideCompositeOrDoc) {
-            const parentVe = VesCache.get(ve.parentPath!)!.get();
+            const parentVe = MouseActionState.readVisualElement(ve.parentPath)!;
             if (isComposite(parentVe.displayItem)) {
               const itemId = parentVe.displayItem.id;
               const linkIdMaybe = parentVe.actualLinkItemMaybe ? parentVe.actualLinkItemMaybe.id : null;
@@ -853,9 +853,9 @@ function handleSelectionMouseUp(store: StoreContextModel) {
         }
       }
     }
-    for (const child of VesCache.getChildrenVes(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
-    for (const att of VesCache.getAttachmentsVes(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
-    const popupVes = VesCache.getPopupVes(VeFns.veToPath(ve))();
+    for (const child of VesCache.render.getChildren(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
+    for (const att of VesCache.render.getAttachments(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
+    const popupVes = VesCache.render.getPopup(VeFns.veToPath(ve))();
     if (popupVes) { stack.push(VeFns.veToPath(popupVes.get())); }
   }
   store.overlay.selectedVeids.set(selected);

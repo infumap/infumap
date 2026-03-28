@@ -201,7 +201,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
     else {
       // not inside child area: create item in the page containing the table.
-      const parentVe = VesCache.get(overElementVe.parentPath!)!.get();
+      const parentVe = VesCache.current.readNode(overElementVe.parentPath!)!;
       newItem = createNewItem(
         store,
         type,
@@ -252,7 +252,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       // For link creation in calendar view, try to find the page VE to calculate calendar date
       try {
-        const currentPageVes = VesCache.findSingle(store.history.currentPageVeid()!);
+        const currentPageVes = VesCache.render.findSingle(store.history.currentPageVeid()!);
         if (currentPageVes) {
           newItem.dateTime = calculateCalendarDateTime(desktopPosPx, currentPageVes.get(), store);
         }

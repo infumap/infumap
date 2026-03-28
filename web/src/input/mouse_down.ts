@@ -310,7 +310,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   // If clicking a child inside a composite and that composite is in the current selection,
   // treat this as hitting the composite to preserve selection during drag (tables unchanged).
   if ((hitVe.flags & VisualElementFlags.InsideCompositeOrDoc) && !isTable(hitVe.displayItem)) {
-    const parentVe = VesCache.get(hitVe.parentPath!)!.get();
+    const parentVe = VesCache.current.readNode(hitVe.parentPath!)!;
     if (isComposite(parentVe.displayItem)) {
       const sel = store.overlay.selectedVeids.get();
       if (sel && sel.length > 0) {
@@ -325,7 +325,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
 
   let onePxSizeBl = { x: 0.0, y: 0.0 };
   if (hitVe.flags & VisualElementFlags.Popup) {
-    let parent = VesCache.get(hitVe.parentPath!)!.get();
+    let parent = VesCache.current.readNode(hitVe.parentPath!)!;
     let parentPage = asPageItem(parent.displayItem);
     if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
       const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
@@ -343,7 +343,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
       const compositeVe = HitInfoFns.getCompositeContainerVe(hitInfo)!;
-      const parentVe = VesCache.get(compositeVe.parentPath!)!.get();
+      const parentVe = VesCache.current.readNode(compositeVe.parentPath!)!;
       if (isPage(parentVe.displayItem)) {
         let parentPage = asPageItem(parentVe.displayItem);
         const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
@@ -358,7 +358,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         const squareSize = (asPageItem(hitVe.displayItem).tableColumns[0].widthGr / GRID_SIZE) / hitVe.listViewportBoundsPx!.w;
         onePxSizeBl = { x: squareSize, y: squareSize };
       } else {
-        let parent = VesCache.get(hitVe.parentPath!)!.get();
+        let parent = VesCache.current.readNode(hitVe.parentPath!)!;
         if (isPage(parent.displayItem) && VeFns.treeItem(hitVe).relationshipToParent == RelationshipToParent.Child) {
           let parentPage = asPageItem(parent.displayItem);
           const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
@@ -422,12 +422,12 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
 
   MouseActionState.set({
     activeRoot: VeFns.veToPath(hitInfo.rootVes.get().flags & VisualElementFlags.Popup
-      ? VesCache.get(hitInfo.rootVes.get().parentPath!)!.get()
+      ? VesCache.current.readNode(hitInfo.rootVes.get().parentPath!)!
       : hitInfo.rootVes.get()),
     startActiveElementParent: hitVe.parentPath!,
     activeElementPath,
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(HitInfoFns.getCompositeContainerVe(hitInfo)!) : null,
-    activeElementSignalMaybe: VesCache.get(activeElementPath) ?? null,
+    activeElementSignalMaybe: VesCache.render.getNode(activeElementPath) ?? null,
     activeLinkIdMaybe,
     activeLinkedDisplayItemMaybe,
     moveOver_containerElement: null,
@@ -564,16 +564,16 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   // If a non-page item is focused, move focus to parent page before navigating.
   // If a page item is focused (not a root page) and no popup is open, move focus to parent container.
   const currentFocusPath = store.history.getFocusPath();
-  const currentFocusVes = VesCache.get(currentFocusPath);
-  if (currentFocusVes && !store.history.currentPopupSpec()) {
-    const focusVe = currentFocusVes.get();
+  const currentFocusVe = VesCache.current.readNode(currentFocusPath);
+  if (currentFocusVe && !store.history.currentPopupSpec()) {
+    const focusVe = currentFocusVe;
     const focusItem = focusVe.displayItem;
     if (!veFlagIsRoot(focusVe.flags)) {
       // Move focus to parent container first.
       const parentPath = VeFns.parentPath(currentFocusPath);
       if (parentPath && parentPath !== UMBRELLA_PAGE_UID && parentPath !== "") {
-        const parentVes = VesCache.get(parentPath);
-        if (parentVes) {
+        const parentVe = VesCache.current.readNode(parentPath);
+        if (parentVe) {
           store.history.setFocus(parentPath);
           arrangeNow(store, "mouse-right-focus-parent-before-nav");
           return;
@@ -595,13 +595,13 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   if (focusPageIdx === -1) {
     // Focus is not directly on a top page. Walk up the VE hierarchy to find
     // the innermost containing page that is in topTitledPages.
-    const focusVes = VesCache.get(focusPath);
-    if (focusVes) {
-      let ve: VisualElement | null = focusVes.get();
+    const focusVe = VesCache.current.readNode(focusPath);
+    if (focusVe) {
+      let ve: VisualElement | null = focusVe;
       while (ve !== null && ve.parentPath !== null) {
-        const parentVes = VesCache.get(ve.parentPath);
-        if (!parentVes) break;
-        ve = parentVes.get();
+        const parentVe = VesCache.current.readNode(ve.parentPath);
+        if (!parentVe) break;
+        ve = parentVe;
         if (isPage(ve.displayItem)) {
           // Check if this page's item ID matches any topTitledPage
           const veItemId = ve.displayItem.id;
@@ -622,9 +622,9 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     // Save the focused page before navigating up, so it can be restored when clicking back in.
     const currentPageVeid = store.history.currentPageVeid();
     if (currentPageVeid) {
-      const focusVes = VesCache.get(focusPath);
-      if (focusVes && isPage(focusVes.get().displayItem)) {
-        const focusedVeid = VeFns.actualVeidFromVe(focusVes.get());
+      const focusVe = VesCache.current.readNode(focusPath);
+      if (focusVe && isPage(focusVe.displayItem)) {
+        const focusedVeid = VeFns.actualVeidFromVe(focusVe);
         store.perItem.setFocusedListPageItem(currentPageVeid, focusedVeid);
       }
     }
@@ -637,11 +637,10 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     return;
   }
 
-  const ves = VesCache.get(focusPath)!;
-  if (ves) {
-    const ve = ves.get();
-    if (ve.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
-      store.history.setFocus(ve.parentPath!);
+  const focusVe = VesCache.current.readNode(focusPath);
+  if (focusVe) {
+    if (focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
+      store.history.setFocus(focusVe.parentPath!);
       arrangeNow(store, "mouse-right-exit-embedded-interactive");
       return;
     }
@@ -653,9 +652,9 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   if (currentPageVeid) {
     const currentPageItem = itemState.get(currentPageVeid.itemId);
     if (currentPageItem && isPage(currentPageItem) && asPageItem(currentPageItem).arrangeAlgorithm === ArrangeAlgorithm.List) {
-      const focusVes = VesCache.get(focusPath);
-      if (focusVes && isPage(focusVes.get().displayItem)) {
-        const focusedVeid = VeFns.actualVeidFromVe(focusVes.get());
+      const focusVe = VesCache.current.readNode(focusPath);
+      if (focusVe && isPage(focusVe.displayItem)) {
+        const focusedVeid = VeFns.actualVeidFromVe(focusVe);
         store.perItem.setFocusedListPageItem(currentPageVeid, focusedVeid);
       }
     }

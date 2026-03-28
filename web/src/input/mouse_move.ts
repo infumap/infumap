@@ -160,7 +160,7 @@ function changeMouseActionStateMaybe(
   if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Resize) > 0) {
     MouseActionState.get().startPosBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
-      const parentVe = VesCache.get(activeVisualElement.parentPath!)!.get();
+      const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
       const parentPage = asPageItem(parentVe.displayItem);
       const popupItem = activeVisualElement.displayItem;
       if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
@@ -193,7 +193,7 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().startWidthBl = isLink(activeItem) ? asLinkItem(activeItem).spatialWidthGr / GRID_SIZE : asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
       if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
         const parentPath = activeVisualElement.parentPath!;
-        const parentVe = VesCache.get(parentPath)!.get();
+        const parentVe = MouseActionState.readVisualElement(parentPath)!;
         if (isComposite(parentVe.displayItem)) {
           const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
           if (compositeWidthBl < MouseActionState.get().startWidthBl!) {
@@ -250,13 +250,7 @@ function changeMouseActionStateMaybe(
       (MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move)) {
       // if the composite move hitbox is hit, but not the child, then swap out the active element.
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
-      MouseActionState.get().activeElementPath = MouseActionState.get().activeCompositeElementMaybe!;
-      const updatedSignal = VesCache.get(MouseActionState.get().activeElementPath) ?? MouseActionState.get().activeElementSignalMaybe;
-      MouseActionState.get().activeElementSignalMaybe = updatedSignal;
-      if (updatedSignal) {
-        MouseActionState.get().activeLinkIdMaybe = updatedSignal.get().actualLinkItemMaybe?.id ?? updatedSignal.get().linkItemMaybe?.id ?? null;
-        MouseActionState.get().activeLinkedDisplayItemMaybe = MouseActionState.get().activeLinkIdMaybe ? updatedSignal.get().displayItem : null;
-      }
+      MouseActionState.setActiveElementPath(MouseActionState.get().activeCompositeElementMaybe!);
       MouseActionState.get().startActiveElementParent = VeFns.parentPath(MouseActionState.get().activeCompositeElementMaybe!);
       const newActiveSignal = MouseActionState.getActiveVisualElementSignal();
       if (!newActiveSignal) {
@@ -273,7 +267,7 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.MovingPopup;
       const popupVe = activeVisualElement;
       const popupItem = popupVe.displayItem;
-      const parentVe = VesCache.get(popupVe.parentPath!)!.get();
+      const parentVe = MouseActionState.readVisualElement(popupVe.parentPath)!;
       const parentPage = asPageItem(parentVe.displayItem);
       if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
         let popupPositionGr;
@@ -337,7 +331,7 @@ function mouseAction_selecting(store: StoreContextModel) {
     return;
   }
 
-  const activeRootVe = VesCache.get(MouseActionState.get().activeRoot)!.get();
+  const activeRootVe = MouseActionState.readVisualElement(MouseActionState.get().activeRoot)!;
   const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, activeRootVe);
   const selectionRect = {
     x: Math.max(rect.x, activeRootBounds.x),
@@ -356,7 +350,7 @@ function mouseAction_selecting(store: StoreContextModel) {
   const stack: string[] = [rootPath];
   while (stack.length > 0) {
     const path = stack.pop()!;
-    const ves = VesCache.get(path);
+    const ves = MouseActionState.getVisualElementSignal(path);
     if (!ves) { continue; }
     const ve = ves.get();
     if (ve.parentPath && !(ve.flags & VisualElementFlags.LineItem)) {
@@ -369,7 +363,7 @@ function mouseAction_selecting(store: StoreContextModel) {
         if (ix < ax && iy < ay) {
           // If inside a composite, select the composite parent instead of the child
           if (ve.flags & VisualElementFlags.InsideCompositeOrDoc) {
-            const parentVe = VesCache.get(ve.parentPath!)!.get();
+            const parentVe = MouseActionState.readVisualElement(ve.parentPath)!;
             if (isComposite(parentVe.displayItem)) {
               const itemId = parentVe.displayItem.id;
               const linkIdMaybe = parentVe.actualLinkItemMaybe ? parentVe.actualLinkItemMaybe.id : null;
@@ -389,9 +383,9 @@ function mouseAction_selecting(store: StoreContextModel) {
         }
       }
     }
-    for (const child of VesCache.getChildrenVes(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
-    for (const att of VesCache.getAttachmentsVes(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
-    const popupVes = VesCache.getPopupVes(VeFns.veToPath(ve))();
+    for (const child of VesCache.render.getChildren(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
+    for (const att of VesCache.render.getAttachments(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
+    const popupVes = VesCache.render.getPopup(VeFns.veToPath(ve))();
     if (popupVes) { stack.push(VeFns.veToPath(popupVes.get())); }
   }
   store.overlay.selectedVeids.set(selected);
@@ -452,7 +446,7 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
 
   if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
     const parentPath = activeVisualElement.parentPath!;
-    const parentVe = VesCache.get(parentPath)!.get();
+    const parentVe = MouseActionState.readVisualElement(parentPath)!;
 
     if (isComposite(parentVe.displayItem)) {
       const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
@@ -529,7 +523,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   const activeVe = activeVeSignal.get();
 
   if (isPage(activeVe.displayItem)) {
-    const parentVe = VesCache.get(activeVe.parentPath!)!.get();
+    const parentVe = MouseActionState.readVisualElement(activeVe.parentPath)!;
     const parentPage = asPageItem(parentVe.displayItem);
     const popupItem = asPageItem(activeVe.displayItem);
 
@@ -565,7 +559,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   }
 
   if (isImage(activeVe.displayItem)) {
-    const parentVe = VesCache.get(activeVe.parentPath!)!.get();
+    const parentVe = MouseActionState.readVisualElement(activeVe.parentPath)!;
     const parentPage = asPageItem(parentVe.displayItem);
     const popupItem = asImageItem(activeVe.displayItem);
 
@@ -737,7 +731,7 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
 function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   const popupVe = MouseActionState.getActiveVisualElementSignal()!.get();
   const popupItem = popupVe.displayItem;
-  const parentVe = VesCache.get(popupVe.parentPath!)!.get();
+  const parentVe = MouseActionState.readVisualElement(popupVe.parentPath)!;
   const parentPage = asPageItem(parentVe.displayItem);
 
   // Check if this is an attachment popup
