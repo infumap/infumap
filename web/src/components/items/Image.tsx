@@ -39,6 +39,37 @@ import { asPageItem } from "../../items/page-item";
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
+let nextDetailedImageRequestAtMs = 0;
+
+function imageStaggerDelayMs(): number {
+  const runtimeConfig = (globalThis as any).__INFUMAP_IMAGE_STAGGER_DEBUG__;
+  if (!runtimeConfig) {
+    return 0;
+  }
+
+  const stepMs = typeof runtimeConfig === "number"
+    ? runtimeConfig
+    : typeof runtimeConfig === "object" && runtimeConfig != null && typeof runtimeConfig.stepMs === "number"
+      ? runtimeConfig.stepMs
+      : 24;
+  const maxDelayMs = typeof runtimeConfig === "object" && runtimeConfig != null && typeof runtimeConfig.maxDelayMs === "number"
+    ? runtimeConfig.maxDelayMs
+    : 2000;
+
+  if (stepMs <= 0) {
+    return 0;
+  }
+
+  const now = Date.now();
+  nextDetailedImageRequestAtMs = Math.max(nextDetailedImageRequestAtMs, now);
+  const scheduledAtMs = nextDetailedImageRequestAtMs;
+  nextDetailedImageRequestAtMs += stepMs;
+  const delayMs = Math.min(maxDelayMs, Math.max(0, scheduledAtMs - now));
+
+  (globalThis as any).__INFUMAP_LAST_IMAGE_STAGGER_DELAY_MS__ = delayMs;
+  return delayMs;
+}
+
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
@@ -164,16 +195,25 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   let isDetailed_OnLoad = isDetailed();
   let currentImgSrc = "";
+  let retainedImgSrc = "";
   let imgOriginOnLoad = imgOrigin();
   let isMounting = true;
   let isShowingThumbnail = createInfuSignal<boolean>(true);
+  let pendingFetchTimeoutId: number | undefined = undefined;
 
   // TODO (LOW): Better behavior when imageWidthToRequestPx <= MIN_IMAGE_WIDTH_PX.
   createEffect(() => {
     if (currentImgSrc != imgSrc() && !store.anItemIsResizing.get()) {
       if (isDetailed_OnLoad) {
+        if (pendingFetchTimeoutId !== undefined) {
+          clearTimeout(pendingFetchTimeoutId);
+          pendingFetchTimeoutId = undefined;
+        }
         if (!isMounting) {
-          releaseImage(currentImgSrc, imgOriginOnLoad);
+          if (retainedImgSrc !== "") {
+            releaseImage(retainedImgSrc, imgOriginOnLoad);
+            retainedImgSrc = "";
+          }
         }
         isMounting = false;
         currentImgSrc = imgSrc();
@@ -181,42 +221,59 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         imgSrcSignal.set(thumbnailSrc());
         isShowingThumbnail.set(true);
         const isHighPriority = isPopup();
-        getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
-          .then((objectUrl) => {
-            try {
-              // props.visualElement is actually a function call, which will fail if the component is unmounted.
-              if (props.visualElement == null) {
-                // dummy statement to ensure the check is not optimized away.
+        const requestDelayMs = isHighPriority ? 0 : imageStaggerDelayMs();
+        const startFetch = () => {
+          pendingFetchTimeoutId = undefined;
+          retainedImgSrc = currentImgSrc;
+          getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
+            .then((objectUrl) => {
+              try {
+                // props.visualElement is actually a function call, which will fail if the component is unmounted.
+                if (props.visualElement == null) {
+                  // dummy statement to ensure the check is not optimized away.
+                  return;
+                }
+              }
+              catch (e) {
+                // expected behavior when the component is unmounted.
                 return;
               }
-            }
-            catch (e) {
-              // expected behavior when the component is unmounted.
-              return;
-            }
-            if (isPopup()) {
-              if (imageIdOnRequest == props.visualElement.displayItem.id) {
+              if (isPopup()) {
+                if (imageIdOnRequest == props.visualElement.displayItem.id) {
+                  imgSrcSignal.set(objectUrl);
+                  isShowingThumbnail.set(false);
+                } else {
+                  const prevObjectUrl = imgSrcSignal.get();
+                  // temporarily set the image src to the out-of-date fetched image to force the browser to cache the image.
+                  // if this is not done, the image will need to be re-fetched if the user re-selects the image (which they will often do).
+                  imgSrcSignal.set(objectUrl);
+                  setTimeout(() => { imgSrcSignal.set(prevObjectUrl) }, 0);
+                }
+              } else {
                 imgSrcSignal.set(objectUrl);
                 isShowingThumbnail.set(false);
-              } else {
-                const prevObjectUrl = imgSrcSignal.get();
-                // temporarily set the image src to the out-of-date fetched image to force the browser to cache the image.
-                // if this is not done, the image will need to be re-fetched if the user re-selects the image (which they will often do).
-                imgSrcSignal.set(objectUrl);
-                setTimeout(() => { imgSrcSignal.set(prevObjectUrl) }, 0);
               }
-            } else {
-              imgSrcSignal.set(objectUrl);
-              isShowingThumbnail.set(false);
-            }
-          });
+            });
+        };
+
+        if (requestDelayMs > 0) {
+          pendingFetchTimeoutId = globalThis.setTimeout(startFetch, requestDelayMs);
+        } else {
+          startFetch();
+        }
       }
     }
   });
 
   onCleanup(() => {
+    if (pendingFetchTimeoutId !== undefined) {
+      clearTimeout(pendingFetchTimeoutId);
+      pendingFetchTimeoutId = undefined;
+    }
     if (isDetailed_OnLoad) {
-      releaseImage(currentImgSrc, imgOriginOnLoad);
+      if (retainedImgSrc !== "") {
+        releaseImage(retainedImgSrc, imgOriginOnLoad);
+      }
     }
   });
 
