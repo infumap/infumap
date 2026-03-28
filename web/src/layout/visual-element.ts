@@ -312,6 +312,7 @@ export interface VisualElementRelationships {
   // Prefer `*Paths` in new arrange code; `*Ves` remains as a migration adapter.
   childrenVes?: Array<VisualElementSignal>,
   childrenPaths?: Array<VisualElementPath>,
+  // Render-only table row slot metadata; not part of the canonical scene graph.
   tableVesRows?: Array<number>,
   attachmentsVes?: Array<VisualElementSignal>,
   attachmentsPaths?: Array<VisualElementPath>,

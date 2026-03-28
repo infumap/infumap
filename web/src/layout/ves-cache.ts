@@ -158,7 +158,15 @@ function updateRenderProjectionNonMovingChildren(path: VisualElementPath, value:
 }
 
 function setRenderProjectionTableRows(path: VisualElementPath, rows: Array<number> | null) {
-  getRenderProjection(path).tableRows = rows;
+  getRenderProjection(path).tableRows = rows ? rows.slice() : null;
+}
+
+function setUnderConstructionRenderTableRows(path: VisualElementPath, rows: Array<number> | null | undefined) {
+  if (rows == null) {
+    underConstructionRenderTableRowsByPath.delete(path);
+    return;
+  }
+  underConstructionRenderTableRowsByPath.set(path, rows.slice());
 }
 
 function prepareVisualElementSpec(spec: VisualElementSpec): VisualElementSpec {
@@ -190,7 +198,6 @@ type SceneRelationshipData = {
   lineChildren: Array<VisualElementPath>;
   desktopChildren: Array<VisualElementPath>;
   nonMovingChildren: Array<VisualElementPath>;
-  tableRows: Array<number> | null;
   focusedChildItemMaybe: Item | null;
 }
 
@@ -248,6 +255,7 @@ let currentScene = createEmptySceneState();
 let virtualScene = createEmptyVirtualSceneState();
 let underConstructionScene = createEmptySceneState();
 let underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
+let underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
 let currentSceneOutputs = createEmptySceneOutputs();
 let underConstructionSceneOutputs = createEmptySceneOutputs();
 
@@ -307,10 +315,6 @@ function getSceneVeidMatchPaths(scene: SceneState, veid: Veid): Array<VisualElem
 
 function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPath): string | undefined {
   return getSceneNode(scene, path)?.displayItemFingerprint;
-}
-
-function getSceneTableRows(scene: SceneState, path: VisualElementPath): Array<number> | null {
-  return scene.relationshipsByPath.get(path)?.tableRows ?? null;
 }
 
 function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
@@ -501,7 +505,6 @@ function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
       lineChildren: relationships.lineChildren.slice(),
       desktopChildren: relationships.desktopChildren.slice(),
       nonMovingChildren: relationships.nonMovingChildren.slice(),
-      tableRows: relationships.tableRows ? relationships.tableRows.slice() : null,
       focusedChildItemMaybe: relationships.focusedChildItemMaybe,
     });
   }
@@ -626,6 +629,7 @@ function syncRenderProjectionForPath(
   path: VisualElementPath,
   previousVe?: VisualElement,
   preferredSignal?: VisualElementSignal,
+  renderTableRows?: Array<number> | null,
 ) {
   syncRenderProjectionNode(path, getSceneNode(scene, path), previousVe, preferredSignal);
   const relationships = scene.relationshipsByPath.get(path);
@@ -638,7 +642,7 @@ function syncRenderProjectionForPath(
   updateRenderProjectionDesktopChildren(path, resolveSceneNodePaths(scene, relationships?.desktopChildren));
   updateRenderProjectionNonMovingChildren(path, resolveSceneNodePaths(scene, relationships?.nonMovingChildren));
   updateRenderProjectionFocused(path, relationships?.focusedChildItemMaybe ?? null);
-  setRenderProjectionTableRows(path, getSceneTableRows(scene, path));
+  setRenderProjectionTableRows(path, renderTableRows ?? null);
 }
 
 function clearRenderProjectionForPath(path: VisualElementPath) {
@@ -781,7 +785,6 @@ function prepareSceneRelationshipData(scene: SceneState, relationships: VisualEl
     lineChildren: childBuckets.lineChildren,
     desktopChildren: childBuckets.desktopChildren,
     nonMovingChildren: childBuckets.nonMovingChildren,
-    tableRows: relationships?.tableVesRows ?? null,
     focusedChildItemMaybe: relationships?.focusedChildItemMaybe ?? null,
   };
 }
@@ -835,14 +838,24 @@ function logOrphanedVes(cache: Map<VisualElementPath, VisualElement>, context: s
   }
 }
 
-function syncRenderProjectionFromScene(previousScene: SceneState, scene: SceneState) {
+function syncRenderProjectionFromScene(
+  previousScene: SceneState,
+  scene: SceneState,
+  renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
+) {
   for (const [path] of renderProjectionByPath) {
     if (!sceneHasNode(scene, path)) {
       clearRenderProjectionForPath(path);
     }
   }
   for (const [path] of scene.cache) {
-    syncRenderProjectionForPath(scene, path, previousScene?.cache.get(path));
+    syncRenderProjectionForPath(
+      scene,
+      path,
+      previousScene?.cache.get(path),
+      undefined,
+      renderTableRowsByPath?.get(path) ?? null,
+    );
   }
 }
 
@@ -850,14 +863,19 @@ function promoteVirtualScene(scene: SceneState) {
   virtualScene = snapshotVirtualScene(scene);
 }
 
-function promoteCurrentScene(store: StoreContextModel, scene: SceneState, outputs: SceneOutputs) {
+function promoteCurrentScene(
+  store: StoreContextModel,
+  scene: SceneState,
+  outputs: SceneOutputs,
+  renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
+) {
   const previousScene = currentScene;
   currentScene = scene;
   currentSceneOutputs = outputs;
   store.topTitledPages.set(outputs.topTitledPages);
   logOrphanedVes(scene.cache, "full_finalizeArrange");
   logArrangeStats();
-  syncRenderProjectionFromScene(previousScene, scene);
+  syncRenderProjectionFromScene(previousScene, scene, renderTableRowsByPath);
 }
 
 const currentSceneQueries = {
@@ -1012,6 +1030,7 @@ export let VesCache = {
     virtualScene = createEmptyVirtualSceneState();
     underConstructionScene = createEmptySceneState();
     underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
+    underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
     underConstructionSceneOutputs = createEmptySceneOutputs();
 
   },
@@ -1044,6 +1063,7 @@ export let VesCache = {
     currentlyInFullArrange = true;
     resetArrangeStats();
     underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
+    underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
   },
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
@@ -1057,11 +1077,12 @@ export let VesCache = {
     } else {
       writeScenePath(underConstructionScene, umbrellaPath, umbrellaVe, preparedUmbrellaRelationships);
       store.umbrellaVisualElement.set(umbrellaVe);
-      promoteCurrentScene(store, underConstructionScene, underConstructionSceneOutputs);
+      promoteCurrentScene(store, underConstructionScene, underConstructionSceneOutputs, underConstructionRenderTableRowsByPath);
     }
 
     underConstructionScene = createEmptySceneState();
     underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
+    underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
     underConstructionSceneOutputs = createEmptySceneOutputs();
 
     currentlyInFullArrange = false;
@@ -1088,7 +1109,7 @@ export let VesCache = {
     const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships);
     const newElement = VeFns.create(preparedSpec);
     writeScenePath(currentScene, path, newElement, preparedRelationships);
-    syncRenderProjectionForPath(currentScene, path);
+    syncRenderProjectionForPath(currentScene, path, undefined, undefined, relationships.tableVesRows ?? null);
 
     maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
 
@@ -1155,7 +1176,7 @@ export let VesCache = {
     }
     vesToOverwrite.set(cloneVisualElementSnapshot(nextVe));
     writeScenePath(currentScene, newPath, nextVe, preparedRelationships);
-    syncRenderProjectionForPath(currentScene, newPath, undefined, vesToOverwrite);
+    syncRenderProjectionForPath(currentScene, newPath, undefined, vesToOverwrite, relationships.tableVesRows ?? null);
 
     maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
   },
@@ -1261,9 +1282,9 @@ export let VesCache = {
 
   getTableVesRows: (path: VisualElementPath): Array<number> | null => {
     if (currentlyInFullArrange && sceneHasNode(underConstructionScene, path)) {
-      return getSceneTableRows(underConstructionScene, path);
+      return underConstructionRenderTableRowsByPath.get(path) ?? null;
     }
-    return renderProjectionByPath.get(path)?.tableRows ?? getSceneTableRows(currentScene, path);
+    return renderProjectionByPath.get(path)?.tableRows ?? null;
   },
 }
 
@@ -1271,6 +1292,7 @@ export let VesCache = {
 function buildUnderConstructionVisualElementSignal(spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal {
   const preparedSpec = prepareVisualElementSpec(spec);
   const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
+  setUnderConstructionRenderTableRows(path, relationships.tableVesRows);
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
