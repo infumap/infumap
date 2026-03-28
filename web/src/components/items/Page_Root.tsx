@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, onMount, createEffect, onCleanup } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount, createEffect } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Veid, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
@@ -31,7 +31,7 @@ import { getMonthInfo } from "../../util/time";
 import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
-import { scheduleDeferredScrollRestore, scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -41,7 +41,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   let updatingRootScrollTop = false;
   let rootDiv: any = undefined;
-  let cancelPendingRootScrollRestore: (() => void) | null = null;
 
   const pageFns = () => props.pageFns;
 
@@ -60,16 +59,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     return veid;
   };
 
-  const applyRootScrollRestore = () => {
-    if (!rootDiv) {
-      updatingRootScrollTop = false;
-      return;
-    }
+  onMount(() => {
+    if (!rootDiv) return;
+
     const veid = getScrollVeid();
-    if (!veid) {
-      updatingRootScrollTop = false;
-      return;
-    }
+    if (!veid) return;
+    updatingRootScrollTop = true;
 
     // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
     const isListPage = pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
@@ -94,29 +89,41 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     setTimeout(() => {
       updatingRootScrollTop = false;
     }, 0);
-  };
-
-  const scheduleRootScrollRestore = () => {
-    cancelPendingRootScrollRestore?.();
-    updatingRootScrollTop = true;
-    cancelPendingRootScrollRestore = scheduleDeferredScrollRestore(() => {
-      cancelPendingRootScrollRestore = null;
-      applyRootScrollRestore();
-    });
-  };
-
-  onMount(() => {
-    scheduleRootScrollRestore();
   });
 
   createEffect(() => {
     // occurs on page arrange algorithm change.
     if (!pageFns().childAreaBoundsPx()) { return; }
-    scheduleRootScrollRestore();
-  });
 
-  onCleanup(() => {
-    cancelPendingRootScrollRestore?.();
+    updatingRootScrollTop = true;
+
+    if (rootDiv) {
+      const veid = getScrollVeid();
+      if (!veid) return;
+
+      // For list pages, use listChildAreaBoundsPx; for other pages, use childAreaBoundsPx
+      const isListPage = pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
+      if (isListPage && props.visualElement.listChildAreaBoundsPx) {
+        const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
+        const viewportH = pageFns().viewportBoundsPx().h;
+        rootDiv.scrollTop =
+          store.perItem.getPageScrollYProp(veid) *
+          (listChildAreaH - viewportH);
+        // List pages typically only scroll vertically, but handle width just in case
+        rootDiv.scrollLeft = 0;
+      } else {
+        rootDiv.scrollTop =
+          store.perItem.getPageScrollYProp(veid) *
+          (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+        rootDiv.scrollLeft =
+          store.perItem.getPageScrollXProp(veid) *
+          (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+      }
+    }
+
+    setTimeout(() => {
+      updatingRootScrollTop = false;
+    }, 0);
   });
 
   const listRootScrollHandler = (_ev: Event) => {

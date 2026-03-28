@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, onCleanup, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
@@ -30,7 +30,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
-import { scheduleDeferredScrollRestore, scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -39,14 +39,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const store = useStore();
 
   let rootDiv: any = undefined; // HTMLDivElement | undefined
-  let cancelPendingEmbeddedScrollRestore: (() => void) | null = null;
 
   const pageFns = () => props.pageFns;
 
-  const applyEmbeddedScrollRestore = () => {
-    if (!rootDiv) {
-      return;
-    }
+  onMount(() => {
     let veid = VeFns.veidFromVe(props.visualElement);
     if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
@@ -61,18 +57,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
     rootDiv.scrollTop = scrollYPx;
     rootDiv.scrollLeft = scrollXPx;
-  };
-
-  onMount(() => {
-    cancelPendingEmbeddedScrollRestore?.();
-    cancelPendingEmbeddedScrollRestore = scheduleDeferredScrollRestore(() => {
-      cancelPendingEmbeddedScrollRestore = null;
-      applyEmbeddedScrollRestore();
-    });
-  });
-
-  onCleanup(() => {
-    cancelPendingEmbeddedScrollRestore?.();
   });
 
   const keyUpHandler = (ev: KeyboardEvent) => {
