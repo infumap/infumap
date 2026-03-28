@@ -23,7 +23,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
-import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "./visual-element";
+import { NONE_VISUAL_ELEMENT, VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "./visual-element";
 
 /*
   Explanation:
@@ -525,6 +525,23 @@ function valuesDeepEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
+function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
+  const preparedValues = preparedSpec as unknown as Record<string, unknown>;
+  const existingValues = existingVe as unknown as Record<string, unknown>;
+  const defaultValues = NONE_VISUAL_ELEMENT as unknown as Record<string, unknown>;
+
+  for (const key of Object.keys(defaultValues)) {
+    const expectedValue = Object.prototype.hasOwnProperty.call(preparedValues, key)
+      ? preparedValues[key]
+      : defaultValues[key];
+    if (!valuesDeepEqual(existingValues[key], expectedValue)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
   const snapshot = createEmptyVirtualSceneState();
 
@@ -651,11 +668,10 @@ function writePreparedUnderConstructionVisualElement(
   path: VisualElementPath,
 ): VisualElement {
   maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
-  const nextVe = VeFns.create(preparedSpec);
   const existingVe = getSceneNode(currentScene, path);
-  const canonicalVe = existingVe && valuesDeepEqual(existingVe, nextVe)
+  const canonicalVe = existingVe && visualElementMatchesPreparedSpec(preparedSpec, existingVe)
     ? existingVe
-    : nextVe;
+    : VeFns.create(preparedSpec);
   writeUnderConstructionSceneNode(path, canonicalVe, preparedRelationships);
   return canonicalVe;
 }
