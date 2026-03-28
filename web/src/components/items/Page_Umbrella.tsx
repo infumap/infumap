@@ -29,7 +29,8 @@ const MAX_PRESERVED_UMBRELLA_CHILDREN = 4;
 
 interface PreservedChildEntry {
   key: string,
-  visualElement: VisualElement,
+  visualElement: () => VisualElement,
+  setVisualElement: (visualElement: VisualElement) => void,
 }
 
 export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
@@ -52,14 +53,24 @@ export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisu
 
     setPreservedChildren((prev) => {
       let next = prev.slice();
+      const activeKeys = new Set<string>();
       for (const childVe of currentChildren) {
-        next = next.filter(entry => entry.key !== childKey(childVe));
-        next.push({
-          key: childKey(childVe),
-          visualElement: childVe,
-        });
+        const key = childKey(childVe);
+        activeKeys.add(key);
+        const existing = next.find(entry => entry.key === key);
+        if (existing) {
+          existing.setVisualElement(childVe);
+          continue;
+        }
+        const [visualElement, setVisualElement] = createSignal(childVe);
+        next.push({ key, visualElement, setVisualElement });
       }
-      return next.slice(-MAX_PRESERVED_UMBRELLA_CHILDREN);
+      const activeEntries = next.filter(entry => activeKeys.has(entry.key));
+      const inactiveEntries = next.filter(entry => !activeKeys.has(entry.key));
+      return [
+        ...inactiveEntries.slice(-Math.max(0, MAX_PRESERVED_UMBRELLA_CHILDREN - activeEntries.length)),
+        ...activeEntries,
+      ];
     });
   });
 
@@ -74,7 +85,7 @@ export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisu
       }>
         <For each={preservedChildren()}>{childEntry =>
           <div style={`display: ${activeChildKeys().has(childEntry.key) ? "block" : "none"};`}>
-            <VisualElement_Desktop visualElement={childEntry.visualElement} />
+            <VisualElement_Desktop visualElement={childEntry.visualElement()} />
           </div>
         }</For>
       </Show>

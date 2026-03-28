@@ -40,7 +40,8 @@ const MAX_PRESERVED_SELECTED_PAGES = 4;
 
 interface PreservedChildEntry {
   key: string,
-  visualElement: VisualElement,
+  visualElement: () => VisualElement,
+  setVisualElement: (visualElement: VisualElement) => void,
 }
 
 export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
@@ -74,12 +75,21 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     }
 
     setPreservedSelectedPages((prev) => {
-      let next = prev.filter(entry => entry.key !== selectedKey(currentSelectedVe));
-      next.push({
-        key: selectedKey(currentSelectedVe),
-        visualElement: currentSelectedVe,
-      });
-      return next.slice(-MAX_PRESERVED_SELECTED_PAGES);
+      const key = selectedKey(currentSelectedVe);
+      let next = prev.slice();
+      const existing = next.find(entry => entry.key === key);
+      if (existing) {
+        existing.setVisualElement(currentSelectedVe);
+      } else {
+        const [visualElement, setVisualElement] = createSignal(currentSelectedVe);
+        next.push({ key, visualElement, setVisualElement });
+      }
+      const activeEntries = next.filter(entry => entry.key === key);
+      const inactiveEntries = next.filter(entry => entry.key !== key);
+      return [
+        ...inactiveEntries.slice(-Math.max(0, MAX_PRESERVED_SELECTED_PAGES - activeEntries.length)),
+        ...activeEntries,
+      ];
     });
   });
 
@@ -255,7 +265,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         }>
           <For each={preservedSelectedPages()}>{selectedEntry =>
             <div style={`display: ${selectedVe() != null && selectedKey(selectedVe()!) == selectedEntry.key ? "block" : "none"};`}>
-              <VisualElement_Desktop visualElement={selectedEntry.visualElement} />
+              <VisualElement_Desktop visualElement={selectedEntry.visualElement()} />
             </div>
           }</For>
         </Show>
