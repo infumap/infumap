@@ -47,7 +47,6 @@ import { NONE_VISUAL_ELEMENT, VeFns, Veid, VisualElement, VisualElementFlags, Vi
 
 import { Item } from "../items/base/item";
 type RenderProjectionSignalValues = {
-  node: VisualElementSignal | undefined;
   popup: VisualElementSignal | null;
   selected: VisualElementSignal | null;
   dock: VisualElementSignal | null;
@@ -62,7 +61,8 @@ type RenderProjectionSignalValues = {
 type RenderProjectionSignalKey = keyof RenderProjectionSignalValues;
 
 type RenderProjectionEntry = {
-  node: [Accessor<VisualElementSignal | undefined>, Setter<VisualElementSignal | undefined>] | null;
+  nodeValue: VisualElementSignal | undefined;
+  nodeSignal: [Accessor<VisualElementSignal | undefined>, Setter<VisualElementSignal | undefined>] | null;
   popup: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>] | null;
   selected: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>] | null;
   dock: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>] | null;
@@ -79,7 +79,8 @@ let renderProjectionByPath = new Map<VisualElementPath, RenderProjectionEntry>()
 
 function createRenderProjectionEntry(): RenderProjectionEntry {
   return {
-    node: null,
+    nodeValue: undefined,
+    nodeSignal: null,
     popup: null,
     selected: null,
     dock: null,
@@ -121,6 +122,17 @@ function ensureRenderProjectionSignal<K extends RenderProjectionSignalKey>(
   return signal;
 }
 
+function ensureRenderProjectionNodeSignal(
+  entry: RenderProjectionEntry,
+): [Accessor<VisualElementSignal | undefined>, Setter<VisualElementSignal | undefined>] {
+  if (entry.nodeSignal) {
+    return entry.nodeSignal;
+  }
+  const signal = createSignal<VisualElementSignal | undefined>(entry.nodeValue);
+  entry.nodeSignal = signal;
+  return signal;
+}
+
 function updateRenderProjectionSignal<T>(signal: [Accessor<T>, Setter<T>], value: T, shouldUpdate?: (current: T, next: T) => boolean) {
   const [read, write] = signal;
   const current = read();
@@ -150,7 +162,11 @@ function updateRenderProjectionPopup(path: VisualElementPath, value: VisualEleme
 }
 
 function updateRenderProjectionNode(path: VisualElementPath, value: VisualElementSignal | undefined) {
-  updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:node"), "node", undefined), value);
+  const entry = getRenderProjection(path, "update:node");
+  entry.nodeValue = value;
+  if (entry.nodeSignal) {
+    updateRenderProjectionSignal(entry.nodeSignal, value);
+  }
 }
 
 function updateRenderProjectionSelected(path: VisualElementPath, value: VisualElementSignal | null) {
@@ -737,7 +753,11 @@ function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPa
 }
 
 function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
-  return findRenderProjection(path)?.node?.[0]();
+  const entry = findRenderProjection(path);
+  if (!entry) {
+    return undefined;
+  }
+  return entry.nodeSignal ? entry.nodeSignal[0]() : entry.nodeValue;
 }
 
 function ensureCurrentRenderNode(path: VisualElementPath): VisualElementSignal | null {
@@ -1213,7 +1233,8 @@ function clearRenderProjectionForPath(path: VisualElementPath) {
     return;
   }
 
-  entry.node && updateRenderProjectionSignal(entry.node, undefined);
+  entry.nodeValue = undefined;
+  entry.nodeSignal && updateRenderProjectionSignal(entry.nodeSignal, undefined);
   entry.popup && updateRenderProjectionSignal(entry.popup, null);
   entry.selected && updateRenderProjectionSignal(entry.selected, null);
   entry.dock && updateRenderProjectionSignal(entry.dock, null);
@@ -1589,7 +1610,7 @@ const virtualSceneQueries = {
 
 const renderSceneQueries = {
   getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getNode"), "node", undefined)[0]();
+    return ensureRenderProjectionNodeSignal(getRenderProjection(path, "render:getNode"))[0]();
   },
 
   find: (veid: Veid): Array<VisualElementSignal> => {
