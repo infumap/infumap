@@ -39,7 +39,7 @@ import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 
 import { arrangeItemAttachments } from "./attachments";
-import { ArrangeItemFlags } from "./item";
+import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -86,10 +86,7 @@ export const arrangeTable = (
     actualLinkItemMaybe: actualLinkItemMaybe_Table,
     flags: VisualElementFlags.Detailed |
       VisualElementFlags.ShowChildren |
-      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+      getCommonVisualElementFlags(flags) |
       (isTableHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
       (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,

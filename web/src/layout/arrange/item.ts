@@ -51,6 +51,7 @@ export enum ArrangeItemFlags {
   RenderChildrenAsFull = 0x100,
   RenderAsOutline = 0x200,
   InsideCompositeOrDoc = 0x400,
+  IsFixed = 0x800,
 }
 
 export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
@@ -59,6 +60,16 @@ export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
     flags & ArrangeItemFlags.IsListPageMainRoot |
     flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
     flags & ArrangeItemFlags.IsDockRoot);
+}
+
+export function getCommonVisualElementFlags(flags: ArrangeItemFlags): VisualElementFlags {
+  return (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.IsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
 }
 
 
@@ -145,10 +156,7 @@ export const arrangeItemNoChildren = (
     linkItemMaybe,
     actualLinkItemMaybe,
     flags: (flags & ArrangeItemFlags.RenderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
-      (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
+      getCommonVisualElementFlags(flags) |
       (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: itemGeometry.boundsPx,

@@ -85,12 +85,6 @@ export const arrangePageWithChildren = (
     pageRelationships.attachmentsVes = attachments;
   }
 
-  const pageWithChildrenVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(pageSpec, pageRelationships, pageWithChildrenVePath);
-  if (linkItemMaybe_pageWithChildren?.overrideTitle) {
-    const ve = pageWithChildrenVisualElementSignal.get();
-    ve.evaluatedTitle = linkItemMaybe_pageWithChildren.overrideTitle;
-    pageWithChildrenVisualElementSignal.set(ve);
-  }
-  return pageWithChildrenVisualElementSignal;
+  pageSpec.evaluatedTitle = linkItemMaybe_pageWithChildren?.overrideTitle ?? null;
+  return VesCache.full_createOrRecycleVisualElementSignal(pageSpec, pageRelationships, pageWithChildrenVePath);
 }
-

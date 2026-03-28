@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { batch } from "solid-js";
 import { GRID_SIZE } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
@@ -28,7 +27,7 @@ import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { RelationshipToParent } from "../relationship-to-parent";
-import { VeFns, VisualElementFlags } from "../visual-element";
+import { VeFns } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
@@ -332,12 +331,15 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     store, currentPage, currentPopupSpec.actualVeid
   );
 
-  let ves: VisualElementSignal;
-  batch(() => {
-    ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, linkItem, actualLinkItemMaybe, geometry, ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.RenderChildrenAsFull);
-    let ve = ves.get();
-    ve.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
-    ves.set(ve);
-  });
-  return ves!;
+  return arrangeItem(
+    store,
+    currentPath,
+    currentPage.arrangeAlgorithm,
+    linkItem,
+    actualLinkItemMaybe,
+    geometry,
+    ArrangeItemFlags.IsPopupRoot |
+    ArrangeItemFlags.RenderChildrenAsFull |
+    (renderAsFixed ? ArrangeItemFlags.IsFixed : ArrangeItemFlags.None)
+  );
 }

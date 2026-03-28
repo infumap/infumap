@@ -298,6 +298,7 @@ export interface VisualElementSpec {
   numRows?: number,
   hitboxes?: Array<Hitbox>,
   parentPath?: VisualElementPath,
+  evaluatedTitle?: string | null,
 }
 
 /**
@@ -913,6 +914,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.numRows) != 'undefined') { result.numRows = override.numRows; }
   if (typeof (override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
   if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
+  if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
   if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
   // tableVesRows is moved to VesCache, do not copy to VisualElement
   // attachmentsVes is moved to VesCache, do not copy to VisualElement

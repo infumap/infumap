@@ -34,7 +34,7 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
-import { ArrangeItemFlags } from "./item";
+import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { arrangePageWithChildren } from "./page";
 import { arrangeTable } from "./table";
 import { getVePropertiesForItem } from "./util";
@@ -62,9 +62,7 @@ export const arrangeComposite = (
     linkItemMaybe: linkItemMaybe_Composite,
     actualLinkItemMaybe: actualLinkItemMaybe_Composite,
     flags: VisualElementFlags.Detailed |
-      (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
+      getCommonVisualElementFlags(flags),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: compositeGeometry.boundsPx,
     childAreaBoundsPx,
