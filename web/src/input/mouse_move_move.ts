@@ -266,22 +266,23 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, MouseActionState.get().hitEmbeddedInteractive);
 
   // update move over element state.
-  if (MouseActionState.get().moveOver_containerElement == null ||
-    MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds))) {
-    if (MouseActionState.get().moveOver_containerElement != null) {
-      const veMaybe = MouseActionState.readVisualElement(MouseActionState.get().moveOver_containerElement);
+  const moveOverContainerPath = VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds));
+  if (MouseActionState.getMoveOverContainerPath() == null ||
+    MouseActionState.getMoveOverContainerPath()! != moveOverContainerPath) {
+    if (MouseActionState.getMoveOverContainerPath() != null) {
+      const veMaybe = MouseActionState.readMoveOverContainer();
       if (veMaybe) {
         store.perVe.setMovingItemIsOver(VeFns.veToPath(veMaybe), false);
       }
     }
 
-    store.perVe.setMovingItemIsOver(VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds)), true);
-    MouseActionState.get().moveOver_containerElement = VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds));
+    store.perVe.setMovingItemIsOver(moveOverContainerPath, true);
+    MouseActionState.setMoveOverContainerPath(moveOverContainerPath);
   }
 
   // update move over attach state.
-  if (MouseActionState.get().moveOver_attachHitboxElement != null) {
-    const ve = MouseActionState.readVisualElement(MouseActionState.get().moveOver_attachHitboxElement)!;
+  if (MouseActionState.getMoveOverAttachHitboxPath() != null) {
+    const ve = MouseActionState.readMoveOverAttachHitbox()!;
     store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(ve), false);
     store.perVe.setMoveOverAttachmentIndex(VeFns.veToPath(ve), -1);
   }
@@ -289,7 +290,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const attachVe = hitInfo.overVes!.get();
     const attachVePath = VeFns.veToPath(attachVe);
     store.perVe.setMovingItemIsOverAttach(attachVePath, true);
-    MouseActionState.get().moveOver_attachHitboxElement = attachVePath;
+    MouseActionState.setMoveOverAttachHitboxPath(attachVePath);
 
     // Calculate which attachment slot the mouse is over
     const attachItem = asAttachmentsItem(attachVe.displayItem);
@@ -308,22 +309,22 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
     store.perVe.setMoveOverAttachmentIndex(attachVePath, clampedIndex);
   } else {
-    MouseActionState.get().moveOver_attachHitboxElement = null;
+    MouseActionState.setMoveOverAttachHitboxPath(null);
   }
 
   // update move over attach composite state.
-  if (MouseActionState.get().moveOver_attachCompositeHitboxElement != null) {
-    const ve = MouseActionState.readVisualElement(MouseActionState.get().moveOver_attachCompositeHitboxElement)!;
+  if (MouseActionState.getMoveOverAttachCompositePath() != null) {
+    const ve = MouseActionState.readMoveOverAttachComposite()!;
     store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(ve), false);
   }
   if (hitInfo.hitboxType & HitboxFlags.AttachComposite) {
     store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(hitInfo.overVes!.get()), true);
-    MouseActionState.get().moveOver_attachCompositeHitboxElement = VeFns.veToPath(hitInfo.overVes!.get());
+    MouseActionState.setMoveOverAttachCompositePath(VeFns.veToPath(hitInfo.overVes!.get()));
   } else {
-    MouseActionState.get().moveOver_attachCompositeHitboxElement = null;
+    MouseActionState.setMoveOverAttachCompositePath(null);
   }
 
-  if (MouseActionState.readVisualElement(MouseActionState.get().moveOver_scaleDefiningElement)!.displayItem != hitInfo.overPositionableVe!.displayItem) {
+  if (MouseActionState.readScaleDefiningElement()!.displayItem != hitInfo.overPositionableVe!.displayItem) {
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false, false);
     arrangeNow(store, "moving-enter-new-container");
     return;
@@ -342,7 +343,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   let newPosBl = vectorAdd(MouseActionState.get().startPosBl!, deltaBl);
   newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
   newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
-  const inElementVe = MouseActionState.readVisualElement(MouseActionState.get().moveOver_scaleDefiningElement)!;
+  const inElementVe = MouseActionState.readScaleDefiningElement()!;
   const inElement = inElementVe.displayItem;
   const dimBl = PageFns.calcInnerSpatialDimensionsBl(asPageItem(inElement));
   if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
@@ -532,7 +533,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     y: moveToPageInnerSizeBl.h / moveToVe.childAreaBoundsPx!.h
   };
 
-  MouseActionState.get().moveOver_scaleDefiningElement = moveToPath;
+  MouseActionState.setScaleDefiningElementPath(moveToPath);
 }
 
 
@@ -639,7 +640,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   };
 
   MouseActionState.get().startPosBl = { x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE };
-  MouseActionState.get().moveOver_scaleDefiningElement = VeFns.veToPath(moveToPageVe);
+  MouseActionState.setScaleDefiningElementPath(VeFns.veToPath(moveToPageVe));
 }
 
 

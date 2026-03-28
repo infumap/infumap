@@ -281,6 +281,58 @@ export let MouseActionState = {
     return getRenderSignalForPath(path);
   },
 
+  getMoveOverContainerPath: (): VisualElementPath | null => {
+    return mouseActionState?.moveOver_containerElement ?? null;
+  },
+
+  setMoveOverContainerPath: (path: VisualElementPath | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.moveOver_containerElement = path;
+  },
+
+  readMoveOverContainer: (): VisualElement | null => {
+    return readCurrentVisualElement(mouseActionState?.moveOver_containerElement ?? null);
+  },
+
+  getMoveOverAttachHitboxPath: (): VisualElementPath | null => {
+    return mouseActionState?.moveOver_attachHitboxElement ?? null;
+  },
+
+  setMoveOverAttachHitboxPath: (path: VisualElementPath | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.moveOver_attachHitboxElement = path;
+  },
+
+  readMoveOverAttachHitbox: (): VisualElement | null => {
+    return readCurrentVisualElement(mouseActionState?.moveOver_attachHitboxElement ?? null);
+  },
+
+  getMoveOverAttachCompositePath: (): VisualElementPath | null => {
+    return mouseActionState?.moveOver_attachCompositeHitboxElement ?? null;
+  },
+
+  setMoveOverAttachCompositePath: (path: VisualElementPath | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.moveOver_attachCompositeHitboxElement = path;
+  },
+
+  readMoveOverAttachComposite: (): VisualElement | null => {
+    return readCurrentVisualElement(mouseActionState?.moveOver_attachCompositeHitboxElement ?? null);
+  },
+
+  getScaleDefiningElementPath: (): VisualElementPath | null => {
+    return mouseActionState?.moveOver_scaleDefiningElement ?? null;
+  },
+
+  setScaleDefiningElementPath: (path: VisualElementPath | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.moveOver_scaleDefiningElement = path;
+  },
+
+  readScaleDefiningElement: (): VisualElement | null => {
+    return readCurrentVisualElement(mouseActionState?.moveOver_scaleDefiningElement ?? null);
+  },
+
   setActiveElementPath: (path: VisualElementPath, signalHint: VisualElementSignal | null = null): void => {
     setActiveElementPathInternal(MouseActionState.get(), path, signalHint);
   },

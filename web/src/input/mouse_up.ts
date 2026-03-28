@@ -368,22 +368,22 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
 function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: PositionalItem) {
 
-  if (MouseActionState.get().moveOver_containerElement != null) {
-    const ve = MouseActionState.readVisualElement(MouseActionState.get().moveOver_containerElement)!;
+  if (MouseActionState.getMoveOverContainerPath() != null) {
+    const ve = MouseActionState.readMoveOverContainer()!;
     store.perVe.setMovingItemIsOver(VeFns.veToPath(ve), false);
   }
 
-  if (MouseActionState.get().moveOver_attachHitboxElement != null) {
+  if (MouseActionState.getMoveOverAttachHitboxPath() != null) {
     mouseUpHandler_moving_hitboxAttachTo(store, activeItem);
     return;
   }
 
-  if (MouseActionState.get().moveOver_attachCompositeHitboxElement != null) {
+  if (MouseActionState.getMoveOverAttachCompositePath() != null) {
     mouseUpHandler_moving_hitboxAttachToComposite(store, activeItem);
     return;
   }
 
-  const overContainerVe = MouseActionState.readVisualElement(MouseActionState.get().moveOver_containerElement)!;
+  const overContainerVe = MouseActionState.readMoveOverContainer()!;
   if (isTable(overContainerVe.displayItem)) {
     mouseUpHandler_moving_toTable(store, activeItem, overContainerVe);
     return;
@@ -509,10 +509,10 @@ function persistMovedItems(store: StoreContextModel, defaultIds: string[]) {
 async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContextModel, activeItem: PositionalItem) {
   const prevParentId = activeItem.parentId;
 
-  const attachToVisualElement = MouseActionState.readVisualElement(MouseActionState.get()!.moveOver_attachCompositeHitboxElement)!;
+  const attachToVisualElement = MouseActionState.readMoveOverAttachComposite()!;
   const attachToVisualElementPath = VeFns.veToPath(attachToVisualElement);
   store.perVe.setMovingItemIsOverAttachComposite(attachToVisualElementPath, false);
-  MouseActionState.get()!.moveOver_attachCompositeHitboxElement = null;
+  MouseActionState.setMoveOverAttachCompositePath(null);
 
   const attachToItem = asPositionalItem(VeFns.treeItem(attachToVisualElement));
 
@@ -588,7 +588,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 
 
 function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeItem: PositionalItem) {
-  const attachToVisualElement = MouseActionState.readVisualElement(MouseActionState.get().moveOver_attachHitboxElement)!;
+  const attachToVisualElement = MouseActionState.readMoveOverAttachHitbox()!;
   const attachToPath = VeFns.veToPath(attachToVisualElement);
   const displayedParent = asAttachmentsItem(attachToVisualElement.displayItem);
 
@@ -602,7 +602,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   store.perVe.setMovingItemIsOverAttach(attachToPath, false);
   const insertPosition = store.perVe.getMoveOverAttachmentIndex(attachToPath);
   store.perVe.setMoveOverAttachmentIndex(attachToPath, -1);
-  MouseActionState.get().moveOver_attachHitboxElement = null;
+  MouseActionState.setMoveOverAttachHitboxPath(null);
 
   // Handle case when no specific position or position is at/past end
   if (insertPosition < 0 || insertPosition >= displayedParent.computed_attachments.length) {
