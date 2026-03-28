@@ -141,66 +141,30 @@ export function arrangeTableChildren(
   //                  rows in the table child area, arranged in a circular buffer. outIdx is the index into this buffer.
   // rowIdx:          there is a fixed total number of rows logically present in the table child area (in turn
   //                  determining the inner div height). this is the index into that.
-  // iterIndices:     keeps track of the current position (hierarchical array) in the list of (possibly nested & expanded)
-  //                  containers.
-  // iterContainers:  the containers item_iter indexes into.
 
   let tableVeChildren: Array<VisualElementSignal> = [];
   let tableVesRows: Array<number> = [];
-  let iterIndices = [0];
-  let iterContainers: Array<ContainerItem> = [displayItem_table];
-  let rowIdx = 0;
-  let currentParentPath = tableVePath;
-  let numRows = 0;
-
-  if (displayItem_table.computed_children.length == 0) { return [tableVeChildren, tableVesRows, 0]; }
-
-  while (true) {
-    let itemId = iterContainers[iterContainers.length - 1].computed_children[iterIndices[iterIndices.length - 1]];
-    const item = itemState.get(itemId)!;
-
-    // 1. make row.
-    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
-    let itemVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
-    let itemPath = VeFns.addVeidToPath(itemVeid, currentParentPath);
-    if (rowIdx >= firstItemIdx && rowIdx <= lastItemIdx) {
-      const indentBl = iterIndices.length - 1;
-      let outIdx = rowIdx % outCount;
+  const walkResult = walkTableRowsInWindow(
+    store,
+    displayItem_table,
+    tableVePath,
+    firstItemIdx,
+    lastItemIdx,
+    true,
+    (item, rowIdx, indentBl) => {
+      const outIdx = rowIdx % outCount;
       tableVeChildren[outIdx] = createRow(
         store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableGeometry.boundsPx), null);
       tableVesRows[outIdx] = rowIdx;
-    }
-    rowIdx = rowIdx + 1;
-    numRows += 1;
+    },
+    (rowIdx) => {
+      const outIdx = rowIdx % outCount;
+      tableVeChildren[outIdx] = createFillerRow(displayItem_table, tableVePath);
+      tableVesRows[outIdx] = rowIdx;
+    },
+  );
 
-    // 2. increment iterator.
-    if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
-    if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
-      // either step into expanded container
-      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
-      iterIndices.push(0);
-      iterContainers.push(asContainerItem(displayItem_childItem));
-    }
-    else {
-      // or move through current container children by one.
-      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
-      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length - 1].computed_children.length) {
-        iterIndices.pop();
-        iterContainers.pop();
-      }
-      if (iterIndices.length == 0) {
-        while (rowIdx <= lastItemIdx) {
-          let outIdx = rowIdx % outCount;
-          tableVeChildren[outIdx] = createFillerRow(displayItem_table, tableVePath);
-          tableVesRows[outIdx] = rowIdx;
-          rowIdx = rowIdx + 1;
-        }
-        break;
-      }
-    }
-  }
-
-  return [tableVeChildren, tableVesRows, numRows];
+  return [tableVeChildren, tableVesRows, walkResult.numRows];
 }
 
 
@@ -213,6 +177,81 @@ type TableRenderPlan = {
 type TableRowRenderPlan = TableRenderPlan & {
   attachments: Array<TableRenderPlan>,
 };
+
+type TableWindowWalkResult = {
+  numRows: number,
+  aborted: boolean,
+};
+
+
+function walkTableRowsInWindow(
+  store: StoreContextModel,
+  displayItem_table: TableItem,
+  tableVePath: VisualElementPath,
+  firstItemIdx: number,
+  lastItemIdx: number,
+  computeTotalRows: boolean,
+  onVisibleRow: (item: Item, rowIdx: number, indentBl: number) => boolean | void,
+  onFillerRow: (rowIdx: number) => boolean | void): TableWindowWalkResult {
+
+  if (displayItem_table.computed_children.length == 0) {
+    return { numRows: 0, aborted: false };
+  }
+
+  let iterIndices = [0];
+  let iterContainers: Array<ContainerItem> = [displayItem_table];
+  let rowIdx = 0;
+  let numRows = 0;
+
+  while (true) {
+    const itemId = iterContainers[iterContainers.length - 1].computed_children[iterIndices[iterIndices.length - 1]];
+    const item = itemState.get(itemId)!;
+
+    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
+    const itemVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
+    const itemPath = VeFns.addVeidToPath(itemVeid, tableVePath);
+
+    if (rowIdx >= firstItemIdx && rowIdx <= lastItemIdx) {
+      const indentBl = iterIndices.length - 1;
+      if (onVisibleRow(item, rowIdx, indentBl) === false) {
+        return { numRows, aborted: true };
+      }
+    }
+
+    rowIdx += 1;
+    numRows += 1;
+
+    if (!computeTotalRows && rowIdx > lastItemIdx) {
+      break;
+    }
+
+    if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) {
+      initiateLoadChildItemsMaybe(store, itemVeid);
+    }
+    if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
+      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
+      iterIndices.push(0);
+      iterContainers.push(asContainerItem(displayItem_childItem));
+    } else {
+      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
+      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length - 1].computed_children.length) {
+        iterIndices.pop();
+        iterContainers.pop();
+      }
+      if (iterIndices.length == 0) {
+        while (rowIdx <= lastItemIdx) {
+          if (onFillerRow(rowIdx) === false) {
+            return { numRows, aborted: true };
+          }
+          rowIdx += 1;
+        }
+        break;
+      }
+    }
+  }
+
+  return { numRows, aborted: false };
+}
 
 
 function buildFillerRowPlan(
@@ -310,28 +349,18 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     panic("rearrangeTableAfterScroll: unexpected number of child ves rows. can occur if table has fractional height.");
   }
 
-  let tableVeChildren: Array<VisualElementSignal> = [];
-  let iterIndices = [0];
-  let iterContainers: Array<ContainerItem> = [displayItem_table];
-  let rowIdx = 0;
-  let finished = displayItem_table.computed_children.length == 0;
-  let currentParentPath = tableVePath;
-
   // Debug tracking for visual element position mapping
   const debugRowMapping = new Map<number, { rowIdx: number, itemId: string, outIdx: number }>();
-
-  while (!finished) {
-    let itemId = iterContainers[iterContainers.length - 1].computed_children[iterIndices[iterIndices.length - 1]];
-    const item = itemState.get(itemId)!;
-
-    // 1. make row.
-    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
-    let itemVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
-    let itemPath = VeFns.addVeidToPath(itemVeid, currentParentPath);
-    if (rowIdx >= firstItemIdx) {
-      let outIdx = rowIdx % outCount;
+  const walkResult = walkTableRowsInWindow(
+    store,
+    displayItem_table,
+    tableVePath,
+    firstItemIdx,
+    lastItemIdx,
+    false,
+    (item, rowIdx, indentBl) => {
+      const outIdx = rowIdx % outCount;
       if (tableVesRows[outIdx] != rowIdx) {
-        const indentBl = iterIndices.length - 1;
         const vesToOverwrite = childrenVes[outIdx];
 
         const existingVe = vesToOverwrite?.get();
@@ -340,13 +369,14 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
         if (existingPath && !existingPath.includes(tableVePath)) {
           console.debug("rearrangeTableAfterScroll: stale VE signal detected, resorting to fullArrange.");
           recoverWithFullArrange(store, "table-scroll-stale-row-signal");
-          return;
+          return false;
         }
 
+        const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
         const newPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
 
         try {
-          tableVeChildren[outIdx] = createRow(
+          createRow(
             store, item, displayItem_table, tableVePath, tableVe._arrangeFlags_useForPartialRearrangeOnly, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
 
           debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: item.id, outIdx: outIdx });
@@ -371,49 +401,25 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
           console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
           store.overlay.setTextEditInfo(store.history, null);
           recoverWithFullArrange(store, "table-scroll-create-row-failed");
-          return;
+          return false;
         }
         tableVesRows[outIdx] = rowIdx;
       } else {
-        // Track non-rearranged rows too for complete picture
         debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: item.id, outIdx: outIdx });
       }
-    }
-    rowIdx = rowIdx + 1;
-    if (rowIdx > lastItemIdx) {
-      finished = true;
-      break;
-    }
+    },
+    (rowIdx) => {
+      const outIdx = rowIdx % outCount;
+      if (tableVesRows[outIdx] != rowIdx) {
+        const fillerVes = createFillerRow(displayItem_table, tableVePath);
+        childrenVes[outIdx] = fillerVes;
+        tableVesRows[outIdx] = rowIdx;
+      }
+    },
+  );
 
-    // 2. increment iterator.
-    if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
-    if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
-      // either step into expanded container
-      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
-      iterIndices.push(0);
-      iterContainers.push(asContainerItem(displayItem_childItem));
-    }
-    else {
-      // or move through current container children by one.
-      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
-      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length - 1].computed_children.length) {
-        iterIndices.pop();
-        iterContainers.pop();
-      }
-      if (iterIndices.length == 0) {
-        while (rowIdx <= lastItemIdx) {
-          let outIdx = rowIdx % outCount;
-          if (tableVesRows[outIdx] != rowIdx) {
-            const fillerVes = createFillerRow(displayItem_table, tableVePath);
-            childrenVes[outIdx] = fillerVes;
-            tableVesRows[outIdx] = rowIdx;
-          }
-          rowIdx = rowIdx + 1;
-        }
-        finished = true;
-        break;
-      }
-    }
+  if (walkResult.aborted) {
+    return;
   }
 
   // Final validation and comprehensive debug logging
