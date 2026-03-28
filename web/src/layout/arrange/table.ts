@@ -114,7 +114,7 @@ export const arrangeTable = (
     attachmentsPaths: attachments,
   };
 
-  const tableVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableSpec, tableRelationships, tableVePath);
+  const tableVisualElementSignal = VesCache.full_writeVisualElementSignal(tableSpec, tableRelationships, tableVePath);
   persistTableRenderWindowRows(tableVePath, windowState);
 
   return tableVisualElementSignal;
@@ -718,7 +718,7 @@ function buildTableRowRenderPlan(
 
 
 function materializeTableRenderPlan(plan: TableRenderPlan): VisualElementSignal {
-  return VesCache.full_createOrRecycleVisualElementSignal(plan.spec, plan.relationships, plan.path);
+  return VesCache.full_writeVisualElementSignal(plan.spec, plan.relationships, plan.path);
 }
 
 
@@ -731,7 +731,7 @@ function materializeTableRowPlan(
     if (vesToOverwrite != null) {
       VesCache.partial_create(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
     } else {
-      VesCache.full_createOrRecycleVisualElementSignal(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
+      VesCache.full_writeVisualElement(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
     }
   }
 

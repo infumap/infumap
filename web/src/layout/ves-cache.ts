@@ -20,11 +20,9 @@ import { createSignal, Accessor, Setter } from "solid-js";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
-import { compareBoundingBox, compareDimensions } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
-import { HitboxFns } from "./hitbox";
 import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "./visual-element";
 
 /*
@@ -595,16 +593,6 @@ function writeScenePath(
   addScenePathForDisplayId(scene, ve.displayItem.id, path);
 }
 
-function writeUnderConstructionScenePath(
-  path: VisualElementPath,
-  ve: VisualElement,
-  relationshipData: SceneRelationshipData,
-): VisualElementSignal {
-  writeScenePath(underConstructionScene, path, ve, relationshipData);
-  syncUnderConstructionArrangeSignal(path, ve);
-  return ensureUnderConstructionArrangeSignal(path) ?? panic(`failed to materialize under-construction arrange signal for ${path}.`);
-}
-
 function writeUnderConstructionSceneNode(
   path: VisualElementPath,
   ve: VisualElement,
@@ -612,6 +600,17 @@ function writeUnderConstructionSceneNode(
 ) {
   writeScenePath(underConstructionScene, path, ve, relationshipData);
   syncUnderConstructionArrangeSignal(path, ve);
+}
+
+function writePreparedUnderConstructionVisualElement(
+  preparedSpec: VisualElementSpec,
+  preparedRelationships: SceneRelationshipData,
+  path: VisualElementPath,
+): VisualElement {
+  maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
+  const nextVe = VeFns.create(preparedSpec);
+  writeUnderConstructionSceneNode(path, nextVe, preparedRelationships);
+  return nextVe;
 }
 
 function syncRenderProjectionNode(
@@ -823,10 +822,6 @@ const LOG_ARRANGE_STATS = true;
 let arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
 function resetArrangeStats() {
   arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
-}
-function logDirtyReason(reason: string) {
-  arrangeStats.dirty++;
-  arrangeStats.dirtyReasons.set(reason, (arrangeStats.dirtyReasons.get(reason) || 0) + 1);
 }
 function logArrangeStats() {
   if (!LOG_ARRANGE_STATS) return;
@@ -1115,7 +1110,7 @@ export let VesCache = {
    * convenience; the canonical data is written into the under-construction scene first.
    */
   full_createOrRecycleVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
-    return buildUnderConstructionVisualElementSignal(spec, relationships, path);
+    return VesCache.full_writeVisualElementSignal(spec, relationships, path);
   },
 
   /**
@@ -1125,9 +1120,18 @@ export let VesCache = {
   full_writeVisualElement: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): void => {
     const preparedSpec = prepareVisualElementSpec(spec);
     const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
-    maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
-    const nextVe = VeFns.create(preparedSpec);
-    writeUnderConstructionSceneNode(path, nextVe, preparedRelationships);
+    writePreparedUnderConstructionVisualElement(preparedSpec, preparedRelationships, path);
+  },
+
+  /**
+   * Writes the next under-construction scene node without per-node diffing and
+   * returns an arrange-time signal view for call sites that still want one.
+   */
+  full_writeVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
+    const preparedSpec = prepareVisualElementSpec(spec);
+    const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
+    writePreparedUnderConstructionVisualElement(preparedSpec, preparedRelationships, path);
+    return ensureUnderConstructionArrangeSignal(path) ?? panic(`failed to materialize under-construction arrange signal for ${path}.`);
   },
 
   /**
@@ -1327,134 +1331,6 @@ export let VesCache = {
   getTableVesRows: (path: VisualElementPath): Array<number> | null => {
     return VesCache.getTableRenderRows(path);
   },
-}
-
-
-function buildUnderConstructionVisualElementSignal(spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal {
-  const preparedSpec = prepareVisualElementSpec(spec);
-  const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
-
-  const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
-
-  maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
-
-  const existing = getSceneNode(currentScene, path);
-  if (existing) {
-    const existingVe = existing;
-    if (existingVe.displayItemFingerprint != preparedSpec.displayItemFingerprint) {
-      if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, preparedSpec.displayItemFingerprint); }
-      logDirtyReason("fingerprint");
-      const nextVe = VeFns.create(preparedSpec);
-      return writeUnderConstructionScenePath(path, nextVe, preparedRelationships);
-    }
-
-    // Check if the LineItem flag is changing. If it is, we should not recycle
-    // the visual element because the rendering path will be completely different
-    // (VisualElement_LineItem vs VisualElement_Desktop), so there's no DOM reuse
-    // benefit. Creating a new visual element ensures a clean state transition.
-    const oldHasLineItemFlag = !!(existingVe.flags & VisualElementFlags.LineItem);
-    const newHasLineItemFlag = !!((preparedSpec.flags || VisualElementFlags.None) & VisualElementFlags.LineItem);
-
-    if (oldHasLineItemFlag !== newHasLineItemFlag) {
-      if (debug) { console.debug("LineItem flag changed, creating new visual element instead of recycling:", path); }
-      logDirtyReason("lineItemChange");
-      arrangeStats.new++; // This creates a new signal rather than recycling
-      const newElement = VeFns.create(preparedSpec);
-      return writeUnderConstructionScenePath(path, newElement, preparedRelationships);
-    }
-
-    const newVals: any = preparedSpec;
-    const oldVals: any = existingVe;
-    const newProps = Object.getOwnPropertyNames(preparedSpec);
-    let dirty = false;
-    if (debug) { console.debug(newProps, oldVals, preparedSpec); }
-    for (let i = 0; i < newProps.length; ++i) {
-      if (debug) { console.debug("considering", newProps[i]); }
-      if (typeof (oldVals[newProps[i]]) == 'undefined') {
-        if (debug) { console.debug('no current ve property for:', newProps[i]); }
-        dirty = true;
-        break;
-      }
-      const oldVal = oldVals[newProps[i]];
-      const newVal = newVals[newProps[i]];
-
-      if (newProps[i] == "resizingFromBoundsPx" ||
-        newProps[i] == "boundsPx" ||
-        newProps[i] == "viewportBoundsPx" ||
-        newProps[i] == "listViewportBoundsPx" ||
-        newProps[i] == "childAreaBoundsPx" ||
-        newProps[i] == "listChildAreaBoundsPx") {
-        if (compareBoundingBox(oldVal, newVal) != 0) {
-          if (debug) { console.debug("ve property changed: ", newProps[i]); }
-          dirty = true;
-          break;
-        } else {
-          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
-        }
-      } else if (newProps[i] == "tableDimensionsPx" ||
-        newProps[i] == "blockSizePx" ||
-        newProps[i] == "cellSizePx") {
-        if (compareDimensions(oldVal, newVal) != 0) {
-          if (debug) { console.debug("ve property changed: ", newProps[i]); }
-          dirty = true;
-          break;
-        } else {
-          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
-        }
-      } else if (newProps[i] == "hitboxes") {
-        if (HitboxFns.ArrayCompare(oldVal, newVal) != 0) {
-          if (debug) { console.debug("ve property changed: ", newProps[i]); }
-          dirty = true;
-          break;
-        } else {
-          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
-        }
-      } else if (newProps[i] == "linkItemMaybe") {
-        // If this is an infumap-generated link, object ref might have changed, and it doesn't matter.
-        // TODO (MEDIUM): rethink this through.
-      } else if (newProps[i] == "displayItem" ||
-        newProps[i] == "actualLinkItemMaybe" ||
-        newProps[i] == "flags" ||
-        newProps[i] == "_arrangeFlags_useForPartialRearrangeOnly" ||
-        newProps[i] == "row" ||
-        newProps[i] == "col" ||
-        newProps[i] == "numRows" ||
-        newProps[i] == "indentBl" ||
-        newProps[i] == "parentPath" ||
-        newProps[i] == "evaluatedTitle" ||
-        newProps[i] == "displayItemFingerprint") {
-        if (oldVal != newVal) {
-          if (debug) { console.debug("ve property changed: ", newProps[i]); }
-          dirty = true;
-          break;
-        } else {
-          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
-        }
-      } else {
-        if (debug) { console.debug("ve property changed: ", newProps[i], oldVal, newVal); }
-        dirty = true;
-        break;
-      }
-    }
-
-    // properties that can become unset.
-    // TODO (MEDIUM): something less of a hack here.
-    if (!dirty) {
-      if (debug) { console.debug("not dirty:", path); }
-      arrangeStats.recycled++;
-      return writeUnderConstructionScenePath(path, existingVe, preparedRelationships);
-    }
-    if (debug) { console.debug("dirty:", path); }
-    arrangeStats.dirty++;
-
-    const nextVe = VeFns.create(preparedSpec);
-    return writeUnderConstructionScenePath(path, nextVe, preparedRelationships);
-  }
-
-  if (debug) { console.debug("creating:", path); }
-  arrangeStats.new++;
-  const newElement = VeFns.create(preparedSpec);
-  return writeUnderConstructionScenePath(path, newElement, preparedRelationships);
 }
 
 function deleteFromVessVsDisplayIdLookup(scene: SceneState, path: string) {

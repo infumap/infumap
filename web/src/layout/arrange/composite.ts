@@ -124,7 +124,7 @@ export const arrangeComposite = (
     childrenPaths: compositeChildPaths,
   };
 
-  const compositeVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeSpec, compositeRelationships, compositeVePath);
+  const compositeVisualElementSignal = VesCache.full_writeVisualElementSignal(compositeSpec, compositeRelationships, compositeVePath);
 
   return compositeVisualElementSignal;
 }

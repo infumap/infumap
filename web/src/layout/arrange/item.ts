@@ -210,7 +210,7 @@ export const arrangeItemNoChildren = (
     itemRelationships.attachmentsPaths = [];
   }
 
-  const itemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(itemVisualElementSpec, itemRelationships, currentVePath);
+  const itemVisualElementSignal = VesCache.full_writeVisualElementSignal(itemVisualElementSpec, itemRelationships, currentVePath);
   return itemVisualElementSignal;
 }
 
