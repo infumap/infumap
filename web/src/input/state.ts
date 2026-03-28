@@ -428,6 +428,73 @@ export let MouseActionState = {
     mouseActionState.clickOffsetProp = clickOffsetProp;
   },
 
+  getStartWidthBl: (): number | null => {
+    return mouseActionState?.startWidthBl ?? null;
+  },
+
+  setStartWidthBl: (startWidthBl: number | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.startWidthBl = startWidthBl;
+  },
+
+  getStartHeightBl: (): number | null => {
+    return mouseActionState?.startHeightBl ?? null;
+  },
+
+  setStartHeightBl: (startHeightBl: number | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.startHeightBl = startHeightBl;
+  },
+
+  getStartChildAreaBoundsPx: (): BoundingBox | null => {
+    return mouseActionState?.startChildAreaBoundsPx ?? null;
+  },
+
+  getGroupMoveItems: (): MouseActionStateType["groupMoveItems"] | undefined => {
+    return mouseActionState?.groupMoveItems;
+  },
+
+  setGroupMoveItems: (groupMoveItems: MouseActionStateType["groupMoveItems"] | undefined): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.groupMoveItems = groupMoveItems;
+  },
+
+  getLinkCreatedOnMoveStart: (): boolean => {
+    return mouseActionState?.linkCreatedOnMoveStart ?? false;
+  },
+
+  setLinkCreatedOnMoveStart: (linkCreatedOnMoveStart: boolean): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.linkCreatedOnMoveStart = linkCreatedOnMoveStart;
+  },
+
+  getStartAttachmentsItem: (): AttachmentsItem | null => {
+    return mouseActionState?.startAttachmentsItem ?? null;
+  },
+
+  setStartAttachmentsItem: (startAttachmentsItem: AttachmentsItem | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.startAttachmentsItem = startAttachmentsItem;
+  },
+
+  getStartCompositeItem: (): CompositeItem | null => {
+    return mouseActionState?.startCompositeItem ?? null;
+  },
+
+  setStartCompositeItem: (startCompositeItem: CompositeItem | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.startCompositeItem = startCompositeItem;
+  },
+
+  getNewPlaceholderItem: (): PlaceholderItem | null => {
+    return mouseActionState?.newPlaceholderItem ?? null;
+  },
+
+  setNewPlaceholderItem: (newPlaceholderItem: PlaceholderItem | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.newPlaceholderItem = newPlaceholderItem;
+  },
+
   usesEmbeddedInteractiveHitTesting: (): boolean => {
     return mouseActionState?.hitEmbeddedInteractive ?? false;
   },

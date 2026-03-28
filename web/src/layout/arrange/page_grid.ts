@@ -71,7 +71,7 @@ export function arrange_grid_page(
   // if an item is moving out of or into a grid page, then ensure the height of the page doesn't
   // change until after the move is complete to avoid a very disruptive jump in y scroll px.
   let nItemAdj = 0;
-  if (movingItemInThisPage && !MouseActionState.get().linkCreatedOnMoveStart) {
+  if (movingItemInThisPage && !MouseActionState.getLinkCreatedOnMoveStart()) {
     const startParent = MouseActionState.readStartActiveElementParent()!.displayItem;
     if (startParent.id == displayItem_pageWithChildren.id && movingItem!.parentId != startParent.id) {
       nItemAdj = 1;

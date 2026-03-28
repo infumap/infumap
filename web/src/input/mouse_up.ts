@@ -115,11 +115,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     case MouseAction.Resizing:
       DoubleClickState.preventDoubleClick();
       const xsized = isLink(activeItem)
-        ? MouseActionState.get().startWidthBl! * GRID_SIZE != asLinkItem(activeItem).spatialWidthGr
-        : MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr;
+        ? MouseActionState.getStartWidthBl()! * GRID_SIZE != asLinkItem(activeItem).spatialWidthGr
+        : MouseActionState.getStartWidthBl()! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr;
       if (xsized ||
-        (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
-        (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight) && MouseActionState.get().startHeightBl! * GRID_SIZE != asNoteItem(activeItem).spatialHeightGr) ||
+        (isYSizableItem(activeItem) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
+        (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asNoteItem(activeItem).spatialHeightGr) ||
         (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem)))) {
         serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
       }
@@ -144,7 +144,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       const widthGr = activeVisualElement.linkItemMaybe == null
         ? asTableItem(activeItem).tableColumns[hitMeta.colNum!].widthGr
         : asTableItem(activeVisualElement.displayItem).tableColumns[hitMeta.colNum!].widthGr;
-      if (MouseActionState.get().startWidthBl! * GRID_SIZE != widthGr) {
+      if (MouseActionState.getStartWidthBl()! * GRID_SIZE != widthGr) {
         serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
       }
       break;
@@ -152,7 +152,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     case MouseAction.ResizingDock:
       if (store.getCurrentDockWidthPx() == 0) {
         store.dockVisible.set(false);
-        store.setDockWidthPx(MouseActionState.get().startWidthBl! * NATURAL_BLOCK_SIZE_PX.w);
+        store.setDockWidthPx(MouseActionState.getStartWidthBl()! * NATURAL_BLOCK_SIZE_PX.w);
       } else {
         store.dockVisible.set(true);
       }
@@ -160,14 +160,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
     case MouseAction.ResizingDockItem:
       DoubleClickState.preventDoubleClick();
-      if (MouseActionState.get().startChildAreaBoundsPx!.h != activeVisualElement.childAreaBoundsPx!.h) {
+      if (MouseActionState.getStartChildAreaBoundsPx()!.h != activeVisualElement.childAreaBoundsPx!.h) {
         serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
       }
       break;
 
     case MouseAction.ResizingListPageColumn:
       const newWidthGr = asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr;
-      if (MouseActionState.get().startWidthBl! * GRID_SIZE != newWidthGr) {
+      if (MouseActionState.getStartWidthBl()! * GRID_SIZE != newWidthGr) {
         serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
       }
       break;
@@ -499,7 +499,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
 }
 
 function persistMovedItems(store: StoreContextModel, defaultIds: string[]) {
-  const group = MouseActionState.get().groupMoveItems;
+  const group = MouseActionState.getGroupMoveItems();
   if (group && group.length > 0) {
     const ids = group.map(g => g.veid.linkIdMaybe ? g.veid.linkIdMaybe : g.veid.itemId);
     for (const id of ids) {
@@ -553,7 +553,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
       }
       itemState.delete(activeItem_composite.id);
       server.deleteItem(activeItem_composite.id, store.general.networkStatus);
-      MouseActionState.get().startCompositeItem = null;
+      MouseActionState.setStartCompositeItem(null);
     }
 
     // case #2: attaching to an item that is not inside an existing composite.
@@ -742,19 +742,19 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
     : child);
   const insertPosition = store.perVe.getMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe));
 
-  const startAttachmentsItem = MouseActionState.get().startAttachmentsItem;
+  const startAttachmentsItem = MouseActionState.getStartAttachmentsItem();
   const isDroppingBack = startAttachmentsItem != null && startAttachmentsItem.id == displayedChild.id;
 
   if (isDroppingBack && insertPosition < displayedChild.computed_attachments.length) {
     const overAttachmentId = displayedChild.computed_attachments[insertPosition];
     const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
     if (isPlaceholder(placeholderToReplaceMaybe)) {
-      const newPlaceholderItem = MouseActionState.get().newPlaceholderItem;
+      const newPlaceholderItem = MouseActionState.getNewPlaceholderItem();
       let newOrdering: Uint8Array;
       if (newPlaceholderItem != null && newPlaceholderItem.id == placeholderToReplaceMaybe.id) {
         newOrdering = placeholderToReplaceMaybe.ordering;
         itemState.delete(placeholderToReplaceMaybe.id);
-        MouseActionState.get().newPlaceholderItem = null;
+        MouseActionState.setNewPlaceholderItem(null);
       } else {
         newOrdering = placeholderToReplaceMaybe.ordering;
         itemState.delete(placeholderToReplaceMaybe.id);
@@ -872,12 +872,12 @@ function handleSelectionMouseUp(store: StoreContextModel) {
 
 async function maybeDeleteComposite(store: StoreContextModel) {
   if (MouseActionState.empty()) { return; }
-  if (MouseActionState.get().startCompositeItem == null) { return; }
+  if (MouseActionState.getStartCompositeItem() == null) { return; }
 
-  const compositeItem = MouseActionState.get().startCompositeItem!;
+  const compositeItem = MouseActionState.getStartCompositeItem()!;
   if (compositeItem.computed_children.length == 0) { panic("maybeDeleteComposite: composite has no children."); }
   if (compositeItem.computed_children.length != 1) {
-    MouseActionState.get().startCompositeItem = null;
+    MouseActionState.setStartCompositeItem(null);
     return;
   }
   const compositeItemParent = asContainerItem(itemState.get(compositeItem.parentId)!);
@@ -897,13 +897,13 @@ async function maybeDeleteComposite(store: StoreContextModel) {
 
 function cleanupAndPersistPlaceholders(store: StoreContextModel) {
   if (MouseActionState.empty()) { return; }
-  if (MouseActionState.get().startAttachmentsItem == null) { return; }
+  if (MouseActionState.getStartAttachmentsItem() == null) { return; }
 
-  if (MouseActionState.get().newPlaceholderItem != null) {
-    server.addItem(MouseActionState.get().newPlaceholderItem!, null, store.general.networkStatus);
+  if (MouseActionState.getNewPlaceholderItem() != null) {
+    server.addItem(MouseActionState.getNewPlaceholderItem()!, null, store.general.networkStatus);
   }
 
-  const placeholderParent = MouseActionState.get().startAttachmentsItem!;
+  const placeholderParent = MouseActionState.getStartAttachmentsItem()!;
 
   while (true) {
     const attachments = placeholderParent.computed_attachments;
@@ -918,6 +918,6 @@ function cleanupAndPersistPlaceholders(store: StoreContextModel) {
     itemState.delete(attachment.id);
   }
 
-  MouseActionState.get().newPlaceholderItem = null;
-  MouseActionState.get().startAttachmentsItem = null;
+  MouseActionState.setNewPlaceholderItem(null);
+  MouseActionState.setStartAttachmentsItem(null);
 }

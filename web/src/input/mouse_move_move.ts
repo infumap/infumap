@@ -92,12 +92,12 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
             startPosGr: (e.item as PositionalItem).spatialPositionGr,
             parentId: (e.item as PositionalItem).parentId,
           }));
-        MouseActionState.get().groupMoveItems = group;
+        MouseActionState.setGroupMoveItems(group);
       } else {
-        MouseActionState.get().groupMoveItems = undefined;
+        MouseActionState.setGroupMoveItems(undefined);
       }
     } else {
-      MouseActionState.get().groupMoveItems = undefined;
+      MouseActionState.setGroupMoveItems(undefined);
     }
 
     if (shouldClone) {
@@ -115,7 +115,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       const newLinkVeid = VeFns.veidFromId(cloned.id);
       MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, activeParentPath));
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
-      MouseActionState.get().linkCreatedOnMoveStart = false;
+      MouseActionState.setLinkCreatedOnMoveStart(false);
 
       // Preserve calendar page scroll position during synchronous arrange.
       const parentPageVeid = VeFns.veidFromPath(activeParentPath);
@@ -160,7 +160,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       const newLinkVeid = VeFns.veidFromId(link.id);
       MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, activeParentPath));
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
-      MouseActionState.get().linkCreatedOnMoveStart = true;
+      MouseActionState.setLinkCreatedOnMoveStart(true);
 
       // Preserve calendar page scroll position during synchronous arrange.
       const parentPageVeid = VeFns.veidFromPath(activeParentPath);
@@ -403,7 +403,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   if (asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch || compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {
-    const group = MouseActionState.get().groupMoveItems;
+    const group = MouseActionState.getGroupMoveItems();
     if (group && group.length > 0) {
       const veidActive = VeFns.veidFromVe(activeVisualElement);
       const activeEntry = group.find(g => g.veid.itemId === veidActive.itemId && g.veid.linkIdMaybe === veidActive.linkIdMaybe);
@@ -495,7 +495,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(clonedVeid, moveToPath));
-    MouseActionState.get().linkCreatedOnMoveStart = false;
+    MouseActionState.setLinkCreatedOnMoveStart(false);
 
 
   } else if (shouldCreateLink && !isLink(activeElement.displayItem)) {
@@ -509,7 +509,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     server.addItem(link, null, store.general.networkStatus);
     const newLinkVeid = { itemId: activeElement.displayItem.id, linkIdMaybe: link.id };
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, moveToPath));
-    MouseActionState.get().linkCreatedOnMoveStart = true;
+    MouseActionState.setLinkCreatedOnMoveStart(true);
 
   } else {
     if (relationshipToParent == RelationshipToParent.Attachment) {
@@ -519,9 +519,9 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
       if (!isLast) {
         const placeholderItem = PlaceholderFns.create(treeActiveItem.ownerId, parent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
         itemState.add(placeholderItem);
-        MouseActionState.get().newPlaceholderItem = placeholderItem;
+        MouseActionState.setNewPlaceholderItem(placeholderItem);
       }
-      MouseActionState.get().startAttachmentsItem = parent;
+      MouseActionState.setStartAttachmentsItem(parent);
     }
 
     treeActiveItem.spatialPositionGr = newItemPosGr;
@@ -613,7 +613,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(clonedVeid, VeFns.veToPath(moveToPageVe)));
-    MouseActionState.get().linkCreatedOnMoveStart = false;
+    MouseActionState.setLinkCreatedOnMoveStart(false);
 
   } else if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
     const link = LinkFns.createFromItem(activeVisualElement.displayItem, moveToPage.id, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
@@ -627,7 +627,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     MouseActionState.setClickOffsetProp({ x: 0.0, y: 0.0 });
     const newLinkVeid = { itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id };
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, VeFns.veToPath(moveToPageVe)));
-    MouseActionState.get().linkCreatedOnMoveStart = true;
+    MouseActionState.setLinkCreatedOnMoveStart(true);
 
   } else {
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
