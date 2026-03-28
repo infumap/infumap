@@ -111,10 +111,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       itemState.add(cloned);
       server.addItem(cloned, null, store.general.networkStatus);
 
-      const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
+      const activeParentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
       const newLinkVeid = VeFns.veidFromId(cloned.id);
       MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, activeParentPath));
-      MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
+      MouseActionState.setAction(MouseAction.Moving); // page arrange depends on this in the grid case.
       MouseActionState.setLinkCreatedOnMoveStart(false);
 
       // Preserve calendar page scroll position during synchronous arrange.
@@ -156,10 +156,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       itemState.add(link);
       server.addItem(link, null, store.general.networkStatus);
 
-      const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
+      const activeParentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
       const newLinkVeid = VeFns.veidFromId(link.id);
       MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, activeParentPath));
-      MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
+      MouseActionState.setAction(MouseAction.Moving); // page arrange depends on this in the grid case.
       MouseActionState.setLinkCreatedOnMoveStart(true);
 
       // Preserve calendar page scroll position during synchronous arrange.
@@ -181,7 +181,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       }
     }
 
-    if (MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.ContentEditable) {
+    if (MouseActionState.hitboxTypeIncludes(HitboxFlags.ContentEditable)) {
       let selection = window.getSelection();
       if (selection != null) { selection.removeAllRanges(); }
       (document.activeElement! as HTMLElement).blur();
@@ -190,10 +190,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
   // if it is a selected list page that is moving, change the selected item.
   if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    const parentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
+    const parentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
     const selected = store.perItem.getSelectedListPageItem(VeFns.veidFromPath(parentPath));
 
-    if (selected && VeFns.compareVeids(selected, VeFns.veidFromPath(MouseActionState.get().activeElementPath)) === 0) {
+    if (selected && VeFns.compareVeids(selected, VeFns.veidFromPath(MouseActionState.getActiveElementPath()!)) === 0) {
       const children = asPageItem(parentItem).computed_children;
       let foundIdx = -1;
       for (let i = 0; i < children.length; i++) {
@@ -237,7 +237,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   }
 
   store.anItemIsMoving.set(true);
-  MouseActionState.get().action = MouseAction.Moving;
+  MouseActionState.setAction(MouseAction.Moving);
 }
 
 

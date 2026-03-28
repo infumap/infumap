@@ -392,7 +392,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const overDisplayItem = hitVe.displayItem;
   longHoldTimeoutId = setTimeout(() => {
     if (MouseActionState.empty()) { return; }
-    if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
+    if (!MouseActionState.isAction(MouseAction.Ambiguous)) { return; }
     if (isPage(overDisplayItem) && !veFlagIsRoot(hitVe.flags)) {
       PageFns.handleEditTitleClick(hitVe, store);
       MouseActionState.set(null);

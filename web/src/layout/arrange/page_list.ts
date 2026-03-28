@@ -124,8 +124,8 @@ export function arrange_list_page(
 
   let movingItem = null;
   let movingItemInThisPage = null;
-  if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.get().activeElementPath);
+  if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
+    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!);
     movingItem = movingItemInThisPage;
     if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
       movingItemInThisPage = null;

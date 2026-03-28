@@ -47,6 +47,23 @@ import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 
 
+function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, shouldSwitchRoot: boolean): void {
+  const focusPagePath = store.history.getFocusPath();
+  const focusPageVe = MouseActionState.readVisualElement(focusPagePath);
+  if (!focusPageVe) { return; }
+
+  const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+  const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+  if (selectedVeid == EMPTY_VEID) {
+    PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+  }
+
+  if (shouldSwitchRoot) {
+    PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
+  }
+}
+
+
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
 
   if (document.activeElement!.id.includes("toolbarTitleDiv")) {
@@ -76,7 +93,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
   const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
-  switch (MouseActionState.get().action) {
+  switch (MouseActionState.getAction()) {
     case MouseAction.Moving:
       DoubleClickState.preventDoubleClick();
       mouseUpHandler_moving_groupAware(store, activeItem);
@@ -243,8 +260,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TriangleLinkSettings)) {
         const focusPath = VeFns.addVeidToPath(
-          { itemId: VeFns.veidFromPath(MouseActionState.get().activeElementPath).linkIdMaybe!, linkIdMaybe: null },
-          VeFns.parentPath(MouseActionState.get().activeElementPath)
+          { itemId: VeFns.veidFromPath(MouseActionState.getActiveElementPath()!).linkIdMaybe!, linkIdMaybe: null },
+          VeFns.parentPath(MouseActionState.getActiveElementPath()!)
         );
         store.history.setFocus(focusPath);
 
@@ -252,14 +269,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         const hitMeta = MouseActionState.getHitMeta();
         store.overlay.tableColumnContextMenuInfo.set({
           posPx: CursorEventState.getLatestDesktopPx(store),
-          tablePath: MouseActionState.get().activeElementPath,
+          tablePath: MouseActionState.getActiveElementPath()!,
           colNum: hitMeta?.colNum ? hitMeta.colNum : 0,
         });
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Expand)) {
         store.perVe.setIsExpanded(
-          MouseActionState.get().activeElementPath,
-          !store.perVe.getIsExpanded(MouseActionState.get().activeElementPath)
+          MouseActionState.getActiveElementPath()!,
+          !store.perVe.getIsExpanded(MouseActionState.getActiveElementPath()!)
         );
         arrangeNow(store, "mouse-up-toggle-expand");
 
@@ -297,26 +314,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           (VeFns.veidFromVe(activeRootVe).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
         (CursorEventState.getLatestDesktopPx(store).y > 0)) {
           DoubleClickState.preventDoubleClick();
-          store.history.setFocus(MouseActionState.get().activeElementPath);
-
-          {
-            const focusPagePath = store.history.getFocusPath();
-            const focusPageVe = MouseActionState.readVisualElement(focusPagePath)!;
-            const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
-            const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-            if (selectedVeid == EMPTY_VEID) {
-              PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
-            }
-
-            // If we clicked on a page that is the selected item in a list page (ListPageRoot),
-            // just focus it (already done above) - don't switch to it as the root page.
-            // For other cases (e.g. a popup background or a nested list page), handle potential
-            // switching of the root page.
-            if (!(isPage(activeVisualElement.displayItem) &&
-              (activeVisualElement.flags & VisualElementFlags.ListPageRoot))) {
-              PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
-            }
-          }
+          store.history.setFocus(MouseActionState.getActiveElementPath()!);
+          updateFocusPageSelectionAndMaybeSwitchRoot(
+            store,
+            !(isPage(activeVisualElement.displayItem) && (activeVisualElement.flags & VisualElementFlags.ListPageRoot)),
+          );
 
           // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
           arrangeNow(store, "mouse-up-focus-noncurrent-root");
@@ -334,24 +336,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
             // noop.
 
           } else {
-            store.history.setFocus(MouseActionState.get().activeElementPath);
-
-            {
-              const focusPagePath = store.history.getFocusPath();
-              const focusPageSignal = MouseActionState.getVisualElementSignal(focusPagePath);
-              if (focusPageSignal) {
-                const focusPageVe = focusPageSignal.get();
-                const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
-                const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-                if (selectedVeid == EMPTY_VEID) {
-                  PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
-                }
-
-                // If we clicked on an item that is not a root (e.g. a note), handle potential switching
-                // of the root page to the outermost list page in its hierarchy.
-                PageFns.switchToOutermostListPageMaybe(focusPageVe, store);
-              }
-            }
+            store.history.setFocus(MouseActionState.getActiveElementPath()!);
+            updateFocusPageSelectionAndMaybeSwitchRoot(store, true);
 
             // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
             arrangeNow(store, "mouse-up-focus-item");
@@ -362,7 +348,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
 
     default:
-      panic(`mouseUpHandler: unknown action ${MouseActionState.get().action}.`);
+      panic(`mouseUpHandler: unknown action ${MouseActionState.getAction()}.`);
   }
 
   ClickState.setLinkWasClicked(false);

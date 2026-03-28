@@ -89,7 +89,7 @@ export function mouseMoveHandler(store: StoreContextModel) {
 
   changeMouseActionStateMaybe(deltaPx, store, currentMouseDesktopPx, hasUser);
 
-  switch (MouseActionState.get().action) {
+  switch (MouseActionState.getAction()) {
     case MouseAction.Ambiguous:
       return;
     case MouseAction.Resizing:
@@ -142,7 +142,7 @@ function changeMouseActionStateMaybe(
   store: StoreContextModel,
   desktopPosPx: Vector,
   hasUser: boolean) {
-  if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
+  if (!MouseActionState.isAction(MouseAction.Ambiguous)) { return; }
   if (!hasUser) { return; }
 
   if (!(Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX)) {
@@ -188,7 +188,7 @@ function changeMouseActionStateMaybe(
         }
         MouseActionState.setStartHeightBl(null);
       }
-      MouseActionState.get().action = MouseAction.ResizingPopup;
+      MouseActionState.setAction(MouseAction.ResizingPopup);
     } else {
       MouseActionState.setStartWidthBl(isLink(activeItem) ? asLinkItem(activeItem).spatialWidthGr / GRID_SIZE : asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE);
       if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
@@ -219,18 +219,18 @@ function changeMouseActionStateMaybe(
         MouseActionState.setStartHeightBl(null);
       }
       store.anItemIsResizing.set(true);
-      MouseActionState.get().action = MouseAction.Resizing;
+      MouseActionState.setAction(MouseAction.Resizing);
     }
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.HorizontalResize)) {
     MouseActionState.setStartPosBl(null);
     MouseActionState.setStartHeightBl(null);
     if (activeVisualElement.flags & VisualElementFlags.IsDock) {
-      MouseActionState.get().action = MouseAction.ResizingDock;
+      MouseActionState.setAction(MouseAction.ResizingDock);
       MouseActionState.setStartWidthBl(store.getCurrentDockWidthPx() / NATURAL_BLOCK_SIZE_PX.w);
     } else if (isPage(activeVisualElement.displayItem)) {
       MouseActionState.setStartWidthBl(asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr / GRID_SIZE);
-      MouseActionState.get().action = MouseAction.ResizingListPageColumn;
+      MouseActionState.setAction(MouseAction.ResizingListPageColumn);
     } else {
       const colNum = MouseActionState.getHitMeta()!.colNum!;
       if (activeVisualElement.linkItemMaybe != null) {
@@ -238,11 +238,11 @@ function changeMouseActionStateMaybe(
       } else {
         MouseActionState.setStartWidthBl(asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE);
       }
-      MouseActionState.get().action = MouseAction.ResizingColumn;
+      MouseActionState.setAction(MouseAction.ResizingColumn);
     }
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.VerticalResize)) {
-    MouseActionState.get().action = MouseAction.ResizingDockItem;
+    MouseActionState.setAction(MouseAction.ResizingDockItem);
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Move) ||
     MouseActionState.compositeHitboxTypeIncludes(HitboxFlags.Move)) {
@@ -266,7 +266,7 @@ function changeMouseActionStateMaybe(
     MouseActionState.setStartHeightBl(null);
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       store.anItemIsMoving.set(true);
-      MouseActionState.get().action = MouseAction.MovingPopup;
+      MouseActionState.setAction(MouseAction.MovingPopup);
       const popupVe = activeVisualElement;
       const popupItem = popupVe.displayItem;
       const parentVe = MouseActionState.readVisualElement(popupVe.parentPath)!;
@@ -306,7 +306,7 @@ function changeMouseActionStateMaybe(
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
   } else if (veFlagIsRoot(activeVisualElement.flags)) {
-    MouseActionState.get().action = MouseAction.Selecting;
+    MouseActionState.setAction(MouseAction.Selecting);
     const startPx = MouseActionState.getStartPx()!;
     store.overlay.selectionMarqueePx.set({ x: startPx.x, y: startPx.y, w: 0, h: 0 });
     store.overlay.selectedVeids.set([]);

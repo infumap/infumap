@@ -328,6 +328,18 @@ export let MouseActionState = {
     return mouseActionState!;
   },
 
+  getAction: (): MouseAction => {
+    return MouseActionState.get().action;
+  },
+
+  setAction: (action: MouseAction): void => {
+    MouseActionState.get().action = action;
+  },
+
+  isAction: (action: MouseAction): boolean => {
+    return mouseActionState?.action === action;
+  },
+
   getHitboxTypeOnMouseDown: (): HitboxFlags => {
     return MouseActionState.get().hitboxTypeOnMouseDown;
   },
@@ -553,6 +565,10 @@ export let MouseActionState = {
 
   setActiveElementPath: (path: VisualElementPath, signalHint: VisualElementSignal | null = null): void => {
     setActiveElementPathInternal(MouseActionState.get(), path, signalHint);
+  },
+
+  getActiveElementPath: (): VisualElementPath | null => {
+    return mouseActionState?.activeElementPath ?? null;
   },
 
   getActiveLinkIdMaybe: (): string | null => {

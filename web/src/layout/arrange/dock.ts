@@ -55,8 +55,8 @@ export const renderDockMaybe = (
   const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
 
   let movingItemInThisPage = null;
-  if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.get().activeElementPath);
+  if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
+    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!);
     if (movingItemInThisPage!.parentId != dockPage.id) {
       movingItemInThisPage = null;
     }
