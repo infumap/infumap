@@ -265,11 +265,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenPopup)) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleOpenPopupClick(activeVisualElement, store, false, MouseActionState.get().startPx);
+        ItemFns.handleOpenPopupClick(activeVisualElement, store, false, MouseActionState.getStartPx()!);
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenAttachment)) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleOpenPopupClick(activeVisualElement, store, true, MouseActionState.get().startPx);
+        ItemFns.handleOpenPopupClick(activeVisualElement, store, true, MouseActionState.getStartPx()!);
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.CalendarOverflow)) {
         DoubleClickState.preventDoubleClick();
@@ -456,8 +456,9 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       itemState.sortChildren(pageItem.id);
       persistMovedItems(store, [activeItem.id]);
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-      if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
-        MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
+      const startPosBl = MouseActionState.getStartPosBl()!;
+      if (startPosBl.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
+        startPosBl.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
         persistMovedItems(store, [activeItem.id]);
       }
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {

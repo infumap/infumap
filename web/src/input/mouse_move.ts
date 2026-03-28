@@ -85,7 +85,7 @@ export function mouseMoveHandler(store: StoreContextModel) {
     return;
   }
 
-  let deltaPx = vectorSubtract(currentMouseDesktopPx, MouseActionState.get().startPx!);
+  let deltaPx = vectorSubtract(currentMouseDesktopPx, MouseActionState.getStartPx()!);
 
   changeMouseActionStateMaybe(deltaPx, store, currentMouseDesktopPx, hasUser);
 
@@ -158,7 +158,7 @@ function changeMouseActionStateMaybe(
   let activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
-    MouseActionState.get().startPosBl = null;
+    MouseActionState.setStartPosBl(null);
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
       const parentPage = asPageItem(parentVe.displayItem);
@@ -223,7 +223,7 @@ function changeMouseActionStateMaybe(
     }
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.HorizontalResize)) {
-    MouseActionState.get().startPosBl = null;
+    MouseActionState.setStartPosBl(null);
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.IsDock) {
       MouseActionState.get().action = MouseAction.ResizingDock;
@@ -290,7 +290,7 @@ function changeMouseActionStateMaybe(
         } else {
           popupPositionGr = parentPage.defaultPopupPositionGr;
         }
-        MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
+        MouseActionState.setStartPosBl({ x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE });
       } else {
         let popupPositionNorm;
         if (isPage(popupItem)) {
@@ -300,14 +300,15 @@ function changeMouseActionStateMaybe(
         } else {
           popupPositionNorm = parentPage.defaultCellPopupPositionNorm;
         }
-        MouseActionState.get().startPosBl = { x: popupPositionNorm.x, y: popupPositionNorm.y };
+        MouseActionState.setStartPosBl({ x: popupPositionNorm.x, y: popupPositionNorm.y });
       }
     } else {
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
   } else if (veFlagIsRoot(activeVisualElement.flags)) {
     MouseActionState.get().action = MouseAction.Selecting;
-    store.overlay.selectionMarqueePx.set({ x: MouseActionState.get().startPx!.x, y: MouseActionState.get().startPx!.y, w: 0, h: 0 });
+    const startPx = MouseActionState.getStartPx()!;
+    store.overlay.selectionMarqueePx.set({ x: startPx.x, y: startPx.y, w: 0, h: 0 });
     store.overlay.selectedVeids.set([]);
   } else {
     console.debug(activeVisualElement.flags);
@@ -316,7 +317,7 @@ function changeMouseActionStateMaybe(
 
 
 function selectionRectFromStartAndCurrent(store: StoreContextModel): { x: number; y: number; w: number; h: number } {
-  const start = MouseActionState.get().startPx!;
+  const start = MouseActionState.getStartPx()!;
   const current = CursorEventState.getLatestDesktopPx(store);
   const x = Math.min(start.x, current.x);
   const y = Math.min(start.y, current.y);
@@ -429,9 +430,10 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   const activeVisualElement = activeSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
+  const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
   const deltaBl = {
-    x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
-    y: deltaPx.y * MouseActionState.get().onePxSizeBl.y
+    x: deltaPx.x * onePxSizeBl.x,
+    y: deltaPx.y * onePxSizeBl.y
   };
 
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
@@ -530,9 +532,10 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
     const popupItem = asPageItem(activeVe.displayItem);
 
     if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
       const deltaBl = {
-        x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0,
-        y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
+        x: deltaPx.x * onePxSizeBl.x * 2.0,
+        y: deltaPx.y * onePxSizeBl.y * 2.0
       };
       let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
       newWidthBl = Math.round(newWidthBl * 2.0) / 2.0;
@@ -544,9 +547,10 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
         arrangeNow(store, "resize-popup-page-spatial");
       }
     } else {
+      const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
       const deltaNorm = {
-        x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0,
-        y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
+        x: deltaPx.x * onePxSizeBl.x * 2.0,
+        y: deltaPx.y * onePxSizeBl.y * 2.0
       };
       let newWidthNorm = MouseActionState.get()!.startWidthBl! + deltaNorm.x;
       if (newWidthNorm < 0.1) { newWidthNorm = 0.1; }
@@ -566,9 +570,10 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
     const popupItem = asImageItem(activeVe.displayItem);
 
     if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
       const deltaBl = {
-        x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0,
-        y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
+        x: deltaPx.x * onePxSizeBl.x * 2.0,
+        y: deltaPx.y * onePxSizeBl.y * 2.0
       };
       let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
       newWidthBl = Math.round(newWidthBl * 2.0) / 2.0;
@@ -580,9 +585,10 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
         arrangeNow(store, "resize-popup-image-spatial");
       }
     } else {
+      const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
       const deltaNorm = {
-        x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0,
-        y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
+        x: deltaPx.x * onePxSizeBl.x * 2.0,
+        y: deltaPx.y * onePxSizeBl.y * 2.0
       };
       let newWidthNorm = MouseActionState.get()!.startWidthBl! + deltaNorm.x;
       if (newWidthNorm < 0.1) { newWidthNorm = 0.1; }
@@ -596,9 +602,10 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
     return;
   }
 
+  const popupResizeOnePxSizeBl = MouseActionState.getOnePxSizeBl()!;
   const deltaBl = {
-    x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0,
-    y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
+    x: deltaPx.x * popupResizeOnePxSizeBl.x * 2.0,
+    y: deltaPx.y * popupResizeOnePxSizeBl.y * 2.0
   };
 
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
@@ -666,9 +673,10 @@ function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContext
   }
   const activeVisualElement = listPageSignal.get();
 
+  const listPageColumnOnePxSizeBl = MouseActionState.getOnePxSizeBl()!;
   const deltaBl = {
-    x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
-    y: deltaPx.y * MouseActionState.get().onePxSizeBl.y
+    x: deltaPx.x * listPageColumnOnePxSizeBl.x,
+    y: deltaPx.y * listPageColumnOnePxSizeBl.y
   };
 
   let newWidthBl = Math.round(MouseActionState.get()!.startWidthBl! + deltaBl.x);
@@ -706,9 +714,10 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   const activeVisualElement = columnSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
+  const columnOnePxSizeBl = MouseActionState.getOnePxSizeBl()!;
   const deltaBl = {
-    x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
-    y: deltaPx.y * MouseActionState.get().onePxSizeBl.y
+    x: deltaPx.x * columnOnePxSizeBl.x,
+    y: deltaPx.y * columnOnePxSizeBl.y
   };
 
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
@@ -742,13 +751,15 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
 
   if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+    const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
+    const startPosBl = MouseActionState.getStartPosBl()!;
     const deltaBl = {
-      x: Math.round(deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0) / 2.0,
-      y: Math.round(deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0) / 2.0
+      x: Math.round(deltaPx.x * onePxSizeBl.x * 2.0) / 2.0,
+      y: Math.round(deltaPx.y * onePxSizeBl.y * 2.0) / 2.0
     };
     const newPositionGr = {
-      x: (MouseActionState.get().startPosBl!.x + deltaBl.x) * GRID_SIZE,
-      y: (MouseActionState.get().startPosBl!.y + deltaBl.y) * GRID_SIZE
+      x: (startPosBl.x + deltaBl.x) * GRID_SIZE,
+      y: (startPosBl.y + deltaBl.y) * GRID_SIZE
     };
 
     if (isFromAttachment) {
@@ -774,13 +785,15 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       }
     }
   } else {
+    const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
+    const startPosBl = MouseActionState.getStartPosBl()!;
     const deltaNorm = {
-      x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
-      y: deltaPx.y * MouseActionState.get().onePxSizeBl.y
+      x: deltaPx.x * onePxSizeBl.x,
+      y: deltaPx.y * onePxSizeBl.y
     };
     const newPositionNorm = {
-      x: MouseActionState.get().startPosBl!.x + deltaNorm.x,
-      y: MouseActionState.get().startPosBl!.y + deltaNorm.y
+      x: startPosBl.x + deltaNorm.x,
+      y: startPosBl.y + deltaNorm.y
     };
 
     if (isPage(popupItem)) {

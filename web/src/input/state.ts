@@ -392,6 +392,42 @@ export let MouseActionState = {
     return mouseActionState?.startDockWidthPx ?? null;
   },
 
+  getStartPx: (): Vector | null => {
+    return mouseActionState?.startPx ?? null;
+  },
+
+  setStartPx: (startPx: Vector): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.startPx = startPx;
+  },
+
+  getStartPosBl: (): Vector | null => {
+    return mouseActionState?.startPosBl ?? null;
+  },
+
+  setStartPosBl: (startPosBl: Vector | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.startPosBl = startPosBl;
+  },
+
+  getOnePxSizeBl: (): Vector | null => {
+    return mouseActionState?.onePxSizeBl ?? null;
+  },
+
+  setOnePxSizeBl: (onePxSizeBl: Vector): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.onePxSizeBl = onePxSizeBl;
+  },
+
+  getClickOffsetProp: (): Vector | null => {
+    return mouseActionState?.clickOffsetProp ?? null;
+  },
+
+  setClickOffsetProp: (clickOffsetProp: Vector | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.clickOffsetProp = clickOffsetProp;
+  },
+
   usesEmbeddedInteractiveHitTesting: (): boolean => {
     return mouseActionState?.hitEmbeddedInteractive ?? false;
   },

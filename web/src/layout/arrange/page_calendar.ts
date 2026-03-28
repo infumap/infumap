@@ -424,8 +424,9 @@ export function arrange_calendar_page(
     };
 
     // Adjust for click offset
-    movingItemBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * movingItemBoundsPx.w;
-    movingItemBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * movingItemBoundsPx.h;
+    const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
+    movingItemBoundsPx.x -= clickOffsetProp.x * movingItemBoundsPx.w;
+    movingItemBoundsPx.y -= clickOffsetProp.y * movingItemBoundsPx.h;
 
     // Create hitboxes for moving item matching normal item structure
     const movingWidthBl = Math.floor(itemWidth / blockSizePx.w);

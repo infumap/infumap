@@ -165,8 +165,9 @@ export function arrange_single_cell_page(
       h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
     };
 
-    cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
-    cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
+    const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
+    cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
+    cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
     const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false, false, false, false, store.smallScreenMode());
     const ves = arrangeItem(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,

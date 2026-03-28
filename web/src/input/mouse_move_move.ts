@@ -71,10 +71,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     arrangeNow(store, "moving-init-out-of-composite");
   }
   else {
-    MouseActionState.get().startPosBl = {
+    MouseActionState.setStartPosBl({
       x: activeItem.spatialPositionGr.x / GRID_SIZE,
       y: activeItem.spatialPositionGr.y / GRID_SIZE
-    };
+    });
 
     // Setup group move if the active item is part of the current selection set
     const selected = store.overlay.selectedVeids.get();
@@ -335,12 +335,13 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx);
   }
 
+  const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
   const deltaBl = {
-    x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
-    y: deltaPx.y * MouseActionState.get().onePxSizeBl.y
+    x: deltaPx.x * onePxSizeBl.x,
+    y: deltaPx.y * onePxSizeBl.y
   };
 
-  let newPosBl = vectorAdd(MouseActionState.get().startPosBl!, deltaBl);
+  let newPosBl = vectorAdd(MouseActionState.getStartPosBl()!, deltaBl);
   newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
   newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
   const inElementVe = MouseActionState.readScaleDefiningElement()!;
@@ -462,20 +463,21 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   };
 
   const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(treeActiveItem);
+  const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
   const clickOffsetInActiveItemBl = relationshipToParent == RelationshipToParent.Child
     ? {
-      x: Math.round(activeItemDimensionsBl.w * MouseActionState.get().clickOffsetProp!.x * 2.0) / 2.0,
-      y: Math.round(activeItemDimensionsBl.h * MouseActionState.get().clickOffsetProp!.y * 2.0) / 2.0
+      x: Math.round(activeItemDimensionsBl.w * clickOffsetProp.x * 2.0) / 2.0,
+      y: Math.round(activeItemDimensionsBl.h * clickOffsetProp.y * 2.0) / 2.0
     }
     : { x: 0, y: 0 };
   const startPosBl = vectorSubtract(mousePointBl, clickOffsetInActiveItemBl);
   const newItemPosGr = { x: startPosBl.x * GRID_SIZE, y: startPosBl.y * GRID_SIZE };
   if (moveToVe.parentPath == null) {
-    MouseActionState.get().startPx = desktopPx;
+    MouseActionState.setStartPx(desktopPx);
   } else {
-    MouseActionState.get().startPx = pagePx;
+    MouseActionState.setStartPx(pagePx);
   }
-  MouseActionState.get().startPosBl = startPosBl;
+  MouseActionState.setStartPosBl(startPosBl);
   const moveToPath = VeFns.veToPath(moveToVe);
 
   if (shouldClone && isPositionalItem(activeElement.displayItem)) {
@@ -528,10 +530,10 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath));
   }
 
-  MouseActionState.get().onePxSizeBl = {
+  MouseActionState.setOnePxSizeBl({
     x: moveToPageInnerSizeBl.w / moveToVe.childAreaBoundsPx!.w,
     y: moveToPageInnerSizeBl.h / moveToVe.childAreaBoundsPx!.h
-  };
+  });
 
   MouseActionState.setScaleDefiningElementPath(moveToPath);
 }
@@ -622,7 +624,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     }
     itemState.add(link);
     server.addItem(link, null, store.general.networkStatus);
-    MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
+    MouseActionState.setClickOffsetProp({ x: 0.0, y: 0.0 });
     const newLinkVeid = { itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id };
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, VeFns.veToPath(moveToPageVe)));
     MouseActionState.get().linkCreatedOnMoveStart = true;
@@ -634,12 +636,12 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe)));
   }
 
-  MouseActionState.get().onePxSizeBl = {
+  MouseActionState.setOnePxSizeBl({
     x: moveToPageInnerSizeBl.w / moveToPageVe.childAreaBoundsPx!.w,
     y: moveToPageInnerSizeBl.h / moveToPageVe.childAreaBoundsPx!.h
-  };
+  });
 
-  MouseActionState.get().startPosBl = { x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE };
+  MouseActionState.setStartPosBl({ x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE });
   MouseActionState.setScaleDefiningElementPath(VeFns.veToPath(moveToPageVe));
 }
 
