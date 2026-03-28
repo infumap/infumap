@@ -48,42 +48,8 @@ import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualScene
 */
 
 const vesCacheState = createVesCacheState();
-const projectionOps = createProjectionOps(vesCacheState);
-const sceneOps = createSceneOps(vesCacheState, projectionOps);
-const {
-  clearRenderProjectionForPath,
-  deleteRenderProjectionForPath,
-  getCurrentRenderTableRows,
-  getUnderConstructionRenderTableRows,
-  setRenderProjectionTableRows,
-  setUnderConstructionRenderTableRows,
-  updateRenderProjectionPopup,
-} = projectionOps;
-const {
-  addSceneWatchContainerUid,
-  createVisualElement,
-  currentSceneQueries,
-  deindexVisualElement,
-  deleteFromVessVsDisplayIdLookup,
-  deleteSceneNode,
-  deleteSceneRelationships,
-  ensureUnderConstructionArrangeSignal,
-  getSceneNode,
-  getScenePathsForDisplayId,
-  maybeTrackLoadedContainer,
-  prepareSceneRelationshipData,
-  promoteCurrentScene,
-  promoteVirtualScene,
-  pushTopTitledPage,
-  removeSceneWatchContainerUid,
-  renderSceneQueries,
-  sceneHasNode,
-  syncRenderProjectionNode,
-  syncRenderProjectionRelationshipsForPath,
-  virtualSceneQueries,
-  writePreparedUnderConstructionVisualElement,
-  writeScenePath,
-} = sceneOps;
+const projection = createProjectionOps(vesCacheState);
+const scene = createSceneOps(vesCacheState, projection);
 
 export let VesCache = {
 
@@ -94,14 +60,14 @@ export let VesCache = {
     Use this for non-rendering reads of layout structure and relationships when
     you want plain scene data, not Solid render signals.
   */
-  current: currentSceneQueries,
+  current: scene.current,
 
   /*
     Query facade over the virtual scene snapshot: a separately stored arrange
     result copied from an under-construction scene for virtual/layout-only use,
     without replacing the live currentScene.
   */
-  virtual: virtualSceneQueries,
+  virtual: scene.virtual,
 
   /*
     Query facade over the render projection.
@@ -109,7 +75,7 @@ export let VesCache = {
     Use this for render-facing reads in component code when you need Solid
     signals/reactive accessors that drive the DOM, rather than plain scene data.
   */
-  render: renderSceneQueries,
+  render: scene.render,
 
   /**
    * Re-initialize - clears all cached data.
@@ -127,11 +93,11 @@ export let VesCache = {
   },
 
   getPathsForDisplayId: (displayId: Uid): Array<VisualElementPath> => {
-    return getScenePathsForDisplayId(vesCacheState.currentScene, displayId)!;
+    return scene.getScenePathsForDisplayId(vesCacheState.currentScene, displayId)!;
   },
 
   addWatchContainerUid: (uid: Uid, origin: string | null): void => {
-    addSceneWatchContainerUid(vesCacheState.currentSceneOutputs, uid, origin);
+    scene.addSceneWatchContainerUid(vesCacheState.currentSceneOutputs, uid, origin);
   },
 
   getCurrentWatchContainerUidsByOrigin: (): Map<string | null, Set<Uid>> => {
@@ -146,15 +112,15 @@ export let VesCache = {
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
     const preparedUmbrellaSpec = prepareVisualElementSpec(umbrellaSpec);
-    const preparedUmbrellaRelationships = prepareSceneRelationshipData(vesCacheState.underConstructionScene, umbrellaRelationships, umbrellaPath);
-    const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : createVisualElement(preparedUmbrellaSpec);
+    const preparedUmbrellaRelationships = scene.prepareSceneRelationshipData(vesCacheState.underConstructionScene, umbrellaRelationships, umbrellaPath);
+    const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : scene.createVisualElement(preparedUmbrellaSpec);
 
-    writeScenePath(vesCacheState.underConstructionScene, umbrellaPath, umbrellaVe, preparedUmbrellaRelationships);
+    scene.writeScenePath(vesCacheState.underConstructionScene, umbrellaPath, umbrellaVe, preparedUmbrellaRelationships);
     if (virtualUmbrellaVes) {
-      promoteVirtualScene(vesCacheState.underConstructionScene);
+      scene.promoteVirtualScene(vesCacheState.underConstructionScene);
     } else {
       store.umbrellaVisualElement.set(umbrellaVe);
-      promoteCurrentScene(store, vesCacheState.underConstructionScene, vesCacheState.underConstructionSceneOutputs, vesCacheState.underConstructionRenderTableRowsByPath);
+      scene.promoteCurrentScene(store, vesCacheState.underConstructionScene, vesCacheState.underConstructionSceneOutputs, vesCacheState.underConstructionRenderTableRowsByPath);
     }
 
     vesCacheState.underConstructionScene = createEmptySceneState();
@@ -184,8 +150,8 @@ export let VesCache = {
    */
   full_writeVisualElement: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): void => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(vesCacheState.underConstructionScene, relationships, path);
-    writePreparedUnderConstructionVisualElement(preparedSpec, preparedRelationships, path);
+    const preparedRelationships = scene.prepareSceneRelationshipData(vesCacheState.underConstructionScene, relationships, path);
+    scene.writePreparedUnderConstructionVisualElement(preparedSpec, preparedRelationships, path);
   },
 
   /**
@@ -194,9 +160,9 @@ export let VesCache = {
    */
   full_writeVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(vesCacheState.underConstructionScene, relationships, path);
-    writePreparedUnderConstructionVisualElement(preparedSpec, preparedRelationships, path);
-    return ensureUnderConstructionArrangeSignal(path) ?? panic(`failed to materialize under-construction arrange signal for ${path}.`);
+    const preparedRelationships = scene.prepareSceneRelationshipData(vesCacheState.underConstructionScene, relationships, path);
+    scene.writePreparedUnderConstructionVisualElement(preparedSpec, preparedRelationships, path);
+    return scene.ensureUnderConstructionArrangeSignal(path) ?? panic(`failed to materialize under-construction arrange signal for ${path}.`);
   },
 
   /**
@@ -204,15 +170,15 @@ export let VesCache = {
    */
   partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(vesCacheState.currentScene, relationships, path);
-    const newElement = createVisualElement(preparedSpec);
-    writeScenePath(vesCacheState.currentScene, path, newElement, preparedRelationships);
-    syncRenderProjectionNode(path, newElement);
-    syncRenderProjectionRelationshipsForPath(vesCacheState.currentScene, path);
+    const preparedRelationships = scene.prepareSceneRelationshipData(vesCacheState.currentScene, relationships, path);
+    const newElement = scene.createVisualElement(preparedSpec);
+    scene.writeScenePath(vesCacheState.currentScene, path, newElement, preparedRelationships);
+    scene.syncRenderProjectionNode(path, newElement);
+    scene.syncRenderProjectionRelationshipsForPath(vesCacheState.currentScene, path);
 
-    maybeTrackLoadedContainer(vesCacheState.currentSceneOutputs, preparedSpec);
+    scene.maybeTrackLoadedContainer(vesCacheState.currentSceneOutputs, preparedSpec);
 
-    return renderSceneQueries.getNode(path) ?? panic("partial_create failed to create render node signal.");
+    return scene.render.getNode(path) ?? panic("partial_create failed to create render node signal.");
   },
 
   /**
@@ -223,58 +189,58 @@ export let VesCache = {
    */
   partial_overwriteVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(vesCacheState.currentScene, relationships, newPath);
+    const preparedRelationships = scene.prepareSceneRelationshipData(vesCacheState.currentScene, relationships, newPath);
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
-    const nextVe = createVisualElement(preparedSpec);
+    const nextVe = scene.createVisualElement(preparedSpec);
 
-    const existingAttachments = renderSceneQueries.getAttachments(existingPath)();
+    const existingAttachments = scene.render.getAttachments(existingPath)();
     for (let i = 0; i < existingAttachments.length; ++i) {
       const attachmentVe = existingAttachments[i].get();
       const attachmentVePath = VeFns.veToPath(attachmentVe);
-      if (sceneHasNode(vesCacheState.currentScene, attachmentVePath)) {
+      if (scene.sceneHasNode(vesCacheState.currentScene, attachmentVePath)) {
         VesCache.removeByPath(attachmentVePath);
       }
     }
 
-    if (!deleteSceneNode(vesCacheState.currentScene, existingPath)) {
+    if (!scene.deleteSceneNode(vesCacheState.currentScene, existingPath)) {
       throw new Error("vesToOverwrite did not exist");
     }
-    deleteFromVessVsDisplayIdLookup(vesCacheState.currentScene, existingPath);
-    deindexVisualElement(vesCacheState.currentScene, existingPath, veToOverwrite);
-    deleteSceneRelationships(vesCacheState.currentScene.relationshipsByPath, existingPath);
+    scene.deleteFromVessVsDisplayIdLookup(vesCacheState.currentScene, existingPath);
+    scene.deindexVisualElement(vesCacheState.currentScene, existingPath, veToOverwrite);
+    scene.deleteSceneRelationships(vesCacheState.currentScene.relationshipsByPath, existingPath);
     if (existingPath !== newPath) {
-      clearRenderProjectionForPath(existingPath);
-      deleteRenderProjectionForPath(existingPath);
+      projection.clearRenderProjectionForPath(existingPath);
+      projection.deleteRenderProjectionForPath(existingPath);
     }
     vesToOverwrite.set(cloneVisualElementSnapshot(nextVe));
-    writeScenePath(vesCacheState.currentScene, newPath, nextVe, preparedRelationships);
-    syncRenderProjectionNode(newPath, nextVe, undefined, vesToOverwrite);
-    syncRenderProjectionRelationshipsForPath(vesCacheState.currentScene, newPath);
+    scene.writeScenePath(vesCacheState.currentScene, newPath, nextVe, preparedRelationships);
+    scene.syncRenderProjectionNode(newPath, nextVe, undefined, vesToOverwrite);
+    scene.syncRenderProjectionRelationshipsForPath(vesCacheState.currentScene, newPath);
 
-    maybeTrackLoadedContainer(vesCacheState.currentSceneOutputs, preparedSpec);
+    scene.maybeTrackLoadedContainer(vesCacheState.currentSceneOutputs, preparedSpec);
   },
 
   removeByPath: (path: VisualElementPath): void => {
-    const ve = getSceneNode(vesCacheState.currentScene, path);
+    const ve = scene.getSceneNode(vesCacheState.currentScene, path);
     if (ve && isContainer(ve.displayItem) && asContainerItem(ve.displayItem).childrenLoaded) {
-      removeSceneWatchContainerUid(vesCacheState.currentSceneOutputs, ve.displayItem.id, ve.displayItem.origin);
+      scene.removeSceneWatchContainerUid(vesCacheState.currentSceneOutputs, ve.displayItem.id, ve.displayItem.origin);
     }
     if (ve) {
-      deindexVisualElement(vesCacheState.currentScene, path, ve);
+      scene.deindexVisualElement(vesCacheState.currentScene, path, ve);
     }
-    if (!deleteSceneNode(vesCacheState.currentScene, path)) {
+    if (!scene.deleteSceneNode(vesCacheState.currentScene, path)) {
       panic(`item ${path} is not in ves cache.`);
     }
-    deleteSceneRelationships(vesCacheState.currentScene.relationshipsByPath, path);
-    clearRenderProjectionForPath(path);
-    deleteRenderProjectionForPath(path);
+    scene.deleteSceneRelationships(vesCacheState.currentScene.relationshipsByPath, path);
+    projection.clearRenderProjectionForPath(path);
+    projection.deleteRenderProjectionForPath(path);
 
-    deleteFromVessVsDisplayIdLookup(vesCacheState.currentScene, path);
+    scene.deleteFromVessVsDisplayIdLookup(vesCacheState.currentScene, path);
   },
 
   pushTopTitledPage: (vePath: VisualElementPath) => {
-    pushTopTitledPage(vesCacheState.underConstructionSceneOutputs, vePath);
+    scene.pushTopTitledPage(vesCacheState.underConstructionSceneOutputs, vePath);
   },
 
   clearPopupVes: (path: VisualElementPath) => {
@@ -282,22 +248,22 @@ export let VesCache = {
     if (relationships) {
       relationships.popup = null;
     }
-    updateRenderProjectionPopup(path, null);
+    projection.updateRenderProjectionPopup(path, null);
   },
 
   getTableRenderRows: (path: VisualElementPath): Array<number> | null => {
-    if (vesCacheState.currentlyInFullArrange && sceneHasNode(vesCacheState.underConstructionScene, path)) {
-      return getUnderConstructionRenderTableRows(path);
+    if (vesCacheState.currentlyInFullArrange && scene.sceneHasNode(vesCacheState.underConstructionScene, path)) {
+      return projection.getUnderConstructionRenderTableRows(path);
     }
-    return getCurrentRenderTableRows(path);
+    return projection.getCurrentRenderTableRows(path);
   },
 
   setTableRenderRows: (path: VisualElementPath, rows: Array<number> | null): void => {
-    if (vesCacheState.currentlyInFullArrange && sceneHasNode(vesCacheState.underConstructionScene, path)) {
-      setUnderConstructionRenderTableRows(path, rows);
+    if (vesCacheState.currentlyInFullArrange && scene.sceneHasNode(vesCacheState.underConstructionScene, path)) {
+      projection.setUnderConstructionRenderTableRows(path, rows);
       return;
     }
-    setRenderProjectionTableRows(path, rows);
+    projection.setRenderProjectionTableRows(path, rows);
   },
 
 }

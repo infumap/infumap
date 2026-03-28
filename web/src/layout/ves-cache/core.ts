@@ -46,11 +46,7 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     return scene.cache.get(path);
   }
 
-  const relationshipOps = createRelationshipOps(state, getSceneNode);
-  const {
-    deleteSceneRelationships,
-    prepareSceneRelationshipData,
-  } = relationshipOps;
+  const relationships = createRelationshipOps(state, getSceneNode);
 
   function setSceneNode(scene: SceneState, path: VisualElementPath, ve: VisualElement) {
     scene.cache.set(path, ve);
@@ -193,7 +189,7 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     relationshipsByPath.set(path, relationshipData);
   }
 
-  const queryOps = createSceneQueryOps(
+  const queries = createSceneQueryOps(
     state,
     projection,
     getSceneNode,
@@ -201,13 +197,8 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     resolveSceneNodePath,
     resolveSceneNodePaths,
   );
-  const {
-    currentSceneQueries,
-    virtualSceneQueries,
-    renderSceneQueries,
-  } = queryOps;
 
-  const syncOps = createSceneSyncOps(
+  const sync = createSceneSyncOps(
     state,
     projection,
     getSceneNode,
@@ -215,12 +206,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     resolveSceneNodePath,
     resolveSceneNodePaths,
   );
-  const {
-    promoteCurrentScene,
-    promoteVirtualScene,
-    syncRenderProjectionNode,
-    syncRenderProjectionRelationshipsForPath,
-  } = syncOps;
 
   return {
     maybeTrackLoadedContainer,
@@ -231,20 +216,20 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     getScenePathsForDisplayId,
     ensureUnderConstructionArrangeSignal,
     writePreparedUnderConstructionVisualElement,
-    prepareSceneRelationshipData,
+    prepareSceneRelationshipData: relationships.prepareSceneRelationshipData,
     writeScenePath,
     deindexVisualElement,
-    deleteSceneRelationships,
-    syncRenderProjectionNode,
-    syncRenderProjectionRelationshipsForPath,
+    deleteSceneRelationships: relationships.deleteSceneRelationships,
+    syncRenderProjectionNode: sync.syncRenderProjectionNode,
+    syncRenderProjectionRelationshipsForPath: sync.syncRenderProjectionRelationshipsForPath,
     addSceneWatchContainerUid,
     pushTopTitledPage,
     removeSceneWatchContainerUid,
-    promoteVirtualScene,
-    promoteCurrentScene,
-    currentSceneQueries,
-    virtualSceneQueries,
-    renderSceneQueries,
+    promoteVirtualScene: sync.promoteVirtualScene,
+    promoteCurrentScene: sync.promoteCurrentScene,
+    current: queries.current,
+    virtual: queries.virtual,
+    render: queries.render,
     deleteFromVessVsDisplayIdLookup,
   };
 }

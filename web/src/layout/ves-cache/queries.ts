@@ -173,7 +173,7 @@ export function createSceneQueryOps(
     return resolveSceneNodePath(state.currentScene, currentMatches[0]) ?? panic(`${veid.itemId}/${veid.linkIdMaybe} missing render node signal.`);
   }
 
-  const currentSceneQueries = {
+  const current = {
     getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
       return resolveSceneNodePath(state.currentScene, path) ?? undefined;
     },
@@ -235,7 +235,7 @@ export function createSceneQueryOps(
     },
   };
 
-  const virtualSceneQueries = {
+  const virtual = {
     readNode: (path: VisualElementPath): VisualElement | undefined => {
       return readVirtualSceneNode(path);
     },
@@ -257,7 +257,7 @@ export function createSceneQueryOps(
     },
   };
 
-  const renderSceneQueries = {
+  const render = {
     getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
       return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).node)[0]();
     },
@@ -308,8 +308,8 @@ export function createSceneQueryOps(
   };
 
   return {
-    currentSceneQueries,
-    virtualSceneQueries,
-    renderSceneQueries,
+    current,
+    virtual,
+    render,
   };
 }
