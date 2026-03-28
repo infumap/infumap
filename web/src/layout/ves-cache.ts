@@ -90,7 +90,9 @@ function updateRenderProjectionSignal<T>(signal: [Accessor<T>, Setter<T>], value
   const current = read();
   if (shouldUpdate ? shouldUpdate(current, value) : current !== value) {
     write(value);
+    return true;
   }
+  return false;
 }
 
 function shouldUpdateSignalList(current: Array<VisualElementSignal>, next: Array<VisualElementSignal>): boolean {
@@ -106,7 +108,9 @@ function shouldUpdateSignalList(current: Array<VisualElementSignal>, next: Array
 }
 
 function updateRenderProjectionPopup(path: VisualElementPath, value: VisualElementSignal | null) {
-  updateRenderProjectionSignal(getRenderProjection(path).popup, value);
+  if (updateRenderProjectionSignal(getRenderProjection(path).popup, value)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
+  }
 }
 
 function updateRenderProjectionNode(path: VisualElementPath, value: VisualElementSignal | undefined) {
@@ -114,45 +118,61 @@ function updateRenderProjectionNode(path: VisualElementPath, value: VisualElemen
 }
 
 function updateRenderProjectionSelected(path: VisualElementPath, value: VisualElementSignal | null) {
-  updateRenderProjectionSignal(getRenderProjection(path).selected, value);
+  if (updateRenderProjectionSignal(getRenderProjection(path).selected, value)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
+  }
 }
 
 function updateRenderProjectionDock(path: VisualElementPath, value: VisualElementSignal | null) {
-  updateRenderProjectionSignal(getRenderProjection(path).dock, value);
+  if (updateRenderProjectionSignal(getRenderProjection(path).dock, value)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
+  }
 }
 
 function updateRenderProjectionFocused(path: VisualElementPath, value: Item | null) {
-  updateRenderProjectionSignal(getRenderProjection(path).focused, value, (current, next) => {
+  if (updateRenderProjectionSignal(getRenderProjection(path).focused, value, (current, next) => {
     if (current?.id !== next?.id) {
       return true;
     }
     return current !== next;
-  });
+  })) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionFocusedSignalWrites += 1);
+  }
 }
 
 function updateRenderProjectionAttachments(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  updateRenderProjectionSignal(getRenderProjection(path).attachments, actualValue, shouldUpdateSignalList);
+  if (updateRenderProjectionSignal(getRenderProjection(path).attachments, actualValue, shouldUpdateSignalList)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+  }
 }
 
 function updateRenderProjectionChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  updateRenderProjectionSignal(getRenderProjection(path).children, actualValue, shouldUpdateSignalList);
+  if (updateRenderProjectionSignal(getRenderProjection(path).children, actualValue, shouldUpdateSignalList)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+  }
 }
 
 function updateRenderProjectionLineChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  updateRenderProjectionSignal(getRenderProjection(path).lineChildren, actualValue, shouldUpdateSignalList);
+  if (updateRenderProjectionSignal(getRenderProjection(path).lineChildren, actualValue, shouldUpdateSignalList)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+  }
 }
 
 function updateRenderProjectionDesktopChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  updateRenderProjectionSignal(getRenderProjection(path).desktopChildren, actualValue, shouldUpdateSignalList);
+  if (updateRenderProjectionSignal(getRenderProjection(path).desktopChildren, actualValue, shouldUpdateSignalList)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+  }
 }
 
 function updateRenderProjectionNonMovingChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  updateRenderProjectionSignal(getRenderProjection(path).nonMovingChildren, actualValue, shouldUpdateSignalList);
+  if (updateRenderProjectionSignal(getRenderProjection(path).nonMovingChildren, actualValue, shouldUpdateSignalList)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+  }
 }
 
 function setRenderProjectionTableRows(path: VisualElementPath, rows: Array<number> | null) {
@@ -264,6 +284,262 @@ let underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualEle
 let underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
 let currentSceneOutputs = createEmptySceneOutputs();
 let underConstructionSceneOutputs = createEmptySceneOutputs();
+
+type ArrangeDebugConfig = {
+  enabled: boolean;
+  logEvery: number;
+  keepHistory: number;
+};
+
+type ArrangeDebugSample = {
+  id: number;
+  virtual: boolean;
+  totalMs: number;
+  arrangeItemMs: number;
+  finalizeMs: number;
+  sceneNodeCount: number;
+  renderProjectionEntryCount: number;
+  nodeWrites: number;
+  nodeReused: number;
+  nodeCreated: number;
+  relationshipWrites: number;
+  relationshipReused: number;
+  childBucketsReused: number;
+  childBucketsRebuilt: number;
+  projectionPathsSynced: number;
+  projectionPathsCleared: number;
+  projectionNodeSignalsCreated: number;
+  projectionNodeSignalsUpdated: number;
+  projectionNodeSignalsReused: number;
+  projectionNodeSignalsCleared: number;
+  projectionRelationshipFastPaths: number;
+  projectionRelationshipResolved: number;
+  projectionScalarSignalWrites: number;
+  projectionListSignalWrites: number;
+  projectionFocusedSignalWrites: number;
+};
+
+const DEFAULT_ARRANGE_DEBUG_CONFIG: ArrangeDebugConfig = {
+  enabled: false,
+  logEvery: 1,
+  keepHistory: 20,
+};
+
+let nextArrangeDebugId = 1;
+let activeArrangeDebugSample: ArrangeDebugSample | null = null;
+let arrangeDebugHistory: Array<ArrangeDebugSample> = [];
+
+function parseArrangeDebugConfigValue(value: unknown): ArrangeDebugConfig {
+  if (value === true || value === "1" || value === "true") {
+    return { ...DEFAULT_ARRANGE_DEBUG_CONFIG, enabled: true };
+  }
+  if (value === false || value === "0" || value === "false" || value == null) {
+    return DEFAULT_ARRANGE_DEBUG_CONFIG;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return {
+      enabled: value > 0,
+      logEvery: Math.max(1, Math.floor(value)),
+      keepHistory: DEFAULT_ARRANGE_DEBUG_CONFIG.keepHistory,
+    };
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      return DEFAULT_ARRANGE_DEBUG_CONFIG;
+    }
+    if (trimmed.startsWith("{")) {
+      try {
+        return parseArrangeDebugConfigValue(JSON.parse(trimmed));
+      } catch {
+        return DEFAULT_ARRANGE_DEBUG_CONFIG;
+      }
+    }
+    const asNumber = Number(trimmed);
+    if (!Number.isNaN(asNumber)) {
+      return parseArrangeDebugConfigValue(asNumber);
+    }
+    if (trimmed === "on") {
+      return { ...DEFAULT_ARRANGE_DEBUG_CONFIG, enabled: true };
+    }
+    return DEFAULT_ARRANGE_DEBUG_CONFIG;
+  }
+  if (typeof value === "object") {
+    const raw = value as {
+      enabled?: unknown;
+      logEvery?: unknown;
+      keepHistory?: unknown;
+    };
+    const enabled = raw.enabled === undefined ? true : Boolean(raw.enabled);
+    const logEvery = typeof raw.logEvery === "number" && Number.isFinite(raw.logEvery)
+      ? Math.max(1, Math.floor(raw.logEvery))
+      : DEFAULT_ARRANGE_DEBUG_CONFIG.logEvery;
+    const keepHistory = typeof raw.keepHistory === "number" && Number.isFinite(raw.keepHistory)
+      ? Math.max(1, Math.floor(raw.keepHistory))
+      : DEFAULT_ARRANGE_DEBUG_CONFIG.keepHistory;
+    return { enabled, logEvery, keepHistory };
+  }
+  return DEFAULT_ARRANGE_DEBUG_CONFIG;
+}
+
+function readArrangeDebugConfig(): ArrangeDebugConfig {
+  const runtimeConfig = (globalThis as any).__INFUMAP_ARRANGE_DEBUG__;
+  if (typeof runtimeConfig !== "undefined") {
+    return parseArrangeDebugConfigValue(runtimeConfig);
+  }
+
+  try {
+    if (typeof localStorage !== "undefined") {
+      return parseArrangeDebugConfigValue(localStorage.getItem("infumap.arrangeDebug"));
+    }
+  } catch {
+    // ignore storage access failures
+  }
+
+  return DEFAULT_ARRANGE_DEBUG_CONFIG;
+}
+
+function beginArrangeDebugSample(virtual: boolean) {
+  const config = readArrangeDebugConfig();
+  if (!config.enabled) {
+    activeArrangeDebugSample = null;
+    return;
+  }
+
+  activeArrangeDebugSample = {
+    id: nextArrangeDebugId++,
+    virtual,
+    totalMs: 0,
+    arrangeItemMs: 0,
+    finalizeMs: 0,
+    sceneNodeCount: 0,
+    renderProjectionEntryCount: 0,
+    nodeWrites: 0,
+    nodeReused: 0,
+    nodeCreated: 0,
+    relationshipWrites: 0,
+    relationshipReused: 0,
+    childBucketsReused: 0,
+    childBucketsRebuilt: 0,
+    projectionPathsSynced: 0,
+    projectionPathsCleared: 0,
+    projectionNodeSignalsCreated: 0,
+    projectionNodeSignalsUpdated: 0,
+    projectionNodeSignalsReused: 0,
+    projectionNodeSignalsCleared: 0,
+    projectionRelationshipFastPaths: 0,
+    projectionRelationshipResolved: 0,
+    projectionScalarSignalWrites: 0,
+    projectionListSignalWrites: 0,
+    projectionFocusedSignalWrites: 0,
+  };
+}
+
+function averageArrangeDebugHistory(history: Array<ArrangeDebugSample>) {
+  if (history.length === 0) {
+    return null;
+  }
+  const total = {
+    totalMs: 0,
+    arrangeItemMs: 0,
+    finalizeMs: 0,
+    nodeCreated: 0,
+    nodeReused: 0,
+    relationshipReused: 0,
+    childBucketsReused: 0,
+    projectionNodeSignalsUpdated: 0,
+    projectionRelationshipFastPaths: 0,
+    projectionListSignalWrites: 0,
+    projectionScalarSignalWrites: 0,
+    projectionFocusedSignalWrites: 0,
+  };
+  for (const sample of history) {
+    total.totalMs += sample.totalMs;
+    total.arrangeItemMs += sample.arrangeItemMs;
+    total.finalizeMs += sample.finalizeMs;
+    total.nodeCreated += sample.nodeCreated;
+    total.nodeReused += sample.nodeReused;
+    total.relationshipReused += sample.relationshipReused;
+    total.childBucketsReused += sample.childBucketsReused;
+    total.projectionNodeSignalsUpdated += sample.projectionNodeSignalsUpdated;
+    total.projectionRelationshipFastPaths += sample.projectionRelationshipFastPaths;
+    total.projectionListSignalWrites += sample.projectionListSignalWrites;
+    total.projectionScalarSignalWrites += sample.projectionScalarSignalWrites;
+    total.projectionFocusedSignalWrites += sample.projectionFocusedSignalWrites;
+  }
+  return {
+    count: history.length,
+    totalMs: total.totalMs / history.length,
+    arrangeItemMs: total.arrangeItemMs / history.length,
+    finalizeMs: total.finalizeMs / history.length,
+    nodeCreated: total.nodeCreated / history.length,
+    nodeReused: total.nodeReused / history.length,
+    relationshipReused: total.relationshipReused / history.length,
+    childBucketsReused: total.childBucketsReused / history.length,
+    projectionNodeSignalsUpdated: total.projectionNodeSignalsUpdated / history.length,
+    projectionRelationshipFastPaths: total.projectionRelationshipFastPaths / history.length,
+    projectionListSignalWrites: total.projectionListSignalWrites / history.length,
+    projectionScalarSignalWrites: total.projectionScalarSignalWrites / history.length,
+    projectionFocusedSignalWrites: total.projectionFocusedSignalWrites / history.length,
+  };
+}
+
+function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnType<typeof averageArrangeDebugHistory>): string {
+  const kind = sample.virtual ? "virtual" : "current";
+  const relationshipRebuilt = sample.relationshipWrites - sample.relationshipReused;
+  const avgText = average
+    ? ` avg(total=${average.totalMs.toFixed(1)} arrange=${average.arrangeItemMs.toFixed(1)} finalize=${average.finalizeMs.toFixed(1)} over ${average.count})`
+    : "";
+  return `[ARRANGE_DEBUG] #${sample.id} ${kind}` +
+    ` total=${sample.totalMs.toFixed(1)}ms` +
+    ` arrange=${sample.arrangeItemMs.toFixed(1)}ms` +
+    ` finalize=${sample.finalizeMs.toFixed(1)}ms` +
+    ` sceneNodes=${sample.sceneNodeCount}` +
+    ` renderEntries=${sample.renderProjectionEntryCount}` +
+    ` writes=${sample.nodeWrites} (reuse=${sample.nodeReused} create=${sample.nodeCreated})` +
+    ` rel=${sample.relationshipWrites} (reuse=${sample.relationshipReused} rebuild=${relationshipRebuilt})` +
+    ` buckets(reuse=${sample.childBucketsReused} rebuild=${sample.childBucketsRebuilt})` +
+    ` projection(paths=${sample.projectionPathsSynced} clear=${sample.projectionPathsCleared} fast=${sample.projectionRelationshipFastPaths} resolve=${sample.projectionRelationshipResolved})` +
+    ` nodeSignals(create=${sample.projectionNodeSignalsCreated} reuse=${sample.projectionNodeSignalsReused} update=${sample.projectionNodeSignalsUpdated} clear=${sample.projectionNodeSignalsCleared})` +
+    ` signalWrites(list=${sample.projectionListSignalWrites} scalar=${sample.projectionScalarSignalWrites} focused=${sample.projectionFocusedSignalWrites})` +
+    avgText;
+}
+
+function finalizeArrangeDebugSample(timings: { totalMs: number, arrangeItemMs: number, finalizeMs: number }) {
+  if (!activeArrangeDebugSample) {
+    return;
+  }
+
+  const config = readArrangeDebugConfig();
+  if (!config.enabled) {
+    activeArrangeDebugSample = null;
+    return;
+  }
+
+  const sample: ArrangeDebugSample = {
+    ...activeArrangeDebugSample,
+    totalMs: timings.totalMs,
+    arrangeItemMs: timings.arrangeItemMs,
+    finalizeMs: timings.finalizeMs,
+    sceneNodeCount: activeArrangeDebugSample.virtual ? virtualScene.cache.size : currentScene.cache.size,
+    renderProjectionEntryCount: renderProjectionByPath.size,
+  };
+
+  activeArrangeDebugSample = null;
+  arrangeDebugHistory.push(sample);
+  if (arrangeDebugHistory.length > config.keepHistory) {
+    arrangeDebugHistory.splice(0, arrangeDebugHistory.length - config.keepHistory);
+  }
+
+  const average = averageArrangeDebugHistory(arrangeDebugHistory);
+  (globalThis as any).__INFUMAP_LAST_ARRANGE_DEBUG__ = sample;
+  (globalThis as any).__INFUMAP_ARRANGE_DEBUG_HISTORY__ = arrangeDebugHistory.slice();
+  (globalThis as any).__INFUMAP_ARRANGE_DEBUG_SUMMARY__ = average;
+
+  if (sample.id % config.logEvery === 0) {
+    console.debug(formatArrangeDebugSample(sample, average));
+  }
+}
 
 function getSceneNode(scene: SceneState, path: VisualElementPath): VisualElement | undefined {
   return scene.cache.get(path);
@@ -669,9 +945,10 @@ function writePreparedUnderConstructionVisualElement(
 ): VisualElement {
   maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
   const existingVe = getSceneNode(currentScene, path);
+  activeArrangeDebugSample && (activeArrangeDebugSample.nodeWrites += 1);
   const canonicalVe = existingVe && visualElementMatchesPreparedSpec(preparedSpec, existingVe)
-    ? existingVe
-    : VeFns.create(preparedSpec);
+    ? (activeArrangeDebugSample && (activeArrangeDebugSample.nodeReused += 1), existingVe)
+    : (activeArrangeDebugSample && (activeArrangeDebugSample.nodeCreated += 1), VeFns.create(preparedSpec));
   writeUnderConstructionSceneNode(path, canonicalVe, preparedRelationships);
   return canonicalVe;
 }
@@ -707,8 +984,10 @@ function reuseSceneRelationshipDataIfEqual(
   path: VisualElementPath,
   relationshipData: SceneRelationshipData,
 ): SceneRelationshipData {
+  activeArrangeDebugSample && (activeArrangeDebugSample.relationshipWrites += 1);
   const existing = currentScene.relationshipsByPath.get(path);
   if (existing && sceneRelationshipDataEqual(existing, relationshipData)) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.relationshipReused += 1);
     return existing;
   }
   return relationshipData;
@@ -721,6 +1000,7 @@ function syncRenderProjectionNode(
   preferredSignal?: VisualElementSignal,
 ) {
   if (!nextVe) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsCleared += 1);
     updateRenderProjectionNode(path, undefined);
     return;
   }
@@ -728,15 +1008,18 @@ function syncRenderProjectionNode(
   let signal = preferredSignal ?? getRenderNode(path);
   if (!signal) {
     signal = createVisualElementSignal(cloneVisualElementSnapshot(nextVe));
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsCreated += 1);
     updateRenderProjectionNode(path, signal);
     return;
   }
 
   if (!preferredSignal && previousVe === nextVe) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsReused += 1);
     updateRenderProjectionNode(path, signal);
     return;
   }
 
+  activeArrangeDebugSample && (activeArrangeDebugSample.projectionNodeSignalsUpdated += 1);
   signal.set(cloneVisualElementSnapshot(nextVe));
   updateRenderProjectionNode(path, signal);
 }
@@ -752,9 +1035,11 @@ function syncRenderProjectionForPath(
   syncRenderProjectionNode(path, getSceneNode(scene, path), previousVe, preferredSignal);
   const relationships = scene.relationshipsByPath.get(path);
   if (relationships === previousRelationships) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionRelationshipFastPaths += 1);
     setRenderProjectionTableRows(path, renderTableRows ?? null);
     return;
   }
+  activeArrangeDebugSample && (activeArrangeDebugSample.projectionRelationshipResolved += 1);
   updateRenderProjectionPopup(path, resolveSceneNodePath(scene, relationships?.popup));
   updateRenderProjectionSelected(path, resolveSceneNodePath(scene, relationships?.selected));
   updateRenderProjectionDock(path, resolveSceneNodePath(scene, relationships?.dock));
@@ -915,6 +1200,10 @@ function reuseChildBucketsIfUnchanged(
     }
   }
 
+  if (childPaths.length > 0) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.childBucketsReused += 1);
+  }
+
   return {
     allChildren: previousRelationships.children,
     lineChildren: previousRelationships.lineChildren,
@@ -929,8 +1218,11 @@ function prepareSceneRelationshipData(
   path?: VisualElementPath,
 ): SceneRelationshipData {
   const childPaths = relationships?.childrenPaths ?? toSceneRelationshipPaths(relationships?.childrenVes);
-  const childBuckets = reuseChildBucketsIfUnchanged(scene, path, childPaths)
-    ?? splitChildPathsByRenderBehavior(scene, childPaths);
+  const reusedChildBuckets = reuseChildBucketsIfUnchanged(scene, path, childPaths);
+  if (!reusedChildBuckets && childPaths.length > 0) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.childBucketsRebuilt += 1);
+  }
+  const childBuckets = reusedChildBuckets ?? splitChildPathsByRenderBehavior(scene, childPaths);
   return {
     attachments: relationships?.attachmentsPaths ?? toSceneRelationshipPaths(relationships?.attachmentsVes),
     popup: typeof relationships?.popupPath !== "undefined" ? relationships.popupPath : toSceneRelationshipPath(relationships?.popupVes),
@@ -954,20 +1246,6 @@ function writeSceneRelationshipData(
 
 function deleteSceneRelationships(relationshipsByPath: SceneRelationshipsByPath, path: VisualElementPath) {
   relationshipsByPath.delete(path);
-}
-
-// Diagnostic counters for performance analysis
-const LOG_ARRANGE_STATS = true;
-let arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
-function resetArrangeStats() {
-  arrangeStats = { recycled: 0, dirty: 0, new: 0, dirtyReasons: new Map<string, number>() };
-}
-function logArrangeStats() {
-  if (!LOG_ARRANGE_STATS) return;
-  // console.log(`[VesCache] Arrange stats: recycled=${arrangeStats.recycled}, dirty=${arrangeStats.dirty}, new=${arrangeStats.new}`);
-  if (arrangeStats.dirty > 0) {
-    // console.log(`[VesCache] Dirty reasons:`, Object.fromEntries(arrangeStats.dirtyReasons));
-  }
 }
 
 function logOrphanedVes(cache: Map<VisualElementPath, VisualElement>, context: string) {
@@ -996,10 +1274,12 @@ function syncRenderProjectionFromScene(
 ) {
   for (const [path] of renderProjectionByPath) {
     if (!sceneHasNode(scene, path)) {
+      activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsCleared += 1);
       clearRenderProjectionForPath(path);
     }
   }
   for (const [path] of scene.cache) {
+    activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsSynced += 1);
     syncRenderProjectionForPath(
       scene,
       path,
@@ -1026,7 +1306,6 @@ function promoteCurrentScene(
   currentSceneOutputs = outputs;
   store.topTitledPages.set(outputs.topTitledPages);
   logOrphanedVes(scene.cache, "full_finalizeArrange");
-  logArrangeStats();
   syncRenderProjectionFromScene(previousScene, scene, renderTableRowsByPath);
 }
 
@@ -1213,9 +1492,16 @@ export let VesCache = {
 
   full_initArrange: (): void => {
     currentlyInFullArrange = true;
-    resetArrangeStats();
     underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
+  },
+
+  debug_beginFullArrange: (virtual: boolean): void => {
+    beginArrangeDebugSample(virtual);
+  },
+
+  debug_completeFullArrange: (timings: { totalMs: number, arrangeItemMs: number, finalizeMs: number }): void => {
+    finalizeArrangeDebugSample(timings);
   },
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
@@ -1396,6 +1682,14 @@ export let VesCache = {
     console.debug("--- start ves cache entry list");
     for (let v of currentScene.cache) { console.debug(v[0]); }
     console.debug("--- end ves cache entry list");
+  },
+
+  debugGetLastArrangeSample: (): ArrangeDebugSample | null => {
+    return arrangeDebugHistory.length > 0 ? arrangeDebugHistory[arrangeDebugHistory.length - 1] : null;
+  },
+
+  debugGetArrangeHistory: (): Array<ArrangeDebugSample> => {
+    return arrangeDebugHistory.slice();
   },
 
   pushTopTitledPage: (vePath: VisualElementPath) => {
