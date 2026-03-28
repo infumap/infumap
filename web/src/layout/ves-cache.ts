@@ -46,32 +46,23 @@ import { NONE_VISUAL_ELEMENT, VeFns, Veid, VisualElement, VisualElementFlags, Vi
 */
 
 import { Item } from "../items/base/item";
-type RenderProjectionSignalValues = {
-  popup: VisualElementSignal | null;
-  selected: VisualElementSignal | null;
-  dock: VisualElementSignal | null;
-  focused: Item | null;
-  attachments: Array<VisualElementSignal>;
-  children: Array<VisualElementSignal>;
-  lineChildren: Array<VisualElementSignal>;
-  desktopChildren: Array<VisualElementSignal>;
-  nonMovingChildren: Array<VisualElementSignal>;
+
+type RenderProjectionSlot<T> = {
+  value: T;
+  signal: [Accessor<T>, Setter<T>] | null;
 }
 
-type RenderProjectionSignalKey = keyof RenderProjectionSignalValues;
-
 type RenderProjectionEntry = {
-  nodeValue: VisualElementSignal | undefined;
-  nodeSignal: [Accessor<VisualElementSignal | undefined>, Setter<VisualElementSignal | undefined>] | null;
-  popup: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>] | null;
-  selected: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>] | null;
-  dock: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>] | null;
-  focused: [Accessor<Item | null>, Setter<Item | null>] | null;
-  attachments: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>] | null;
-  children: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>] | null;
-  lineChildren: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>] | null;
-  desktopChildren: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>] | null;
-  nonMovingChildren: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>] | null;
+  node: RenderProjectionSlot<VisualElementSignal | undefined>;
+  popup: RenderProjectionSlot<VisualElementSignal | null>;
+  selected: RenderProjectionSlot<VisualElementSignal | null>;
+  dock: RenderProjectionSlot<VisualElementSignal | null>;
+  focused: RenderProjectionSlot<Item | null>;
+  attachments: RenderProjectionSlot<Array<VisualElementSignal>>;
+  children: RenderProjectionSlot<Array<VisualElementSignal>>;
+  lineChildren: RenderProjectionSlot<Array<VisualElementSignal>>;
+  desktopChildren: RenderProjectionSlot<Array<VisualElementSignal>>;
+  nonMovingChildren: RenderProjectionSlot<Array<VisualElementSignal>>;
   tableRows: Array<number> | null;
 }
 
@@ -79,17 +70,16 @@ let renderProjectionByPath = new Map<VisualElementPath, RenderProjectionEntry>()
 
 function createRenderProjectionEntry(): RenderProjectionEntry {
   return {
-    nodeValue: undefined,
-    nodeSignal: null,
-    popup: null,
-    selected: null,
-    dock: null,
-    focused: null,
-    attachments: null,
-    children: null,
-    lineChildren: null,
-    desktopChildren: null,
-    nonMovingChildren: null,
+    node: { value: undefined, signal: null },
+    popup: { value: null, signal: null },
+    selected: { value: null, signal: null },
+    dock: { value: null, signal: null },
+    focused: { value: null, signal: null },
+    attachments: { value: [], signal: null },
+    children: { value: [], signal: null },
+    lineChildren: { value: [], signal: null },
+    desktopChildren: { value: [], signal: null },
+    nonMovingChildren: { value: [], signal: null },
     tableRows: null,
   };
 }
@@ -108,29 +98,31 @@ function findRenderProjection(path: VisualElementPath): RenderProjectionEntry | 
   return renderProjectionByPath.get(path);
 }
 
-function ensureRenderProjectionSignal<K extends RenderProjectionSignalKey>(
-  entry: RenderProjectionEntry,
-  key: K,
-  initialValue: RenderProjectionSignalValues[K],
-): [Accessor<RenderProjectionSignalValues[K]>, Setter<RenderProjectionSignalValues[K]>] {
-  const existing = entry[key];
-  if (existing) {
-    return existing as [Accessor<RenderProjectionSignalValues[K]>, Setter<RenderProjectionSignalValues[K]>];
+function ensureRenderProjectionSignal<T>(
+  slot: RenderProjectionSlot<T>,
+): [Accessor<T>, Setter<T>] {
+  if (slot.signal) {
+    return slot.signal;
   }
-  const signal = createSignal<RenderProjectionSignalValues[K]>(initialValue);
-  (entry as any)[key] = signal;
+  const signal = createSignal<T>(slot.value);
+  slot.signal = signal;
   return signal;
 }
 
-function ensureRenderProjectionNodeSignal(
-  entry: RenderProjectionEntry,
-): [Accessor<VisualElementSignal | undefined>, Setter<VisualElementSignal | undefined>] {
-  if (entry.nodeSignal) {
-    return entry.nodeSignal;
+function readRenderProjectionSignal<T>(slot: RenderProjectionSlot<T>): T {
+  return slot.signal ? slot.signal[0]() : slot.value;
+}
+
+function updateRenderProjectionSlot<T>(
+  slot: RenderProjectionSlot<T>,
+  value: T,
+  shouldUpdate?: (current: T, next: T) => boolean,
+): boolean {
+  slot.value = value;
+  if (!slot.signal) {
+    return false;
   }
-  const signal = createSignal<VisualElementSignal | undefined>(entry.nodeValue);
-  entry.nodeSignal = signal;
-  return signal;
+  return updateRenderProjectionSignal(slot.signal, value, shouldUpdate);
 }
 
 function updateRenderProjectionSignal<T>(signal: [Accessor<T>, Setter<T>], value: T, shouldUpdate?: (current: T, next: T) => boolean) {
@@ -155,76 +147,90 @@ function shouldUpdateSignalList(current: Array<VisualElementSignal>, next: Array
   return false;
 }
 
-function updateRenderProjectionPopup(path: VisualElementPath, value: VisualElementSignal | null) {
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:popup"), "popup", null), value)) {
+function updateRenderProjectionPopup(path: VisualElementPath, value: VisualElementSignal | null): boolean {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:popup").popup, value)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
 function updateRenderProjectionNode(path: VisualElementPath, value: VisualElementSignal | undefined) {
-  const entry = getRenderProjection(path, "update:node");
-  entry.nodeValue = value;
-  if (entry.nodeSignal) {
-    updateRenderProjectionSignal(entry.nodeSignal, value);
-  }
+  updateRenderProjectionSlot(getRenderProjection(path, "update:node").node, value);
 }
 
-function updateRenderProjectionSelected(path: VisualElementPath, value: VisualElementSignal | null) {
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:selected"), "selected", null), value)) {
+function updateRenderProjectionSelected(path: VisualElementPath, value: VisualElementSignal | null): boolean {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:selected").selected, value)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
-function updateRenderProjectionDock(path: VisualElementPath, value: VisualElementSignal | null) {
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:dock"), "dock", null), value)) {
+function updateRenderProjectionDock(path: VisualElementPath, value: VisualElementSignal | null): boolean {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:dock").dock, value)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
-function updateRenderProjectionFocused(path: VisualElementPath, value: Item | null) {
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:focused"), "focused", null), value, (current, next) => {
+function updateRenderProjectionFocused(path: VisualElementPath, value: Item | null): boolean {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:focused").focused, value, (current, next) => {
     if (current?.id !== next?.id) {
       return true;
     }
     return current !== next;
   })) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionFocusedSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
-function updateRenderProjectionAttachments(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionAttachments(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:attachments"), "attachments", []), actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:attachments").attachments, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
-function updateRenderProjectionChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:children"), "children", []), actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:children").children, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
-function updateRenderProjectionLineChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionLineChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:lineChildren"), "lineChildren", []), actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:lineChildren").lineChildren, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
-function updateRenderProjectionDesktopChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionDesktopChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:desktopChildren"), "desktopChildren", []), actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:desktopChildren").desktopChildren, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
-function updateRenderProjectionNonMovingChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionNonMovingChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined): boolean {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(ensureRenderProjectionSignal(getRenderProjection(path, "update:nonMovingChildren"), "nonMovingChildren", []), actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSlot(getRenderProjection(path, "update:nonMovingChildren").nonMovingChildren, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
+    return true;
   }
+  return false;
 }
 
 function setRenderProjectionTableRows(path: VisualElementPath, rows: Array<number> | null) {
@@ -392,6 +398,7 @@ type ArrangeDebugSample = {
   projectionScalarSignalWrites: number;
   projectionListSignalWrites: number;
   projectionFocusedSignalWrites: number;
+  projectionRelationshipWriteStats: Record<string, { writes: number, ms: number }>;
   arrangeSectionStats: Record<string, { calls: number, ms: number }>;
   projectionEntryCreateReasons: Record<string, number>;
 };
@@ -525,6 +532,7 @@ function beginArrangeDebugSample(virtual: boolean) {
     projectionScalarSignalWrites: 0,
     projectionListSignalWrites: 0,
     projectionFocusedSignalWrites: 0,
+    projectionRelationshipWriteStats: {},
     arrangeSectionStats: {},
     projectionEntryCreateReasons: {},
   };
@@ -604,6 +612,11 @@ function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnTyp
     .slice(0, 4)
     .map(([label, count]) => `${label}:${count}`)
     .join(", ");
+  const topRelationshipWrites = Object.entries(sample.projectionRelationshipWriteStats)
+    .sort((a, b) => b[1].ms - a[1].ms)
+    .slice(0, 4)
+    .map(([label, stat]) => `${label}:${stat.writes}/${stat.ms.toFixed(1)}ms`)
+    .join(", ");
   const avgText = average
     ? ` avg(total=${average.totalMs.toFixed(1)} arrange=${average.arrangeItemMs.toFixed(1)} finalize=${average.finalizeMs.toFixed(1)} compare=${average.preparedSpecCompareMs.toFixed(1)} relPrep=${average.relationshipPrepMs.toFixed(1)} bucket=${average.childBucketSplitMs.toFixed(1)} create=${average.veCreateMs.toFixed(1)} over ${average.count})`
     : "";
@@ -621,6 +634,7 @@ function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnTyp
     ` signalWrites(list=${sample.projectionListSignalWrites} scalar=${sample.projectionScalarSignalWrites} focused=${sample.projectionFocusedSignalWrites})` +
     ` hot(compare=${sample.preparedSpecCompareMs.toFixed(1)}ms/${sample.preparedSpecCompareCalls} miss=${sample.preparedSpecCompareFailures} keys=${sample.preparedSpecCompareKeyChecks} relPrep=${sample.relationshipPrepMs.toFixed(1)}ms/${sample.relationshipPrepCalls} bucket=${sample.childBucketSplitMs.toFixed(1)}ms/${sample.childBucketSplitCalls} children=${sample.childBucketChildCount} create=${sample.veCreateMs.toFixed(1)}ms/${sample.veCreateCalls})` +
     (topArrangeSections !== "" ? ` sections(${topArrangeSections})` : "") +
+    (topRelationshipWrites !== "" ? ` relWrites(${topRelationshipWrites})` : "") +
     (projectionCreateReasons !== "" ? ` projectionCreates(${projectionCreateReasons})` : "") +
     avgText;
 }
@@ -656,6 +670,31 @@ function debugRecordProjectionEntryCreate(reason: string) {
   }
   activeArrangeDebugSample.projectionEntryCreateReasons[reason] =
     (activeArrangeDebugSample.projectionEntryCreateReasons[reason] ?? 0) + 1;
+}
+
+function debugRecordProjectionRelationshipWrite(label: string, ms: number) {
+  if (!activeArrangeDebugSample) {
+    return;
+  }
+  const existing = activeArrangeDebugSample.projectionRelationshipWriteStats[label];
+  if (existing) {
+    existing.writes += 1;
+    existing.ms += ms;
+    return;
+  }
+  activeArrangeDebugSample.projectionRelationshipWriteStats[label] = { writes: 1, ms };
+}
+
+function debugMeasureProjectionRelationshipWrite(label: string, fn: () => boolean) {
+  if (!activeArrangeDebugSample) {
+    return fn();
+  }
+  const startMs = debugNowMs();
+  const wrote = fn();
+  if (wrote) {
+    debugRecordProjectionRelationshipWrite(label, debugNowMs() - startMs);
+  }
+  return wrote;
 }
 
 function finalizeArrangeDebugSample(timings: { totalMs: number, arrangeItemMs: number, finalizeMs: number }) {
@@ -757,7 +796,7 @@ function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined
   if (!entry) {
     return undefined;
   }
-  return entry.nodeSignal ? entry.nodeSignal[0]() : entry.nodeValue;
+  return readRenderProjectionSignal(entry.node);
 }
 
 function ensureCurrentRenderNode(path: VisualElementPath): VisualElementSignal | null {
@@ -1215,15 +1254,15 @@ function syncRenderProjectionRelationshipsForPath(
     return;
   }
   activeArrangeDebugSample && (activeArrangeDebugSample.projectionRelationshipResolved += 1);
-  updateRenderProjectionPopup(path, resolveSceneNodePath(scene, relationships?.popup));
-  updateRenderProjectionSelected(path, resolveSceneNodePath(scene, relationships?.selected));
-  updateRenderProjectionDock(path, resolveSceneNodePath(scene, relationships?.dock));
-  updateRenderProjectionAttachments(path, resolveSceneNodePaths(scene, relationships?.attachments));
-  updateRenderProjectionChildren(path, resolveSceneNodePaths(scene, relationships?.children));
-  updateRenderProjectionLineChildren(path, resolveSceneNodePaths(scene, relationships?.lineChildren));
-  updateRenderProjectionDesktopChildren(path, resolveSceneNodePaths(scene, relationships?.desktopChildren));
-  updateRenderProjectionNonMovingChildren(path, resolveSceneNodePaths(scene, relationships?.nonMovingChildren));
-  updateRenderProjectionFocused(path, relationships?.focusedChildItemMaybe ?? null);
+  debugMeasureProjectionRelationshipWrite("popup", () => updateRenderProjectionPopup(path, resolveSceneNodePath(scene, relationships?.popup)));
+  debugMeasureProjectionRelationshipWrite("selected", () => updateRenderProjectionSelected(path, resolveSceneNodePath(scene, relationships?.selected)));
+  debugMeasureProjectionRelationshipWrite("dock", () => updateRenderProjectionDock(path, resolveSceneNodePath(scene, relationships?.dock)));
+  debugMeasureProjectionRelationshipWrite("attachments", () => updateRenderProjectionAttachments(path, resolveSceneNodePaths(scene, relationships?.attachments)));
+  debugMeasureProjectionRelationshipWrite("children", () => updateRenderProjectionChildren(path, resolveSceneNodePaths(scene, relationships?.children)));
+  debugMeasureProjectionRelationshipWrite("lineChildren", () => updateRenderProjectionLineChildren(path, resolveSceneNodePaths(scene, relationships?.lineChildren)));
+  debugMeasureProjectionRelationshipWrite("desktopChildren", () => updateRenderProjectionDesktopChildren(path, resolveSceneNodePaths(scene, relationships?.desktopChildren)));
+  debugMeasureProjectionRelationshipWrite("nonMovingChildren", () => updateRenderProjectionNonMovingChildren(path, resolveSceneNodePaths(scene, relationships?.nonMovingChildren)));
+  debugMeasureProjectionRelationshipWrite("focused", () => updateRenderProjectionFocused(path, relationships?.focusedChildItemMaybe ?? null));
   setRenderProjectionTableRows(path, renderTableRows ?? null);
 }
 
@@ -1233,17 +1272,16 @@ function clearRenderProjectionForPath(path: VisualElementPath) {
     return;
   }
 
-  entry.nodeValue = undefined;
-  entry.nodeSignal && updateRenderProjectionSignal(entry.nodeSignal, undefined);
-  entry.popup && updateRenderProjectionSignal(entry.popup, null);
-  entry.selected && updateRenderProjectionSignal(entry.selected, null);
-  entry.dock && updateRenderProjectionSignal(entry.dock, null);
-  entry.attachments && updateRenderProjectionSignal(entry.attachments, [], shouldUpdateSignalList);
-  entry.children && updateRenderProjectionSignal(entry.children, [], shouldUpdateSignalList);
-  entry.lineChildren && updateRenderProjectionSignal(entry.lineChildren, [], shouldUpdateSignalList);
-  entry.desktopChildren && updateRenderProjectionSignal(entry.desktopChildren, [], shouldUpdateSignalList);
-  entry.nonMovingChildren && updateRenderProjectionSignal(entry.nonMovingChildren, [], shouldUpdateSignalList);
-  entry.focused && updateRenderProjectionSignal(entry.focused, null, (current, next) => {
+  updateRenderProjectionSlot(entry.node, undefined);
+  updateRenderProjectionSlot(entry.popup, null);
+  updateRenderProjectionSlot(entry.selected, null);
+  updateRenderProjectionSlot(entry.dock, null);
+  updateRenderProjectionSlot(entry.attachments, [], shouldUpdateSignalList);
+  updateRenderProjectionSlot(entry.children, [], shouldUpdateSignalList);
+  updateRenderProjectionSlot(entry.lineChildren, [], shouldUpdateSignalList);
+  updateRenderProjectionSlot(entry.desktopChildren, [], shouldUpdateSignalList);
+  updateRenderProjectionSlot(entry.nonMovingChildren, [], shouldUpdateSignalList);
+  updateRenderProjectionSlot(entry.focused, null, (current, next) => {
     if (current?.id !== next?.id) {
       return true;
     }
@@ -1622,7 +1660,7 @@ const virtualSceneQueries = {
 
 const renderSceneQueries = {
   getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return ensureRenderProjectionNodeSignal(getRenderProjection(path, "render:getNode"))[0]();
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getNode").node)[0]();
   },
 
   find: (veid: Veid): Array<VisualElementSignal> => {
@@ -1634,39 +1672,39 @@ const renderSceneQueries = {
   },
 
   getAttachments: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getAttachments"), "attachments", [])[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getAttachments").attachments)[0];
   },
 
   getPopup: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getPopup"), "popup", null)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getPopup").popup)[0];
   },
 
   getSelected: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getSelected"), "selected", null)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getSelected").selected)[0];
   },
 
   getDock: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getDock"), "dock", null)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getDock").dock)[0];
   },
 
   getChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getChildren"), "children", [])[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getChildren").children)[0];
   },
 
   getLineChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getLineChildren"), "lineChildren", [])[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getLineChildren").lineChildren)[0];
   },
 
   getDesktopChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getDesktopChildren"), "desktopChildren", [])[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getDesktopChildren").desktopChildren)[0];
   },
 
   getNonMovingChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getNonMovingChildren"), "nonMovingChildren", [])[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getNonMovingChildren").nonMovingChildren)[0];
   },
 
   getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {
-    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getFocusedChild"), "focused", null)[0];
+    return ensureRenderProjectionSignal(getRenderProjection(path, "render:getFocusedChild").focused)[0];
   },
 };
 
