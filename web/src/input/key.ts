@@ -169,7 +169,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     // If a non-page item has focus and we're not already editing, make it editable
     const focusPath = store.history.getFocusPath();
     const focusVe = VesCache.current.readNode(focusPath);
-    const focusVes = VesCache.current.getNode(focusPath);
+    const focusVes = VesCache.render.getNode(focusPath);
     if (focusVe && focusVes && !isPage(focusVe.displayItem) && !store.overlay.textEditInfo()) {
       ev.preventDefault();
       ItemFns.handleClick(focusVes, null, HitboxFlags.None, store, true); // caretAtEnd=true
