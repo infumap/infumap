@@ -1481,29 +1481,37 @@ function syncRenderProjectionFromScene(
   scene: SceneState,
   renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
 ) {
-  for (const [path] of previousScene.cache) {
-    if (!sceneHasNode(scene, path)) {
-      activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsCleared += 1);
-      deleteRenderProjectionForPath(path);
+  debugMeasureArrangeSection("finalize:projection:clear", () => {
+    for (const [path] of previousScene.cache) {
+      if (!sceneHasNode(scene, path)) {
+        activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsCleared += 1);
+        deleteRenderProjectionForPath(path);
+      }
     }
-  }
-  for (const [path] of scene.cache) {
-    syncRenderProjectionNode(
-      path,
-      getSceneNode(scene, path),
-      previousScene?.cache.get(path),
-      previousScene.cache.has(path) ? undefined : underConstructionArrangeSignalsByPath.get(path),
-    );
-  }
-  for (const [path] of scene.cache) {
-    activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsSynced += 1);
-    syncRenderProjectionRelationshipsForPath(
-      scene,
-      path,
-      previousScene?.relationshipsByPath.get(path),
-      renderTableRowsByPath?.get(path) ?? null,
-    );
-  }
+  });
+
+  debugMeasureArrangeSection("finalize:projection:nodes", () => {
+    for (const [path] of scene.cache) {
+      syncRenderProjectionNode(
+        path,
+        getSceneNode(scene, path),
+        previousScene?.cache.get(path),
+        previousScene.cache.has(path) ? undefined : underConstructionArrangeSignalsByPath.get(path),
+      );
+    }
+  });
+
+  debugMeasureArrangeSection("finalize:projection:relationships", () => {
+    for (const [path] of scene.cache) {
+      activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsSynced += 1);
+      syncRenderProjectionRelationshipsForPath(
+        scene,
+        path,
+        previousScene?.relationshipsByPath.get(path),
+        renderTableRowsByPath?.get(path) ?? null,
+      );
+    }
+  });
 }
 
 function promoteVirtualScene(scene: SceneState) {
@@ -1519,9 +1527,13 @@ function promoteCurrentScene(
   const previousScene = currentScene;
   currentScene = scene;
   currentSceneOutputs = outputs;
-  store.topTitledPages.set(outputs.topTitledPages);
+  debugMeasureArrangeSection("finalize:topTitledPages", () => {
+    store.topTitledPages.set(outputs.topTitledPages);
+  });
   logOrphanedVes(scene.cache, "full_finalizeArrange");
-  syncRenderProjectionFromScene(previousScene, scene, renderTableRowsByPath);
+  debugMeasureArrangeSection("finalize:promoteCurrentScene", () => {
+    syncRenderProjectionFromScene(previousScene, scene, renderTableRowsByPath);
+  });
 }
 
 const currentSceneQueries = {
@@ -1733,7 +1745,9 @@ export let VesCache = {
       promoteVirtualScene(underConstructionScene);
     } else {
       writeScenePath(underConstructionScene, umbrellaPath, umbrellaVe, preparedUmbrellaRelationships);
-      store.umbrellaVisualElement.set(umbrellaVe);
+      debugMeasureArrangeSection("finalize:umbrellaVisualElement", () => {
+        store.umbrellaVisualElement.set(umbrellaVe);
+      });
       promoteCurrentScene(store, underConstructionScene, underConstructionSceneOutputs, underConstructionRenderTableRowsByPath);
     }
 
