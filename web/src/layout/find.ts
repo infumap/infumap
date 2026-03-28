@@ -21,7 +21,6 @@ import { isPage } from "../items/page-item";
 import { isPlaceholder } from "../items/placeholder-item";
 import { boundingBoxCenter, vectorDistance } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VesCache } from "./ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./visual-element";
 
 
@@ -49,10 +48,14 @@ export function findDirectionFromKeyCode(code: string): FindDirection {
   panic(`Unexpected direction keycode: ${code}`);
 }
 
-export function findClosest(path: VisualElementPath, direction: FindDirection, allItemTypes: boolean, virtual: boolean): VisualElementPath | null {
-  const currentVe = virtual
-    ? VesCache.virtual.readNode(path)!
-    : VesCache.current.getNode(path)!.get();
+type FindSceneReader = {
+  readNode: (path: VisualElementPath) => VisualElement | undefined,
+  readStructuralChildren: (parentPath: VisualElementPath) => Array<VisualElement>,
+  readSiblings: (path: VisualElementPath) => Array<VisualElement>,
+};
+
+export function findClosest(scene: FindSceneReader, path: VisualElementPath, direction: FindDirection, allItemTypes: boolean): VisualElementPath | null {
+  const currentVe = scene.readNode(path)!;
   const currentBoundsPx = currentVe.boundsPx;
 
   const isInsideComposite = !!(currentVe.flags & VisualElementFlags.InsideCompositeOrDoc);
@@ -60,13 +63,9 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
   let siblings: Array<VisualElement>;
   if (isInsideComposite) {
     const parentPath = currentVe.parentPath!;
-    siblings = virtual
-      ? VesCache.virtual.readStructuralChildren(parentPath)
-      : VesCache.current.getStructuralChildren(parentPath).map(ves => ves.get());
+    siblings = scene.readStructuralChildren(parentPath);
   } else {
-    siblings = virtual
-      ? VesCache.virtual.readSiblings(path)
-      : VesCache.current.getSiblings(path).map(ves => ves.get());
+    siblings = scene.readSiblings(path);
   }
 
   siblings = siblings

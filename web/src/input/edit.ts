@@ -143,7 +143,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
   const compositeParentPath = VeFns.parentPath(VeFns.veToPath(compositeVe));
   if (!isComposite(compositeVe.displayItem)) { return; }
   const compositeItem = asCompositeItem(compositeVe.displayItem);
-  const closestPathUp = findClosest(VeFns.veToPath(editingVe), FindDirection.Up, true, false);
+  const closestPathUp = findClosest(VesCache.current, VeFns.veToPath(editingVe), FindDirection.Up, true);
   if (closestPathUp == null) { return; }
 
   const upVeid = VeFns.veidFromPath(closestPathUp);

@@ -290,7 +290,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     if (focusVes) {
       // Navigate to closest item from current focus
       const direction = findDirectionFromKeyCode(ev.code);
-      const closest = findClosest(focusPath, direction, true, false);
+      const closest = findClosest(VesCache.current, focusPath, direction, true);
       if (closest != null) {
         // Just set focus to the new item - don't pop up pages
         store.history.setFocus(closest);
@@ -313,7 +313,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           console.log("[DEBUG] Strategy 1 - parentFocusPath:", parentFocusPath);
           // Check if the path exists in the virtual cache (it might not if it includes a link ID from a popup)
           if (parentFocusPath && VesCache.virtual.readNode(parentFocusPath)) {
-            const closestInParent = findClosest(parentFocusPath, direction, false, true);
+            const closestInParent = findClosest(VesCache.virtual, parentFocusPath, direction, false);
             console.log("[DEBUG] Strategy 1 - closestInParent:", closestInParent);
             if (closestInParent) {
               const closestVe = VesCache.virtual.readNode(closestInParent);
@@ -349,7 +349,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
               const virtualVe = virtualVesList[0];
               const currentPagePath = VeFns.veToPath(virtualVe);
               console.log("[DEBUG] Strategy 2 - currentPagePath:", currentPagePath);
-              const closestInParent = findClosest(currentPagePath, direction, false, true);
+              const closestInParent = findClosest(VesCache.virtual, currentPagePath, direction, false);
               console.log("[DEBUG] Strategy 2 - closestInParent:", closestInParent);
               if (closestInParent) {
                 const closestVe = VesCache.virtual.readNode(closestInParent);
@@ -438,7 +438,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   // Handle scrolling of grid/justified page that contains the popup.
   // If at max scroll, this returns false and we continue to page switching logic.
   if (handlePopupGridOrJustifiedPageScrollMaybe(store, path, ev)) { return; }
-  const closest = findClosest(path, direction, true, false)!;
+  const closest = findClosest(VesCache.current, path, direction, true)!;
   if (closest != null) {
     const closestVeid = VeFns.veidFromPath(closest);
     const closestItem = itemState.get(closestVeid.itemId);
@@ -619,7 +619,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     }
     const selectedItemPath = VeFns.addVeidToPath(selectedVeid, focusPagePath);
     const direction = findDirectionFromKeyCode(ev.code);
-    const closest = findClosest(selectedItemPath, direction, true, false);
+    const closest = findClosest(VesCache.current, selectedItemPath, direction, true);
     if (closest != null) {
       const closestVeid = VeFns.veidFromPath(closest);
       store.perItem.setSelectedListPageItem(focusPageVeid, closestVeid);

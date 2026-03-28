@@ -783,20 +783,40 @@ const currentSceneQueries = {
     return getSceneNode(currentScene, path);
   },
 
+  readNode: (path: VisualElementPath): VisualElement | undefined => {
+    return readSceneNode(currentScene, path);
+  },
+
   getIndexedChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
     return getSceneIndexedChildren(currentScene, parentPath);
+  },
+
+  readIndexedChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
+    return readSceneIndexedChildren(currentScene, parentPath);
   },
 
   getStructuralChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
     return getSceneStructuralChildren(currentScene, parentPath);
   },
 
+  readStructuralChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
+    return readSceneStructuralChildren(currentScene, parentPath);
+  },
+
   getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
     return getSceneSiblings(currentScene, path);
   },
 
+  readSiblings: (path: VisualElementPath): Array<VisualElement> => {
+    return readSceneSiblings(currentScene, path);
+  },
+
   find: (veid: Veid): Array<VisualElementSignal> => {
     return findCurrentSceneMatches(veid);
+  },
+
+  findNodes: (veid: Veid): Array<VisualElement> => {
+    return findCurrentSceneMatches(veid).map(ves => ves.get());
   },
 
   findSingle: (veid: Veid): VisualElementSignal => {
