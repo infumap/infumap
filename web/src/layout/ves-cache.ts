@@ -78,11 +78,12 @@ function createRenderProjectionEntry(): RenderProjectionEntry {
   };
 }
 
-function getRenderProjection(path: VisualElementPath): RenderProjectionEntry {
+function getRenderProjection(path: VisualElementPath, reason: string): RenderProjectionEntry {
   let entry = renderProjectionByPath.get(path);
   if (!entry) {
     entry = createRenderProjectionEntry();
     renderProjectionByPath.set(path, entry);
+    debugRecordProjectionEntryCreate(reason);
   }
   return entry;
 }
@@ -110,29 +111,29 @@ function shouldUpdateSignalList(current: Array<VisualElementSignal>, next: Array
 }
 
 function updateRenderProjectionPopup(path: VisualElementPath, value: VisualElementSignal | null) {
-  if (updateRenderProjectionSignal(getRenderProjection(path).popup, value)) {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:popup").popup, value)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
   }
 }
 
 function updateRenderProjectionNode(path: VisualElementPath, value: VisualElementSignal | undefined) {
-  updateRenderProjectionSignal(getRenderProjection(path).node, value);
+  updateRenderProjectionSignal(getRenderProjection(path, "update:node").node, value);
 }
 
 function updateRenderProjectionSelected(path: VisualElementPath, value: VisualElementSignal | null) {
-  if (updateRenderProjectionSignal(getRenderProjection(path).selected, value)) {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:selected").selected, value)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
   }
 }
 
 function updateRenderProjectionDock(path: VisualElementPath, value: VisualElementSignal | null) {
-  if (updateRenderProjectionSignal(getRenderProjection(path).dock, value)) {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:dock").dock, value)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionScalarSignalWrites += 1);
   }
 }
 
 function updateRenderProjectionFocused(path: VisualElementPath, value: Item | null) {
-  if (updateRenderProjectionSignal(getRenderProjection(path).focused, value, (current, next) => {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:focused").focused, value, (current, next) => {
     if (current?.id !== next?.id) {
       return true;
     }
@@ -144,41 +145,41 @@ function updateRenderProjectionFocused(path: VisualElementPath, value: Item | nu
 
 function updateRenderProjectionAttachments(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(getRenderProjection(path).attachments, actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:attachments").attachments, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
   }
 }
 
 function updateRenderProjectionChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(getRenderProjection(path).children, actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:children").children, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
   }
 }
 
 function updateRenderProjectionLineChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(getRenderProjection(path).lineChildren, actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:lineChildren").lineChildren, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
   }
 }
 
 function updateRenderProjectionDesktopChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(getRenderProjection(path).desktopChildren, actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:desktopChildren").desktopChildren, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
   }
 }
 
 function updateRenderProjectionNonMovingChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  if (updateRenderProjectionSignal(getRenderProjection(path).nonMovingChildren, actualValue, shouldUpdateSignalList)) {
+  if (updateRenderProjectionSignal(getRenderProjection(path, "update:nonMovingChildren").nonMovingChildren, actualValue, shouldUpdateSignalList)) {
     activeArrangeDebugSample && (activeArrangeDebugSample.projectionListSignalWrites += 1);
   }
 }
 
 function setRenderProjectionTableRows(path: VisualElementPath, rows: Array<number> | null) {
-  getRenderProjection(path).tableRows = rows ? rows.slice() : null;
+  getRenderProjection(path, "update:tableRows").tableRows = rows ? rows.slice() : null;
 }
 
 function setUnderConstructionRenderTableRows(path: VisualElementPath, rows: Array<number> | null | undefined) {
@@ -342,6 +343,8 @@ type ArrangeDebugSample = {
   projectionScalarSignalWrites: number;
   projectionListSignalWrites: number;
   projectionFocusedSignalWrites: number;
+  arrangeSectionStats: Record<string, { calls: number, ms: number }>;
+  projectionEntryCreateReasons: Record<string, number>;
 };
 
 const DEFAULT_ARRANGE_DEBUG_CONFIG: ArrangeDebugConfig = {
@@ -473,6 +476,8 @@ function beginArrangeDebugSample(virtual: boolean) {
     projectionScalarSignalWrites: 0,
     projectionListSignalWrites: 0,
     projectionFocusedSignalWrites: 0,
+    arrangeSectionStats: {},
+    projectionEntryCreateReasons: {},
   };
 }
 
@@ -540,6 +545,16 @@ function averageArrangeDebugHistory(history: Array<ArrangeDebugSample>) {
 function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnType<typeof averageArrangeDebugHistory>): string {
   const kind = sample.virtual ? "virtual" : "current";
   const relationshipRebuilt = sample.relationshipWrites - sample.relationshipReused;
+  const topArrangeSections = Object.entries(sample.arrangeSectionStats)
+    .sort((a, b) => b[1].ms - a[1].ms)
+    .slice(0, 4)
+    .map(([label, stat]) => `${label}:${stat.calls}/${stat.ms.toFixed(1)}ms`)
+    .join(", ");
+  const projectionCreateReasons = Object.entries(sample.projectionEntryCreateReasons)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([label, count]) => `${label}:${count}`)
+    .join(", ");
   const avgText = average
     ? ` avg(total=${average.totalMs.toFixed(1)} arrange=${average.arrangeItemMs.toFixed(1)} finalize=${average.finalizeMs.toFixed(1)} compare=${average.preparedSpecCompareMs.toFixed(1)} relPrep=${average.relationshipPrepMs.toFixed(1)} bucket=${average.childBucketSplitMs.toFixed(1)} create=${average.veCreateMs.toFixed(1)} over ${average.count})`
     : "";
@@ -556,7 +571,42 @@ function formatArrangeDebugSample(sample: ArrangeDebugSample, average: ReturnTyp
     ` nodeSignals(create=${sample.projectionNodeSignalsCreated} reuse=${sample.projectionNodeSignalsReused} update=${sample.projectionNodeSignalsUpdated} clear=${sample.projectionNodeSignalsCleared})` +
     ` signalWrites(list=${sample.projectionListSignalWrites} scalar=${sample.projectionScalarSignalWrites} focused=${sample.projectionFocusedSignalWrites})` +
     ` hot(compare=${sample.preparedSpecCompareMs.toFixed(1)}ms/${sample.preparedSpecCompareCalls} miss=${sample.preparedSpecCompareFailures} keys=${sample.preparedSpecCompareKeyChecks} relPrep=${sample.relationshipPrepMs.toFixed(1)}ms/${sample.relationshipPrepCalls} bucket=${sample.childBucketSplitMs.toFixed(1)}ms/${sample.childBucketSplitCalls} children=${sample.childBucketChildCount} create=${sample.veCreateMs.toFixed(1)}ms/${sample.veCreateCalls})` +
+    (topArrangeSections !== "" ? ` sections(${topArrangeSections})` : "") +
+    (projectionCreateReasons !== "" ? ` projectionCreates(${projectionCreateReasons})` : "") +
     avgText;
+}
+
+function debugRecordArrangeSection(label: string, ms: number) {
+  if (!activeArrangeDebugSample) {
+    return;
+  }
+  const existing = activeArrangeDebugSample.arrangeSectionStats[label];
+  if (existing) {
+    existing.calls += 1;
+    existing.ms += ms;
+    return;
+  }
+  activeArrangeDebugSample.arrangeSectionStats[label] = { calls: 1, ms };
+}
+
+function debugMeasureArrangeSection<T>(label: string, fn: () => T): T {
+  if (!activeArrangeDebugSample) {
+    return fn();
+  }
+  const startMs = debugNowMs();
+  try {
+    return fn();
+  } finally {
+    debugRecordArrangeSection(label, debugNowMs() - startMs);
+  }
+}
+
+function debugRecordProjectionEntryCreate(reason: string) {
+  if (!activeArrangeDebugSample) {
+    return;
+  }
+  activeArrangeDebugSample.projectionEntryCreateReasons[reason] =
+    (activeArrangeDebugSample.projectionEntryCreateReasons[reason] ?? 0) + 1;
 }
 
 function finalizeArrangeDebugSample(timings: { totalMs: number, arrangeItemMs: number, finalizeMs: number }) {
@@ -654,7 +704,7 @@ function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPa
 }
 
 function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
-  return getRenderProjection(path).node[0]();
+  return getRenderProjection(path, "query:getRenderNode").node[0]();
 }
 
 function ensureCurrentRenderNode(path: VisualElementPath): VisualElementSignal | null {
@@ -1488,7 +1538,7 @@ const virtualSceneQueries = {
 
 const renderSceneQueries = {
   getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return getRenderProjection(path).node[0]();
+    return getRenderProjection(path, "render:getNode").node[0]();
   },
 
   find: (veid: Veid): Array<VisualElementSignal> => {
@@ -1500,39 +1550,39 @@ const renderSceneQueries = {
   },
 
   getAttachments: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getRenderProjection(path).attachments[0];
+    return getRenderProjection(path, "render:getAttachments").attachments[0];
   },
 
   getPopup: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return getRenderProjection(path).popup[0];
+    return getRenderProjection(path, "render:getPopup").popup[0];
   },
 
   getSelected: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return getRenderProjection(path).selected[0];
+    return getRenderProjection(path, "render:getSelected").selected[0];
   },
 
   getDock: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return getRenderProjection(path).dock[0];
+    return getRenderProjection(path, "render:getDock").dock[0];
   },
 
   getChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getRenderProjection(path).children[0];
+    return getRenderProjection(path, "render:getChildren").children[0];
   },
 
   getLineChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getRenderProjection(path).lineChildren[0];
+    return getRenderProjection(path, "render:getLineChildren").lineChildren[0];
   },
 
   getDesktopChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getRenderProjection(path).desktopChildren[0];
+    return getRenderProjection(path, "render:getDesktopChildren").desktopChildren[0];
   },
 
   getNonMovingChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getRenderProjection(path).nonMovingChildren[0];
+    return getRenderProjection(path, "render:getNonMovingChildren").nonMovingChildren[0];
   },
 
   getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {
-    return getRenderProjection(path).focused[0];
+    return getRenderProjection(path, "render:getFocusedChild").focused[0];
   },
 };
 
@@ -1595,6 +1645,10 @@ export let VesCache = {
 
   debug_completeFullArrange: (timings: { totalMs: number, arrangeItemMs: number, finalizeMs: number }): void => {
     finalizeArrangeDebugSample(timings);
+  },
+
+  debug_measureArrangeSection: <T>(label: string, fn: () => T): T => {
+    return debugMeasureArrangeSection(label, fn);
   },
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {

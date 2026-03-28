@@ -99,8 +99,8 @@ export const arrangeTable = (
     parentPath,
   };
 
-  const [windowState, numRows] = arrangeTableChildren(
-    store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags, sizeBl, blockSizePx);
+  const [windowState, numRows] = VesCache.debug_measureArrangeSection("table:children", () => arrangeTableChildren(
+    store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags, sizeBl, blockSizePx));
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(tableGeometry.viewportBoundsPx)!);
   childAreaBoundsPx.h = numRows * blockSizePx.h;
