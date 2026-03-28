@@ -418,6 +418,43 @@ function getSceneTableRows(scene: SceneState, path: VisualElementPath): Array<nu
   return scene.aux.tableVesRows.get(path) ?? null;
 }
 
+function writeScenePath(
+  scene: SceneState,
+  path: VisualElementPath,
+  ves: VisualElementSignal,
+  relationships: VisualElementRelationships,
+) {
+  setSceneNode(scene, path, ves);
+  syncAuxData(scene.aux, path, ves.get(), relationships);
+  indexVisualElement(scene, path, ves);
+}
+
+function syncReactiveStateForPath(scene: SceneState, path: VisualElementPath) {
+  updateReactivePopup(path, scene.aux.popupVes.get(path) ?? null);
+  updateReactiveSelected(path, scene.aux.selectedVes.get(path) ?? null);
+  updateReactiveDock(path, scene.aux.dockVes.get(path) ?? null);
+  updateReactiveAttachments(path, scene.aux.attachmentsVes.get(path));
+  updateReactiveChildren(path, scene.aux.childrenVes.get(path));
+  updateReactiveLineChildren(path, scene.aux.lineChildrenVes.get(path));
+  updateReactiveDesktopChildren(path, scene.aux.desktopChildrenVes.get(path));
+  updateReactiveNonMovingChildren(path, scene.aux.nonMovingChildrenVes.get(path));
+  updateReactiveFocused(path, scene.aux.focusedChildItemMaybe.get(path) ?? null);
+  staticTableVesRows.set(path, getSceneTableRows(scene, path));
+}
+
+function clearReactiveStateForPath(path: VisualElementPath) {
+  updateReactivePopup(path, null);
+  updateReactiveSelected(path, null);
+  updateReactiveDock(path, null);
+  updateReactiveAttachments(path, []);
+  updateReactiveChildren(path, []);
+  updateReactiveLineChildren(path, []);
+  updateReactiveDesktopChildren(path, []);
+  updateReactiveNonMovingChildren(path, []);
+  updateReactiveFocused(path, null);
+  staticTableVesRows.delete(path);
+}
+
 function addSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
   if (!outputs.watchContainerUidsByOrigin.has(origin)) {
     outputs.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
@@ -813,21 +850,8 @@ export let VesCache = {
   partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const visualElementOverride = { ...spec, ...relationships };
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
-    setSceneNode(currentScene, path, newElement);
-    syncAuxData(currentScene.aux, path, newElement.get(), relationships);
-    indexVisualElement(currentScene, path, newElement);
-
-    updateReactivePopup(path, relationships.popupVes ?? null);
-    updateReactiveSelected(path, relationships.selectedVes ?? null);
-    updateReactiveDock(path, relationships.dockVes ?? null);
-    updateReactiveAttachments(path, relationships.attachmentsVes);
-    updateReactiveChildren(path, relationships.childrenVes);
-    updateReactiveLineChildren(path, currentScene.aux.lineChildrenVes.get(path));
-    updateReactiveDesktopChildren(path, currentScene.aux.desktopChildrenVes.get(path));
-    updateReactiveNonMovingChildren(path, currentScene.aux.nonMovingChildrenVes.get(path));
-    updateReactiveFocused(path, visualElementOverride.focusedChildItemMaybe ?? null);
-
-    staticTableVesRows.set(path, relationships.tableVesRows ?? null);
+    writeScenePath(currentScene, path, newElement, relationships);
+    syncReactiveStateForPath(currentScene, path);
 
 
     if (isContainer(visualElementOverride.displayItem) &&
@@ -895,21 +919,13 @@ export let VesCache = {
     deleteFromVessVsDisplayIdLookup(currentScene, existingPath);
     deindexVisualElement(currentScene, existingPath, vesToOverwrite);
     deleteAuxData(currentScene.aux, existingPath);
+    if (existingPath != newPath) {
+      clearReactiveStateForPath(existingPath);
+    }
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
-    setSceneNode(currentScene, newPath, vesToOverwrite);
-    syncAuxData(currentScene.aux, newPath, vesToOverwrite.get(), relationships);
-    indexVisualElement(currentScene, newPath, vesToOverwrite);
-
-    updateReactivePopup(newPath, relationships.popupVes ?? null);
-    updateReactiveSelected(newPath, relationships.selectedVes ?? null);
-    updateReactiveDock(newPath, relationships.dockVes ?? null);
-    updateReactiveAttachments(newPath, relationships.attachmentsVes);
-    updateReactiveChildren(newPath, relationships.childrenVes);
-    updateReactiveLineChildren(newPath, currentScene.aux.lineChildrenVes.get(newPath));
-    updateReactiveDesktopChildren(newPath, currentScene.aux.desktopChildrenVes.get(newPath));
-    updateReactiveNonMovingChildren(newPath, currentScene.aux.nonMovingChildrenVes.get(newPath));
-    staticTableVesRows.set(newPath, relationships.tableVesRows ?? null);
+    writeScenePath(currentScene, newPath, vesToOverwrite, relationships);
+    syncReactiveStateForPath(currentScene, newPath);
 
 
     if (isContainer(visualElementOverride.displayItem) &&
@@ -987,17 +1003,7 @@ export let VesCache = {
     }
     if (!deleteSceneNode(currentScene, path)) { panic(`item ${path} is not in ves cache.`); }
     deleteAuxData(currentScene.aux, path);
-    updateReactivePopup(path, null);
-    updateReactiveSelected(path, null);
-    updateReactiveDock(path, null);
-    updateReactiveDock(path, null); // Duplicate line in original, leaving as is or fixing? Original had dup.
-    updateReactiveAttachments(path, []);
-    updateReactiveChildren(path, []);
-    updateReactiveLineChildren(path, []);
-    updateReactiveDesktopChildren(path, []);
-    updateReactiveNonMovingChildren(path, []);
-    updateReactiveFocused(path, null);
-    staticTableVesRows.delete(path);
+    clearReactiveStateForPath(path);
 
     deleteFromVessVsDisplayIdLookup(currentScene, path);
   },
