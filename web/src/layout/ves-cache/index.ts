@@ -17,19 +17,19 @@
 */
 
 import { Accessor } from "solid-js";
-import { asContainerItem, isContainer } from "../items/base/container-item";
-import { Item } from "../items/base/item";
-import { StoreContextModel } from "../store/StoreProvider";
-import { panic } from "../util/lang";
-import { Uid } from "../util/uid";
-import { VisualElementSignal } from "../util/signals";
-import { VeFns, Veid, VisualElement, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "./visual-element";
+import { asContainerItem, isContainer } from "../../items/base/container-item";
+import { Item } from "../../items/base/item";
+import { StoreContextModel } from "../../store/StoreProvider";
+import { panic } from "../../util/lang";
+import { Uid } from "../../util/uid";
+import { VisualElementSignal } from "../../util/signals";
+import { VeFns, Veid, VisualElement, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import {
   createProjectionOps,
-} from "./ves-cache/projection";
-import { createSceneOps } from "./ves-cache/scene";
-import { cloneVisualElementSnapshot, prepareVisualElementSpec } from "./ves-cache/spec";
-import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualSceneState, vesCacheState } from "./ves-cache/state";
+} from "./projection";
+import { createSceneOps } from "./scene";
+import { cloneVisualElementSnapshot, prepareVisualElementSpec } from "./spec";
+import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualSceneState, vesCacheState } from "./state";
 
 /*
   Explanation:
