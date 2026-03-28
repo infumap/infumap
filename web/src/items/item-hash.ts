@@ -23,7 +23,6 @@ import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { ItemFns } from "./base/item-polymorphism";
 
-
 /**
  * Creates a composite hash of an item and its attachments only.
  * Corresponds to GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY.

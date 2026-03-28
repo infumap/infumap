@@ -29,7 +29,7 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
-import { hashItemAndAttachmentsOnly } from "../items/item";
+import { hashItemAndAttachmentsOnly } from "../items/item-hash";
 
 let items = new Map<Uid, Item>();
 
