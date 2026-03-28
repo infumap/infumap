@@ -895,9 +895,42 @@ function splitChildPathsByRenderBehavior(scene: SceneState, childPaths: Array<Vi
   };
 }
 
-function prepareSceneRelationshipData(scene: SceneState, relationships: VisualElementRelationships | null): SceneRelationshipData {
+function reuseChildBucketsIfUnchanged(
+  scene: SceneState,
+  path: VisualElementPath | undefined,
+  childPaths: Array<VisualElementPath>,
+) {
+  if (!path) {
+    return null;
+  }
+
+  const previousRelationships = currentScene.relationshipsByPath.get(path);
+  if (!previousRelationships || !arraysShallowEqual(previousRelationships.children, childPaths)) {
+    return null;
+  }
+
+  for (const childPath of childPaths) {
+    if (getSceneNode(scene, childPath) !== getSceneNode(currentScene, childPath)) {
+      return null;
+    }
+  }
+
+  return {
+    allChildren: previousRelationships.children,
+    lineChildren: previousRelationships.lineChildren,
+    desktopChildren: previousRelationships.desktopChildren,
+    nonMovingChildren: previousRelationships.nonMovingChildren,
+  };
+}
+
+function prepareSceneRelationshipData(
+  scene: SceneState,
+  relationships: VisualElementRelationships | null,
+  path?: VisualElementPath,
+): SceneRelationshipData {
   const childPaths = relationships?.childrenPaths ?? toSceneRelationshipPaths(relationships?.childrenVes);
-  const childBuckets = splitChildPathsByRenderBehavior(scene, childPaths);
+  const childBuckets = reuseChildBucketsIfUnchanged(scene, path, childPaths)
+    ?? splitChildPathsByRenderBehavior(scene, childPaths);
   return {
     attachments: relationships?.attachmentsPaths ?? toSceneRelationshipPaths(relationships?.attachmentsVes),
     popup: typeof relationships?.popupPath !== "undefined" ? relationships.popupPath : toSceneRelationshipPath(relationships?.popupVes),
@@ -1187,7 +1220,7 @@ export let VesCache = {
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
     const preparedUmbrellaSpec = prepareVisualElementSpec(umbrellaSpec);
-    const preparedUmbrellaRelationships = prepareSceneRelationshipData(underConstructionScene, umbrellaRelationships);
+    const preparedUmbrellaRelationships = prepareSceneRelationshipData(underConstructionScene, umbrellaRelationships, umbrellaPath);
     const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : VeFns.create(preparedUmbrellaSpec);
 
     if (virtualUmbrellaVes) {
@@ -1226,7 +1259,7 @@ export let VesCache = {
    */
   full_writeVisualElement: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): void => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
+    const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships, path);
     writePreparedUnderConstructionVisualElement(preparedSpec, preparedRelationships, path);
   },
 
@@ -1236,7 +1269,7 @@ export let VesCache = {
    */
   full_writeVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
+    const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships, path);
     writePreparedUnderConstructionVisualElement(preparedSpec, preparedRelationships, path);
     return ensureUnderConstructionArrangeSignal(path) ?? panic(`failed to materialize under-construction arrange signal for ${path}.`);
   },
@@ -1246,7 +1279,7 @@ export let VesCache = {
    */
   partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships);
+    const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships, path);
     const newElement = VeFns.create(preparedSpec);
     writeScenePath(currentScene, path, newElement, preparedRelationships);
     syncRenderProjectionForPath(currentScene, path);
@@ -1264,7 +1297,7 @@ export let VesCache = {
    */
   partial_overwriteVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships);
+    const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships, newPath);
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
     const nextVe = VeFns.create(preparedSpec);
