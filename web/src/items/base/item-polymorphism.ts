@@ -584,14 +584,14 @@ function calcAttachmentPopupContext(
   clickPosPx?: Vector | null
 ): { sourcePositionGr: { x: number, y: number } | null, insidePopup: boolean } {
   let sourcePositionGr: { x: number, y: number } | null = null;
-  const parentVe = VesCache.get(visualElement.parentPath!)!.get();
+  const parentVe = VesCache.current.readNode(visualElement.parentPath!)!;
 
   if ((isFromAttachment || clickPosPx) && clickPosPx) {
     // Traverse up to find the nearest Page ancestor to define the coordinate system
     let pageVe = parentVe;
     while (pageVe && !isPage(pageVe.displayItem)) {
       if (!pageVe.parentPath) break;
-      pageVe = VesCache.get(pageVe.parentPath)!.get();
+      pageVe = VesCache.current.readNode(pageVe.parentPath)!;
     }
 
     const pageItem = pageVe && isPage(pageVe.displayItem) ? asPageItem(pageVe.displayItem) : null;
@@ -619,7 +619,7 @@ function calcAttachmentPopupContext(
 
   // Logic to detect if we are inside a table which is inside a popup (special nested case)
   if (isTable(parentVe.displayItem)) {
-    const parentParentVe = VesCache.get(parentVe.parentPath!)!.get();
+    const parentParentVe = VesCache.current.readNode(parentVe.parentPath!)!;
     if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
   }
 

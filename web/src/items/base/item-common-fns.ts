@@ -31,7 +31,7 @@ import { Measurable } from "./item";
 
 
 export function handleListPageLineItemClickMaybe(visualElement: VisualElement, store: StoreContextModel): boolean {
-  const parentVe = VesCache.get(visualElement.parentPath!)!.get();
+  const parentVe = VesCache.current.readNode(visualElement.parentPath!)!;
   const parentItem = parentVe.displayItem;
 
   // For dock items with embedded interactive list pages containing page items,

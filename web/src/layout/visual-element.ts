@@ -531,7 +531,7 @@ export const VeFns = {
       if (isRoot) {
         break;
       }
-      currVe = currVe.parentPath ? (VesCache.get(currVe.parentPath)?.get() ?? null) : null;
+      currVe = currVe.parentPath ? (VesCache.current.readNode(currVe.parentPath) ?? null) : null;
     }
 
     let focusPath = UMBRELLA_PAGE_UID;
@@ -577,8 +577,7 @@ export const VeFns = {
   },
 
   actualVeidFromPath: (path: VisualElementPath): Veid => {
-    const ves = VesCache.get(path)!;
-    return VeFns.actualVeidFromVe(ves.get());
+    return VeFns.actualVeidFromVe(VesCache.current.readNode(path)!);
   },
 
   itemIdFromPath: (path: VisualElementPath): Uid => {
@@ -597,15 +596,15 @@ export const VeFns = {
   veBoundsRelativeToDesktopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
     const resolveParentVe = (path: VisualElementPath | null): VisualElement | null => {
       if (!path) { return null; }
-      const ves = VesCache.get(path);
-      if (!ves) {
+      const ve = VesCache.current.readNode(path);
+      if (!ve) {
         console.warn("veBoundsRelativeToDesktopPx: parent path missing from VesCache", {
           parentPath: path,
           childId: visualElement.displayItem.id
         });
         return null;
       }
-      return ves.get();
+      return ve;
     };
     const fallbackBounds = (veForSize: VisualElement = visualElement) => {
       if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx && visualElement.childAreaBoundsPx) {
@@ -706,10 +705,10 @@ export const VeFns = {
 
   isInTable: (visualElement: VisualElement): boolean => {
     if (visualElement.parentPath == null) { return false; }
-    const parent = VesCache.get(visualElement.parentPath)!.get();
+    const parent = VesCache.current.readNode(visualElement.parentPath)!;
     if (VeFns.treeItem(visualElement).relationshipToParent == RelationshipToParent.Child && isTable(parent.displayItem)) { return true; }
     if (VeFns.treeItem(visualElement).relationshipToParent != RelationshipToParent.Attachment) { return false; }
-    const parentParent = VesCache.get(parent.parentPath!)!.get();
+    const parentParent = VesCache.current.readNode(parent.parentPath!)!;
     return isTable(parentParent.displayItem);
   },
 
@@ -741,15 +740,15 @@ export const VeFns = {
   veViewportBoundsRelativeToDesktopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
     const resolveParentVe = (path: VisualElementPath | null): VisualElement | null => {
       if (!path) { return null; }
-      const ves = VesCache.get(path);
-      if (!ves) {
+      const ve = VesCache.current.readNode(path);
+      if (!ve) {
         console.warn("veViewportBoundsRelativeToDesktopPx: parent path missing from VesCache", {
           parentPath: path,
           childId: visualElement.displayItem.id
         });
         return null;
       }
-      return ves.get();
+      return ve;
     };
     const fallbackBounds = (veForSize: VisualElement = visualElement) => {
       if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx) {

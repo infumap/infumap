@@ -114,7 +114,7 @@ export const PageFns = {
       if (currVe.flags & VisualElementFlags.Popup) {
         break;
       }
-      currVe = currVe.parentPath ? VesCache.get(currVe.parentPath)?.get() ?? null : null;
+      currVe = currVe.parentPath ? VesCache.current.readNode(currVe.parentPath) ?? null : null;
     }
     return targetVe;
   },
@@ -860,7 +860,7 @@ export const PageFns = {
   },
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, isFromAttachment?: boolean): void => {
-    const parentVe = VesCache.get(visualElement.parentPath!)!.get();
+    const parentVe = VesCache.current.readNode(visualElement.parentPath!)!;
 
     // Calculate source position for attachment popups (center of the attachment in parent page Gr coordinates)
     let sourcePositionGr: { x: number, y: number } | null = null;
@@ -909,7 +909,7 @@ export const PageFns = {
     // inside a popup.
     let insidePopup = parentVe.flags & VisualElementFlags.Popup ? true : false;
     if (isTable(parentVe.displayItem)) {
-      const parentParentVe = VesCache.get(parentVe.parentPath!)!.get();
+      const parentParentVe = VesCache.current.readNode(parentVe.parentPath!)!;
       if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
     }
     if (insidePopup) {
@@ -1037,9 +1037,8 @@ export const PageFns = {
     let currentPath = visualElement.parentPath;
     let isInPopup = false;
     while (currentPath) {
-      const parentVes = VesCache.get(currentPath);
-      if (parentVes) {
-        const parentVe = parentVes.get();
+      const parentVe = VesCache.current.readNode(currentPath);
+      if (parentVe) {
         if (parentVe.flags & VisualElementFlags.Popup) {
           isInPopup = true;
           break;

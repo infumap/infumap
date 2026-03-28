@@ -238,9 +238,9 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   if (!needToRearrange()) { return; }
 
   const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
-  const tableVe = VesCache.get(tableVePath)!.get();
+  const tableVe = VesCache.current.readNode(tableVePath)!;
   const displayItem_table = asTableItem(tableVe.displayItem);
-  const childrenVes = VesCache.getChildrenVes(tableVePath)();
+  const childrenVes = VesCache.render.getChildren(tableVePath)();
   const tableVesRows = VesCache.getTableVesRows(tableVePath);
   if (tableVesRows == null || tableVesRows!.length != childrenVes.length) {
     // TODO (LOW): should really implement logic such that this never happens. This is lazy.

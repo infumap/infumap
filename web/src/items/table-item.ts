@@ -288,7 +288,7 @@ export const TableFns = {
 
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+    if (VesCache.current.readNode(visualElement.parentPath!)!.flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
@@ -359,7 +359,7 @@ export const TableFns = {
       w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
       h: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
     };
-    const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
+    const tableParentVe = VesCache.current.readNode(tableVe.parentPath!)!;
     if (isComposite(tableParentVe.displayItem)) {
       tableDimensionsBl.w = asCompositeItem(tableParentVe.displayItem).spatialWidthGr / GRID_SIZE;
     }

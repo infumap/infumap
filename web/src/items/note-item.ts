@@ -301,7 +301,7 @@ export const NoteFns = {
 
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+    if (VesCache.current.readNode(visualElement.parentPath!)!.flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });

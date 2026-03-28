@@ -262,7 +262,7 @@ const findVisualElementsByLinkId = (linkId: Uid): Array<VisualElementSignal> => 
 
     const pathsForLinkItem = VesCache.getPathsForDisplayId(linkId);
     for (const path of pathsForLinkItem) {
-      const ves = VesCache.get(path);
+      const ves = VesCache.render.getNode(path);
       if (ves) {
         const ve = ves.get();
         if ((ve.linkItemMaybe && ve.linkItemMaybe.id === linkId) ||
@@ -275,7 +275,7 @@ const findVisualElementsByLinkId = (linkId: Uid): Array<VisualElementSignal> => 
     }
 
     const veid = { itemId: linkToId, linkIdMaybe: linkId };
-    const ves = VesCache.find(veid);
+    const ves = VesCache.render.find(veid);
     for (const v of ves) {
       const ve = v.get();
       if ((ve.linkItemMaybe && ve.linkItemMaybe.id === linkId) ||

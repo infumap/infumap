@@ -350,7 +350,7 @@ export const ImageFns = {
             console.error(`Could not open remote file '${itemId}' from '${host}':`, e);
           });
       }
-    } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+    } else if (VesCache.current.readNode(visualElement.parentPath!)!.flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       requestArrange(store, "image-popup-open");
     } else if (store.history.currentPopupSpec() != null) {
