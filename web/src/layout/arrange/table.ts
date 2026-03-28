@@ -110,7 +110,7 @@ export const arrangeTable = (
   const tableRelationships: VisualElementRelationships = {
     childrenVes,
     tableVesRows,
-    attachmentsVes: attachments,
+    attachmentsPaths: attachments,
   };
 
   const tableVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableSpec, tableRelationships, tableVePath);
@@ -500,7 +500,7 @@ function createRow(
   const tableChildRelationships: VisualElementRelationships = {};
 
   if (isAttachmentsItem(displayItem_childItem)) {
-    let tableItemVeAttachments: Array<VisualElementSignal> = [];
+    let tableItemVeAttachments: Array<VisualElementPath> = [];
     const attachmentsItem = asAttachmentsItem(displayItem_childItem);
     let leftBl = di_Table.tableColumns[0].widthGr / GRID_SIZE;
     let i = 0;
@@ -544,19 +544,18 @@ function createRow(
         blockSizePx
       };
       const tableChildAttachmentRelationships: VisualElementRelationships = {};
-      let tableChildAttachmentVes;
       if (vesToOverwrite != null) {
-        tableChildAttachmentVes = VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentRelationships, tableChildAttachmentVePath);
+        VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentRelationships, tableChildAttachmentVePath);
       } else {
-        tableChildAttachmentVes = VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentRelationships, tableChildAttachmentVePath);
+        VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentRelationships, tableChildAttachmentVePath);
       }
 
-      tableItemVeAttachments.push(tableChildAttachmentVes);
+      tableItemVeAttachments.push(tableChildAttachmentVePath);
 
       leftBl += di_Table.tableColumns[i + 1].widthGr / GRID_SIZE;
     }
 
-    tableChildRelationships.attachmentsVes = tableItemVeAttachments;
+    tableChildRelationships.attachmentsPaths = tableItemVeAttachments;
   }
 
   let tableItemVisualElementSignal;

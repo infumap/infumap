@@ -187,9 +187,9 @@ function arrangeCompositeChildItem(
       parentItemSizeBl.w = compositeWidthBl;
     }
     const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath);
-    compositeChildRelationships.attachmentsVes = attachments;
+    compositeChildRelationships.attachmentsPaths = attachments;
   } else {
-    compositeChildRelationships.attachmentsVes = [];
+    compositeChildRelationships.attachmentsPaths = [];
   }
 
   const compositeChildVeSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildRelationships, compositeChildVePath);

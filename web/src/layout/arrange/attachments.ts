@@ -20,7 +20,6 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox, Dimensions } from "../../util/geometry";
-import { VisualElementSignal } from "../../util/signals";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { getVePropertiesForItem } from "./util";
@@ -33,9 +32,9 @@ export function arrangeItemAttachments(
   attachmentIds: Array<Uid>,
   parentItemSizeBl: Dimensions,
   parentItemBoundsPx: BoundingBox,
-  parentItemVePath: VisualElementPath): Array<VisualElementSignal> {
+  parentItemVePath: VisualElementPath): Array<VisualElementPath> {
 
-  const attachments: Array<VisualElementSignal> = [];
+  const attachmentPaths: Array<VisualElementPath> = [];
   for (let i = 0; i < attachmentIds.length; ++i) {
     const attachmentId = attachmentIds[i];
     const attachmentItem = itemState.get(attachmentId)!;
@@ -63,9 +62,9 @@ export function arrangeItemAttachments(
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     };
     const veRelationships: VisualElementRelationships = {};
-    const attachmentVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(veSpec, veRelationships, attachmentVePath);
-    attachments.push(attachmentVisualElementSignal);
+    VesCache.full_createOrRecycleVisualElementSignal(veSpec, veRelationships, attachmentVePath);
+    attachmentPaths.push(attachmentVePath);
   }
 
-  return attachments;
+  return attachmentPaths;
 }

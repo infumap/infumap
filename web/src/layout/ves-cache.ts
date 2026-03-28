@@ -741,16 +741,15 @@ function toSceneRelationshipPaths(nodes: Array<VisualElementSignal> | undefined)
   return (nodes ?? []).map(node => VeFns.veToPath(node.get()));
 }
 
-function splitChildPathsByRenderBehavior(childrenVes: Array<VisualElementSignal> | undefined) {
-  const allChildren = childrenVes ?? [];
+function splitChildPathsByRenderBehavior(scene: SceneState, childPaths: Array<VisualElementPath> | undefined) {
+  const allChildren = childPaths ?? [];
   const allChildPaths: Array<VisualElementPath> = [];
   const lineChildren: Array<VisualElementPath> = [];
   const desktopChildren: Array<VisualElementPath> = [];
   const nonMovingChildren: Array<VisualElementPath> = [];
 
-  for (const childVe of allChildren) {
-    const childPath = VeFns.veToPath(childVe.get());
-    const flags = childVe.get().flags;
+  for (const childPath of allChildren) {
+    const flags = getSceneNode(scene, childPath)?.flags ?? VisualElementFlags.None;
     allChildPaths.push(childPath);
     if (flags & VisualElementFlags.LineItem) {
       lineChildren.push(childPath);
@@ -770,13 +769,14 @@ function splitChildPathsByRenderBehavior(childrenVes: Array<VisualElementSignal>
   };
 }
 
-function prepareSceneRelationshipData(relationships: VisualElementRelationships | null): SceneRelationshipData {
-  const childBuckets = splitChildPathsByRenderBehavior(relationships?.childrenVes);
+function prepareSceneRelationshipData(scene: SceneState, relationships: VisualElementRelationships | null): SceneRelationshipData {
+  const childPaths = relationships?.childrenPaths ?? toSceneRelationshipPaths(relationships?.childrenVes);
+  const childBuckets = splitChildPathsByRenderBehavior(scene, childPaths);
   return {
-    attachments: toSceneRelationshipPaths(relationships?.attachmentsVes),
-    popup: toSceneRelationshipPath(relationships?.popupVes),
-    selected: toSceneRelationshipPath(relationships?.selectedVes),
-    dock: toSceneRelationshipPath(relationships?.dockVes),
+    attachments: relationships?.attachmentsPaths ?? toSceneRelationshipPaths(relationships?.attachmentsVes),
+    popup: typeof relationships?.popupPath !== "undefined" ? relationships.popupPath : toSceneRelationshipPath(relationships?.popupVes),
+    selected: typeof relationships?.selectedPath !== "undefined" ? relationships.selectedPath : toSceneRelationshipPath(relationships?.selectedVes),
+    dock: typeof relationships?.dockPath !== "undefined" ? relationships.dockPath : toSceneRelationshipPath(relationships?.dockVes),
     children: childBuckets.allChildren,
     lineChildren: childBuckets.lineChildren,
     desktopChildren: childBuckets.desktopChildren,
@@ -1048,7 +1048,7 @@ export let VesCache = {
 
   full_finalizeArrange: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
     const preparedUmbrellaSpec = prepareVisualElementSpec(umbrellaSpec);
-    const preparedUmbrellaRelationships = prepareSceneRelationshipData(umbrellaRelationships);
+    const preparedUmbrellaRelationships = prepareSceneRelationshipData(underConstructionScene, umbrellaRelationships);
     const umbrellaVe = virtualUmbrellaVes ? cloneVisualElementSnapshot(virtualUmbrellaVes.get()) : VeFns.create(preparedUmbrellaSpec);
 
     if (virtualUmbrellaVes) {
@@ -1085,7 +1085,7 @@ export let VesCache = {
    */
   partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(relationships);
+    const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships);
     const newElement = VeFns.create(preparedSpec);
     writeScenePath(currentScene, path, newElement, preparedRelationships);
     syncRenderProjectionForPath(currentScene, path);
@@ -1103,7 +1103,7 @@ export let VesCache = {
    */
   partial_overwriteVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
     const preparedSpec = prepareVisualElementSpec(spec);
-    const preparedRelationships = prepareSceneRelationshipData(relationships);
+    const preparedRelationships = prepareSceneRelationshipData(currentScene, relationships);
     const veToOverwrite = vesToOverwrite.get();
     const existingPath = VeFns.veToPath(veToOverwrite);
     const nextVe = VeFns.create(preparedSpec);
@@ -1270,7 +1270,7 @@ export let VesCache = {
 
 function buildUnderConstructionVisualElementSignal(spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal {
   const preparedSpec = prepareVisualElementSpec(spec);
-  const preparedRelationships = prepareSceneRelationshipData(relationships);
+  const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 

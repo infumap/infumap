@@ -27,17 +27,17 @@ import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { IndexAndPosition } from "../../store/StoreProvider_PerVe";
 import { zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { VisualElementSignal } from "../../util/signals";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
+import { getVePropertiesForItem } from "./util";
 
 
 export const renderDockMaybe = (
   store: StoreContextModel,
-  parentPath: VisualElementPath): VisualElementSignal | null => {
+  parentPath: VisualElementPath): VisualElementPath | null => {
 
   if (store.user.getUserMaybe() == null) {
     return null;
@@ -65,11 +65,13 @@ export const renderDockMaybe = (
   const dockWidthPx = store.getCurrentDockWidthPx();
 
   let yCurrentPx = 0;
-  const dockChildren = [];
+  const dockChildren: Array<VisualElementPath> = [];
   for (let i = 0; i < dockPage.computed_children.length; ++i) {
     const childId = dockPage.computed_children[i];
     const childItem = itemState.get(childId)!;
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
     const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
+    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), dockPath);
 
     if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
       continue;
@@ -103,23 +105,25 @@ export const renderDockMaybe = (
     yCurrentPx += geometry.boundsPx.h + DOCK_GAP_PX;
 
     if (dockWidthPx > NATURAL_BLOCK_SIZE_PX.w * 2 + 1) {
-      const ves = arrangeItem(
+      arrangeItem(
         store, dockPath, ArrangeAlgorithm.Dock, childItem, actualLinkItemMaybe, geometry,
         ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
-      dockChildren.push(ves);
+      dockChildren.push(childPath);
     }
   }
   yCurrentPx += DOCK_GAP_PX;
 
   if (movingItemInThisPage) {
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItemInThisPage);
     const actualLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
+    const movingPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), dockPath);
 
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
     const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDesktopPosPx);
-    const ves = arrangeItem(
+    arrangeItem(
       store, dockPath, ArrangeAlgorithm.Dock, movingItemInThisPage, actualLinkItemMaybe, cellGeometry,
       ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
-    dockChildren.push(ves);
+    dockChildren.push(movingPath);
   }
 
   let trashHeightPx = 50;
@@ -153,7 +157,7 @@ export const renderDockMaybe = (
   };
 
   const dockRelationships: VisualElementRelationships = {
-    childrenVes: dockChildren,
+    childrenPaths: dockChildren,
   };
 
   if (itemState.get(store.user.getUser().trashPageId) == null) {
@@ -183,11 +187,13 @@ export const renderDockMaybe = (
 
     if (dockWidthPx > 25) {
       const trashPath = VeFns.addVeidToPath({ itemId: trashPage.id, linkIdMaybe: null }, dockPath);
-      dockChildren.push(VesCache.full_createOrRecycleVisualElementSignal(trashVisualElementSpec, trashRelationships, trashPath));
+      VesCache.full_createOrRecycleVisualElementSignal(trashVisualElementSpec, trashRelationships, trashPath);
+      dockChildren.push(trashPath);
     }
   }
 
-  return VesCache.full_createOrRecycleVisualElementSignal(dockSpec, dockRelationships, dockPath);
+  VesCache.full_createOrRecycleVisualElementSignal(dockSpec, dockRelationships, dockPath);
+  return dockPath;
 }
 
 export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel, dockItem: PageItem, movingItem: Item, dockWidthPx: number, desktopYPx: number): IndexAndPosition {

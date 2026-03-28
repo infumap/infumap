@@ -309,12 +309,18 @@ export interface VisualElementSpec {
  * while VesCache manages the hierarchical relationships between elements.
  */
 export interface VisualElementRelationships {
+  // Prefer `*Paths` in new arrange code; `*Ves` remains as a migration adapter.
   childrenVes?: Array<VisualElementSignal>,
+  childrenPaths?: Array<VisualElementPath>,
   tableVesRows?: Array<number>,
   attachmentsVes?: Array<VisualElementSignal>,
+  attachmentsPaths?: Array<VisualElementPath>,
   popupVes?: VisualElementSignal | null,
+  popupPath?: VisualElementPath | null,
   selectedVes?: VisualElementSignal | null,
+  selectedPath?: VisualElementPath | null,
   dockVes?: VisualElementSignal | null,
+  dockPath?: VisualElementPath | null,
   focusedChildItemMaybe?: Item | null,
 }
 

@@ -82,7 +82,7 @@ export const arrangePageWithChildren = (
   if (!(arrangeFlagIsRoot(flags))) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_pageWithChildren == null ? displayItem_pageWithChildren : linkItemMaybe_pageWithChildren);
     const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath);
-    pageRelationships.attachmentsVes = attachments;
+    pageRelationships.attachmentsPaths = attachments;
   }
 
   pageSpec.evaluatedTitle = linkItemMaybe_pageWithChildren?.overrideTitle ?? null;

@@ -158,12 +158,10 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 
   const umbrellaRelationships: VisualElementRelationships = {};
 
-  const dockVesMaybe = renderDockMaybe(store, umbrellaPath);
-  if (dockVesMaybe) {
-    umbrellaRelationships.dockVes = dockVesMaybe;
+  const dockPathMaybe = renderDockMaybe(store, umbrellaPath);
+  if (dockPathMaybe) {
+    umbrellaRelationships.dockPath = dockPathMaybe;
   }
-
-  const childrenVes = [];
   const itemGeometry: ItemGeometry = {
     boundsPx: store.desktopMainAreaBoundsPx(),
     blockSizePx: NATURAL_BLOCK_SIZE_PX,
@@ -178,21 +176,18 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   // Without batching, each signal.set() call triggers immediate reactivity,
   // causing ~2.5 second freezes when ~1000 items need position updates.
   // console.time("fullArrange-arrangeItem");
-  let pageVes: ReturnType<typeof arrangeItem>;
   batch(() => {
-    pageVes = arrangeItem(
+    arrangeItem(
       store, umbrellaPath, parentArrangeAlgorithm,
       actualLinkItemMaybe ? actualLinkItemMaybe : currentPage,
       actualLinkItemMaybe, itemGeometry, flags);
   });
   // console.timeEnd("fullArrange-arrangeItem");
 
-  childrenVes.push(pageVes!);
-  umbrellaRelationships.childrenVes = childrenVes;
+  umbrellaRelationships.childrenPaths = [VeFns.addVeidToPath(currentPageVeid, umbrellaPath)];
 
   if (virtualPageVeid) {
-    const umbrellaVeSpec = { ...umbrellaSpec, ...umbrellaRelationships };
-    const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaVeSpec));
+    const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaSpec));
     VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
   } else {
     // console.time("fullArrange-finalizeArrange");

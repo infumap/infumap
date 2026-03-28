@@ -183,9 +183,9 @@ export const arrangeItemNoChildren = (
   const itemRelationships: VisualElementRelationships = {};
   if (isAttachmentsItem(displayItem)) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe == null ? displayItem : linkItemMaybe);
-    itemRelationships.attachmentsVes = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath);
+    itemRelationships.attachmentsPaths = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath);
   } else {
-    itemRelationships.attachmentsVes = [];
+    itemRelationships.attachmentsPaths = [];
   }
 
   const itemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(itemVisualElementSpec, itemRelationships, currentVePath);
