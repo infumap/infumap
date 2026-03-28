@@ -51,8 +51,8 @@ export function findDirectionFromKeyCode(code: string): FindDirection {
 
 export function findClosest(path: VisualElementPath, direction: FindDirection, allItemTypes: boolean, virtual: boolean): VisualElementPath | null {
   const currentVe = virtual
-    ? VesCache.getVirtual(path)!.get()
-    : VesCache.get(path)!.get();
+    ? VesCache.virtual.getNode(path)!.get()
+    : VesCache.current.getNode(path)!.get();
   const currentBoundsPx = currentVe.boundsPx;
 
   const isInsideComposite = !!(currentVe.flags & VisualElementFlags.InsideCompositeOrDoc);
@@ -60,10 +60,10 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
   let siblings;
   if (isInsideComposite) {
     const parentPath = currentVe.parentPath!;
-    siblings = (virtual ? VesCache.getVirtualChildrenVes(parentPath) : VesCache.getChildrenVes(parentPath)())
+    siblings = (virtual ? VesCache.virtual.getStructuralChildren(parentPath) : VesCache.current.getStructuralChildren(parentPath))
       .map(ves => ves.get());
   } else {
-    siblings = (virtual ? VesCache.getSiblingsVirtual(path) : VesCache.getSiblings(path))
+    siblings = (virtual ? VesCache.virtual.getSiblings(path) : VesCache.current.getSiblings(path))
       .map(ves => ves.get());
   }
 

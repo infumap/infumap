@@ -418,6 +418,37 @@ function getSceneTableRows(scene: SceneState, path: VisualElementPath): Array<nu
   return scene.aux.tableVesRows.get(path) ?? null;
 }
 
+function findCurrentSceneMatches(veid: Veid): Array<VisualElementSignal> {
+  const result: Array<VisualElementSignal> = [];
+  for (const ves of getSceneVeidMatches(underConstructionScene, veid)) {
+    result.push(ves);
+  }
+  for (const ves of getSceneVeidMatches(currentScene, veid)) {
+    if (!result.find(r => r == ves)) {
+      result.push(ves);
+    }
+  }
+  return result;
+}
+
+function findSingleCurrentSceneMatch(veid: Veid): VisualElementSignal {
+  const underConstructionMatches = getSceneVeidMatches(underConstructionScene, veid);
+  if (underConstructionMatches.length > 1) {
+    throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
+  }
+  if (underConstructionMatches.length == 1) {
+    return underConstructionMatches[0];
+  }
+  const currentMatches = getSceneVeidMatches(currentScene, veid);
+  if (currentMatches.length > 1) {
+    throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
+  }
+  if (currentMatches.length == 0) {
+    throw new Error(`${veid.itemId}/${veid.linkIdMaybe} not present in VesCache.`);
+  }
+  return currentMatches[0];
+}
+
 function writeScenePath(
   scene: SceneState,
   path: VisualElementPath,
@@ -727,7 +758,59 @@ function promoteCurrentScene(store: StoreContextModel, scene: SceneState, output
   syncReactiveStateFromScene(scene);
 }
 
+const currentSceneQueries = {
+  getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
+    return getSceneNode(currentScene, path);
+  },
+
+  getIndexedChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
+    return getSceneIndexedChildren(currentScene, parentPath);
+  },
+
+  getStructuralChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
+    return getSceneStructuralChildren(currentScene, parentPath);
+  },
+
+  getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
+    return getSceneSiblings(currentScene, path);
+  },
+
+  find: (veid: Veid): Array<VisualElementSignal> => {
+    return findCurrentSceneMatches(veid);
+  },
+
+  findSingle: (veid: Veid): VisualElementSignal => {
+    return findSingleCurrentSceneMatch(veid);
+  },
+};
+
+const virtualSceneQueries = {
+  getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
+    return getSceneNode(virtualScene, path);
+  },
+
+  getIndexedChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
+    return getSceneIndexedChildren(virtualScene, parentPath);
+  },
+
+  getStructuralChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
+    return getSceneStructuralChildren(virtualScene, parentPath);
+  },
+
+  getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
+    return getSceneSiblings(virtualScene, path);
+  },
+
+  find: (veid: Veid): Array<VisualElementSignal> => {
+    return getSceneVeidMatches(virtualScene, veid);
+  },
+};
+
 export let VesCache = {
+
+  current: currentSceneQueries,
+
+  virtual: virtualSceneQueries,
 
   /**
    * Re-initialize - clears all cached data.
@@ -743,31 +826,11 @@ export let VesCache = {
   },
 
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return getSceneNode(currentScene, path);
-  },
-
-  getVirtual: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return getSceneNode(virtualScene, path);
+    return currentSceneQueries.getNode(path);
   },
 
   getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
-    return getSceneSiblings(currentScene, path);
-  },
-
-  getSiblingsVirtual: (path: VisualElementPath): Array<VisualElementSignal> => {
-    return getSceneSiblings(virtualScene, path);
-  },
-
-  /**
-   * Find all visual element signals in the virtual cache with the specified parent path.
-   * Used for finding children/attachments of a VE in the virtual arrangement.
-   */
-  getChildrenVirtual: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
-    return getSceneIndexedChildren(virtualScene, parentPath);
-  },
-
-  getVirtualChildrenVes: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
-    return getSceneStructuralChildren(virtualScene, parentPath);
+    return currentSceneQueries.getSiblings(path);
   },
 
   getPathsForDisplayId: (displayId: Uid): Array<VisualElementPath> => {
@@ -946,25 +1009,7 @@ export let VesCache = {
    * any from the last completed one.
    */
   find: (veid: Veid): Array<VisualElementSignal> => {
-    const result: Array<VisualElementSignal> = [];
-    const key = veidIndexKey(veid);
-    for (const ves of getSceneVeidMatches(underConstructionScene, veid)) {
-      result.push(ves);
-    }
-    for (const ves of getSceneVeidMatches(currentScene, veid)) {
-      if (!result.find(r => r == ves)) {
-        result.push(ves);
-      }
-    }
-    return result;
-  },
-
-  /**
-   * Find all visual element signals in the virtual cache with the specified veid.
-   * Used for keyboard navigation in parent container context.
-   */
-  findVirtual: (veid: Veid): Array<VisualElementSignal> => {
-    return getSceneVeidMatches(virtualScene, veid);
+    return currentSceneQueries.find(veid);
   },
 
   /**
@@ -975,22 +1020,7 @@ export let VesCache = {
    * any from the last completed one.
    */
   findSingle: (veid: Veid): VisualElementSignal => {
-    const key = veidIndexKey(veid);
-    const underConstructionMatches = getSceneVeidMatches(underConstructionScene, veid);
-    if (underConstructionMatches.length > 1) {
-      throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
-    }
-    if (underConstructionMatches.length == 1) {
-      return underConstructionMatches[0];
-    }
-    const currentMatches = getSceneVeidMatches(currentScene, veid);
-    if (currentMatches.length > 1) {
-      throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
-    }
-    if (currentMatches.length == 0) {
-      throw new Error(`${veid.itemId}/${veid.linkIdMaybe} not present in VesCache.`);
-    }
-    return currentMatches[0];
+    return currentSceneQueries.findSingle(veid);
   },
 
   removeByPath: (path: VisualElementPath): void => {
