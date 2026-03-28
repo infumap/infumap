@@ -28,6 +28,7 @@ import {
   createProjectionOps,
 } from "./ves-cache/projection";
 import { createSceneOps } from "./ves-cache/scene";
+import { cloneVisualElementSnapshot, prepareVisualElementSpec } from "./ves-cache/spec";
 import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualSceneState, vesCacheState } from "./ves-cache/state";
 
 /*
@@ -61,7 +62,6 @@ const {
 } = projectionOps;
 const {
   addSceneWatchContainerUid,
-  cloneVisualElementSnapshot,
   createVisualElement,
   currentSceneQueries,
   deindexVisualElement,
@@ -74,7 +74,6 @@ const {
   getScenePathsForDisplayId,
   maybeTrackLoadedContainer,
   prepareSceneRelationshipData,
-  prepareVisualElementSpec,
   promoteCurrentScene,
   promoteVirtualScene,
   pushTopTitledPage,
