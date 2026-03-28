@@ -204,21 +204,41 @@ export function arrangeTableChildren(
 }
 
 
-function createFillerRow(
+type TableRenderPlan = {
+  spec: VisualElementSpec,
+  relationships: VisualElementRelationships,
+  path: VisualElementPath,
+};
+
+type TableRowRenderPlan = TableRenderPlan & {
+  attachments: Array<TableRenderPlan>,
+};
+
+
+function buildFillerRowPlan(
   di_Table: TableItem,
   tableVePath: VisualElementPath,
-) {
+): TableRenderPlan {
   const uniqueNoneItem = uniqueEmptyItem();
-  const tableChildVeSpec: VisualElementSpec = {
+  const spec: VisualElementSpec = {
     displayItem: uniqueNoneItem,
     boundsPx: EMPTY_BOUNDING_BOX,
     flags: VisualElementFlags.LineItem,
   };
-  const tableChildRelationships: VisualElementRelationships = {};
+  const relationships: VisualElementRelationships = {};
   uniqueNoneItem.parentId = di_Table.id;
   uniqueNoneItem.relationshipToParent = RelationshipToParent.Child;
-  const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(uniqueNoneItem, null), tableVePath);
-  return VesCache.full_createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildRelationships, tableChildVePath);
+  const path = VeFns.addVeidToPath(VeFns.veidFromItems(uniqueNoneItem, null), tableVePath);
+  return { spec, relationships, path };
+}
+
+
+function createFillerRow(
+  di_Table: TableItem,
+  tableVePath: VisualElementPath,
+) {
+  const fillerRowPlan = buildFillerRowPlan(di_Table, tableVePath);
+  return VesCache.full_createOrRecycleVisualElementSignal(fillerRowPlan.spec, fillerRowPlan.relationships, fillerRowPlan.path);
 }
 
 
@@ -464,6 +484,35 @@ function createRow(
   tableDimensionsPx: Dimensions,
   vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
 
+  const rowPlan = buildTableRowRenderPlan(
+    store,
+    childItem,
+    di_Table,
+    tableVePath,
+    flags,
+    rowIdx,
+    sizeBl,
+    blockSizePx,
+    indentBl,
+    tableDimensionsPx,
+  );
+
+  return materializeTableRowPlan(rowPlan, vesToOverwrite);
+}
+
+
+function buildTableRowRenderPlan(
+  store: StoreContextModel,
+  childItem: Item,
+  di_Table: TableItem,
+  tableVePath: VisualElementPath,
+  flags: ArrangeItemFlags,
+  rowIdx: number,
+  sizeBl: Dimensions,
+  blockSizePx: Dimensions,
+  indentBl: number,
+  tableDimensionsPx: Dimensions): TableRowRenderPlan {
+
   const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
   const childVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
 
@@ -500,9 +549,9 @@ function createRow(
   };
 
   const tableChildRelationships: VisualElementRelationships = {};
+  const attachmentPlans: Array<TableRenderPlan> = [];
 
   if (isAttachmentsItem(displayItem_childItem)) {
-    let tableItemVeAttachments: Array<VisualElementPath> = [];
     const attachmentsItem = asAttachmentsItem(displayItem_childItem);
     let leftBl = di_Table.tableColumns[0].widthGr / GRID_SIZE;
     let i = 0;
@@ -546,28 +595,44 @@ function createRow(
         blockSizePx
       };
       const tableChildAttachmentRelationships: VisualElementRelationships = {};
-      if (vesToOverwrite != null) {
-        VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentRelationships, tableChildAttachmentVePath);
-      } else {
-        VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentRelationships, tableChildAttachmentVePath);
-      }
-
-      tableItemVeAttachments.push(tableChildAttachmentVePath);
+      attachmentPlans.push({
+        spec: tableChildAttachmentVeSpec,
+        relationships: tableChildAttachmentRelationships,
+        path: tableChildAttachmentVePath,
+      });
 
       leftBl += di_Table.tableColumns[i + 1].widthGr / GRID_SIZE;
     }
 
-    tableChildRelationships.attachmentsPaths = tableItemVeAttachments;
+    tableChildRelationships.attachmentsPaths = attachmentPlans.map(attachmentPlan => attachmentPlan.path);
   }
 
-  let tableItemVisualElementSignal;
+  return {
+    spec: tableChildVeSpec,
+    relationships: tableChildRelationships,
+    path: tableChildVePath,
+    attachments: attachmentPlans,
+  };
+}
+
+
+function materializeTableRowPlan(
+  rowPlan: TableRowRenderPlan,
+  vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
+
+  for (let i = 0; i < rowPlan.attachments.length; ++i) {
+    const attachmentPlan = rowPlan.attachments[i];
+    if (vesToOverwrite != null) {
+      VesCache.partial_create(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
+    } else {
+      VesCache.full_createOrRecycleVisualElementSignal(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
+    }
+  }
 
   if (vesToOverwrite != null) {
-    VesCache.partial_overwriteVisualElementSignal(tableChildVeSpec, tableChildRelationships, tableChildVePath, vesToOverwrite)
-    tableItemVisualElementSignal = vesToOverwrite;
-  } else {
-    tableItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildRelationships, tableChildVePath);
+    VesCache.partial_overwriteVisualElementSignal(rowPlan.spec, rowPlan.relationships, rowPlan.path, vesToOverwrite);
+    return vesToOverwrite;
   }
 
-  return tableItemVisualElementSignal;
+  return VesCache.full_createOrRecycleVisualElementSignal(rowPlan.spec, rowPlan.relationships, rowPlan.path);
 }
