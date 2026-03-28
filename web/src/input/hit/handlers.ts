@@ -29,7 +29,7 @@ import { HitBuilder } from "./builder";
 import { findAttachmentHit, isInsideBottomRightTriangle, scanHitboxes, toCompositeChildAreaPos, toTableChildAreaPos } from "./utils";
 
 function parentVe(ve: VisualElement): VisualElement {
-  return VesCache.get(ve.parentPath!)!.get();
+  return VesCache.current.readNode(ve.parentPath!)!;
 }
 
 export const HitHandlers: Array<HitHandler> = [];
@@ -55,7 +55,7 @@ const _tableHandler: HitHandler = {
         return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.HorizontalResize, HitboxFlags.None).meta(hb.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-hresize").build();
       }
     }
-    const tableVeChildren = VesCache.getChildrenVes(VeFns.veToPath(tableVe))();
+    const tableVeChildren = VesCache.render.getChildren(VeFns.veToPath(tableVe))();
     for (let j = 0; j < tableVeChildren.length; ++j) {
       const tableChildVes = tableVeChildren[j];
       const tableChildVe = tableChildVes.get();
@@ -69,7 +69,7 @@ const _tableHandler: HitHandler = {
         }
       }
       {
-        const hit = findAttachmentHit(VesCache.getAttachmentsVes(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false);
+        const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false);
         if (hit) {
           return {
             overVes: hit.attachmentVes,
@@ -108,7 +108,7 @@ const _compositeHandler: HitHandler = {
       return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-resize").build();
     }
     const { flags: compositeHitboxType, meta: compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(compositeVe.boundsPx!));
-    const compositeVeChildren = VesCache.getChildrenVes(VeFns.veToPath(compositeVe))();
+    const compositeVeChildren = VesCache.render.getChildren(VeFns.veToPath(compositeVe))();
     for (let j = 0; j < compositeVeChildren.length; ++j) {
       const compositeChildVes = compositeVeChildren[j];
       const compositeChildVe = compositeChildVes.get();

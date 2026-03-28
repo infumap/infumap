@@ -91,7 +91,7 @@ export class HitBuilder {
 }
 
 function parentVe(ve: VisualElement): VisualElement {
-  return VesCache.get(ve.parentPath!)!.get();
+  return VesCache.current.readNode(ve.parentPath!)!;
 }
 
 export function computeGridPositionForPage(pageVe: VisualElement, prop: { x: number, y: number }): Vector {
@@ -128,7 +128,7 @@ export function finalize(
   if (isPage(overVe.displayItem) && (overVe.flags & VisualElementFlags.ShowChildren)) {
     return finalizePageWithChildren(hitboxType, containerHitboxType, parentRootVe, rootVes, overVes, overElementMeta, posRelativeToRootVePx, canHitEmbeddedInteractive, debugCreatedAt);
   }
-  if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
+  if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.current.readNode(overVe.parentPath!)!.displayItem)) {
     return finalizeInsideCompositeParent(hitboxType, containerHitboxType, parentRootVe, rootVes, overVes, overElementMeta, posRelativeToRootVePx, debugCreatedAt);
   }
   return finalizeGeneric(hitboxType, containerHitboxType, parentRootVe, rootVes, overVes, overElementMeta, posRelativeToRootVePx, debugCreatedAt);
@@ -171,7 +171,7 @@ function finalizeInsideTableChild(
   let overPositionableVe = tableParentVe;
   const overPositionGr = { x: 0, y: 0 };
   if ((tableParentVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
-    overPositionableVe = VesCache.get(tableParentVe.parentPath!)!.get();
+    overPositionableVe = VesCache.current.readNode(tableParentVe.parentPath!)!;
     return {
       overVes,
       rootVes,
@@ -274,10 +274,10 @@ function finalizePageWithChildren(
   }
   if (canHitEmbeddedInteractive) {
     if (overVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
-      overPositionableVe = VesCache.get(overVe.parentPath!)!.get();
+      overPositionableVe = VesCache.current.readNode(overVe.parentPath!)!;
     }
   }
-  if ((overVe.flags & VisualElementFlags.InsideCompositeOrDoc) && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
+  if ((overVe.flags & VisualElementFlags.InsideCompositeOrDoc) && isComposite(VesCache.current.readNode(overVe.parentPath!)!.displayItem)) {
     const parentCompositeVe = parentVe(overVe);
     const compositeParentPageVe = parentVe(parentCompositeVe);
     return {
@@ -351,8 +351,7 @@ function finalizeGeneric(
   debugCreatedAt: string,
 ): HitInfo {
   const overVe = overVes.get();
-  const overVeParentVes = VesCache.get(overVe.parentPath!)!;
-  const overVeParent = overVeParentVes.get();
+  const overVeParent = VesCache.current.readNode(overVe.parentPath!)!;
   const overPositionGr = { x: 0, y: 0 };
   if (isPage(overVe.displayItem)) {
     return {

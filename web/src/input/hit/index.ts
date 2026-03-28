@@ -52,7 +52,7 @@ export const HitInfoFns = {
       let candidate = hitInfo.overVes.get();
       while (candidate && (!isContainer(candidate.displayItem) || (candidate.flags & VisualElementFlags.LineItem))) {
         if (!candidate.parentPath) { break; }
-        const parent = VesCache.get(candidate.parentPath)!.get();
+        const parent = VesCache.current.readNode(candidate.parentPath)!;
         candidate = parent;
       }
       if (candidate && !isIgnored(candidate.displayItem.id, ignoredSet)) { return candidate; }
@@ -116,7 +116,7 @@ export const HitInfoFns = {
 };
 
 function parentVe(ve: VisualElement): VisualElement {
-  return VesCache.get(ve.parentPath!)!.get();
+  return VesCache.current.readNode(ve.parentPath!)!;
 }
 
 function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Set<Uid>): HitInfo | null {
@@ -136,7 +136,7 @@ export function getHitInfo(
   canHitEmbeddedInteractive: boolean,
 ): HitInfo {
   const umbrellaVe: VisualElement = store.umbrellaVisualElement.get();
-  assert(VesCache.getChildrenVes(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
+  assert(VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
   let rootInfo = determineTopLevelRoot(store, umbrellaVe, posOnDesktopPx);
   const hitTop = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
   if (hitTop) { return hitTop; }
@@ -187,12 +187,12 @@ function getHitInfoUnderRoot(
     posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y + scrollYPx;
   }
 
-  const rootVeChildren = VesCache.getChildrenVes(VeFns.veToPath(rootVe))();
+  const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive);
     if (hitMaybe) { return hitMaybe; }
   }
-  const selectedVes = VesCache.getSelectedVes(VeFns.veToPath(rootVe))();
+  const selectedVes = VesCache.render.getSelected(VeFns.veToPath(rootVe))();
   if (selectedVes) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, selectedVes, ignoreItems, canHitEmbeddedInteractive);
     if (hitMaybe) { return hitMaybe; }
@@ -215,11 +215,11 @@ function hitChildMaybe(
   if (childVe.flags & VisualElementFlags.IsDock) { return null; }
   {
     if (isComposite(childVe.displayItem)) {
-      const childVeChildren = VesCache.getChildrenVes(VeFns.veToPath(childVe))();
+      const childVeChildren = VesCache.render.getChildren(VeFns.veToPath(childVe))();
       for (let i = 0; i < childVeChildren.length; ++i) {
         let ve = childVeChildren[i].get();
         const posRelativeToChildElementPx = toInnerAttachmentLocalInComposite(childVe, ve, posRelativeToRootVeViewportPx);
-        const hit = findAttachmentHit(VesCache.getAttachmentsVes(VeFns.veToPath(ve))(), posRelativeToChildElementPx, ignoreItems, false);
+        const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(ve))(), posRelativeToChildElementPx, ignoreItems, false);
         if (hit) {
           const compositeParentVe = childVe;
           const parentOfComposite = parentVe(compositeParentVe);
@@ -241,7 +241,7 @@ function hitChildMaybe(
       }
     }
     const posRelativeToChildElementPx = toChildBoundsLocalFromViewport(posRelativeToRootVeViewportPx, childVe);
-    const hit = findAttachmentHit(VesCache.getAttachmentsVes(VeFns.veToPath(childVe))(), posRelativeToChildElementPx, ignoreItems, true);
+    const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(childVe))(), posRelativeToChildElementPx, ignoreItems, true);
     if (hit) {
       const parent = parentVe(childVe);
 
@@ -282,10 +282,10 @@ function determineTopLevelRoot(
   umbrellaVe: VisualElement,
   posOnDesktopPx: Vector,
 ): RootInfo {
-  if (VesCache.getChildrenVes(VeFns.veToPath(umbrellaVe))().length != 1) { panic("expected umbrellaVisualElement to have a child"); }
+  if (VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length != 1) { panic("expected umbrellaVisualElement to have a child"); }
   const dockRootMaybe = determineIfDockRoot(umbrellaVe, posOnDesktopPx);
   if (dockRootMaybe != null) { return dockRootMaybe; }
-  let currentPageVes = VesCache.getChildrenVes(VeFns.veToPath(umbrellaVe))()[0];
+  let currentPageVes = VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))()[0];
   let currentPageVe = currentPageVes.get();
   const currentPageVeid = store.history.currentPageVeid()!;
   let posRelativeToTopLevelVePx: Vector | null = null;
@@ -323,13 +323,13 @@ function hitNonPagePopupMaybe(
   ignoreItems: Set<Uid>,
 ): RootInfo {
   let rootVe = parentRootInfo.rootVe;
-  if (!VesCache.getPopupVes(VeFns.veToPath(rootVe))()) { return parentRootInfo; }
-  if (isPage(VesCache.getPopupVes(VeFns.veToPath(rootVe))()!.get().displayItem)) { return parentRootInfo; }
+  if (!VesCache.render.getPopup(VeFns.veToPath(rootVe))()) { return parentRootInfo; }
+  if (isPage(VesCache.render.getPopup(VeFns.veToPath(rootVe))()!.get().displayItem)) { return parentRootInfo; }
   let rootVes = parentRootInfo.rootVes;
   let posRelativeToRootVeBoundsPx = parentRootInfo.posRelativeToRootVeBoundsPx;
   posOnDesktopPx = { ...posOnDesktopPx };
   posOnDesktopPx.x = posOnDesktopPx.x + store.getCurrentDockWidthPx();
-  const popupRootVesMaybe = VesCache.getPopupVes(VeFns.veToPath(rootVe))()!;
+  const popupRootVesMaybe = VesCache.render.getPopup(VeFns.veToPath(rootVe))()!;
   const popupRootVeMaybe = popupRootVesMaybe.get();
   const popupPosRelativeToTopLevelVePx = (popupRootVeMaybe.flags & VisualElementFlags.Fixed)
     ? { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y }
@@ -354,14 +354,14 @@ function hitNonPagePopupMaybe(
         hitMaybe: new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitNonPagePopupMaybe1").build()
       });
     }
-    const rootVeChildren = VesCache.getChildrenVes(VeFns.veToPath(rootVe))();
+    const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
     for (let j = 0; j < rootVeChildren.length; ++j) {
       const tableChildVes = rootVeChildren[j];
       const tableChildVe = tableChildVes.get();
       const tableBlockHeightPx = tableChildVe.boundsPx.h;
       const posRelativeToTableChildAreaPx = vectorSubtract(posRelativeToRootVeBoundsPx, { x: 0.0, y: (rootVe.viewportBoundsPx!.y - rootVe.boundsPx.y) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(rootVe)) * tableBlockHeightPx });
       {
-        const attHit = findAttachmentHit(VesCache.getAttachmentsVes(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false);
+        const attHit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false);
         if (attHit) {
           const hitMaybe = {
             overVes: attHit.attachmentVes,
@@ -399,7 +399,7 @@ function hitNonPagePopupMaybe(
     }
     return parentRootInfo;
   }
-  const rootVeChildren = VesCache.getChildrenVes(VeFns.veToPath(rootVe))();
+  const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive);
     if (hitMaybe) { return ({ parentRootVe: parentRootInfo.parentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe }); }
@@ -421,7 +421,7 @@ function hitPagePopupRootMaybe(
   let rootVes = parentRootInfo.rootVes;
   let posRelativeToRootVeBoundsPx = parentRootInfo.posRelativeToRootVeBoundsPx;
   let changedRoot = false;
-  const popupVes = VesCache.getPopupVes(VeFns.veToPath(rootVe))();
+  const popupVes = VesCache.render.getPopup(VeFns.veToPath(rootVe))();
   if (popupVes && isPage(popupVes.get().displayItem)) {
     posOnDesktopPx = { ...posOnDesktopPx };
     posOnDesktopPx.x = posOnDesktopPx.x + store.getCurrentDockWidthPx();
@@ -454,7 +454,7 @@ function hitPagePopupRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
-  if (changedRoot && VesCache.getSelectedVes(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
+  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }
 
@@ -471,7 +471,7 @@ function hitPageSelectedRootMaybe(
   let posRelativeToRootVeViewportPx = parentRootInfo.posRelativeToRootVeViewportPx;
   let changedRoot = false;
 
-  const selectedVes = VesCache.getSelectedVes(VeFns.veToPath(rootVe))();
+  const selectedVes = VesCache.render.getSelected(VeFns.veToPath(rootVe))();
   if (selectedVes != null) {
     const newRootVesMaybe = selectedVes!;
     const newRootVeMaybe = newRootVesMaybe.get();
@@ -510,7 +510,7 @@ function hitPageSelectedRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
-  if (changedRoot && VesCache.getSelectedVes(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
+  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }
 
@@ -522,7 +522,7 @@ function hitEmbeddedRootMaybe(
   canHitEmbeddedInteractive: boolean,
 ): RootInfo {
   const { rootVe, posRelativeToRootVeViewportPx } = parentRootInfo;
-  const rootVeChildren = VesCache.getChildrenVes(VeFns.veToPath(rootVe))();
+  const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = 0; i < rootVeChildren.length; ++i) {
     const childVes = rootVeChildren[i];
     const childVe = childVes.get();
@@ -543,7 +543,7 @@ function hitEmbeddedRootMaybe(
 
 
 function determineIfDockRoot(umbrellaVe: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
-  const dockVesAccessor = VesCache.getDockVes(VeFns.veToPath(umbrellaVe));
+  const dockVesAccessor = VesCache.render.getDock(VeFns.veToPath(umbrellaVe));
   if (!dockVesAccessor()) { return null; }
   let dockVes = dockVesAccessor()!;
   const dockVe = dockVes.get();
