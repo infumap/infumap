@@ -99,7 +99,7 @@ export const arrangeTable = (
     parentPath,
   };
 
-  const [childrenVes, tableVesRows, numRows] = arrangeTableChildren(
+  const [windowState, numRows] = arrangeTableChildren(
     store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags, sizeBl, blockSizePx);
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(tableGeometry.viewportBoundsPx)!);
@@ -110,12 +110,12 @@ export const arrangeTable = (
   const attachments = arrangeItemAttachments(store, displayItem_Table.computed_attachments, parentItemSizeBl, tableGeometry.boundsPx, tableVePath);
 
   const tableRelationships: VisualElementRelationships = {
-    childrenVes,
+    childrenVes: windowState.childrenVes,
     attachmentsPaths: attachments,
   };
 
   const tableVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableSpec, tableRelationships, tableVePath);
-  VesCache.setTableRenderRows(tableVePath, tableVesRows);
+  persistTableRenderWindowRows(tableVePath, windowState);
 
   return tableVisualElementSignal;
 }
@@ -129,7 +129,7 @@ export function arrangeTableChildren(
   tableVePath: VisualElementPath,
   flags: ArrangeItemFlags,
   sizeBl: Dimensions,
-  blockSizePx: Dimensions): [Array<VisualElementSignal>, Array<number>, number] {
+  blockSizePx: Dimensions): [TableRenderWindowState, number] {
 
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
   const firstItemIdx = Math.floor(scrollYPos);
@@ -155,8 +155,7 @@ export function arrangeTableChildren(
     blockSizePx,
     getBoundingBoxSize(tableGeometry.boundsPx),
   );
-  const [tableVeChildren, tableVesRows] = materializeTableWindowPlans(windowPlans);
-  return [tableVeChildren, tableVesRows, windowPlans.numRows];
+  return [materializeTableWindowPlans(windowPlans), windowPlans.numRows];
 }
 
 
@@ -178,6 +177,53 @@ type TableWindowPlanResult = {
   numRows: number,
   slots: Array<TableWindowSlotPlan>,
 };
+
+type TableRenderWindowState = {
+  childrenVes: Array<VisualElementSignal>,
+  rowSlots: Array<number>,
+};
+
+function createTableRenderWindowState(
+  childrenVes: Array<VisualElementSignal>,
+  rowSlots: Array<number>,
+): TableRenderWindowState {
+  return {
+    childrenVes,
+    rowSlots,
+  };
+}
+
+function getTableRenderWindowChild(
+  state: TableRenderWindowState,
+  outIdx: number,
+): VisualElementSignal | undefined {
+  return state.childrenVes[outIdx];
+}
+
+function getTableRenderWindowRow(
+  state: TableRenderWindowState,
+  outIdx: number,
+): number | undefined {
+  return state.rowSlots[outIdx];
+}
+
+function setTableRenderWindowSlot(
+  state: TableRenderWindowState,
+  outIdx: number,
+  rowIdx: number,
+  childVe: VisualElementSignal,
+) {
+  state.childrenVes[outIdx] = childVe;
+  state.rowSlots[outIdx] = rowIdx;
+}
+
+function snapshotTableRenderWindowRows(state: TableRenderWindowState): Array<number> {
+  return [...state.rowSlots];
+}
+
+function persistTableRenderWindowRows(tableVePath: VisualElementPath, state: TableRenderWindowState) {
+  VesCache.setTableRenderRows(tableVePath, state.rowSlots);
+}
 
 
 function walkTableRowsInWindow(
@@ -287,7 +333,7 @@ function buildTableWindowPlans(
 }
 
 
-function materializeTableWindowPlans(windowPlans: TableWindowPlanResult): [Array<VisualElementSignal>, Array<number>] {
+function materializeTableWindowPlans(windowPlans: TableWindowPlanResult): TableRenderWindowState {
   const tableVeChildren: Array<VisualElementSignal> = [];
   const tableVesRows: Array<number> = [];
 
@@ -301,7 +347,7 @@ function materializeTableWindowPlans(windowPlans: TableWindowPlanResult): [Array
     tableVesRows[slot.outIdx] = slot.rowIdx;
   }
 
-  return [tableVeChildren, tableVesRows];
+  return createTableRenderWindowState(tableVeChildren, tableVesRows);
 }
 
 
@@ -326,8 +372,7 @@ function buildFillerRowPlan(
 function applyTableWindowPlansAfterScroll(
   store: StoreContextModel,
   tableVePath: VisualElementPath,
-  childrenVes: Array<VisualElementSignal>,
-  tableVesRows: Array<number>,
+  windowState: TableRenderWindowState,
   windowPlans: TableWindowPlanResult,
   debugRowMapping: Map<number, { rowIdx: number, itemId: string, outIdx: number }>): boolean {
 
@@ -336,9 +381,9 @@ function applyTableWindowPlansAfterScroll(
     const outIdx = slot.outIdx;
     const rowIdx = slot.rowIdx;
 
-    if (tableVesRows[outIdx] != rowIdx) {
+    if (getTableRenderWindowRow(windowState, outIdx) != rowIdx) {
       if (slot.kind === "row") {
-        const vesToOverwrite = childrenVes[outIdx];
+        const vesToOverwrite = getTableRenderWindowChild(windowState, outIdx);
 
         const existingVe = vesToOverwrite?.get();
         const existingPath = existingVe ? VeFns.veToPath(existingVe) : null;
@@ -352,7 +397,8 @@ function applyTableWindowPlansAfterScroll(
         const newPath = slot.rowPlan.path;
 
         try {
-          materializeTableRowPlan(slot.rowPlan, vesToOverwrite);
+          const nextRowVe = materializeTableRowPlan(slot.rowPlan, vesToOverwrite);
+          setTableRenderWindowSlot(windowState, outIdx, rowIdx, nextRowVe);
 
           debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: slot.rowPlan.spec.displayItem.id, outIdx: outIdx });
 
@@ -368,8 +414,8 @@ function applyTableWindowPlansAfterScroll(
             newPath: newPath,
             vesToOverwriteExists: !!vesToOverwrite,
             existingVeExists: !!existingVe,
-            tableVesRows: [...tableVesRows],
-            childrenVesLength: childrenVes.length,
+            tableVesRows: snapshotTableRenderWindowRows(windowState),
+            childrenVesLength: windowState.childrenVes.length,
             debugRowMapping: Array.from(debugRowMapping.entries()),
             timestamp: new Date().toISOString()
           });
@@ -378,10 +424,8 @@ function applyTableWindowPlansAfterScroll(
           recoverWithFullArrange(store, "table-scroll-create-row-failed");
           return false;
         }
-        tableVesRows[outIdx] = rowIdx;
       } else {
-        childrenVes[outIdx] = materializeTableRenderPlan(slot.fillerPlan);
-        tableVesRows[outIdx] = rowIdx;
+        setTableRenderWindowSlot(windowState, outIdx, rowIdx, materializeTableRenderPlan(slot.fillerPlan));
       }
     } else if (slot.kind === "row") {
       debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: slot.rowPlan.spec.displayItem.id, outIdx: outIdx });
@@ -409,16 +453,18 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
   const tableVe = VesCache.current.readNode(tableVePath)!;
   const displayItem_table = asTableItem(tableVe.displayItem);
-  const childrenVes = VesCache.render.getChildren(tableVePath)();
-  const tableVesRows = VesCache.getTableRenderRows(tableVePath);
-  if (tableVesRows == null || tableVesRows!.length != childrenVes.length) {
+  const windowState = createTableRenderWindowState(
+    VesCache.render.getChildren(tableVePath)(),
+    VesCache.getTableRenderRows(tableVePath) ?? [],
+  );
+  if (windowState.rowSlots.length != windowState.childrenVes.length) {
     // TODO (LOW): should really implement logic such that this never happens. This is lazy.
     console.debug("rearrangeTableAfterScroll: invalid tableVesRows, resorting to fullArrange.");
     console.error("[TABLE_DEBUG] Invalid state detected:", {
       tableVePath: tableVePath,
-      tableVesRows: tableVesRows,
-      tableVesRowsLength: tableVesRows?.length,
-      childrenVesLength: childrenVes.length,
+      tableVesRows: windowState.rowSlots,
+      tableVesRowsLength: windowState.rowSlots.length,
+      childrenVesLength: windowState.childrenVes.length,
       prevScrollYPos: prevScrollYPos,
       currentScrollYPos: store.perItem.getTableScrollYPos(tableVeid),
       tableId: displayItem_table.id,
@@ -440,13 +486,13 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
 
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
   const firstItemIdx = Math.floor(scrollYPos);
-  const outCount = childrenVes.length;
+  const outCount = windowState.childrenVes.length;
   const numVisibleRows = outCount - 1;
   const lastItemIdx = firstItemIdx + numVisibleRows;
-  if (childrenVes.length != outCount) {
+  if (windowState.childrenVes.length != outCount) {
     console.error("[TABLE_DEBUG] Unexpected child ves count:", {
       tableVePath: tableVePath,
-      childrenVesLength: childrenVes.length,
+      childrenVesLength: windowState.childrenVes.length,
       expectedOutCount: outCount,
       firstItemIdx: firstItemIdx,
       lastItemIdx: lastItemIdx,
@@ -476,9 +522,10 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     getBoundingBoxSize(tableVe.boundsPx),
   );
 
-  if (!applyTableWindowPlansAfterScroll(store, tableVePath, childrenVes, tableVesRows, windowPlans, debugRowMapping)) {
+  if (!applyTableWindowPlansAfterScroll(store, tableVePath, windowState, windowPlans, debugRowMapping)) {
     return;
   }
+  persistTableRenderWindowRows(tableVePath, windowState);
 
   // Final validation and comprehensive debug logging
   let hasInconsistency = false;
@@ -490,8 +537,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     firstItemIdx: firstItemIdx,
     lastItemIdx: lastItemIdx,
     outCount: outCount,
-    childrenVesLength: childrenVes.length,
-    tableVesRowsSnapshot: [...tableVesRows],
+    childrenVesLength: windowState.childrenVes.length,
+    tableVesRowsSnapshot: snapshotTableRenderWindowRows(windowState),
     debugRowMapping: Array.from(debugRowMapping.entries()),
     inconsistencies: [] as any[],
     timestamp: new Date().toISOString()
@@ -500,7 +547,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   // Check for inconsistencies in the final mapping
   for (let i = 0; i < outCount; i++) {
     const mappingInfo = debugRowMapping.get(i);
-    const vesRowValue = tableVesRows[i];
+    const vesRowValue = getTableRenderWindowRow(windowState, i);
 
     if (mappingInfo && mappingInfo.rowIdx !== vesRowValue) {
       hasInconsistency = true;
@@ -513,7 +560,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     }
 
     // Also check if childrenVes exists and has the right structure
-    const childVe = childrenVes[i]?.get();
+    const childVe = getTableRenderWindowChild(windowState, i)?.get();
     if (childVe && childVe.row !== vesRowValue) {
       hasInconsistency = true;
       finalDebugInfo.inconsistencies.push({
