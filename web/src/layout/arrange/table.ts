@@ -153,8 +153,9 @@ export function arrangeTableChildren(
     true,
     (item, rowIdx, indentBl) => {
       const outIdx = rowIdx % outCount;
-      tableVeChildren[outIdx] = createRow(
-        store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableGeometry.boundsPx), null);
+      const rowPlan = buildTableRowRenderPlan(
+        store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableGeometry.boundsPx));
+      tableVeChildren[outIdx] = materializeTableRowPlan(rowPlan, null);
       tableVesRows[outIdx] = rowIdx;
     },
     (rowIdx) => {
@@ -372,12 +373,12 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
           return false;
         }
 
-        const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
-        const newPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
+        const rowPlan = buildTableRowRenderPlan(
+          store, item, displayItem_table, tableVePath, tableVe._arrangeFlags_useForPartialRearrangeOnly, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx));
+        const newPath = rowPlan.path;
 
         try {
-          createRow(
-            store, item, displayItem_table, tableVePath, tableVe._arrangeFlags_useForPartialRearrangeOnly, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
+          materializeTableRowPlan(rowPlan, vesToOverwrite);
 
           debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: item.id, outIdx: outIdx });
 
@@ -474,36 +475,6 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     // don't log.
   }
 
-}
-
-
-function createRow(
-  store: StoreContextModel,
-  childItem: Item,
-  di_Table: TableItem,
-  tableVePath: VisualElementPath,
-  flags: ArrangeItemFlags,
-  rowIdx: number,
-  sizeBl: Dimensions,
-  blockSizePx: Dimensions,
-  indentBl: number,
-  tableDimensionsPx: Dimensions,
-  vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
-
-  const rowPlan = buildTableRowRenderPlan(
-    store,
-    childItem,
-    di_Table,
-    tableVePath,
-    flags,
-    rowIdx,
-    sizeBl,
-    blockSizePx,
-    indentBl,
-    tableDimensionsPx,
-  );
-
-  return materializeTableRowPlan(rowPlan, vesToOverwrite);
 }
 
 
