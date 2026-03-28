@@ -47,6 +47,7 @@ import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, Visu
 
 import { Item } from "../items/base/item";
 type RenderProjectionEntry = {
+  node: [Accessor<VisualElementSignal | undefined>, Setter<VisualElementSignal | undefined>];
   popup: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>];
   selected: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>];
   dock: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>];
@@ -63,6 +64,7 @@ let renderProjectionByPath = new Map<VisualElementPath, RenderProjectionEntry>()
 
 function createRenderProjectionEntry(): RenderProjectionEntry {
   return {
+    node: createSignal<VisualElementSignal | undefined>(undefined),
     popup: createSignal<VisualElementSignal | null>(null),
     selected: createSignal<VisualElementSignal | null>(null),
     dock: createSignal<VisualElementSignal | null>(null),
@@ -107,6 +109,10 @@ function shouldUpdateSignalList(current: Array<VisualElementSignal>, next: Array
 
 function updateRenderProjectionPopup(path: VisualElementPath, value: VisualElementSignal | null) {
   updateRenderProjectionSignal(getRenderProjection(path).popup, value);
+}
+
+function updateRenderProjectionNode(path: VisualElementPath, value: VisualElementSignal | undefined) {
+  updateRenderProjectionSignal(getRenderProjection(path).node, value);
 }
 
 function updateRenderProjectionSelected(path: VisualElementPath, value: VisualElementSignal | null) {
@@ -470,6 +476,7 @@ function writeScenePath(
 }
 
 function syncRenderProjectionForPath(scene: SceneState, path: VisualElementPath) {
+  updateRenderProjectionNode(path, getSceneNode(scene, path));
   const relationships = scene.relationshipsByPath.get(path);
   updateRenderProjectionPopup(path, relationships?.popup ?? null);
   updateRenderProjectionSelected(path, relationships?.selected ?? null);
@@ -484,6 +491,7 @@ function syncRenderProjectionForPath(scene: SceneState, path: VisualElementPath)
 }
 
 function clearRenderProjectionForPath(path: VisualElementPath) {
+  updateRenderProjectionNode(path, undefined);
   updateRenderProjectionPopup(path, null);
   updateRenderProjectionSelected(path, null);
   updateRenderProjectionDock(path, null);
@@ -664,11 +672,11 @@ function logOrphanedVes(cache: Map<VisualElementPath, VisualElementSignal>, cont
 
 function syncRenderProjectionFromScene(scene: SceneState) {
   for (const [path] of renderProjectionByPath) {
-    if (!scene.relationshipsByPath.has(path)) {
+    if (!sceneHasNode(scene, path)) {
       clearRenderProjectionForPath(path);
     }
   }
-  for (const [path] of scene.relationshipsByPath) {
+  for (const [path] of scene.cache) {
     syncRenderProjectionForPath(scene, path);
   }
 }
@@ -772,7 +780,7 @@ const virtualSceneQueries = {
 
 const renderSceneQueries = {
   getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return getSceneNode(currentScene, path);
+    return getRenderProjection(path).node[0]();
   },
 
   find: (veid: Veid): Array<VisualElementSignal> => {
