@@ -313,14 +313,6 @@ function getSceneTableRows(scene: SceneState, path: VisualElementPath): Array<nu
   return scene.relationshipsByPath.get(path)?.tableRows ?? null;
 }
 
-function readSignalNode(node: VisualElementSignal | null | undefined): VisualElement | null {
-  return node?.get() ?? null;
-}
-
-function readSignalNodeList(list: Array<VisualElementSignal> | undefined): Array<VisualElement> {
-  return (list ?? []).map(ves => ves.get());
-}
-
 function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
   return getRenderProjection(path).node[0]();
 }
@@ -339,19 +331,25 @@ function ensureCurrentRenderNode(path: VisualElementPath): VisualElementSignal |
   return signal;
 }
 
-function getUnderConstructionArrangeSignal(path: VisualElementPath): VisualElementSignal | undefined {
-  return underConstructionArrangeSignalsByPath.get(path);
+function syncUnderConstructionArrangeSignal(path: VisualElementPath, ve: VisualElement) {
+  const signal = underConstructionArrangeSignalsByPath.get(path);
+  if (!signal) {
+    return;
+  }
+  signal.set(cloneVisualElementSnapshot(ve));
 }
 
-function setUnderConstructionArrangeSignal(path: VisualElementPath, ve: VisualElement): VisualElementSignal {
-  let signal = underConstructionArrangeSignalsByPath.get(path);
-  const renderValue = cloneVisualElementSnapshot(ve);
-  if (!signal) {
-    signal = createVisualElementSignal(renderValue);
-    underConstructionArrangeSignalsByPath.set(path, signal);
-    return signal;
+function ensureUnderConstructionArrangeSignal(path: VisualElementPath): VisualElementSignal | null {
+  const existing = underConstructionArrangeSignalsByPath.get(path);
+  if (existing) {
+    return existing;
   }
-  signal.set(renderValue);
+  const ve = getSceneNode(underConstructionScene, path);
+  if (!ve) {
+    return null;
+  }
+  const signal = createVisualElementSignal(cloneVisualElementSnapshot(ve));
+  underConstructionArrangeSignalsByPath.set(path, signal);
   return signal;
 }
 
@@ -363,7 +361,7 @@ function resolveSceneNodePath(scene: SceneState, path: VisualElementPath | null 
     return ensureCurrentRenderNode(path);
   }
   if (scene === underConstructionScene) {
-    return getUnderConstructionArrangeSignal(path) ?? null;
+    return ensureUnderConstructionArrangeSignal(path);
   }
   return null;
 }
@@ -382,7 +380,7 @@ function resolveSceneNodePaths(scene: SceneState, paths: Array<VisualElementPath
   if (scene === underConstructionScene) {
     const resolved: Array<VisualElementSignal> = [];
     for (const path of paths ?? []) {
-      const node = getUnderConstructionArrangeSignal(path);
+      const node = ensureUnderConstructionArrangeSignal(path);
       if (node) {
         resolved.push(node);
       }
@@ -393,11 +391,21 @@ function resolveSceneNodePaths(scene: SceneState, paths: Array<VisualElementPath
 }
 
 function readSceneNodePath(scene: SceneState, path: VisualElementPath | null | undefined): VisualElement | null {
-  return readSignalNode(resolveSceneNodePath(scene, path));
+  if (path == null) {
+    return null;
+  }
+  return getSceneNode(scene, path) ?? null;
 }
 
 function readSceneNodePaths(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
-  return readSignalNodeList(resolveSceneNodePaths(scene, paths));
+  const resolved: Array<VisualElement> = [];
+  for (const path of paths ?? []) {
+    const node = getSceneNode(scene, path);
+    if (node) {
+      resolved.push(node);
+    }
+  }
+  return resolved;
 }
 
 function readVirtualNodePaths(paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
@@ -416,7 +424,7 @@ function readSceneNode(scene: SceneState, path: VisualElementPath): VisualElemen
 }
 
 function readSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
-  return readSignalNodeList(getSceneIndexedChildren(scene, parentPath));
+  return readSceneNodePaths(scene, scene.childrenByParent.get(parentPath));
 }
 
 function readSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
@@ -424,7 +432,12 @@ function readSceneStructuralChildren(scene: SceneState, parentPath: VisualElemen
 }
 
 function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
-  return readSignalNodeList(getSceneSiblings(scene, path));
+  const parentPath = getSceneParentPath(scene, path);
+  if (parentPath == null) {
+    return [];
+  }
+  return readSceneNodePaths(scene, scene.childrenByParent.get(parentPath))
+    .filter(ve => VeFns.veToPath(ve) != path);
 }
 
 function readSceneAttachments(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
@@ -577,7 +590,8 @@ function writeUnderConstructionScenePath(
   relationshipData: SceneRelationshipData,
 ): VisualElementSignal {
   writeScenePath(underConstructionScene, path, ve, relationshipData);
-  return setUnderConstructionArrangeSignal(path, ve);
+  syncUnderConstructionArrangeSignal(path, ve);
+  return ensureUnderConstructionArrangeSignal(path) ?? panic(`failed to materialize under-construction arrange signal for ${path}.`);
 }
 
 function syncRenderProjectionNode(
