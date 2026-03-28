@@ -187,12 +187,12 @@ export const renderDockMaybe = (
 
     if (dockWidthPx > 25) {
       const trashPath = VeFns.addVeidToPath({ itemId: trashPage.id, linkIdMaybe: null }, dockPath);
-      VesCache.full_createOrRecycleVisualElementSignal(trashVisualElementSpec, trashRelationships, trashPath);
+      VesCache.full_writeVisualElement(trashVisualElementSpec, trashRelationships, trashPath);
       dockChildren.push(trashPath);
     }
   }
 
-  VesCache.full_createOrRecycleVisualElementSignal(dockSpec, dockRelationships, dockPath);
+  VesCache.full_writeVisualElement(dockSpec, dockRelationships, dockPath);
   return dockPath;
 }
 

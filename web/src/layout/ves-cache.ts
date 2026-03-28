@@ -605,6 +605,15 @@ function writeUnderConstructionScenePath(
   return ensureUnderConstructionArrangeSignal(path) ?? panic(`failed to materialize under-construction arrange signal for ${path}.`);
 }
 
+function writeUnderConstructionSceneNode(
+  path: VisualElementPath,
+  ve: VisualElement,
+  relationshipData: SceneRelationshipData,
+) {
+  writeScenePath(underConstructionScene, path, ve, relationshipData);
+  syncUnderConstructionArrangeSignal(path, ve);
+}
+
 function syncRenderProjectionNode(
   path: VisualElementPath,
   nextVe: VisualElement | undefined,
@@ -1107,6 +1116,18 @@ export let VesCache = {
    */
   full_createOrRecycleVisualElementSignal: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     return buildUnderConstructionVisualElementSignal(spec, relationships, path);
+  },
+
+  /**
+   * Writes the next under-construction scene node without doing per-node diffing
+   * and without materializing an arrange-time signal unless one already exists.
+   */
+  full_writeVisualElement: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): void => {
+    const preparedSpec = prepareVisualElementSpec(spec);
+    const preparedRelationships = prepareSceneRelationshipData(underConstructionScene, relationships);
+    maybeTrackLoadedContainer(underConstructionSceneOutputs, preparedSpec);
+    const nextVe = VeFns.create(preparedSpec);
+    writeUnderConstructionSceneNode(path, nextVe, preparedRelationships);
   },
 
   /**

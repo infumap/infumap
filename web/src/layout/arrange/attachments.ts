@@ -62,7 +62,7 @@ export function arrangeItemAttachments(
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     };
     const veRelationships: VisualElementRelationships = {};
-    VesCache.full_createOrRecycleVisualElementSignal(veSpec, veRelationships, attachmentVePath);
+    VesCache.full_writeVisualElement(veSpec, veRelationships, attachmentVePath);
     attachmentPaths.push(attachmentVePath);
   }
 

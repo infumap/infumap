@@ -364,7 +364,7 @@ export function arrange_calendar_page(
       };
 
       const calendarItemRelationships: VisualElementRelationships = {};
-      VesCache.full_createOrRecycleVisualElementSignal(calendarItemVeSpec, calendarItemRelationships, childPath);
+      VesCache.full_writeVisualElement(calendarItemVeSpec, calendarItemRelationships, childPath);
       calendarChildPaths.push(childPath);
     });
   });
@@ -496,7 +496,7 @@ export function arrange_calendar_page(
     };
 
     const movingItemRelationships: VisualElementRelationships = {};
-    VesCache.full_createOrRecycleVisualElementSignal(movingItemVeSpec, movingItemRelationships, childPath);
+    VesCache.full_writeVisualElement(movingItemVeSpec, movingItemRelationships, childPath);
     calendarChildPaths.push(childPath);
   }
 

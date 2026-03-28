@@ -232,7 +232,7 @@ export function arrange_list_page(
       blockSizePx,
     };
     const listItemRelationships: VisualElementRelationships = {};
-    VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
+    VesCache.full_writeVisualElement(listItemVeSpec, listItemRelationships, childPath);
     listChildPaths.push(childPath);
   }
 
@@ -444,7 +444,7 @@ export function arrange_dock_list_page(
       blockSizePx,
     };
     const listItemRelationships: VisualElementRelationships = {};
-    VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
+    VesCache.full_writeVisualElement(listItemVeSpec, listItemRelationships, childPath);
     listChildPaths.push(childPath);
   }
   pageRelationships.childrenPaths = listChildPaths;

@@ -206,6 +206,6 @@ function arrangeCompositeChildItemPath(
     compositeChildRelationships.attachmentsPaths = [];
   }
 
-  VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildRelationships, compositeChildVePath);
+  VesCache.full_writeVisualElement(compositeChildVeSpec, compositeChildRelationships, compositeChildVePath);
   return compositeChildVePath;
 }
