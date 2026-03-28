@@ -142,30 +142,21 @@ export function arrangeTableChildren(
   // rowIdx:          there is a fixed total number of rows logically present in the table child area (in turn
   //                  determining the inner div height). this is the index into that.
 
-  let tableVeChildren: Array<VisualElementSignal> = [];
-  let tableVesRows: Array<number> = [];
-  const walkResult = walkTableRowsInWindow(
+  const windowPlans = buildTableWindowPlans(
     store,
     displayItem_table,
     tableVePath,
     firstItemIdx,
     lastItemIdx,
+    outCount,
     true,
-    (item, rowIdx, indentBl) => {
-      const outIdx = rowIdx % outCount;
-      const rowPlan = buildTableRowRenderPlan(
-        store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableGeometry.boundsPx));
-      tableVeChildren[outIdx] = materializeTableRowPlan(rowPlan, null);
-      tableVesRows[outIdx] = rowIdx;
-    },
-    (rowIdx) => {
-      const outIdx = rowIdx % outCount;
-      tableVeChildren[outIdx] = createFillerRow(displayItem_table, tableVePath);
-      tableVesRows[outIdx] = rowIdx;
-    },
+    flags,
+    sizeBl,
+    blockSizePx,
+    getBoundingBoxSize(tableGeometry.boundsPx),
   );
-
-  return [tableVeChildren, tableVesRows, walkResult.numRows];
+  const [tableVeChildren, tableVesRows] = materializeTableWindowPlans(windowPlans);
+  return [tableVeChildren, tableVesRows, windowPlans.numRows];
 }
 
 
@@ -179,9 +170,13 @@ type TableRowRenderPlan = TableRenderPlan & {
   attachments: Array<TableRenderPlan>,
 };
 
-type TableWindowWalkResult = {
+type TableWindowSlotPlan =
+  | { kind: "row", rowIdx: number, outIdx: number, rowPlan: TableRowRenderPlan }
+  | { kind: "filler", rowIdx: number, outIdx: number, fillerPlan: TableRenderPlan };
+
+type TableWindowPlanResult = {
   numRows: number,
-  aborted: boolean,
+  slots: Array<TableWindowSlotPlan>,
 };
 
 
@@ -192,11 +187,11 @@ function walkTableRowsInWindow(
   firstItemIdx: number,
   lastItemIdx: number,
   computeTotalRows: boolean,
-  onVisibleRow: (item: Item, rowIdx: number, indentBl: number) => boolean | void,
-  onFillerRow: (rowIdx: number) => boolean | void): TableWindowWalkResult {
+  onVisibleRow: (item: Item, rowIdx: number, indentBl: number) => void,
+  onFillerRow: (rowIdx: number) => void): number {
 
   if (displayItem_table.computed_children.length == 0) {
-    return { numRows: 0, aborted: false };
+    return 0;
   }
 
   let iterIndices = [0];
@@ -214,9 +209,7 @@ function walkTableRowsInWindow(
 
     if (rowIdx >= firstItemIdx && rowIdx <= lastItemIdx) {
       const indentBl = iterIndices.length - 1;
-      if (onVisibleRow(item, rowIdx, indentBl) === false) {
-        return { numRows, aborted: true };
-      }
+      onVisibleRow(item, rowIdx, indentBl);
     }
 
     rowIdx += 1;
@@ -241,9 +234,7 @@ function walkTableRowsInWindow(
       }
       if (iterIndices.length == 0) {
         while (rowIdx <= lastItemIdx) {
-          if (onFillerRow(rowIdx) === false) {
-            return { numRows, aborted: true };
-          }
+          onFillerRow(rowIdx);
           rowIdx += 1;
         }
         break;
@@ -251,7 +242,66 @@ function walkTableRowsInWindow(
     }
   }
 
-  return { numRows, aborted: false };
+  return numRows;
+}
+
+
+function buildTableWindowPlans(
+  store: StoreContextModel,
+  displayItem_table: TableItem,
+  tableVePath: VisualElementPath,
+  firstItemIdx: number,
+  lastItemIdx: number,
+  outCount: number,
+  computeTotalRows: boolean,
+  flags: ArrangeItemFlags,
+  sizeBl: Dimensions,
+  blockSizePx: Dimensions,
+  tableDimensionsPx: Dimensions): TableWindowPlanResult {
+
+  const slots: Array<TableWindowSlotPlan> = [];
+  const numRows = walkTableRowsInWindow(
+    store,
+    displayItem_table,
+    tableVePath,
+    firstItemIdx,
+    lastItemIdx,
+    computeTotalRows,
+    (item, rowIdx, indentBl) => {
+      const outIdx = rowIdx % outCount;
+      const rowPlan = buildTableRowRenderPlan(
+        store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, tableDimensionsPx);
+      slots.push({ kind: "row", rowIdx, outIdx, rowPlan });
+    },
+    (rowIdx) => {
+      const outIdx = rowIdx % outCount;
+      const fillerPlan = buildFillerRowPlan(displayItem_table, tableVePath);
+      slots.push({ kind: "filler", rowIdx, outIdx, fillerPlan });
+    },
+  );
+
+  return {
+    numRows,
+    slots,
+  };
+}
+
+
+function materializeTableWindowPlans(windowPlans: TableWindowPlanResult): [Array<VisualElementSignal>, Array<number>] {
+  const tableVeChildren: Array<VisualElementSignal> = [];
+  const tableVesRows: Array<number> = [];
+
+  for (let i = 0; i < windowPlans.slots.length; ++i) {
+    const slot = windowPlans.slots[i];
+    if (slot.kind === "row") {
+      tableVeChildren[slot.outIdx] = materializeTableRowPlan(slot.rowPlan, null);
+    } else {
+      tableVeChildren[slot.outIdx] = materializeTableRenderPlan(slot.fillerPlan);
+    }
+    tableVesRows[slot.outIdx] = slot.rowIdx;
+  }
+
+  return [tableVeChildren, tableVesRows];
 }
 
 
@@ -273,12 +323,72 @@ function buildFillerRowPlan(
 }
 
 
-function createFillerRow(
-  di_Table: TableItem,
+function applyTableWindowPlansAfterScroll(
+  store: StoreContextModel,
   tableVePath: VisualElementPath,
-) {
-  const fillerRowPlan = buildFillerRowPlan(di_Table, tableVePath);
-  return VesCache.full_createOrRecycleVisualElementSignal(fillerRowPlan.spec, fillerRowPlan.relationships, fillerRowPlan.path);
+  childrenVes: Array<VisualElementSignal>,
+  tableVesRows: Array<number>,
+  windowPlans: TableWindowPlanResult,
+  debugRowMapping: Map<number, { rowIdx: number, itemId: string, outIdx: number }>): boolean {
+
+  for (let i = 0; i < windowPlans.slots.length; ++i) {
+    const slot = windowPlans.slots[i];
+    const outIdx = slot.outIdx;
+    const rowIdx = slot.rowIdx;
+
+    if (tableVesRows[outIdx] != rowIdx) {
+      if (slot.kind === "row") {
+        const vesToOverwrite = childrenVes[outIdx];
+
+        const existingVe = vesToOverwrite?.get();
+        const existingPath = existingVe ? VeFns.veToPath(existingVe) : null;
+
+        if (existingPath && !existingPath.includes(tableVePath)) {
+          console.debug("rearrangeTableAfterScroll: stale VE signal detected, resorting to fullArrange.");
+          recoverWithFullArrange(store, "table-scroll-stale-row-signal");
+          return false;
+        }
+
+        const newPath = slot.rowPlan.path;
+
+        try {
+          materializeTableRowPlan(slot.rowPlan, vesToOverwrite);
+
+          debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: slot.rowPlan.spec.displayItem.id, outIdx: outIdx });
+
+        } catch (e: any) {
+          console.error("[TABLE_DEBUG] createRow failed:", {
+            tableVePath: tableVePath,
+            rowIdx: rowIdx,
+            outIdx: outIdx,
+            itemId: slot.rowPlan.spec.displayItem.id,
+            error: e.message,
+            errorStack: e.stack,
+            existingPath: existingPath,
+            newPath: newPath,
+            vesToOverwriteExists: !!vesToOverwrite,
+            existingVeExists: !!existingVe,
+            tableVesRows: [...tableVesRows],
+            childrenVesLength: childrenVes.length,
+            debugRowMapping: Array.from(debugRowMapping.entries()),
+            timestamp: new Date().toISOString()
+          });
+          console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
+          store.overlay.setTextEditInfo(store.history, null);
+          recoverWithFullArrange(store, "table-scroll-create-row-failed");
+          return false;
+        }
+        tableVesRows[outIdx] = rowIdx;
+      } else {
+        childrenVes[outIdx] = materializeTableRenderPlan(slot.fillerPlan);
+        tableVesRows[outIdx] = rowIdx;
+      }
+    } else if (slot.kind === "row") {
+      debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: slot.rowPlan.spec.displayItem.id, outIdx: outIdx });
+    }
+  }
+
+  return true;
 }
 
 
@@ -352,74 +462,21 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
 
   // Debug tracking for visual element position mapping
   const debugRowMapping = new Map<number, { rowIdx: number, itemId: string, outIdx: number }>();
-  const walkResult = walkTableRowsInWindow(
+  const windowPlans = buildTableWindowPlans(
     store,
     displayItem_table,
     tableVePath,
     firstItemIdx,
     lastItemIdx,
+    outCount,
     false,
-    (item, rowIdx, indentBl) => {
-      const outIdx = rowIdx % outCount;
-      if (tableVesRows[outIdx] != rowIdx) {
-        const vesToOverwrite = childrenVes[outIdx];
-
-        const existingVe = vesToOverwrite?.get();
-        const existingPath = existingVe ? VeFns.veToPath(existingVe) : null;
-
-        if (existingPath && !existingPath.includes(tableVePath)) {
-          console.debug("rearrangeTableAfterScroll: stale VE signal detected, resorting to fullArrange.");
-          recoverWithFullArrange(store, "table-scroll-stale-row-signal");
-          return false;
-        }
-
-        const rowPlan = buildTableRowRenderPlan(
-          store, item, displayItem_table, tableVePath, tableVe._arrangeFlags_useForPartialRearrangeOnly, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx));
-        const newPath = rowPlan.path;
-
-        try {
-          materializeTableRowPlan(rowPlan, vesToOverwrite);
-
-          debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: item.id, outIdx: outIdx });
-
-        } catch (e: any) {
-          console.error("[TABLE_DEBUG] createRow failed:", {
-            tableVePath: tableVePath,
-            rowIdx: rowIdx,
-            outIdx: outIdx,
-            itemId: item.id,
-            error: e.message,
-            errorStack: e.stack,
-            existingPath: existingPath,
-            newPath: newPath,
-            vesToOverwriteExists: !!vesToOverwrite,
-            existingVeExists: !!existingVe,
-            tableVesRows: [...tableVesRows],
-            childrenVesLength: childrenVes.length,
-            debugRowMapping: Array.from(debugRowMapping.entries()),
-            timestamp: new Date().toISOString()
-          });
-          console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
-          store.overlay.setTextEditInfo(store.history, null);
-          recoverWithFullArrange(store, "table-scroll-create-row-failed");
-          return false;
-        }
-        tableVesRows[outIdx] = rowIdx;
-      } else {
-        debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: item.id, outIdx: outIdx });
-      }
-    },
-    (rowIdx) => {
-      const outIdx = rowIdx % outCount;
-      if (tableVesRows[outIdx] != rowIdx) {
-        const fillerVes = createFillerRow(displayItem_table, tableVePath);
-        childrenVes[outIdx] = fillerVes;
-        tableVesRows[outIdx] = rowIdx;
-      }
-    },
+    tableVe._arrangeFlags_useForPartialRearrangeOnly,
+    sizeBl,
+    blockSizePx,
+    getBoundingBoxSize(tableVe.boundsPx),
   );
 
-  if (walkResult.aborted) {
+  if (!applyTableWindowPlansAfterScroll(store, tableVePath, childrenVes, tableVesRows, windowPlans, debugRowMapping)) {
     return;
   }
 
@@ -593,6 +650,11 @@ function buildTableRowRenderPlan(
 }
 
 
+function materializeTableRenderPlan(plan: TableRenderPlan): VisualElementSignal {
+  return VesCache.full_createOrRecycleVisualElementSignal(plan.spec, plan.relationships, plan.path);
+}
+
+
 function materializeTableRowPlan(
   rowPlan: TableRowRenderPlan,
   vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
@@ -611,5 +673,5 @@ function materializeTableRowPlan(
     return vesToOverwrite;
   }
 
-  return VesCache.full_createOrRecycleVisualElementSignal(rowPlan.spec, rowPlan.relationships, rowPlan.path);
+  return materializeTableRenderPlan(rowPlan);
 }
