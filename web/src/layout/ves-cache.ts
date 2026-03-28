@@ -45,317 +45,139 @@ import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, Visu
   elements and replace them.
 */
 
-// Reactive map for popupVes
-// We store [read, write] signal pairs for each path.
-let reactivePopups = new Map<VisualElementPath, [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>]>();
-
-function getReactivePopupSignal(path: VisualElementPath) {
-  let entry = reactivePopups.get(path);
-  if (!entry) {
-    entry = createSignal<VisualElementSignal | null>(null);
-    reactivePopups.set(path, entry);
-  }
-  return entry;
-}
-
-function updateReactivePopup(path: VisualElementPath, value: VisualElementSignal | null) {
-  const [read, write] = getReactivePopupSignal(path);
-  if (read() !== value) {
-    write(value);
-  }
-}
-
-// Reactive map for selectedVes
-let reactiveSelecteds = new Map<VisualElementPath, [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>]>();
-
-function getReactiveSelectedSignal(path: VisualElementPath) {
-  let entry = reactiveSelecteds.get(path);
-  if (!entry) {
-    entry = createSignal<VisualElementSignal | null>(null);
-    reactiveSelecteds.set(path, entry);
-  }
-  return entry;
-}
-
-function updateReactiveSelected(path: VisualElementPath, value: VisualElementSignal | null) {
-  const [read, write] = getReactiveSelectedSignal(path);
-  if (read() !== value) {
-    write(value);
-  }
-}
-
-// Reactive map for dockVes
-let reactiveDocks = new Map<VisualElementPath, [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>]>();
-
-function getReactiveDockSignal(path: VisualElementPath) {
-  let entry = reactiveDocks.get(path);
-  if (!entry) {
-    entry = createSignal<VisualElementSignal | null>(null);
-    reactiveDocks.set(path, entry);
-  }
-  return entry;
-}
-
-function updateReactiveDock(path: VisualElementPath, value: VisualElementSignal | null) {
-  const [read, write] = getReactiveDockSignal(path);
-  if (read() !== value) {
-    write(value);
-  }
-}
-
-// Reactive map for focusedChildItemMaybe
-// Storing Item | null
 import { Item } from "../items/base/item";
-let reactiveFocused = new Map<VisualElementPath, [Accessor<Item | null>, Setter<Item | null>]>();
+type RenderProjectionEntry = {
+  popup: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>];
+  selected: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>];
+  dock: [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>];
+  focused: [Accessor<Item | null>, Setter<Item | null>];
+  attachments: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>];
+  children: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>];
+  lineChildren: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>];
+  desktopChildren: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>];
+  nonMovingChildren: [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>];
+  tableRows: Array<number> | null;
+}
 
-function getReactiveFocusedSignal(path: VisualElementPath) {
-  let entry = reactiveFocused.get(path);
+let renderProjectionByPath = new Map<VisualElementPath, RenderProjectionEntry>();
+
+function createRenderProjectionEntry(): RenderProjectionEntry {
+  return {
+    popup: createSignal<VisualElementSignal | null>(null),
+    selected: createSignal<VisualElementSignal | null>(null),
+    dock: createSignal<VisualElementSignal | null>(null),
+    focused: createSignal<Item | null>(null),
+    attachments: createSignal<Array<VisualElementSignal>>([]),
+    children: createSignal<Array<VisualElementSignal>>([]),
+    lineChildren: createSignal<Array<VisualElementSignal>>([]),
+    desktopChildren: createSignal<Array<VisualElementSignal>>([]),
+    nonMovingChildren: createSignal<Array<VisualElementSignal>>([]),
+    tableRows: null,
+  };
+}
+
+function getRenderProjection(path: VisualElementPath): RenderProjectionEntry {
+  let entry = renderProjectionByPath.get(path);
   if (!entry) {
-    entry = createSignal<Item | null>(null);
-    reactiveFocused.set(path, entry);
+    entry = createRenderProjectionEntry();
+    renderProjectionByPath.set(path, entry);
   }
   return entry;
 }
 
-function updateReactiveFocused(path: VisualElementPath, value: Item | null) {
-  let [read, write] = getReactiveFocusedSignal(path);
+function updateRenderProjectionSignal<T>(signal: [Accessor<T>, Setter<T>], value: T, shouldUpdate?: (current: T, next: T) => boolean) {
+  const [read, write] = signal;
   const current = read();
-  if (current?.id !== value?.id) {
+  if (shouldUpdate ? shouldUpdate(current, value) : current !== value) {
     write(value);
-  } else if (current !== value) {
-    // Same ID, but object ref changed. Updating strictly might trigger signal.
-    // We prefer to update IF object changed, relying on downstream to handle "same-id" efficiency if needed?
-    // User requested "optimize reactivity".
-    // If ID is same, we should probably NOT update signal to prevent downstream re-renders.
-    // BUT if Item properties changed (e.g. background color), we NEED to update.
-    // The previous implementation in VisualElement triggered on ref change.
-    // The previous "Fix" (ID check) suppressed updates even if properties changed (bad?).
-    // Wait. `focusedChildItemMaybe` is used for `backgroundColorIndex`.
-    // If background color changed, ID is same.
-    // We MUST update if properties changed.
-    // So `if (read() !== value) write(value)`.
-    // BUT we want to avoid "Mouse Move" causing "New Object with SAME Props".
-    // Does mouse move cause new Item object?
-    // `itemState.get(id)` usually returns same object unless Store updated.
-    // User said "mouse move... focus changed probably".
-    // If focus changed to SAME ID? No.
-    // If focus changed to DIFFERENT ID? Yes.
-    // So strict equality is fine, IF the Item objects are stable.
-    write(value);
   }
 }
 
-// Reactive map for attachmentsVes
-let reactiveAttachments = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
-
-function getReactiveAttachmentsSignal(path: VisualElementPath) {
-  let entry = reactiveAttachments.get(path);
-  if (!entry) {
-    entry = createSignal<Array<VisualElementSignal>>([]);
-    reactiveAttachments.set(path, entry);
-  }
-  return entry;
-}
-
-function updateReactiveAttachments(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
-  const actualValue = value ?? [];
-  const [read, write] = getReactiveAttachmentsSignal(path);
-  const current = read();
-  if (current.length !== actualValue.length) {
-    write(actualValue);
-    return;
+function shouldUpdateSignalList(current: Array<VisualElementSignal>, next: Array<VisualElementSignal>): boolean {
+  if (current.length !== next.length) {
+    return true;
   }
   for (let i = 0; i < current.length; i++) {
-    if (current[i] !== actualValue[i]) {
-      write(actualValue);
-      return;
+    if (current[i] !== next[i]) {
+      return true;
     }
   }
+  return false;
 }
 
-// Reactive map for childrenVes
-let reactiveChildren = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
-
-function getReactiveChildrenSignal(path: VisualElementPath) {
-  let entry = reactiveChildren.get(path);
-  if (!entry) {
-    entry = createSignal<Array<VisualElementSignal>>([]);
-    reactiveChildren.set(path, entry);
-  }
-  return entry;
+function updateRenderProjectionPopup(path: VisualElementPath, value: VisualElementSignal | null) {
+  updateRenderProjectionSignal(getRenderProjection(path).popup, value);
 }
 
-function updateReactiveChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionSelected(path: VisualElementPath, value: VisualElementSignal | null) {
+  updateRenderProjectionSignal(getRenderProjection(path).selected, value);
+}
+
+function updateRenderProjectionDock(path: VisualElementPath, value: VisualElementSignal | null) {
+  updateRenderProjectionSignal(getRenderProjection(path).dock, value);
+}
+
+function updateRenderProjectionFocused(path: VisualElementPath, value: Item | null) {
+  updateRenderProjectionSignal(getRenderProjection(path).focused, value, (current, next) => {
+    if (current?.id !== next?.id) {
+      return true;
+    }
+    return current !== next;
+  });
+}
+
+function updateRenderProjectionAttachments(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  const [read, write] = getReactiveChildrenSignal(path);
-  const current = read();
-  if (current.length !== actualValue.length) {
-    write(actualValue);
-    return;
-  }
-  for (let i = 0; i < current.length; i++) {
-    if (current[i] !== actualValue[i]) {
-      write(actualValue);
-      return;
-    }
-  }
+  updateRenderProjectionSignal(getRenderProjection(path).attachments, actualValue, shouldUpdateSignalList);
 }
 
-// Reactive map for lineChildrenVes
-let reactiveLineChildren = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
-
-function getReactiveLineChildrenSignal(path: VisualElementPath) {
-  let entry = reactiveLineChildren.get(path);
-  if (!entry) {
-    entry = createSignal<Array<VisualElementSignal>>([]);
-    reactiveLineChildren.set(path, entry);
-  }
-  return entry;
-}
-
-function updateReactiveLineChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  const [read, write] = getReactiveLineChildrenSignal(path);
-  const current = read();
-  if (current.length !== actualValue.length) {
-    write(actualValue);
-    return;
-  }
-  for (let i = 0; i < current.length; i++) {
-    if (current[i] !== actualValue[i]) {
-      write(actualValue);
-      return;
-    }
-  }
+  updateRenderProjectionSignal(getRenderProjection(path).children, actualValue, shouldUpdateSignalList);
 }
 
-// Reactive map for desktopChildrenVes
-let reactiveDesktopChildren = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
-
-function getReactiveDesktopChildrenSignal(path: VisualElementPath) {
-  let entry = reactiveDesktopChildren.get(path);
-  if (!entry) {
-    entry = createSignal<Array<VisualElementSignal>>([]);
-    reactiveDesktopChildren.set(path, entry);
-  }
-  return entry;
-}
-
-function updateReactiveDesktopChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionLineChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  const [read, write] = getReactiveDesktopChildrenSignal(path);
-  const current = read();
-  if (current.length !== actualValue.length) {
-    write(actualValue);
-    return;
-  }
-  for (let i = 0; i < current.length; i++) {
-    if (current[i] !== actualValue[i]) {
-      write(actualValue);
-      return;
-    }
-  }
+  updateRenderProjectionSignal(getRenderProjection(path).lineChildren, actualValue, shouldUpdateSignalList);
 }
 
-// Reactive map for nonMovingChildrenVes
-let reactiveNonMovingChildren = new Map<VisualElementPath, [Accessor<Array<VisualElementSignal>>, Setter<Array<VisualElementSignal>>]>();
-
-function getReactiveNonMovingChildrenSignal(path: VisualElementPath) {
-  let entry = reactiveNonMovingChildren.get(path);
-  if (!entry) {
-    entry = createSignal<Array<VisualElementSignal>>([]);
-    reactiveNonMovingChildren.set(path, entry);
-  }
-  return entry;
-}
-
-function updateReactiveNonMovingChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+function updateRenderProjectionDesktopChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
   const actualValue = value ?? [];
-  const [read, write] = getReactiveNonMovingChildrenSignal(path);
-  const current = read();
-  if (current.length !== actualValue.length) {
-    write(actualValue);
-    return;
-  }
-  for (let i = 0; i < current.length; i++) {
-    if (current[i] !== actualValue[i]) {
-      write(actualValue);
-      return;
-    }
-  }
+  updateRenderProjectionSignal(getRenderProjection(path).desktopChildren, actualValue, shouldUpdateSignalList);
 }
 
-// Static map for tableVesRows (Not reactive, just storage)
-let staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
+function updateRenderProjectionNonMovingChildren(path: VisualElementPath, value: Array<VisualElementSignal> | undefined) {
+  const actualValue = value ?? [];
+  updateRenderProjectionSignal(getRenderProjection(path).nonMovingChildren, actualValue, shouldUpdateSignalList);
+}
+
+function setRenderProjectionTableRows(path: VisualElementPath, rows: Array<number> | null) {
+  getRenderProjection(path).tableRows = rows;
+}
 
 let currentlyInFullArrange = false;
 
-type VesAuxData = {
-  displayItemFingerprint: Map<VisualElementPath, string>;
-  attachmentsVes: Map<VisualElementPath, Array<VisualElementSignal>>;
-  popupVes: Map<VisualElementPath, VisualElementSignal | null>;
-  selectedVes: Map<VisualElementPath, VisualElementSignal | null>;
-  dockVes: Map<VisualElementPath, VisualElementSignal | null>;
-  childrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
-  lineChildrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
-  desktopChildrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
-  nonMovingChildrenVes: Map<VisualElementPath, Array<VisualElementSignal>>;
-  tableVesRows: Map<VisualElementPath, Array<number> | null>;
-  focusedChildItemMaybe: Map<VisualElementPath, Item | null>;
+type SceneRelationshipData<Node> = {
+  attachments: Array<Node>;
+  popup: Node | null;
+  selected: Node | null;
+  dock: Node | null;
+  children: Array<Node>;
+  lineChildren: Array<Node>;
+  desktopChildren: Array<Node>;
+  nonMovingChildren: Array<Node>;
+  tableRows: Array<number> | null;
+  focusedChildItemMaybe: Item | null;
 }
 
-type VirtualAuxData = {
-  displayItemFingerprint: Map<VisualElementPath, string>;
-  attachmentsVes: Map<VisualElementPath, Array<VisualElement>>;
-  popupVes: Map<VisualElementPath, VisualElement | null>;
-  selectedVes: Map<VisualElementPath, VisualElement | null>;
-  dockVes: Map<VisualElementPath, VisualElement | null>;
-  childrenVes: Map<VisualElementPath, Array<VisualElement>>;
-  lineChildrenVes: Map<VisualElementPath, Array<VisualElement>>;
-  desktopChildrenVes: Map<VisualElementPath, Array<VisualElement>>;
-  nonMovingChildrenVes: Map<VisualElementPath, Array<VisualElement>>;
-  tableVesRows: Map<VisualElementPath, Array<number> | null>;
-  focusedChildItemMaybe: Map<VisualElementPath, Item | null>;
-}
-
-function createEmptyAuxData(): VesAuxData {
-  return {
-    displayItemFingerprint: new Map(),
-    attachmentsVes: new Map(),
-    popupVes: new Map(),
-    selectedVes: new Map(),
-    dockVes: new Map(),
-    childrenVes: new Map(),
-    lineChildrenVes: new Map(),
-    desktopChildrenVes: new Map(),
-    nonMovingChildrenVes: new Map(),
-    tableVesRows: new Map(),
-    focusedChildItemMaybe: new Map(),
-  };
-}
-
-function createEmptyVirtualAuxData(): VirtualAuxData {
-  return {
-    displayItemFingerprint: new Map(),
-    attachmentsVes: new Map(),
-    popupVes: new Map(),
-    selectedVes: new Map(),
-    dockVes: new Map(),
-    childrenVes: new Map(),
-    lineChildrenVes: new Map(),
-    desktopChildrenVes: new Map(),
-    nonMovingChildrenVes: new Map(),
-    tableVesRows: new Map(),
-    focusedChildItemMaybe: new Map(),
-  };
-}
+type SceneRelationshipsByPath<Node> = Map<VisualElementPath, SceneRelationshipData<Node>>;
 
 type SceneState = {
   cache: Map<VisualElementPath, VisualElementSignal>;
   vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
   childrenByParent: Map<VisualElementPath, Array<VisualElementSignal>>;
   vessByVeid: Map<string, Array<VisualElementSignal>>;
-  aux: VesAuxData;
+  relationshipsByPath: SceneRelationshipsByPath<VisualElementSignal>;
 }
 
 type VirtualSceneState = {
@@ -363,7 +185,7 @@ type VirtualSceneState = {
   vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
   childrenByParent: Map<VisualElementPath, Array<VisualElement>>;
   vessByVeid: Map<string, Array<VisualElement>>;
-  aux: VirtualAuxData;
+  relationshipsByPath: SceneRelationshipsByPath<VisualElement>;
 }
 
 function createEmptySceneState(): SceneState {
@@ -372,7 +194,7 @@ function createEmptySceneState(): SceneState {
     vessVsDisplayId: new Map<Uid, Array<VisualElementPath>>(),
     childrenByParent: new Map<VisualElementPath, Array<VisualElementSignal>>(),
     vessByVeid: new Map<string, Array<VisualElementSignal>>(),
-    aux: createEmptyAuxData(),
+    relationshipsByPath: new Map(),
   };
 }
 
@@ -382,7 +204,7 @@ function createEmptyVirtualSceneState(): VirtualSceneState {
     vessVsDisplayId: new Map<Uid, Array<VisualElementPath>>(),
     childrenByParent: new Map<VisualElementPath, Array<VisualElement>>(),
     vessByVeid: new Map<string, Array<VisualElement>>(),
-    aux: createEmptyVirtualAuxData(),
+    relationshipsByPath: new Map(),
   };
 }
 
@@ -429,7 +251,7 @@ function getSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPat
 }
 
 function getSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
-  return (scene.aux.childrenVes.get(parentPath) ?? []).slice();
+  return (scene.relationshipsByPath.get(parentPath)?.children ?? []).slice();
 }
 
 function getSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElementSignal> {
@@ -459,11 +281,11 @@ function getSceneVeidMatches(scene: SceneState, veid: Veid): Array<VisualElement
 }
 
 function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPath): string | undefined {
-  return scene.aux.displayItemFingerprint.get(path);
+  return getSceneNode(scene, path)?.get().displayItemFingerprint;
 }
 
 function getSceneTableRows(scene: SceneState, path: VisualElementPath): Array<number> | null {
-  return scene.aux.tableVesRows.get(path) ?? null;
+  return scene.relationshipsByPath.get(path)?.tableRows ?? null;
 }
 
 function readSignalNode(node: VisualElementSignal | null | undefined): VisualElement | null {
@@ -491,19 +313,19 @@ function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<Vi
 }
 
 function readSceneAttachments(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
-  return readSignalNodeList(scene.aux.attachmentsVes.get(path));
+  return readSignalNodeList(scene.relationshipsByPath.get(path)?.attachments);
 }
 
 function readScenePopup(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSignalNode(scene.aux.popupVes.get(path));
+  return readSignalNode(scene.relationshipsByPath.get(path)?.popup);
 }
 
 function readSceneSelected(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSignalNode(scene.aux.selectedVes.get(path));
+  return readSignalNode(scene.relationshipsByPath.get(path)?.selected);
 }
 
 function readSceneDock(scene: SceneState, path: VisualElementPath): VisualElement | null {
-  return readSignalNode(scene.aux.dockVes.get(path));
+  return readSignalNode(scene.relationshipsByPath.get(path)?.dock);
 }
 
 function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
@@ -562,38 +384,19 @@ function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
     snapshot.vessByVeid.set(veidKey, resolveVirtualNodes(matches));
   }
 
-  for (const [path, fingerprint] of scene.aux.displayItemFingerprint) {
-    snapshot.aux.displayItemFingerprint.set(path, fingerprint);
-  }
-  for (const [path, attachments] of scene.aux.attachmentsVes) {
-    snapshot.aux.attachmentsVes.set(path, resolveVirtualNodes(attachments));
-  }
-  for (const [path, popup] of scene.aux.popupVes) {
-    snapshot.aux.popupVes.set(path, resolveVirtualNode(popup));
-  }
-  for (const [path, selected] of scene.aux.selectedVes) {
-    snapshot.aux.selectedVes.set(path, resolveVirtualNode(selected));
-  }
-  for (const [path, dock] of scene.aux.dockVes) {
-    snapshot.aux.dockVes.set(path, resolveVirtualNode(dock));
-  }
-  for (const [path, children] of scene.aux.childrenVes) {
-    snapshot.aux.childrenVes.set(path, resolveVirtualNodes(children));
-  }
-  for (const [path, children] of scene.aux.lineChildrenVes) {
-    snapshot.aux.lineChildrenVes.set(path, resolveVirtualNodes(children));
-  }
-  for (const [path, children] of scene.aux.desktopChildrenVes) {
-    snapshot.aux.desktopChildrenVes.set(path, resolveVirtualNodes(children));
-  }
-  for (const [path, children] of scene.aux.nonMovingChildrenVes) {
-    snapshot.aux.nonMovingChildrenVes.set(path, resolveVirtualNodes(children));
-  }
-  for (const [path, rows] of scene.aux.tableVesRows) {
-    snapshot.aux.tableVesRows.set(path, rows ? rows.slice() : null);
-  }
-  for (const [path, item] of scene.aux.focusedChildItemMaybe) {
-    snapshot.aux.focusedChildItemMaybe.set(path, item);
+  for (const [path, relationships] of scene.relationshipsByPath) {
+    snapshot.relationshipsByPath.set(path, {
+      attachments: resolveVirtualNodes(relationships.attachments),
+      popup: resolveVirtualNode(relationships.popup),
+      selected: resolveVirtualNode(relationships.selected),
+      dock: resolveVirtualNode(relationships.dock),
+      children: resolveVirtualNodes(relationships.children),
+      lineChildren: resolveVirtualNodes(relationships.lineChildren),
+      desktopChildren: resolveVirtualNodes(relationships.desktopChildren),
+      nonMovingChildren: resolveVirtualNodes(relationships.nonMovingChildren),
+      tableRows: relationships.tableRows ? relationships.tableRows.slice() : null,
+      focusedChildItemMaybe: relationships.focusedChildItemMaybe,
+    });
   }
 
   return snapshot;
@@ -608,7 +411,7 @@ function readVirtualSceneIndexedChildren(parentPath: VisualElementPath): Array<V
 }
 
 function readVirtualSceneStructuralChildren(parentPath: VisualElementPath): Array<VisualElement> {
-  return (virtualScene.aux.childrenVes.get(parentPath) ?? []).slice();
+  return (virtualScene.relationshipsByPath.get(parentPath)?.children ?? []).slice();
 }
 
 function readVirtualSceneSiblings(path: VisualElementPath): Array<VisualElement> {
@@ -662,34 +465,35 @@ function writeScenePath(
   relationships: VisualElementRelationships,
 ) {
   setSceneNode(scene, path, ves);
-  syncAuxData(scene.aux, path, ves.get(), relationships);
+  syncSceneRelationships(scene.relationshipsByPath, path, relationships);
   indexVisualElement(scene, path, ves);
 }
 
-function syncReactiveStateForPath(scene: SceneState, path: VisualElementPath) {
-  updateReactivePopup(path, scene.aux.popupVes.get(path) ?? null);
-  updateReactiveSelected(path, scene.aux.selectedVes.get(path) ?? null);
-  updateReactiveDock(path, scene.aux.dockVes.get(path) ?? null);
-  updateReactiveAttachments(path, scene.aux.attachmentsVes.get(path));
-  updateReactiveChildren(path, scene.aux.childrenVes.get(path));
-  updateReactiveLineChildren(path, scene.aux.lineChildrenVes.get(path));
-  updateReactiveDesktopChildren(path, scene.aux.desktopChildrenVes.get(path));
-  updateReactiveNonMovingChildren(path, scene.aux.nonMovingChildrenVes.get(path));
-  updateReactiveFocused(path, scene.aux.focusedChildItemMaybe.get(path) ?? null);
-  staticTableVesRows.set(path, getSceneTableRows(scene, path));
+function syncRenderProjectionForPath(scene: SceneState, path: VisualElementPath) {
+  const relationships = scene.relationshipsByPath.get(path);
+  updateRenderProjectionPopup(path, relationships?.popup ?? null);
+  updateRenderProjectionSelected(path, relationships?.selected ?? null);
+  updateRenderProjectionDock(path, relationships?.dock ?? null);
+  updateRenderProjectionAttachments(path, relationships?.attachments);
+  updateRenderProjectionChildren(path, relationships?.children);
+  updateRenderProjectionLineChildren(path, relationships?.lineChildren);
+  updateRenderProjectionDesktopChildren(path, relationships?.desktopChildren);
+  updateRenderProjectionNonMovingChildren(path, relationships?.nonMovingChildren);
+  updateRenderProjectionFocused(path, relationships?.focusedChildItemMaybe ?? null);
+  setRenderProjectionTableRows(path, getSceneTableRows(scene, path));
 }
 
-function clearReactiveStateForPath(path: VisualElementPath) {
-  updateReactivePopup(path, null);
-  updateReactiveSelected(path, null);
-  updateReactiveDock(path, null);
-  updateReactiveAttachments(path, []);
-  updateReactiveChildren(path, []);
-  updateReactiveLineChildren(path, []);
-  updateReactiveDesktopChildren(path, []);
-  updateReactiveNonMovingChildren(path, []);
-  updateReactiveFocused(path, null);
-  staticTableVesRows.delete(path);
+function clearRenderProjectionForPath(path: VisualElementPath) {
+  updateRenderProjectionPopup(path, null);
+  updateRenderProjectionSelected(path, null);
+  updateRenderProjectionDock(path, null);
+  updateRenderProjectionAttachments(path, []);
+  updateRenderProjectionChildren(path, []);
+  updateRenderProjectionLineChildren(path, []);
+  updateRenderProjectionDesktopChildren(path, []);
+  updateRenderProjectionNonMovingChildren(path, []);
+  updateRenderProjectionFocused(path, null);
+  setRenderProjectionTableRows(path, null);
 }
 
 function addSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
@@ -796,33 +600,28 @@ function splitChildrenVesByRenderBehavior(childrenVes: Array<VisualElementSignal
   };
 }
 
-function syncAuxData(aux: VesAuxData, path: VisualElementPath, ve: VisualElement, relationships: VisualElementRelationships | null) {
+function syncSceneRelationships(
+  relationshipsByPath: SceneRelationshipsByPath<VisualElementSignal>,
+  path: VisualElementPath,
+  relationships: VisualElementRelationships | null,
+) {
   const childBuckets = splitChildrenVesByRenderBehavior(relationships?.childrenVes);
-  aux.displayItemFingerprint.set(path, ve.displayItemFingerprint);
-  aux.attachmentsVes.set(path, relationships?.attachmentsVes ?? []);
-  aux.popupVes.set(path, relationships?.popupVes ?? null);
-  aux.selectedVes.set(path, relationships?.selectedVes ?? null);
-  aux.dockVes.set(path, relationships?.dockVes ?? null);
-  aux.childrenVes.set(path, childBuckets.allChildren);
-  aux.lineChildrenVes.set(path, childBuckets.lineChildren);
-  aux.desktopChildrenVes.set(path, childBuckets.desktopChildren);
-  aux.nonMovingChildrenVes.set(path, childBuckets.nonMovingChildren);
-  aux.tableVesRows.set(path, relationships?.tableVesRows ?? null);
-  aux.focusedChildItemMaybe.set(path, relationships?.focusedChildItemMaybe ?? null);
+  relationshipsByPath.set(path, {
+    attachments: relationships?.attachmentsVes ?? [],
+    popup: relationships?.popupVes ?? null,
+    selected: relationships?.selectedVes ?? null,
+    dock: relationships?.dockVes ?? null,
+    children: childBuckets.allChildren,
+    lineChildren: childBuckets.lineChildren,
+    desktopChildren: childBuckets.desktopChildren,
+    nonMovingChildren: childBuckets.nonMovingChildren,
+    tableRows: relationships?.tableVesRows ?? null,
+    focusedChildItemMaybe: relationships?.focusedChildItemMaybe ?? null,
+  });
 }
 
-function deleteAuxData(aux: VesAuxData, path: VisualElementPath) {
-  aux.displayItemFingerprint.delete(path);
-  aux.attachmentsVes.delete(path);
-  aux.popupVes.delete(path);
-  aux.selectedVes.delete(path);
-  aux.dockVes.delete(path);
-  aux.childrenVes.delete(path);
-  aux.lineChildrenVes.delete(path);
-  aux.desktopChildrenVes.delete(path);
-  aux.nonMovingChildrenVes.delete(path);
-  aux.tableVesRows.delete(path);
-  aux.focusedChildItemMaybe.delete(path);
+function deleteSceneRelationships(relationshipsByPath: SceneRelationshipsByPath<VisualElementSignal>, path: VisualElementPath) {
+  relationshipsByPath.delete(path);
 }
 
 // Diagnostic counters for performance analysis
@@ -863,91 +662,14 @@ function logOrphanedVes(cache: Map<VisualElementPath, VisualElementSignal>, cont
   }
 }
 
-function syncReactiveStateFromScene(scene: SceneState) {
-  for (const [path, signal] of scene.aux.popupVes) {
-    updateReactivePopup(path, signal);
-  }
-  for (const [path, _] of reactivePopups) {
-    if (!scene.aux.popupVes.has(path)) {
-      updateReactivePopup(path, null);
+function syncRenderProjectionFromScene(scene: SceneState) {
+  for (const [path] of renderProjectionByPath) {
+    if (!scene.relationshipsByPath.has(path)) {
+      clearRenderProjectionForPath(path);
     }
   }
-
-  for (const [path, signal] of scene.aux.selectedVes) {
-    updateReactiveSelected(path, signal);
-  }
-  for (const [path, _] of reactiveSelecteds) {
-    if (!scene.aux.selectedVes.has(path)) {
-      updateReactiveSelected(path, null);
-    }
-  }
-
-  for (const [path, signal] of scene.aux.dockVes) {
-    updateReactiveDock(path, signal);
-  }
-  for (const [path, _] of reactiveDocks) {
-    if (!scene.aux.dockVes.has(path)) {
-      updateReactiveDock(path, null);
-    }
-  }
-
-  for (const [path, list] of scene.aux.attachmentsVes) {
-    updateReactiveAttachments(path, list);
-  }
-  for (const [path, _] of reactiveAttachments) {
-    if (!scene.aux.attachmentsVes.has(path)) {
-      updateReactiveAttachments(path, []);
-    }
-  }
-
-  for (const [path, list] of scene.aux.childrenVes) {
-    updateReactiveChildren(path, list);
-  }
-  for (const [path, _] of reactiveChildren) {
-    if (!scene.aux.childrenVes.has(path)) {
-      updateReactiveChildren(path, []);
-    }
-  }
-
-  for (const [path, list] of scene.aux.lineChildrenVes) {
-    updateReactiveLineChildren(path, list);
-  }
-  for (const [path, _] of reactiveLineChildren) {
-    if (!scene.aux.lineChildrenVes.has(path)) {
-      updateReactiveLineChildren(path, []);
-    }
-  }
-
-  for (const [path, list] of scene.aux.desktopChildrenVes) {
-    updateReactiveDesktopChildren(path, list);
-  }
-  for (const [path, _] of reactiveDesktopChildren) {
-    if (!scene.aux.desktopChildrenVes.has(path)) {
-      updateReactiveDesktopChildren(path, []);
-    }
-  }
-
-  for (const [path, list] of scene.aux.nonMovingChildrenVes) {
-    updateReactiveNonMovingChildren(path, list);
-  }
-  for (const [path, _] of reactiveNonMovingChildren) {
-    if (!scene.aux.nonMovingChildrenVes.has(path)) {
-      updateReactiveNonMovingChildren(path, []);
-    }
-  }
-
-  staticTableVesRows.clear();
-  for (const [path, rows] of scene.aux.tableVesRows) {
-    staticTableVesRows.set(path, rows);
-  }
-
-  for (const [path, item] of scene.aux.focusedChildItemMaybe) {
-    updateReactiveFocused(path, item);
-  }
-  for (const [path, _] of reactiveFocused) {
-    if (!scene.aux.focusedChildItemMaybe.has(path)) {
-      updateReactiveFocused(path, null);
-    }
+  for (const [path] of scene.relationshipsByPath) {
+    syncRenderProjectionForPath(scene, path);
   }
 }
 
@@ -961,7 +683,7 @@ function promoteCurrentScene(store: StoreContextModel, scene: SceneState, output
   store.topTitledPages.set(outputs.topTitledPages);
   logOrphanedVes(scene.cache, "full_finalizeArrange");
   logArrangeStats();
-  syncReactiveStateFromScene(scene);
+  syncRenderProjectionFromScene(scene);
 }
 
 const currentSceneQueries = {
@@ -1062,39 +784,39 @@ const renderSceneQueries = {
   },
 
   getAttachments: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveAttachmentsSignal(path)[0];
+    return getRenderProjection(path).attachments[0];
   },
 
   getPopup: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return getReactivePopupSignal(path)[0];
+    return getRenderProjection(path).popup[0];
   },
 
   getSelected: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return getReactiveSelectedSignal(path)[0];
+    return getRenderProjection(path).selected[0];
   },
 
   getDock: (path: VisualElementPath): Accessor<VisualElementSignal | null> => {
-    return getReactiveDockSignal(path)[0];
+    return getRenderProjection(path).dock[0];
   },
 
   getChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveChildrenSignal(path)[0];
+    return getRenderProjection(path).children[0];
   },
 
   getLineChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveLineChildrenSignal(path)[0];
+    return getRenderProjection(path).lineChildren[0];
   },
 
   getDesktopChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveDesktopChildrenSignal(path)[0];
+    return getRenderProjection(path).desktopChildren[0];
   },
 
   getNonMovingChildren: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
-    return getReactiveNonMovingChildrenSignal(path)[0];
+    return getRenderProjection(path).nonMovingChildren[0];
   },
 
   getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {
-    return getReactiveFocusedSignal(path)[0];
+    return getRenderProjection(path).focused[0];
   },
 };
 
@@ -1112,7 +834,7 @@ export let VesCache = {
   clear: (): void => {
     currentScene = createEmptySceneState();
     currentSceneOutputs = createEmptySceneOutputs();
-    staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
+    renderProjectionByPath = new Map<VisualElementPath, RenderProjectionEntry>();
     virtualScene = createEmptyVirtualSceneState();
     underConstructionScene = createEmptySceneState();
     underConstructionSceneOutputs = createEmptySceneOutputs();
@@ -1155,28 +877,12 @@ export let VesCache = {
 
     if (virtualUmbrellaVes) {
       setSceneNode(underConstructionScene, umbrellaPath, virtualUmbrellaVes);
-      // When restoring virtual, we don't have the spec easily, but virtualUmbrellaVes already has state.
-      // Wait, syncAuxData reads from spec for popupVes.
-      // If we are restoring from virtual, the virtual signal should be correct.
-      // But VisualElement no longer has popupVes.
-      // So where is popupVes? The virtual signal *contained* a VE.
-      // If we are passing virtualUmbrellaVes, it is a VisualElementSignal.
-      // The VE inside it doesn't have popupVes.
-      // We need to fetch popupVes from somewhere.
-      // But wait! If we pass `null` as spec, `syncAuxData` sets `popupVes` to `null`.
-      // This is WRONG if the virtual element actually has a popup.
-      // However, `full_finalizeArrange` with `virtualUmbrellaVes` is usually for restoring... 
-      // Actually `virtualUmbrellaVes` is passed from `full_initArrange`? No.
-      // It is optional.
-      // Note: `virtualScene.cache` is where we store pre-calculated stuff?
-      // If `virtualUmbrellaVes` comes from `virtualScene.cache` previously?
-      // For now, I'll pass umbrellaVeSpec which is available in the function arguments.
-      syncAuxData(underConstructionScene.aux, umbrellaPath, virtualUmbrellaVes.get(), umbrellaVeSpec);
+      syncSceneRelationships(underConstructionScene.relationshipsByPath, umbrellaPath, umbrellaVeSpec);
       promoteVirtualScene(underConstructionScene);
     } else {
       setSceneNode(underConstructionScene, umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
-      syncAuxData(underConstructionScene.aux, umbrellaPath, store.umbrellaVisualElement.get(), umbrellaVeSpec);
+      syncSceneRelationships(underConstructionScene.relationshipsByPath, umbrellaPath, umbrellaVeSpec);
       promoteCurrentScene(store, underConstructionScene, underConstructionSceneOutputs);
     }
 
@@ -1210,7 +916,7 @@ export let VesCache = {
     const visualElementOverride = { ...spec, ...relationships };
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
     writeScenePath(currentScene, path, newElement, relationships);
-    syncReactiveStateForPath(currentScene, path);
+    syncRenderProjectionForPath(currentScene, path);
 
 
     if (isContainer(visualElementOverride.displayItem) &&
@@ -1277,14 +983,14 @@ export let VesCache = {
     }
     deleteFromVessVsDisplayIdLookup(currentScene, existingPath);
     deindexVisualElement(currentScene, existingPath, vesToOverwrite);
-    deleteAuxData(currentScene.aux, existingPath);
+    deleteSceneRelationships(currentScene.relationshipsByPath, existingPath);
     if (existingPath != newPath) {
-      clearReactiveStateForPath(existingPath);
+      clearRenderProjectionForPath(existingPath);
     }
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
     writeScenePath(currentScene, newPath, vesToOverwrite, relationships);
-    syncReactiveStateForPath(currentScene, newPath);
+    syncRenderProjectionForPath(currentScene, newPath);
 
 
     if (isContainer(visualElementOverride.displayItem) &&
@@ -1328,8 +1034,8 @@ export let VesCache = {
       deindexVisualElement(currentScene, path, ve);
     }
     if (!deleteSceneNode(currentScene, path)) { panic(`item ${path} is not in ves cache.`); }
-    deleteAuxData(currentScene.aux, path);
-    clearReactiveStateForPath(path);
+    deleteSceneRelationships(currentScene.relationshipsByPath, path);
+    clearRenderProjectionForPath(path);
 
     deleteFromVessVsDisplayIdLookup(currentScene, path);
   },
@@ -1345,12 +1051,15 @@ export let VesCache = {
   },
 
   clearPopupVes: (path: VisualElementPath) => {
-    currentScene.aux.popupVes.set(path, null);
-    updateReactivePopup(path, null);
+    const relationships = currentScene.relationshipsByPath.get(path);
+    if (relationships) {
+      relationships.popup = null;
+    }
+    updateRenderProjectionPopup(path, null);
   },
 
   getDisplayItemFingerprint: (path: VisualElementPath): string | undefined => {
-    if (currentlyInFullArrange && underConstructionScene.aux.displayItemFingerprint.has(path)) {
+    if (currentlyInFullArrange && getSceneNode(underConstructionScene, path)) {
       return getSceneDisplayItemFingerprint(underConstructionScene, path);
     }
     return getSceneDisplayItemFingerprint(currentScene, path);
@@ -1393,10 +1102,10 @@ export let VesCache = {
   },
 
   getTableVesRows: (path: VisualElementPath): Array<number> | null => {
-    if (currentlyInFullArrange && underConstructionScene.aux.tableVesRows.has(path)) {
+    if (currentlyInFullArrange && underConstructionScene.relationshipsByPath.has(path)) {
       return getSceneTableRows(underConstructionScene, path);
     }
-    return staticTableVesRows.get(path) ?? getSceneTableRows(currentScene, path);
+    return renderProjectionByPath.get(path)?.tableRows ?? getSceneTableRows(currentScene, path);
   },
 }
 
@@ -1440,7 +1149,7 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
       if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       logDirtyReason("fingerprint");
       setSceneNode(underConstructionScene, path, existing);
-      syncAuxData(underConstructionScene.aux, path, existing.get(), relationships);
+      syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
       addVesVsDisplayItem(existing.get().displayItem.id, path);
       addUnderConstructionIndexes(path, existing);
       return existing;
@@ -1459,7 +1168,7 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
       arrangeStats.new++; // This creates a new signal rather than recycling
       const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
       setSceneNode(underConstructionScene, path, newElement);
-      syncAuxData(underConstructionScene.aux, path, newElement.get(), relationships);
+      syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
       addVesVsDisplayItem(newElement.get().displayItem.id, path);
       addUnderConstructionIndexes(path, newElement);
       return newElement;
@@ -1555,7 +1264,7 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
       if (debug) { console.debug("not dirty:", path); }
       arrangeStats.recycled++;
       setSceneNode(underConstructionScene, path, existing);
-      syncAuxData(underConstructionScene.aux, path, existing.get(), relationships);
+      syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
       addVesVsDisplayItem(existingVe.displayItem.id, path);
       addUnderConstructionIndexes(path, existing);
       return existing;
@@ -1566,7 +1275,7 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
     // Recycle the existing visual element
     existing.set(VeFns.create(visualElementOverride));
     setSceneNode(underConstructionScene, path, existing);
-    syncAuxData(underConstructionScene.aux, path, existing.get(), relationships);
+    syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
     addVesVsDisplayItem(existing.get().displayItem.id, path);
     addUnderConstructionIndexes(path, existing);
     return existing;
@@ -1576,7 +1285,7 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
   arrangeStats.new++;
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
   setSceneNode(underConstructionScene, path, newElement);
-  syncAuxData(underConstructionScene.aux, path, newElement.get(), relationships);
+  syncSceneRelationships(underConstructionScene.relationshipsByPath, path, relationships);
   addVesVsDisplayItem(newElement.get().displayItem.id, path);
   addUnderConstructionIndexes(path, newElement);
   return newElement;
