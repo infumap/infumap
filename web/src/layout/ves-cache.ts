@@ -25,7 +25,7 @@ import { compareBoundingBox, compareDimensions } from "../util/geometry";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
 import { HitboxFns } from "./hitbox";
-import { NONE_VISUAL_ELEMENT, VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "./visual-element";
+import { NONE_VISUAL_ELEMENT, VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, veFlagIsRoot } from "./visual-element";
 
 /*
   Explanation:
@@ -1195,6 +1195,123 @@ function deleteRenderProjectionForPath(path: VisualElementPath) {
   }
 }
 
+function isPathWithinSubtree(path: VisualElementPath, rootPath: VisualElementPath): boolean {
+  return path === rootPath || path.endsWith(`-${rootPath}`);
+}
+
+function rebasePathFromSubtreeRoot(path: VisualElementPath, oldRootPath: VisualElementPath, newRootPath: VisualElementPath): VisualElementPath {
+  if (path === oldRootPath) {
+    return newRootPath;
+  }
+
+  const oldRootSuffix = `-${oldRootPath}`;
+  if (!path.endsWith(oldRootSuffix)) {
+    panic(`cannot rebase '${path}' from subtree root '${oldRootPath}'.`);
+  }
+
+  const relativePrefix = path.slice(0, path.length - oldRootSuffix.length);
+  return `${relativePrefix}-${newRootPath}`;
+}
+
+type ProjectionSubtreeRootRehome = {
+  oldRootPath: VisualElementPath;
+  newRootPath: VisualElementPath;
+}
+
+function collectProjectionSubtreeRootRehomes(
+  previousScene: SceneState,
+  scene: SceneState,
+): Array<ProjectionSubtreeRootRehome> {
+  const candidates: Array<ProjectionSubtreeRootRehome> = [];
+
+  for (const [newRootPath, newVe] of scene.cache) {
+    if (sceneHasNode(previousScene, newRootPath) || !veFlagIsRoot(newVe.flags)) {
+      continue;
+    }
+
+    const previousMatches = (getScenePathsForDisplayId(previousScene, newVe.displayItem.id) ?? [])
+      .filter(oldRootPath => oldRootPath !== newRootPath && !sceneHasNode(scene, oldRootPath))
+      .filter(oldRootPath => getSceneDisplayItemFingerprint(previousScene, oldRootPath) === newVe.displayItemFingerprint);
+
+    if (previousMatches.length !== 1) {
+      continue;
+    }
+
+    candidates.push({
+      oldRootPath: previousMatches[0],
+      newRootPath,
+    });
+  }
+
+  candidates.sort((a, b) => VeFns.pathDepth(b.oldRootPath) - VeFns.pathDepth(a.oldRootPath));
+
+  const selected: Array<ProjectionSubtreeRootRehome> = [];
+  for (const candidate of candidates) {
+    if (selected.some(existing => isPathWithinSubtree(candidate.oldRootPath, existing.oldRootPath) ||
+      isPathWithinSubtree(candidate.newRootPath, existing.newRootPath))) {
+      continue;
+    }
+    selected.push(candidate);
+  }
+
+  return selected;
+}
+
+function buildProjectionPathRehomes(
+  previousScene: SceneState,
+  scene: SceneState,
+): Map<VisualElementPath, VisualElementPath> {
+  const rootRehomes = collectProjectionSubtreeRootRehomes(previousScene, scene);
+  const pathRehomes = new Map<VisualElementPath, VisualElementPath>();
+  const claimedNewPaths = new Set<VisualElementPath>();
+
+  for (const { oldRootPath, newRootPath } of rootRehomes) {
+    for (const [oldPath, oldVe] of previousScene.cache) {
+      if (!isPathWithinSubtree(oldPath, oldRootPath)) {
+        continue;
+      }
+
+      const newPath = rebasePathFromSubtreeRoot(oldPath, oldRootPath, newRootPath);
+      const newVe = getSceneNode(scene, newPath);
+      if (!newVe || newVe.displayItem.id !== oldVe.displayItem.id || claimedNewPaths.has(newPath)) {
+        continue;
+      }
+
+      pathRehomes.set(oldPath, newPath);
+      claimedNewPaths.add(newPath);
+    }
+  }
+
+  return pathRehomes;
+}
+
+function rehomeRenderProjectionPath(oldPath: VisualElementPath, newPath: VisualElementPath) {
+  if (oldPath === newPath) {
+    return;
+  }
+
+  const oldEntry = findRenderProjection(oldPath);
+  if (!oldEntry) {
+    return;
+  }
+
+  const newEntry = findRenderProjection(newPath);
+  if (!newEntry) {
+    renderProjectionByPath.set(newPath, oldEntry);
+    renderProjectionByPath.delete(oldPath);
+    return;
+  }
+
+  const reusedNodeSignal = oldEntry.node[0]();
+  if (reusedNodeSignal) {
+    updateRenderProjectionNode(newPath, reusedNodeSignal);
+  }
+  if (oldEntry.tableRows != null) {
+    newEntry.tableRows = oldEntry.tableRows.slice();
+  }
+  renderProjectionByPath.delete(oldPath);
+}
+
 function addSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
   if (!outputs.watchContainerUidsByOrigin.has(origin)) {
     outputs.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
@@ -1418,8 +1535,13 @@ function syncRenderProjectionFromScene(
   scene: SceneState,
   renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
 ) {
+  const pathRehomes = buildProjectionPathRehomes(previousScene, scene);
+  for (const [oldPath, newPath] of pathRehomes.entries()) {
+    rehomeRenderProjectionPath(oldPath, newPath);
+  }
+
   for (const [path] of previousScene.cache) {
-    if (!sceneHasNode(scene, path)) {
+    if (!sceneHasNode(scene, path) && !pathRehomes.has(path)) {
       activeArrangeDebugSample && (activeArrangeDebugSample.projectionPathsCleared += 1);
       clearRenderProjectionForPath(path);
       deleteRenderProjectionForPath(path);
