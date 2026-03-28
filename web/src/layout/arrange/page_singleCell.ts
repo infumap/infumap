@@ -30,7 +30,7 @@ import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { arrangeFlagIsRoot, arrangeItem, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
+import { arrangeFlagIsRoot, arrangeItemPath, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath } from "./popup";
 
 export function arrange_single_cell_page(
@@ -117,12 +117,11 @@ export function arrange_single_cell_page(
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
 
-    const ves = arrangeItem(
+    childrenPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, childItem, actualLinkItemMaybe, cellGeometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
-      (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-    childrenPaths.push(VeFns.veToPath(ves.get()));
+      (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
 
   if (movingItemInThisPage) {
@@ -164,10 +163,9 @@ export function arrange_single_cell_page(
     cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
     cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
     const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false, false, false, false, store.smallScreenMode());
-    const ves = arrangeItem(
+    childrenPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
-      ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-    childrenPaths.push(VeFns.veToPath(ves.get()));
+      ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
 
   pageRelationships.childrenPaths = childrenPaths;

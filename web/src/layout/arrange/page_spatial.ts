@@ -27,7 +27,7 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildrenPath, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
@@ -105,7 +105,7 @@ export function arrange_spatial_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  const childrenVes = [];
+  const childrenPaths: Array<VisualElementPath> = [];
   for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
     const childId = displayItem_pageWithChildren.computed_children[i];
     const childItem = itemState.get(childId)!;
@@ -128,24 +128,22 @@ export function arrange_spatial_page(
       false,
       store.smallScreenMode());
     if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
-      const ves = arrangeItem(
+      childrenPaths.push(arrangeItemPath(
         store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
         ArrangeItemFlags.RenderChildrenAsFull |
         (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
-        (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-      childrenVes.push(ves);
+        (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
     } else {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
-      const ves = arrangeItemNoChildren(
+      childrenPaths.push(arrangeItemNoChildrenPath(
         store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry,
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
         (flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None) |
-        ArrangeItemFlags.RenderAsOutline)
-      childrenVes.push(ves);
+        ArrangeItemFlags.RenderAsOutline));
     }
   }
-  pageRelationships.childrenVes = childrenVes;
+  pageRelationships.childrenPaths = childrenPaths;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();

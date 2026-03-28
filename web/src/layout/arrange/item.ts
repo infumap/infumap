@@ -136,6 +136,26 @@ export const arrangeItem = (
   return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
 }
 
+export const arrangeItemPath = (
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  parentArrangeAlgorithm: string,
+  itemWhichMightBeLink: Item,
+  actualLinkItemMaybe: LinkItem | null,
+  itemGeometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementPath => {
+
+  return VeFns.veToPath(arrangeItem(
+    store,
+    parentPath,
+    parentArrangeAlgorithm,
+    itemWhichMightBeLink,
+    actualLinkItemMaybe,
+    itemGeometry,
+    flags,
+  ).get());
+}
+
 export const arrangeItemNoChildren = (
   store: StoreContextModel,
   parentVePath: VisualElementPath,
@@ -190,4 +210,24 @@ export const arrangeItemNoChildren = (
 
   const itemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(itemVisualElementSpec, itemRelationships, currentVePath);
   return itemVisualElementSignal;
+}
+
+export const arrangeItemNoChildrenPath = (
+  store: StoreContextModel,
+  parentVePath: VisualElementPath,
+  displayItem: Item,
+  linkItemMaybe: LinkItem | null,
+  actualLinkItemMaybe: LinkItem | null,
+  itemGeometry: ItemGeometry,
+  flags: ArrangeItemFlags): VisualElementPath => {
+
+  return VeFns.veToPath(arrangeItemNoChildren(
+    store,
+    parentVePath,
+    displayItem,
+    linkItemMaybe,
+    actualLinkItemMaybe,
+    itemGeometry,
+    flags,
+  ).get());
 }

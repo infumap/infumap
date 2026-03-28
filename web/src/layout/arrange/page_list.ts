@@ -39,7 +39,7 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
@@ -275,10 +275,9 @@ export function arrange_list_page(
     cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
     cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
     const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false, false, false, false, store.smallScreenMode());
-    const ves = arrangeItem(
+    listChildPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
-      ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-    listChildPaths.push(VeFns.veToPath(ves.get()));
+      ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
 
   pageRelationships.childrenPaths = listChildPaths;
