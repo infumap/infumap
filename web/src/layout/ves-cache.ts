@@ -45,22 +45,6 @@ import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, Visu
   elements and replace them.
 */
 
-let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-let currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
-let currentChildrenByParent = new Map<VisualElementPath, Array<VisualElementSignal>>();
-let currentVessByVeid = new Map<string, Array<VisualElementSignal>>();
-let currentTopTitledPages = new Array<VisualElementPath>();
-let currentWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
-let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
-let virtualChildrenByParent = new Map<VisualElementPath, Array<VisualElementSignal>>();
-let virtualVessByVeid = new Map<string, Array<VisualElementSignal>>();
-let underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
-let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
-let underConstructionChildrenByParent = new Map<VisualElementPath, Array<VisualElementSignal>>();
-let underConstructionVessByVeid = new Map<string, Array<VisualElementSignal>>();
-let underConstructionTopTitledPages = new Array<VisualElementPath>();
-let underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
-
 // Reactive map for popupVes
 // We store [read, write] signal pairs for each path.
 let reactivePopups = new Map<VisualElementPath, [Accessor<VisualElementSignal | null>, Setter<VisualElementSignal | null>]>();
@@ -336,9 +320,31 @@ function createEmptyAuxData(): VesAuxData {
   };
 }
 
-let currentAux = createEmptyAuxData();
-let virtualAux = createEmptyAuxData();
-let underConstructionAux = createEmptyAuxData();
+type SceneState = {
+  cache: Map<VisualElementPath, VisualElementSignal>;
+  vessVsDisplayId: Map<Uid, Array<VisualElementPath>>;
+  childrenByParent: Map<VisualElementPath, Array<VisualElementSignal>>;
+  vessByVeid: Map<string, Array<VisualElementSignal>>;
+  topTitledPages: Array<VisualElementPath>;
+  watchContainerUidsByOrigin: Map<string | null, Set<Uid>>;
+  aux: VesAuxData;
+}
+
+function createEmptySceneState(): SceneState {
+  return {
+    cache: new Map<VisualElementPath, VisualElementSignal>(),
+    vessVsDisplayId: new Map<Uid, Array<VisualElementPath>>(),
+    childrenByParent: new Map<VisualElementPath, Array<VisualElementSignal>>(),
+    vessByVeid: new Map<string, Array<VisualElementSignal>>(),
+    topTitledPages: [],
+    watchContainerUidsByOrigin: new Map<string | null, Set<Uid>>(),
+    aux: createEmptyAuxData(),
+  };
+}
+
+let currentScene = createEmptySceneState();
+let virtualScene = createEmptySceneState();
+let underConstructionScene = createEmptySceneState();
 
 function veidIndexKey(veid: Veid): string {
   return `${veid.itemId}\u0000${veid.linkIdMaybe ?? ""}`;
@@ -376,26 +382,24 @@ function removeFromIndex<K>(index: Map<K, Array<VisualElementSignal>>, key: K | 
 }
 
 function indexVisualElement(
-  childrenByParent: Map<VisualElementPath, Array<VisualElementSignal>>,
-  vessByVeid: Map<string, Array<VisualElementSignal>>,
+  scene: SceneState,
   path: VisualElementPath,
   ves: VisualElementSignal,
 ) {
   const parentPath = ves.get().parentPath;
   if (parentPath != null) {
-    addToIndex(childrenByParent, parentPath, ves);
+    addToIndex(scene.childrenByParent, parentPath, ves);
   }
-  addToIndex(vessByVeid, veidIndexKeyFromPath(path), ves);
+  addToIndex(scene.vessByVeid, veidIndexKeyFromPath(path), ves);
 }
 
 function deindexVisualElement(
-  childrenByParent: Map<VisualElementPath, Array<VisualElementSignal>>,
-  vessByVeid: Map<string, Array<VisualElementSignal>>,
+  scene: SceneState,
   path: VisualElementPath,
   ves: VisualElementSignal,
 ) {
-  removeFromIndex(childrenByParent, ves.get().parentPath, ves);
-  removeFromIndex(vessByVeid, veidIndexKeyFromPath(path), ves);
+  removeFromIndex(scene.childrenByParent, ves.get().parentPath, ves);
+  removeFromIndex(scene.vessByVeid, veidIndexKeyFromPath(path), ves);
 }
 
 function splitChildrenVesByRenderBehavior(childrenVes: Array<VisualElementSignal> | undefined) {
@@ -497,52 +501,36 @@ export let VesCache = {
    * Re-initialize - clears all cached data.
    */
   clear: (): void => {
-    currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-    currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
-    currentChildrenByParent = new Map<VisualElementPath, Array<VisualElementSignal>>();
-    currentVessByVeid = new Map<string, Array<VisualElementSignal>>();
-    currentTopTitledPages = [];
-    currentWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
-
-    currentAux = createEmptyAuxData();
+    currentScene = createEmptySceneState();
     staticTableVesRows = new Map<VisualElementPath, Array<number> | null>();
-    virtualCache = new Map<VisualElementPath, VisualElementSignal>();
-    virtualChildrenByParent = new Map<VisualElementPath, Array<VisualElementSignal>>();
-    virtualVessByVeid = new Map<string, Array<VisualElementSignal>>();
-    virtualAux = createEmptyAuxData();
-    underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
-    underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
-    underConstructionChildrenByParent = new Map<VisualElementPath, Array<VisualElementSignal>>();
-    underConstructionVessByVeid = new Map<string, Array<VisualElementSignal>>();
-    underConstructionTopTitledPages = [];
-    underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
-    underConstructionAux = createEmptyAuxData();
+    virtualScene = createEmptySceneState();
+    underConstructionScene = createEmptySceneState();
 
   },
 
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return currentVesCache.get(path);
+    return currentScene.cache.get(path);
   },
 
   getVirtual: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return virtualCache.get(path);
+    return virtualScene.cache.get(path);
   },
 
   getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
-    const parentPath = currentVesCache.get(path)?.get().parentPath ?? VeFns.parentPath(path);
+    const parentPath = currentScene.cache.get(path)?.get().parentPath ?? VeFns.parentPath(path);
     if (parentPath == null) {
       return [];
     }
-    return (currentChildrenByParent.get(parentPath) ?? [])
+    return (currentScene.childrenByParent.get(parentPath) ?? [])
       .filter(ves => VeFns.veToPath(ves.get()) != path);
   },
 
   getSiblingsVirtual: (path: VisualElementPath): Array<VisualElementSignal> => {
-    const parentPath = virtualCache.get(path)?.get().parentPath ?? VeFns.parentPath(path);
+    const parentPath = virtualScene.cache.get(path)?.get().parentPath ?? VeFns.parentPath(path);
     if (parentPath == null) {
       return [];
     }
-    return (virtualChildrenByParent.get(parentPath) ?? [])
+    return (virtualScene.childrenByParent.get(parentPath) ?? [])
       .filter(ves => VeFns.veToPath(ves.get()) != path);
   },
 
@@ -551,28 +539,28 @@ export let VesCache = {
    * Used for finding children/attachments of a VE in the virtual arrangement.
    */
   getChildrenVirtual: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
-    return (virtualChildrenByParent.get(parentPath) ?? []).slice();
+    return (virtualScene.childrenByParent.get(parentPath) ?? []).slice();
   },
 
   getVirtualChildrenVes: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
-    return (virtualAux.childrenVes.get(parentPath) ?? []).slice();
+    return (virtualScene.aux.childrenVes.get(parentPath) ?? []).slice();
   },
 
   getPathsForDisplayId: (displayId: Uid): Array<VisualElementPath> => {
-    return currentVessVsDisplayId.get(displayId)!;
+    return currentScene.vessVsDisplayId.get(displayId)!;
   },
 
   addWatchContainerUid: (uid: Uid, origin: string | null): void => {
-    if (!currentWatchContainerUidsByOrigin.has(origin)) {
-      currentWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
+    if (!currentScene.watchContainerUidsByOrigin.has(origin)) {
+      currentScene.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
     }
-    currentWatchContainerUidsByOrigin.get(origin)!.add(uid);
+    currentScene.watchContainerUidsByOrigin.get(origin)!.add(uid);
   },
 
 
 
   getCurrentWatchContainerUidsByOrigin: (): Map<string | null, Set<Uid>> => {
-    return currentWatchContainerUidsByOrigin;
+    return currentScene.watchContainerUidsByOrigin;
   },
 
   full_initArrange: (): void => {
@@ -586,7 +574,7 @@ export let VesCache = {
     const umbrellaVeSpec = { ...umbrellaSpec, ...umbrellaRelationships };
 
     if (virtualUmbrellaVes) {
-      underConstructionCache.set(umbrellaPath, virtualUmbrellaVes);
+      underConstructionScene.cache.set(umbrellaPath, virtualUmbrellaVes);
       // When restoring virtual, we don't have the spec easily, but virtualUmbrellaVes already has state.
       // Wait, syncAuxData reads from spec for popupVes.
       // If we are restoring from virtual, the virtual signal should be correct.
@@ -600,132 +588,117 @@ export let VesCache = {
       // However, `full_finalizeArrange` with `virtualUmbrellaVes` is usually for restoring... 
       // Actually `virtualUmbrellaVes` is passed from `full_initArrange`? No.
       // It is optional.
-      // Note: `virtualCache` is where we store pre-calculated stuff?
-      // If `virtualUmbrellaVes` comes from `virtualCache` previously?
+      // Note: `virtualScene.cache` is where we store pre-calculated stuff?
+      // If `virtualUmbrellaVes` comes from `virtualScene.cache` previously?
       // For now, I'll pass umbrellaVeSpec which is available in the function arguments.
-      syncAuxData(underConstructionAux, umbrellaPath, virtualUmbrellaVes.get(), umbrellaVeSpec);
-      virtualCache = underConstructionCache;
-      virtualChildrenByParent = underConstructionChildrenByParent;
-      virtualVessByVeid = underConstructionVessByVeid;
-      virtualAux = underConstructionAux;
+      syncAuxData(underConstructionScene.aux, umbrellaPath, virtualUmbrellaVes.get(), umbrellaVeSpec);
+      virtualScene = underConstructionScene;
     } else {
-      underConstructionCache.set(umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
+      underConstructionScene.cache.set(umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
-      syncAuxData(underConstructionAux, umbrellaPath, store.umbrellaVisualElement.get(), umbrellaVeSpec);
+      syncAuxData(underConstructionScene.aux, umbrellaPath, store.umbrellaVisualElement.get(), umbrellaVeSpec);
 
-      currentVesCache = underConstructionCache;
-      currentVessVsDisplayId = underConstructionVesVsDisplayItemId;
-      currentChildrenByParent = underConstructionChildrenByParent;
-      currentVessByVeid = underConstructionVessByVeid;
-      currentTopTitledPages = underConstructionTopTitledPages;
-      currentWatchContainerUidsByOrigin = underConstructionWatchContainerUidsByOrigin;
-      currentAux = underConstructionAux;
+      currentScene = underConstructionScene;
 
-      store.topTitledPages.set(currentTopTitledPages);
-      logOrphanedVes(currentVesCache, "full_finalizeArrange");
+      store.topTitledPages.set(currentScene.topTitledPages);
+      logOrphanedVes(currentScene.cache, "full_finalizeArrange");
       logArrangeStats();
     }
 
-    underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
-    underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
-    underConstructionChildrenByParent = new Map<VisualElementPath, Array<VisualElementSignal>>();
-    underConstructionVessByVeid = new Map<string, Array<VisualElementSignal>>();
-    underConstructionTopTitledPages = [];
-    underConstructionWatchContainerUidsByOrigin = new Map<string | null, Set<Uid>>();
-    underConstructionAux = createEmptyAuxData();
+    underConstructionScene = createEmptySceneState();
 
-    // Sync reactive popups from currentAux.popupVes
-    for (const [path, signal] of currentAux.popupVes) {
+    // Sync reactive popups from currentScene.aux.popupVes
+    for (const [path, signal] of currentScene.aux.popupVes) {
       updateReactivePopup(path, signal);
     }
     for (const [path, _] of reactivePopups) {
-      if (!currentAux.popupVes.has(path)) {
+      if (!currentScene.aux.popupVes.has(path)) {
         updateReactivePopup(path, null);
       }
     }
 
-    // Sync reactive selecteds from currentAux.selectedVes
-    for (const [path, signal] of currentAux.selectedVes) {
+    // Sync reactive selecteds from currentScene.aux.selectedVes
+    for (const [path, signal] of currentScene.aux.selectedVes) {
       updateReactiveSelected(path, signal);
     }
     for (const [path, _] of reactiveSelecteds) {
-      if (!currentAux.selectedVes.has(path)) {
+      if (!currentScene.aux.selectedVes.has(path)) {
         updateReactiveSelected(path, null);
       }
     }
 
-    // Sync reactive docks from currentAux.dockVes
-    for (const [path, signal] of currentAux.dockVes) {
+    // Sync reactive docks from currentScene.aux.dockVes
+    for (const [path, signal] of currentScene.aux.dockVes) {
       updateReactiveDock(path, signal);
     }
     for (const [path, _] of reactiveDocks) {
-      if (!currentAux.dockVes.has(path)) {
+      if (!currentScene.aux.dockVes.has(path)) {
         updateReactiveDock(path, null);
       }
     }
 
-    // Sync reactive attachments from currentAux.attachmentsVes
-    for (const [path, list] of currentAux.attachmentsVes) {
+    // Sync reactive attachments from currentScene.aux.attachmentsVes
+    for (const [path, list] of currentScene.aux.attachmentsVes) {
       updateReactiveAttachments(path, list);
     }
     for (const [path, _] of reactiveAttachments) {
-      if (!currentAux.attachmentsVes.has(path)) {
+      if (!currentScene.aux.attachmentsVes.has(path)) {
         updateReactiveAttachments(path, []);
       }
     }
 
-    // Sync reactive children from currentAux.childrenVes
-    for (const [path, list] of currentAux.childrenVes) {
+    // Sync reactive children from currentScene.aux.childrenVes
+    for (const [path, list] of currentScene.aux.childrenVes) {
       updateReactiveChildren(path, list);
     }
     for (const [path, _] of reactiveChildren) {
-      if (!currentAux.childrenVes.has(path)) {
+      if (!currentScene.aux.childrenVes.has(path)) {
         updateReactiveChildren(path, []);
       }
     }
 
-    // Sync reactive line children from currentAux.lineChildrenVes
-    for (const [path, list] of currentAux.lineChildrenVes) {
+    // Sync reactive line children from currentScene.aux.lineChildrenVes
+    for (const [path, list] of currentScene.aux.lineChildrenVes) {
       updateReactiveLineChildren(path, list);
     }
     for (const [path, _] of reactiveLineChildren) {
-      if (!currentAux.lineChildrenVes.has(path)) {
+      if (!currentScene.aux.lineChildrenVes.has(path)) {
         updateReactiveLineChildren(path, []);
       }
     }
 
-    // Sync reactive desktop children from currentAux.desktopChildrenVes
-    for (const [path, list] of currentAux.desktopChildrenVes) {
+    // Sync reactive desktop children from currentScene.aux.desktopChildrenVes
+    for (const [path, list] of currentScene.aux.desktopChildrenVes) {
       updateReactiveDesktopChildren(path, list);
     }
     for (const [path, _] of reactiveDesktopChildren) {
-      if (!currentAux.desktopChildrenVes.has(path)) {
+      if (!currentScene.aux.desktopChildrenVes.has(path)) {
         updateReactiveDesktopChildren(path, []);
       }
     }
 
-    // Sync reactive non-moving children from currentAux.nonMovingChildrenVes
-    for (const [path, list] of currentAux.nonMovingChildrenVes) {
+    // Sync reactive non-moving children from currentScene.aux.nonMovingChildrenVes
+    for (const [path, list] of currentScene.aux.nonMovingChildrenVes) {
       updateReactiveNonMovingChildren(path, list);
     }
     for (const [path, _] of reactiveNonMovingChildren) {
-      if (!currentAux.nonMovingChildrenVes.has(path)) {
+      if (!currentScene.aux.nonMovingChildrenVes.has(path)) {
         updateReactiveNonMovingChildren(path, []);
       }
     }
 
-    // Sync static tableVesRows from currentAux.tableVesRows
+    // Sync static tableVesRows from currentScene.aux.tableVesRows
     staticTableVesRows.clear();
-    for (const [path, rows] of currentAux.tableVesRows) {
+    for (const [path, rows] of currentScene.aux.tableVesRows) {
       staticTableVesRows.set(path, rows);
     }
 
-    // Sync reactive focusedChildItemMaybe from currentAux.focusedChildItemMaybe
-    for (const [path, item] of currentAux.focusedChildItemMaybe) {
+    // Sync reactive focusedChildItemMaybe from currentScene.aux.focusedChildItemMaybe
+    for (const [path, item] of currentScene.aux.focusedChildItemMaybe) {
       updateReactiveFocused(path, item);
     }
     for (const [path, _] of reactiveFocused) {
-      if (!currentAux.focusedChildItemMaybe.has(path)) {
+      if (!currentScene.aux.focusedChildItemMaybe.has(path)) {
         updateReactiveFocused(path, null);
       }
     }
@@ -756,18 +729,18 @@ export let VesCache = {
   partial_create: (spec: VisualElementSpec, relationships: VisualElementRelationships, path: VisualElementPath): VisualElementSignal => {
     const visualElementOverride = { ...spec, ...relationships };
     const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
-    currentVesCache.set(path, newElement);
-    syncAuxData(currentAux, path, newElement.get(), relationships);
-    indexVisualElement(currentChildrenByParent, currentVessByVeid, path, newElement);
+    currentScene.cache.set(path, newElement);
+    syncAuxData(currentScene.aux, path, newElement.get(), relationships);
+    indexVisualElement(currentScene, path, newElement);
 
     updateReactivePopup(path, relationships.popupVes ?? null);
     updateReactiveSelected(path, relationships.selectedVes ?? null);
     updateReactiveDock(path, relationships.dockVes ?? null);
     updateReactiveAttachments(path, relationships.attachmentsVes);
     updateReactiveChildren(path, relationships.childrenVes);
-    updateReactiveLineChildren(path, currentAux.lineChildrenVes.get(path));
-    updateReactiveDesktopChildren(path, currentAux.desktopChildrenVes.get(path));
-    updateReactiveNonMovingChildren(path, currentAux.nonMovingChildrenVes.get(path));
+    updateReactiveLineChildren(path, currentScene.aux.lineChildrenVes.get(path));
+    updateReactiveDesktopChildren(path, currentScene.aux.desktopChildrenVes.get(path));
+    updateReactiveNonMovingChildren(path, currentScene.aux.nonMovingChildrenVes.get(path));
     updateReactiveFocused(path, visualElementOverride.focusedChildItemMaybe ?? null);
 
     staticTableVesRows.set(path, relationships.tableVesRows ?? null);
@@ -777,16 +750,16 @@ export let VesCache = {
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
       const origin = visualElementOverride.displayItem.origin;
-      if (!currentWatchContainerUidsByOrigin.has(origin)) {
-        currentWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
+      if (!currentScene.watchContainerUidsByOrigin.has(origin)) {
+        currentScene.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
       }
-      currentWatchContainerUidsByOrigin.get(origin)!.add(visualElementOverride.displayItem.id);
+      currentScene.watchContainerUidsByOrigin.get(origin)!.add(visualElementOverride.displayItem.id);
     }
     const displayItemId = newElement.get().displayItem.id;
 
-    const existing = currentVessVsDisplayId.get(displayItemId);
-    if (!existing) { currentVessVsDisplayId.set(displayItemId, []); }
-    currentVessVsDisplayId.get(displayItemId)!.push(path);
+    const existing = currentScene.vessVsDisplayId.get(displayItemId);
+    if (!existing) { currentScene.vessVsDisplayId.set(displayItemId, []); }
+    currentScene.vessVsDisplayId.get(displayItemId)!.push(path);
 
     return newElement;
   },
@@ -810,7 +783,7 @@ export let VesCache = {
         itemType: veToOverwrite.displayItem.itemType,
         timestamp: new Date().toISOString()
       });
-    } else if (currentVesCache.has(newPath)) {
+    } else if (currentScene.cache.has(newPath)) {
       console.error("[VES_CACHE_DEBUG] Path conflict detected - newPath already exists:", {
         existingPath: existingPath,
         newPath: newPath,
@@ -826,38 +799,38 @@ export let VesCache = {
     for (let i = 0; i < existingAttachments.length; ++i) {
       const attachmentVe = existingAttachments[i].get();
       const attachmentVePath = VeFns.veToPath(attachmentVe);
-      if (currentVesCache.has(attachmentVePath)) {
+      if (currentScene.cache.has(attachmentVePath)) {
         VesCache.removeByPath(attachmentVePath);
       }
     }
 
-    if (!currentVesCache.delete(existingPath)) {
+    if (!currentScene.cache.delete(existingPath)) {
       console.error("[VES_CACHE_DEBUG] Failed to delete existing path:", {
         existingPath: existingPath,
         newPath: newPath,
         displayItemId: veToOverwrite.displayItem.id,
-        cacheSize: currentVesCache.size,
+        cacheSize: currentScene.cache.size,
         timestamp: new Date().toISOString()
       });
       throw "vesToOverwrite did not exist";
     }
-    deleteFromVessVsDisplayIdLookup(existingPath);
-    deindexVisualElement(currentChildrenByParent, currentVessByVeid, existingPath, vesToOverwrite);
-    deleteAuxData(currentAux, existingPath);
+    deleteFromVessVsDisplayIdLookup(currentScene, existingPath);
+    deindexVisualElement(currentScene, existingPath, vesToOverwrite);
+    deleteAuxData(currentScene.aux, existingPath);
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);
-    currentVesCache.set(newPath, vesToOverwrite);
-    syncAuxData(currentAux, newPath, vesToOverwrite.get(), relationships);
-    indexVisualElement(currentChildrenByParent, currentVessByVeid, newPath, vesToOverwrite);
+    currentScene.cache.set(newPath, vesToOverwrite);
+    syncAuxData(currentScene.aux, newPath, vesToOverwrite.get(), relationships);
+    indexVisualElement(currentScene, newPath, vesToOverwrite);
 
     updateReactivePopup(newPath, relationships.popupVes ?? null);
     updateReactiveSelected(newPath, relationships.selectedVes ?? null);
     updateReactiveDock(newPath, relationships.dockVes ?? null);
     updateReactiveAttachments(newPath, relationships.attachmentsVes);
     updateReactiveChildren(newPath, relationships.childrenVes);
-    updateReactiveLineChildren(newPath, currentAux.lineChildrenVes.get(newPath));
-    updateReactiveDesktopChildren(newPath, currentAux.desktopChildrenVes.get(newPath));
-    updateReactiveNonMovingChildren(newPath, currentAux.nonMovingChildrenVes.get(newPath));
+    updateReactiveLineChildren(newPath, currentScene.aux.lineChildrenVes.get(newPath));
+    updateReactiveDesktopChildren(newPath, currentScene.aux.desktopChildrenVes.get(newPath));
+    updateReactiveNonMovingChildren(newPath, currentScene.aux.nonMovingChildrenVes.get(newPath));
     staticTableVesRows.set(newPath, relationships.tableVesRows ?? null);
 
 
@@ -865,16 +838,16 @@ export let VesCache = {
       (visualElementOverride.flags! & VisualElementFlags.ShowChildren) &&
       asContainerItem(visualElementOverride.displayItem).childrenLoaded) {
       const origin = visualElementOverride.displayItem.origin;
-      if (!underConstructionWatchContainerUidsByOrigin.has(origin)) {
-        underConstructionWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
+      if (!underConstructionScene.watchContainerUidsByOrigin.has(origin)) {
+        underConstructionScene.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
       }
-      underConstructionWatchContainerUidsByOrigin.get(origin)!.add(spec.displayItem.id);
+      underConstructionScene.watchContainerUidsByOrigin.get(origin)!.add(spec.displayItem.id);
     }
 
     const displayItemId = VeFns.itemIdFromPath(newPath);
-    const existing = currentVessVsDisplayId.get(displayItemId);
-    if (!existing) { currentVessVsDisplayId.set(displayItemId, []); }
-    currentVessVsDisplayId.get(displayItemId)!.push(newPath);
+    const existing = currentScene.vessVsDisplayId.get(displayItemId);
+    if (!existing) { currentScene.vessVsDisplayId.set(displayItemId, []); }
+    currentScene.vessVsDisplayId.get(displayItemId)!.push(newPath);
   },
 
   /**
@@ -888,10 +861,10 @@ export let VesCache = {
   find: (veid: Veid): Array<VisualElementSignal> => {
     const result: Array<VisualElementSignal> = [];
     const key = veidIndexKey(veid);
-    for (const ves of underConstructionVessByVeid.get(key) ?? []) {
+    for (const ves of underConstructionScene.vessByVeid.get(key) ?? []) {
       result.push(ves);
     }
-    for (const ves of currentVessByVeid.get(key) ?? []) {
+    for (const ves of currentScene.vessByVeid.get(key) ?? []) {
       if (!result.find(r => r == ves)) {
         result.push(ves);
       }
@@ -904,7 +877,7 @@ export let VesCache = {
    * Used for keyboard navigation in parent container context.
    */
   findVirtual: (veid: Veid): Array<VisualElementSignal> => {
-    return (virtualVessByVeid.get(veidIndexKey(veid)) ?? []).slice();
+    return (virtualScene.vessByVeid.get(veidIndexKey(veid)) ?? []).slice();
   },
 
   /**
@@ -916,14 +889,14 @@ export let VesCache = {
    */
   findSingle: (veid: Veid): VisualElementSignal => {
     const key = veidIndexKey(veid);
-    const underConstructionMatches = underConstructionVessByVeid.get(key) ?? [];
+    const underConstructionMatches = underConstructionScene.vessByVeid.get(key) ?? [];
     if (underConstructionMatches.length > 1) {
       throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
     }
     if (underConstructionMatches.length == 1) {
       return underConstructionMatches[0];
     }
-    const currentMatches = currentVessByVeid.get(key) ?? [];
+    const currentMatches = currentScene.vessByVeid.get(key) ?? [];
     if (currentMatches.length > 1) {
       throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
     }
@@ -934,22 +907,22 @@ export let VesCache = {
   },
 
   removeByPath: (path: VisualElementPath): void => {
-    const ve = currentVesCache.get(path); // TODO (LOW): displayItem.id can be determined from the path.
+    const ve = currentScene.cache.get(path); // TODO (LOW): displayItem.id can be determined from the path.
     if (ve && isContainer(ve.get().displayItem) && asContainerItem(ve.get().displayItem).childrenLoaded) {
       const origin = ve.get().displayItem.origin;
-      const uidSet = currentWatchContainerUidsByOrigin.get(origin);
+      const uidSet = currentScene.watchContainerUidsByOrigin.get(origin);
       if (uidSet) {
         uidSet.delete(ve.get().displayItem.id);
         if (uidSet.size === 0) {
-          currentWatchContainerUidsByOrigin.delete(origin);
+          currentScene.watchContainerUidsByOrigin.delete(origin);
         }
       }
     }
     if (ve) {
-      deindexVisualElement(currentChildrenByParent, currentVessByVeid, path, ve);
+      deindexVisualElement(currentScene, path, ve);
     }
-    if (!currentVesCache.delete(path)) { panic(`item ${path} is not in ves cache.`); }
-    deleteAuxData(currentAux, path);
+    if (!currentScene.cache.delete(path)) { panic(`item ${path} is not in ves cache.`); }
+    deleteAuxData(currentScene.aux, path);
     updateReactivePopup(path, null);
     updateReactiveSelected(path, null);
     updateReactiveDock(path, null);
@@ -962,29 +935,29 @@ export let VesCache = {
     updateReactiveFocused(path, null);
     staticTableVesRows.delete(path);
 
-    deleteFromVessVsDisplayIdLookup(path);
+    deleteFromVessVsDisplayIdLookup(currentScene, path);
   },
 
   debugLog: (): void => {
     console.debug("--- start ves cache entry list");
-    for (let v of currentVesCache) { console.debug(v[0]); }
+    for (let v of currentScene.cache) { console.debug(v[0]); }
     console.debug("--- end ves cache entry list");
   },
 
   pushTopTitledPage: (vePath: VisualElementPath) => {
-    underConstructionTopTitledPages.push(vePath);
+    underConstructionScene.topTitledPages.push(vePath);
   },
 
   clearPopupVes: (path: VisualElementPath) => {
-    currentAux.popupVes.set(path, null);
+    currentScene.aux.popupVes.set(path, null);
     updateReactivePopup(path, null);
   },
 
   getDisplayItemFingerprint: (path: VisualElementPath): string | undefined => {
-    if (currentlyInFullArrange && underConstructionAux.displayItemFingerprint.has(path)) {
-      return underConstructionAux.displayItemFingerprint.get(path);
+    if (currentlyInFullArrange && underConstructionScene.aux.displayItemFingerprint.has(path)) {
+      return underConstructionScene.aux.displayItemFingerprint.get(path);
     }
-    return currentAux.displayItemFingerprint.get(path);
+    return currentScene.aux.displayItemFingerprint.get(path);
   },
 
   getAttachmentsVes: (path: VisualElementPath): Accessor<Array<VisualElementSignal>> => {
@@ -1025,8 +998,8 @@ export let VesCache = {
   },
 
   getTableVesRows: (path: VisualElementPath): Array<number> | null => {
-    if (currentlyInFullArrange && underConstructionAux.tableVesRows.has(path)) {
-      return underConstructionAux.tableVesRows.get(path)!;
+    if (currentlyInFullArrange && underConstructionScene.aux.tableVesRows.has(path)) {
+      return underConstructionScene.aux.tableVesRows.get(path)!;
     }
     return staticTableVesRows.get(path) ?? null;
   },
@@ -1046,10 +1019,10 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
     (spec.flags! & VisualElementFlags.ShowChildren) &&
     asContainerItem(spec.displayItem).childrenLoaded) {
     const origin = spec.displayItem.origin;
-    if (!underConstructionWatchContainerUidsByOrigin.has(origin)) {
-      underConstructionWatchContainerUidsByOrigin.set(origin, new Set<Uid>());
+    if (!underConstructionScene.watchContainerUidsByOrigin.has(origin)) {
+      underConstructionScene.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
     }
-    underConstructionWatchContainerUidsByOrigin.get(origin)!.add(visualElementOverride.displayItem.id);
+    underConstructionScene.watchContainerUidsByOrigin.get(origin)!.add(visualElementOverride.displayItem.id);
   }
 
   function compareArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
@@ -1061,24 +1034,24 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
   }
 
   function addVesVsDisplayItem(displayItemId: Uid, path: VisualElementPath) {
-    const existing = underConstructionVesVsDisplayItemId.get(displayItemId);
-    if (!existing) { underConstructionVesVsDisplayItemId.set(displayItemId, []); }
-    underConstructionVesVsDisplayItemId.get(displayItemId)!.push(path);
+    const existing = underConstructionScene.vessVsDisplayId.get(displayItemId);
+    if (!existing) { underConstructionScene.vessVsDisplayId.set(displayItemId, []); }
+    underConstructionScene.vessVsDisplayId.get(displayItemId)!.push(path);
   }
 
   function addUnderConstructionIndexes(path: VisualElementPath, ves: VisualElementSignal) {
-    indexVisualElement(underConstructionChildrenByParent, underConstructionVessByVeid, path, ves);
+    indexVisualElement(underConstructionScene, path, ves);
   }
 
-  const existing = currentVesCache.get(path);
+  const existing = currentScene.cache.get(path);
   if (existing) {
     const existingVe = existing.get();
     if (existingVe.displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(VeFns.create(visualElementOverride));
       if (debug) { console.debug("display item fingerprint changed", existingVe.displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       logDirtyReason("fingerprint");
-      underConstructionCache.set(path, existing);
-      syncAuxData(underConstructionAux, path, existing.get(), relationships);
+      underConstructionScene.cache.set(path, existing);
+      syncAuxData(underConstructionScene.aux, path, existing.get(), relationships);
       addVesVsDisplayItem(existing.get().displayItem.id, path);
       addUnderConstructionIndexes(path, existing);
       return existing;
@@ -1096,8 +1069,8 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
       logDirtyReason("lineItemChange");
       arrangeStats.new++; // This creates a new signal rather than recycling
       const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
-      underConstructionCache.set(path, newElement);
-      syncAuxData(underConstructionAux, path, newElement.get(), relationships);
+      underConstructionScene.cache.set(path, newElement);
+      syncAuxData(underConstructionScene.aux, path, newElement.get(), relationships);
       addVesVsDisplayItem(newElement.get().displayItem.id, path);
       addUnderConstructionIndexes(path, newElement);
       return newElement;
@@ -1192,8 +1165,8 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
       arrangeStats.recycled++;
-      underConstructionCache.set(path, existing);
-      syncAuxData(underConstructionAux, path, existing.get(), relationships);
+      underConstructionScene.cache.set(path, existing);
+      syncAuxData(underConstructionScene.aux, path, existing.get(), relationships);
       addVesVsDisplayItem(existingVe.displayItem.id, path);
       addUnderConstructionIndexes(path, existing);
       return existing;
@@ -1203,8 +1176,8 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
 
     // Recycle the existing visual element
     existing.set(VeFns.create(visualElementOverride));
-    underConstructionCache.set(path, existing);
-    syncAuxData(underConstructionAux, path, existing.get(), relationships);
+    underConstructionScene.cache.set(path, existing);
+    syncAuxData(underConstructionScene.aux, path, existing.get(), relationships);
     addVesVsDisplayItem(existing.get().displayItem.id, path);
     addUnderConstructionIndexes(path, existing);
     return existing;
@@ -1213,21 +1186,21 @@ function createOrRecycleVisualElementSignalImpl(spec: VisualElementSpec, relatio
   if (debug) { console.debug("creating:", path); }
   arrangeStats.new++;
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
-  underConstructionCache.set(path, newElement);
-  syncAuxData(underConstructionAux, path, newElement.get(), relationships);
+  underConstructionScene.cache.set(path, newElement);
+  syncAuxData(underConstructionScene.aux, path, newElement.get(), relationships);
   addVesVsDisplayItem(newElement.get().displayItem.id, path);
   addUnderConstructionIndexes(path, newElement);
   return newElement;
 }
 
-function deleteFromVessVsDisplayIdLookup(path: string) {
+function deleteFromVessVsDisplayIdLookup(scene: SceneState, path: string) {
   const displayItemId = VeFns.itemIdFromPath(path);
-  let ves = currentVessVsDisplayId.get(displayItemId);
+  let ves = scene.vessVsDisplayId.get(displayItemId);
   if (!ves) { panic(`displayItemId ${displayItemId} is not in the displayItemId -> vesPath cache.`); }
   let foundIdx = ves.findIndex((v) => { return v == path });
   if (foundIdx == -1) { panic(`path ${path} was not in the displayItemId -> vesPath cache.`); }
   ves.splice(foundIdx, 1);
   if (ves.length == 0) {
-    if (!currentVessVsDisplayId.delete(displayItemId)) { panic!("logic error deleting displayItemId."); }
+    if (!scene.vessVsDisplayId.delete(displayItemId)) { panic!("logic error deleting displayItemId."); }
   }
 }
