@@ -60,11 +60,7 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
   let siblings;
   if (isInsideComposite) {
     const parentPath = currentVe.parentPath!;
-    const parentVe = virtual
-      ? VesCache.getVirtual(parentPath)!.get()
-      : VesCache.get(parentPath)!.get();
-
-    siblings = VesCache.getChildrenVes(parentPath)()
+    siblings = (virtual ? VesCache.getVirtualChildrenVes(parentPath) : VesCache.getChildrenVes(parentPath)())
       .map(ves => ves.get());
   } else {
     siblings = (virtual ? VesCache.getSiblingsVirtual(path) : VesCache.getSiblings(path))
