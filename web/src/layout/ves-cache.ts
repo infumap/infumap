@@ -21,8 +21,10 @@ import { asContainerItem, isContainer } from "../items/base/container-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
 import { panic } from "../util/lang";
+import { compareBoundingBox, compareDimensions } from "../util/geometry";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
+import { HitboxFns } from "./hitbox";
 import { NONE_VISUAL_ELEMENT, VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "./visual-element";
 
 /*
@@ -810,47 +812,12 @@ function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
   };
 }
 
-function valuesDeepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) {
-    return true;
-  }
-  if (a == null || b == null) {
-    return a === b;
-  }
-  if (typeof a !== typeof b) {
-    return false;
-  }
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
-      return false;
-    }
-    for (let i = 0; i < a.length; i++) {
-      if (!valuesDeepEqual(a[i], b[i])) {
-        return false;
-      }
-    }
-    return true;
-  }
-  if (typeof a !== "object" || typeof b !== "object") {
-    return false;
-  }
+function specValueOrDefault<T>(value: T | undefined, fallback: T): T {
+  return typeof value === "undefined" ? fallback : value;
+}
 
-  const aObj = a as Record<string, unknown>;
-  const bObj = b as Record<string, unknown>;
-  const aKeys = Object.keys(aObj);
-  const bKeys = Object.keys(bObj);
-  if (aKeys.length !== bKeys.length) {
-    return false;
-  }
-  for (const key of aKeys) {
-    if (!Object.prototype.hasOwnProperty.call(bObj, key)) {
-      return false;
-    }
-    if (!valuesDeepEqual(aObj[key], bObj[key])) {
-      return false;
-    }
-  }
-  return true;
+function sameUidMaybe(a: { id: Uid } | null | undefined, b: { id: Uid } | null | undefined): boolean {
+  return (a?.id ?? null) === (b?.id ?? null);
 }
 
 function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
@@ -859,30 +826,65 @@ function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, exist
   if (debug) {
     debug.preparedSpecCompareCalls += 1;
   }
-  const preparedValues = preparedSpec as unknown as Record<string, unknown>;
-  const existingValues = existingVe as unknown as Record<string, unknown>;
-  const defaultValues = NONE_VISUAL_ELEMENT as unknown as Record<string, unknown>;
+  let keyChecks = 0;
 
-  for (const key of Object.keys(defaultValues)) {
+  const finish = (matched: boolean): boolean => {
     if (debug) {
-      debug.preparedSpecCompareKeyChecks += 1;
-    }
-    const expectedValue = typeof preparedValues[key] !== "undefined"
-      ? preparedValues[key]
-      : defaultValues[key];
-    if (!valuesDeepEqual(existingValues[key], expectedValue)) {
-      if (debug) {
+      debug.preparedSpecCompareKeyChecks += keyChecks;
+      debug.preparedSpecCompareMs += debugNowMs() - startMs;
+      if (!matched) {
         debug.preparedSpecCompareFailures += 1;
-        debug.preparedSpecCompareMs += debugNowMs() - startMs;
       }
-      return false;
     }
-  }
+    return matched;
+  };
 
-  if (debug) {
-    debug.preparedSpecCompareMs += debugNowMs() - startMs;
-  }
-  return true;
+  keyChecks += 1;
+  if (existingVe.displayItemFingerprint !== preparedSpec.displayItemFingerprint) { return finish(false); }
+  keyChecks += 1;
+  if (existingVe.displayItem.id !== preparedSpec.displayItem.id) { return finish(false); }
+  keyChecks += 1;
+  if (!sameUidMaybe(existingVe.linkItemMaybe, specValueOrDefault(preparedSpec.linkItemMaybe, NONE_VISUAL_ELEMENT.linkItemMaybe))) { return finish(false); }
+  keyChecks += 1;
+  if (!sameUidMaybe(existingVe.actualLinkItemMaybe, specValueOrDefault(preparedSpec.actualLinkItemMaybe, NONE_VISUAL_ELEMENT.actualLinkItemMaybe))) { return finish(false); }
+  keyChecks += 1;
+  if (existingVe.flags !== specValueOrDefault(preparedSpec.flags, NONE_VISUAL_ELEMENT.flags)) { return finish(false); }
+  keyChecks += 1;
+  if (existingVe._arrangeFlags_useForPartialRearrangeOnly !== specValueOrDefault(preparedSpec._arrangeFlags_useForPartialRearrangeOnly, NONE_VISUAL_ELEMENT._arrangeFlags_useForPartialRearrangeOnly)) { return finish(false); }
+  keyChecks += 1;
+  if (compareBoundingBox(existingVe.resizingFromBoundsPx, NONE_VISUAL_ELEMENT.resizingFromBoundsPx) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if (compareBoundingBox(existingVe.boundsPx, preparedSpec.boundsPx) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if (compareBoundingBox(existingVe.viewportBoundsPx, specValueOrDefault(preparedSpec.viewportBoundsPx, NONE_VISUAL_ELEMENT.viewportBoundsPx)) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if (compareBoundingBox(existingVe.childAreaBoundsPx, specValueOrDefault(preparedSpec.childAreaBoundsPx, NONE_VISUAL_ELEMENT.childAreaBoundsPx)) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if (compareBoundingBox(existingVe.listViewportBoundsPx, specValueOrDefault(preparedSpec.listViewportBoundsPx, NONE_VISUAL_ELEMENT.listViewportBoundsPx)) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if (compareBoundingBox(existingVe.listChildAreaBoundsPx, specValueOrDefault(preparedSpec.listChildAreaBoundsPx, NONE_VISUAL_ELEMENT.listChildAreaBoundsPx)) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if (compareDimensions(existingVe.tableDimensionsPx, specValueOrDefault(preparedSpec.tableDimensionsPx, NONE_VISUAL_ELEMENT.tableDimensionsPx)) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if ((existingVe.indentBl ?? null) !== (specValueOrDefault(preparedSpec.indentBl, NONE_VISUAL_ELEMENT.indentBl) ?? null)) { return finish(false); }
+  keyChecks += 1;
+  if (compareDimensions(existingVe.blockSizePx, specValueOrDefault(preparedSpec.blockSizePx, NONE_VISUAL_ELEMENT.blockSizePx)) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if (compareDimensions(existingVe.cellSizePx, specValueOrDefault(preparedSpec.cellSizePx, NONE_VISUAL_ELEMENT.cellSizePx)) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if ((existingVe.row ?? null) !== (specValueOrDefault(preparedSpec.row, NONE_VISUAL_ELEMENT.row) ?? null)) { return finish(false); }
+  keyChecks += 1;
+  if ((existingVe.col ?? null) !== (specValueOrDefault(preparedSpec.col, NONE_VISUAL_ELEMENT.col) ?? null)) { return finish(false); }
+  keyChecks += 1;
+  if ((existingVe.numRows ?? null) !== (specValueOrDefault(preparedSpec.numRows, NONE_VISUAL_ELEMENT.numRows) ?? null)) { return finish(false); }
+  keyChecks += 1;
+  if (HitboxFns.ArrayCompare(existingVe.hitboxes, specValueOrDefault(preparedSpec.hitboxes, NONE_VISUAL_ELEMENT.hitboxes)) !== 0) { return finish(false); }
+  keyChecks += 1;
+  if ((existingVe.parentPath ?? null) !== (specValueOrDefault(preparedSpec.parentPath, NONE_VISUAL_ELEMENT.parentPath) ?? null)) { return finish(false); }
+  keyChecks += 1;
+  if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return finish(false); }
+
+  return finish(true);
 }
 
 function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
