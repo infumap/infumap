@@ -193,6 +193,10 @@ function createTableRenderWindowState(
   };
 }
 
+function createEmptyTableRenderWindowState(): TableRenderWindowState {
+  return createTableRenderWindowState([], []);
+}
+
 function getTableRenderWindowChild(
   state: TableRenderWindowState,
   outIdx: number,
@@ -223,6 +227,65 @@ function snapshotTableRenderWindowRows(state: TableRenderWindowState): Array<num
 
 function persistTableRenderWindowRows(tableVePath: VisualElementPath, state: TableRenderWindowState) {
   VesCache.setTableRenderRows(tableVePath, state.rowSlots);
+}
+
+function logTableRenderWindowInconsistencies(
+  tableVePath: VisualElementPath,
+  tableId: string,
+  scrollYPos: number,
+  prevScrollYPos: number,
+  firstItemIdx: number,
+  lastItemIdx: number,
+  outCount: number,
+  windowState: TableRenderWindowState,
+  debugRowMapping: Map<number, { rowIdx: number, itemId: string, outIdx: number }>,
+) {
+  let hasInconsistency = false;
+  const finalDebugInfo = {
+    tableVePath,
+    tableId,
+    scrollYPos,
+    prevScrollYPos,
+    firstItemIdx,
+    lastItemIdx,
+    outCount,
+    childrenVesLength: windowState.childrenVes.length,
+    tableVesRowsSnapshot: snapshotTableRenderWindowRows(windowState),
+    debugRowMapping: Array.from(debugRowMapping.entries()),
+    inconsistencies: [] as any[],
+    timestamp: new Date().toISOString(),
+  };
+
+  for (let i = 0; i < outCount; i++) {
+    const mappingInfo = debugRowMapping.get(i);
+    const vesRowValue = getTableRenderWindowRow(windowState, i);
+
+    if (mappingInfo && mappingInfo.rowIdx !== vesRowValue) {
+      hasInconsistency = true;
+      finalDebugInfo.inconsistencies.push({
+        outIdx: i,
+        mappedRowIdx: mappingInfo.rowIdx,
+        vesRowValue: vesRowValue,
+        itemId: mappingInfo.itemId,
+      });
+    }
+
+    const childVe = getTableRenderWindowChild(windowState, i)?.get();
+    if (childVe && childVe.row !== vesRowValue) {
+      hasInconsistency = true;
+      finalDebugInfo.inconsistencies.push({
+        outIdx: i,
+        expectedRow: vesRowValue,
+        actualVeRow: childVe.row,
+        veItemId: childVe.displayItem.id,
+        type: "ve_row_mismatch",
+      });
+    }
+  }
+
+  if (hasInconsistency) {
+    console.error("[TABLE_DEBUG] Inconsistencies detected in final table arrangement:", finalDebugInfo);
+  }
 }
 
 
@@ -334,20 +397,18 @@ function buildTableWindowPlans(
 
 
 function materializeTableWindowPlans(windowPlans: TableWindowPlanResult): TableRenderWindowState {
-  const tableVeChildren: Array<VisualElementSignal> = [];
-  const tableVesRows: Array<number> = [];
+  const windowState = createEmptyTableRenderWindowState();
 
   for (let i = 0; i < windowPlans.slots.length; ++i) {
     const slot = windowPlans.slots[i];
     if (slot.kind === "row") {
-      tableVeChildren[slot.outIdx] = materializeTableRowPlan(slot.rowPlan, null);
+      setTableRenderWindowSlot(windowState, slot.outIdx, slot.rowIdx, materializeTableRowPlan(slot.rowPlan, null));
     } else {
-      tableVeChildren[slot.outIdx] = materializeTableRenderPlan(slot.fillerPlan);
+      setTableRenderWindowSlot(windowState, slot.outIdx, slot.rowIdx, materializeTableRenderPlan(slot.fillerPlan));
     }
-    tableVesRows[slot.outIdx] = slot.rowIdx;
   }
 
-  return createTableRenderWindowState(tableVeChildren, tableVesRows);
+  return windowState;
 }
 
 
@@ -527,58 +588,17 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   }
   persistTableRenderWindowRows(tableVePath, windowState);
 
-  // Final validation and comprehensive debug logging
-  let hasInconsistency = false;
-  const finalDebugInfo = {
-    tableVePath: tableVePath,
-    tableId: displayItem_table.id,
-    scrollYPos: scrollYPos,
-    prevScrollYPos: prevScrollYPos,
-    firstItemIdx: firstItemIdx,
-    lastItemIdx: lastItemIdx,
-    outCount: outCount,
-    childrenVesLength: windowState.childrenVes.length,
-    tableVesRowsSnapshot: snapshotTableRenderWindowRows(windowState),
-    debugRowMapping: Array.from(debugRowMapping.entries()),
-    inconsistencies: [] as any[],
-    timestamp: new Date().toISOString()
-  };
-
-  // Check for inconsistencies in the final mapping
-  for (let i = 0; i < outCount; i++) {
-    const mappingInfo = debugRowMapping.get(i);
-    const vesRowValue = getTableRenderWindowRow(windowState, i);
-
-    if (mappingInfo && mappingInfo.rowIdx !== vesRowValue) {
-      hasInconsistency = true;
-      finalDebugInfo.inconsistencies.push({
-        outIdx: i,
-        mappedRowIdx: mappingInfo.rowIdx,
-        vesRowValue: vesRowValue,
-        itemId: mappingInfo.itemId
-      });
-    }
-
-    // Also check if childrenVes exists and has the right structure
-    const childVe = getTableRenderWindowChild(windowState, i)?.get();
-    if (childVe && childVe.row !== vesRowValue) {
-      hasInconsistency = true;
-      finalDebugInfo.inconsistencies.push({
-        outIdx: i,
-        expectedRow: vesRowValue,
-        actualVeRow: childVe.row,
-        veItemId: childVe.displayItem.id,
-        type: 've_row_mismatch'
-      });
-    }
-  }
-
-  if (hasInconsistency) {
-    console.error("[TABLE_DEBUG] Inconsistencies detected in final table arrangement:", finalDebugInfo);
-  } else if (debugRowMapping.size > 0) {
-    // don't log.
-  }
-
+  logTableRenderWindowInconsistencies(
+    tableVePath,
+    displayItem_table.id,
+    scrollYPos,
+    prevScrollYPos,
+    firstItemIdx,
+    lastItemIdx,
+    outCount,
+    windowState,
+    debugRowMapping,
+  );
 }
 
 
