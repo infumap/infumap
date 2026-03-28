@@ -28,7 +28,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, getCommonVisualElementFlags } from "./item";
-import { arrangeCellPopup, calcSpatialPopupGeometry } from "./popup";
+import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -162,12 +162,12 @@ export function arrange_spatial_page(
           pageSpec.childAreaBoundsPx!
         );
 
-        pageRelationships.popupVes = arrangeItem(
+        pageRelationships.popupPath = VeFns.veToPath(arrangeItem(
           store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, linkItem, actualLinkItemMaybe, geometry,
-          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot);
+          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot).get());
 
       } else {
-        pageRelationships.popupVes = arrangeCellPopup(store);
+        pageRelationships.popupPath = arrangeCellPopupPath(store);
       }
     }
   }

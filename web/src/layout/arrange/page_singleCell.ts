@@ -31,7 +31,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeFlagIsRoot, arrangeItem, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
-import { arrangeCellPopup } from "./popup";
+import { arrangeCellPopupPath } from "./popup";
 
 export function arrange_single_cell_page(
   store: StoreContextModel,
@@ -98,7 +98,7 @@ export function arrange_single_cell_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  const childrenVes = [];
+  const childrenPaths: Array<VisualElementPath> = [];
   for (let i = 0; i < pageItem.computed_children.length; ++i) {
     const childItem = itemState.get(pageItem.computed_children[i])!;
     const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
@@ -122,7 +122,7 @@ export function arrange_single_cell_page(
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-    childrenVes.push(ves);
+    childrenPaths.push(VeFns.veToPath(ves.get()));
   }
 
   if (movingItemInThisPage) {
@@ -167,15 +167,15 @@ export function arrange_single_cell_page(
     const ves = arrangeItem(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
       ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-    childrenVes.push(ves);
+    childrenPaths.push(VeFns.veToPath(ves.get()));
   }
 
-  pageRelationships.childrenVes = childrenVes;
+  pageRelationships.childrenPaths = childrenPaths;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupVes = arrangeCellPopup(store);
+      pageRelationships.popupPath = arrangeCellPopupPath(store);
     }
   }
 

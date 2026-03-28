@@ -24,13 +24,12 @@ import { ItemGeometry } from "../item-geometry";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { VesCache } from "../ves-cache";
-import { arrangeCellPopup } from "./popup";
+import { arrangeCellPopupPath } from "./popup";
 import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
 import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
 import { isComposite } from "../../items/composite-item";
 import { initiateLoadChildItemsMaybe } from "../load";
-import { VisualElementSignal } from "../../util/signals";
 import { HitboxFns, HitboxFlags } from "../hitbox";
 import { compareOrderings } from "../../util/ordering";
 import { MouseActionState, MouseAction } from "../../input/state";
@@ -147,7 +146,7 @@ export function arrange_calendar_page(
   const pageRelationships: VisualElementRelationships = {};
 
   // Arrange child items in calendar grid layout (6 blocks wide)
-  let calendarVeChildren: Array<VisualElementSignal> = [];
+  let calendarChildPaths: Array<VisualElementPath> = [];
 
   // Get the currently selected calendar year for this page
   const selectedCalendarYear = store.perVe.getCalendarYear(pageWithChildrenVePath);
@@ -365,8 +364,8 @@ export function arrange_calendar_page(
       };
 
       const calendarItemRelationships: VisualElementRelationships = {};
-      const calendarItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(calendarItemVeSpec, calendarItemRelationships, childPath);
-      calendarVeChildren.push(calendarItemVisualElementSignal);
+      VesCache.full_createOrRecycleVisualElementSignal(calendarItemVeSpec, calendarItemRelationships, childPath);
+      calendarChildPaths.push(childPath);
     });
   });
 
@@ -497,16 +496,16 @@ export function arrange_calendar_page(
     };
 
     const movingItemRelationships: VisualElementRelationships = {};
-    const movingItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(movingItemVeSpec, movingItemRelationships, childPath);
-    calendarVeChildren.push(movingItemVisualElementSignal);
+    VesCache.full_createOrRecycleVisualElementSignal(movingItemVeSpec, movingItemRelationships, childPath);
+    calendarChildPaths.push(childPath);
   }
 
-  pageRelationships.childrenVes = calendarVeChildren;
+  pageRelationships.childrenPaths = calendarChildPaths;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupVes = arrangeCellPopup(store);
+      pageRelationships.popupPath = arrangeCellPopupPath(store);
     }
   }
 

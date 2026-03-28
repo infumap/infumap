@@ -27,7 +27,7 @@ import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { RelationshipToParent } from "../relationship-to-parent";
-import { VeFns } from "../visual-element";
+import { VeFns, VisualElementPath } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
@@ -342,4 +342,8 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     ArrangeItemFlags.RenderChildrenAsFull |
     (renderAsFixed ? ArrangeItemFlags.IsFixed : ArrangeItemFlags.None)
   );
+}
+
+export function arrangeCellPopupPath(store: StoreContextModel): VisualElementPath {
+  return VeFns.veToPath(arrangeCellPopup(store).get());
 }

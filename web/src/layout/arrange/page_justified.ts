@@ -31,7 +31,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, getCommonVisualElementFlags } from "./item";
-import { arrangeCellPopup } from "./popup";
+import { arrangeCellPopupPath } from "./popup";
 import createJustifiedLayout from "justified-layout";
 
 
@@ -121,7 +121,7 @@ export function arrange_justified_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  const childrenVes = [];
+  const childrenPaths: Array<VisualElementPath> = [];
 
   for (let i = 0; i < items.length; ++i) {
     const childItem = items[i];
@@ -143,22 +143,22 @@ export function arrange_justified_page(
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-    childrenVes.push(ves);
+    childrenPaths.push(VeFns.veToPath(ves.get()));
   }
 
   if (movingItemInThisPage) {
     const movingVes = arrangeMovingItemInJustified(
       store, movingItemInThisPage, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren,
       pageWithChildrenVePath, geometry, childAreaBoundsPx, scale, flags, parentIsPopup);
-    childrenVes.push(movingVes);
+    childrenPaths.push(VeFns.veToPath(movingVes.get()));
   }
 
-  pageRelationships.childrenVes = childrenVes;
+  pageRelationships.childrenPaths = childrenPaths;
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupVes = arrangeCellPopup(store);
+      pageRelationships.popupPath = arrangeCellPopupPath(store);
     }
   }
 

@@ -40,7 +40,7 @@ import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, getCommonVisualElementFlags } from "./item";
-import { arrangeCellPopup } from "./popup";
+import { arrangeCellPopupPath } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -181,7 +181,7 @@ export function arrange_list_page(
   );
 
   let skippedCount = 0;
-  let listVeChildren: Array<VisualElementSignal> = [];
+  let listChildPaths: Array<VisualElementPath> = [];
   for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
     const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
@@ -232,8 +232,8 @@ export function arrange_list_page(
       blockSizePx,
     };
     const listItemRelationships: VisualElementRelationships = {};
-    const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
-    listVeChildren.push(listItemVisualElementSignal);
+    VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
+    listChildPaths.push(childPath);
   }
 
   if (movingItemInThisPage) {
@@ -278,10 +278,10 @@ export function arrange_list_page(
     const ves = arrangeItem(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
       ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-    listVeChildren.push(ves);
+    listChildPaths.push(VeFns.veToPath(ves.get()));
   }
 
-  pageRelationships.childrenVes = listVeChildren;
+  pageRelationships.childrenPaths = listChildPaths;
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
@@ -292,14 +292,13 @@ export function arrange_list_page(
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
     const canShiftLeft = selectedIsRoot;
-    pageRelationships.selectedVes =
-      arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot);
+    pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot);
   }
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupVes = arrangeCellPopup(store);
+      pageRelationships.popupPath = arrangeCellPopupPath(store);
     }
   }
 
@@ -367,6 +366,18 @@ export function arrangeSelectedListItem(
   return result;
 }
 
+export function arrangeSelectedListItemPath(
+  store: StoreContextModel,
+  veid: Veid,
+  boundsPx: BoundingBox,
+  currentPath: VisualElementPath,
+  canShiftLeft: boolean,
+  isRoot: boolean): VisualElementPath | null {
+
+  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, isRoot);
+  return selectedVes ? VeFns.veToPath(selectedVes.get()) : null;
+}
+
 
 export function arrange_dock_list_page(
   store: StoreContextModel,
@@ -401,7 +412,7 @@ export function arrange_dock_list_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  let listVeChildren: Array<VisualElementSignal> = [];
+  let listChildPaths: Array<VisualElementPath> = [];
   for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
     const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
@@ -434,10 +445,10 @@ export function arrange_dock_list_page(
       blockSizePx,
     };
     const listItemRelationships: VisualElementRelationships = {};
-    const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
-    listVeChildren.push(listItemVisualElementSignal);
+    VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
+    listChildPaths.push(childPath);
   }
-  pageRelationships.childrenVes = listVeChildren;
+  pageRelationships.childrenPaths = listChildPaths;
 
   return { spec: pageSpec, relationships: pageRelationships };
 }
