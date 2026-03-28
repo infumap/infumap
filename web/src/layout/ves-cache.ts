@@ -88,6 +88,10 @@ function getRenderProjection(path: VisualElementPath, reason: string): RenderPro
   return entry;
 }
 
+function findRenderProjection(path: VisualElementPath): RenderProjectionEntry | undefined {
+  return renderProjectionByPath.get(path);
+}
+
 function updateRenderProjectionSignal<T>(signal: [Accessor<T>, Setter<T>], value: T, shouldUpdate?: (current: T, next: T) => boolean) {
   const [read, write] = signal;
   const current = read();
@@ -704,7 +708,7 @@ function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPa
 }
 
 function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
-  return getRenderProjection(path, "query:getRenderNode").node[0]();
+  return findRenderProjection(path)?.node[0]();
 }
 
 function ensureCurrentRenderNode(path: VisualElementPath): VisualElementSignal | null {
