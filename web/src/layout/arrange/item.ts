@@ -181,6 +181,8 @@ export const arrangeItemNoChildren = (
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: itemGeometry.boundsPx,
     blockSizePx: itemGeometry.blockSizePx,
+    row: itemGeometry.row,
+    col: itemGeometry.col,
     hitboxes: itemGeometry.hitboxes,
     parentPath: parentVePath,
   };

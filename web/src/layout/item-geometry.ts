@@ -41,6 +41,14 @@ export interface ItemGeometry {
   blockSizePx: Dimensions,
 
   /**
+   * Optional row/column metadata for the arranged visual element itself.
+   * This is used in layouts like document/composite where container children
+   * need row/col context even when they arrange as nested pages/tables/composites.
+   */
+  row?: number,
+  col?: number,
+
+  /**
    * Hitboxes.
    * Higher index => higher precedence.
    * Hitbox boundsPx are relative to this item's boundsPx.

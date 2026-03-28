@@ -94,6 +94,8 @@ export const arrangeTable = (
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,
     hitboxes: tableGeometry.hitboxes,
     blockSizePx,
+    row: tableGeometry.row,
+    col: tableGeometry.col,
     parentPath,
   };
 

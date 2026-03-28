@@ -68,6 +68,9 @@ export const arrangeComposite = (
     childAreaBoundsPx,
     viewportBoundsPx,
     hitboxes: compositeGeometry.hitboxes,
+    blockSizePx: flags & ArrangeItemFlags.InsideCompositeOrDoc ? compositeGeometry.blockSizePx : undefined,
+    row: compositeGeometry.row,
+    col: compositeGeometry.col,
     parentPath,
   };
 

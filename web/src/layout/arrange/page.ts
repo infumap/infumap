@@ -85,6 +85,12 @@ export const arrangePageWithChildren = (
     pageRelationships.attachmentsPaths = attachments;
   }
 
+  if (flags & ArrangeItemFlags.InsideCompositeOrDoc) {
+    pageSpec.blockSizePx = geometry.blockSizePx;
+    if (typeof geometry.row !== "undefined") { pageSpec.row = geometry.row; }
+    if (typeof geometry.col !== "undefined") { pageSpec.col = geometry.col; }
+  }
+
   pageSpec.evaluatedTitle = linkItemMaybe_pageWithChildren?.overrideTitle ?? null;
   return VesCache.full_createOrRecycleVisualElementSignal(pageSpec, pageRelationships, pageWithChildrenVePath);
 }

@@ -27,7 +27,7 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -57,7 +57,7 @@ export function arrange_document_page(
   if (scale > 1.0) { scale = 1.0; }
   const blockSizePx = { w: NATURAL_BLOCK_SIZE_PX.w * scale, h: NATURAL_BLOCK_SIZE_PX.h * scale };
 
-  const childrenVes = [];
+  const childrenPaths: Array<VisualElementPath> = [];
 
   let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX * scale;
   for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
@@ -74,23 +74,21 @@ export function arrange_document_page(
       PAGE_DOCUMENT_LEFT_MARGIN_BL,
       topPx,
       store.smallScreenMode());
+    const documentChildGeometry: ItemGeometry = {
+      ...geometry,
+      row: idx,
+      col: 0,
+    };
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
     const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
 
-    const ves = arrangeItem(
-      store, pageWithChildrenVePath, ArrangeAlgorithm.Document, childItem, actualLinkItemMaybe, geometry,
+    childrenPaths.push(arrangeItemPath(
+      store, pageWithChildrenVePath, ArrangeAlgorithm.Document, childItem, actualLinkItemMaybe, documentChildGeometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
+      ArrangeItemFlags.InsideCompositeOrDoc |
       (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
-      (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-
-    ves.get().blockSizePx = blockSizePx
-    ves.get().row = idx;
-    ves.get().col = 0;
-    ves.get().flags = ves.get().flags | VisualElementFlags.InsideCompositeOrDoc;
-    ves.set(ves.get()); // TODO (MEDIUM): avoid the double set (arrangeItem also sets).
-
-    childrenVes.push(ves);
+      (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
   }
@@ -135,7 +133,7 @@ export function arrange_document_page(
   };
 
   const pageRelationships: VisualElementRelationships = {
-    childrenVes,
+    childrenPaths,
   };
 
   return { spec: pageSpec, relationships: pageRelationships };
