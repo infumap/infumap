@@ -658,7 +658,7 @@ function writeUnderConstructionSceneNode(
   ve: VisualElement,
   relationshipData: SceneRelationshipData,
 ) {
-  writeScenePath(underConstructionScene, path, ve, relationshipData);
+  writeScenePath(underConstructionScene, path, ve, reuseSceneRelationshipDataIfEqual(path, relationshipData));
   syncUnderConstructionArrangeSignal(path, ve);
 }
 
@@ -674,6 +674,44 @@ function writePreparedUnderConstructionVisualElement(
     : VeFns.create(preparedSpec);
   writeUnderConstructionSceneNode(path, canonicalVe, preparedRelationships);
   return canonicalVe;
+}
+
+function arraysShallowEqual<T>(a: Array<T>, b: Array<T>): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sceneRelationshipDataEqual(a: SceneRelationshipData, b: SceneRelationshipData): boolean {
+  return arraysShallowEqual(a.attachments, b.attachments) &&
+    a.popup === b.popup &&
+    a.selected === b.selected &&
+    a.dock === b.dock &&
+    arraysShallowEqual(a.children, b.children) &&
+    arraysShallowEqual(a.lineChildren, b.lineChildren) &&
+    arraysShallowEqual(a.desktopChildren, b.desktopChildren) &&
+    arraysShallowEqual(a.nonMovingChildren, b.nonMovingChildren) &&
+    ((a.focusedChildItemMaybe?.id ?? null) === (b.focusedChildItemMaybe?.id ?? null));
+}
+
+function reuseSceneRelationshipDataIfEqual(
+  path: VisualElementPath,
+  relationshipData: SceneRelationshipData,
+): SceneRelationshipData {
+  const existing = currentScene.relationshipsByPath.get(path);
+  if (existing && sceneRelationshipDataEqual(existing, relationshipData)) {
+    return existing;
+  }
+  return relationshipData;
 }
 
 function syncRenderProjectionNode(
@@ -707,11 +745,16 @@ function syncRenderProjectionForPath(
   scene: SceneState,
   path: VisualElementPath,
   previousVe?: VisualElement,
+  previousRelationships?: SceneRelationshipData,
   preferredSignal?: VisualElementSignal,
   renderTableRows?: Array<number> | null,
 ) {
   syncRenderProjectionNode(path, getSceneNode(scene, path), previousVe, preferredSignal);
   const relationships = scene.relationshipsByPath.get(path);
+  if (relationships === previousRelationships) {
+    setRenderProjectionTableRows(path, renderTableRows ?? null);
+    return;
+  }
   updateRenderProjectionPopup(path, resolveSceneNodePath(scene, relationships?.popup));
   updateRenderProjectionSelected(path, resolveSceneNodePath(scene, relationships?.selected));
   updateRenderProjectionDock(path, resolveSceneNodePath(scene, relationships?.dock));
@@ -928,6 +971,7 @@ function syncRenderProjectionFromScene(
       scene,
       path,
       previousScene?.cache.get(path),
+      previousScene?.relationshipsByPath.get(path),
       undefined,
       renderTableRowsByPath?.get(path) ?? null,
     );
@@ -1272,7 +1316,7 @@ export let VesCache = {
     }
     vesToOverwrite.set(cloneVisualElementSnapshot(nextVe));
     writeScenePath(currentScene, newPath, nextVe, preparedRelationships);
-    syncRenderProjectionForPath(currentScene, newPath, undefined, vesToOverwrite);
+    syncRenderProjectionForPath(currentScene, newPath, undefined, undefined, vesToOverwrite);
 
     maybeTrackLoadedContainer(currentSceneOutputs, preparedSpec);
   },
