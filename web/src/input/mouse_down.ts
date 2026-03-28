@@ -418,21 +418,16 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     }
   }, 750);
 
-  MouseActionState.set({
+  MouseActionState.begin({
     activeRoot: VeFns.veToPath(hitInfo.rootVes.get().flags & VisualElementFlags.Popup
       ? VesCache.current.readNode(hitInfo.rootVes.get().parentPath!)!
       : hitInfo.rootVes.get()),
     startActiveElementParent: hitVe.parentPath!,
     activeElementPath,
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(HitInfoFns.getCompositeContainerVe(hitInfo)!) : null,
-    moveOver_containerElement: null,
-    moveOver_attachHitboxElement: null,
-    moveOver_attachCompositeHitboxElement: null,
     moveOver_scaleDefiningElement: scaleDefiningElement,
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     compositeHitboxTypeMaybeOnMouseDown: hitInfo.compositeHitboxTypeMaybe,
-    action: MouseAction.Ambiguous,
-    linkCreatedOnMoveStart: false,
     startPx,
     startPosBl,
     startWidthBl,
@@ -444,7 +439,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     clickOffsetProp,
     onePxSizeBl,
     hitMeta: hitInfo.overElementMeta,
-    newPlaceholderItem: null,
     hitEmbeddedInteractive: canHitEmbeddedInteractive
   });
 

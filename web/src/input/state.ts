@@ -86,6 +86,16 @@ export interface MouseActionStateType {
   groupMoveItems?: Array<{ veid: { itemId: string, linkIdMaybe: string | null }, startPosGr: { x: number, y: number }, parentId: string }>,
 }
 
+type MouseActionStateInit = Omit<
+  MouseActionStateType,
+  "moveOver_containerElement" |
+  "moveOver_attachHitboxElement" |
+  "moveOver_attachCompositeHitboxElement" |
+  "action" |
+  "linkCreatedOnMoveStart" |
+  "newPlaceholderItem"
+> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem">>;
+
 
 let mouseActionState: MouseActionStateType | null = null;
 let activeElementSignalCache: VisualElementSignal | null = null;
@@ -264,6 +274,18 @@ export let MouseActionState = {
       activeElementSignalCache = null;
     }
     mouseActionState = state;
+  },
+
+  begin: (init: MouseActionStateInit): void => {
+    MouseActionState.set({
+      ...init,
+      moveOver_containerElement: null,
+      moveOver_attachHitboxElement: null,
+      moveOver_attachCompositeHitboxElement: null,
+      action: init.action ?? MouseAction.Ambiguous,
+      linkCreatedOnMoveStart: init.linkCreatedOnMoveStart ?? false,
+      newPlaceholderItem: init.newPlaceholderItem ?? null,
+    });
   },
 
   empty: (): boolean => mouseActionState == null,
