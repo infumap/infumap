@@ -195,11 +195,15 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   if (virtualPageVeid) {
     const finalizeStartMs = nowMs();
     const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaSpec));
-    VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
+    batch(() => {
+      VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
+    });
     finalizeMs = nowMs() - finalizeStartMs;
   } else {
     const finalizeStartMs = nowMs();
-    VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
+    batch(() => {
+      VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
+    });
     finalizeMs = nowMs() - finalizeStartMs;
     VesCache.addWatchContainerUid(currentPage.id, currentPage.origin);
   }
