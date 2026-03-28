@@ -51,43 +51,6 @@ export function hashItemAndAttachmentsOnly(itemId: Uid): Uid {
 }
 
 /**
- * Creates a composite hash of only the children items and their attachments.
- * Corresponds to GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY.
- */
-export function hashChildrenAndTheirAttachmentsOnly(itemId: Uid): Uid {
-  const hashes: Uid[] = [];
-
-  const item = itemState.get(itemId);
-  if (!item) {
-    throw new Error(`Item with id '${itemId}' not found`);
-  }
-
-  if (isContainer(item)) {
-    const containerItem = asContainerItem(item);
-    for (const childId of containerItem.computed_children) {
-      const childItem = itemState.get(childId);
-      if (!childItem) {
-        throw new Error(`Child item with id '${childId}' not found`);
-      }
-      hashes.push(ItemFns.hash(childItem));
-
-      if (isAttachmentsItem(childItem)) {
-        const childAttachmentsItem = asAttachmentsItem(childItem);
-        for (const attachmentId of childAttachmentsItem.computed_attachments) {
-          const attachmentItem = itemState.get(attachmentId);
-          if (!attachmentItem) {
-            throw new Error(`Child attachment item with id '${attachmentId}' not found`);
-          }
-          hashes.push(ItemFns.hash(attachmentItem));
-        }
-      }
-    }
-  }
-
-  return combineHashes(hashes);
-}
-
-/**
  * Async version of hashChildrenAndTheirAttachmentsOnly that processes items in chunks
  * to avoid blocking the main thread for large containers.
  */
@@ -131,55 +94,6 @@ export async function hashChildrenAndTheirAttachmentsOnlyAsync(itemId: Uid): Pro
     // Yield control back to the browser after each chunk
     if (i + CHUNK_SIZE < containerItem.computed_children.length) {
       await new Promise(resolve => setTimeout(resolve, 0));
-    }
-  }
-
-  return combineHashes(hashes);
-}
-
-/**
- * Creates a composite hash of an item, its attachments, its children, and their attachments.
- * Corresponds to GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS.
- */
-export function hashItemAttachmentsChildrenAndTheirAttachments(itemId: Uid): Uid {
-  const hashes: Uid[] = [];
-
-  const item = itemState.get(itemId);
-  if (!item) {
-    throw new Error(`Item with id '${itemId}' not found`);
-  }
-  hashes.push(ItemFns.hash(item));
-
-  if (isAttachmentsItem(item)) {
-    const attachmentsItem = asAttachmentsItem(item);
-    for (const attachmentId of attachmentsItem.computed_attachments) {
-      const attachmentItem = itemState.get(attachmentId);
-      if (!attachmentItem) {
-        throw new Error(`Attachment item with id '${attachmentId}' not found`);
-      }
-      hashes.push(ItemFns.hash(attachmentItem));
-    }
-  }
-
-  if (isContainer(item)) {
-    const containerItem = asContainerItem(item);
-    for (const childId of containerItem.computed_children) {
-      const childItem = itemState.get(childId);
-      if (!childItem) {
-        throw new Error(`Child item with id '${childId}' not found`);
-      }
-      hashes.push(ItemFns.hash(childItem));
-
-      if (isAttachmentsItem(childItem)) {
-        const childAttachmentsItem = asAttachmentsItem(childItem);
-        for (const attachmentId of childAttachmentsItem.computed_attachments) {
-          const attachmentItem = itemState.get(attachmentId);
-          if (!attachmentItem) {
-            throw new Error(`Child attachment item with id '${attachmentId}' not found`);
-          }
-          hashes.push(ItemFns.hash(attachmentItem));
-        }
-      }
     }
   }
 

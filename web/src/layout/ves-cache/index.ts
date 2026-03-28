@@ -16,14 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor } from "solid-js";
 import { asContainerItem, isContainer } from "../../items/base/container-item";
-import { Item } from "../../items/base/item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
 import { VisualElementSignal } from "../../util/signals";
-import { VeFns, Veid, VisualElement, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElement, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import {
   createProjectionOps,
 } from "./projection";
@@ -69,7 +67,6 @@ const {
   deleteSceneNode,
   deleteSceneRelationships,
   ensureUnderConstructionArrangeSignal,
-  getSceneDisplayItemFingerprint,
   getSceneNode,
   getScenePathsForDisplayId,
   maybeTrackLoadedContainer,
@@ -108,16 +105,6 @@ export let VesCache = {
     vesCacheState.underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
     vesCacheState.underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
     vesCacheState.underConstructionSceneOutputs = createEmptySceneOutputs();
-  },
-
-  // Legacy top-level accessors. Prefer `VesCache.render.*` in component code and
-  // `VesCache.current.*` / `VesCache.virtual.*` in non-render logic.
-  get: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return renderSceneQueries.getNode(path);
-  },
-
-  getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
-    return currentSceneQueries.getSiblings(path);
   },
 
   getPathsForDisplayId: (displayId: Uid): Array<VisualElementPath> => {
@@ -222,7 +209,7 @@ export let VesCache = {
     const existingPath = VeFns.veToPath(veToOverwrite);
     const nextVe = createVisualElement(preparedSpec);
 
-    const existingAttachments = VesCache.getAttachmentsVes(existingPath)();
+    const existingAttachments = renderSceneQueries.getAttachments(existingPath)();
     for (let i = 0; i < existingAttachments.length; ++i) {
       const attachmentVe = existingAttachments[i].get();
       const attachmentVePath = VeFns.veToPath(attachmentVe);
@@ -247,29 +234,6 @@ export let VesCache = {
     syncRenderProjectionRelationshipsForPath(vesCacheState.currentScene, newPath);
 
     maybeTrackLoadedContainer(vesCacheState.currentSceneOutputs, preparedSpec);
-  },
-
-  /**
-   * Find all current cached visual element signals with the specified veid.
-   *
-   * There may be more than one, because elements can be visible inside linked to containers.
-   *
-   * The result includes any ves created in the current arrange pass (if one is underway) in addition to
-   * any from the last completed one.
-   */
-  find: (veid: Veid): Array<VisualElementSignal> => {
-    return renderSceneQueries.find(veid);
-  },
-
-  /**
-   * Find the single cached visual element with the specified veid. If other than one (none, or more than one)
-   * corresponding ves exists, throw an exception.
-   *
-   * The search includes any ves created in the current arrange pass (if one is underway) in addition to
-   * any from the last completed one.
-   */
-  findSingle: (veid: Veid): VisualElementSignal => {
-    return renderSceneQueries.findSingle(veid);
   },
 
   removeByPath: (path: VisualElementPath): void => {
@@ -302,49 +266,6 @@ export let VesCache = {
     updateRenderProjectionPopup(path, null);
   },
 
-  getDisplayItemFingerprint: (path: VisualElementPath): string | undefined => {
-    if (vesCacheState.currentlyInFullArrange && getSceneNode(vesCacheState.underConstructionScene, path)) {
-      return getSceneDisplayItemFingerprint(vesCacheState.underConstructionScene, path);
-    }
-    return getSceneDisplayItemFingerprint(vesCacheState.currentScene, path);
-  },
-
-  getAttachmentsVes: (path: VisualElementPath) => {
-    return renderSceneQueries.getAttachments(path);
-  },
-
-  getPopupVes: (path: VisualElementPath) => {
-    return renderSceneQueries.getPopup(path);
-  },
-
-  getSelectedVes: (path: VisualElementPath) => {
-    return renderSceneQueries.getSelected(path);
-  },
-
-  getDockVes: (path: VisualElementPath) => {
-    return renderSceneQueries.getDock(path);
-  },
-
-  getChildrenVes: (path: VisualElementPath) => {
-    return renderSceneQueries.getChildren(path);
-  },
-
-  getLineChildrenVes: (path: VisualElementPath) => {
-    return renderSceneQueries.getLineChildren(path);
-  },
-
-  getDesktopChildrenVes: (path: VisualElementPath) => {
-    return renderSceneQueries.getDesktopChildren(path);
-  },
-
-  getNonMovingChildrenVes: (path: VisualElementPath) => {
-    return renderSceneQueries.getNonMovingChildren(path);
-  },
-
-  getFocusedChild: (path: VisualElementPath): Accessor<Item | null> => {
-    return renderSceneQueries.getFocusedChild(path);
-  },
-
   getTableRenderRows: (path: VisualElementPath): Array<number> | null => {
     if (vesCacheState.currentlyInFullArrange && sceneHasNode(vesCacheState.underConstructionScene, path)) {
       return getUnderConstructionRenderTableRows(path);
@@ -360,7 +281,4 @@ export let VesCache = {
     setRenderProjectionTableRows(path, rows);
   },
 
-  getTableVesRows: (path: VisualElementPath): Array<number> | null => {
-    return VesCache.getTableRenderRows(path);
-  },
 }

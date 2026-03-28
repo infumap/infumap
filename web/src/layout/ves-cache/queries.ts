@@ -30,8 +30,6 @@ type QueryDeps = {
   resolveSceneNodePaths: (scene: SceneState, paths: Array<VisualElementPath> | undefined) => Array<VisualElementSignal>;
 };
 
-export type QueryOps = ReturnType<typeof createSceneQueryOps>;
-
 export function createSceneQueryOps(state: VesCacheState, projection: ProjectionOps, deps: QueryDeps) {
   function getSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
     return deps.resolveSceneNodePaths(scene, scene.childrenByParent.get(parentPath));

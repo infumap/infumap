@@ -30,8 +30,6 @@ type SyncDeps = {
   resolveSceneNodePaths: (scene: SceneState, paths: Array<VisualElementPath> | undefined) => Array<VisualElementSignal>;
 };
 
-export type SyncOps = ReturnType<typeof createSceneSyncOps>;
-
 export function createSceneSyncOps(state: VesCacheState, projection: ProjectionOps, deps: SyncDeps) {
   function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
     const entry = projection.findRenderProjection(path);

@@ -37,8 +37,6 @@ import {
   VesCacheState,
 } from "./state";
 
-export type SceneOps = ReturnType<typeof createSceneOps>;
-
 export function createSceneOps(state: VesCacheState, projection: ProjectionOps) {
   function createVisualElement(spec: VisualElementSpec): VisualElement {
     return VeFns.create(spec);
@@ -103,10 +101,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
       }
     }
     return resolved;
-  }
-
-  function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPath): string | undefined {
-    return getSceneNode(scene, path)?.displayItemFingerprint;
   }
 
   function ensureCurrentRenderNode(path: VisualElementPath): VisualElementSignal | null {
@@ -231,7 +225,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     deleteSceneNode,
     sceneHasNode,
     getScenePathsForDisplayId,
-    getSceneDisplayItemFingerprint,
     ensureUnderConstructionArrangeSignal,
     writePreparedUnderConstructionVisualElement,
     prepareSceneRelationshipData,

@@ -20,8 +20,6 @@ import { VisualElementSignal } from "../../util/signals";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships } from "../visual-element";
 import { SceneRelationshipData, SceneRelationshipsByPath, SceneState, VesCacheState } from "./state";
 
-export type RelationshipOps = ReturnType<typeof createRelationshipOps>;
-
 export function sceneRelationshipDataEqual(a: SceneRelationshipData, b: SceneRelationshipData): boolean {
   return arraysShallowEqual(a.attachments, b.attachments) &&
     a.popup === b.popup &&
