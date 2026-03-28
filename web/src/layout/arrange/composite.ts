@@ -89,7 +89,7 @@ export const arrangeComposite = (
   const compositeSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Composite ? linkItemMaybe_Composite : displayItem_Composite);
   const blockSizePx = { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
 
-  let compositeVeChildren: Array<VisualElementSignal> = [];
+  let compositeChildPaths: Array<VisualElementPath> = [];
   let topPx = 0.0;
   for (let idx = 0; idx < displayItem_Composite.computed_children.length; ++idx) {
     const childId = displayItem_Composite.computed_children[idx];
@@ -104,19 +104,24 @@ export const arrangeComposite = (
       0,
       topPx,
       store.smallScreenMode());
+    const compositeChildGeometry: ItemGeometry = {
+      ...geometry,
+      row: idx,
+      col: 0,
+    };
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
 
-    const compositeChildVeSignal = arrangeCompositeChildItem(
+    const compositeChildPath = arrangeCompositeChildItemPath(
       store, compositeVePath,
       displayItem_childItem, linkItemMaybe_childItem,
-      geometry, idx, blockSizePx, compositeSizeBl.w);
+      compositeChildGeometry, blockSizePx, compositeSizeBl.w);
 
-    compositeVeChildren.push(compositeChildVeSignal);
+    compositeChildPaths.push(compositeChildPath);
   }
 
   const compositeRelationships: VisualElementRelationships = {
-    childrenVes: compositeVeChildren,
+    childrenPaths: compositeChildPaths,
   };
 
   const compositeVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeSpec, compositeRelationships, compositeVePath);
@@ -124,23 +129,22 @@ export const arrangeComposite = (
   return compositeVisualElementSignal;
 }
 
-function arrangeCompositeChildItem(
+function arrangeCompositeChildItemPath(
   store: StoreContextModel,
   parentPath: VisualElementPath,
   displayItem_childItem: Item,
   linkItemMaybe_childItem: LinkItem | null,
   geometry: ItemGeometry,
-  idx: number,
   blockSizePx: Dimensions,
-  compositeWidthBl: number): VisualElementSignal {
+  compositeWidthBl: number): VisualElementPath {
 
   if (isTable(displayItem_childItem)) {
     initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem));
-    return arrangeTable(
+    return VeFns.veToPath(arrangeTable(
       store, parentPath,
       asTableItem(displayItem_childItem), linkItemMaybe_childItem,
       linkItemMaybe_childItem, geometry, ArrangeItemFlags.InsideCompositeOrDoc,
-      compositeWidthBl);
+      compositeWidthBl).get());
   }
 
   if (isPage(displayItem_childItem)) {
@@ -151,10 +155,10 @@ function arrangeCompositeChildItem(
     const renderPageWithChildren = widthBl >= CHILD_ITEMS_VISIBLE_WIDTH_BL;
     if (renderPageWithChildren) {
       initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem));
-      return arrangePageWithChildren(
+      return VeFns.veToPath(arrangePageWithChildren(
         store, parentPath,
         asPageItem(displayItem_childItem), linkItemMaybe_childItem,
-        linkItemMaybe_childItem, geometry, ArrangeItemFlags.InsideCompositeOrDoc);
+        linkItemMaybe_childItem, geometry, ArrangeItemFlags.InsideCompositeOrDoc).get());
     }
   }
 
@@ -162,13 +166,20 @@ function arrangeCompositeChildItem(
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === compositeChildVePath;
+  const isSelectionHighlighted = (() => {
+    const sel = store.overlay.selectedVeids.get();
+    if (!sel || sel.length === 0) { return false; }
+    const veid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
+    return sel.some(v => v.itemId === veid.itemId && v.linkIdMaybe === veid.linkIdMaybe);
+  })();
 
   const compositeChildVeSpec: VisualElementSpec = {
     displayItem: displayItem_childItem,
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
     flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed |
-      (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+      (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+      (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: {
       x: geometry.boundsPx.x,
@@ -178,8 +189,8 @@ function arrangeCompositeChildItem(
     },
     hitboxes: geometry.hitboxes,
     parentPath,
-    col: 0,
-    row: idx,
+    col: geometry.col ?? 0,
+    row: geometry.row ?? 0,
     blockSizePx,
   };
 
@@ -195,17 +206,6 @@ function arrangeCompositeChildItem(
     compositeChildRelationships.attachmentsPaths = [];
   }
 
-  const compositeChildVeSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildRelationships, compositeChildVePath);
-
-  const sel = store.overlay.selectedVeids.get();
-  if (sel && sel.length > 0) {
-    const veid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
-    const isSelected = sel.some(v => v.itemId === veid.itemId && v.linkIdMaybe === veid.linkIdMaybe);
-    if (isSelected) {
-      const updated = compositeChildVeSignal.get();
-      updated.flags |= VisualElementFlags.SelectionHighlighted;
-      compositeChildVeSignal.set(updated);
-    }
-  }
-  return compositeChildVeSignal;
+  VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildRelationships, compositeChildVePath);
+  return compositeChildVePath;
 }
