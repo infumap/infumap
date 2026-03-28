@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, onMount, createEffect } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount, createEffect, createSignal } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { Veid, VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { Veid, VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
@@ -36,13 +36,52 @@ import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
+const MAX_PRESERVED_SELECTED_PAGES = 4;
+
+interface PreservedChildEntry {
+  key: string,
+  visualElement: VisualElement,
+}
+
 export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
   let updatingRootScrollTop = false;
   let rootDiv: any = undefined;
+  const preserveMountedSubtrees = () => Boolean((globalThis as any).__INFUMAP_PRESERVE_PAGE_SUBTREE_DEBUG__);
 
   const pageFns = () => props.pageFns;
+  const selectedSignal = () => VesCache.render.getSelected(VeFns.veToPath(props.visualElement))();
+  const selectedVe = () => {
+    const selected = selectedSignal();
+    if (selected == null) {
+      return null;
+    }
+    return selected.get();
+  };
+  const selectedKey = (visualElement: VisualElement) => VeFns.actualVeidFromVe(visualElement).itemId;
+  const [preservedSelectedPages, setPreservedSelectedPages] = createSignal<PreservedChildEntry[]>([]);
+
+  createEffect(() => {
+    if (!preserveMountedSubtrees()) {
+      setPreservedSelectedPages([]);
+      return;
+    }
+
+    const currentSelectedVe = selectedVe();
+    if (currentSelectedVe == null) {
+      return;
+    }
+
+    setPreservedSelectedPages((prev) => {
+      let next = prev.filter(entry => entry.key !== selectedKey(currentSelectedVe));
+      next.push({
+        key: selectedKey(currentSelectedVe),
+        visualElement: currentSelectedVe,
+      });
+      return next.slice(-MAX_PRESERVED_SELECTED_PAGES);
+    });
+  });
 
   const getScrollVeid = (): Veid | null => {
     let veid = store.history.currentPageVeid();
@@ -209,8 +248,16 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
-          <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
+        <Show when={preserveMountedSubtrees()} fallback={
+          <Show when={selectedVe() != null}>
+            <VisualElement_Desktop visualElement={selectedVe()!} />
+          </Show>
+        }>
+          <For each={preservedSelectedPages()}>{selectedEntry =>
+            <div style={`display: ${selectedVe() != null && selectedKey(selectedVe()!) == selectedEntry.key ? "block" : "none"};`}>
+              <VisualElement_Desktop visualElement={selectedEntry.visualElement} />
+            </div>
+          }</For>
         </Show>
         <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
           <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
