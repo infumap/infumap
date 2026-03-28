@@ -531,7 +531,7 @@ function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, exist
   const defaultValues = NONE_VISUAL_ELEMENT as unknown as Record<string, unknown>;
 
   for (const key of Object.keys(defaultValues)) {
-    const expectedValue = Object.prototype.hasOwnProperty.call(preparedValues, key)
+    const expectedValue = typeof preparedValues[key] !== "undefined"
       ? preparedValues[key]
       : defaultValues[key];
     if (!valuesDeepEqual(existingValues[key], expectedValue)) {
