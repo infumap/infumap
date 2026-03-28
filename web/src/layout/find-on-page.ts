@@ -36,9 +36,8 @@ function isVeInsideTranslucentPage(currentVePath: VisualElementPath): boolean {
   let path = currentVePath;
   path = VeFns.parentPath(currentVePath);
   if (!path) { return false; }
-  const ves = VesCache.get(path);
-  if (!ves) { return false; }
-  const ve = ves.get();
+  const ve = VesCache.current.readNode(path);
+  if (!ve) { return false; }
   if (isPage(ve.displayItem) && isVeTranslucentPage(ve)) {
     return true;
   }
@@ -54,11 +53,9 @@ export function findInVisualElements(store: StoreContextModel, findText: string)
   const searchLower = findText.toLowerCase();
 
   const addMatchIfFound = (path: VisualElementPath) => {
-    const ves = VesCache.get(path);
-    if (!ves) return;
+    const ve = VesCache.current.readNode(path);
+    if (!ve) return;
     if (isVeInsideTranslucentPage(path)) { return; }
-
-    const ve = ves.get();
 
     if (ve.displayItem && isTitledItem(ve.displayItem)) {
       const title = asTitledItem(ve.displayItem).title;
@@ -76,37 +73,33 @@ export function findInVisualElements(store: StoreContextModel, findText: string)
     const path = VeFns.veToPath(ve);
     addMatchIfFound(path);
 
-    if (ve.childrenVes) {
-      for (const childVes of ve.childrenVes) {
-        traverseVe(childVes.get());
-      }
+    for (const childVe of VesCache.current.readStructuralChildren(path)) {
+      traverseVe(childVe);
     }
 
-    const attachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(ve))();
-    if (attachmentsVes) {
-      for (const attachmentVes of attachmentsVes) {
-        traverseVe(attachmentVes.get());
-      }
+    for (const attachmentVe of VesCache.current.readAttachments(path)) {
+      traverseVe(attachmentVe);
     }
 
-    const popupVes = VesCache.getPopupVes(VeFns.veToPath(ve))();
+    const popupVes = VesCache.current.readPopup(path);
     if (popupVes) {
-      traverseVe(popupVes.get());
+      traverseVe(popupVes);
     }
 
     // traverse selectedVes
-    const selectedVes = VesCache.getSelectedVes(VeFns.veToPath(ve))();
+    const selectedVes = VesCache.current.readSelected(path);
     if (selectedVes) {
-      traverseVe(selectedVes.get());
+      traverseVe(selectedVes);
     }
 
-    const dockVes = VesCache.getDockVes(VeFns.veToPath(ve))();
+    const dockVes = VesCache.current.readDock(path);
     if (dockVes) {
-      traverseVe(dockVes.get());
+      traverseVe(dockVes);
     }
   };
 
-  const umbrellaVe = store.umbrellaVisualElement.get();
+  const umbrellaPath = VeFns.veToPath(store.umbrellaVisualElement.get());
+  const umbrellaVe = VesCache.current.readNode(umbrellaPath) ?? store.umbrellaVisualElement.get();
   traverseVe(umbrellaVe);
 
   return matches;
@@ -143,8 +136,8 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
   store.find.highlightedPath.set(matchPath);
   store.find.currentMatchIndex.set(matchIndex);
 
-  const ves = VesCache.get(matchPath);
-  if (!ves) {
+  const ve = VesCache.current.readNode(matchPath);
+  if (!ve) {
     const veid = VeFns.veidFromPath(matchPath);
       const item = itemState.get(veid.itemId);
       if (!item) {
@@ -161,21 +154,19 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
       }
 
     let parentPath = VeFns.parentPath(matchPath);
-    let parentVes = null;
-    while (parentPath && !parentVes) {
-      parentVes = VesCache.get(parentPath);
-      if (!parentVes) {
+    let parentVe = null;
+    while (parentPath && !parentVe) {
+      parentVe = VesCache.current.readNode(parentPath);
+      if (!parentVe) {
         parentPath = VeFns.parentPath(parentPath);
       }
     }
 
-      if (!parentVes) {
+      if (!parentVe) {
         console.warn("No parent VES found in path");
         requestArrange(store, "find-navigate-match");
         return;
       }
-
-    const parentVe = parentVes.get();
 
     if (isTable(parentVe.displayItem)) {
       const tableItem = asTableItem(parentVe.displayItem);
@@ -309,11 +300,8 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
     return;
   }
 
-  const ve = ves.get();
-
   if (ve.parentPath) {
-    const parentVes = VesCache.get(ve.parentPath);
-    const parentVe = parentVes?.get();
+    const parentVe = VesCache.current.readNode(ve.parentPath);
 
     if (parentVe && isTable(parentVe.displayItem)) {
       const rowNumber = ve.row;
@@ -375,15 +363,14 @@ export function performFind(store: StoreContextModel, findText: string) {
     const path = VeFns.veToPath(ve);
     checkTableForMatches(ve, path);
 
-    if (ve.childrenVes) {
-      for (const childVes of ve.childrenVes) {
-        traverseForTables(childVes.get());
-      }
+    for (const childVe of VesCache.current.readStructuralChildren(path)) {
+      traverseForTables(childVe);
     }
 
   };
 
-  const umbrellaVe = store.umbrellaVisualElement.get();
+  const umbrellaPath = VeFns.veToPath(store.umbrellaVisualElement.get());
+  const umbrellaVe = VesCache.current.readNode(umbrellaPath) ?? store.umbrellaVisualElement.get();
   traverseForTables(umbrellaVe);
 
   const allMatches = [...vesMatches, ...tableMatches];

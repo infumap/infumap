@@ -86,8 +86,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
     let newEditingTextElement = document.getElementById(newEditingDomId);
     let caretPosition = getCaretPosition(newEditingTextElement!);
 
-    let newVes = VesCache.get(currentCaretItemInfo.path)!;
-    let newVe = newVes.get();
+    const newVe = VesCache.current.readNode(currentCaretItemInfo.path)!;
     if (isNote(newVe.displayItem)) {
       store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Note });
     } else if (isFile(newVe.displayItem)) {
@@ -135,7 +134,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
 }
 
 const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualElement) => {
-  const editingVe = VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
+  const editingVe = VesCache.current.readNode(store.overlay.textEditInfo()!.itemPath)!;
   const initialEditingItem = VeFns.treeItem(editingVe);
   if (!isNote(initialEditingItem)) { return; }
 
@@ -182,10 +181,10 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
   }
   else {
     arrangeNow(store, "join-items-restore-edit-focus");
-    const allUpVes = VesCache.find(upVeid);
+    const allUpVes = VesCache.current.findNodes(upVeid);
     const currentCompositeVePath = VeFns.veToPath(compositeVe);
-    const upVes = allUpVes.find(ves => {
-      const vesPath = VeFns.veToPath(ves.get());
+    const upVes = allUpVes.find(ve => {
+      const vesPath = VeFns.veToPath(ve);
       const vesParentPath = VeFns.parentPath(vesPath);
       return vesParentPath === currentCompositeVePath;
     });
@@ -195,7 +194,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
       return;
     }
 
-    const currentUpPath = VeFns.veToPath(upVes.get());
+    const currentUpPath = VeFns.veToPath(upVes);
     store.overlay.setTextEditInfo(store.history, { itemPath: currentUpPath, itemType: upFocusItem.itemType });
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
@@ -240,10 +239,10 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
   arrangeNow(store, "enter-key-create-note");
 
   const veid = { itemId: note.id, linkIdMaybe: null };
-  const allNewVes = VesCache.find(veid);
+  const allNewVes = VesCache.current.findNodes(veid);
   const currentCompositeVePath = VeFns.veToPath(visualElement);
-  const newVes = allNewVes.find(ves => {
-    const vesPath = VeFns.veToPath(ves.get());
+  const newVes = allNewVes.find(ve => {
+    const vesPath = VeFns.veToPath(ve);
     const vesParentPath = VeFns.parentPath(vesPath);
     return vesParentPath === currentCompositeVePath;
   });
@@ -252,7 +251,7 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
     console.error("Could not find new note visual element in the current composite context");
     return;
   }
-  store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), itemType: ItemType.Note });
+  store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes), itemType: ItemType.Note });
 
   const newEditingPath = store.overlay.textEditInfo()!.itemPath + ":title";
   const newEditingTextElement = document.getElementById(newEditingPath);

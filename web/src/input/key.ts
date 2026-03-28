@@ -139,8 +139,8 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
     // If a page is focused (not popped up), move focus to parent container
     const focusPath = store.history.getFocusPath();
-    const focusVes = VesCache.get(focusPath);
-    if (focusVes && isPage(focusVes.get().displayItem)) {
+    const focusVe = VesCache.current.readNode(focusPath);
+    if (focusVe && isPage(focusVe.displayItem)) {
       const parentPath = VeFns.parentPath(focusPath);
       if (parentPath && parentPath !== UMBRELLA_PAGE_UID && parentPath !== "") {
         store.history.setFocus(parentPath);
@@ -168,27 +168,28 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
     // If a non-page item has focus and we're not already editing, make it editable
     const focusPath = store.history.getFocusPath();
-    const focusVes = VesCache.get(focusPath);
-    if (focusVes && !isPage(focusVes.get().displayItem) && !store.overlay.textEditInfo()) {
+    const focusVe = VesCache.current.readNode(focusPath);
+    const focusVes = VesCache.current.getNode(focusPath);
+    if (focusVe && focusVes && !isPage(focusVe.displayItem) && !store.overlay.textEditInfo()) {
       ev.preventDefault();
       ItemFns.handleClick(focusVes, null, HitboxFlags.None, store, true); // caretAtEnd=true
       return;
     }
 
     // If an embedded interactive page has focus (and title is not being edited), start title editing
-    if (focusVes && isPage(focusVes.get().displayItem) && !store.overlay.textEditInfo()) {
-      const pageItem = asPageItem(focusVes.get().displayItem);
+    if (focusVe && isPage(focusVe.displayItem) && !store.overlay.textEditInfo()) {
+      const pageItem = asPageItem(focusVe.displayItem);
       if (pageItem.flags & PageFlags.EmbeddedInteractive) {
         ev.preventDefault();
-        PageFns.handleEditTitleClick(focusVes.get(), store);
+        PageFns.handleEditTitleClick(focusVe, store);
         return;
       }
     }
 
     // If an opaque/translucent page has focus (no popup showing), open the popup
     // But for root pages, make the toolbar title editable instead
-    if (focusVes && isPage(focusVes.get().displayItem) && !store.history.currentPopupSpec()) {
-      const pageItem = asPageItem(focusVes.get().displayItem);
+    if (focusVe && isPage(focusVe.displayItem) && !store.history.currentPopupSpec()) {
+      const pageItem = asPageItem(focusVe.displayItem);
       if (!(pageItem.flags & PageFlags.EmbeddedInteractive)) {
         ev.preventDefault();
         // Check if this is a root page (in topTitledPages)
@@ -205,7 +206,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
           }
         } else {
           // Non-root page: open popup
-          PageFns.handleOpenPopupClick(focusVes.get(), store, false);
+          PageFns.handleOpenPopupClick(focusVe, store, false);
         }
         return;
       }
@@ -275,8 +276,8 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   // When a translucent page has focus, skip list page selection and grid/justified scroll handling.
   // Arrow keys should apply to the parent context (navigating to sibling items) instead.
   const focusPath = store.history.getFocusPath();
-  const focusVes = VesCache.get(focusPath);
-  const isTranslucentPageFocused = focusVes && isVeTranslucentPage(focusVes.get());
+  const focusVe = VesCache.current.readNode(focusPath);
+  const isTranslucentPageFocused = !!focusVe && isVeTranslucentPage(focusVe);
 
   if (handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
   if (!isTranslucentPageFocused && handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
@@ -286,8 +287,8 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   // This enables navigation from a focused (non-editable) item
   if (!store.history.currentPopupSpec()) {
     const focusPath = store.history.getFocusPath();
-    const focusVes = VesCache.get(focusPath);
-    if (focusVes) {
+    const focusVe = VesCache.current.readNode(focusPath);
+    if (focusVe) {
       // Navigate to closest item from current focus
       const direction = findDirectionFromKeyCode(ev.code);
       const closest = findClosest(VesCache.current, focusPath, direction, true);
@@ -298,7 +299,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         return;
       }
       // If no visible sibling found and focus is on a page, try navigating in parent container
-      if (isPage(focusVes.get().displayItem)) {
+      if (isPage(focusVe.displayItem)) {
         const currentPageVeid = store.history.currentPageVeid();
         if (!currentPageVeid) return;
 
@@ -456,9 +457,8 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       // Pages and images have their own popup positioning (popupPositionGr) and should not use attachment positioning
       if (isActualAttachment && !isPageOrImage) {
         // Calculate sourcePositionGr from VE's center for attachments
-        const closestVes = VesCache.get(closest);
-        if (closestVes) {
-          const ve = closestVes.get();
+        const ve = VesCache.current.readNode(closest);
+        if (ve) {
           const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, ve);
           const centerPx = {
             x: veBoundsPx.x + veBoundsPx.w / 2,
@@ -468,10 +468,10 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           // Find the parent page to convert to Gr coordinates
           const parentPath = VeFns.parentPath(closest);
           if (parentPath) {
-            let pageVe = VesCache.get(parentPath)?.get();
+            let pageVe = VesCache.current.readNode(parentPath);
             while (pageVe && !isPage(pageVe.displayItem)) {
               if (!pageVe.parentPath) break;
-              pageVe = VesCache.get(pageVe.parentPath)?.get();
+              pageVe = VesCache.current.readNode(pageVe.parentPath);
             }
             if (pageVe && isPage(pageVe.displayItem) && pageVe.childAreaBoundsPx) {
               const pageItem = asPageItem(pageVe.displayItem);
@@ -514,8 +514,9 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     // for grid and justified pages, use ordering to wrap around to next or prev line.
     if (direction == FindDirection.Left || direction == FindDirection.Right) {
       const parentPath = VeFns.parentPath(path);
-      const parentVes = VesCache.get(parentPath)!;
-      const parentItem = parentVes.get().displayItem;
+      const parentVe = parentPath ? VesCache.current.readNode(parentPath) : null;
+      if (!parentVe) { return; }
+      const parentItem = parentVe.displayItem;
       if (isPage(parentItem)) {
         const arrangeAlgorithm = asPageItem(parentItem).arrangeAlgorithm;
         if (arrangeAlgorithm == ArrangeAlgorithm.Grid || arrangeAlgorithm == ArrangeAlgorithm.Justified) {
@@ -595,7 +596,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
 
   let handleListPageChange = isPage(focusItem) && asPageItem(focusItem).arrangeAlgorithm == ArrangeAlgorithm.List;
   const focusPath = store.history.getFocusPath();
-  const focusVe = VesCache.get(focusPath)!.get();
+  const focusVe = VesCache.current.readNode(focusPath)!;
   const focusVeid = VeFns.veidFromVe(focusVe);
   for (let i = 1; i < store.topTitledPages.get().length; ++i) {
     const ttp = VeFns.veidFromPath(store.topTitledPages.get()[i]);
@@ -609,7 +610,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
 
   if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
     const focusPagePath = store.history.getFocusPath();
-    const focusPageVe = VesCache.get(focusPagePath)!.get();
+    const focusPageVe = VesCache.current.readNode(focusPagePath)!;
     const focusPageVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
     const selectedVeid = store.perItem.getSelectedListPageItem(focusPageVeid);
     if (selectedVeid == EMPTY_VEID) {
@@ -638,7 +639,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     arrangeNow(store, "key-list-page-focus-parent");
   } else if (ev.code == "ArrowRight") {
     const focusPagePath = store.history.getFocusPath();
-    const focusPageVe = VesCache.get(focusPagePath)!.get();
+    const focusPageVe = VesCache.current.readNode(focusPagePath)!;
     const focusPageVeid = VeFns.veidFromVe(focusPageVe);
     const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
     const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
@@ -664,7 +665,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
 
           {
             const focusPagePath = store.history.getFocusPath();
-            const focusPageVe = VesCache.get(focusPagePath)!.get();
+            const focusPageVe = VesCache.current.readNode(focusPagePath)!;
             const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
             const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
             if (selectedVeid == EMPTY_VEID) {
@@ -693,8 +694,8 @@ function handleArrowKeyGridOrJustifiedPageScrollMaybe(store: StoreContextModel, 
   if (isPage(focusItem)) {
     const arrangeAlgorithm = asPageItem(focusItem).arrangeAlgorithm;
     if (arrangeAlgorithm == ArrangeAlgorithm.Grid || arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-      const focusVes = VesCache.get(store.history.getFocusPath());
-      if (focusVes && scrollGridOrJustifiedPageVe(store, focusVes.get(), ev.code)) {
+      const focusVe = VesCache.current.readNode(store.history.getFocusPath());
+      if (focusVe && scrollGridOrJustifiedPageVe(store, focusVe, ev.code)) {
         return true;
       }
     }
@@ -714,13 +715,13 @@ function handlePopupGridOrJustifiedPageScrollMaybe(store: StoreContextModel, pop
   if (ev.code != "ArrowUp" && ev.code != "ArrowDown") { return false; }
 
   // First, check if the popup item itself is a grid/justified page
-  const popupVes = VesCache.get(popupPath);
-  if (popupVes) {
-    const popupItem = popupVes.get().displayItem;
+  const popupVe = VesCache.current.readNode(popupPath);
+  if (popupVe) {
+    const popupItem = popupVe.displayItem;
     if (isPage(popupItem)) {
       const arrangeAlgorithm = asPageItem(popupItem).arrangeAlgorithm;
       if (arrangeAlgorithm == ArrangeAlgorithm.Grid || arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-        if (scrollGridOrJustifiedPageVe(store, popupVes.get(), ev.code)) {
+        if (scrollGridOrJustifiedPageVe(store, popupVe, ev.code)) {
           return true;
         }
         // If scrolling returned false (at max bounds), continue to fall through to page switching
@@ -733,10 +734,10 @@ function handlePopupGridOrJustifiedPageScrollMaybe(store: StoreContextModel, pop
   const parentPath = VeFns.parentPath(popupPath);
   if (!parentPath) { return false; }
 
-  const parentVes = VesCache.get(parentPath);
-  if (!parentVes) { return false; }
+  const parentVe = VesCache.current.readNode(parentPath);
+  if (!parentVe) { return false; }
 
-  const parentItem = parentVes.get().displayItem;
+  const parentItem = parentVe.displayItem;
   if (!isPage(parentItem)) { return false; }
 
   const arrangeAlgorithm = asPageItem(parentItem).arrangeAlgorithm;
@@ -744,7 +745,7 @@ function handlePopupGridOrJustifiedPageScrollMaybe(store: StoreContextModel, pop
     return false;
   }
 
-  return scrollGridOrJustifiedPageVe(store, parentVes.get(), ev.code);
+  return scrollGridOrJustifiedPageVe(store, parentVe, ev.code);
 }
 
 /**
@@ -766,7 +767,7 @@ function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualEle
   // code uses getSelectedListPageItem to get the original item's veid.
   let pageVeid = VeFns.veidFromVe(pageVe);
   if (pageVe.flags & VisualElementFlags.ListPageRoot) {
-    const parentVeid = VesCache.get(pageVe.parentPath!)
+    const parentVeid = VesCache.current.readNode(pageVe.parentPath!)
       ? VeFns.actualVeidFromPath(pageVe.parentPath!)
       : VeFns.veidFromPath(pageVe.parentPath!);
     pageVeid = store.perItem.getSelectedListPageItem(parentVeid);
@@ -797,10 +798,8 @@ function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualEle
 function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentPath: string, direction: FindDirection): boolean {
   if (direction != FindDirection.Up && direction != FindDirection.Down) { return false; }
 
-  const currentVes = VesCache.get(currentPath);
-  if (!currentVes) { return false; }
-
-  const currentVe = currentVes.get();
+  const currentVe = VesCache.current.readNode(currentPath);
+  if (!currentVe) { return false; }
   if (!(currentVe.flags & VisualElementFlags.InsideTable) || !(currentVe.flags & VisualElementFlags.Attachment)) {
     return false;
   }
@@ -812,23 +811,20 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
   const columnIndex = currentVe.col;
   const currentRow = currentVe.row;
 
-  const rowVes = VesCache.get(currentVe.parentPath);
-  if (!rowVes) { return false; }
-  const rowVe = rowVes.get();
+  const rowVe = VesCache.current.readNode(currentVe.parentPath);
+  if (!rowVe) { return false; }
   if (!rowVe.parentPath) { return false; }
 
-  const tableVes = VesCache.get(rowVe.parentPath);
-  if (!tableVes) { return false; }
-  const tableVe = tableVes.get();
+  const tableVe = VesCache.current.readNode(rowVe.parentPath);
+  if (!tableVe) { return false; }
 
-  const childRows = VesCache.getChildrenVes(VeFns.veToPath(tableVe))() ?? [];
+  const childRows = VesCache.current.readIndexedChildren(VeFns.veToPath(tableVe));
 
   let targetPath: string | null = null;
   let targetRow: number | null = null;
 
-  for (const childSignal of childRows) {
-    const childVe = childSignal.get();
-    const atts = VesCache.getAttachmentsVes(VeFns.veToPath(childVe))();
+  for (const childVe of childRows) {
+    const atts = VesCache.current.readAttachments(VeFns.veToPath(childVe));
     if (childVe.row == null || !atts) { continue; }
 
     const childRow = childVe.row;
@@ -842,9 +838,8 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
 
     if (!rowIsCandidate) { continue; }
 
-    const attachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(childVe))();
-    for (const attachmentSignal of attachmentsVes) {
-      const attachmentVe = attachmentSignal.get();
+    const attachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(childVe));
+    for (const attachmentVe of attachmentsVes) {
       if (!(attachmentVe.flags & VisualElementFlags.Attachment)) { continue; }
       if (attachmentVe.col != columnIndex) { continue; }
 
@@ -871,10 +866,8 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
 function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, currentPath: string, direction: FindDirection): boolean {
   if (direction != FindDirection.Left && direction != FindDirection.Right) { return false; }
 
-  const currentVes = VesCache.get(currentPath);
-  if (!currentVes) { return false; }
-
-  const currentVe = currentVes.get();
+  const currentVe = VesCache.current.readNode(currentPath);
+  if (!currentVe) { return false; }
 
   // Check if we're inside a table
   if (!(currentVe.flags & VisualElementFlags.InsideTable)) {
@@ -890,15 +883,14 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
   if (!isAttachment && currentCol === 0 && direction === FindDirection.Right) {
     // currentVe is the table child, check its attachments
     // currentVe is the table child, check its attachments
-    const currentAttachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(currentVe))();
+    const currentAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(currentVe));
     if (!currentAttachmentsVes || currentAttachmentsVes.length === 0) {
       return false;
     }
 
     // Find the first attachment (col=1)
     // Find the first attachment (col=1)
-    for (const attachmentSignal of currentAttachmentsVes) {
-      const attachmentVe = attachmentSignal.get();
+    for (const attachmentVe of currentAttachmentsVes) {
         if (attachmentVe.col === 1) {
           const targetPath = VeFns.veToPath(attachmentVe);
           const targetVeid = VeFns.veidFromPath(targetPath);
@@ -912,9 +904,8 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
 
   // Case 2: On an attachment, navigating left or right
   if (isAttachment && currentVe.parentPath) {
-    const rowVes = VesCache.get(currentVe.parentPath);
-    if (!rowVes) { return false; }
-    const rowVe = rowVes.get();
+    const rowVe = VesCache.current.readNode(currentVe.parentPath);
+    if (!rowVe) { return false; }
 
     if (direction === FindDirection.Left) {
       // Navigate to previous column
@@ -928,9 +919,8 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
       } else if (currentCol > 1) {
         // Go to previous attachment
         // Go to previous attachment
-        const rowAttachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(rowVe))();
-        for (const attachmentSignal of rowAttachmentsVes) {
-          const attachmentVe = attachmentSignal.get();
+        const rowAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(rowVe));
+        for (const attachmentVe of rowAttachmentsVes) {
           if (attachmentVe.col === currentCol - 1) {
             const targetPath = VeFns.veToPath(attachmentVe);
             const targetVeid = VeFns.veidFromPath(targetPath);
@@ -943,9 +933,8 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
     } else if (direction === FindDirection.Right) {
       // Navigate to next attachment
       // Navigate to next attachment
-      const rowAttachmentsVes = VesCache.getAttachmentsVes(VeFns.veToPath(rowVe))();
-      for (const attachmentSignal of rowAttachmentsVes) {
-        const attachmentVe = attachmentSignal.get();
+      const rowAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(rowVe));
+      for (const attachmentVe of rowAttachmentsVes) {
         if (attachmentVe.col === currentCol + 1) {
           const targetPath = VeFns.veToPath(attachmentVe);
           const targetVeid = VeFns.veidFromPath(targetPath);

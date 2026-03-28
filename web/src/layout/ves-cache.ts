@@ -466,20 +466,44 @@ function getSceneTableRows(scene: SceneState, path: VisualElementPath): Array<nu
   return scene.aux.tableVesRows.get(path) ?? null;
 }
 
+function readSignalNode(node: VisualElementSignal | null | undefined): VisualElement | null {
+  return node?.get() ?? null;
+}
+
+function readSignalNodeList(list: Array<VisualElementSignal> | undefined): Array<VisualElement> {
+  return (list ?? []).map(ves => ves.get());
+}
+
 function readSceneNode(scene: SceneState, path: VisualElementPath): VisualElement | undefined {
   return getSceneNode(scene, path)?.get();
 }
 
 function readSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
-  return getSceneIndexedChildren(scene, parentPath).map(ves => ves.get());
+  return readSignalNodeList(getSceneIndexedChildren(scene, parentPath));
 }
 
 function readSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
-  return getSceneStructuralChildren(scene, parentPath).map(ves => ves.get());
+  return readSignalNodeList(getSceneStructuralChildren(scene, parentPath));
 }
 
 function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
-  return getSceneSiblings(scene, path).map(ves => ves.get());
+  return readSignalNodeList(getSceneSiblings(scene, path));
+}
+
+function readSceneAttachments(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
+  return readSignalNodeList(scene.aux.attachmentsVes.get(path));
+}
+
+function readScenePopup(scene: SceneState, path: VisualElementPath): VisualElement | null {
+  return readSignalNode(scene.aux.popupVes.get(path));
+}
+
+function readSceneSelected(scene: SceneState, path: VisualElementPath): VisualElement | null {
+  return readSignalNode(scene.aux.selectedVes.get(path));
+}
+
+function readSceneDock(scene: SceneState, path: VisualElementPath): VisualElement | null {
+  return readSignalNode(scene.aux.dockVes.get(path));
 }
 
 function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
@@ -971,6 +995,22 @@ const currentSceneQueries = {
 
   readSiblings: (path: VisualElementPath): Array<VisualElement> => {
     return readSceneSiblings(currentScene, path);
+  },
+
+  readAttachments: (path: VisualElementPath): Array<VisualElement> => {
+    return readSceneAttachments(currentScene, path);
+  },
+
+  readPopup: (path: VisualElementPath): VisualElement | null => {
+    return readScenePopup(currentScene, path);
+  },
+
+  readSelected: (path: VisualElementPath): VisualElement | null => {
+    return readSceneSelected(currentScene, path);
+  },
+
+  readDock: (path: VisualElementPath): VisualElement | null => {
+    return readSceneDock(currentScene, path);
   },
 
   find: (veid: Veid): Array<VisualElementSignal> => {
