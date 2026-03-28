@@ -183,18 +183,18 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
     arrangeNow(store, "join-items-restore-edit-focus");
     const allUpVes = VesCache.current.findNodes(upVeid);
     const currentCompositeVePath = VeFns.veToPath(compositeVe);
-    const upVes = allUpVes.find(ve => {
+    const upVe = allUpVes.find(ve => {
       const vesPath = VeFns.veToPath(ve);
       const vesParentPath = VeFns.parentPath(vesPath);
       return vesParentPath === currentCompositeVePath;
     });
 
-    if (!upVes) {
+    if (!upVe) {
       console.error("Could not find up item visual element in the current composite context");
       return;
     }
 
-    const currentUpPath = VeFns.veToPath(upVes);
+    const currentUpPath = VeFns.veToPath(upVe);
     store.overlay.setTextEditInfo(store.history, { itemPath: currentUpPath, itemType: upFocusItem.itemType });
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
@@ -241,17 +241,17 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
   const veid = { itemId: note.id, linkIdMaybe: null };
   const allNewVes = VesCache.current.findNodes(veid);
   const currentCompositeVePath = VeFns.veToPath(visualElement);
-  const newVes = allNewVes.find(ve => {
+  const newVe = allNewVes.find(ve => {
     const vesPath = VeFns.veToPath(ve);
     const vesParentPath = VeFns.parentPath(vesPath);
     return vesParentPath === currentCompositeVePath;
   });
 
-  if (!newVes) {
+  if (!newVe) {
     console.error("Could not find new note visual element in the current composite context");
     return;
   }
-  store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes), itemType: ItemType.Note });
+  store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVe), itemType: ItemType.Note });
 
   const newEditingPath = store.overlay.textEditInfo()!.itemPath + ":title";
   const newEditingTextElement = document.getElementById(newEditingPath);

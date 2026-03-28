@@ -23,24 +23,24 @@ import { getSceneVeidMatchPaths, veidIndexKey } from "./indexes";
 import { ProjectionOps } from "./projection";
 import { SceneState, VesCacheState } from "./state";
 
-type QueryDeps = {
-  getSceneNode: (scene: SceneState, path: VisualElementPath) => VisualElement | undefined;
-  getSceneParentPath: (scene: SceneState, path: VisualElementPath) => VisualElementPath | null;
-  resolveSceneNodePath: (scene: SceneState, path: VisualElementPath | null | undefined) => VisualElementSignal | null;
-  resolveSceneNodePaths: (scene: SceneState, paths: Array<VisualElementPath> | undefined) => Array<VisualElementSignal>;
-};
-
-export function createSceneQueryOps(state: VesCacheState, projection: ProjectionOps, deps: QueryDeps) {
+export function createSceneQueryOps(
+  state: VesCacheState,
+  projection: ProjectionOps,
+  getSceneNode: (scene: SceneState, path: VisualElementPath) => VisualElement | undefined,
+  getSceneParentPath: (scene: SceneState, path: VisualElementPath) => VisualElementPath | null,
+  resolveSceneNodePath: (scene: SceneState, path: VisualElementPath | null | undefined) => VisualElementSignal | null,
+  resolveSceneNodePaths: (scene: SceneState, paths: Array<VisualElementPath> | undefined) => Array<VisualElementSignal>,
+) {
   function getSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
-    return deps.resolveSceneNodePaths(scene, scene.childrenByParent.get(parentPath));
+    return resolveSceneNodePaths(scene, scene.childrenByParent.get(parentPath));
   }
 
   function getSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
-    return deps.resolveSceneNodePaths(scene, scene.relationshipsByPath.get(parentPath)?.children);
+    return resolveSceneNodePaths(scene, scene.relationshipsByPath.get(parentPath)?.children);
   }
 
   function getSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElementSignal> {
-    const parentPath = deps.getSceneParentPath(scene, path);
+    const parentPath = getSceneParentPath(scene, path);
     if (parentPath == null) {
       return [];
     }
@@ -52,13 +52,13 @@ export function createSceneQueryOps(state: VesCacheState, projection: Projection
     if (path == null) {
       return null;
     }
-    return deps.getSceneNode(scene, path) ?? null;
+    return getSceneNode(scene, path) ?? null;
   }
 
   function readSceneNodePaths(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
     const resolved: Array<VisualElement> = [];
     for (const path of paths ?? []) {
-      const node = deps.getSceneNode(scene, path);
+      const node = getSceneNode(scene, path);
       if (node) {
         resolved.push(node);
       }
@@ -86,7 +86,7 @@ export function createSceneQueryOps(state: VesCacheState, projection: Projection
   }
 
   function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
-    const parentPath = deps.getSceneParentPath(scene, path);
+    const parentPath = getSceneParentPath(scene, path);
     if (parentPath == null) {
       return [];
     }
@@ -139,14 +139,14 @@ export function createSceneQueryOps(state: VesCacheState, projection: Projection
     const result: Array<VisualElementSignal> = [];
     const seenPaths = new Set<VisualElementPath>();
     for (const path of getSceneVeidMatchPaths(state.underConstructionScene, veid)) {
-      const ves = deps.resolveSceneNodePath(state.underConstructionScene, path);
+      const ves = resolveSceneNodePath(state.underConstructionScene, path);
       if (ves && !seenPaths.has(path)) {
         seenPaths.add(path);
         result.push(ves);
       }
     }
     for (const path of getSceneVeidMatchPaths(state.currentScene, veid)) {
-      const ves = deps.resolveSceneNodePath(state.currentScene, path);
+      const ves = resolveSceneNodePath(state.currentScene, path);
       if (ves && !seenPaths.has(path)) {
         seenPaths.add(path);
         result.push(ves);
@@ -161,7 +161,7 @@ export function createSceneQueryOps(state: VesCacheState, projection: Projection
       throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
     }
     if (underConstructionMatches.length === 1) {
-      return deps.resolveSceneNodePath(state.underConstructionScene, underConstructionMatches[0]) ?? panic(`${veid.itemId}/${veid.linkIdMaybe} missing under-construction arrange signal.`);
+      return resolveSceneNodePath(state.underConstructionScene, underConstructionMatches[0]) ?? panic(`${veid.itemId}/${veid.linkIdMaybe} missing under-construction arrange signal.`);
     }
     const currentMatches = getSceneVeidMatchPaths(state.currentScene, veid);
     if (currentMatches.length > 1) {
@@ -170,16 +170,16 @@ export function createSceneQueryOps(state: VesCacheState, projection: Projection
     if (currentMatches.length === 0) {
       throw new Error(`${veid.itemId}/${veid.linkIdMaybe} not present in VesCache.`);
     }
-    return deps.resolveSceneNodePath(state.currentScene, currentMatches[0]) ?? panic(`${veid.itemId}/${veid.linkIdMaybe} missing render node signal.`);
+    return resolveSceneNodePath(state.currentScene, currentMatches[0]) ?? panic(`${veid.itemId}/${veid.linkIdMaybe} missing render node signal.`);
   }
 
   const currentSceneQueries = {
     getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-      return deps.resolveSceneNodePath(state.currentScene, path) ?? undefined;
+      return resolveSceneNodePath(state.currentScene, path) ?? undefined;
     },
 
     readNode: (path: VisualElementPath): VisualElement | undefined => {
-      return deps.getSceneNode(state.currentScene, path);
+      return getSceneNode(state.currentScene, path);
     },
 
     getIndexedChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {

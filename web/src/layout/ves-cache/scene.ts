@@ -193,24 +193,28 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     relationshipsByPath.set(path, relationshipData);
   }
 
-  const queryOps = createSceneQueryOps(state, projection, {
+  const queryOps = createSceneQueryOps(
+    state,
+    projection,
     getSceneNode,
     getSceneParentPath,
     resolveSceneNodePath,
     resolveSceneNodePaths,
-  });
+  );
   const {
     currentSceneQueries,
     virtualSceneQueries,
     renderSceneQueries,
   } = queryOps;
 
-  const syncOps = createSceneSyncOps(state, projection, {
+  const syncOps = createSceneSyncOps(
+    state,
+    projection,
     getSceneNode,
     sceneHasNode,
     resolveSceneNodePath,
     resolveSceneNodePaths,
-  });
+  );
   const {
     promoteCurrentScene,
     promoteVirtualScene,

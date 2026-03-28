@@ -81,20 +81,19 @@ export function findInVisualElements(store: StoreContextModel, findText: string)
       traverseVe(attachmentVe);
     }
 
-    const popupVes = VesCache.current.readPopup(path);
-    if (popupVes) {
-      traverseVe(popupVes);
+    const popupVe = VesCache.current.readPopup(path);
+    if (popupVe) {
+      traverseVe(popupVe);
     }
 
-    // traverse selectedVes
-    const selectedVes = VesCache.current.readSelected(path);
-    if (selectedVes) {
-      traverseVe(selectedVes);
+    const selectedVe = VesCache.current.readSelected(path);
+    if (selectedVe) {
+      traverseVe(selectedVe);
     }
 
-    const dockVes = VesCache.current.readDock(path);
-    if (dockVes) {
-      traverseVe(dockVes);
+    const dockVe = VesCache.current.readDock(path);
+    if (dockVe) {
+      traverseVe(dockVe);
     }
   };
 

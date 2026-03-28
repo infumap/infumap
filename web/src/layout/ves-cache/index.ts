@@ -86,10 +86,28 @@ const {
 
 export let VesCache = {
 
+  /*
+    Query facade over the committed scene graph: the last fully finalized
+    arrange result that has been promoted to currentScene.
+
+    Use this for non-rendering reads of layout structure and relationships when
+    you want plain scene data, not Solid render signals.
+  */
   current: currentSceneQueries,
 
+  /*
+    Query facade over the virtual scene snapshot: a separately stored arrange
+    result copied from an under-construction scene for virtual/layout-only use,
+    without replacing the live currentScene.
+  */
   virtual: virtualSceneQueries,
 
+  /*
+    Query facade over the render projection.
+
+    Use this for render-facing reads in component code when you need Solid
+    signals/reactive accessors that drive the DOM, rather than plain scene data.
+  */
   render: renderSceneQueries,
 
   /**

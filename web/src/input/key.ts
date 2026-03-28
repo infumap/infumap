@@ -368,10 +368,10 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
                 console.log("[DEBUG] Strategy 3 - table attachment nav, col:", virtualVe.col, "row:", virtualVe.row);
                 if (direction == FindDirection.Up || direction == FindDirection.Down) {
                   // Navigate between attachments in different table rows
-                  const rowVes = VesCache.virtual.readNode(virtualVe.parentPath);
-                  if (rowVes && rowVes.parentPath) {
-                    const tableVes = VesCache.virtual.readNode(rowVes.parentPath);
-                    if (tableVes) {
+                  const rowVe = VesCache.virtual.readNode(virtualVe.parentPath);
+                  if (rowVe && rowVe.parentPath) {
+                    const tableVe = VesCache.virtual.readNode(rowVe.parentPath);
+                    if (tableVe) {
                       // Get sibling rows (other rows in the table)
                       const siblingRows = VesCache.virtual.readSiblings(virtualVe.parentPath);
                       console.log("[DEBUG] Strategy 3 - siblingRows count:", siblingRows.length);

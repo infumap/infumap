@@ -23,14 +23,14 @@ import { ProjectionOps } from "./projection";
 import { cloneVisualElementSnapshot } from "./spec";
 import { createEmptyVirtualSceneState, SceneOutputs, SceneRelationshipData, SceneState, VesCacheState, VirtualSceneState } from "./state";
 
-type SyncDeps = {
-  getSceneNode: (scene: SceneState, path: VisualElementPath) => VisualElement | undefined;
-  sceneHasNode: (scene: SceneState, path: VisualElementPath) => boolean;
-  resolveSceneNodePath: (scene: SceneState, path: VisualElementPath | null | undefined) => VisualElementSignal | null;
-  resolveSceneNodePaths: (scene: SceneState, paths: Array<VisualElementPath> | undefined) => Array<VisualElementSignal>;
-};
-
-export function createSceneSyncOps(state: VesCacheState, projection: ProjectionOps, deps: SyncDeps) {
+export function createSceneSyncOps(
+  state: VesCacheState,
+  projection: ProjectionOps,
+  getSceneNode: (scene: SceneState, path: VisualElementPath) => VisualElement | undefined,
+  sceneHasNode: (scene: SceneState, path: VisualElementPath) => boolean,
+  resolveSceneNodePath: (scene: SceneState, path: VisualElementPath | null | undefined) => VisualElementSignal | null,
+  resolveSceneNodePaths: (scene: SceneState, paths: Array<VisualElementPath> | undefined) => Array<VisualElementSignal>,
+) {
   function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
     const entry = projection.findRenderProjection(path);
     if (!entry) {
@@ -118,21 +118,21 @@ export function createSceneSyncOps(state: VesCacheState, projection: ProjectionO
       projection.setRenderProjectionTableRows(path, renderTableRows ?? null);
       return;
     }
-    const popup = deps.resolveSceneNodePath(scene, relationships?.popup);
+    const popup = resolveSceneNodePath(scene, relationships?.popup);
     projection.updateRenderProjectionPopup(path, popup);
-    const selected = deps.resolveSceneNodePath(scene, relationships?.selected);
+    const selected = resolveSceneNodePath(scene, relationships?.selected);
     projection.updateRenderProjectionSelected(path, selected);
-    const dock = deps.resolveSceneNodePath(scene, relationships?.dock);
+    const dock = resolveSceneNodePath(scene, relationships?.dock);
     projection.updateRenderProjectionDock(path, dock);
-    const attachments = deps.resolveSceneNodePaths(scene, relationships?.attachments);
+    const attachments = resolveSceneNodePaths(scene, relationships?.attachments);
     projection.updateRenderProjectionAttachments(path, attachments);
-    const children = deps.resolveSceneNodePaths(scene, relationships?.children);
+    const children = resolveSceneNodePaths(scene, relationships?.children);
     projection.updateRenderProjectionChildren(path, children);
-    const lineChildren = deps.resolveSceneNodePaths(scene, relationships?.lineChildren);
+    const lineChildren = resolveSceneNodePaths(scene, relationships?.lineChildren);
     projection.updateRenderProjectionLineChildren(path, lineChildren);
-    const desktopChildren = deps.resolveSceneNodePaths(scene, relationships?.desktopChildren);
+    const desktopChildren = resolveSceneNodePaths(scene, relationships?.desktopChildren);
     projection.updateRenderProjectionDesktopChildren(path, desktopChildren);
-    const nonMovingChildren = deps.resolveSceneNodePaths(scene, relationships?.nonMovingChildren);
+    const nonMovingChildren = resolveSceneNodePaths(scene, relationships?.nonMovingChildren);
     projection.updateRenderProjectionNonMovingChildren(path, nonMovingChildren);
     const focusedChild = relationships?.focusedChildItemMaybe ?? null;
     projection.updateRenderProjectionFocused(path, focusedChild);
@@ -145,7 +145,7 @@ export function createSceneSyncOps(state: VesCacheState, projection: ProjectionO
     renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
   ) {
     for (const [path] of previousScene.cache) {
-      if (!deps.sceneHasNode(scene, path)) {
+      if (!sceneHasNode(scene, path)) {
         projection.deleteRenderProjectionForPath(path);
       }
     }
@@ -153,7 +153,7 @@ export function createSceneSyncOps(state: VesCacheState, projection: ProjectionO
     for (const [path] of scene.cache) {
       syncRenderProjectionNode(
         path,
-        deps.getSceneNode(scene, path),
+        getSceneNode(scene, path),
         previousScene.cache.get(path),
         previousScene.cache.has(path) ? undefined : state.underConstructionArrangeSignalsByPath.get(path),
       );
