@@ -16,45 +16,30 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { asContainerItem, isContainer } from "../../items/base/container-item";
-import { Item } from "../../items/base/item";
-import { StoreContextModel } from "../../store/StoreProvider";
-import { panic } from "../../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../../util/signals";
-import { Uid } from "../../util/uid";
-import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElement, VisualElementPath, VisualElementSpec } from "../visual-element";
 import {
   addIndexedScenePath,
   deindexVisualElement,
   deleteFromVessVsDisplayIdLookup,
   getScenePathsForDisplayId,
-  getSceneVeidMatchPaths,
-  veidIndexKey,
 } from "./indexes";
+import { addSceneWatchContainerUid, maybeTrackLoadedContainer, pushTopTitledPage, removeSceneWatchContainerUid } from "./outputs";
 import { ProjectionOps } from "./projection";
+import { createSceneQueryOps } from "./queries";
 import { createRelationshipOps, sceneRelationshipDataEqual } from "./relationships";
 import { cloneVisualElementSnapshot, visualElementMatchesPreparedSpec } from "./spec";
+import { createSceneSyncOps } from "./sync";
 import {
-  createEmptyVirtualSceneState,
-  SceneOutputs,
   SceneRelationshipData,
   SceneRelationshipsByPath,
   SceneState,
   VesCacheState,
-  VirtualSceneState,
 } from "./state";
 
 export type SceneOps = ReturnType<typeof createSceneOps>;
 
 export function createSceneOps(state: VesCacheState, projection: ProjectionOps) {
-  function maybeTrackLoadedContainer(outputs: SceneOutputs, spec: VisualElementSpec) {
-    if (isContainer(spec.displayItem) &&
-      ((spec.flags ?? VisualElementFlags.None) & VisualElementFlags.ShowChildren) &&
-      asContainerItem(spec.displayItem).childrenLoaded) {
-      addSceneWatchContainerUid(outputs, spec.displayItem.id, spec.displayItem.origin);
-    }
-  }
-
   function createVisualElement(spec: VisualElementSpec): VisualElement {
     return VeFns.create(spec);
   }
@@ -120,37 +105,13 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     return resolved;
   }
 
-  function getSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
-    return resolveSceneNodePaths(scene, scene.childrenByParent.get(parentPath));
-  }
-
-  function getSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElementSignal> {
-    return resolveSceneNodePaths(scene, scene.relationshipsByPath.get(parentPath)?.children);
-  }
-
-  function getSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElementSignal> {
-    const parentPath = getSceneParentPath(scene, path);
-    if (parentPath == null) {
-      return [];
-    }
-    return getSceneIndexedChildren(scene, parentPath)
-      .filter(ves => VeFns.veToPath(ves.get()) !== path);
-  }
-
   function getSceneDisplayItemFingerprint(scene: SceneState, path: VisualElementPath): string | undefined {
     return getSceneNode(scene, path)?.displayItemFingerprint;
   }
 
-  function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
-    const entry = projection.findRenderProjection(path);
-    if (!entry) {
-      return undefined;
-    }
-    return projection.readRenderProjectionSignal(entry.node);
-  }
-
   function ensureCurrentRenderNode(path: VisualElementPath): VisualElementSignal | null {
-    const existing = getRenderNode(path);
+    const entry = projection.findRenderProjection(path);
+    const existing = entry ? projection.readRenderProjectionSignal(entry.node) : undefined;
     if (existing) {
       return existing;
     }
@@ -183,171 +144,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     const signal = createVisualElementSignal(cloneVisualElementSnapshot(ve));
     state.underConstructionArrangeSignalsByPath.set(path, signal);
     return signal;
-  }
-
-  function readSceneNodePath(scene: SceneState, path: VisualElementPath | null | undefined): VisualElement | null {
-    if (path == null) {
-      return null;
-    }
-    return getSceneNode(scene, path) ?? null;
-  }
-
-  function readSceneNodePaths(scene: SceneState, paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
-    const resolved: Array<VisualElement> = [];
-    for (const path of paths ?? []) {
-      const node = getSceneNode(scene, path);
-      if (node) {
-        resolved.push(node);
-      }
-    }
-    return resolved;
-  }
-
-  function readVirtualNodePaths(paths: Array<VisualElementPath> | undefined): Array<VisualElement> {
-    const resolved: Array<VisualElement> = [];
-    for (const path of paths ?? []) {
-      const node = state.virtualScene.cache.get(path);
-      if (node) {
-        resolved.push(node);
-      }
-    }
-    return resolved;
-  }
-
-  function readSceneNode(scene: SceneState, path: VisualElementPath): VisualElement | undefined {
-    return getSceneNode(scene, path);
-  }
-
-  function readSceneIndexedChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
-    return readSceneNodePaths(scene, scene.childrenByParent.get(parentPath));
-  }
-
-  function readSceneStructuralChildren(scene: SceneState, parentPath: VisualElementPath): Array<VisualElement> {
-    return readSceneNodePaths(scene, scene.relationshipsByPath.get(parentPath)?.children);
-  }
-
-  function readSceneSiblings(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
-    const parentPath = getSceneParentPath(scene, path);
-    if (parentPath == null) {
-      return [];
-    }
-    return readSceneNodePaths(scene, scene.childrenByParent.get(parentPath))
-      .filter(ve => VeFns.veToPath(ve) !== path);
-  }
-
-  function readSceneAttachments(scene: SceneState, path: VisualElementPath): Array<VisualElement> {
-    return readSceneNodePaths(scene, scene.relationshipsByPath.get(path)?.attachments);
-  }
-
-  function readScenePopup(scene: SceneState, path: VisualElementPath): VisualElement | null {
-    return readSceneNodePath(scene, scene.relationshipsByPath.get(path)?.popup);
-  }
-
-  function readSceneSelected(scene: SceneState, path: VisualElementPath): VisualElement | null {
-    return readSceneNodePath(scene, scene.relationshipsByPath.get(path)?.selected);
-  }
-
-  function readSceneDock(scene: SceneState, path: VisualElementPath): VisualElement | null {
-    return readSceneNodePath(scene, scene.relationshipsByPath.get(path)?.dock);
-  }
-
-  function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
-    const snapshot = createEmptyVirtualSceneState();
-
-    for (const [path, ve] of scene.cache) {
-      snapshot.cache.set(path, cloneVisualElementSnapshot(ve));
-    }
-
-    for (const [displayId, paths] of scene.vessVsDisplayId) {
-      snapshot.vessVsDisplayId.set(displayId, paths.slice());
-    }
-
-    for (const [parentPath, children] of scene.childrenByParent) {
-      snapshot.childrenByParent.set(parentPath, children.slice());
-    }
-
-    for (const [veidKey, matches] of scene.vessByVeid) {
-      snapshot.vessByVeid.set(veidKey, matches.slice());
-    }
-
-    for (const [path, relationships] of scene.relationshipsByPath) {
-      snapshot.relationshipsByPath.set(path, {
-        attachments: relationships.attachments.slice(),
-        popup: relationships.popup,
-        selected: relationships.selected,
-        dock: relationships.dock,
-        children: relationships.children.slice(),
-        lineChildren: relationships.lineChildren.slice(),
-        desktopChildren: relationships.desktopChildren.slice(),
-        nonMovingChildren: relationships.nonMovingChildren.slice(),
-        focusedChildItemMaybe: relationships.focusedChildItemMaybe,
-      });
-    }
-
-    return snapshot;
-  }
-
-  function readVirtualSceneNode(path: VisualElementPath): VisualElement | undefined {
-    return state.virtualScene.cache.get(path);
-  }
-
-  function readVirtualSceneIndexedChildren(parentPath: VisualElementPath): Array<VisualElement> {
-    return readVirtualNodePaths(state.virtualScene.childrenByParent.get(parentPath));
-  }
-
-  function readVirtualSceneStructuralChildren(parentPath: VisualElementPath): Array<VisualElement> {
-    return readVirtualNodePaths(state.virtualScene.relationshipsByPath.get(parentPath)?.children);
-  }
-
-  function readVirtualSceneSiblings(path: VisualElementPath): Array<VisualElement> {
-    const parentPath = readVirtualSceneNode(path)?.parentPath ?? VeFns.parentPath(path) ?? null;
-    if (parentPath == null) {
-      return [];
-    }
-    return readVirtualSceneIndexedChildren(parentPath)
-      .filter(ve => VeFns.veToPath(ve) !== path);
-  }
-
-  function readVirtualSceneVeidMatches(veid: Veid): Array<VisualElement> {
-    return readVirtualNodePaths(state.virtualScene.vessByVeid.get(veidIndexKey(veid)));
-  }
-
-  function findCurrentSceneMatches(veid: Veid): Array<VisualElementSignal> {
-    const result: Array<VisualElementSignal> = [];
-    const seenPaths = new Set<VisualElementPath>();
-    for (const path of getSceneVeidMatchPaths(state.underConstructionScene, veid)) {
-      const ves = resolveSceneNodePath(state.underConstructionScene, path);
-      if (ves && !seenPaths.has(path)) {
-        seenPaths.add(path);
-        result.push(ves);
-      }
-    }
-    for (const path of getSceneVeidMatchPaths(state.currentScene, veid)) {
-      const ves = resolveSceneNodePath(state.currentScene, path);
-      if (ves && !seenPaths.has(path)) {
-        seenPaths.add(path);
-        result.push(ves);
-      }
-    }
-    return result;
-  }
-
-  function findSingleCurrentSceneMatch(veid: Veid): VisualElementSignal {
-    const underConstructionMatches = getSceneVeidMatchPaths(state.underConstructionScene, veid);
-    if (underConstructionMatches.length > 1) {
-      throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
-    }
-    if (underConstructionMatches.length === 1) {
-      return resolveSceneNodePath(state.underConstructionScene, underConstructionMatches[0]) ?? panic(`${veid.itemId}/${veid.linkIdMaybe} missing under-construction arrange signal.`);
-    }
-    const currentMatches = getSceneVeidMatchPaths(state.currentScene, veid);
-    if (currentMatches.length > 1) {
-      throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
-    }
-    if (currentMatches.length === 0) {
-      throw new Error(`${veid.itemId}/${veid.linkIdMaybe} not present in VesCache.`);
-    }
-    return resolveSceneNodePath(state.currentScene, currentMatches[0]) ?? panic(`${veid.itemId}/${veid.linkIdMaybe} missing render node signal.`);
   }
 
   function writeScenePath(
@@ -395,92 +191,6 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     return relationshipData;
   }
 
-  function syncRenderProjectionNode(
-    path: VisualElementPath,
-    nextVe: VisualElement | undefined,
-    previousVe?: VisualElement,
-    preferredSignal?: VisualElementSignal,
-  ) {
-    if (!nextVe) {
-      projection.updateRenderProjectionNode(path, undefined);
-      return;
-    }
-
-    if (preferredSignal) {
-      projection.updateRenderProjectionNode(path, preferredSignal);
-      return;
-    }
-
-    let signal = getRenderNode(path);
-    if (!signal) {
-      signal = createVisualElementSignal(cloneVisualElementSnapshot(nextVe));
-      projection.updateRenderProjectionNode(path, signal);
-      return;
-    }
-
-    if (previousVe === nextVe) {
-      projection.updateRenderProjectionNode(path, signal);
-      return;
-    }
-
-    signal.set(cloneVisualElementSnapshot(nextVe));
-    projection.updateRenderProjectionNode(path, signal);
-  }
-
-  function syncRenderProjectionRelationshipsForPath(
-    scene: SceneState,
-    path: VisualElementPath,
-    previousRelationships?: SceneRelationshipData,
-    renderTableRows?: Array<number> | null,
-  ) {
-    const relationships = scene.relationshipsByPath.get(path);
-    if (relationships === previousRelationships) {
-      projection.setRenderProjectionTableRows(path, renderTableRows ?? null);
-      return;
-    }
-    const popup = resolveSceneNodePath(scene, relationships?.popup);
-    projection.updateRenderProjectionPopup(path, popup);
-    const selected = resolveSceneNodePath(scene, relationships?.selected);
-    projection.updateRenderProjectionSelected(path, selected);
-    const dock = resolveSceneNodePath(scene, relationships?.dock);
-    projection.updateRenderProjectionDock(path, dock);
-    const attachments = resolveSceneNodePaths(scene, relationships?.attachments);
-    projection.updateRenderProjectionAttachments(path, attachments);
-    const children = resolveSceneNodePaths(scene, relationships?.children);
-    projection.updateRenderProjectionChildren(path, children);
-    const lineChildren = resolveSceneNodePaths(scene, relationships?.lineChildren);
-    projection.updateRenderProjectionLineChildren(path, lineChildren);
-    const desktopChildren = resolveSceneNodePaths(scene, relationships?.desktopChildren);
-    projection.updateRenderProjectionDesktopChildren(path, desktopChildren);
-    const nonMovingChildren = resolveSceneNodePaths(scene, relationships?.nonMovingChildren);
-    projection.updateRenderProjectionNonMovingChildren(path, nonMovingChildren);
-    const focusedChild = relationships?.focusedChildItemMaybe ?? null;
-    projection.updateRenderProjectionFocused(path, focusedChild);
-    projection.setRenderProjectionTableRows(path, renderTableRows ?? null);
-  }
-
-  function addSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
-    if (!outputs.watchContainerUidsByOrigin.has(origin)) {
-      outputs.watchContainerUidsByOrigin.set(origin, new Set<Uid>());
-    }
-    outputs.watchContainerUidsByOrigin.get(origin)!.add(uid);
-  }
-
-  function pushTopTitledPage(outputs: SceneOutputs, vePath: VisualElementPath) {
-    outputs.topTitledPages.push(vePath);
-  }
-
-  function removeSceneWatchContainerUid(outputs: SceneOutputs, uid: Uid, origin: string | null) {
-    const uidSet = outputs.watchContainerUidsByOrigin.get(origin);
-    if (!uidSet) {
-      return;
-    }
-    uidSet.delete(uid);
-    if (uidSet.size === 0) {
-      outputs.watchContainerUidsByOrigin.delete(origin);
-    }
-  }
-
   function writeSceneRelationshipData(
     relationshipsByPath: SceneRelationshipsByPath,
     path: VisualElementPath,
@@ -489,186 +199,30 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     relationshipsByPath.set(path, relationshipData);
   }
 
-  function syncRenderProjectionFromScene(
-    previousScene: SceneState,
-    scene: SceneState,
-    renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
-  ) {
-    for (const [path] of previousScene.cache) {
-      if (!sceneHasNode(scene, path)) {
-        projection.deleteRenderProjectionForPath(path);
-      }
-    }
+  const queryOps = createSceneQueryOps(state, projection, {
+    getSceneNode,
+    getSceneParentPath,
+    resolveSceneNodePath,
+    resolveSceneNodePaths,
+  });
+  const {
+    currentSceneQueries,
+    virtualSceneQueries,
+    renderSceneQueries,
+  } = queryOps;
 
-    for (const [path] of scene.cache) {
-      syncRenderProjectionNode(
-        path,
-        getSceneNode(scene, path),
-        previousScene.cache.get(path),
-        previousScene.cache.has(path) ? undefined : state.underConstructionArrangeSignalsByPath.get(path),
-      );
-    }
-
-    for (const [path] of scene.cache) {
-      syncRenderProjectionRelationshipsForPath(
-        scene,
-        path,
-        previousScene.relationshipsByPath.get(path),
-        renderTableRowsByPath?.get(path) ?? null,
-      );
-    }
-  }
-
-  function promoteVirtualScene(scene: SceneState) {
-    state.virtualScene = snapshotVirtualScene(scene);
-  }
-
-  function promoteCurrentScene(
-    store: StoreContextModel,
-    scene: SceneState,
-    outputs: SceneOutputs,
-    renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
-  ) {
-    const previousScene = state.currentScene;
-    state.currentScene = scene;
-    state.currentSceneOutputs = outputs;
-    store.topTitledPages.set(outputs.topTitledPages);
-    syncRenderProjectionFromScene(previousScene, scene, renderTableRowsByPath);
-  }
-
-  const currentSceneQueries = {
-    getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-      return ensureCurrentRenderNode(path) ?? undefined;
-    },
-
-    readNode: (path: VisualElementPath): VisualElement | undefined => {
-      return readSceneNode(state.currentScene, path);
-    },
-
-    getIndexedChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
-      return getSceneIndexedChildren(state.currentScene, parentPath);
-    },
-
-    readIndexedChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
-      return readSceneIndexedChildren(state.currentScene, parentPath);
-    },
-
-    getStructuralChildren: (parentPath: VisualElementPath): Array<VisualElementSignal> => {
-      return getSceneStructuralChildren(state.currentScene, parentPath);
-    },
-
-    readStructuralChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
-      return readSceneStructuralChildren(state.currentScene, parentPath);
-    },
-
-    getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
-      return getSceneSiblings(state.currentScene, path);
-    },
-
-    readSiblings: (path: VisualElementPath): Array<VisualElement> => {
-      return readSceneSiblings(state.currentScene, path);
-    },
-
-    readAttachments: (path: VisualElementPath): Array<VisualElement> => {
-      return readSceneAttachments(state.currentScene, path);
-    },
-
-    readPopup: (path: VisualElementPath): VisualElement | null => {
-      return readScenePopup(state.currentScene, path);
-    },
-
-    readSelected: (path: VisualElementPath): VisualElement | null => {
-      return readSceneSelected(state.currentScene, path);
-    },
-
-    readDock: (path: VisualElementPath): VisualElement | null => {
-      return readSceneDock(state.currentScene, path);
-    },
-
-    find: (veid: Veid): Array<VisualElementSignal> => {
-      return findCurrentSceneMatches(veid);
-    },
-
-    findNodes: (veid: Veid): Array<VisualElement> => {
-      return readSceneNodePaths(state.currentScene, state.currentScene.vessByVeid.get(veidIndexKey(veid)));
-    },
-
-    findSingle: (veid: Veid): VisualElementSignal => {
-      return findSingleCurrentSceneMatch(veid);
-    },
-  };
-
-  const virtualSceneQueries = {
-    readNode: (path: VisualElementPath): VisualElement | undefined => {
-      return readVirtualSceneNode(path);
-    },
-
-    readIndexedChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
-      return readVirtualSceneIndexedChildren(parentPath);
-    },
-
-    readStructuralChildren: (parentPath: VisualElementPath): Array<VisualElement> => {
-      return readVirtualSceneStructuralChildren(parentPath);
-    },
-
-    readSiblings: (path: VisualElementPath): Array<VisualElement> => {
-      return readVirtualSceneSiblings(path);
-    },
-
-    findNodes: (veid: Veid): Array<VisualElement> => {
-      return readVirtualSceneVeidMatches(veid);
-    },
-  };
-
-  const renderSceneQueries = {
-    getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).node)[0]();
-    },
-
-    find: (veid: Veid): Array<VisualElementSignal> => {
-      return findCurrentSceneMatches(veid);
-    },
-
-    findSingle: (veid: Veid): VisualElementSignal => {
-      return findSingleCurrentSceneMatch(veid);
-    },
-
-    getAttachments: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).attachments)[0];
-    },
-
-    getPopup: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).popup)[0];
-    },
-
-    getSelected: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).selected)[0];
-    },
-
-    getDock: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).dock)[0];
-    },
-
-    getChildren: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).children)[0];
-    },
-
-    getLineChildren: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).lineChildren)[0];
-    },
-
-    getDesktopChildren: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).desktopChildren)[0];
-    },
-
-    getNonMovingChildren: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).nonMovingChildren)[0];
-    },
-
-    getFocusedChild: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).focused)[0];
-    },
-  };
+  const syncOps = createSceneSyncOps(state, projection, {
+    getSceneNode,
+    sceneHasNode,
+    resolveSceneNodePath,
+    resolveSceneNodePaths,
+  });
+  const {
+    promoteCurrentScene,
+    promoteVirtualScene,
+    syncRenderProjectionNode,
+    syncRenderProjectionRelationshipsForPath,
+  } = syncOps;
 
   return {
     maybeTrackLoadedContainer,
