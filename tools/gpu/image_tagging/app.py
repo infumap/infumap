@@ -301,6 +301,38 @@ def load_image_embedding_backend() -> tuple[Any, Any, Any, str]:
     return torch, processor, model, device
 
 
+def disable_image_embedding(reason: str) -> None:
+    APP_STATE["image_embedding_enabled"] = False
+    APP_STATE["image_embedding_device"] = "disabled"
+    APP_STATE["image_embedding_error"] = reason
+    APP_STATE.pop("embedding_torch", None)
+    APP_STATE.pop("embedding_processor", None)
+    APP_STATE.pop("embedding_model", None)
+
+
+def build_embedding_processor_inputs(processor: Any, image: Image.Image) -> dict[str, Any]:
+    first_error: Exception | None = None
+
+    for kwargs in (
+        {"return_tensors": "pt"},
+        {"return_tensors": "pt", "input_data_format": "channels_last"},
+    ):
+        try:
+            return processor(images=image, **kwargs)
+        except TypeError as exc:
+            if "input_data_format" not in kwargs:
+                raise
+            if first_error is None:
+                first_error = exc
+        except RuntimeError as exc:
+            if first_error is None:
+                first_error = exc
+
+    if first_error is not None:
+        raise RuntimeError(f"Image embedding preprocessing failed: {first_error}") from first_error
+    raise RuntimeError("Image embedding preprocessing failed.")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global TAG_SEMAPHORE
@@ -325,9 +357,7 @@ async def lifespan(_: FastAPI):
             APP_STATE["embedding_model"] = model
             APP_STATE["image_embedding_device"] = device
         except Exception as exc:
-            APP_STATE["image_embedding_enabled"] = False
-            APP_STATE["image_embedding_device"] = "disabled"
-            APP_STATE["image_embedding_error"] = str(exc)
+            disable_image_embedding(str(exc))
             LOGGER.warning(
                 "Image embedding disabled during startup: %s. Set IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING=0 to suppress this warning.",
                 exc,
@@ -793,10 +823,7 @@ def compute_image_embedding_sync(prepared_bytes: bytes) -> list[float]:
         image = image.resize((max(2, image.width), max(2, image.height)), resample=image_resampling_filter())
 
     model_dtype = next(model.parameters()).dtype
-    try:
-        inputs = processor(images=image, return_tensors="pt", input_data_format="channels_last")
-    except TypeError:
-        inputs = processor(images=image, return_tensors="pt")
+    inputs = build_embedding_processor_inputs(processor, image)
     normalized_inputs: dict[str, Any] = {}
     for key, value in inputs.items():
         if not hasattr(value, "to"):
@@ -825,7 +852,15 @@ def compute_image_embedding_sync(prepared_bytes: bytes) -> list[float]:
 async def compute_image_embedding(prepared_bytes: bytes) -> list[float]:
     if not APP_STATE.get("image_embedding_enabled"):
         return []
-    return await asyncio.to_thread(compute_image_embedding_sync, prepared_bytes)
+    try:
+        return await asyncio.to_thread(compute_image_embedding_sync, prepared_bytes)
+    except Exception as exc:
+        disable_image_embedding(str(exc))
+        LOGGER.warning(
+            "Image embedding disabled after request failure: %s. Tagging will continue without embeddings.",
+            exc,
+        )
+        return []
 
 
 def validate_image_embedding_result(image_embedding: list[float]) -> None:
