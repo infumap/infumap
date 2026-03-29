@@ -255,6 +255,7 @@ def build_runtime_summary() -> list[str]:
         f"httpx={package_version('httpx')}",
         f"pillow={package_version('Pillow')}",
         f"torch={package_version('torch')}",
+        f"torchvision={package_version('torchvision')}",
         f"transformers={package_version('transformers')}",
         f"backend={LLAMA_BACKEND_NAME}",
         f"llama_server_url={llama_server_url()}",
@@ -268,6 +269,7 @@ def build_runtime_summary() -> list[str]:
         f"target_max_pixels={target_max_pixels()}",
         f"target_max_long_edge={target_max_long_edge()}",
         f"output_jpeg_quality={output_jpeg_quality()}",
+        f"image_embedding_error={APP_STATE.get('image_embedding_error') or '<none>'}",
     ]
 
 
@@ -277,7 +279,7 @@ def load_image_embedding_backend() -> tuple[Any, Any, Any, str]:
         from transformers import AutoImageProcessor, AutoModel
     except Exception as exc:
         raise RuntimeError(
-            "Image embedding dependencies are unavailable. Install torch and transformers in the image-tagging venv."
+            "Image embedding dependencies are unavailable. Install torch, torchvision, and transformers in the image-tagging venv."
         ) from exc
 
     model_id = image_embedding_model_id()
@@ -286,8 +288,14 @@ def load_image_embedding_backend() -> tuple[Any, Any, Any, str]:
     if device.startswith("cuda"):
         model_kwargs["torch_dtype"] = torch.float16
 
-    processor = AutoImageProcessor.from_pretrained(model_id)
-    model = AutoModel.from_pretrained(model_id, **model_kwargs)
+    try:
+        processor = AutoImageProcessor.from_pretrained(model_id)
+        model = AutoModel.from_pretrained(model_id, **model_kwargs)
+    except ImportError as exc:
+        raise RuntimeError(
+            "Image embedding dependencies are incomplete. Install torch, torchvision, and transformers in the image-tagging venv."
+        ) from exc
+
     model = model.to(device)
     model.eval()
     return torch, processor, model, device
@@ -308,12 +316,22 @@ async def lifespan(_: FastAPI):
     APP_STATE["model_id"] = llama_model_id()
     APP_STATE["image_embedding_enabled"] = image_embedding_enabled()
     APP_STATE["image_embedding_model_id"] = image_embedding_model_id()
+    APP_STATE["image_embedding_error"] = None
     if APP_STATE["image_embedding_enabled"]:
-        torch, processor, model, device = load_image_embedding_backend()
-        APP_STATE["embedding_torch"] = torch
-        APP_STATE["embedding_processor"] = processor
-        APP_STATE["embedding_model"] = model
-        APP_STATE["image_embedding_device"] = device
+        try:
+            torch, processor, model, device = load_image_embedding_backend()
+            APP_STATE["embedding_torch"] = torch
+            APP_STATE["embedding_processor"] = processor
+            APP_STATE["embedding_model"] = model
+            APP_STATE["image_embedding_device"] = device
+        except Exception as exc:
+            APP_STATE["image_embedding_enabled"] = False
+            APP_STATE["image_embedding_device"] = "disabled"
+            APP_STATE["image_embedding_error"] = str(exc)
+            LOGGER.warning(
+                "Image embedding disabled during startup: %s. Set IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING=0 to suppress this warning.",
+                exc,
+            )
     else:
         APP_STATE["image_embedding_device"] = "disabled"
     TAG_SEMAPHORE = asyncio.Semaphore(GPU_REQUEST_CONCURRENCY)
@@ -1090,6 +1108,7 @@ async def healthz() -> dict[str, Any]:
         "image_embedding_enabled": APP_STATE.get("image_embedding_enabled"),
         "image_embedding_model_id": APP_STATE.get("image_embedding_model_id"),
         "image_embedding_device": APP_STATE.get("image_embedding_device"),
+        "image_embedding_error": APP_STATE.get("image_embedding_error"),
         "detail": detail,
     }
 

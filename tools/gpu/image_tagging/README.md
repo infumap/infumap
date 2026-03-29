@@ -12,7 +12,8 @@ The default launcher path does three things for you:
 The service accepts multipart image uploads and forwards them to `llama-server`
 via its OpenAI-compatible chat completions endpoint. It also computes a local
 image embedding in parallel using `facebook/dinov2-with-registers-base` by
-default.
+default when the optional `torch` / `torchvision` / `transformers`
+dependencies are available.
 
 ## Default Layout
 
