@@ -54,8 +54,7 @@ const scene = createSceneOps(vesCacheState, projection);
 export let VesCache = {
 
   /*
-    Query facade over the committed scene graph: the last fully finalized
-    arrange result that has been promoted to currentScene.
+    Query facade over the live arranged layout currently stored in currentScene.
 
     Use this for non-rendering reads of layout structure and relationships when
     you want plain scene data, not Solid render signals.
@@ -63,17 +62,21 @@ export let VesCache = {
   current: scene.current,
 
   /*
-    Query facade over the virtual scene snapshot: a separately stored arrange
-    result copied from an under-construction scene for virtual/layout-only use,
-    without replacing the live currentScene.
+    Query facade over a temporary layout.
+
+    This is populated using `arrangeVirtual(...)` without replacing the live
+    currentScene.
+
+    Use this for read-only queries against a layout computed for navigation or
+    other lookahead logic.
   */
   virtual: scene.virtual,
 
   /*
-    Query facade over the render projection.
+    Query facade over the reactive layout state used by components.
 
-    Use this for render-facing reads in component code when you need Solid
-    signals/reactive accessors that drive the DOM, rather than plain scene data.
+    Use this in component code when you need Solid signals/accessors that update
+    the DOM as layout changes, rather than plain scene data.
   */
   render: scene.render,
 
