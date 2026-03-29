@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use byteorder::{BigEndian, WriteBytesExt};
+use container_sync::ContainerSyncState;
 use infusdk::util::infu::InfuResult;
 use ingest_session_db::IngestSessionDb;
 use log::debug;
@@ -26,6 +27,7 @@ use self::pending_user_db::PendingUserDb;
 use self::session_db::SessionDb;
 use self::user_db::UserDb;
 
+pub mod container_sync;
 pub mod ingest_session;
 pub mod ingest_session_db;
 pub mod item_db;
@@ -44,6 +46,7 @@ pub struct Db {
   pub item: ItemDb,
   pub session: SessionDb,
   pub ingest_session: IngestSessionDb,
+  pub container_sync: ContainerSyncState,
 }
 
 impl Db {
@@ -61,6 +64,7 @@ impl Db {
         .await
         .map_err(|e| format!("Failed to initialize IngestSessionDb: {}", e))?,
       item: ItemDb::init(data_dir),
+      container_sync: ContainerSyncState::new(),
     })
   }
 

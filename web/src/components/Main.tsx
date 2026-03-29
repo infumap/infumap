@@ -17,7 +17,15 @@
 */
 
 import { Component, onCleanup, onMount, Show } from "solid-js";
-import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, ItemsAndTheirAttachments, server, remote, startContainerAutoRefresh, stopContainerAutoRefresh } from "../server";
+import {
+  clearLocalContainerSyncVersions,
+  GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS,
+  ItemsAndTheirAttachments,
+  remote,
+  server,
+  startContainerSyncLoop,
+  stopContainerSyncLoop,
+} from "../server";
 import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
@@ -45,6 +53,7 @@ import { Toolbar_TransientMessage } from "./toolbar/Toolbar_TransientMessage";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { asPageItem, isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
+import { isAttachmentsItem } from "../items/base/attachments-item";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 
@@ -120,34 +129,25 @@ export const Main: Component = () => {
         asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [itemId];
       }
 
-      try {
-        if (result.attachments[itemId]) {
-          itemState.setAttachmentItemsFromServerObjects(itemId, result.attachments[itemId], origin);
+      if (isAttachmentsItem(itemState.get(itemId)!)) {
+        try {
+          itemState.applyAttachmentItemsSnapshotFromServerObjects(itemId, result.attachments[itemId] ?? [], origin);
+        } catch (e: any) {
+          console.error(`Main.onMount applyAttachmentItemsSnapshotFromServerObjects (1) failed ${id}`, e);
+          throw e;
         }
-      } catch (e: any) {
-        console.error(`Main.onMount setAttachmentItemsFromServerObjects (1) failed ${id}`, e);
-        throw e;
       }
 
       const item = itemState.get(itemId)!;
       if (isContainer(item)) {
         markChildrenLoadAsInitiatedOrComplete(itemId);
         try {
-          itemState.setChildItemsFromServerObjects(itemId, result.children, origin);
+          itemState.applyContainerSnapshotFromServerObjects(itemId, result.children, result.attachments, origin);
         } catch (e: any) {
-          console.error(`Main.onMount setChildItemsFromServerObjects failed ${id}`, e);
+          console.error(`Main.onMount applyContainerSnapshotFromServerObjects failed ${id}`, e);
           throw e;
         }
       }
-
-      Object.keys(result.attachments).forEach(id => {
-        try {
-          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
-        } catch (e: any) {
-          console.error(`Main.onMount setAttachmentItemsFromServerObjects (2) failed ${id}`, e);
-          throw e;
-        }
-      });
 
       try {
         switchToPage(store, isPage(item) ? { itemId, linkIdMaybe: null } : { itemId: SOLO_ITEM_HOLDER_PAGE_UID, linkIdMaybe: null }, false, false, false);
@@ -163,8 +163,7 @@ export const Main: Component = () => {
       switchToNonPage(store, '/login');
     }
 
-    // Start server load test
-    startContainerAutoRefresh(store);
+    startContainerSyncLoop(store);
 
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
     document.addEventListener('keydown', keyDownListener);
@@ -173,8 +172,7 @@ export const Main: Component = () => {
   });
 
   onCleanup(() => {
-    // Stop server load test
-    stopContainerAutoRefresh();
+    stopContainerSyncLoop();
 
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
     document.removeEventListener('keydown', keyDownListener);
@@ -205,6 +203,7 @@ export const Main: Component = () => {
     itemState.clear();
     VesCache.clear();
     clearLoadState();
+    clearLocalContainerSyncVersions();
     await store.user.logout();
     switchToNonPage(store, '/login');
   };

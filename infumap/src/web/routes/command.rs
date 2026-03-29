@@ -45,13 +45,11 @@ use tokio::sync::MutexGuard;
 
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
+use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};
 use crate::storage::db::session::Session;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
-use crate::util::item::hash_children_and_their_attachments_only;
-use crate::util::item::hash_item_and_attachments_only;
-use crate::util::item::hash_item_attachments_children_and_their_attachments;
 use crate::util::mime::detect_mime_type;
 use crate::util::ordering::new_ordering_at_end;
 use crate::web::image_tagging::{
@@ -60,6 +58,7 @@ use crate::web::image_tagging::{
 use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
 use crate::web::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
+use std::collections::{HashMap, HashSet};
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
 // 190+ MiB raw files while remaining bounded.
@@ -160,11 +159,11 @@ pub async fn serve_command_route(
     "add-item" => {
       handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session_maybe).await
     }
-    "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await.map(|_| None),
+    "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await,
     "delete-item" => {
-      handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await.map(|_| None)
+      handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await
     }
-    "modified-check" => handle_modified_check(db, &request.json_data, &session_maybe).await,
+    "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
     "search" => handle_search(db, &request.json_data, &session_maybe).await,
     "empty-trash" => handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     _ => {
@@ -425,36 +424,244 @@ fn get_attachments_authorized<'a>(
   Ok(attachments)
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct ModifiedCheck {
-  pub id: String,
-  pub mode: String,
-  pub hash: String,
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ContainerSyncAckContainer {
+  pub id: Uid,
+  pub version: u64,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ContainerSyncAck {
+  pub containers: Vec<ContainerSyncAckContainer>,
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct ModifiedCheckResult {
-  pub id: String,
-  pub mode: String,
-  pub modified: bool,
+pub struct SyncContainersSubscription {
+  pub id: Uid,
+  #[serde(rename = "knownVersion")]
+  pub known_version: Option<u64>,
 }
 
-// An alternative implementation would be to keep epoch numbers associated with every item
-// for each GetItemsMode. This would trade space for computation, which if backed by disk
-// would be the better tradeoff. It would also be more robust to bugs I think. Additionally,
-// the last N updates for a user could be maintained, and it would be relatively easy to
-// figure out which updates need to be applied to bring a particular item up to the latest
-// epoch, if the complete set of updates is in the last N. Only the updates need be
-// returned to the client. If they aren't cached, return the full state. For multi-player
-// functionality, this is how it would need to work. Multi-player is not possible yet though
-// - a better authorization model is needed first.
+#[derive(Deserialize, Serialize)]
+pub struct SyncContainersRequest {
+  pub subscriptions: Vec<SyncContainersSubscription>,
+}
 
-async fn handle_modified_check(
+#[derive(Deserialize, Serialize, Clone)]
+pub struct SyncContainerSnapshot {
+  pub children: Vec<serde_json::Map<String, serde_json::Value>>,
+  pub attachments: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct SyncContainerUpdate {
+  pub id: Uid,
+  pub version: u64,
+  pub strategy: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub children: Option<Vec<serde_json::Map<String, serde_json::Value>>>,
+  #[serde(rename = "childDeletes", skip_serializing_if = "Option::is_none")]
+  pub child_deletes: Option<Vec<Uid>>,
+  #[serde(rename = "attachmentUpserts", skip_serializing_if = "Option::is_none")]
+  pub attachment_upserts: Option<serde_json::Map<String, serde_json::Value>>,
+  #[serde(rename = "attachmentDeletes", skip_serializing_if = "Option::is_none")]
+  pub attachment_deletes: Option<serde_json::Map<String, serde_json::Value>>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub snapshot: Option<SyncContainerSnapshot>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct SyncContainersResponse {
+  pub updates: Vec<SyncContainerUpdate>,
+}
+
+fn item_to_api_json_map(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>> {
+  item.to_api_json().map_err(|e| format!("Error occurred converting item '{}' to API JSON: {}", item.id, e).into())
+}
+
+fn attachments_to_api_json(items: Vec<&Item>) -> InfuResult<Vec<serde_json::Map<String, serde_json::Value>>> {
+  items
+    .iter()
+    .map(|item| item.to_api_json().ok())
+    .collect::<Option<Vec<_>>>()
+    .ok_or("Error occurred converting one or more attachment items to API JSON.".into())
+}
+
+fn build_authoritative_child_attachment_snapshot(
+  db: &MutexGuard<'_, Db>,
+  item_id: &Uid,
+  session_user_id_maybe: &Option<String>,
+) -> InfuResult<SyncContainerSnapshot> {
+  let child_items = get_children_authorized(db, item_id, session_user_id_maybe)?;
+  let children = child_items
+    .iter()
+    .map(|item| item.to_api_json().ok())
+    .collect::<Option<Vec<_>>>()
+    .ok_or(format!("Error occurred getting children for container '{}'.", item_id))?;
+
+  let mut attachments = serde_json::Map::new();
+  for child in &child_items {
+    if !is_attachments_item_type(child.item_type) {
+      continue;
+    }
+    let item_attachments = attachments_to_api_json(get_attachments_authorized(db, &child.id, session_user_id_maybe)?)?;
+    attachments
+      .insert(child.id.clone(), Value::Array(item_attachments.into_iter().map(Value::from).collect::<Vec<_>>()));
+  }
+
+  Ok(SyncContainerSnapshot { children, attachments })
+}
+
+fn build_item_attachment_snapshot_authorized(
+  db: &MutexGuard<'_, Db>,
+  item_id: &Uid,
+  session_user_id_maybe: &Option<String>,
+) -> InfuResult<Vec<serde_json::Map<String, serde_json::Value>>> {
+  attachments_to_api_json(get_attachments_authorized(db, item_id, session_user_id_maybe)?)
+}
+
+fn build_item_attachment_snapshot(
+  db: &MutexGuard<'_, Db>,
+  item_id: &Uid,
+) -> InfuResult<Vec<serde_json::Map<String, serde_json::Value>>> {
+  attachments_to_api_json(db.item.get_attachments(item_id)?)
+}
+
+fn build_child_upsert_delta(db: &MutexGuard<'_, Db>, child: &Item) -> InfuResult<ContainerSyncDelta> {
+  let mut delta = ContainerSyncDelta::default();
+  delta.add_child_upsert(item_to_api_json_map(child)?);
+  if is_attachments_item_type(child.item_type) {
+    delta.set_attachment_snapshot(&child.id, build_item_attachment_snapshot(db, &child.id)?);
+  }
+  Ok(delta)
+}
+
+fn maybe_container_id_for_child_item(item: &Item) -> Option<Uid> {
+  if item.relationship_to_parent == RelationshipToParent::Child { item.parent_id.clone() } else { None }
+}
+
+fn maybe_container_id_for_attachment_parent(db: &MutexGuard<'_, Db>, parent_id: &Uid) -> InfuResult<Option<Uid>> {
+  let parent_item = db.item.get(parent_id)?;
+  if parent_item.relationship_to_parent == RelationshipToParent::Child {
+    Ok(parent_item.parent_id.clone())
+  } else {
+    Ok(None)
+  }
+}
+
+fn add_attachment_snapshot_delta_for_parent(
+  db: &MutexGuard<'_, Db>,
+  delta: &mut ContainerSyncDelta,
+  parent_id: &Uid,
+) -> InfuResult<()> {
+  delta.set_attachment_snapshot(parent_id, build_item_attachment_snapshot(db, parent_id)?);
+  Ok(())
+}
+
+fn record_container_delta(
+  db: &mut MutexGuard<'_, Db>,
+  user_id: &Uid,
+  container_id: &Uid,
+  delta: ContainerSyncDelta,
+  touched_container_ids: &mut HashSet<Uid>,
+) {
+  if delta.is_empty() {
+    return;
+  }
+  db.container_sync.record_delta(user_id, container_id, delta);
+  touched_container_ids.insert(container_id.clone());
+}
+
+fn record_container_snapshot_required(
+  db: &mut MutexGuard<'_, Db>,
+  user_id: &Uid,
+  container_id: &Uid,
+  touched_container_ids: &mut HashSet<Uid>,
+) {
+  db.container_sync.record_snapshot_required(user_id, container_id);
+  touched_container_ids.insert(container_id.clone());
+}
+
+fn merge_container_delta(
+  deltas_by_container: &mut HashMap<Uid, ContainerSyncDelta>,
+  container_id: &Uid,
+  delta: ContainerSyncDelta,
+) {
+  if delta.is_empty() {
+    return;
+  }
+  deltas_by_container.entry(container_id.clone()).or_default().merge(&delta);
+}
+
+fn flush_container_sync_changes(
+  db: &mut MutexGuard<'_, Db>,
+  user_id: &Uid,
+  deltas_by_container: HashMap<Uid, ContainerSyncDelta>,
+  snapshot_required_container_ids: HashSet<Uid>,
+) -> Option<ContainerSyncAck> {
+  let mut touched_container_ids = HashSet::new();
+
+  for container_id in &snapshot_required_container_ids {
+    record_container_snapshot_required(db, user_id, container_id, &mut touched_container_ids);
+  }
+
+  for (container_id, delta) in deltas_by_container {
+    if snapshot_required_container_ids.contains(&container_id) {
+      continue;
+    }
+    record_container_delta(db, user_id, &container_id, delta, &mut touched_container_ids);
+  }
+
+  build_sync_ack(db, user_id, &touched_container_ids)
+}
+
+fn build_sync_ack(
+  db: &MutexGuard<'_, Db>,
+  user_id: &Uid,
+  touched_container_ids: &HashSet<Uid>,
+) -> Option<ContainerSyncAck> {
+  if touched_container_ids.is_empty() {
+    return None;
+  }
+
+  Some(ContainerSyncAck {
+    containers: db
+      .container_sync
+      .versions_for_containers(user_id, touched_container_ids.iter().cloned())
+      .into_iter()
+      .map(|entry: ContainerSyncVersion| ContainerSyncAckContainer { id: entry.id, version: entry.version })
+      .collect::<Vec<_>>(),
+  })
+}
+
+fn json_with_sync_ack(
+  sync_ack: Option<ContainerSyncAck>,
+  item_maybe: Option<serde_json::Map<String, serde_json::Value>>,
+) -> InfuResult<Option<String>> {
+  let mut result = serde_json::Map::new();
+  if let Some(item) = item_maybe {
+    result.insert(String::from("item"), Value::from(item));
+  }
+  insert_sync_ack(&mut result, sync_ack)?;
+  Ok(Some(serde_json::to_string(&result)?))
+}
+
+fn insert_sync_ack(
+  result: &mut serde_json::Map<String, serde_json::Value>,
+  sync_ack: Option<ContainerSyncAck>,
+) -> InfuResult<()> {
+  if let Some(sync_ack) = sync_ack {
+    result.insert(String::from("syncAck"), Value::from(serde_json::to_value(sync_ack)?));
+  }
+  Ok(())
+}
+
+async fn handle_sync_containers(
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
   session_maybe: &Option<Session>,
 ) -> InfuResult<Option<String>> {
-  let requests: Vec<ModifiedCheck> =
+  let request: SyncContainersRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   let session_user_id_maybe = match &session_maybe {
@@ -463,31 +670,47 @@ async fn handle_modified_check(
   };
 
   let db = &db.lock().await;
+  let mut updates = Vec::new();
 
-  for request in &requests {
-    get_item_authorized(db, &request.id, &session_user_id_maybe)
-      .map_err(|_| format!("Not authorized to access item '{}'.", request.id))?;
-  }
+  for subscription in request.subscriptions {
+    let item = get_item_authorized(db, &subscription.id, &session_user_id_maybe)?;
+    if !is_container_item_type(item.item_type) {
+      return Err(format!("Item '{}' is not a container and cannot be synced.", subscription.id).into());
+    }
 
-  let mut responses = Vec::new();
-  for request in requests {
-    let mode = GetItemsMode::from_str(&request.mode)?;
-
-    let current_hash = match mode {
-      GetItemsMode::ItemAndAttachmentsOnly => hash_item_and_attachments_only(db, &request.id)?,
-      GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
-        hash_item_attachments_children_and_their_attachments(db, &request.id)?
+    match db.container_sync.sync_lookup(&item.owner_id, &subscription.id, subscription.known_version) {
+      ContainerSyncLookup::UpToDate => {}
+      ContainerSyncLookup::Delta { version, delta } => {
+        let children = delta.child_upserts();
+        let child_deletes = delta.child_deletes();
+        let attachment_upserts = delta.attachment_snapshots_json();
+        updates.push(SyncContainerUpdate {
+          id: subscription.id,
+          version,
+          strategy: String::from("delta"),
+          children: if children.is_empty() { None } else { Some(children) },
+          child_deletes: if child_deletes.is_empty() { None } else { Some(child_deletes) },
+          attachment_upserts: if attachment_upserts.is_empty() { None } else { Some(attachment_upserts) },
+          attachment_deletes: None,
+          snapshot: None,
+        });
       }
-      GetItemsMode::ChildrenAndTheirAttachmentsOnly => hash_children_and_their_attachments_only(db, &request.id)?,
-    };
-
-    let modified = current_hash != request.hash;
-
-    responses.push(ModifiedCheckResult { id: request.id, mode: request.mode, modified });
+      ContainerSyncLookup::Snapshot { version } => {
+        updates.push(SyncContainerUpdate {
+          id: subscription.id.clone(),
+          version,
+          strategy: String::from("snapshot"),
+          children: None,
+          child_deletes: None,
+          attachment_upserts: None,
+          attachment_deletes: None,
+          snapshot: Some(build_authoritative_child_attachment_snapshot(db, &subscription.id, &session_user_id_maybe)?),
+        });
+      }
+    }
   }
 
-  debug!("Executed 'modified-check' command for {} items.", responses.len());
-  Ok(Some(serde_json::to_string(&responses)?))
+  Ok(Some(serde_json::to_string(&SyncContainersResponse { updates })?))
 }
 
 async fn handle_get_items(
@@ -528,42 +751,24 @@ async fn handle_get_items(
   let item: &Item = get_item_authorized(db, &item_id, &session_user_id_maybe)?;
 
   let mut attachments_result = serde_json::Map::new();
-
   let children_result;
   if mode == GetItemsMode::ChildrenAndTheirAttachmentsOnly
     || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments
   {
-    let child_items = get_children_authorized(db, &item_id, &session_user_id_maybe)?;
-
-    children_result = child_items
-      .iter()
-      .map(|v| v.to_api_json().ok())
-      .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-      .ok_or(format!("Error occurred getting children for container '{}'.", item_id))?;
-
-    for c in &child_items {
-      let id = &c.id;
-      let item_attachments_result = get_attachments_authorized(db, id, &session_user_id_maybe)?
-        .iter()
-        .map(|v| v.to_api_json().ok())
-        .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-        .ok_or(format!("Error occurred getting attachments for {}", id))?;
-      if item_attachments_result.len() > 0 {
-        attachments_result.insert(id.clone(), Value::from(item_attachments_result));
-      }
-    }
+    let snapshot = build_authoritative_child_attachment_snapshot(db, &item_id, &session_user_id_maybe)?;
+    children_result = snapshot.children;
+    attachments_result = snapshot.attachments;
   } else {
     children_result = vec![];
   }
 
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
-    let item_attachments_result = get_attachments_authorized(db, &item_id, &session_user_id_maybe)?
-      .iter()
-      .map(|v| v.to_api_json().ok())
-      .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-      .ok_or(format!("Error occurred getting attachments for item {}", item_id))?;
-    if item_attachments_result.len() > 0 {
-      attachments_result.insert(item_id.clone(), Value::from(item_attachments_result));
+    if is_attachments_item_type(item.item_type) {
+      let item_attachments_result = build_item_attachment_snapshot_authorized(db, &item_id, &session_user_id_maybe)?;
+      attachments_result.insert(
+        item_id.clone(),
+        Value::Array(item_attachments_result.into_iter().map(Value::from).collect::<Vec<_>>()),
+      );
     }
   }
 
@@ -577,16 +782,21 @@ async fn handle_get_items(
   }
   result.insert(String::from("children"), Value::from(children_result));
   result.insert(String::from("attachments"), Value::from(attachments_result));
-
-  let hash_str = match mode {
-    GetItemsMode::ItemAndAttachmentsOnly => hash_item_and_attachments_only(db, &item_id)?,
-    GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
-      hash_item_attachments_children_and_their_attachments(db, &item_id)?
+  let sync_version = match mode {
+    GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
+      Some(db.container_sync.version_for_container(&item.owner_id, &item_id))
     }
-    GetItemsMode::ChildrenAndTheirAttachmentsOnly => hash_children_and_their_attachments_only(db, &item_id)?,
+    GetItemsMode::ItemAndAttachmentsOnly => None,
   };
+  result.insert(
+    String::from("syncVersion"),
+    match sync_version {
+      Some(version) => Value::Number(version.into()),
+      None => Value::Null,
+    },
+  );
 
-  debug!("Executed 'get-items' command for item '{}' (mode {:?}, hash: {}).", item_id, mode, hash_str);
+  debug!("Executed 'get-items' command for item '{}' (mode {:?}).", item_id, mode);
 
   Ok(Some(serde_json::to_string(&result)?))
 }
@@ -961,7 +1171,7 @@ pub async fn add_item_for_user(
     }
   }
 
-  let serialized_item = serde_json::to_string(&item.to_api_json()?)?;
+  let serialized_item = item.to_api_json()?;
 
   // ========================================================================
   // PHASE 3: Database insert with lock
@@ -981,6 +1191,26 @@ pub async fn add_item_for_user(
     let item_id = item.id.clone();
     let queued_item = item.clone();
     db.item.add(item).await?;
+    let mut touched_container_ids = HashSet::new();
+    match queued_item.relationship_to_parent {
+      RelationshipToParent::Child => {
+        if let Some(container_id) = queued_item.parent_id.clone() {
+          let delta = build_child_upsert_delta(&db, &queued_item)?;
+          record_container_delta(&mut db, &queued_item.owner_id, &container_id, delta, &mut touched_container_ids);
+        }
+      }
+      RelationshipToParent::Attachment => {
+        if let Some(parent_id) = queued_item.parent_id.clone() {
+          if let Some(container_id) = maybe_container_id_for_attachment_parent(&db, &parent_id)? {
+            let mut delta = ContainerSyncDelta::default();
+            add_attachment_snapshot_delta_for_parent(&db, &mut delta, &parent_id)?;
+            record_container_delta(&mut db, &queued_item.owner_id, &container_id, delta, &mut touched_container_ids);
+          }
+        }
+      }
+      RelationshipToParent::NoParent => {}
+    }
+    let sync_ack = build_sync_ack(&db, &queued_item.owner_id, &touched_container_ids);
     debug!("Executed 'add-item' command for item '{}'.", item_id);
     drop(db);
     if queued_item.mime_type.as_deref() == Some("application/pdf") {
@@ -989,16 +1219,15 @@ pub async fn add_item_for_user(
     if should_tag_image_item(&queued_item) {
       enqueue_image_item_if_active(&queued_item);
     }
+    return json_with_sync_ack(sync_ack, Some(serialized_item));
   }
-
-  Ok(Some(serialized_item))
 }
 
 async fn handle_update_item(
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
   session_maybe: &Option<Session>,
-) -> InfuResult<()> {
+) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
   let session = match session_maybe {
@@ -1013,8 +1242,9 @@ async fn handle_update_item(
   let item_map_maybe = iterator.next().ok_or("Update item request has no item.")??;
   let item_map = item_map_maybe.as_object().ok_or("Update item request body is not a JSON object.")?;
   let item: Item = Item::from_api_json(item_map)?;
+  let old_item = db.item.get(&item.id)?.clone();
 
-  if &db.item.get(&item.id)?.owner_id != &session.user_id {
+  if &old_item.owner_id != &session.user_id {
     return Err(
       format!(
         "Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.",
@@ -1025,10 +1255,47 @@ async fn handle_update_item(
   }
 
   db.item.update(&item).await?;
+  let mut deltas_by_container = HashMap::new();
+  let snapshot_required_container_ids = HashSet::new();
+
+  let old_child_container_id = maybe_container_id_for_child_item(&old_item);
+  let new_child_container_id = maybe_container_id_for_child_item(&item);
+
+  if let Some(old_container_id) = old_child_container_id.clone() {
+    if new_child_container_id.as_ref() == Some(&old_container_id) {
+      merge_container_delta(&mut deltas_by_container, &old_container_id, build_child_upsert_delta(&db, &item)?);
+    } else {
+      let mut delta = ContainerSyncDelta::default();
+      delta.add_child_delete(&old_item.id);
+      merge_container_delta(&mut deltas_by_container, &old_container_id, delta);
+    }
+  }
+
+  if let Some(new_container_id) = new_child_container_id.clone() {
+    if old_child_container_id.as_ref() != Some(&new_container_id) {
+      merge_container_delta(&mut deltas_by_container, &new_container_id, build_child_upsert_delta(&db, &item)?);
+    }
+  }
+
+  let old_attachment_parent_id =
+    if old_item.relationship_to_parent == RelationshipToParent::Attachment { old_item.parent_id.clone() } else { None };
+  let new_attachment_parent_id =
+    if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
+
+  for attachment_parent_id in [old_attachment_parent_id, new_attachment_parent_id].into_iter().flatten() {
+    if let Some(container_id) = maybe_container_id_for_attachment_parent(&db, &attachment_parent_id)? {
+      let mut delta = ContainerSyncDelta::default();
+      add_attachment_snapshot_delta_for_parent(&db, &mut delta, &attachment_parent_id)?;
+      merge_container_delta(&mut deltas_by_container, &container_id, delta);
+    }
+  }
+
+  let sync_ack =
+    flush_container_sync_changes(&mut db, &item.owner_id, deltas_by_container, snapshot_required_container_ids);
 
   debug!("Executed 'update-item' command for item '{}'.", item.id);
 
-  Ok(())
+  json_with_sync_ack(sync_ack, None)
 }
 
 #[derive(Deserialize)]
@@ -1043,7 +1310,7 @@ async fn handle_delete_item<'a>(
   image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
   json_data: &str,
   session_maybe: &Option<Session>,
-) -> InfuResult<()> {
+) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
   let request: DeleteItemRequest =
@@ -1081,6 +1348,9 @@ async fn handle_delete_item<'a>(
 
   let data_dir = db.item.data_dir().to_owned();
   let item = db.item.get(&request.id)?.clone();
+  let old_child_container_id = maybe_container_id_for_child_item(&item);
+  let old_attachment_parent_id =
+    if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
   dequeue_pdf_item_if_active(&request.id);
   dequeue_image_item_if_active(&request.id);
 
@@ -1098,9 +1368,25 @@ async fn handle_delete_item<'a>(
   delete_item_image_tag_dir(&data_dir, &session.user_id, &request.id).await?;
 
   let _item = db.item.remove(&request.id).await?;
+  let mut deltas_by_container = HashMap::new();
+  let snapshot_required_container_ids = HashSet::new();
+  if let Some(container_id) = old_child_container_id {
+    let mut delta = ContainerSyncDelta::default();
+    delta.add_child_delete(&item.id);
+    merge_container_delta(&mut deltas_by_container, &container_id, delta);
+  }
+  if let Some(parent_id) = old_attachment_parent_id {
+    if let Some(container_id) = maybe_container_id_for_attachment_parent(&db, &parent_id)? {
+      let mut delta = ContainerSyncDelta::default();
+      add_attachment_snapshot_delta_for_parent(&db, &mut delta, &parent_id)?;
+      merge_container_delta(&mut deltas_by_container, &container_id, delta);
+    }
+  }
+  let sync_ack =
+    flush_container_sync_changes(&mut db, &item.owner_id, deltas_by_container, snapshot_required_container_ids);
   debug!("Deleted item '{}' from database.", request.id);
 
-  Ok(())
+  json_with_sync_ack(sync_ack, None)
 }
 
 async fn handle_empty_trash<'a>(
@@ -1127,6 +1413,7 @@ async fn handle_empty_trash<'a>(
   let mut count = 0;
   let mut img_cache_count = 0;
   let mut object_count = 0;
+  let mut snapshot_required_container_ids = HashSet::new();
   delete_recursive(
     &mut db,
     object_store,
@@ -1137,13 +1424,17 @@ async fn handle_empty_trash<'a>(
     &mut count,
     &mut img_cache_count,
     &mut object_count,
+    &mut snapshot_required_container_ids,
   )
   .await?;
+  let sync_ack =
+    flush_container_sync_changes(&mut db, &session.user_id, HashMap::new(), snapshot_required_container_ids);
 
   let mut result = serde_json::Map::new();
   result.insert("itemCount".to_owned(), Value::Number(count.into()));
   result.insert("imageCacheCount".to_owned(), Value::Number(img_cache_count.into()));
   result.insert("objectCount".to_owned(), Value::Number(object_count.into()));
+  insert_sync_ack(&mut result, sync_ack)?;
 
   Ok(Some(serde_json::to_string(&result)?))
 }
@@ -1159,6 +1450,7 @@ async fn delete_recursive(
   count: &mut u64,
   img_cache_count: &mut u64,
   object_count: &mut u64,
+  snapshot_required_container_ids: &mut HashSet<Uid>,
 ) -> InfuResult<()> {
   for attachment_id in db.item.get_attachment_ids(&item_id)? {
     delete_recursive(
@@ -1171,6 +1463,7 @@ async fn delete_recursive(
       count,
       img_cache_count,
       object_count,
+      snapshot_required_container_ids,
     )
     .await?;
   }
@@ -1185,6 +1478,7 @@ async fn delete_recursive(
       count,
       img_cache_count,
       object_count,
+      snapshot_required_container_ids,
     )
     .await?;
   }
@@ -1192,6 +1486,16 @@ async fn delete_recursive(
   if delete_item {
     let data_dir = db.item.data_dir().to_owned();
     let item = db.item.get(&item_id)?.clone();
+    if let Some(container_id) = maybe_container_id_for_child_item(&item) {
+      snapshot_required_container_ids.insert(container_id);
+    }
+    if item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = item.parent_id.clone() {
+        if let Some(container_id) = maybe_container_id_for_attachment_parent(db, &parent_id)? {
+          snapshot_required_container_ids.insert(container_id);
+        }
+      }
+    }
     dequeue_pdf_item_if_active(&item_id);
     dequeue_image_item_if_active(&item_id);
 

@@ -22,16 +22,14 @@ import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, Uid } from "./util/uid";
-import { hashChildrenAndTheirAttachmentsOnlyAsync, hashItemAndAttachmentsOnly } from "./items/item-hash";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
-import { asContainerItem, isContainer } from "./items/base/container-item";
-import { asAttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
-import { TabularFns } from "./items/base/tabular-item";
+import { isContainer } from "./items/base/container-item";
 import { requestArrange } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
 import { MouseActionState } from "./input/state";
 import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./util/remoteSession";
+import { RelationshipToParent } from "./layout/relationship-to-parent";
 
 // Global request tracking - will be set by store initialization
 let globalRequestTracker: {
@@ -54,7 +52,8 @@ export function setGlobalRequestTracker(tracker: {
 export interface ItemsAndTheirAttachments {
   item: object,
   children: Array<object>,
-  attachments: { [id: string]: Array<object> }
+  attachments: { [id: string]: Array<object> },
+  syncVersion: number | null,
 }
 
 export interface SearchResult {
@@ -73,16 +72,43 @@ export interface EmptyTrashResult {
   objectCount: number,
 }
 
-export interface ModifiedCheck {
-  id: string,
-  mode: string,
-  hash: string,
+export interface SyncContainerSubscription {
+  id: Uid,
+  knownVersion: number | null,
 }
 
-export interface ModifiedCheckResult {
+export interface SyncContainerSnapshot {
+  children: Array<object>,
+  attachments: { [id: string]: Array<object> },
+}
+
+export interface SyncContainerUpdate {
   id: string,
-  mode: string,
-  modified: boolean,
+  version: number,
+  strategy: "delta" | "snapshot",
+  children?: Array<object>,
+  childDeletes?: Array<Uid>,
+  attachmentUpserts?: { [id: string]: Array<object> },
+  attachmentDeletes?: { [id: string]: Array<Uid> },
+  snapshot?: SyncContainerSnapshot,
+}
+
+interface ContainerSyncAckEntry {
+  id: Uid,
+  version: number,
+}
+
+interface ContainerSyncAck {
+  containers: Array<ContainerSyncAckEntry>,
+}
+
+interface MutationCommandResponse {
+  item?: object,
+  syncAck?: ContainerSyncAck,
+}
+
+interface EmptyTrashCommandResponse extends EmptyTrashResult {
+  syncAck?: ContainerSyncAck,
 }
 
 export const GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY = "children-and-their-attachments-only";
@@ -97,8 +123,6 @@ interface ServerCommand {
   panicLogoutOnError: boolean,
   resolve: (response: any) => void,
   reject: (reason: any) => void,
-  isInternal?: boolean,
-  internalHandler?: () => Promise<any>,
 }
 
 const COMMAND_GET_ITEMS = "get-items";
@@ -107,8 +131,12 @@ const COMMAND_UPDATE_ITEM = "update-item";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_EMPTY_TRASH = "empty-trash";
-const COMMAND_MODIFIED_CHECK = "modified-check";
-const COMMAND_AUTO_REFRESH = "auto-refresh";
+const COMMAND_SYNC_CONTAINERS = "sync-containers";
+
+const PARALLEL_READ_COMMANDS = new Set<string>([
+  COMMAND_GET_ITEMS,
+  COMMAND_SYNC_CONTAINERS,
+]);
 
 function getCommandDescription(command: string, payload: any): { description: string, itemId?: string } {
   const itemId = payload.id || payload.itemId || undefined;
@@ -137,19 +165,8 @@ function getCommandDescription(command: string, payload: any): { description: st
     case COMMAND_EMPTY_TRASH:
       description = "Emptying trash";
       break;
-    case COMMAND_MODIFIED_CHECK:
-      description = "Checking for updates";
-      break;
-    case COMMAND_AUTO_REFRESH:
-      if (payload.containerIds && payload.containerIds.length > 0) {
-        if (payload.containerIds.length === 1) {
-          description = "Auto-refreshing";
-        } else {
-          description = `Auto-refreshing (${payload.containerIds.length} containers)`;
-        }
-      } else {
-        description = "Auto-refreshing";
-      }
+    case COMMAND_SYNC_CONTAINERS:
+      description = "Syncing containers";
       break;
     default:
       description = command;
@@ -160,17 +177,16 @@ function getCommandDescription(command: string, payload: any): { description: st
 
 
 const commandQueue: Array<ServerCommand> = [];
-let inProgressNonGet: ServerCommand | null = null; // any non-get-items command currently running
-let inProgressGetItems = 0; // number of get-items commands currently running
+let inProgressNonGet: ServerCommand | null = null; // any non-read command currently running
+let inProgressReadCommands = 0; // number of read commands currently running
 const MUTATION_COMMANDS = new Set<string>([COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH]);
 let pendingMutationCommands = 0;
-let mutationGeneration = 0;
 
 const isMutationCommand = (command: string): boolean => MUTATION_COMMANDS.has(command);
+const isParallelReadCommand = (command: string): boolean => PARALLEL_READ_COMMANDS.has(command);
 const incrementPendingMutations = (command: string): void => {
   if (isMutationCommand(command)) {
     pendingMutationCommands++;
-    mutationGeneration++;
   }
 };
 const decrementPendingMutations = (command: string): void => {
@@ -182,7 +198,7 @@ const mutationsInFlight = (): boolean => pendingMutationCommands > 0;
 
 function serveWaiting(networkStatus: NumberSignal) {
   // If nothing is queued and nothing is running, mark idle.
-  if (commandQueue.length == 0 && inProgressNonGet == null && inProgressGetItems == 0) {
+  if (commandQueue.length == 0 && inProgressNonGet == null && inProgressReadCommands == 0) {
     networkStatus.set(NETWORK_STATUS_OK);
     if (globalRequestTracker) {
       globalRequestTracker.setCurrentNetworkRequest(null);
@@ -193,7 +209,7 @@ function serveWaiting(networkStatus: NumberSignal) {
 
   // Ensure UI shows activity when work is queued or running.
   if (networkStatus.get() != NETWORK_STATUS_ERROR) {
-    if (commandQueue.length > 0 || inProgressNonGet != null || inProgressGetItems > 0) {
+    if (commandQueue.length > 0 || inProgressNonGet != null || inProgressReadCommands > 0) {
       networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
     }
   }
@@ -211,14 +227,14 @@ function serveWaiting(networkStatus: NumberSignal) {
     globalRequestTracker.setQueuedNetworkRequests(queued);
   }
 
-  // Start as many leading get-items as possible; keep ordering otherwise.
+  // Start as many leading read commands as possible; keep ordering otherwise.
   while (commandQueue.length > 0) {
     const next = commandQueue[0];
 
-    // Non-get commands (mutations, searches, etc.) run strictly one at a time.
-    if (next.command !== COMMAND_GET_ITEMS) {
-      if (inProgressNonGet != null || inProgressGetItems > 0) {
-        return; // wait for running commands to finish before starting the next non-get
+    // Non-read commands (mutations, searches, etc.) run strictly one at a time.
+    if (!isParallelReadCommand(next.command)) {
+      if (inProgressNonGet != null || inProgressReadCommands > 0) {
+        return; // wait for running commands to finish before starting the next non-read
       }
 
       const command = commandQueue.shift() as ServerCommand;
@@ -247,67 +263,42 @@ function serveWaiting(networkStatus: NumberSignal) {
         serveWaiting(networkStatus);
       };
 
-      if (command.isInternal && command.internalHandler) {
-        command.internalHandler()
-          .then((resp: any) => {
-            command.resolve(resp);
-            // Clear any previous errors for this command type on success
-            if (globalRequestTracker) {
-              globalRequestTracker.clearErrorsByCommand(command.command);
-            }
-          })
-          .catch((error) => {
-            command.reject(error);
-            networkStatus.set(NETWORK_STATUS_ERROR);
-            if (globalRequestTracker) {
-              const { description, itemId } = getCommandDescription(command.command, command.payload);
-              globalRequestTracker.addErroredNetworkRequest({
-                command: command.command,
-                description,
-                itemId,
-                errorMessage: error?.message || String(error)
-              });
-            }
-          })
-          .finally(finalizeCommand);
-      } else {
-        sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
-          .then((resp: any) => {
-            command.resolve(resp);
-            // Clear any previous errors for this command type on success
-            if (globalRequestTracker) {
-              globalRequestTracker.clearErrorsByCommand(command.command);
-            }
-          })
-          .catch((error) => {
-            command.reject(error);
-            networkStatus.set(NETWORK_STATUS_ERROR);
-            if (globalRequestTracker) {
-              const { description, itemId } = getCommandDescription(command.command, command.payload);
-              globalRequestTracker.addErroredNetworkRequest({
-                command: command.command,
-                description,
-                itemId,
-                errorMessage: error?.message || String(error)
-              });
-            }
-          })
-          .finally(finalizeCommand);
-      }
+      sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+        .then((resp: any) => {
+          command.resolve(resp);
+          // Clear any previous errors for this command type on success
+          if (globalRequestTracker) {
+            globalRequestTracker.clearErrorsByCommand(command.command);
+          }
+        })
+        .catch((error) => {
+          command.reject(error);
+          networkStatus.set(NETWORK_STATUS_ERROR);
+          if (globalRequestTracker) {
+            const { description, itemId } = getCommandDescription(command.command, command.payload);
+            globalRequestTracker.addErroredNetworkRequest({
+              command: command.command,
+              description,
+              itemId,
+              errorMessage: error?.message || String(error)
+            });
+          }
+        })
+        .finally(finalizeCommand);
 
-      return; // non-get commands run one at a time
+      return; // non-read commands run one at a time
     }
 
-    // get-items can run in parallel, but only while they are at the head and no non-get is running.
+    // Read commands can run in parallel, but only while they are at the head and no non-read is running.
     if (inProgressNonGet != null) {
       return;
     }
 
     const command = commandQueue.shift() as ServerCommand;
-    inProgressGetItems++;
+    inProgressReadCommands++;
 
-    // Track current request if it's the first get-items
-    if (globalRequestTracker && inProgressGetItems === 1 && !inProgressNonGet) {
+    // Track current request if it's the first read command.
+    if (globalRequestTracker && inProgressReadCommands === 1 && !inProgressNonGet) {
       const { description, itemId } = getCommandDescription(command.command, command.payload);
       globalRequestTracker.setCurrentNetworkRequest({
         command: command.command,
@@ -320,56 +311,34 @@ function serveWaiting(networkStatus: NumberSignal) {
     if (DEBUG) { console.debug(command.command, command.payload); }
 
     const finalizeCommand = () => {
-      inProgressGetItems--;
-      // Clear current request tracker if this was the last GET command
-      if (globalRequestTracker && inProgressGetItems === 0 && !inProgressNonGet) {
+      inProgressReadCommands--;
+      if (globalRequestTracker && inProgressReadCommands === 0 && !inProgressNonGet) {
         globalRequestTracker.setCurrentNetworkRequest(null);
       }
       decrementPendingMutations(command.command);
       serveWaiting(networkStatus);
     };
 
-    if (command.isInternal && command.internalHandler) {
-      command.internalHandler()
-        .then((resp: any) => {
-          command.resolve(resp);
-        })
-        .catch((error) => {
-          command.reject(error);
-          networkStatus.set(NETWORK_STATUS_ERROR);
-          if (globalRequestTracker) {
-            const { description, itemId } = getCommandDescription(command.command, command.payload);
-            globalRequestTracker.addErroredNetworkRequest({
-              command: command.command,
-              description,
-              itemId,
-              errorMessage: error?.message || String(error)
-            });
-          }
-        })
-        .finally(finalizeCommand);
-    } else {
-      sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
-        .then((resp: any) => {
-          command.resolve(resp);
-        })
-        .catch((error) => {
-          command.reject(error);
-          networkStatus.set(NETWORK_STATUS_ERROR);
-          if (globalRequestTracker) {
-            const { description, itemId } = getCommandDescription(command.command, command.payload);
-            globalRequestTracker.addErroredNetworkRequest({
-              command: command.command,
-              description,
-              itemId,
-              errorMessage: error?.message || String(error)
-            });
-          }
-        })
-        .finally(finalizeCommand);
-    }
+    sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+      .then((resp: any) => {
+        command.resolve(resp);
+      })
+      .catch((error) => {
+        command.reject(error);
+        networkStatus.set(NETWORK_STATUS_ERROR);
+        if (globalRequestTracker) {
+          const { description, itemId } = getCommandDescription(command.command, command.payload);
+          globalRequestTracker.addErroredNetworkRequest({
+            command: command.command,
+            description,
+            itemId,
+            errorMessage: error?.message || String(error)
+          });
+        }
+      })
+      .finally(finalizeCommand);
 
-    // continue loop to launch more get-items at the head.
+    // continue loop to launch more read commands at the head.
   }
 }
 
@@ -394,30 +363,144 @@ function constructCommandPromise(
   })
 }
 
+const localContainerSyncVersions = new Map<Uid, { version: number | null }>();
 
-function constructInternalCommandPromise(
-  command: string,
-  handler: () => Promise<any>,
-  networkStatus: NumberSignal,
-  payload: object = {}): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const commandObj: ServerCommand = {
-      host: null,
-      command,
-      payload,
-      base64data: null,
-      panicLogoutOnError: false,
-      resolve,
-      reject,
-      isInternal: true,
-      internalHandler: handler
-    };
-    commandQueue.push(commandObj);
-    if (networkStatus.get() != NETWORK_STATUS_ERROR) {
-      networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+function setLocalContainerSyncVersion(containerId: Uid, version: number | null | undefined): void {
+  const normalizedVersion = typeof version === "number" ? version : null;
+  const existing = localContainerSyncVersions.get(containerId);
+  if (existing && existing.version != null && normalizedVersion != null && existing.version > normalizedVersion) {
+    return;
+  }
+  localContainerSyncVersions.set(containerId, { version: normalizedVersion });
+}
+
+export function clearLocalContainerSyncVersions(): void {
+  localContainerSyncVersions.clear();
+}
+
+function applySyncAck(syncAck: ContainerSyncAck | null | undefined): void {
+  if (!syncAck) {
+    return;
+  }
+  for (const container of syncAck.containers) {
+    setLocalContainerSyncVersion(container.id, container.version);
+  }
+  requestContainerSyncSoon();
+}
+
+function maybeTrackFetchedContainerSyncVersion(requestId: string, response: any, mode: string): void {
+  if (mode !== GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY &&
+    mode !== GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS) {
+    return;
+  }
+  const containerId = (response.item?.id ?? requestId) as Uid;
+  setLocalContainerSyncVersion(containerId, response.syncVersion ?? null);
+}
+
+function normalizeFetchedItemsResponse(
+  requestId: string,
+  mode: string,
+  response: any,
+  trackSyncVersion: boolean = true,
+): ItemsAndTheirAttachments {
+  if (trackSyncVersion) {
+    maybeTrackFetchedContainerSyncVersion(requestId, response, mode);
+  }
+
+  // Server side, itemId is optional and the root page does not have this set (== null in the response).
+  // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
+  if (response.item && response.item.parentId == null) {
+    response.item.parentId = EMPTY_UID;
+  }
+
+  return {
+    item: response.item,
+    children: response.children,
+    attachments: response.attachments,
+    syncVersion: typeof response.syncVersion === "number" ? response.syncVersion : null,
+  };
+}
+
+function extractMutationItem(response: MutationCommandResponse | object): object {
+  const mutationResponse = response as MutationCommandResponse;
+  return mutationResponse.item ?? response;
+}
+
+function applyContainerSyncDelta(update: SyncContainerUpdate): boolean {
+  const containerItem = itemState.getAsContainerItem(update.id);
+  if (!containerItem) {
+    return false;
+  }
+
+  const childDeleteIds = new Set(update.childDeletes ?? []);
+  const nextChildIds = containerItem.computed_children.filter(childId => !childDeleteIds.has(childId));
+
+  for (const childObject of update.children ?? []) {
+    const childItem = itemState.upsertItemFromServerObject(childObject, null);
+    if (!nextChildIds.includes(childItem.id)) {
+      nextChildIds.push(childItem.id);
     }
-    serveWaiting(networkStatus);
-  })
+  }
+
+  containerItem.computed_children = nextChildIds;
+  itemState.sortChildren(update.id);
+  for (const childId of childDeleteIds) {
+    itemState.pruneRelationshipSubtreeIfCurrent(childId, update.id, RelationshipToParent.Child);
+  }
+
+  for (const [parentId, attachmentObjects] of Object.entries(update.attachmentUpserts ?? {})) {
+    if (itemState.getAsAttachmentsItem(parentId) != null) {
+      itemState.applyAttachmentItemsSnapshotFromServerObjects(parentId, attachmentObjects, null);
+    }
+  }
+
+  containerItem.childrenLoaded = true;
+  return true;
+}
+
+function applyContainerSyncUpdate(update: SyncContainerUpdate): boolean {
+  const container = itemState.get(update.id);
+  if (!container || !isContainer(container)) {
+    setLocalContainerSyncVersion(update.id, update.version);
+    return false;
+  }
+
+  let changed = false;
+  if (update.strategy === "snapshot") {
+    const snapshot = update.snapshot;
+    if (!snapshot) {
+      return false;
+    }
+    itemState.applyContainerSnapshotFromServerObjects(update.id, snapshot.children, snapshot.attachments ?? {}, null);
+    itemState.getAsContainerItem(update.id)!.childrenLoaded = true;
+    changed = true;
+  } else {
+    changed = applyContainerSyncDelta(update);
+  }
+
+  setLocalContainerSyncVersion(update.id as Uid, update.version);
+  return changed;
+}
+
+function getTrackedLocalContainerSubscriptions(): Array<SyncContainerSubscription> {
+  const watchedContainersByOrigin = VesCache.watch.getContainerUidsByOrigin();
+  const localContainers = watchedContainersByOrigin.get(null);
+  if (!localContainers || localContainers.size === 0) {
+    return [];
+  }
+
+  return Array.from(localContainers)
+    .sort()
+    .map((containerId) => {
+      const existing = localContainerSyncVersions.get(containerId);
+      if (!existing) {
+        localContainerSyncVersions.set(containerId, { version: null });
+      }
+      return {
+        id: containerId,
+        knownVersion: localContainerSyncVersions.get(containerId)?.version ?? null,
+      };
+    });
 }
 
 export const server = {
@@ -426,32 +509,37 @@ export const server = {
    */
   fetchItems: async (id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
     return constructCommandPromise(null, COMMAND_GET_ITEMS, { id, mode }, null, false, networkStatus)
-      .then((r: any) => {
-        // Server side, itemId is an optional and the root page does not have this set (== null in the response).
-        // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
-        if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
-        return ({
-          item: r.item,
-          children: r.children,
-          attachments: r.attachments
-        });
-      });
+      .then((response: any) => normalizeFetchedItemsResponse(id, mode, response));
   },
 
   addItemFromPartialObject: async (item: object, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data, false, networkStatus);
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data, false, networkStatus)
+      .then((response: MutationCommandResponse) => {
+        applySyncAck(response?.syncAck);
+        return extractMutationItem(response);
+      });
   },
 
   addItem: async (item: Item, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data, false, networkStatus);
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data, false, networkStatus)
+      .then((response: MutationCommandResponse) => {
+        applySyncAck(response?.syncAck);
+        return extractMutationItem(response);
+      });
   },
 
   updateItem: async (item: Item, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, true, networkStatus)
+      .then((response: MutationCommandResponse) => {
+        applySyncAck(response?.syncAck);
+      });
   },
 
   deleteItem: async (id: Uid, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null, true, networkStatus)
+      .then((response: MutationCommandResponse) => {
+        applySyncAck(response?.syncAck);
+      });
   },
 
   search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal, pageNumMaybe?: number): Promise<Array<SearchResult>> => {
@@ -459,11 +547,23 @@ export const server = {
   },
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
-    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, {}, null, true, networkStatus);
+    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, {}, null, true, networkStatus)
+      .then((response: EmptyTrashCommandResponse) => {
+        applySyncAck(response?.syncAck);
+        return {
+          itemCount: response.itemCount,
+          imageCacheCount: response.imageCacheCount,
+          objectCount: response.objectCount,
+        };
+      });
   },
 
-  modifiedCheck: async (requests: ModifiedCheck[], networkStatus: NumberSignal): Promise<ModifiedCheckResult[]> => {
-    return constructCommandPromise(null, COMMAND_MODIFIED_CHECK, requests, null, true, networkStatus);
+  syncContainers: async (
+    subscriptions: Array<SyncContainerSubscription>,
+    networkStatus: NumberSignal,
+  ): Promise<Array<SyncContainerUpdate>> => {
+    return constructCommandPromise(null, COMMAND_SYNC_CONTAINERS, { subscriptions }, null, false, networkStatus)
+      .then((response: { updates?: Array<SyncContainerUpdate> }) => response.updates ?? []);
   }
 }
 
@@ -573,16 +673,7 @@ export const remote = {
    */
   fetchItems: async (host: string, id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
     return constructCommandPromise_remote(host, COMMAND_GET_ITEMS, { id, mode }, null, false, networkStatus)
-      .then((r: any) => {
-        // Server side, itemId is an optional and the root page does not have this set (== null in the response).
-        // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
-        if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
-        return ({
-          item: r.item,
-          children: r.children,
-          attachments: r.attachments
-        });
-      });
+      .then((response: any) => normalizeFetchedItemsResponse(id, mode, response, false));
   },
 
   /**
@@ -592,12 +683,6 @@ export const remote = {
     return constructCommandPromise_remote(host, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, false, networkStatus);
   },
 
-  /**
-   * check if items have been modified
-   */
-  modifiedCheck: async (host: string, requests: ModifiedCheck[], networkStatus: NumberSignal): Promise<ModifiedCheckResult[]> => {
-    return constructCommandPromise_remote(host, COMMAND_MODIFIED_CHECK, requests, null, false, networkStatus);
-  },
 }
 
 
@@ -611,225 +696,122 @@ export const serverOrRemote = {
   }
 }
 
-let loadTestInterval: number | null = null;
+let containerSyncIntervalId: number | null = null;
+let containerSyncRetryTimeoutId: number | null = null;
+let containerSyncInFlight = false;
+let containerSyncRerunRequested = false;
+let containerSyncVisibilityHandler: (() => void) | null = null;
+let activeContainerSyncStore: StoreContextModel | null = null;
 
-/**
- * Check for container modifications and refresh them automatically
- * 
- * TODO: 1. race condition with user interaction.
- *       2. setInterval [Violation] - takes too long.
- */
-async function performAutoRefresh(store: StoreContextModel): Promise<void> {
-  if (mutationsInFlight()) {
-    // Wait for pending mutations to reach the server before risking a refresh.
+function requestContainerSyncSoon(store?: StoreContextModel): void {
+  const targetStore = store ?? activeContainerSyncStore;
+  if (!targetStore) {
     return;
   }
-  const mutationGenerationAtStart = mutationGeneration;
-  // Pause refresh during user interactions
-  if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
+  if (containerSyncRetryTimeoutId != null) {
+    window.clearTimeout(containerSyncRetryTimeoutId);
+  }
+  containerSyncRetryTimeoutId = window.setTimeout(() => {
+    containerSyncRetryTimeoutId = null;
+    void performContainerSync(targetStore);
+  }, 0);
+}
+
+function scheduleContainerSyncRetry(store: StoreContextModel, delayMs: number): void {
+  if (containerSyncRetryTimeoutId != null) {
+    return;
+  }
+  containerSyncRetryTimeoutId = window.setTimeout(() => {
+    containerSyncRetryTimeoutId = null;
+    void performContainerSync(store);
+  }, delayMs);
+}
+
+function shouldPauseContainerSync(store: StoreContextModel): boolean {
+  return document.hidden || mutationsInFlight() || !MouseActionState.empty() || store.overlay.textEditInfo() != null;
+}
+
+async function performContainerSync(store: StoreContextModel): Promise<void> {
+  const subscriptions = getTrackedLocalContainerSubscriptions();
+  if (subscriptions.length === 0) {
     return;
   }
 
-  const watchedContainersByOrigin = VesCache.watch.getContainerUidsByOrigin();
-  const localContainers = watchedContainersByOrigin.get(null);
-
-  if (!localContainers || localContainers.size === 0) {
+  if (containerSyncInFlight) {
+    containerSyncRerunRequested = true;
     return;
   }
 
-  const testRequests: ModifiedCheck[] = [];
+  if (shouldPauseContainerSync(store)) {
+    scheduleContainerSyncRetry(store, 250);
+    return;
+  }
 
-  // Process containers in parallel with async hashing
-  const hashPromises = Array.from(localContainers).map(async (containerId) => {
-    const calculatedHash = await hashChildrenAndTheirAttachmentsOnlyAsync(containerId);
-    return {
-      id: containerId,
-      mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
-      hash: calculatedHash
-    };
-  });
-
-  const resolvedRequests = await Promise.all(hashPromises);
-  testRequests.push(...resolvedRequests);
-
-  // Call sendCommand directly to avoid queue recursion
-  const results = await sendCommand(null, COMMAND_MODIFIED_CHECK, testRequests, null, false);
-  const modifiedContainers = results.filter((r: any) => r.modified);
-
-  for (const modifiedContainer of modifiedContainers) {
-    if (mutationGenerationAtStart !== mutationGeneration) {
+  containerSyncInFlight = true;
+  try {
+    const updates = await server.syncContainers(subscriptions, store.general.networkStatus);
+    if (shouldPauseContainerSync(store)) {
+      containerSyncRerunRequested = true;
       return;
     }
-    const container = itemState.get(modifiedContainer.id);
-    if (!container || !isContainer(container)) {
-      continue;
-    }
 
-    const origin = container.origin;
-
-    // Capture state before fetch to detect concurrent changes
-    const containerItemBeforeFetch = asContainerItem(container);
-    const preFetchHashes = new Map<Uid, string>();
-
-    // Hash the container itself and its attachments
-    if (isAttachmentsItem(container)) {
-      preFetchHashes.set(modifiedContainer.id, hashItemAndAttachmentsOnly(modifiedContainer.id));
-    }
-
-    // Hash all current children and their attachments
-    for (const childId of containerItemBeforeFetch.computed_children) {
-      const childItem = itemState.get(childId);
-      if (childItem) {
-        if (isAttachmentsItem(childItem)) {
-          preFetchHashes.set(childId, hashItemAndAttachmentsOnly(childId));
-        }
+    let shouldArrange = false;
+    for (const update of updates) {
+      if (applyContainerSyncUpdate(update)) {
+        shouldArrange = true;
       }
     }
 
-    // Call sendCommand directly to avoid queue recursion
-    const fetchResult = origin == null
-      ? await sendCommand(null, COMMAND_GET_ITEMS, { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false)
-      : await sendCommand(origin, COMMAND_GET_ITEMS, { id: modifiedContainer.id, mode: GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY }, null, false);
-
-    if (fetchResult != null) {
-      // Re-fetch container after async operation - it may have changed during navigation
-      const containerAfterFetch = itemState.get(modifiedContainer.id);
-      if (!containerAfterFetch || !isContainer(containerAfterFetch)) {
-        continue;
-      }
-      const containerItem = asContainerItem(containerAfterFetch);
-      if (mutationGenerationAtStart !== mutationGeneration) {
-        return;
-      }
-      // Apply the same processing as in server.fetchItems
-      if (fetchResult.item && fetchResult.item.parentId == null) {
-        fetchResult.item.parentId = EMPTY_UID;
-      }
-      const result = {
-        item: fetchResult.item,
-        children: fetchResult.children,
-        attachments: fetchResult.attachments
-      };
-
-      if (!MouseActionState.empty() || store.overlay.textEditInfo() != null) {
-        return;
-      }
-
-      // Check if any tracked items have been modified since the fetch started
-      for (const [itemId, preFetchHash] of preFetchHashes) {
-        const currentItem = itemState.get(itemId);
-        if (currentItem && isAttachmentsItem(currentItem)) {
-          const currentHash = hashItemAndAttachmentsOnly(itemId);
-          if (currentHash !== preFetchHash) {
-            console.log(`Discarding fetch result for container ${modifiedContainer.id} because item ${itemId} was modified during fetch`);
-            return;
-          }
-        }
-      }
-
-      const existingChildIds = new Set(containerItem.computed_children);
-      const newChildIds = new Set<Uid>();
-
-      for (const childObject of result.children) {
-        const childItem = ItemFns.fromObject(childObject, origin);
-        itemState.replaceMaybe(childObject, origin);
-        newChildIds.add(childItem.id);
-      }
-
-      for (const childId of existingChildIds) {
-        if (!newChildIds.has(childId)) {
-          const childItem = itemState.get(childId);
-          if (childItem && isContainer(childItem)) {
-            const childContainer = asContainerItem(childItem);
-            if (childContainer.computed_children.length === 0) {
-              itemState.delete(childId);
-            }
-          } else if (childItem) {
-            itemState.delete(childId);
-          }
-        }
-      }
-
-      containerItem.computed_children = Array.from(newChildIds);
-      itemState.sortChildren(modifiedContainer.id);
-
-      // Handle attachments with proper cleanup like children
-      Object.keys(result.attachments).forEach(id => {
-        const parentItem = itemState.get(id);
-        if (parentItem && isAttachmentsItem(parentItem)) {
-          const attachmentsParent = asAttachmentsItem(parentItem);
-
-          const existingAttachmentIds = new Set(attachmentsParent.computed_attachments);
-          const newAttachmentIds = new Set<Uid>();
-
-          for (const attachmentObject of result.attachments[id]) {
-            const attachmentItem = ItemFns.fromObject(attachmentObject, origin);
-            itemState.replaceMaybe(attachmentObject, origin);
-            newAttachmentIds.add(attachmentItem.id);
-          }
-
-          // Remove attachments that are no longer present
-          for (const attachmentId of existingAttachmentIds) {
-            if (!newAttachmentIds.has(attachmentId)) {
-              itemState.delete(attachmentId);
-            }
-          }
-
-          // Update the computed_attachments array to match the server response
-          attachmentsParent.computed_attachments = Array.from(newAttachmentIds);
-          itemState.sortAttachments(id);
-        }
-      });
-
-      TabularFns.validateNumberOfVisibleColumnsMaybe(modifiedContainer.id);
-      containerItem.childrenLoaded = true;
-
-      requestArrange(store, "container-auto-refresh");
+    if (shouldArrange) {
+      requestArrange(store, "container-sync");
+    }
+  } catch (error) {
+    console.error("Container sync failed:", error);
+  } finally {
+    containerSyncInFlight = false;
+    if (containerSyncRerunRequested) {
+      containerSyncRerunRequested = false;
+      requestContainerSyncSoon(store);
     }
   }
 }
 
-/**
- * Start a loop that checks for container modifications and refreshes them automatically
- *
- * TODO: have a websocket that sends a message when any of the current displayed containers are modified.
- *       only need to do the hashing on fist access to the current page.
- */
-export function startContainerAutoRefresh(store: StoreContextModel): void {
-  if (loadTestInterval) {
-    window.clearInterval(loadTestInterval);
-  }
+export function startContainerSyncLoop(store: StoreContextModel): void {
+  stopContainerSyncLoop();
+  activeContainerSyncStore = store;
 
-  loadTestInterval = window.setInterval(async () => {
-    try {
-      // Get the containers that are being watched before starting refresh
-      const watchedContainersByOrigin = VesCache.watch.getContainerUidsByOrigin();
-      const localContainers = watchedContainersByOrigin.get(null);
-      const containerIds = localContainers ? Array.from(localContainers) : [];
+  containerSyncIntervalId = window.setInterval(() => {
+    requestContainerSyncSoon(store);
+  }, 2000);
 
-      await constructInternalCommandPromise(
-        COMMAND_AUTO_REFRESH,
-        () => performAutoRefresh(store),
-        store.general.networkStatus,
-        { containerIds }  // Pass container IDs in payload
-      );
-    } catch (error) {
-      console.error("Container auto-refresh failed:", error);
+  containerSyncVisibilityHandler = () => {
+    if (!document.hidden) {
+      requestContainerSyncSoon(store);
     }
-  }, 10000);
+  };
+  document.addEventListener("visibilitychange", containerSyncVisibilityHandler);
+  requestContainerSyncSoon(store);
 
-  console.log("Started container auto-refresh - checking for modifications every 10 seconds");
+  console.log("Started container sync loop - checking for server updates every 2 seconds");
 }
 
-/**
- * Stop the container auto-refresh loop
- */
-export function stopContainerAutoRefresh(): void {
-  if (loadTestInterval) {
-    window.clearInterval(loadTestInterval);
-    loadTestInterval = null;
-    console.log("Stopped container auto-refresh");
+export function stopContainerSyncLoop(): void {
+  if (containerSyncIntervalId != null) {
+    window.clearInterval(containerSyncIntervalId);
+    containerSyncIntervalId = null;
   }
+  if (containerSyncRetryTimeoutId != null) {
+    window.clearTimeout(containerSyncRetryTimeoutId);
+    containerSyncRetryTimeoutId = null;
+  }
+  if (containerSyncVisibilityHandler) {
+    document.removeEventListener("visibilitychange", containerSyncVisibilityHandler);
+    containerSyncVisibilityHandler = null;
+  }
+  containerSyncInFlight = false;
+  containerSyncRerunRequested = false;
+  activeContainerSyncStore = null;
+  console.log("Stopped container sync loop");
 }
 
 /**

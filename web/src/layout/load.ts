@@ -82,14 +82,11 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
 
       if (result != null) {
         try {
-          itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children, origin);
+          itemState.applyContainerSnapshotFromServerObjects(containerVeid.itemId, result.children, result.attachments, origin);
         } catch (e: any) {
-          throw new Error(`itemState.setChildItems failed: ${e}`);
+          throw new Error(`itemState.applyContainerSnapshotFromServerObjects failed: ${e}`);
         }
         PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
-        Object.keys(result.attachments).forEach(id => {
-          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
-        });
         TabularFns.validateNumberOfVisibleColumnsMaybe(containerVeid.itemId);
         asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
         requestArrange(store, "load-child-items");
@@ -122,9 +119,9 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
 
       if (result != null) {
         itemState.setItemFromServerObject(result.item, null);
-        Object.keys(result.attachments).forEach(id => {
-          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
-        });
+        if (isAttachmentsItem(itemState.get(id)!)) {
+          itemState.applyAttachmentItemsSnapshotFromServerObjects(id, result.attachments[id] ?? [], null);
+        }
         if (containerToSortId) {
           const parentForSort = itemState.get(containerToSortId);
           if (parentForSort) {
@@ -190,9 +187,8 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
       if (result != null) {
         itemLoadFromRemoteStatus[itemId] = RemoteLoadStatus.Success;
         itemState.setItemFromServerObject(result.item, baseUrl);
-        // Clear the children load cache so that initiateLoadChildItemsMaybe will fetch children.
-        // This is necessary because setItemFromServerObject replaces the item with a fresh object
-        // that has computed_children: [], but the cache might still say children were loaded.
+        // Clear the children load cache so that initiateLoadChildItemsMaybe will fetch children
+        // for this newly loaded remote item when needed.
         delete childrenLoadInitiatedOrComplete[itemId];
         const linkItemMaybe = itemState.get(resolveId);
         if (linkItemMaybe) {
@@ -200,9 +196,9 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
           linkItem.linkToResolvedId = ItemFns.fromObject(result.item, baseUrl).id;
           linkItem.linkRequiresRemoteLogin = null;
         }
-        Object.keys(result.attachments).forEach(id => {
-          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
-        });
+        if (isAttachmentsItem(itemState.get(itemId)!)) {
+          itemState.applyAttachmentItemsSnapshotFromServerObjects(itemId, result.attachments[itemId] ?? [], baseUrl);
+        }
         if (containerToSortId) {
           const parentForSort = itemState.get(containerToSortId);
           if (parentForSort) {

@@ -29,7 +29,6 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
-import { hashItemAndAttachmentsOnly } from "../items/item-hash";
 
 let items = new Map<Uid, Item>();
 
@@ -54,6 +53,47 @@ function preservePendingPopupFields(existingItem: Item, newItem: Item): void {
     newPage.pendingCellPopupPositionNorm = existingPage.pendingCellPopupPositionNorm;
     newPage.pendingCellPopupWidthNorm = existingPage.pendingCellPopupWidthNorm;
   }
+}
+
+function preserveComputedRelationshipFields(existingItem: Item, newItem: Item): void {
+  if (isContainer(existingItem) && isContainer(newItem)) {
+    const existingContainer = asContainerItem(existingItem);
+    const newContainer = asContainerItem(newItem);
+    newContainer.childrenLoaded = existingContainer.childrenLoaded;
+    newContainer.computed_children = [...existingContainer.computed_children];
+  }
+  if (isAttachmentsItem(existingItem) && isAttachmentsItem(newItem)) {
+    const existingAttachmentsItem = asAttachmentsItem(existingItem);
+    const newAttachmentsItem = asAttachmentsItem(newItem);
+    newAttachmentsItem.computed_attachments = [...existingAttachmentsItem.computed_attachments];
+  }
+}
+
+function removeRelationshipSubtreeIfCurrent(
+  id: Uid,
+  expectedParentId: Uid,
+  expectedRelationshipToParent: RelationshipToParent,
+): void {
+  const item = items.get(id);
+  if (!item) {
+    return;
+  }
+  if (item.parentId != expectedParentId || item.relationshipToParent != expectedRelationshipToParent) {
+    return;
+  }
+
+  if (isContainer(item)) {
+    for (const childId of [...asContainerItem(item).computed_children]) {
+      removeRelationshipSubtreeIfCurrent(childId, item.id, RelationshipToParent.Child);
+    }
+  }
+  if (isAttachmentsItem(item)) {
+    for (const attachmentId of [...asAttachmentsItem(item).computed_attachments]) {
+      removeRelationshipSubtreeIfCurrent(attachmentId, item.id, RelationshipToParent.Attachment);
+    }
+  }
+
+  items.delete(id);
 }
 
 
@@ -115,47 +155,27 @@ export const itemState = {
   },
 
   setItemFromServerObject: (itemObject: object, origin: string | null): void => {
-    let newItem = ItemFns.fromObject(itemObject, origin);
+    itemState.upsertItemFromServerObject(itemObject, origin);
+  },
+
+  upsertItemFromServerObject: (itemObject: object, origin: string | null): Item => {
+    const newItem = ItemFns.fromObject(itemObject, origin);
     const existingItem = items.get(newItem.id);
     if (existingItem) {
       preservePendingPopupFields(existingItem, newItem);
+      preserveComputedRelationshipFields(existingItem, newItem);
     }
     items.set(newItem.id, newItem);
     TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
+    return newItem;
   },
 
-  /**
-   * Replace an item only if it has changed (considering item and attachments, not children).
-   * Returns true if the item was replaced, false if no changes were detected.
-   */
-  replaceMaybe: (itemObject: object, origin: string | null): boolean => {
-    const newItem = ItemFns.fromObject(itemObject, origin);
-    const existingItem = itemState.get(newItem.id);
-
-    if (!existingItem) {
-      items.set(newItem.id, newItem);
-      TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
-      return true;
-    }
-
-    const existingHash = hashItemAndAttachmentsOnly(newItem.id);
-
-    // Preserve pending popup fields before temporarily setting the new item
-    preservePendingPopupFields(existingItem, newItem);
-
-    // Temporarily set the new item to calculate its hash
-    items.set(newItem.id, newItem);
-    const newHash = hashItemAndAttachmentsOnly(newItem.id);
-
-    if (existingHash === newHash) {
-      // No changes detected, restore the existing item
-      items.set(newItem.id, existingItem);
-      return false;
-    }
-
-    // Changes detected, keep the new item (pending fields already preserved)
-    TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
-    return true;
+  pruneRelationshipSubtreeIfCurrent: (
+    id: Uid,
+    expectedParentId: Uid,
+    expectedRelationshipToParent: RelationshipToParent,
+  ): void => {
+    removeRelationshipSubtreeIfCurrent(id, expectedParentId, expectedRelationshipToParent);
   },
 
   addSoloItemHolderPage: (ownerId: Uid): void => {
@@ -267,6 +287,78 @@ export const itemState = {
     const attachmentsToAdd = attachments.filter(id => !parent.computed_attachments.includes(id));
     parent.computed_attachments = [...parent.computed_attachments, ...attachmentsToAdd];
     itemState.sortAttachments(parentId);
+  },
+
+  applyAttachmentItemsSnapshotFromServerObjects: (parentId: Uid, attachmentItemObjects: Array<object>, origin: string | null): void => {
+    if (!isAttachmentsItem(itemState.get(parentId)!)) {
+      throw new Error(`Cannot attach ${attachmentItemObjects.length} items to parent '${parentId}' because it has type '${itemState.get(parentId)!.itemType}' which does not allow attachments.`);
+    }
+
+    const parent = itemState.getAsAttachmentsItem(parentId)!;
+    const existingAttachmentIds = new Set(parent.computed_attachments);
+    const nextAttachmentIds: Array<Uid> = [];
+
+    for (const attachmentItemObject of attachmentItemObjects) {
+      const attachmentItem = itemState.upsertItemFromServerObject(attachmentItemObject, origin);
+      if (attachmentItem.parentId != parentId) {
+        throw new Error(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
+      }
+      if (attachmentItem.relationshipToParent != RelationshipToParent.Attachment) {
+        throw new Error(`Unexpected relationship to parent ${attachmentItem.relationshipToParent}`);
+      }
+      nextAttachmentIds.push(attachmentItem.id);
+      existingAttachmentIds.delete(attachmentItem.id);
+    }
+
+    parent.computed_attachments = nextAttachmentIds;
+    itemState.sortAttachments(parentId);
+
+    for (const removedAttachmentId of existingAttachmentIds) {
+      removeRelationshipSubtreeIfCurrent(removedAttachmentId, parentId, RelationshipToParent.Attachment);
+    }
+  },
+
+  applyContainerSnapshotFromServerObjects: (
+    parentId: Uid,
+    childItemObjects: Array<object>,
+    attachmentItemsByParentId: { [id: string]: Array<object> },
+    origin: string | null,
+  ): void => {
+    if (!isContainer(itemState.get(parentId)!)) {
+      throw new Error(`Cannot set ${childItemObjects.length} child items of parent '${parentId}' because it is not a container.`);
+    }
+
+    const parent = itemState.getAsContainerItem(parentId)!;
+    const existingChildIds = new Set(parent.computed_children);
+    const nextChildIds: Array<Uid> = [];
+
+    for (const childItemObject of childItemObjects) {
+      const childItem = itemState.upsertItemFromServerObject(childItemObject, origin);
+      if (childItem.parentId == EMPTY_UID) {
+        panic("applyContainerSnapshotFromServerObjects: parent is empty.");
+      }
+      if (childItem.parentId != parentId) {
+        throw new Error(`Child item had parent '${childItem.parentId}', but '${parentId}' was expected.`);
+      }
+      if (childItem.relationshipToParent != RelationshipToParent.Child) {
+        throw new Error(`Unexpected relationship to parent ${childItem.relationshipToParent}`);
+      }
+      nextChildIds.push(childItem.id);
+      existingChildIds.delete(childItem.id);
+
+      if (isAttachmentsItem(childItem)) {
+        itemState.applyAttachmentItemsSnapshotFromServerObjects(childItem.id, attachmentItemsByParentId[childItem.id] ?? [], origin);
+      }
+    }
+
+    parent.computed_children = nextChildIds;
+    itemState.sortChildren(parentId);
+
+    for (const removedChildId of existingChildIds) {
+      removeRelationshipSubtreeIfCurrent(removedChildId, parentId, RelationshipToParent.Child);
+    }
+
+    TabularFns.validateNumberOfVisibleColumnsMaybe(parentId);
   },
 
   add: (item: Item): void => {
