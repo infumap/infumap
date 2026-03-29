@@ -92,5 +92,5 @@ export const arrangePageWithChildren = (
   }
 
   pageSpec.evaluatedTitle = linkItemMaybe_pageWithChildren?.overrideTitle ?? null;
-  return VesCache.full_writeVisualElementSignal(pageSpec, pageRelationships, pageWithChildrenVePath);
+  return VesCache.arrange.writeVisualElementSignal(pageSpec, pageRelationships, pageWithChildrenVePath);
 }

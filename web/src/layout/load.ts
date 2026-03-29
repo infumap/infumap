@@ -260,7 +260,7 @@ const findVisualElementsByLinkId = (linkId: Uid): Array<VisualElementSignal> => 
     if (!linkItem || !isLink(linkItem)) { return result; }
     const linkToId = LinkFns.getLinkToId(asLinkItem(linkItem));
 
-    const pathsForLinkItem = VesCache.getPathsForDisplayId(linkId);
+    const pathsForLinkItem = VesCache.index.getPathsForDisplayId(linkId);
     for (const path of pathsForLinkItem) {
       const ves = VesCache.render.getNode(path);
       if (ves) {

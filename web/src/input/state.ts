@@ -213,7 +213,7 @@ function resolveActiveElementSignal(state: MouseActionStateType): VisualElementS
       if (!displayId) { return null; }
       let candidatePaths: Array<VisualElementPath> = [];
       try {
-        candidatePaths = VesCache.getPathsForDisplayId(displayId) ?? [];
+        candidatePaths = VesCache.index.getPathsForDisplayId(displayId) ?? [];
       } catch {
         candidatePaths = [];
       }

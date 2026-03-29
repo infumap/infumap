@@ -48,7 +48,7 @@ export function arrange_spatial_page(
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   if (isFull) {
-    VesCache.pushTopTitledPage(pageWithChildrenVePath);
+    VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
   const childAreaBoundsPx = (() => {

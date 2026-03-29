@@ -124,7 +124,7 @@ export const arrangeComposite = (
     childrenPaths: compositeChildPaths,
   };
 
-  const compositeVisualElementSignal = VesCache.full_writeVisualElementSignal(compositeSpec, compositeRelationships, compositeVePath);
+  const compositeVisualElementSignal = VesCache.arrange.writeVisualElementSignal(compositeSpec, compositeRelationships, compositeVePath);
 
   return compositeVisualElementSignal;
 }
@@ -206,6 +206,6 @@ function arrangeCompositeChildItemPath(
     compositeChildRelationships.attachmentsPaths = [];
   }
 
-  VesCache.full_writeVisualElement(compositeChildVeSpec, compositeChildRelationships, compositeChildVePath);
+  VesCache.arrange.writeVisualElement(compositeChildVeSpec, compositeChildRelationships, compositeChildVePath);
   return compositeChildVePath;
 }

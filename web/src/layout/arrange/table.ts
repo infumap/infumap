@@ -114,7 +114,7 @@ export const arrangeTable = (
     attachmentsPaths: attachments,
   };
 
-  const tableVisualElementSignal = VesCache.full_writeVisualElementSignal(tableSpec, tableRelationships, tableVePath);
+  const tableVisualElementSignal = VesCache.arrange.writeVisualElementSignal(tableSpec, tableRelationships, tableVePath);
   persistTableRenderWindowRows(tableVePath, windowState);
 
   return tableVisualElementSignal;
@@ -226,7 +226,7 @@ function snapshotTableRenderWindowRows(state: TableRenderWindowState): Array<num
 }
 
 function persistTableRenderWindowRows(tableVePath: VisualElementPath, state: TableRenderWindowState) {
-  VesCache.setTableRenderRows(tableVePath, state.rowSlots);
+  VesCache.table.setRenderRows(tableVePath, state.rowSlots);
 }
 
 function logTableRenderWindowInconsistencies(
@@ -498,7 +498,7 @@ function applyTableWindowPlansAfterScroll(
 
 
 export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: VisualElementPath, tableVeid: Veid, prevScrollYPos: number) {
-  if (VesCache.isCurrentlyInFullArrange()) { return; }
+  if (VesCache.arrange.isInProgress()) { return; }
   if (store.anItemIsMoving.get()) {
     recoverWithFullArrange(store, "table-scroll-while-moving");
     return;
@@ -516,7 +516,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const displayItem_table = asTableItem(tableVe.displayItem);
   const windowState = createTableRenderWindowState(
     VesCache.render.getChildren(tableVePath)(),
-    VesCache.getTableRenderRows(tableVePath) ?? [],
+    VesCache.table.getRenderRows(tableVePath) ?? [],
   );
   if (windowState.rowSlots.length != windowState.childrenVes.length) {
     // TODO (LOW): should really implement logic such that this never happens. This is lazy.
@@ -718,7 +718,7 @@ function buildTableRowRenderPlan(
 
 
 function materializeTableRenderPlan(plan: TableRenderPlan): VisualElementSignal {
-  return VesCache.full_writeVisualElementSignal(plan.spec, plan.relationships, plan.path);
+  return VesCache.arrange.writeVisualElementSignal(plan.spec, plan.relationships, plan.path);
 }
 
 
@@ -729,14 +729,14 @@ function materializeTableRowPlan(
   for (let i = 0; i < rowPlan.attachments.length; ++i) {
     const attachmentPlan = rowPlan.attachments[i];
     if (vesToOverwrite != null) {
-      VesCache.partial_create(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
+      VesCache.mutate.create(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
     } else {
-      VesCache.full_writeVisualElement(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
+      VesCache.arrange.writeVisualElement(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
     }
   }
 
   if (vesToOverwrite != null) {
-    VesCache.partial_overwriteVisualElementSignal(rowPlan.spec, rowPlan.relationships, rowPlan.path, vesToOverwrite);
+    VesCache.mutate.overwriteVisualElementSignal(rowPlan.spec, rowPlan.relationships, rowPlan.path, vesToOverwrite);
     return vesToOverwrite;
   }
 

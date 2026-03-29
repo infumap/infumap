@@ -63,7 +63,7 @@ export function arrange_calendar_page(
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   if (isFull) {
-    VesCache.pushTopTitledPage(pageWithChildrenVePath);
+    VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
   const childAreaBoundsPx = (() => {
@@ -364,7 +364,7 @@ export function arrange_calendar_page(
       };
 
       const calendarItemRelationships: VisualElementRelationships = {};
-      VesCache.full_writeVisualElement(calendarItemVeSpec, calendarItemRelationships, childPath);
+      VesCache.arrange.writeVisualElement(calendarItemVeSpec, calendarItemRelationships, childPath);
       calendarChildPaths.push(childPath);
     });
   });
@@ -496,7 +496,7 @@ export function arrange_calendar_page(
     };
 
     const movingItemRelationships: VisualElementRelationships = {};
-    VesCache.full_writeVisualElement(movingItemVeSpec, movingItemRelationships, childPath);
+    VesCache.arrange.writeVisualElement(movingItemVeSpec, movingItemRelationships, childPath);
     calendarChildPaths.push(childPath);
   }
 

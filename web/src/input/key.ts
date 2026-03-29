@@ -131,7 +131,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     if (store.history.currentPopupSpec()) {
       store.history.popPopup();
       const topRootVes = VesCache.render.getChildren(VeFns.veToPath(store.umbrellaVisualElement.get()))()[0];
-      VesCache.clearPopupVes(VeFns.veToPath(topRootVes.get()));
+      VesCache.mutate.clearPopup(VeFns.veToPath(topRootVes.get()));
       topRootVes.set(topRootVes.get());
       arrangeNow(store, "key-escape-close-popup");
       return;

@@ -630,7 +630,7 @@ async function performAutoRefresh(store: StoreContextModel): Promise<void> {
     return;
   }
 
-  const watchedContainersByOrigin = VesCache.getCurrentWatchContainerUidsByOrigin();
+  const watchedContainersByOrigin = VesCache.watch.getContainerUidsByOrigin();
   const localContainers = watchedContainersByOrigin.get(null);
 
   if (!localContainers || localContainers.size === 0) {
@@ -803,7 +803,7 @@ export function startContainerAutoRefresh(store: StoreContextModel): void {
   loadTestInterval = window.setInterval(async () => {
     try {
       // Get the containers that are being watched before starting refresh
-      const watchedContainersByOrigin = VesCache.getCurrentWatchContainerUidsByOrigin();
+      const watchedContainersByOrigin = VesCache.watch.getContainerUidsByOrigin();
       const localContainers = watchedContainersByOrigin.get(null);
       const containerIds = localContainers ? Array.from(localContainers) : [];
 

@@ -135,7 +135,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     return;
   }
 
-  VesCache.full_initArrange();
+  VesCache.arrange.begin();
 
   let currentPageVeid = virtualPageVeid ? virtualPageVeid : store.history.currentPageVeid()!;
 
@@ -188,12 +188,12 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 
   if (virtualPageVeid) {
     const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaSpec));
-    VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
+    VesCache.arrange.finalize(store, umbrellaSpec, umbrellaRelationships, umbrellaPath, umbrellaVes);
   } else {
     // console.time("fullArrange-finalizeArrange");
-    VesCache.full_finalizeArrange(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
+    VesCache.arrange.finalize(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
     // console.timeEnd("fullArrange-finalizeArrange");
-    VesCache.addWatchContainerUid(currentPage.id, currentPage.origin);
+    VesCache.watch.addContainerUid(currentPage.id, currentPage.origin);
   }
 
   const hasUser = store.user.getUserMaybe() != null;

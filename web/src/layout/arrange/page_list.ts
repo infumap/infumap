@@ -95,7 +95,7 @@ export function arrange_list_page(
   const scale = isFull ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
 
   if (isFull) {
-    VesCache.pushTopTitledPage(pageWithChildrenVePath);
+    VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
   const listWidthBl = displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE;
@@ -232,7 +232,7 @@ export function arrange_list_page(
       blockSizePx,
     };
     const listItemRelationships: VisualElementRelationships = {};
-    VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
+    VesCache.arrange.createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
     listChildPaths.push(childPath);
   }
 
@@ -444,7 +444,7 @@ export function arrange_dock_list_page(
       blockSizePx,
     };
     const listItemRelationships: VisualElementRelationships = {};
-    VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
+    VesCache.arrange.createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
     listChildPaths.push(childPath);
   }
   pageRelationships.childrenPaths = listChildPaths;
