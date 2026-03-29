@@ -19,24 +19,24 @@
 import { StoreContextModel } from "../../store/StoreProvider";
 import { createVisualElementSignal, VisualElementSignal } from "../../util/signals";
 import { VisualElement, VisualElementPath } from "../visual-element";
-import { ProjectionOps } from "./projection";
+import { ReactiveOps } from "./reactive";
 import { cloneVisualElementSnapshot } from "./spec";
 import { createEmptyVirtualSceneState, SceneOutputs, SceneRelationshipData, SceneState, VesCacheState, VirtualSceneState } from "./state";
 
 export function createSceneSyncOps(
   state: VesCacheState,
-  projection: ProjectionOps,
+  reactive: ReactiveOps,
   getSceneNode: (scene: SceneState, path: VisualElementPath) => VisualElement | undefined,
   sceneHasNode: (scene: SceneState, path: VisualElementPath) => boolean,
   resolveSceneNodePath: (scene: SceneState, path: VisualElementPath | null | undefined) => VisualElementSignal | null,
   resolveSceneNodePaths: (scene: SceneState, paths: Array<VisualElementPath> | undefined) => Array<VisualElementSignal>,
 ) {
-  function getRenderNode(path: VisualElementPath): VisualElementSignal | undefined {
-    const entry = projection.findRenderProjection(path);
+  function getReactiveNode(path: VisualElementPath): VisualElementSignal | undefined {
+    const entry = reactive.findReactiveEntry(path);
     if (!entry) {
       return undefined;
     }
-    return projection.readRenderProjectionSignal(entry.node);
+    return reactive.readReactiveSignal(entry.node);
   }
 
   function snapshotVirtualScene(scene: SceneState): VirtualSceneState {
@@ -75,39 +75,39 @@ export function createSceneSyncOps(
     return snapshot;
   }
 
-  function syncRenderProjectionNode(
+  function syncReactiveNode(
     path: VisualElementPath,
     nextVe: VisualElement | undefined,
     previousVe?: VisualElement,
     preferredSignal?: VisualElementSignal,
   ) {
     if (!nextVe) {
-      projection.updateRenderProjectionNode(path, undefined);
+      reactive.updateReactiveNode(path, undefined);
       return;
     }
 
     if (preferredSignal) {
-      projection.updateRenderProjectionNode(path, preferredSignal);
+      reactive.updateReactiveNode(path, preferredSignal);
       return;
     }
 
-    let signal = getRenderNode(path);
+    let signal = getReactiveNode(path);
     if (!signal) {
       signal = createVisualElementSignal(cloneVisualElementSnapshot(nextVe));
-      projection.updateRenderProjectionNode(path, signal);
+      reactive.updateReactiveNode(path, signal);
       return;
     }
 
     if (previousVe === nextVe) {
-      projection.updateRenderProjectionNode(path, signal);
+      reactive.updateReactiveNode(path, signal);
       return;
     }
 
     signal.set(cloneVisualElementSnapshot(nextVe));
-    projection.updateRenderProjectionNode(path, signal);
+    reactive.updateReactiveNode(path, signal);
   }
 
-  function syncRenderProjectionRelationshipsForPath(
+  function syncReactiveRelationshipsForPath(
     scene: SceneState,
     path: VisualElementPath,
     previousRelationships?: SceneRelationshipData,
@@ -115,43 +115,43 @@ export function createSceneSyncOps(
   ) {
     const relationships = scene.relationshipsByPath.get(path);
     if (relationships === previousRelationships) {
-      projection.setRenderProjectionTableRows(path, renderTableRows ?? null);
+      reactive.setReactiveTableRows(path, renderTableRows ?? null);
       return;
     }
     const popup = resolveSceneNodePath(scene, relationships?.popup);
-    projection.updateRenderProjectionPopup(path, popup);
+    reactive.updateReactivePopup(path, popup);
     const selected = resolveSceneNodePath(scene, relationships?.selected);
-    projection.updateRenderProjectionSelected(path, selected);
+    reactive.updateReactiveSelected(path, selected);
     const dock = resolveSceneNodePath(scene, relationships?.dock);
-    projection.updateRenderProjectionDock(path, dock);
+    reactive.updateReactiveDock(path, dock);
     const attachments = resolveSceneNodePaths(scene, relationships?.attachments);
-    projection.updateRenderProjectionAttachments(path, attachments);
+    reactive.updateReactiveAttachments(path, attachments);
     const children = resolveSceneNodePaths(scene, relationships?.children);
-    projection.updateRenderProjectionChildren(path, children);
+    reactive.updateReactiveChildren(path, children);
     const lineChildren = resolveSceneNodePaths(scene, relationships?.lineChildren);
-    projection.updateRenderProjectionLineChildren(path, lineChildren);
+    reactive.updateReactiveLineChildren(path, lineChildren);
     const desktopChildren = resolveSceneNodePaths(scene, relationships?.desktopChildren);
-    projection.updateRenderProjectionDesktopChildren(path, desktopChildren);
+    reactive.updateReactiveDesktopChildren(path, desktopChildren);
     const nonMovingChildren = resolveSceneNodePaths(scene, relationships?.nonMovingChildren);
-    projection.updateRenderProjectionNonMovingChildren(path, nonMovingChildren);
+    reactive.updateReactiveNonMovingChildren(path, nonMovingChildren);
     const focusedChild = relationships?.focusedChildItemMaybe ?? null;
-    projection.updateRenderProjectionFocused(path, focusedChild);
-    projection.setRenderProjectionTableRows(path, renderTableRows ?? null);
+    reactive.updateReactiveFocused(path, focusedChild);
+    reactive.setReactiveTableRows(path, renderTableRows ?? null);
   }
 
-  function syncRenderProjectionFromScene(
+  function syncReactiveFromScene(
     previousScene: SceneState,
     scene: SceneState,
     renderTableRowsByPath?: Map<VisualElementPath, Array<number>>,
   ) {
     for (const [path] of previousScene.cache) {
       if (!sceneHasNode(scene, path)) {
-        projection.deleteRenderProjectionForPath(path);
+        reactive.deleteReactiveForPath(path);
       }
     }
 
     for (const [path] of scene.cache) {
-      syncRenderProjectionNode(
+      syncReactiveNode(
         path,
         getSceneNode(scene, path),
         previousScene.cache.get(path),
@@ -160,7 +160,7 @@ export function createSceneSyncOps(
     }
 
     for (const [path] of scene.cache) {
-      syncRenderProjectionRelationshipsForPath(
+      syncReactiveRelationshipsForPath(
         scene,
         path,
         previousScene.relationshipsByPath.get(path),
@@ -183,12 +183,12 @@ export function createSceneSyncOps(
     state.currentScene = scene;
     state.currentSceneOutputs = outputs;
     store.topTitledPages.set(outputs.topTitledPages);
-    syncRenderProjectionFromScene(previousScene, scene, renderTableRowsByPath);
+    syncReactiveFromScene(previousScene, scene, renderTableRowsByPath);
   }
 
   return {
-    syncRenderProjectionNode,
-    syncRenderProjectionRelationshipsForPath,
+    syncReactiveNode,
+    syncReactiveRelationshipsForPath,
     promoteVirtualScene,
     promoteCurrentScene,
   };

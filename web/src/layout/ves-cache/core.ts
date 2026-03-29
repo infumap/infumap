@@ -25,7 +25,7 @@ import {
   getScenePathsForDisplayId,
 } from "./indexes";
 import { addSceneWatchContainerUid, maybeTrackLoadedContainer, pushTopTitledPage, removeSceneWatchContainerUid } from "./outputs";
-import { ProjectionOps } from "./projection";
+import { ReactiveOps } from "./reactive";
 import { createSceneQueryOps } from "./queries";
 import { createRelationshipOps, sceneRelationshipDataEqual } from "./relationships";
 import { cloneVisualElementSnapshot, visualElementMatchesPreparedSpec } from "./spec";
@@ -37,7 +37,7 @@ import {
   VesCacheState,
 } from "./state";
 
-export function createSceneOps(state: VesCacheState, projection: ProjectionOps) {
+export function createSceneOps(state: VesCacheState, reactive: ReactiveOps) {
   function createVisualElement(spec: VisualElementSpec): VisualElement {
     return VeFns.create(spec);
   }
@@ -69,7 +69,7 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
       return null;
     }
     if (scene === state.currentScene) {
-      return ensureCurrentRenderNode(path);
+      return ensureCurrentReactiveNode(path);
     }
     if (scene === state.underConstructionScene) {
       return ensureUnderConstructionArrangeSignal(path);
@@ -81,7 +81,7 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     const resolved: Array<VisualElementSignal> = [];
     if (scene === state.currentScene) {
       for (const path of paths ?? []) {
-        const node = ensureCurrentRenderNode(path);
+        const node = ensureCurrentReactiveNode(path);
         if (node) {
           resolved.push(node);
         }
@@ -99,9 +99,9 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     return resolved;
   }
 
-  function ensureCurrentRenderNode(path: VisualElementPath): VisualElementSignal | null {
-    const entry = projection.findRenderProjection(path);
-    const existing = entry ? projection.readRenderProjectionSignal(entry.node) : undefined;
+  function ensureCurrentReactiveNode(path: VisualElementPath): VisualElementSignal | null {
+    const entry = reactive.findReactiveEntry(path);
+    const existing = entry ? reactive.readReactiveSignal(entry.node) : undefined;
     if (existing) {
       return existing;
     }
@@ -110,7 +110,7 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
       return null;
     }
     const signal = createVisualElementSignal(cloneVisualElementSnapshot(currentVe));
-    projection.updateRenderProjectionNode(path, signal);
+    reactive.updateReactiveNode(path, signal);
     return signal;
   }
 
@@ -191,7 +191,7 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
 
   const queries = createSceneQueryOps(
     state,
-    projection,
+    reactive,
     getSceneNode,
     getSceneParentPath,
     resolveSceneNodePath,
@@ -200,7 +200,7 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
 
   const sync = createSceneSyncOps(
     state,
-    projection,
+    reactive,
     getSceneNode,
     sceneHasNode,
     resolveSceneNodePath,
@@ -220,8 +220,8 @@ export function createSceneOps(state: VesCacheState, projection: ProjectionOps) 
     writeScenePath,
     deindexVisualElement,
     deleteSceneRelationships: relationships.deleteSceneRelationships,
-    syncRenderProjectionNode: sync.syncRenderProjectionNode,
-    syncRenderProjectionRelationshipsForPath: sync.syncRenderProjectionRelationshipsForPath,
+    syncReactiveNode: sync.syncReactiveNode,
+    syncReactiveRelationshipsForPath: sync.syncReactiveRelationshipsForPath,
     addSceneWatchContainerUid,
     pushTopTitledPage,
     removeSceneWatchContainerUid,

@@ -20,12 +20,12 @@ import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { VeFns, Veid, VisualElement, VisualElementPath } from "../visual-element";
 import { getSceneVeidMatchPaths, veidIndexKey } from "./indexes";
-import { ProjectionOps } from "./projection";
+import { ReactiveOps } from "./reactive";
 import { SceneState, VesCacheState } from "./state";
 
 export function createSceneQueryOps(
   state: VesCacheState,
-  projection: ProjectionOps,
+  reactive: ReactiveOps,
   getSceneNode: (scene: SceneState, path: VisualElementPath) => VisualElement | undefined,
   getSceneParentPath: (scene: SceneState, path: VisualElementPath) => VisualElementPath | null,
   resolveSceneNodePath: (scene: SceneState, path: VisualElementPath | null | undefined) => VisualElementSignal | null,
@@ -259,7 +259,7 @@ export function createSceneQueryOps(
 
   const render = {
     getNode: (path: VisualElementPath): VisualElementSignal | undefined => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).node)[0]();
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).node)[0]();
     },
 
     find: (veid: Veid): Array<VisualElementSignal> => {
@@ -271,39 +271,39 @@ export function createSceneQueryOps(
     },
 
     getAttachments: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).attachments)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).attachments)[0];
     },
 
     getPopup: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).popup)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).popup)[0];
     },
 
     getSelected: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).selected)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).selected)[0];
     },
 
     getDock: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).dock)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).dock)[0];
     },
 
     getChildren: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).children)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).children)[0];
     },
 
     getLineChildren: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).lineChildren)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).lineChildren)[0];
     },
 
     getDesktopChildren: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).desktopChildren)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).desktopChildren)[0];
     },
 
     getNonMovingChildren: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).nonMovingChildren)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).nonMovingChildren)[0];
     },
 
     getFocusedChild: (path: VisualElementPath) => {
-      return projection.ensureRenderProjectionSignal(projection.getRenderProjection(path).focused)[0];
+      return reactive.ensureReactiveSignal(reactive.getReactiveEntry(path).focused)[0];
     },
   };
 

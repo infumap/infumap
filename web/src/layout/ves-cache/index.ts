@@ -23,8 +23,8 @@ import { Uid } from "../../util/uid";
 import { VisualElementSignal } from "../../util/signals";
 import { VeFns, VisualElement, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import {
-  createProjectionOps,
-} from "./projection";
+  createReactiveOps,
+} from "./reactive";
 import { createSceneOps } from "./core";
 import { cloneVisualElementSnapshot, prepareVisualElementSpec } from "./spec";
 import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualSceneState, createVesCacheState } from "./state";
@@ -48,8 +48,8 @@ import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualScene
 */
 
 const vesCacheState = createVesCacheState();
-const projection = createProjectionOps(vesCacheState);
-const scene = createSceneOps(vesCacheState, projection);
+const reactive = createReactiveOps(vesCacheState);
+const scene = createSceneOps(vesCacheState, reactive);
 
 export let VesCache = {
 
@@ -57,7 +57,7 @@ export let VesCache = {
     Query facade over the live arranged layout currently stored in currentScene.
 
     Use this for non-rendering reads of layout structure and relationships when
-    you want plain scene data, not Solid render signals.
+    you want plain scene data, not Solid reactive signals.
   */
   current: scene.current,
 
@@ -87,11 +87,11 @@ export let VesCache = {
     vesCacheState.currentlyInFullArrange = false;
     vesCacheState.currentScene = createEmptySceneState();
     vesCacheState.currentSceneOutputs = createEmptySceneOutputs();
-    vesCacheState.renderProjectionByPath = new Map();
+    vesCacheState.reactiveEntriesByPath = new Map();
     vesCacheState.virtualScene = createEmptyVirtualSceneState();
     vesCacheState.underConstructionScene = createEmptySceneState();
     vesCacheState.underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
-    vesCacheState.underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
+    vesCacheState.underConstructionReactiveTableRowsByPath = new Map<VisualElementPath, Array<number>>();
     vesCacheState.underConstructionSceneOutputs = createEmptySceneOutputs();
   },
 
@@ -124,7 +124,7 @@ export let VesCache = {
     begin: (): void => {
       vesCacheState.currentlyInFullArrange = true;
       vesCacheState.underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
-      vesCacheState.underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
+      vesCacheState.underConstructionReactiveTableRowsByPath = new Map<VisualElementPath, Array<number>>();
     },
 
     finalize: (store: StoreContextModel, umbrellaSpec: VisualElementSpec, umbrellaRelationships: VisualElementRelationships, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
@@ -137,12 +137,12 @@ export let VesCache = {
         scene.promoteVirtualScene(vesCacheState.underConstructionScene);
       } else {
         store.umbrellaVisualElement.set(umbrellaVe);
-        scene.promoteCurrentScene(store, vesCacheState.underConstructionScene, vesCacheState.underConstructionSceneOutputs, vesCacheState.underConstructionRenderTableRowsByPath);
+        scene.promoteCurrentScene(store, vesCacheState.underConstructionScene, vesCacheState.underConstructionSceneOutputs, vesCacheState.underConstructionReactiveTableRowsByPath);
       }
 
       vesCacheState.underConstructionScene = createEmptySceneState();
       vesCacheState.underConstructionArrangeSignalsByPath = new Map<VisualElementPath, VisualElementSignal>();
-      vesCacheState.underConstructionRenderTableRowsByPath = new Map<VisualElementPath, Array<number>>();
+      vesCacheState.underConstructionReactiveTableRowsByPath = new Map<VisualElementPath, Array<number>>();
       vesCacheState.underConstructionSceneOutputs = createEmptySceneOutputs();
 
       vesCacheState.currentlyInFullArrange = false;
@@ -179,8 +179,8 @@ export let VesCache = {
       const preparedRelationships = scene.prepareSceneRelationshipData(vesCacheState.currentScene, relationships, path);
       const newElement = scene.createVisualElement(preparedSpec);
       scene.writeScenePath(vesCacheState.currentScene, path, newElement, preparedRelationships);
-      scene.syncRenderProjectionNode(path, newElement);
-      scene.syncRenderProjectionRelationshipsForPath(vesCacheState.currentScene, path);
+      scene.syncReactiveNode(path, newElement);
+      scene.syncReactiveRelationshipsForPath(vesCacheState.currentScene, path);
 
       scene.maybeTrackLoadedContainer(vesCacheState.currentSceneOutputs, preparedSpec);
 
@@ -210,13 +210,13 @@ export let VesCache = {
       scene.deindexVisualElement(vesCacheState.currentScene, existingPath, veToOverwrite);
       scene.deleteSceneRelationships(vesCacheState.currentScene.relationshipsByPath, existingPath);
       if (existingPath !== newPath) {
-        projection.clearRenderProjectionForPath(existingPath);
-        projection.deleteRenderProjectionForPath(existingPath);
+        reactive.clearReactiveForPath(existingPath);
+        reactive.deleteReactiveForPath(existingPath);
       }
       vesToOverwrite.set(cloneVisualElementSnapshot(nextVe));
       scene.writeScenePath(vesCacheState.currentScene, newPath, nextVe, preparedRelationships);
-      scene.syncRenderProjectionNode(newPath, nextVe, undefined, vesToOverwrite);
-      scene.syncRenderProjectionRelationshipsForPath(vesCacheState.currentScene, newPath);
+      scene.syncReactiveNode(newPath, nextVe, undefined, vesToOverwrite);
+      scene.syncReactiveRelationshipsForPath(vesCacheState.currentScene, newPath);
 
       scene.maybeTrackLoadedContainer(vesCacheState.currentSceneOutputs, preparedSpec);
     },
@@ -233,8 +233,8 @@ export let VesCache = {
         panic(`item ${path} is not in ves cache.`);
       }
       scene.deleteSceneRelationships(vesCacheState.currentScene.relationshipsByPath, path);
-      projection.clearRenderProjectionForPath(path);
-      projection.deleteRenderProjectionForPath(path);
+      reactive.clearReactiveForPath(path);
+      reactive.deleteReactiveForPath(path);
 
       scene.deleteFromVessVsDisplayIdLookup(vesCacheState.currentScene, path);
     },
@@ -244,7 +244,7 @@ export let VesCache = {
       if (relationships) {
         relationships.popup = null;
       }
-      projection.updateRenderProjectionPopup(path, null);
+      reactive.updateReactivePopup(path, null);
     },
   },
 
@@ -263,17 +263,17 @@ export let VesCache = {
   table: {
     getRenderRows: (path: VisualElementPath): Array<number> | null => {
       if (vesCacheState.currentlyInFullArrange && scene.sceneHasNode(vesCacheState.underConstructionScene, path)) {
-        return projection.getUnderConstructionRenderTableRows(path);
+        return reactive.getUnderConstructionReactiveTableRows(path);
       }
-      return projection.getCurrentRenderTableRows(path);
+      return reactive.getCurrentReactiveTableRows(path);
     },
 
     setRenderRows: (path: VisualElementPath, rows: Array<number> | null): void => {
       if (vesCacheState.currentlyInFullArrange && scene.sceneHasNode(vesCacheState.underConstructionScene, path)) {
-        projection.setUnderConstructionRenderTableRows(path, rows);
+        reactive.setUnderConstructionReactiveTableRows(path, rows);
         return;
       }
-      projection.setRenderProjectionTableRows(path, rows);
+      reactive.setReactiveTableRows(path, rows);
     },
   },
 

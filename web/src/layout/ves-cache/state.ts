@@ -22,22 +22,22 @@ import { VisualElement, VisualElementPath } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
 
-export type RenderProjectionSlot<T> = {
+export type ReactiveSlot<T> = {
   value: T;
   signal: [Accessor<T>, Setter<T>] | null;
 }
 
-export type RenderProjectionEntry = {
-  node: RenderProjectionSlot<VisualElementSignal | undefined>;
-  popup: RenderProjectionSlot<VisualElementSignal | null>;
-  selected: RenderProjectionSlot<VisualElementSignal | null>;
-  dock: RenderProjectionSlot<VisualElementSignal | null>;
-  focused: RenderProjectionSlot<Item | null>;
-  attachments: RenderProjectionSlot<Array<VisualElementSignal>>;
-  children: RenderProjectionSlot<Array<VisualElementSignal>>;
-  lineChildren: RenderProjectionSlot<Array<VisualElementSignal>>;
-  desktopChildren: RenderProjectionSlot<Array<VisualElementSignal>>;
-  nonMovingChildren: RenderProjectionSlot<Array<VisualElementSignal>>;
+export type ReactiveEntry = {
+  node: ReactiveSlot<VisualElementSignal | undefined>;
+  popup: ReactiveSlot<VisualElementSignal | null>;
+  selected: ReactiveSlot<VisualElementSignal | null>;
+  dock: ReactiveSlot<VisualElementSignal | null>;
+  focused: ReactiveSlot<Item | null>;
+  attachments: ReactiveSlot<Array<VisualElementSignal>>;
+  children: ReactiveSlot<Array<VisualElementSignal>>;
+  lineChildren: ReactiveSlot<Array<VisualElementSignal>>;
+  desktopChildren: ReactiveSlot<Array<VisualElementSignal>>;
+  nonMovingChildren: ReactiveSlot<Array<VisualElementSignal>>;
   tableRows: Array<number> | null;
 }
 
@@ -81,13 +81,7 @@ export function createEmptySceneState(): SceneState {
 }
 
 export function createEmptyVirtualSceneState(): VirtualSceneState {
-  return {
-    cache: new Map<VisualElementPath, VisualElement>(),
-    vessVsDisplayId: new Map<Uid, Array<VisualElementPath>>(),
-    childrenByParent: new Map<VisualElementPath, Array<VisualElementPath>>(),
-    vessByVeid: new Map<string, Array<VisualElementPath>>(),
-    relationshipsByPath: new Map(),
-  };
+  return createEmptySceneState();
 }
 
 export function createEmptySceneOutputs(): SceneOutputs {
@@ -98,26 +92,26 @@ export function createEmptySceneOutputs(): SceneOutputs {
 }
 
 export type VesCacheState = {
-  renderProjectionByPath: Map<VisualElementPath, RenderProjectionEntry>;
+  reactiveEntriesByPath: Map<VisualElementPath, ReactiveEntry>;
   currentlyInFullArrange: boolean;
   currentScene: SceneState;
   virtualScene: VirtualSceneState;
   underConstructionScene: SceneState;
   underConstructionArrangeSignalsByPath: Map<VisualElementPath, VisualElementSignal>;
-  underConstructionRenderTableRowsByPath: Map<VisualElementPath, Array<number>>;
+  underConstructionReactiveTableRowsByPath: Map<VisualElementPath, Array<number>>;
   currentSceneOutputs: SceneOutputs;
   underConstructionSceneOutputs: SceneOutputs;
 }
 
 export function createVesCacheState(): VesCacheState {
   return {
-    renderProjectionByPath: new Map<VisualElementPath, RenderProjectionEntry>(),
+    reactiveEntriesByPath: new Map<VisualElementPath, ReactiveEntry>(),
     currentlyInFullArrange: false,
     currentScene: createEmptySceneState(),
     virtualScene: createEmptyVirtualSceneState(),
     underConstructionScene: createEmptySceneState(),
     underConstructionArrangeSignalsByPath: new Map<VisualElementPath, VisualElementSignal>(),
-    underConstructionRenderTableRowsByPath: new Map<VisualElementPath, Array<number>>(),
+    underConstructionReactiveTableRowsByPath: new Map<VisualElementPath, Array<number>>(),
     currentSceneOutputs: createEmptySceneOutputs(),
     underConstructionSceneOutputs: createEmptySceneOutputs(),
   };
