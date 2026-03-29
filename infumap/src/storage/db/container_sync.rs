@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use infusdk::util::uid::Uid;
+use log::warn;
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -23,6 +24,7 @@ const RECENT_DELTA_LIMIT_PER_CONTAINER: usize = 64;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContainerSyncVersion {
   pub id: Uid,
+  pub epoch: u64,
   pub version: u64,
 }
 
@@ -112,6 +114,7 @@ pub enum ContainerSyncLookup {
 
 #[derive(Default)]
 struct UserContainerSyncState {
+  log_epoch: u64,
   version_by_container: HashMap<Uid, u64>,
   recent_entries_by_container: HashMap<Uid, VecDeque<ContainerSyncLogEntry>>,
 }
@@ -144,6 +147,17 @@ impl ContainerSyncState {
       .unwrap_or(0)
   }
 
+  pub fn epoch_for_user(&self, user_id: &Uid) -> u64 {
+    self.by_user_id.get(user_id).map(|user_state| user_state.log_epoch).unwrap_or(0)
+  }
+
+  pub fn initialize_user_versions(&mut self, user_id: &Uid, epoch: u64, versions: HashMap<Uid, u64>) {
+    let user_state = self.by_user_id.entry(user_id.clone()).or_default();
+    user_state.log_epoch = epoch;
+    user_state.version_by_container = versions;
+    user_state.recent_entries_by_container.clear();
+  }
+
   pub fn versions_for_containers<I>(&self, user_id: &Uid, container_ids: I) -> Vec<ContainerSyncVersion>
   where
     I: IntoIterator<Item = Uid>,
@@ -151,6 +165,7 @@ impl ContainerSyncState {
     let mut versions = container_ids
       .into_iter()
       .map(|container_id| ContainerSyncVersion {
+        epoch: self.epoch_for_user(user_id),
         version: self.version_for_container(user_id, &container_id),
         id: container_id,
       })
@@ -183,11 +198,22 @@ impl ContainerSyncState {
     version
   }
 
-  pub fn sync_lookup(&self, user_id: &Uid, container_id: &Uid, known_version: Option<u64>) -> ContainerSyncLookup {
+  pub fn sync_lookup(
+    &self,
+    user_id: &Uid,
+    container_id: &Uid,
+    known_epoch: Option<u64>,
+    known_version: Option<u64>,
+  ) -> ContainerSyncLookup {
+    let current_epoch = self.epoch_for_user(user_id);
     let current_version = self.version_for_container(user_id, container_id);
 
-    if known_version == Some(current_version) {
+    if known_epoch == Some(current_epoch) && known_version == Some(current_version) {
       return ContainerSyncLookup::UpToDate;
+    }
+
+    if known_epoch != Some(current_epoch) {
+      return ContainerSyncLookup::Snapshot { version: current_version };
     }
 
     let Some(known_version) = known_version else {
@@ -195,6 +221,10 @@ impl ContainerSyncState {
     };
 
     if known_version > current_version {
+      warn!(
+        "Container sync client version ahead of server version for user '{}' container '{}': client epoch/version {}/{} server epoch/version {}/{}; forcing snapshot.",
+        user_id, container_id, current_epoch, known_version, current_epoch, current_version,
+      );
       return ContainerSyncLookup::Snapshot { version: current_version };
     }
 
@@ -270,6 +300,7 @@ mod tests {
     let user_id = String::from("user");
     let container_id = String::from("container");
     let mut state = ContainerSyncState::new();
+    state.initialize_user_versions(&user_id, 0, HashMap::new());
 
     let mut first = ContainerSyncDelta::default();
     first.add_child_upsert(item_json("child-a"));
@@ -280,7 +311,7 @@ mod tests {
     second.add_child_delete(&String::from("child-a"));
     state.record_delta(&user_id, &container_id, second);
 
-    match state.sync_lookup(&user_id, &container_id, Some(0)) {
+    match state.sync_lookup(&user_id, &container_id, Some(0), Some(0)) {
       ContainerSyncLookup::Delta { version, delta } => {
         assert_eq!(version, 2);
         assert_eq!(delta.child_deletes(), vec![String::from("child-a")]);
@@ -295,10 +326,11 @@ mod tests {
     let user_id = String::from("user");
     let container_id = String::from("container");
     let mut state = ContainerSyncState::new();
+    state.initialize_user_versions(&user_id, 0, HashMap::new());
 
     state.record_snapshot_required(&user_id, &container_id);
 
-    match state.sync_lookup(&user_id, &container_id, Some(0)) {
+    match state.sync_lookup(&user_id, &container_id, Some(0), Some(0)) {
       ContainerSyncLookup::Snapshot { version } => assert_eq!(version, 1),
       _ => panic!("expected snapshot response"),
     }
@@ -309,6 +341,7 @@ mod tests {
     let user_id = String::from("user");
     let container_id = String::from("container");
     let mut state = ContainerSyncState::new();
+    state.initialize_user_versions(&user_id, 0, HashMap::new());
 
     for idx in 0..=RECENT_DELTA_LIMIT_PER_CONTAINER {
       let mut delta = ContainerSyncDelta::default();
@@ -316,8 +349,42 @@ mod tests {
       state.record_delta(&user_id, &container_id, delta);
     }
 
-    match state.sync_lookup(&user_id, &container_id, Some(0)) {
+    match state.sync_lookup(&user_id, &container_id, Some(0), Some(0)) {
       ContainerSyncLookup::Snapshot { version } => assert_eq!(version, (RECENT_DELTA_LIMIT_PER_CONTAINER + 1) as u64),
+      _ => panic!("expected snapshot response"),
+    }
+  }
+
+  #[test]
+  fn returns_snapshot_when_epoch_changes() {
+    let user_id = String::from("user");
+    let container_id = String::from("container");
+    let mut state = ContainerSyncState::new();
+    state.initialize_user_versions(&user_id, 1, HashMap::new());
+
+    let mut delta = ContainerSyncDelta::default();
+    delta.add_child_upsert(item_json("child-a"));
+    state.record_delta(&user_id, &container_id, delta);
+
+    match state.sync_lookup(&user_id, &container_id, Some(0), Some(1)) {
+      ContainerSyncLookup::Snapshot { version } => assert_eq!(version, 1),
+      _ => panic!("expected snapshot response"),
+    }
+  }
+
+  #[test]
+  fn returns_snapshot_when_client_version_is_ahead_in_same_epoch() {
+    let user_id = String::from("user");
+    let container_id = String::from("container");
+    let mut state = ContainerSyncState::new();
+    state.initialize_user_versions(&user_id, 2, HashMap::new());
+
+    let mut delta = ContainerSyncDelta::default();
+    delta.add_child_upsert(item_json("child-a"));
+    state.record_delta(&user_id, &container_id, delta);
+
+    match state.sync_lookup(&user_id, &container_id, Some(2), Some(2)) {
+      ContainerSyncLookup::Snapshot { version } => assert_eq!(version, 1),
       _ => panic!("expected snapshot response"),
     }
   }

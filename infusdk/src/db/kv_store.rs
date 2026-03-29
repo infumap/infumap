@@ -40,6 +40,33 @@ pub trait JsonLogSerializable<T> {
   fn apply_json_update(&mut self, map: &Map<String, Value>) -> InfuResult<()>;
 }
 
+pub trait LogReplayObserver<T> {
+  fn on_descriptor(
+    &mut self,
+    _descriptor_record: &Map<String, Value>,
+    _version: i64,
+    _value_type: &str,
+  ) -> InfuResult<()> {
+    Ok(())
+  }
+
+  fn on_entry(&mut self, _entry: &T) -> InfuResult<()> {
+    Ok(())
+  }
+
+  fn on_update(&mut self, _old: &T, _new: &T, _update_record: &Map<String, Value>) -> InfuResult<()> {
+    Ok(())
+  }
+
+  fn on_delete(&mut self, _old: &T) -> InfuResult<()> {
+    Ok(())
+  }
+
+  fn on_custom_record(&mut self, _record: &Map<String, Value>) -> InfuResult<bool> {
+    Ok(false)
+  }
+}
+
 struct DescriptorRecord {
   version: i64,
   value_type: String,
@@ -100,6 +127,23 @@ where
       writer.flush().await?;
     }
     let map = Self::read_log(path, version).await?;
+    Ok(Self { log_path: String::from(path), map })
+  }
+
+  pub async fn init_with_observer<O>(path: &str, version: i64, observer: &mut O) -> InfuResult<KVStore<T>>
+  where
+    T: Clone,
+    O: LogReplayObserver<T>,
+  {
+    if !std::path::Path::new(path).exists() {
+      let file = File::create(path).await?;
+      let mut writer = BufWriter::new(file);
+      let descriptor = DescriptorRecord { value_type: String::from(T::value_type_identifier()), version };
+      writer.write_all(serde_json::to_string(&descriptor)?.as_bytes()).await?;
+      writer.write_all("\n".as_bytes()).await?;
+      writer.flush().await?;
+    }
+    let map = Self::read_log_with_observer(path, version, observer).await?;
     Ok(Self { log_path: String::from(path), map })
   }
 
@@ -238,6 +282,111 @@ where
       match item? {
         Object(kvs) => {
           Self::read_log_record(&mut result, &kvs, expected_version)?;
+        }
+        unexpected_type => {
+          return Err(
+            format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
+          );
+        }
+      }
+    }
+
+    Ok(result)
+  }
+
+  async fn read_log_with_observer<O>(
+    path: &str,
+    expected_version: i64,
+    observer: &mut O,
+  ) -> InfuResult<HashMap<String, T>>
+  where
+    T: Clone,
+    O: LogReplayObserver<T>,
+  {
+    let mut result: HashMap<String, T> = HashMap::new();
+
+    let f = BufReader::new(File::open(path).await?);
+    let mut lines = f.lines();
+    while let Some(line) = lines.next_line().await? {
+      let item = serde_json::from_str::<serde_json::Value>(&line);
+      match item? {
+        Object(kvs) => {
+          let record_type = kvs
+            .get("__recordType")
+            .ok_or(InfuError::new("Log record is missing field __recordType."))?
+            .as_str()
+            .ok_or(InfuError::new("Log record type field is not of type 'string'."))?;
+
+          match record_type {
+            "descriptor" => {
+              let descriptor_version = kvs
+                .get("version")
+                .ok_or(InfuError::new("Descriptor log record does not specify a version."))?
+                .as_i64()
+                .ok_or(InfuError::new("Descriptor version does not have type 'number'."))?;
+              if descriptor_version != expected_version {
+                return Err(
+                  format!("Descriptor version is {}, but {} was expected.", descriptor_version, expected_version)
+                    .into(),
+                );
+              }
+              let value_type = kvs
+                .get("valueType")
+                .ok_or(InfuError::new("Descriptor log record does not specify a value type."))?
+                .as_str()
+                .ok_or(InfuError::new("Descriptor value_type field is not of type 'string'."))?;
+              if value_type != T::value_type_identifier() {
+                return Err(
+                  format!("Descriptor value_type is '{}', expecting '{}'.", value_type, T::value_type_identifier())
+                    .into(),
+                );
+              }
+              observer.on_descriptor(&kvs, descriptor_version, value_type)?;
+            }
+
+            "entry" => {
+              let u = T::from_json(&kvs)?;
+              if result.contains_key(u.get_id()) {
+                return Err(
+                  format!("Entry log record has id '{}', but an entry with this id already exists.", u.get_id()).into(),
+                );
+              }
+              observer.on_entry(&u)?;
+              result.insert(u.get_id().clone(), u);
+            }
+
+            "update" => {
+              let id = kvs
+                .get("id")
+                .ok_or(InfuError::new("Update log record does not specify an entry id."))?
+                .as_str()
+                .ok_or(InfuError::new("Update log record id does not have type 'string'."))?;
+              let u = result
+                .get_mut(&String::from(id))
+                .ok_or(InfuError::new(&format!("Update record has id '{}', but this is unknown.", id)))?;
+              let old = u.clone();
+              u.apply_json_update(&kvs)?;
+              observer.on_update(&old, u, &kvs)?;
+            }
+
+            "delete" => {
+              let id = kvs
+                .get("id")
+                .ok_or(InfuError::new("Delete log record does not specify an entry id."))?
+                .as_str()
+                .ok_or(InfuError::new("Delete log record id does not have type 'string'."))?;
+              let old = result
+                .remove(&String::from(id))
+                .ok_or(format!("Delete record has id '{}', but this is unknown.", id))?;
+              observer.on_delete(&old)?;
+            }
+
+            _ => {
+              if !observer.on_custom_record(&kvs)? {
+                return Err(format!("Unknown log record type '{}'.", record_type).into());
+              }
+            }
+          }
         }
         unexpected_type => {
           return Err(

@@ -237,6 +237,9 @@ pub async fn start_server_with_options(
     let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
     for user_id in all_user_ids {
       db.item.load_user_items(&user_id, false).await?;
+      let loaded_epoch = db.item.loaded_log_epoch_for_user(&user_id);
+      let loaded_versions = db.item.loaded_container_versions_for_user(&user_id);
+      db.container_sync.initialize_user_versions(&user_id, loaded_epoch, loaded_versions);
     }
     info!("Done loading all items for all users.");
   }

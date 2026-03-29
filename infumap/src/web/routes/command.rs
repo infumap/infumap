@@ -427,6 +427,7 @@ fn get_attachments_authorized<'a>(
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ContainerSyncAckContainer {
   pub id: Uid,
+  pub epoch: u64,
   pub version: u64,
 }
 
@@ -438,6 +439,8 @@ pub struct ContainerSyncAck {
 #[derive(Deserialize, Serialize)]
 pub struct SyncContainersSubscription {
   pub id: Uid,
+  #[serde(rename = "knownEpoch")]
+  pub known_epoch: Option<u64>,
   #[serde(rename = "knownVersion")]
   pub known_version: Option<u64>,
 }
@@ -456,6 +459,7 @@ pub struct SyncContainerSnapshot {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct SyncContainerUpdate {
   pub id: Uid,
+  pub epoch: u64,
   pub version: u64,
   pub strategy: String,
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -629,7 +633,11 @@ fn build_sync_ack(
       .container_sync
       .versions_for_containers(user_id, touched_container_ids.iter().cloned())
       .into_iter()
-      .map(|entry: ContainerSyncVersion| ContainerSyncAckContainer { id: entry.id, version: entry.version })
+      .map(|entry: ContainerSyncVersion| ContainerSyncAckContainer {
+        id: entry.id,
+        epoch: entry.epoch,
+        version: entry.version,
+      })
       .collect::<Vec<_>>(),
   })
 }
@@ -678,14 +686,21 @@ async fn handle_sync_containers(
       return Err(format!("Item '{}' is not a container and cannot be synced.", subscription.id).into());
     }
 
-    match db.container_sync.sync_lookup(&item.owner_id, &subscription.id, subscription.known_version) {
+    match db.container_sync.sync_lookup(
+      &item.owner_id,
+      &subscription.id,
+      subscription.known_epoch,
+      subscription.known_version,
+    ) {
       ContainerSyncLookup::UpToDate => {}
       ContainerSyncLookup::Delta { version, delta } => {
+        let epoch = db.container_sync.epoch_for_user(&item.owner_id);
         let children = delta.child_upserts();
         let child_deletes = delta.child_deletes();
         let attachment_upserts = delta.attachment_snapshots_json();
         updates.push(SyncContainerUpdate {
           id: subscription.id,
+          epoch,
           version,
           strategy: String::from("delta"),
           children: if children.is_empty() { None } else { Some(children) },
@@ -696,8 +711,10 @@ async fn handle_sync_containers(
         });
       }
       ContainerSyncLookup::Snapshot { version } => {
+        let epoch = db.container_sync.epoch_for_user(&item.owner_id);
         updates.push(SyncContainerUpdate {
           id: subscription.id.clone(),
+          epoch,
           version,
           strategy: String::from("snapshot"),
           children: None,
@@ -788,10 +805,23 @@ async fn handle_get_items(
     }
     GetItemsMode::ItemAndAttachmentsOnly => None,
   };
+  let sync_epoch = match mode {
+    GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
+      Some(db.container_sync.epoch_for_user(&item.owner_id))
+    }
+    GetItemsMode::ItemAndAttachmentsOnly => None,
+  };
   result.insert(
     String::from("syncVersion"),
     match sync_version {
       Some(version) => Value::Number(version.into()),
+      None => Value::Null,
+    },
+  );
+  result.insert(
+    String::from("syncEpoch"),
+    match sync_epoch {
+      Some(epoch) => Value::Number(epoch.into()),
       None => Value::Null,
     },
   );
@@ -1413,7 +1443,7 @@ async fn handle_empty_trash<'a>(
   let mut count = 0;
   let mut img_cache_count = 0;
   let mut object_count = 0;
-  let mut snapshot_required_container_ids = HashSet::new();
+  let mut touched_container_ids = HashSet::new();
   delete_recursive(
     &mut db,
     object_store,
@@ -1424,11 +1454,10 @@ async fn handle_empty_trash<'a>(
     &mut count,
     &mut img_cache_count,
     &mut object_count,
-    &mut snapshot_required_container_ids,
+    &mut touched_container_ids,
   )
   .await?;
-  let sync_ack =
-    flush_container_sync_changes(&mut db, &session.user_id, HashMap::new(), snapshot_required_container_ids);
+  let sync_ack = build_sync_ack(&db, &session.user_id, &touched_container_ids);
 
   let mut result = serde_json::Map::new();
   result.insert("itemCount".to_owned(), Value::Number(count.into()));
@@ -1450,7 +1479,7 @@ async fn delete_recursive(
   count: &mut u64,
   img_cache_count: &mut u64,
   object_count: &mut u64,
-  snapshot_required_container_ids: &mut HashSet<Uid>,
+  touched_container_ids: &mut HashSet<Uid>,
 ) -> InfuResult<()> {
   for attachment_id in db.item.get_attachment_ids(&item_id)? {
     delete_recursive(
@@ -1463,7 +1492,7 @@ async fn delete_recursive(
       count,
       img_cache_count,
       object_count,
-      snapshot_required_container_ids,
+      touched_container_ids,
     )
     .await?;
   }
@@ -1478,7 +1507,7 @@ async fn delete_recursive(
       count,
       img_cache_count,
       object_count,
-      snapshot_required_container_ids,
+      touched_container_ids,
     )
     .await?;
   }
@@ -1486,16 +1515,9 @@ async fn delete_recursive(
   if delete_item {
     let data_dir = db.item.data_dir().to_owned();
     let item = db.item.get(&item_id)?.clone();
-    if let Some(container_id) = maybe_container_id_for_child_item(&item) {
-      snapshot_required_container_ids.insert(container_id);
-    }
-    if item.relationship_to_parent == RelationshipToParent::Attachment {
-      if let Some(parent_id) = item.parent_id.clone() {
-        if let Some(container_id) = maybe_container_id_for_attachment_parent(db, &parent_id)? {
-          snapshot_required_container_ids.insert(container_id);
-        }
-      }
-    }
+    let old_child_container_id = maybe_container_id_for_child_item(&item);
+    let old_attachment_parent_id =
+      if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
     dequeue_pdf_item_if_active(&item_id);
     dequeue_image_item_if_active(&item_id);
 
@@ -1515,6 +1537,14 @@ async fn delete_recursive(
     delete_item_image_tag_dir(&data_dir, user_id, &item.id).await?;
 
     let _item = db.item.remove(&item_id).await?;
+    if let Some(container_id) = old_child_container_id {
+      record_container_snapshot_required(db, user_id, &container_id, touched_container_ids);
+    }
+    if let Some(parent_id) = old_attachment_parent_id {
+      if let Some(container_id) = maybe_container_id_for_attachment_parent(db, &parent_id)? {
+        record_container_snapshot_required(db, user_id, &container_id, touched_container_ids);
+      }
+    }
     debug!("Deleted item '{}' from database.", item_id);
 
     *count = *count + 1;

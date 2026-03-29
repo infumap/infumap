@@ -53,6 +53,7 @@ export interface ItemsAndTheirAttachments {
   item: object,
   children: Array<object>,
   attachments: { [id: string]: Array<object> },
+  syncEpoch: number | null,
   syncVersion: number | null,
 }
 
@@ -74,6 +75,7 @@ export interface EmptyTrashResult {
 
 export interface SyncContainerSubscription {
   id: Uid,
+  knownEpoch: number | null,
   knownVersion: number | null,
 }
 
@@ -84,6 +86,7 @@ export interface SyncContainerSnapshot {
 
 export interface SyncContainerUpdate {
   id: string,
+  epoch: number,
   version: number,
   strategy: "delta" | "snapshot",
   children?: Array<object>,
@@ -95,6 +98,7 @@ export interface SyncContainerUpdate {
 
 interface ContainerSyncAckEntry {
   id: Uid,
+  epoch: number,
   version: number,
 }
 
@@ -363,15 +367,39 @@ function constructCommandPromise(
   })
 }
 
-const localContainerSyncVersions = new Map<Uid, { version: number | null }>();
+const localContainerSyncVersions = new Map<Uid, { epoch: number | null, version: number | null }>();
 
-function setLocalContainerSyncVersion(containerId: Uid, version: number | null | undefined): void {
+function setLocalContainerSyncVersion(
+  containerId: Uid,
+  epoch: number | null | undefined,
+  version: number | null | undefined,
+  allowRegression: boolean = false,
+): void {
+  const normalizedEpoch = typeof epoch === "number" ? epoch : null;
   const normalizedVersion = typeof version === "number" ? version : null;
   const existing = localContainerSyncVersions.get(containerId);
-  if (existing && existing.version != null && normalizedVersion != null && existing.version > normalizedVersion) {
-    return;
+  if (!allowRegression && existing) {
+    if (existing.epoch != null && normalizedEpoch != null) {
+      if (existing.epoch > normalizedEpoch) {
+        return;
+      }
+      if (existing.epoch === normalizedEpoch &&
+          existing.version != null &&
+          normalizedVersion != null &&
+          existing.version > normalizedVersion) {
+        return;
+      }
+    } else if (existing.epoch != null && normalizedEpoch == null) {
+      return;
+    }
   }
-  localContainerSyncVersions.set(containerId, { version: normalizedVersion });
+  if (allowRegression && existing && existing.epoch === normalizedEpoch &&
+      existing.version != null && normalizedVersion != null && existing.version > normalizedVersion) {
+    console.warn(
+      `Container sync version regressed for '${containerId}' within epoch ${normalizedEpoch}; accepting authoritative server state ${normalizedVersion} after local cache held ${existing.version}.`
+    );
+  }
+  localContainerSyncVersions.set(containerId, { epoch: normalizedEpoch, version: normalizedVersion });
 }
 
 export function clearLocalContainerSyncVersions(): void {
@@ -383,7 +411,7 @@ function applySyncAck(syncAck: ContainerSyncAck | null | undefined): void {
     return;
   }
   for (const container of syncAck.containers) {
-    setLocalContainerSyncVersion(container.id, container.version);
+    setLocalContainerSyncVersion(container.id, container.epoch, container.version);
   }
   requestContainerSyncSoon();
 }
@@ -394,7 +422,7 @@ function maybeTrackFetchedContainerSyncVersion(requestId: string, response: any,
     return;
   }
   const containerId = (response.item?.id ?? requestId) as Uid;
-  setLocalContainerSyncVersion(containerId, response.syncVersion ?? null);
+  setLocalContainerSyncVersion(containerId, response.syncEpoch ?? null, response.syncVersion ?? null);
 }
 
 function normalizeFetchedItemsResponse(
@@ -417,6 +445,7 @@ function normalizeFetchedItemsResponse(
     item: response.item,
     children: response.children,
     attachments: response.attachments,
+    syncEpoch: typeof response.syncEpoch === "number" ? response.syncEpoch : null,
     syncVersion: typeof response.syncVersion === "number" ? response.syncVersion : null,
   };
 }
@@ -461,7 +490,7 @@ function applyContainerSyncDelta(update: SyncContainerUpdate): boolean {
 function applyContainerSyncUpdate(update: SyncContainerUpdate): boolean {
   const container = itemState.get(update.id);
   if (!container || !isContainer(container)) {
-    setLocalContainerSyncVersion(update.id, update.version);
+    setLocalContainerSyncVersion(update.id, update.epoch, update.version, true);
     return false;
   }
 
@@ -478,7 +507,7 @@ function applyContainerSyncUpdate(update: SyncContainerUpdate): boolean {
     changed = applyContainerSyncDelta(update);
   }
 
-  setLocalContainerSyncVersion(update.id as Uid, update.version);
+  setLocalContainerSyncVersion(update.id as Uid, update.epoch, update.version, true);
   return changed;
 }
 
@@ -494,10 +523,11 @@ function getTrackedLocalContainerSubscriptions(): Array<SyncContainerSubscriptio
     .map((containerId) => {
       const existing = localContainerSyncVersions.get(containerId);
       if (!existing) {
-        localContainerSyncVersions.set(containerId, { version: null });
+        localContainerSyncVersions.set(containerId, { epoch: null, version: null });
       }
       return {
         id: containerId,
+        knownEpoch: localContainerSyncVersions.get(containerId)?.epoch ?? null,
         knownVersion: localContainerSyncVersions.get(containerId)?.version ?? null,
       };
     });

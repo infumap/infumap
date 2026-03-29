@@ -16,6 +16,7 @@
 
 use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::db::kv_store::KVStore;
+use infusdk::db::kv_store::LogReplayObserver;
 use infusdk::item::TableColumn;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
@@ -27,18 +28,20 @@ use infusdk::util::json;
 use infusdk::util::time::unix_now_secs_i64;
 use infusdk::util::uid::Uid;
 use log::{debug, info, warn};
+use serde::Serialize;
+use serde::ser::SerializeStruct;
 use serde_json::{Map, Number, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
-use tokio::fs::File;
-use tokio::io::{AsyncReadExt, BufReader};
+use tokio::fs::{File, OpenOptions};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 
 use crate::util::fs::{expand_tilde, path_exists};
 use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 31;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 32;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -99,11 +102,244 @@ pub struct ItemDb {
   data_dir: String,
   store_by_user_id: HashMap<Uid, KVStore<Item>>,
   dirty_user_ids: HashSet<Uid>,
+  loaded_log_epoch_by_user_id: HashMap<Uid, u64>,
+  loaded_container_versions_by_user_id: HashMap<Uid, HashMap<Uid, u64>>,
 
   // indexes
   owner_id_by_item_id: HashMap<Uid, Uid>,
   children_of: HashMap<Uid, Vec<Uid>>,
   attachments_of: HashMap<Uid, Vec<Uid>>,
+}
+
+#[derive(Clone)]
+struct ReplayItemState {
+  parent_id: Option<Uid>,
+  relationship_to_parent: RelationshipToParent,
+}
+
+struct ContainerVersionReplayState {
+  log_epoch: u64,
+  item_by_id: HashMap<Uid, ReplayItemState>,
+  version_by_container: HashMap<Uid, u64>,
+  has_seen_compaction_versions: bool,
+}
+
+impl ContainerVersionReplayState {
+  fn new() -> Self {
+    Self {
+      log_epoch: 0,
+      item_by_id: HashMap::new(),
+      version_by_container: HashMap::new(),
+      has_seen_compaction_versions: false,
+    }
+  }
+
+  fn into_loaded_sync_state(self) -> (u64, HashMap<Uid, u64>) {
+    (self.log_epoch, self.version_by_container)
+  }
+
+  fn apply_entry(&mut self, item: &Item) {
+    self.record_version_for_item_add(item);
+    self.item_by_id.insert(item.id.clone(), replay_item_state(item));
+  }
+
+  fn apply_update(&mut self, old_item: &Item, new_item: &Item) {
+    let mut touched_container_ids = HashSet::new();
+
+    if let Some(container_id) = maybe_container_id_for_child_item(old_item) {
+      touched_container_ids.insert(container_id);
+    }
+    if let Some(container_id) = maybe_container_id_for_child_item(new_item) {
+      touched_container_ids.insert(container_id);
+    }
+
+    if old_item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = &old_item.parent_id {
+        if let Some(container_id) = self.maybe_container_id_for_attachment_parent(parent_id) {
+          touched_container_ids.insert(container_id);
+        }
+      }
+    }
+    if new_item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = &new_item.parent_id {
+        if let Some(container_id) = self.maybe_container_id_for_attachment_parent(parent_id) {
+          touched_container_ids.insert(container_id);
+        }
+      }
+    }
+
+    self.bump_containers(touched_container_ids);
+    self.item_by_id.insert(new_item.id.clone(), replay_item_state(new_item));
+  }
+
+  fn apply_delete(&mut self, old_item: &Item) {
+    let mut touched_container_ids = HashSet::new();
+
+    if let Some(container_id) = maybe_container_id_for_child_item(old_item) {
+      touched_container_ids.insert(container_id);
+    }
+    if old_item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = &old_item.parent_id {
+        if let Some(container_id) = self.maybe_container_id_for_attachment_parent(parent_id) {
+          touched_container_ids.insert(container_id);
+        }
+      }
+    }
+
+    self.bump_containers(touched_container_ids);
+    self.item_by_id.remove(&old_item.id);
+  }
+
+  fn record_compaction_version(&mut self, container_id: &Uid, version: u64) {
+    if !self.has_seen_compaction_versions {
+      self.version_by_container.clear();
+      self.has_seen_compaction_versions = true;
+    }
+    self.version_by_container.insert(container_id.clone(), version);
+  }
+
+  fn record_log_epoch(&mut self, epoch: u64) {
+    self.log_epoch = epoch;
+  }
+
+  fn record_version_for_item_add(&mut self, item: &Item) {
+    let mut touched_container_ids = HashSet::new();
+
+    if let Some(container_id) = maybe_container_id_for_child_item(item) {
+      touched_container_ids.insert(container_id);
+    }
+    if item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = &item.parent_id {
+        if let Some(container_id) = self.maybe_container_id_for_attachment_parent(parent_id) {
+          touched_container_ids.insert(container_id);
+        }
+      }
+    }
+
+    self.bump_containers(touched_container_ids);
+  }
+
+  fn maybe_container_id_for_attachment_parent(&self, parent_id: &Uid) -> Option<Uid> {
+    let parent_item = self.item_by_id.get(parent_id)?;
+    if parent_item.relationship_to_parent == RelationshipToParent::Child { parent_item.parent_id.clone() } else { None }
+  }
+
+  fn bump_containers(&mut self, container_ids: HashSet<Uid>) {
+    for container_id in container_ids {
+      let version = self.version_by_container.entry(container_id).or_insert(0);
+      *version += 1;
+    }
+  }
+}
+
+impl LogReplayObserver<Item> for ContainerVersionReplayState {
+  fn on_descriptor(
+    &mut self,
+    descriptor_record: &Map<String, Value>,
+    _version: i64,
+    _value_type: &str,
+  ) -> InfuResult<()> {
+    let epoch = json::get_integer_field(descriptor_record, "epoch")?.ok_or("Item log descriptor missing 'epoch'.")?;
+    if epoch < 0 {
+      return Err(format!("Item log descriptor had negative epoch {}.", epoch).into());
+    }
+    self.record_log_epoch(epoch as u64);
+    Ok(())
+  }
+
+  fn on_entry(&mut self, entry: &Item) -> InfuResult<()> {
+    self.apply_entry(entry);
+    Ok(())
+  }
+
+  fn on_update(&mut self, old: &Item, new: &Item, _update_record: &Map<String, Value>) -> InfuResult<()> {
+    self.apply_update(old, new);
+    Ok(())
+  }
+
+  fn on_delete(&mut self, old: &Item) -> InfuResult<()> {
+    self.apply_delete(old);
+    Ok(())
+  }
+
+  fn on_custom_record(&mut self, record: &Map<String, Value>) -> InfuResult<bool> {
+    let record_type = json::get_string_field(record, "__recordType")?;
+    match record_type.as_deref() {
+      Some("containerVersion") => {
+        let container_id =
+          json::get_string_field(record, "containerId")?.ok_or("Container version record missing 'containerId'.")?;
+        let version =
+          json::get_integer_field(record, "version")?.ok_or("Container version record missing 'version'.")?;
+        if version < 0 {
+          return Err(
+            format!("Container version record for '{}' had negative version {}.", container_id, version).into(),
+          );
+        }
+        self.record_compaction_version(&container_id, version as u64);
+        Ok(true)
+      }
+      _ => Ok(false),
+    }
+  }
+}
+
+struct ItemLogDescriptorRecord<'a> {
+  version: i64,
+  value_type: &'a str,
+  epoch: u64,
+}
+
+impl Serialize for ItemLogDescriptorRecord<'_> {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
+    const NUM_FIELDS: usize = 4;
+    let mut state = serializer.serialize_struct("ItemLogDescriptorRecord", NUM_FIELDS)?;
+    state.serialize_field("__recordType", "descriptor")?;
+    state.serialize_field("version", &self.version)?;
+    state.serialize_field("valueType", &self.value_type)?;
+    state.serialize_field("epoch", &self.epoch)?;
+    state.end()
+  }
+}
+
+struct ContainerVersionRecord {
+  container_id: Uid,
+  version: u64,
+}
+
+impl Serialize for ContainerVersionRecord {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
+    const NUM_FIELDS: usize = 3;
+    let mut state = serializer.serialize_struct("ContainerVersionRecord", NUM_FIELDS)?;
+    state.serialize_field("__recordType", "containerVersion")?;
+    state.serialize_field("containerId", &self.container_id)?;
+    state.serialize_field("version", &self.version)?;
+    state.end()
+  }
+}
+
+fn replay_item_state(item: &Item) -> ReplayItemState {
+  ReplayItemState { parent_id: item.parent_id.clone(), relationship_to_parent: item.relationship_to_parent.clone() }
+}
+
+fn maybe_container_id_for_child_item(item: &Item) -> Option<Uid> {
+  if item.relationship_to_parent == RelationshipToParent::Child { item.parent_id.clone() } else { None }
+}
+
+async fn initialize_item_log(path: &PathBuf, epoch: u64) -> InfuResult<()> {
+  let file = File::create(path).await?;
+  let mut writer = BufWriter::new(file);
+  let descriptor =
+    ItemLogDescriptorRecord { version: CURRENT_ITEM_LOG_VERSION, value_type: Item::value_type_identifier(), epoch };
+  writer.write_all(serde_json::to_string(&descriptor)?.as_bytes()).await?;
+  writer.write_all("\n".as_bytes()).await?;
+  writer.flush().await?;
+  Ok(())
 }
 
 impl ItemDb {
@@ -112,6 +348,8 @@ impl ItemDb {
       data_dir: String::from(data_dir),
       store_by_user_id: HashMap::new(),
       dirty_user_ids: HashSet::new(),
+      loaded_log_epoch_by_user_id: HashMap::new(),
+      loaded_container_versions_by_user_id: HashMap::new(),
       owner_id_by_item_id: HashMap::new(),
       children_of: HashMap::new(),
       attachments_of: HashMap::new(),
@@ -131,6 +369,8 @@ impl ItemDb {
   /// log before it's parent.
   pub async fn compact(&self, user: &User) -> InfuResult<()> {
     let store = self.store_by_user_id.get(&user.id).ok_or(format!("no item store for user: {}", &user.id))?;
+    let next_log_epoch = self.loaded_log_epoch_by_user_id.get(&user.id).copied().unwrap_or(0) + 1;
+    let container_versions = self.loaded_container_versions_by_user_id.get(&user.id).cloned().unwrap_or_default();
     let root_ids = vec![user.trash_page_id.as_str(), user.dock_page_id.as_str(), user.home_page_id.as_str()];
 
     let mut all_ids = store.get_iter().map(|e| e.1.id.as_str()).collect::<HashSet<&str>>();
@@ -178,6 +418,7 @@ impl ItemDb {
       return Err(format!("Compacted log path already exists: {:?}", log_path).into());
     }
 
+    initialize_item_log(&log_path, next_log_epoch).await?;
     let mut compacted_store: KVStore<Item> =
       KVStore::init(log_path.to_str().ok_or("unable to interpret path")?, CURRENT_ITEM_LOG_VERSION).await?;
     for item_id in &ordered_ids {
@@ -190,6 +431,21 @@ impl ItemDb {
       item.spatial_position_gr = Some(Vector { x: 0, y: 0 });
       compacted_store.add(item).await?;
     }
+    let mut compacted_container_ids = store
+      .get_iter()
+      .filter(|(_, item)| is_container_item_type(item.item_type))
+      .map(|(_, item)| item.id.clone())
+      .collect::<Vec<_>>();
+    compacted_container_ids.sort();
+    let file = OpenOptions::new().append(true).open(&log_path).await?;
+    let mut writer = BufWriter::new(file);
+    for container_id in compacted_container_ids {
+      let version_record =
+        ContainerVersionRecord { version: *container_versions.get(&container_id).unwrap_or(&0), container_id };
+      writer.write_all(serde_json::to_string(&version_record)?.as_bytes()).await?;
+      writer.write_all("\n".as_bytes()).await?;
+    }
+    writer.flush().await?;
     let number_written = ordered_ids.len() + orphaned_ids.len();
     info!("Wrote {} items to the compacted log.", number_written);
 
@@ -206,17 +462,23 @@ impl ItemDb {
       if path_exists(&log_path).await {
         return Err(format!("Items log file '{}' already exists for user '{}'.", log_path_str, user_id).into());
       }
+      initialize_item_log(&log_path, 0).await?;
     } else {
       if !path_exists(&log_path).await {
         return Err(format!("Items log file '{}' does not exist for user '{}'.", log_path_str, user_id).into());
       }
     }
 
-    let store: KVStore<Item> = KVStore::init(log_path_str, CURRENT_ITEM_LOG_VERSION).await?;
+    let mut container_version_state = ContainerVersionReplayState::new();
+    let store: KVStore<Item> =
+      KVStore::init_with_observer(log_path_str, CURRENT_ITEM_LOG_VERSION, &mut container_version_state).await?;
     for (_id, item) in store.get_iter() {
       self.add_to_indexes(item)?;
     }
     self.store_by_user_id.insert(String::from(user_id), store);
+    let (loaded_log_epoch, loaded_container_versions) = container_version_state.into_loaded_sync_state();
+    self.loaded_log_epoch_by_user_id.insert(String::from(user_id), loaded_log_epoch);
+    self.loaded_container_versions_by_user_id.insert(String::from(user_id), loaded_container_versions);
 
     Ok(())
   }
@@ -324,6 +586,81 @@ impl ItemDb {
     Ok(())
   }
 
+  fn maybe_container_id_for_attachment_parent(&self, parent_id: &Uid) -> InfuResult<Option<Uid>> {
+    let parent_item = self.get(parent_id)?;
+    if parent_item.relationship_to_parent == RelationshipToParent::Child {
+      Ok(parent_item.parent_id.clone())
+    } else {
+      Ok(None)
+    }
+  }
+
+  fn bump_loaded_container_versions(&mut self, user_id: &Uid, container_ids: HashSet<Uid>) {
+    let versions_by_container = self.loaded_container_versions_by_user_id.entry(user_id.clone()).or_default();
+    for container_id in container_ids {
+      let version = versions_by_container.entry(container_id).or_insert(0);
+      *version += 1;
+    }
+  }
+
+  fn record_loaded_container_versions_for_item_add(&mut self, item: &Item) -> InfuResult<()> {
+    let mut touched_container_ids = HashSet::new();
+    if let Some(container_id) = maybe_container_id_for_child_item(item) {
+      touched_container_ids.insert(container_id);
+    }
+    if item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = &item.parent_id {
+        if let Some(container_id) = self.maybe_container_id_for_attachment_parent(parent_id)? {
+          touched_container_ids.insert(container_id);
+        }
+      }
+    }
+    self.bump_loaded_container_versions(&item.owner_id, touched_container_ids);
+    Ok(())
+  }
+
+  fn record_loaded_container_versions_for_item_update(&mut self, old_item: &Item, new_item: &Item) -> InfuResult<()> {
+    let mut touched_container_ids = HashSet::new();
+    if let Some(container_id) = maybe_container_id_for_child_item(old_item) {
+      touched_container_ids.insert(container_id);
+    }
+    if let Some(container_id) = maybe_container_id_for_child_item(new_item) {
+      touched_container_ids.insert(container_id);
+    }
+    if old_item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = &old_item.parent_id {
+        if let Some(container_id) = self.maybe_container_id_for_attachment_parent(parent_id)? {
+          touched_container_ids.insert(container_id);
+        }
+      }
+    }
+    if new_item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = &new_item.parent_id {
+        if let Some(container_id) = self.maybe_container_id_for_attachment_parent(parent_id)? {
+          touched_container_ids.insert(container_id);
+        }
+      }
+    }
+    self.bump_loaded_container_versions(&new_item.owner_id, touched_container_ids);
+    Ok(())
+  }
+
+  fn record_loaded_container_versions_for_item_delete(&mut self, item: &Item) -> InfuResult<()> {
+    let mut touched_container_ids = HashSet::new();
+    if let Some(container_id) = maybe_container_id_for_child_item(item) {
+      touched_container_ids.insert(container_id);
+    }
+    if item.relationship_to_parent == RelationshipToParent::Attachment {
+      if let Some(parent_id) = &item.parent_id {
+        if let Some(container_id) = self.maybe_container_id_for_attachment_parent(parent_id)? {
+          touched_container_ids.insert(container_id);
+        }
+      }
+    }
+    self.bump_loaded_container_versions(&item.owner_id, touched_container_ids);
+    Ok(())
+  }
+
   pub async fn add(&mut self, item: Item) -> InfuResult<()> {
     self.dirty_user_ids.insert(item.owner_id.clone());
     self
@@ -332,7 +669,8 @@ impl ItemDb {
       .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
       .add(item.clone())
       .await?;
-    self.add_to_indexes(&item)
+    self.add_to_indexes(&item)?;
+    self.record_loaded_container_versions_for_item_add(&item)
   }
 
   pub async fn remove(&mut self, id: &Uid) -> InfuResult<Item> {
@@ -372,6 +710,7 @@ impl ItemDb {
     let item = store.remove(id).await?;
 
     self.remove_from_indexes(&item)?;
+    self.record_loaded_container_versions_for_item_delete(&item)?;
     Ok(item)
   }
 
@@ -456,7 +795,8 @@ impl ItemDb {
       .update(item.clone())
       .await?;
     self.dirty_user_ids.insert(item.owner_id.clone());
-    self.add_to_indexes(item)
+    self.add_to_indexes(item)?;
+    self.record_loaded_container_versions_for_item_update(&old_item, item)
   }
 
   pub fn get(&self, id: &Uid) -> InfuResult<&Item> {
@@ -552,6 +892,14 @@ impl ItemDb {
     log_path.push(String::from("user_") + user_id);
     log_path.push("items.json");
     Ok(log_path)
+  }
+
+  pub fn loaded_container_versions_for_user(&self, user_id: &Uid) -> HashMap<Uid, u64> {
+    self.loaded_container_versions_by_user_id.get(user_id).cloned().unwrap_or_default()
+  }
+
+  pub fn loaded_log_epoch_for_user(&self, user_id: &Uid) -> u64 {
+    self.loaded_log_epoch_by_user_id.get(user_id).copied().unwrap_or(0)
   }
 }
 
@@ -1874,14 +2222,59 @@ pub fn migrate_record_v30_to_v31(kvs: &Map<String, Value>) -> InfuResult<Map<Str
   }
 }
 
+pub fn migrate_records_v31_to_v32(
+  updated_descriptor: &Map<String, Value>,
+  records: &[Map<String, Value>],
+) -> InfuResult<(Map<String, Value>, Vec<Map<String, Value>>)> {
+  let mut epoch: u64 = 0;
+  let mut saw_log_epoch = false;
+  let mut migrated_records = Vec::with_capacity(records.len());
+
+  for kvs in records {
+    match json::get_string_field(kvs, "__recordType")?
+      .ok_or("'__recordType' field is missing from log record.")?
+      .as_str()
+    {
+      "entry" | "update" | "delete" | "containerVersion" => migrated_records.push(kvs.clone()),
+
+      "logEpoch" => {
+        let record_epoch = json::get_integer_field(kvs, "epoch")?.ok_or("Log epoch record missing 'epoch'.")?;
+        if record_epoch < 0 {
+          return Err(format!("Log epoch record had negative epoch {}.", record_epoch).into());
+        }
+        if saw_log_epoch {
+          return Err("Version 31 item log had multiple logEpoch records.".into());
+        }
+        epoch = record_epoch as u64;
+        saw_log_epoch = true;
+      }
+
+      unexpected_record_type => {
+        return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+      }
+    }
+  }
+
+  let mut migrated_descriptor = updated_descriptor.clone();
+  migrated_descriptor.insert(String::from("epoch"), Value::Number(Number::from(epoch)));
+  Ok((migrated_descriptor, migrated_records))
+}
+
 #[cfg(test)]
 mod tests {
   use super::{
-    MimeTypeMigrationState, MimeTypeMigrationStats, migrate_record_v27_to_v28, migrate_record_v28_to_v29,
-    migrate_record_v30_to_v31, migrate_records_v29_to_v30,
+    ItemDb, MimeTypeMigrationState, MimeTypeMigrationStats, migrate_record_v27_to_v28, migrate_record_v28_to_v29,
+    migrate_record_v30_to_v31, migrate_records_v29_to_v30, migrate_records_v31_to_v32,
   };
+  use crate::storage::db::user::User;
+  use infusdk::item::{ArrangeAlgorithm, Item, NoteFlags, RelationshipToParent};
+  use infusdk::util::geometry::Vector;
+  use infusdk::util::uid::new_uid;
   use serde_json::{Map, Value};
   use std::collections::HashMap;
+  use std::fs;
+  use std::path::{Path, PathBuf};
+  use std::time::{SystemTime, UNIX_EPOCH};
 
   #[test]
   fn migrates_mime_type_aliases_in_entry_records() {
@@ -2070,5 +2463,212 @@ mod tests {
     assert_eq!(migrated.get("url").unwrap().as_str().unwrap(), "");
     assert_eq!(migrated.get("title").unwrap().as_str().unwrap(), "1 + 1");
     assert_eq!(migrated.get("format").unwrap().as_str().unwrap(), "0.00");
+  }
+
+  #[test]
+  fn migrates_v31_log_epoch_into_descriptor_epoch() {
+    let mut descriptor = Map::new();
+    descriptor.insert("__recordType".to_owned(), Value::String("descriptor".to_owned()));
+    descriptor.insert("version".to_owned(), Value::Number(32.into()));
+    descriptor.insert("valueType".to_owned(), Value::String("item".to_owned()));
+
+    let mut log_epoch = Map::new();
+    log_epoch.insert("__recordType".to_owned(), Value::String("logEpoch".to_owned()));
+    log_epoch.insert("epoch".to_owned(), Value::Number(7.into()));
+
+    let mut container_version = Map::new();
+    container_version.insert("__recordType".to_owned(), Value::String("containerVersion".to_owned()));
+    container_version.insert("containerId".to_owned(), Value::String("PAGE1".to_owned()));
+    container_version.insert("version".to_owned(), Value::Number(4.into()));
+
+    let (migrated_descriptor, migrated_records) =
+      migrate_records_v31_to_v32(&descriptor, &vec![log_epoch, container_version.clone()]).unwrap();
+
+    assert_eq!(migrated_descriptor.get("epoch").unwrap().as_u64(), Some(7));
+    assert_eq!(migrated_records, vec![container_version]);
+  }
+
+  #[test]
+  fn migrates_plain_v31_log_to_epoch_zero() {
+    let mut descriptor = Map::new();
+    descriptor.insert("__recordType".to_owned(), Value::String("descriptor".to_owned()));
+    descriptor.insert("version".to_owned(), Value::Number(32.into()));
+    descriptor.insert("valueType".to_owned(), Value::String("item".to_owned()));
+
+    let mut entry = Map::new();
+    entry.insert("__recordType".to_owned(), Value::String("entry".to_owned()));
+    entry.insert("id".to_owned(), Value::String("ITEM1".to_owned()));
+
+    let (migrated_descriptor, migrated_records) =
+      migrate_records_v31_to_v32(&descriptor, &vec![entry.clone()]).unwrap();
+
+    assert_eq!(migrated_descriptor.get("epoch").unwrap().as_u64(), Some(0));
+    assert_eq!(migrated_records, vec![entry]);
+  }
+
+  fn unique_test_data_dir(name: &str) -> PathBuf {
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    std::env::temp_dir().join(format!("infumap-item-db-{name}-{timestamp}"))
+  }
+
+  fn ensure_user_dir_exists(data_dir: &Path, user_id: &str) {
+    fs::create_dir_all(data_dir.join(format!("user_{user_id}"))).unwrap();
+  }
+
+  fn items_log_path(data_dir: &Path, user_id: &str) -> PathBuf {
+    data_dir.join(format!("user_{user_id}")).join("items.json")
+  }
+
+  fn compacted_items_log_path(data_dir: &Path, user_id: &str) -> PathBuf {
+    data_dir.join(format!("user_{user_id}")).join("items.json.compacted")
+  }
+
+  fn root_page(owner_id: &str, id: &str, title: &str) -> Item {
+    let mut page = Item::new_page(
+      None,
+      vec![0],
+      Vector { x: 0, y: 0 },
+      240,
+      RelationshipToParent::NoParent,
+      title,
+      "title[ASC]",
+      0,
+      0,
+      0,
+      1.6,
+      240,
+      ArrangeAlgorithm::SpatialStretch,
+      1,
+      1.0,
+      80,
+      1.0,
+      1.0,
+      vec![],
+      0,
+    );
+    page.owner_id = owner_id.to_owned();
+    page.id = id.to_owned();
+    page
+  }
+
+  fn note(owner_id: &str, id: &str, parent_id: &str, relationship: RelationshipToParent, title: &str) -> Item {
+    let mut note = Item::new_note(
+      &parent_id.to_owned(),
+      vec![0],
+      Vector { x: 0, y: 0 },
+      120,
+      relationship,
+      title,
+      NoteFlags::empty(),
+      None,
+      Some(String::new()),
+    );
+    note.owner_id = owner_id.to_owned();
+    note.id = id.to_owned();
+    note
+  }
+
+  fn test_user(user_id: &str, home_page_id: &str, trash_page_id: &str, dock_page_id: &str) -> User {
+    User {
+      id: user_id.to_owned(),
+      username: user_id.to_owned(),
+      password_hash: "hash".to_owned(),
+      password_salt: "salt".to_owned(),
+      totp_secret: None,
+      home_page_id: home_page_id.to_owned(),
+      trash_page_id: trash_page_id.to_owned(),
+      dock_page_id: dock_page_id.to_owned(),
+      default_page_width_bl: 80,
+      default_page_natural_aspect: 1.6,
+      object_encryption_key: "key".to_owned(),
+    }
+  }
+
+  #[tokio::test]
+  async fn replays_container_versions_for_child_and_attachment_changes() {
+    let data_dir = unique_test_data_dir("container-version-replay");
+    let user_id = new_uid();
+    ensure_user_dir_exists(&data_dir, &user_id);
+
+    let home_page_id = new_uid();
+    let trash_page_id = new_uid();
+    let dock_page_id = new_uid();
+    let child_a_id = new_uid();
+    let child_b_id = new_uid();
+    let attachment_id = new_uid();
+
+    let mut item_db = ItemDb::init(data_dir.to_str().unwrap());
+    item_db.load_user_items(&user_id, true).await.unwrap();
+    item_db.add(root_page(&user_id, &home_page_id, "Home")).await.unwrap();
+    item_db.add(root_page(&user_id, &trash_page_id, "Trash")).await.unwrap();
+    item_db.add(root_page(&user_id, &dock_page_id, "Dock")).await.unwrap();
+    item_db.add(note(&user_id, &child_a_id, &home_page_id, RelationshipToParent::Child, "Child A")).await.unwrap();
+    item_db.add(note(&user_id, &child_b_id, &home_page_id, RelationshipToParent::Child, "Child B")).await.unwrap();
+    item_db
+      .add(note(&user_id, &attachment_id, &child_a_id, RelationshipToParent::Attachment, "Attachment"))
+      .await
+      .unwrap();
+
+    let mut moved_attachment = item_db.get(&attachment_id).unwrap().clone();
+    moved_attachment.parent_id = Some(child_b_id.clone());
+    moved_attachment.title = Some("Attachment moved".to_owned());
+    item_db.update(&moved_attachment).await.unwrap();
+    drop(item_db);
+
+    let mut reloaded = ItemDb::init(data_dir.to_str().unwrap());
+    reloaded.load_user_items(&user_id, false).await.unwrap();
+    let versions = reloaded.loaded_container_versions_for_user(&user_id);
+    assert_eq!(versions.get(&home_page_id).copied(), Some(4));
+
+    fs::remove_dir_all(&data_dir).unwrap();
+  }
+
+  #[tokio::test]
+  async fn compaction_preserves_container_version_baseline_for_future_replay() {
+    let data_dir = unique_test_data_dir("container-version-compaction");
+    let user_id = new_uid();
+    ensure_user_dir_exists(&data_dir, &user_id);
+
+    let home_page_id = new_uid();
+    let trash_page_id = new_uid();
+    let dock_page_id = new_uid();
+    let child_id = new_uid();
+    let attachment_id = new_uid();
+    let user = test_user(&user_id, &home_page_id, &trash_page_id, &dock_page_id);
+
+    let mut item_db = ItemDb::init(data_dir.to_str().unwrap());
+    item_db.load_user_items(&user_id, true).await.unwrap();
+    item_db.add(root_page(&user_id, &home_page_id, "Home")).await.unwrap();
+    item_db.add(root_page(&user_id, &trash_page_id, "Trash")).await.unwrap();
+    item_db.add(root_page(&user_id, &dock_page_id, "Dock")).await.unwrap();
+    item_db.add(note(&user_id, &child_id, &home_page_id, RelationshipToParent::Child, "Child")).await.unwrap();
+    item_db
+      .add(note(&user_id, &attachment_id, &child_id, RelationshipToParent::Attachment, "Attachment"))
+      .await
+      .unwrap();
+    item_db.compact(&user).await.unwrap();
+    drop(item_db);
+
+    fs::remove_file(items_log_path(&data_dir, &user_id)).unwrap();
+    fs::rename(compacted_items_log_path(&data_dir, &user_id), items_log_path(&data_dir, &user_id)).unwrap();
+
+    let mut compacted_load = ItemDb::init(data_dir.to_str().unwrap());
+    compacted_load.load_user_items(&user_id, false).await.unwrap();
+    assert_eq!(compacted_load.loaded_log_epoch_for_user(&user_id), 1);
+    let loaded_versions = compacted_load.loaded_container_versions_for_user(&user_id);
+    assert_eq!(loaded_versions.get(&home_page_id).copied(), Some(2));
+
+    let mut updated_attachment = compacted_load.get(&attachment_id).unwrap().clone();
+    updated_attachment.title = Some("Attachment updated".to_owned());
+    compacted_load.update(&updated_attachment).await.unwrap();
+    drop(compacted_load);
+
+    let mut reloaded = ItemDb::init(data_dir.to_str().unwrap());
+    reloaded.load_user_items(&user_id, false).await.unwrap();
+    assert_eq!(reloaded.loaded_log_epoch_for_user(&user_id), 1);
+    let replayed_versions = reloaded.loaded_container_versions_for_user(&user_id);
+    assert_eq!(replayed_versions.get(&home_page_id).copied(), Some(3));
+
+    fs::remove_dir_all(&data_dir).unwrap();
   }
 }
