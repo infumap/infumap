@@ -733,7 +733,7 @@ let containerSyncRerunRequested = false;
 let containerSyncVisibilityHandler: (() => void) | null = null;
 let activeContainerSyncStore: StoreContextModel | null = null;
 
-function requestContainerSyncSoon(store?: StoreContextModel): void {
+export function requestContainerSyncSoon(store?: StoreContextModel): void {
   const targetStore = store ?? activeContainerSyncStore;
   if (!targetStore) {
     return;

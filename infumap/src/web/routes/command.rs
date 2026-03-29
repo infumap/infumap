@@ -677,11 +677,11 @@ async fn handle_sync_containers(
     None => None,
   };
 
-  let db = &db.lock().await;
+  let db = &mut db.lock().await;
   let mut updates = Vec::new();
 
   for subscription in request.subscriptions {
-    let item = get_item_authorized(db, &subscription.id, &session_user_id_maybe)?;
+    let item = get_item_authorized(db, &subscription.id, &session_user_id_maybe)?.clone();
     if !is_container_item_type(item.item_type) {
       return Err(format!("Item '{}' is not a container and cannot be synced.", subscription.id).into());
     }
@@ -761,11 +761,17 @@ async fn handle_get_items(
     None => None,
   };
 
-  let db = &db.lock().await;
-
   let mode = GetItemsMode::from_str(&request.mode)?;
+  let db = &mut db.lock().await;
+  let item = get_item_authorized(db, &item_id, &session_user_id_maybe)?.clone();
 
-  let item: &Item = get_item_authorized(db, &item_id, &session_user_id_maybe)?;
+  if matches!(
+    mode,
+    GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments
+  ) && is_container_item_type(item.item_type)
+  {
+    db.container_sync.mark_client_access(&item.owner_id, &item_id);
+  }
 
   let mut attachments_result = serde_json::Map::new();
   let children_result;

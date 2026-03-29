@@ -18,6 +18,7 @@
 
 import { ROOT_USERNAME } from "../constants";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
+import { requestContainerSyncSoon } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
@@ -79,6 +80,7 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
     store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
   }
   arrangeNow(store, "switch-to-item");
+  requestContainerSyncSoon(store);
 
   const url = currentUrl(store, itemId);
   window.history.pushState(null, "", url);
@@ -96,6 +98,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   }
 
   arrangeNow(store, "switch-to-page");
+  requestContainerSyncSoon(store);
 
   const url = currentUrl(store, null);
   if ((!replace && updateHistory) || clearHistory) {

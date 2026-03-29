@@ -25,6 +25,7 @@ import { switchToNonPage, switchToPage } from '../layout/navigation';
 import { isUid } from '../util/uid';
 import { arrangeNow } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
+import { requestContainerSyncSoon } from '../server';
 
 
 const App: Component = () => {
@@ -86,6 +87,7 @@ const App: Component = () => {
             store.history.setFocus(store.history.currentPagePath()!);
           }
           arrangeNow(store, "popstate-back-in-history");
+          requestContainerSyncSoon(store);
         } else {
           if (currentUrlUidMaybe == "") {
             if (store.user.getUser().homePageId == prevHistoryVeid.itemId) {
@@ -97,6 +99,7 @@ const App: Component = () => {
                 store.history.setFocus(store.history.currentPagePath()!);
               }
               arrangeNow(store, "popstate-back-to-root");
+              requestContainerSyncSoon(store);
             } else {
               if (debug) { console.debug("window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid (2).", prevHistoryVeid.itemId, currentUrlUidMaybe); }
               switchToPage(store, { itemId: currentUrlUidMaybe, linkIdMaybe: null }, false, false, false);

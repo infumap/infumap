@@ -7,3 +7,4 @@ __pycache__/
 tools/gpu/text_extraction/.venv/
 tools/gpu/text_embedding/.venv/
 tools/gpu/text_embedding/models/
+.codex

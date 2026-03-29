@@ -14,12 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use infusdk::util::time::unix_now_secs_u64;
 use infusdk::util::uid::Uid;
 use log::warn;
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 const RECENT_DELTA_LIMIT_PER_CONTAINER: usize = 64;
+const DELTA_TTL_SECS: u64 = 24 * 60 * 60;
+const DELTA_GC_INTERVAL_SECS: u64 = 15 * 60;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContainerSyncVersion {
@@ -117,6 +120,7 @@ struct UserContainerSyncState {
   log_epoch: u64,
   version_by_container: HashMap<Uid, u64>,
   recent_entries_by_container: HashMap<Uid, VecDeque<ContainerSyncLogEntry>>,
+  last_client_hit_by_container: HashMap<Uid, u64>,
 }
 
 struct ContainerSyncLogEntry {
@@ -131,11 +135,12 @@ enum ContainerSyncLogEntryKind {
 
 pub struct ContainerSyncState {
   by_user_id: HashMap<Uid, UserContainerSyncState>,
+  last_gc_unix_secs: u64,
 }
 
 impl ContainerSyncState {
   pub fn new() -> Self {
-    Self { by_user_id: HashMap::new() }
+    Self { by_user_id: HashMap::new(), last_gc_unix_secs: 0 }
   }
 
   pub fn version_for_container(&self, user_id: &Uid, container_id: &Uid) -> u64 {
@@ -156,6 +161,7 @@ impl ContainerSyncState {
     user_state.log_epoch = epoch;
     user_state.version_by_container = versions;
     user_state.recent_entries_by_container.clear();
+    user_state.last_client_hit_by_container.clear();
   }
 
   pub fn versions_for_containers<I>(&self, user_id: &Uid, container_ids: I) -> Vec<ContainerSyncVersion>
@@ -175,30 +181,89 @@ impl ContainerSyncState {
   }
 
   pub fn record_delta(&mut self, user_id: &Uid, container_id: &Uid, delta: ContainerSyncDelta) -> u64 {
+    self.record_delta_at(user_id, container_id, delta, unix_now_secs())
+  }
+
+  pub fn record_snapshot_required(&mut self, user_id: &Uid, container_id: &Uid) -> u64 {
+    self.record_snapshot_required_at(user_id, container_id, unix_now_secs())
+  }
+
+  pub fn mark_client_access(&mut self, user_id: &Uid, container_id: &Uid) {
+    self.mark_client_access_at(user_id, container_id, unix_now_secs());
+  }
+
+  pub fn sync_lookup(
+    &mut self,
+    user_id: &Uid,
+    container_id: &Uid,
+    known_epoch: Option<u64>,
+    known_version: Option<u64>,
+  ) -> ContainerSyncLookup {
+    self.sync_lookup_at(user_id, container_id, known_epoch, known_version, unix_now_secs())
+  }
+
+  fn record_delta_at(
+    &mut self,
+    user_id: &Uid,
+    container_id: &Uid,
+    delta: ContainerSyncDelta,
+    now_unix_secs: u64,
+  ) -> u64 {
     if delta.is_empty() {
       return self.version_for_container(user_id, container_id);
     }
 
+    self.maybe_gc(now_unix_secs);
     let version = self.next_version(user_id, container_id);
-    self.append_entry(
-      user_id,
-      container_id,
-      ContainerSyncLogEntry { version, kind: ContainerSyncLogEntryKind::Delta(delta) },
-    );
+    if self.should_retain_recent_entries(user_id, container_id, now_unix_secs) {
+      self.append_entry(
+        user_id,
+        container_id,
+        ContainerSyncLogEntry { version, kind: ContainerSyncLogEntryKind::Delta(delta) },
+      );
+    } else {
+      self.clear_recent_entries(user_id, container_id);
+    }
     version
   }
 
-  pub fn record_snapshot_required(&mut self, user_id: &Uid, container_id: &Uid) -> u64 {
+  fn record_snapshot_required_at(&mut self, user_id: &Uid, container_id: &Uid, now_unix_secs: u64) -> u64 {
+    self.maybe_gc(now_unix_secs);
     let version = self.next_version(user_id, container_id);
-    self.append_entry(
-      user_id,
-      container_id,
-      ContainerSyncLogEntry { version, kind: ContainerSyncLogEntryKind::SnapshotRequired },
-    );
+    if self.should_retain_recent_entries(user_id, container_id, now_unix_secs) {
+      self.append_entry(
+        user_id,
+        container_id,
+        ContainerSyncLogEntry { version, kind: ContainerSyncLogEntryKind::SnapshotRequired },
+      );
+    } else {
+      self.clear_recent_entries(user_id, container_id);
+    }
     version
   }
 
-  pub fn sync_lookup(
+  fn mark_client_access_at(&mut self, user_id: &Uid, container_id: &Uid, now_unix_secs: u64) {
+    self.maybe_gc(now_unix_secs);
+    if self.container_hit_has_expired(user_id, container_id, now_unix_secs) {
+      self.clear_recent_entries(user_id, container_id);
+    }
+    let user_state = self.by_user_id.entry(user_id.clone()).or_default();
+    user_state.last_client_hit_by_container.insert(container_id.clone(), now_unix_secs);
+  }
+
+  fn sync_lookup_at(
+    &mut self,
+    user_id: &Uid,
+    container_id: &Uid,
+    known_epoch: Option<u64>,
+    known_version: Option<u64>,
+    now_unix_secs: u64,
+  ) -> ContainerSyncLookup {
+    self.mark_client_access_at(user_id, container_id, now_unix_secs);
+    self.sync_lookup_after_access(user_id, container_id, known_epoch, known_version)
+  }
+
+  fn sync_lookup_after_access(
     &self,
     user_id: &Uid,
     container_id: &Uid,
@@ -279,10 +344,60 @@ impl ContainerSyncState {
       entries.pop_front();
     }
   }
+
+  fn clear_recent_entries(&mut self, user_id: &Uid, container_id: &Uid) {
+    if let Some(user_state) = self.by_user_id.get_mut(user_id) {
+      user_state.recent_entries_by_container.remove(container_id);
+    }
+  }
+
+  fn should_retain_recent_entries(&self, user_id: &Uid, container_id: &Uid, now_unix_secs: u64) -> bool {
+    self
+      .by_user_id
+      .get(user_id)
+      .and_then(|user_state| user_state.last_client_hit_by_container.get(container_id))
+      .map(|last_hit| now_unix_secs.saturating_sub(*last_hit) <= DELTA_TTL_SECS)
+      .unwrap_or(false)
+  }
+
+  fn container_hit_has_expired(&self, user_id: &Uid, container_id: &Uid, now_unix_secs: u64) -> bool {
+    self
+      .by_user_id
+      .get(user_id)
+      .and_then(|user_state| user_state.last_client_hit_by_container.get(container_id))
+      .map(|last_hit| now_unix_secs.saturating_sub(*last_hit) > DELTA_TTL_SECS)
+      .unwrap_or(false)
+  }
+
+  fn maybe_gc(&mut self, now_unix_secs: u64) {
+    if self.last_gc_unix_secs != 0 && now_unix_secs.saturating_sub(self.last_gc_unix_secs) < DELTA_GC_INTERVAL_SECS {
+      return;
+    }
+
+    for user_state in self.by_user_id.values_mut() {
+      let stale_container_ids = user_state
+        .last_client_hit_by_container
+        .iter()
+        .filter(|(_, last_hit)| now_unix_secs.saturating_sub(**last_hit) > DELTA_TTL_SECS)
+        .map(|(container_id, _)| container_id.clone())
+        .collect::<Vec<_>>();
+
+      for container_id in stale_container_ids {
+        user_state.last_client_hit_by_container.remove(&container_id);
+        user_state.recent_entries_by_container.remove(&container_id);
+      }
+    }
+
+    self.last_gc_unix_secs = now_unix_secs;
+  }
 }
 
 fn json_item_id(item_json: &Map<String, Value>) -> Option<Uid> {
   item_json.get("id").and_then(|value| value.as_str()).map(|value| value.to_owned())
+}
+
+fn unix_now_secs() -> u64 {
+  unix_now_secs_u64().unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -301,17 +416,18 @@ mod tests {
     let container_id = String::from("container");
     let mut state = ContainerSyncState::new();
     state.initialize_user_versions(&user_id, 0, HashMap::new());
+    state.mark_client_access_at(&user_id, &container_id, 100);
 
     let mut first = ContainerSyncDelta::default();
     first.add_child_upsert(item_json("child-a"));
-    state.record_delta(&user_id, &container_id, first);
+    state.record_delta_at(&user_id, &container_id, first, 100);
 
     let mut second = ContainerSyncDelta::default();
     second.add_child_upsert(item_json("child-b"));
     second.add_child_delete(&String::from("child-a"));
-    state.record_delta(&user_id, &container_id, second);
+    state.record_delta_at(&user_id, &container_id, second, 101);
 
-    match state.sync_lookup(&user_id, &container_id, Some(0), Some(0)) {
+    match state.sync_lookup_at(&user_id, &container_id, Some(0), Some(0), 102) {
       ContainerSyncLookup::Delta { version, delta } => {
         assert_eq!(version, 2);
         assert_eq!(delta.child_deletes(), vec![String::from("child-a")]);
@@ -327,10 +443,11 @@ mod tests {
     let container_id = String::from("container");
     let mut state = ContainerSyncState::new();
     state.initialize_user_versions(&user_id, 0, HashMap::new());
+    state.mark_client_access_at(&user_id, &container_id, 100);
 
-    state.record_snapshot_required(&user_id, &container_id);
+    state.record_snapshot_required_at(&user_id, &container_id, 100);
 
-    match state.sync_lookup(&user_id, &container_id, Some(0), Some(0)) {
+    match state.sync_lookup_at(&user_id, &container_id, Some(0), Some(0), 101) {
       ContainerSyncLookup::Snapshot { version } => assert_eq!(version, 1),
       _ => panic!("expected snapshot response"),
     }
@@ -342,14 +459,15 @@ mod tests {
     let container_id = String::from("container");
     let mut state = ContainerSyncState::new();
     state.initialize_user_versions(&user_id, 0, HashMap::new());
+    state.mark_client_access_at(&user_id, &container_id, 100);
 
     for idx in 0..=RECENT_DELTA_LIMIT_PER_CONTAINER {
       let mut delta = ContainerSyncDelta::default();
       delta.add_child_upsert(item_json(&format!("child-{idx}")));
-      state.record_delta(&user_id, &container_id, delta);
+      state.record_delta_at(&user_id, &container_id, delta, 100 + idx as u64);
     }
 
-    match state.sync_lookup(&user_id, &container_id, Some(0), Some(0)) {
+    match state.sync_lookup_at(&user_id, &container_id, Some(0), Some(0), 1000) {
       ContainerSyncLookup::Snapshot { version } => assert_eq!(version, (RECENT_DELTA_LIMIT_PER_CONTAINER + 1) as u64),
       _ => panic!("expected snapshot response"),
     }
@@ -361,12 +479,13 @@ mod tests {
     let container_id = String::from("container");
     let mut state = ContainerSyncState::new();
     state.initialize_user_versions(&user_id, 1, HashMap::new());
+    state.mark_client_access_at(&user_id, &container_id, 100);
 
     let mut delta = ContainerSyncDelta::default();
     delta.add_child_upsert(item_json("child-a"));
-    state.record_delta(&user_id, &container_id, delta);
+    state.record_delta_at(&user_id, &container_id, delta, 100);
 
-    match state.sync_lookup(&user_id, &container_id, Some(0), Some(1)) {
+    match state.sync_lookup_at(&user_id, &container_id, Some(0), Some(1), 101) {
       ContainerSyncLookup::Snapshot { version } => assert_eq!(version, 1),
       _ => panic!("expected snapshot response"),
     }
@@ -378,13 +497,36 @@ mod tests {
     let container_id = String::from("container");
     let mut state = ContainerSyncState::new();
     state.initialize_user_versions(&user_id, 2, HashMap::new());
+    state.mark_client_access_at(&user_id, &container_id, 100);
 
     let mut delta = ContainerSyncDelta::default();
     delta.add_child_upsert(item_json("child-a"));
-    state.record_delta(&user_id, &container_id, delta);
+    state.record_delta_at(&user_id, &container_id, delta, 100);
 
-    match state.sync_lookup(&user_id, &container_id, Some(2), Some(2)) {
+    match state.sync_lookup_at(&user_id, &container_id, Some(2), Some(2), 101) {
       ContainerSyncLookup::Snapshot { version } => assert_eq!(version, 1),
+      _ => panic!("expected snapshot response"),
+    }
+  }
+
+  #[test]
+  fn drops_delta_history_after_client_hit_ttl_expires() {
+    let user_id = String::from("user");
+    let container_id = String::from("container");
+    let mut state = ContainerSyncState::new();
+    state.initialize_user_versions(&user_id, 0, HashMap::new());
+    state.mark_client_access_at(&user_id, &container_id, 100);
+
+    let mut delta = ContainerSyncDelta::default();
+    delta.add_child_upsert(item_json("child-a"));
+    state.record_delta_at(&user_id, &container_id, delta, 101);
+
+    let mut cold_delta = ContainerSyncDelta::default();
+    cold_delta.add_child_upsert(item_json("child-b"));
+    state.record_delta_at(&user_id, &container_id, cold_delta, 100 + DELTA_TTL_SECS + 1);
+
+    match state.sync_lookup_at(&user_id, &container_id, Some(0), Some(0), 100 + DELTA_TTL_SECS + 2) {
+      ContainerSyncLookup::Snapshot { version } => assert_eq!(version, 2),
       _ => panic!("expected snapshot response"),
     }
   }
