@@ -22,22 +22,30 @@ import { VisualElement, VisualElementPath } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
 
-export type ReactiveSlot<T> = {
+/*
+  Lazy Solid signal wrapper for render-facing cache values.
+
+  Some values here are already reactive handles themselves, such as
+  `VisualElementSignal`. In those cases this ref tracks which signal object is
+  currently wired into the render tree, while the inner signal tracks changes
+  to that visual element's value over time.
+*/
+export type ReactiveRef<T> = {
   value: T;
   signal: [Accessor<T>, Setter<T>] | null;
 }
 
 export type ReactiveEntry = {
-  node: ReactiveSlot<VisualElementSignal | undefined>;
-  popup: ReactiveSlot<VisualElementSignal | null>;
-  selected: ReactiveSlot<VisualElementSignal | null>;
-  dock: ReactiveSlot<VisualElementSignal | null>;
-  focused: ReactiveSlot<Item | null>;
-  attachments: ReactiveSlot<Array<VisualElementSignal>>;
-  children: ReactiveSlot<Array<VisualElementSignal>>;
-  lineChildren: ReactiveSlot<Array<VisualElementSignal>>;
-  desktopChildren: ReactiveSlot<Array<VisualElementSignal>>;
-  nonMovingChildren: ReactiveSlot<Array<VisualElementSignal>>;
+  node: ReactiveRef<VisualElementSignal | undefined>;
+  popup: ReactiveRef<VisualElementSignal | null>;
+  selected: ReactiveRef<VisualElementSignal | null>;
+  dock: ReactiveRef<VisualElementSignal | null>;
+  focused: ReactiveRef<Item | null>;
+  attachments: ReactiveRef<Array<VisualElementSignal>>;
+  children: ReactiveRef<Array<VisualElementSignal>>;
+  lineChildren: ReactiveRef<Array<VisualElementSignal>>;
+  desktopChildren: ReactiveRef<Array<VisualElementSignal>>;
+  nonMovingChildren: ReactiveRef<Array<VisualElementSignal>>;
   tableRows: Array<number> | null;
 }
 

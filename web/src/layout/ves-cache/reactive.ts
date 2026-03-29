@@ -20,7 +20,7 @@ import { Accessor, Setter, createSignal } from "solid-js";
 import { Item } from "../../items/base/item";
 import { VisualElementPath } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
-import { ReactiveEntry, ReactiveSlot, VesCacheState } from "./state";
+import { ReactiveEntry, ReactiveRef, VesCacheState } from "./state";
 
 export type ReactiveOps = ReturnType<typeof createReactiveOps>;
 
@@ -55,7 +55,7 @@ export function createReactiveOps(state: VesCacheState) {
   }
 
   function ensureReactiveSignal<T>(
-    slot: ReactiveSlot<T>,
+    slot: ReactiveRef<T>,
   ): [Accessor<T>, Setter<T>] {
     if (slot.signal) {
       return slot.signal;
@@ -65,7 +65,7 @@ export function createReactiveOps(state: VesCacheState) {
     return signal;
   }
 
-  function readReactiveSignal<T>(slot: ReactiveSlot<T>): T {
+  function readReactiveSignal<T>(slot: ReactiveRef<T>): T {
     return slot.signal ? slot.signal[0]() : slot.value;
   }
 
@@ -84,7 +84,7 @@ export function createReactiveOps(state: VesCacheState) {
   }
 
   function updateReactiveSlot<T>(
-    slot: ReactiveSlot<T>,
+    slot: ReactiveRef<T>,
     value: T,
     shouldUpdate?: (current: T, next: T) => boolean,
   ): boolean {

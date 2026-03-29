@@ -21,10 +21,8 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
 import { VisualElementSignal } from "../../util/signals";
-import { VeFns, VisualElement, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import {
-  createReactiveOps,
-} from "./reactive";
+import { VeFns, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { createReactiveOps } from "./reactive";
 import { createSceneOps } from "./core";
 import { cloneVisualElementSnapshot, prepareVisualElementSpec } from "./spec";
 import { createEmptySceneOutputs, createEmptySceneState, createEmptyVirtualSceneState, createVesCacheState } from "./state";
