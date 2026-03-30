@@ -114,8 +114,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     w: Math.max(oneBlockWidthPx() - 2, 0),
     h: Math.max(boundsPx().h - 2, 0),
   });
-  const popupIconScale = () => (boundsPx().h / LINE_HEIGHT_PX) * 0.89;
-  const popupIconTopPx = () => -Math.max(boundsPx().h * 0.015, 0.25);
+  const popupIconScale = () => (boundsPx().h / LINE_HEIGHT_PX) * 0.84;
+  const popupIconTopPx = () => Math.max(boundsPx().h * 0.01, 0.25);
   const popupTextIndentPx = () => {
     if (!reservePopupIconSpace()) { return 0; }
     return desktopPopupIconTextIndentPx(sizeBl().w);

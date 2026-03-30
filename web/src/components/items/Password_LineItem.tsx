@@ -37,6 +37,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const iconScale = () => scale() * 0.92;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
@@ -86,9 +87,9 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const renderIconMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
       <div class="absolute text-center"
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
-          `transform: scale(${scale()}); transform-origin: top left;`}>
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + Math.max(boundsPx().h * 0.02, 0.5)}px; ` +
+          `width: ${oneBlockWidthPx() / iconScale()}px; height: ${boundsPx().h / iconScale()}px; ` +
+          `transform: scale(${iconScale()}); transform-origin: top left;`}>
         <i class={`fas fa-eye-slash`} />
       </div>
     </Show>;
