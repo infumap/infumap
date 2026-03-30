@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
-import { HitboxFlags, HitboxFns } from '../layout/hitbox';
+import { Hitbox, HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
@@ -162,12 +162,12 @@ export const NoteFns = {
       h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    return {
-      boundsPx,
-      viewportBoundsPx: null,
-      blockSizePx,
-      hitboxes: !emitHitboxes ? [] : [
-        HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }),
+    const hitboxes: Array<Hitbox> = [];
+    if (emitHitboxes && NoteFns.showsDesktopPopupIcon(note)) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
+    }
+    if (emitHitboxes) {
+      hitboxes.push(
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.ContentEditable, innerBoundsPx),
@@ -179,7 +179,13 @@ export const NoteFns = {
           h: ATTACH_AREA_SIZE_PX,
         }),
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
-      ],
+      );
+    }
+    return {
+      boundsPx,
+      viewportBoundsPx: null,
+      blockSizePx,
+      hitboxes,
     }
   },
 
@@ -345,6 +351,10 @@ export const NoteFns = {
       !(flagsItem.flags & NoteFlags.AlignJustify) &&
       !(flagsItem.flags & NoteFlags.AlignRight)
     );
+  },
+
+  showsDesktopPopupIcon: (flagsItem: FlagsItem): boolean => {
+    return !!(flagsItem.flags & NoteFlags.ShowDesktopPopupIcon);
   },
 
   clearTextStyleFlags: (flagsItem: FlagsItem): void => {

@@ -100,8 +100,19 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const lineHeightScale = () => isPopup() ? 1.0 : heightScale() / widthScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
-  const showPopupHandle = () => store.perVe.getMouseIsOver(vePath()) &&
+  const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
+  const showPopupIcon = () =>
+    NoteFns.showsDesktopPopupIcon(noteItem()) &&
+    hasPopupHandle() &&
+    !isPopup() &&
     (!store.overlay.textEditInfo() || store.overlay.textEditInfo()!.itemPath != vePath());
+  const popupIconBoundsPx = (): BoundingBox => ({
+    x: 1,
+    y: 1,
+    w: Math.max(blockSize().w - 2, 0),
+    h: Math.max(blockSize().h - 2, 0),
+  });
+  const popupIconSizePx = () => Math.max(Math.min(popupIconBoundsPx().w, popupIconBoundsPx().h) - 6, 8);
 
   const blockSize = () => {
     return {
@@ -343,12 +354,17 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
               `z-index: ${Z_INDEX_HIGHLIGHT};`} />
         </Show>
-        <Show when={showPopupHandle()}>
-          <div class="absolute rounded-xs"
-            style={`left: 1px; top: 1px; width: ${blockSize().w - 2}px; height: ${blockSize().h - 2}px; ` +
-              `background-color: ${FEATURE_COLOR}; border: 1px solid ${FEATURE_COLOR}; ` +
-              `opacity: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? 0.4 : 0.2}; ` +
-              `z-index: ${Z_INDEX_HIGHLIGHT}; pointer-events: none; transition: opacity 0.1s;`} />
+        <Show when={showPopupIcon()}>
+          <div class="absolute flex items-center justify-center rounded-xs pointer-events-none"
+            style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
+              `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
+              `font-size: ${popupIconSizePx()}px; line-height: 1; ` +
+              `color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? FEATURE_COLOR : '#64748b'}; ` +
+              `background-color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#0044ff0a' : 'transparent'}; ` +
+              `border: 1px solid ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#cbd5e1' : 'transparent'}; ` +
+              `z-index: ${Z_INDEX_HIGHLIGHT}; transition: color 0.1s, background-color 0.1s, border-color 0.1s;`}>
+            <i class="fas fa-sticky-note" />
+          </div>
         </Show>
         <Switch>
           <Match when={NoteFns.hasUrl(noteItem()) &&

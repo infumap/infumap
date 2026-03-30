@@ -105,6 +105,10 @@ export const Toolbar_Note: Component = () => {
     return (noteItem().flags & NoteFlags.ExplicitHeight) ? true : false;
   }
 
+  const desktopPopupIconVisible = (): boolean => {
+    return NoteFns.showsDesktopPopupIcon(noteItem());
+  }
+
   const explicitHeightButtonHandler = (): void => {
     if (noteItem().flags & NoteFlags.ExplicitHeight) {
       noteItem().flags &= ~NoteFlags.ExplicitHeight;
@@ -115,6 +119,15 @@ export const Toolbar_Note: Component = () => {
       noteItem().spatialHeightGr = naturalDims.h * GRID_SIZE;
     }
     requestArrange(store, "toolbar-note-explicit-height");
+  };
+
+  const desktopPopupIconButtonHandler = (): void => {
+    if (desktopPopupIconVisible()) {
+      noteItem().flags &= ~NoteFlags.ShowDesktopPopupIcon;
+    } else {
+      noteItem().flags |= NoteFlags.ShowDesktopPopupIcon;
+    }
+    requestArrange(store, "toolbar-note-desktop-popup-icon");
   };
 
   // QR
@@ -193,6 +206,7 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
         </Show>
         <Show when={!isInTable()}>
+          <InfuIconButton icon="fa fa-sticky-note" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
           <InfuIconButton icon="fa fa-arrows-v" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} />
         </Show>

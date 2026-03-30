@@ -42,6 +42,7 @@ export enum NoteFlags {
   HideBorder = 0x100,
   Code = 0x200,
   ExplicitHeight = 0x400,
+  ShowDesktopPopupIcon = 0x800,
 };
 
 export enum CompositeFlags {
