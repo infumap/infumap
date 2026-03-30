@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
-import { HitboxFlags, HitboxFns } from '../layout/hitbox';
+import { Hitbox, HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
@@ -34,11 +34,12 @@ import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret'
 import { CursorEventState } from '../input/state';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { VesCache } from '../layout/ves-cache';
+import { FlagsMixin, PasswordFlags } from './base/flags-item';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
 
-export interface PasswordMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
+export interface PasswordMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
   text: string,
 }
 
@@ -60,6 +61,8 @@ export const PasswordFns = {
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 10.0 * GRID_SIZE,
+
+      flags: PasswordFlags.None,
 
       text,
 
@@ -84,6 +87,8 @@ export const PasswordFns = {
 
       spatialWidthGr: o.spatialWidthGr,
 
+      flags: o.flags ?? PasswordFlags.None,
+
       text: o.text,
 
       computed_attachments: [],
@@ -104,6 +109,8 @@ export const PasswordFns = {
       spatialPositionGr: p.spatialPositionGr,
 
       spatialWidthGr: p.spatialWidthGr,
+
+      flags: p.flags,
 
       text: p.text,
     });
@@ -126,16 +133,23 @@ export const PasswordFns = {
       h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    return {
-      boundsPx,
-      blockSizePx,
-      viewportBoundsPx: null,
-      hitboxes: !emitHitboxes ? [] : [
+    const hitboxes: Array<Hitbox> = [];
+    if (emitHitboxes && PasswordFns.showsDesktopPopupIcon(password)) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
+    }
+    if (emitHitboxes) {
+      hitboxes.push(
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }),
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
-      ],
+      );
+    }
+    return {
+      boundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
+      hitboxes,
     }
   },
 
@@ -244,6 +258,7 @@ export const PasswordFns = {
       itemType: password.itemType,
       spatialPositionGr: password.spatialPositionGr,
       spatialWidthGr: password.spatialWidthGr,
+      flags: password.flags,
       text: password.text,
     });
   },
@@ -253,7 +268,11 @@ export const PasswordFns = {
   },
 
   getFingerprint: (passwordItem: PasswordItem): string => {
-    return passwordItem.text;
+    return passwordItem.text + "~~~!@#~~~" + passwordItem.flags;
+  },
+
+  showsDesktopPopupIcon: (password: PasswordMeasurable): boolean => {
+    return !!(password.flags & PasswordFlags.ShowDesktopPopupIcon);
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, caretAtEnd: boolean = false): void => {

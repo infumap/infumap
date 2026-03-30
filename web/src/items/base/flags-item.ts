@@ -50,6 +50,11 @@ export enum FileFlags {
   ShowDesktopPopupIcon = 0x001,
 }
 
+export enum PasswordFlags {
+  None = 0x000,
+  ShowDesktopPopupIcon = 0x001,
+}
+
 export enum CompositeFlags {
   None = 0x000,
   HideBorder = 0x001,
@@ -66,7 +71,7 @@ export enum ImageFlags {
   NoCrop = 0x002,
 }
 
-const ITEM_TYPES = [ItemType.Note, ItemType.File, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image];
+const ITEM_TYPES = [ItemType.Note, ItemType.File, ItemType.Password, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image];
 
 
 export interface FlagsMixin {

@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -34,6 +34,8 @@ import { itemState } from "../../store/ItemState";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { arrangeNow } from "../../layout/arrange";
+import { HitboxFlags } from "../../layout/hitbox";
+import { desktopPopupIconTextIndentPx } from "../../layout/text";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -101,6 +103,23 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const lineHeightScale = () => heightScale() / widthScale();
   const smallScale = () => textBlockScale() * 0.7;
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
+  const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
+  const reservePopupIconSpace = () =>
+    PasswordFns.showsDesktopPopupIcon(passwordItem()) &&
+    (hasPopupHandle() || isPopup());
+  const showPopupIcon = () => reservePopupIconSpace();
+  const popupIconBoundsPx = (): BoundingBox => ({
+    x: 1,
+    y: 1,
+    w: Math.max(oneBlockWidthPx() - 2, 0),
+    h: Math.max(boundsPx().h - 2, 0),
+  });
+  const popupIconScale = () => (boundsPx().h / LINE_HEIGHT_PX) * 0.94;
+  const popupIconTopPx = () => -Math.max(boundsPx().h * 0.03, 0.5);
+  const popupTextIndentPx = () => {
+    if (!reservePopupIconSpace()) { return 0; }
+    return desktopPopupIconTextIndentPx(sizeBl().w);
+  };
 
   const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
 
@@ -200,6 +219,21 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
             `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
       </Show>
+      <Show when={showPopupIcon()}>
+        <div class="absolute rounded-xs pointer-events-none"
+          style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
+            `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
+            `background-color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#0044ff0a' : 'transparent'}; ` +
+            `border: 1px solid ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#cbd5e1' : 'transparent'}; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
+        <div class="absolute text-center pointer-events-none"
+          style={`left: 0px; top: ${popupIconTopPx()}px; ` +
+            `width: ${oneBlockWidthPx() / popupIconScale()}px; height: ${boundsPx().h / popupIconScale()}px; ` +
+            `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT};`}>
+          <i class="fas fa-eye-slash" />
+        </div>
+      </Show>
       <Switch>
         <Match when={!isVisible() && (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -211,6 +245,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
               `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
               `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `text-indent: ${popupTextIndentPx()}px; ` +
               `outline: 0px solid transparent;`}>
             ••••••••••••
           </span>
@@ -225,6 +260,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
               `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
               `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `text-indent: ${popupTextIndentPx()}px; ` +
               `outline: 0px solid transparent;`}
             contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={store.overlay.textEditInfo() != null}

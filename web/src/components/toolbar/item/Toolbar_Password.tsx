@@ -22,7 +22,10 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { asPasswordItem } from "../../../items/password-item";
+import { PasswordFlags } from "../../../items/base/flags-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
+import { requestArrange } from "../../../layout/arrange";
+import { VesCache } from "../../../layout/ves-cache";
 
 
 export const Toolbar_Password: Component = () => {
@@ -30,7 +33,22 @@ export const Toolbar_Password: Component = () => {
 
   let qrDiv: HTMLDivElement | undefined;
 
-  const passwordItem = () => asPasswordItem(store.history.getFocusItem());
+  const passwordVisualElementSignal = () => VesCache.render.getNode(store.history.getFocusPath())!;
+  const passwordVisualElement = () => passwordVisualElementSignal().get();
+  const passwordItem = () => asPasswordItem(passwordVisualElement().displayItem);
+
+  const desktopPopupIconVisible = (): boolean => {
+    return !!(passwordItem().flags & PasswordFlags.ShowDesktopPopupIcon);
+  }
+
+  const desktopPopupIconButtonHandler = (): void => {
+    if (desktopPopupIconVisible()) {
+      passwordItem().flags &= ~PasswordFlags.ShowDesktopPopupIcon;
+    } else {
+      passwordItem().flags |= PasswordFlags.ShowDesktopPopupIcon;
+    }
+    requestArrange(store, "toolbar-password-desktop-popup-icon");
+  };
 
   const handleQr = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
@@ -52,10 +70,16 @@ export const Toolbar_Password: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="grow-0" style="flex-order: 0">
+      class="grow-0" style="flex-order: 0">
       <div class="inline-block">
+        <div class="inline-block pl-[2px]">
+          <InfuIconButton icon="fa fa-eye-slash" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+        </div>
 
-        <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
+        {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+
+        <div ref={qrDiv} class="inline-block pl-[18px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
         </div>
         <div class="inline-block">
