@@ -29,6 +29,7 @@ import { panic } from "../util/lang";
 import { VisualElementSignal } from "../util/signals";
 import { Item } from "../items/base/item";
 import { HitInfo, HitInfoFns } from "./hit";
+import type { CalendarMonthResize } from "../util/calendar-layout";
 
 
 // ### MouseAction State
@@ -42,6 +43,7 @@ export enum MouseAction {
   ResizingPopup,
   ResizingDock,
   ResizingListPageColumn,
+  ResizingCalendarMonth,
   ResizingDockItem,
   Selecting,
 }
@@ -70,6 +72,7 @@ export interface MouseActionStateType {
   startHeightBl: number | null,
   startDockWidthPx: number | null,
   startChildAreaBoundsPx: BoundingBox | null,
+  startCalendarMonthResize: CalendarMonthResize | null,
 
   startAttachmentsItem: AttachmentsItem | null,     // when taking an attachment out of a table.
   startCompositeItem: CompositeItem | null,         // when taking an item out of a composite item.
@@ -94,8 +97,9 @@ type MouseActionStateInit = Omit<
   "moveOver_attachCompositeHitboxElement" |
   "action" |
   "linkCreatedOnMoveStart" |
-  "newPlaceholderItem"
-> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem">>;
+  "newPlaceholderItem" |
+  "startCalendarMonthResize"
+> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize">>;
 
 type MouseActionStateFromHitInit = Omit<
   MouseActionStateInit,
@@ -308,6 +312,7 @@ export let MouseActionState = {
       action: init.action ?? MouseAction.Ambiguous,
       linkCreatedOnMoveStart: init.linkCreatedOnMoveStart ?? false,
       newPlaceholderItem: init.newPlaceholderItem ?? null,
+      startCalendarMonthResize: init.startCalendarMonthResize ?? null,
     });
   },
 
@@ -460,6 +465,15 @@ export let MouseActionState = {
 
   getStartChildAreaBoundsPx: (): BoundingBox | null => {
     return mouseActionState?.startChildAreaBoundsPx ?? null;
+  },
+
+  getStartCalendarMonthResize: (): CalendarMonthResize | null => {
+    return mouseActionState?.startCalendarMonthResize ?? null;
+  },
+
+  setStartCalendarMonthResize: (startCalendarMonthResize: CalendarMonthResize | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.startCalendarMonthResize = startCalendarMonthResize;
   },
 
   getGroupMoveItems: (): MouseActionStateType["groupMoveItems"] | undefined => {

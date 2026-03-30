@@ -18,6 +18,7 @@
 
 import { VisualElementPath } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
+import type { CalendarMonthResize } from "../util/calendar-layout";
 
 
 export interface IndexAndPosition {
@@ -63,6 +64,9 @@ export interface PerVeStoreContextModel {
   getCalendarYear: (vePath: VisualElementPath) => number,
   setCalendarYear: (vePath: VisualElementPath, year: number) => void,
 
+  getCalendarMonthResize: (vePath: VisualElementPath) => CalendarMonthResize | null,
+  setCalendarMonthResize: (vePath: VisualElementPath, resize: CalendarMonthResize | null) => void,
+
   clear: () => void,
 }
 
@@ -82,6 +86,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const moveOverIndexAndPosition = new Map<string, InfuSignal<IndexAndPosition>>();
   const isExpanded = new Map<string, BooleanSignal>();
   const calendarYear = new Map<string, NumberSignal>();
+  const calendarMonthResize = new Map<string, InfuSignal<CalendarMonthResize | null>>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
     if (!mouseIsOver.get(vePath)) {
@@ -263,6 +268,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
     calendarYear.get(vePath)!.set(year);
   };
 
+  const getCalendarMonthResize = (vePath: VisualElementPath): CalendarMonthResize | null => {
+    if (!calendarMonthResize.get(vePath)) {
+      calendarMonthResize.set(vePath, createInfuSignal<CalendarMonthResize | null>(null));
+    }
+    return calendarMonthResize.get(vePath)!.get();
+  };
+
+  const setCalendarMonthResize = (vePath: VisualElementPath, resize: CalendarMonthResize | null): void => {
+    if (!calendarMonthResize.get(vePath)) {
+      calendarMonthResize.set(vePath, createInfuSignal<CalendarMonthResize | null>(resize));
+      return;
+    }
+    calendarMonthResize.get(vePath)!.set(resize);
+  };
+
   return ({
     getMouseIsOver,
     setMouseIsOver,
@@ -299,6 +319,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getCalendarYear,
     setCalendarYear,
+
+    getCalendarMonthResize,
+    setCalendarMonthResize,
 
     clear
   });

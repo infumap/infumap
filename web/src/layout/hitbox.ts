@@ -80,6 +80,7 @@ export interface HitboxMeta {
   calendarYear?: number,
   calendarMonth?: number,
   calendarDay?: number,
+  calendarDividerMonth?: number,
 }
 
 export const HitboxFns = {
@@ -116,6 +117,9 @@ export const HitboxFns = {
     if (typeof (meta.calendarDay) != 'undefined') {
       result.calendarDay = meta.calendarDay;
     }
+    if (typeof (meta.calendarDividerMonth) != 'undefined') {
+      result.calendarDividerMonth = meta.calendarDividerMonth;
+    }
     return result;
   },
 
@@ -147,6 +151,7 @@ export const HitboxFns = {
       (meta.endBl ? meta.endBl : "undefined") + ", year: " +
       (meta.calendarYear ? meta.calendarYear : "undefined") + ", month: " +
       (meta.calendarMonth ? meta.calendarMonth : "undefined") + ", day: " +
-      (meta.calendarDay ? meta.calendarDay : "undefined") + "]";
+      (meta.calendarDay ? meta.calendarDay : "undefined") + ", dividerMonth: " +
+      (meta.calendarDividerMonth ? meta.calendarDividerMonth : "undefined") + "]";
   }
 }

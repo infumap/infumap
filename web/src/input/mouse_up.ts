@@ -45,6 +45,7 @@ import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
+import { mouseMove_handleNoButtonDown } from "./mouse_move";
 
 
 function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, shouldSwitchRoot: boolean): void {
@@ -187,6 +188,12 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       if (MouseActionState.getStartWidthBl()! * GRID_SIZE != newWidthGr) {
         serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
       }
+      break;
+
+    case MouseAction.ResizingCalendarMonth:
+      document.body.style.cursor = "";
+      mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
+      DoubleClickState.preventDoubleClick();
       break;
 
     case MouseAction.Selecting:

@@ -30,7 +30,13 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { PageVisualElementProps } from "./Page";
 import { getMonthInfo } from "../../util/time";
-import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS, isCurrentDay } from "../../util/calendar-layout";
+import {
+  calculateCalendarDimensions,
+  CALENDAR_LAYOUT_CONSTANTS,
+  getCalendarMonthLeftPx,
+  getCalendarMonthWidthPx,
+  isCurrentDay,
+} from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
@@ -352,10 +358,12 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     </div>;
 
   const renderCalendarPage = () => {
-    const currentYear = store.perVe.getCalendarYear(VeFns.veToPath(props.visualElement));
+    const pagePath = VeFns.veToPath(props.visualElement);
+    const currentYear = store.perVe.getCalendarYear(pagePath);
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-    const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx());
+    const calendarResizeMaybe = store.perVe.getCalendarMonthResize(pagePath);
+    const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx(), calendarResizeMaybe);
     const baseDayRowPx = asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl * LINE_HEIGHT_PX;
     const popupTopPadding = 5;
     const popupTitleToMonthSpacing = 8;
@@ -408,13 +416,14 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
           <For each={Array.from({ length: 12 }, (_, i) => i + 1)}>{month => {
             const monthInfo = getMonthInfo(month, currentYear);
-            const leftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (calendarDimensions.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
+            const leftPos = getCalendarMonthLeftPx(calendarDimensions, month);
+            const monthWidth = getCalendarMonthWidthPx(calendarDimensions, month);
 
             return (
               <div class="absolute"
-                style={`left: ${leftPos}px; top: ${(popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing) * scale}px; width: ${calendarDimensions.columnWidth}px;`}>
+                style={`left: ${leftPos}px; top: ${(popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing) * scale}px; width: ${monthWidth}px;`}>
                 <div class="text-center font-semibold"
-                  style={`height: ${popupMonthTitleHeight}px; line-height: ${popupMonthTitleHeight}px; width: ${calendarDimensions.columnWidth}px; transform: scale(${scale}); transform-origin: top left;`}>
+                  style={`height: ${popupMonthTitleHeight}px; line-height: ${popupMonthTitleHeight}px; width: ${monthWidth}px; transform: scale(${scale}); transform-origin: top left;`}>
                   <span class="text-base" style={`position: relative; top: 3px;`}>{monthNames[month - 1]}</span>
                 </div>
 
@@ -432,15 +441,15 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
                   return (
                     <div class="absolute"
-                      style={`left: 0px; top: ${topPos}px; width: ${calendarDimensions.columnWidth}px; height: ${effectiveDayRowHeight}px; ` +
+                      style={`left: 0px; top: ${topPos}px; width: ${monthWidth}px; height: ${effectiveDayRowHeight}px; ` +
                         `background-color: ${backgroundColor}; ` +
                         `border-bottom: 1px solid #e5e5e5; box-sizing: border-box;`}>
                       <div class="flex items-start"
-                        style={`width: ${calendarDimensions.columnWidth / scale}px; height: ${effectiveDayRowHeight / scale}px; transform: scale(${scale}); transform-origin: top left; padding-top: 5px;`}>
+                        style={`width: ${monthWidth / scale}px; height: ${effectiveDayRowHeight / scale}px; transform: scale(${scale}); transform-origin: top left; padding-top: 5px;`}>
                         <div style={`width: ${CALENDAR_DAY_LABEL_LEFT_MARGIN_PX / scale}px; display: flex; align-items: flex-start; justify-content: flex-end;`}>
                           <span style="font-size: 10px; margin-right: 2px;">{day}</span>
                         </div>
-                        <div style={`width: ${(calendarDimensions.columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX) / scale}px;`} />
+                        <div style={`width: ${Math.max(0, monthWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX) / scale}px;`} />
                       </div>
                     </div>
                   );
@@ -456,7 +465,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
           {(() => {
             const childArea = pageFns().childAreaBoundsPx();
-            const dims = calculateCalendarDimensions(childArea);
+            const dims = calculateCalendarDimensions(childArea, store.perVe.getCalendarMonthResize(pagePath));
             // Scale block size to match the popup calendar scale
             const block = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
             const rowsPerDay = Math.max(1, Math.floor(effectiveDayRowHeight / block.h));
@@ -479,10 +488,11 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               const [y, m, dd] = key.split('-').map(n => parseInt(n, 10));
               const month = m;
               const day = dd;
-              const monthLeftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (dims.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
+              const monthLeftPos = getCalendarMonthLeftPx(dims, month);
+              const monthWidth = getCalendarMonthWidthPx(dims, month);
               const dayAreaTopPopup = (popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight) * scale;
               const dayTopPos = dayAreaTopPopup + (day - 1) * effectiveDayRowHeight;
-              const rightEdge = monthLeftPos + dims.columnWidth;
+              const rightEdge = monthLeftPos + monthWidth;
               const baseX = rightEdge - block.w;
               const baseY = dayTopPos + (rowsPerDay - 1) * effectiveDayRowHeight + 1;
               const overlayWidth = block.w - 2;

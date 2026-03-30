@@ -43,6 +43,11 @@ import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { itemState } from "../store/ItemState";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { calcSpatialPopupGeometry } from "../layout/arrange/popup";
+import {
+  calculateCalendarDimensions,
+  getCalendarDividerCenterPx,
+  solveCalendarMonthWidthForDividerOffset,
+} from "../util/calendar-layout";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -115,6 +120,9 @@ export function mouseMoveHandler(store: StoreContextModel) {
       return;
     case MouseAction.ResizingListPageColumn:
       mouseAction_resizingListPageColumn(deltaPx, store);
+      return;
+    case MouseAction.ResizingCalendarMonth:
+      mouseAction_resizingCalendarMonth(store);
       return;
     case MouseAction.Selecting:
       mouseAction_selecting(store);
@@ -228,6 +236,17 @@ function changeMouseActionStateMaybe(
     if (activeVisualElement.flags & VisualElementFlags.IsDock) {
       MouseActionState.setAction(MouseAction.ResizingDock);
       MouseActionState.setStartWidthBl(store.getCurrentDockWidthPx() / NATURAL_BLOCK_SIZE_PX.w);
+    } else if (isPage(activeVisualElement.displayItem) &&
+      asPageItem(activeVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Calendar &&
+      MouseActionState.getHitMeta()?.calendarDividerMonth != null) {
+      const dividerMonth = MouseActionState.getHitMeta()!.calendarDividerMonth!;
+      const currentResize = store.perVe.getCalendarMonthResize(VeFns.veToPath(activeVisualElement));
+      const startResize = currentResize != null &&
+        (currentResize.month == dividerMonth || currentResize.month == dividerMonth + 1)
+        ? { ...currentResize }
+        : null;
+      MouseActionState.setStartCalendarMonthResize(startResize);
+      MouseActionState.setAction(MouseAction.ResizingCalendarMonth);
     } else if (isPage(activeVisualElement.displayItem)) {
       MouseActionState.setStartWidthBl(asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr / GRID_SIZE);
       MouseActionState.setAction(MouseAction.ResizingListPageColumn);
@@ -685,6 +704,63 @@ function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContext
 
   asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr = newWidthGr;
   arrangeNow(store, "resize-list-page-column");
+}
+
+function mouseAction_resizingCalendarMonth(store: StoreContextModel) {
+  document.body.style.cursor = "ew-resize";
+  const calendarPageSignal = MouseActionState.getActiveVisualElementSignal();
+  if (!calendarPageSignal) {
+    return;
+  }
+  const activeVisualElement = calendarPageSignal.get();
+  if (!activeVisualElement.childAreaBoundsPx || !activeVisualElement.viewportBoundsPx) {
+    return;
+  }
+
+  const dividerMonth = MouseActionState.getHitMeta()?.calendarDividerMonth;
+  if (!dividerMonth) {
+    return;
+  }
+
+  const veid = VeFns.veidFromVe(activeVisualElement);
+  const scrollXPx = store.perItem.getPageScrollXProp(veid) *
+    (activeVisualElement.childAreaBoundsPx.w - activeVisualElement.viewportBoundsPx.w);
+  const pointerX = CursorEventState.getLatestDesktopPx(store).x -
+    activeVisualElement.viewportBoundsPx.x +
+    scrollXPx;
+
+  const baselineResize = MouseActionState.getStartCalendarMonthResize();
+  const baselineDimensions = calculateCalendarDimensions(activeVisualElement.childAreaBoundsPx, baselineResize);
+  const baselineDividerX = getCalendarDividerCenterPx(baselineDimensions, dividerMonth);
+  const resizedMonth = baselineResize != null
+    ? baselineResize.month
+    : (pointerX >= baselineDividerX ? dividerMonth : dividerMonth + 1);
+  const widthPx = solveCalendarMonthWidthForDividerOffset(
+    activeVisualElement.childAreaBoundsPx,
+    dividerMonth,
+    resizedMonth,
+    pointerX,
+  );
+
+  const defaultWidth = calculateCalendarDimensions(activeVisualElement.childAreaBoundsPx).columnWidth;
+  const nextResize = Math.abs(widthPx - defaultWidth) < 0.5
+    ? null
+    : { month: resizedMonth, widthPx };
+  const vePath = VeFns.veToPath(activeVisualElement);
+  const currentResize = store.perVe.getCalendarMonthResize(vePath);
+
+  const changed =
+    (currentResize == null) !== (nextResize == null) ||
+    (currentResize != null && nextResize != null && (
+      currentResize.month != nextResize.month ||
+      Math.abs(currentResize.widthPx - nextResize.widthPx) >= 0.5
+    ));
+  if (!changed) {
+    return;
+  }
+
+  store.perVe.setCalendarMonthResize(vePath, nextResize);
+  arrangeNow(store, "resize-calendar-page-month");
 }
 
 

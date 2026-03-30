@@ -35,7 +35,14 @@ import { compareOrderings } from "../../util/ordering";
 import { MouseActionState, MouseAction } from "../../input/state";
 import { CursorEventState } from "../../input/state";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { calculateCalendarDimensions, CALENDAR_LAYOUT_CONSTANTS } from "../../util/calendar-layout";
+import {
+  calculateCalendarDimensions,
+  CALENDAR_LAYOUT_CONSTANTS,
+  getCalendarDividerCenterPx,
+  getCalendarMonthForXOffset,
+  getCalendarMonthLeftPx,
+  getCalendarMonthWidthPx,
+} from "../../util/calendar-layout";
 
 
 export function arrange_calendar_page(
@@ -167,7 +174,8 @@ export function arrange_calendar_page(
 
   // Calendar layout dimensions (using arranged childAreaBoundsPx)
   const childAreaBounds = childAreaBoundsPx;
-  const calendarDimensions = calculateCalendarDimensions(childAreaBounds);
+  const calendarMonthResize = store.perVe.getCalendarMonthResize(pageWithChildrenVePath);
+  const calendarDimensions = calculateCalendarDimensions(childAreaBounds, calendarMonthResize);
 
   const popupTopPadding = 5;
   const popupTitleToMonthSpacing = 8;
@@ -195,6 +203,33 @@ export function arrange_calendar_page(
     }
     return calendarDimensions.dayAreaTopPx;
   })();
+  const titleBarHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+  const dividerTopPx = (() => {
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
+      const baseDayRowPx = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
+      const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
+      const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
+      const scale = childAreaBounds.h / naturalTotal;
+      return (popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing) * scale;
+    }
+    return CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING;
+  })();
+  const dividerHitboxes: Array<ReturnType<typeof HitboxFns.create>> = [];
+  if (!(flags & ArrangeItemFlags.IsPopupRoot)) {
+    for (let dividerMonth = 1; dividerMonth < CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT; ++dividerMonth) {
+      const dividerCenterPx = getCalendarDividerCenterPx(calendarDimensions, dividerMonth);
+      dividerHitboxes.push(HitboxFns.create(
+        HitboxFlags.HorizontalResize,
+        {
+          x: dividerCenterPx - CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING / 2,
+          y: dividerTopPx + titleBarHeightPx,
+          w: CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING,
+          h: childAreaBounds.h - dividerTopPx,
+        },
+        HitboxFns.createMeta({ calendarDividerMonth: dividerMonth }),
+      ));
+    }
+  }
 
   // Item dimensions - icon + text layout like other line items
   // For popups, scale blockSizePx to match the calendar scaling
@@ -209,11 +244,7 @@ export function arrange_calendar_page(
     return NATURAL_BLOCK_SIZE_PX;
   })();
   const itemHeight = Math.min(dayRowHeight, blockSizePx.h);
-
-  // Calculate available width for items (with 2px left padding after day number)
   const itemLeftPadding = 2;
-  const availableWidthForItems = calendarDimensions.columnWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding;
-  const itemWidth = availableWidthForItems;
 
   // Cap items per day by how many rows fit in a day
   const rowsPerDay = Math.max(1, Math.floor(dayRowHeight / itemHeight));
@@ -250,19 +281,20 @@ export function arrange_calendar_page(
     const day = itemDate.getDate(); // 1-31
 
     // Calculate base position for this date
-    const monthLeftPos = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + (month - 1) * (calendarDimensions.columnWidth + CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING);
+    const monthLeftPos = getCalendarMonthLeftPx(calendarDimensions, month);
+    const monthWidth = getCalendarMonthWidthPx(calendarDimensions, month);
     const dayTopPos = dayAreaTopPx + (day - 1) * dayRowHeight;
+    const itemWidth = Math.max(0, monthWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding);
 
     // Add a page-level hitbox for overflow count if there are more items than rows
     const overflowCount = Math.max(0, itemsForDate.length - rowsPerDay);
     if (overflowCount > 0) {
-      const rightEdge = monthLeftPos + calendarDimensions.columnWidth;
+      const rightEdge = monthLeftPos + monthWidth;
       const baseX = rightEdge - blockSizePx.w;
       const baseY = dayTopPos + (rowsPerDay - 1) * itemHeight + 1;
       // For popups, hitboxes are in boundsPx coordinates (includes title bar),
       // but the calendar positions are in viewportBoundsPx/childAreaBoundsPx coordinates.
       // Add the title bar height offset to convert to boundsPx coordinates.
-      const titleBarHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
       const overlayBoundsPx = {
         x: baseX + 2,
         y: baseY + 2 + titleBarHeightPx,
@@ -287,8 +319,8 @@ export function arrange_calendar_page(
 
       const isLastRow = stackIndex === rowsPerDay - 1;
       const effectiveItemWidth = (overflowCount > 0 && isLastRow)
-        ? itemWidth - blockSizePx.w - 2
-        : itemWidth - 2;
+        ? Math.max(0, itemWidth - blockSizePx.w - 2)
+        : Math.max(0, itemWidth - 2);
 
       // Stack items vertically within the day
       const boundsPx = {
@@ -372,6 +404,7 @@ export function arrange_calendar_page(
   // Attach overflow hitboxes to the page visual element
   pageSpec.hitboxes = [
     ...(pageSpec.hitboxes || []),
+    ...dividerHitboxes,
     ...overflowHitboxes,
   ];
 
@@ -413,9 +446,14 @@ export function arrange_calendar_page(
     const movingItemBoundsPx = {
       x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
       y: mouseDesktopPosPx.y - geometry.boundsPx.y - store.topToolbarHeightPx() - popupTitleHeightMaybePx - pageYScrollPx + yOffsetPx + calendarYAdjustment,
-      w: itemWidth,
+      w: 0,
       h: calendarItemHeight
     };
+
+    const movingMonth = getCalendarMonthForXOffset(calendarDimensions, movingItemBoundsPx.x);
+    const movingMonthWidth = getCalendarMonthWidthPx(calendarDimensions, movingMonth);
+    const movingItemWidth = Math.max(0, movingMonthWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding);
+    movingItemBoundsPx.w = movingItemWidth;
 
     // Adjust for click offset
     const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
@@ -423,16 +461,16 @@ export function arrange_calendar_page(
     movingItemBoundsPx.y -= clickOffsetProp.y * movingItemBoundsPx.h;
 
     // Create hitboxes for moving item matching normal item structure
-    const movingWidthBl = Math.floor(itemWidth / blockSizePx.w);
+    const movingWidthBl = Math.floor(movingItemWidth / blockSizePx.w);
     const movingClickAreaBoundsPx = movingWidthBl > 1 ? {
       x: blockSizePx.w, // Start after icon block
       y: 0,
-      w: itemWidth - blockSizePx.w, // Text area width
+      w: movingItemWidth - blockSizePx.w, // Text area width
       h: calendarItemHeight
     } : {
       x: 0, // If only icon fits, click anywhere
       y: 0,
-      w: itemWidth,
+      w: movingItemWidth,
       h: calendarItemHeight
     };
 
