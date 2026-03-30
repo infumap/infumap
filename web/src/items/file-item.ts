@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
-import { HitboxFlags, HitboxFns } from '../layout/hitbox';
+import { Hitbox, HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
@@ -32,7 +32,7 @@ import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-eleme
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
-import { NoteFlags } from './base/flags-item';
+import { FileFlags, FlagsMixin } from './base/flags-item';
 import { VesCache } from '../layout/ves-cache';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -42,7 +42,7 @@ import { downloadRemoteFile } from '../util/remoteFile';
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
 
-export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin { }
+export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin { }
 
 
 export const FileFns = {
@@ -63,6 +63,8 @@ export const FileFns = {
       spatialPositionGr: o.spatialPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
+
+      flags: o.flags ?? FileFlags.None,
 
       originalCreationDate: o.originalCreationDate,
       mimeType: o.mimeType,
@@ -88,6 +90,8 @@ export const FileFns = {
 
       spatialWidthGr: f.spatialWidthGr,
 
+      flags: f.flags,
+
       originalCreationDate: f.originalCreationDate,
       mimeType: f.mimeType,
       fileSizeBytes: f.fileSizeBytes,
@@ -95,7 +99,7 @@ export const FileFns = {
   },
 
   calcSpatialDimensionsBl: (file: FileMeasurable): Dimensions => {
-    let lineCount = measureLineCount(file.title, file.spatialWidthGr / GRID_SIZE, NoteFlags.None);
+    let lineCount = measureLineCount(file.title, file.spatialWidthGr / GRID_SIZE, 0);
     if (lineCount < 1) { lineCount = 1; }
     return { w: file.spatialWidthGr / GRID_SIZE, h: lineCount };
   },
@@ -113,11 +117,12 @@ export const FileFns = {
       h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    return {
-      boundsPx,
-      viewportBoundsPx: null,
-      blockSizePx,
-      hitboxes: !emitHitboxes ? [] : [
+    const hitboxes: Array<Hitbox> = [];
+    if (emitHitboxes && FileFns.showsDesktopPopupIcon(file)) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
+    }
+    if (emitHitboxes) {
+      hitboxes.push(
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }),
@@ -128,7 +133,13 @@ export const FileFns = {
           h: ATTACH_AREA_SIZE_PX,
         }),
         HitboxFns.create(HitboxFlags.Resize, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: boundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
-      ],
+      );
+    }
+    return {
+      boundsPx,
+      viewportBoundsPx: null,
+      blockSizePx,
+      hitboxes,
     }
   },
 
@@ -277,6 +288,7 @@ export const FileFns = {
       spatialPositionGr: file.spatialPositionGr,
       spatialWidthGr: file.spatialWidthGr,
       title: file.title,
+      flags: file.flags,
     });
   },
 
@@ -285,7 +297,11 @@ export const FileFns = {
   },
 
   getFingerprint: (fileItem: FileItem): string => {
-    return fileItem.title;
+    return fileItem.title + "~~~!@#~~~" + fileItem.flags;
+  },
+
+  showsDesktopPopupIcon: (file: FileMeasurable): boolean => {
+    return !!(file.flags & FileFlags.ShowDesktopPopupIcon);
   }
 };
 

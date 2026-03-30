@@ -51,6 +51,13 @@ bitflags! {
   }
 }
 
+bitflags! {
+  pub struct FileFlags: i64 {
+    const None =                 0x000;
+    const ShowDesktopPopupIcon = 0x001;
+  }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum PermissionFlags {
   #[allow(dead_code)]
@@ -302,6 +309,7 @@ pub fn is_link_item(item: &Item) -> bool {
 pub fn is_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Table
     || item_type == ItemType::Note
+    || item_type == ItemType::File
     || item_type == ItemType::Composite
     || item_type == ItemType::Page
     || item_type == ItemType::Image
@@ -2040,7 +2048,9 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
       None => {
-        if is_flags_item_type(item_type) {
+        if item_type == ItemType::File {
+          Ok(Some(0))
+        } else if is_flags_item_type(item_type) {
           Err(expected_for_err("flags", item_type, &id))
         } else {
           Ok(None)

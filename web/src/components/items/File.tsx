@@ -26,6 +26,7 @@ import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
+import { HitboxFlags } from "../../layout/hitbox";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
@@ -136,6 +137,30 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
+  const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
+  const reservePopupIconSpace = () =>
+    FileFns.showsDesktopPopupIcon(fileItem()) &&
+    (hasPopupHandle() || isPopup());
+  const showPopupIcon = () => reservePopupIconSpace();
+  const popupIconBoundsPx = (): BoundingBox => ({
+    x: 1,
+    y: 1,
+    w: Math.max(blockSize().w - 2, 0),
+    h: Math.max(blockSize().h - 2, 0),
+  });
+  const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.94;
+  const popupIconTopPx = () => -Math.max(blockSize().h * 0.03, 0.5);
+  const popupTextIndentPx = () => {
+    if (!reservePopupIconSpace() || textBlockScale() <= 0) { return 0; }
+    return Math.max(blockSize().w / textBlockScale() - NOTE_PADDING_PX, 0);
+  };
+
+  const blockSize = () => {
+    return {
+      w: boundsPx().w / sizeBl().w,
+      h: boundsPx().h / sizeBl().h
+    };
+  };
 
   // Link click events are handled in the global mouse up handler. However, calculating the text
   // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
@@ -281,6 +306,21 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
             `z-index: ${Z_INDEX_HIGHLIGHT};`} />
       </Show>
+      <Show when={showPopupIcon()}>
+        <div class="absolute rounded-xs pointer-events-none"
+          style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
+            `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
+            `background-color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#0044ff0a' : 'transparent'}; ` +
+            `border: 1px solid ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#cbd5e1' : 'transparent'}; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
+        <div class="absolute text-center pointer-events-none"
+          style={`left: 0px; top: ${popupIconTopPx()}px; ` +
+            `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
+            `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
+            `z-index: ${Z_INDEX_HIGHLIGHT};`}>
+          <i class="fas fa-file" />
+        </div>
+      </Show>
       <Switch>
         <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
           <div class={"text-left"}
@@ -290,7 +330,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
               `width: ${naturalWidthPx()}px; ` +
               `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
               `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-              `overflow-wrap: break-word; white-space: pre-wrap; `}>
+              `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `text-indent: ${popupTextIndentPx()}px; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
               href={""}
               class={`text-green-800 hover:text-green-700`}
@@ -312,6 +353,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
               `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
               `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
+              `text-indent: ${popupTextIndentPx()}px; ` +
               `outline: 0px solid transparent;`}
             contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={store.overlay.textEditInfo() != null}

@@ -22,7 +22,9 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { asFileItem } from "../../../items/file-item";
+import { FileFlags } from "../../../items/base/flags-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
+import { requestArrange } from "../../../layout/arrange";
 
 
 export const Toolbar_File: Component = () => {
@@ -31,6 +33,19 @@ export const Toolbar_File: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const fileItem = () => asFileItem(store.history.getFocusItem());
+
+  const desktopPopupIconVisible = (): boolean => {
+    return !!(fileItem().flags & FileFlags.ShowDesktopPopupIcon);
+  }
+
+  const desktopPopupIconButtonHandler = (): void => {
+    if (desktopPopupIconVisible()) {
+      fileItem().flags &= ~FileFlags.ShowDesktopPopupIcon;
+    } else {
+      fileItem().flags |= FileFlags.ShowDesktopPopupIcon;
+    }
+    requestArrange(store, "toolbar-file-desktop-popup-icon");
+  };
 
   const handleQr = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
@@ -52,8 +67,11 @@ export const Toolbar_File: Component = () => {
 
   return (
     <div id="toolbarItemOptionsDiv"
-         class="grow-0" style="flex-order: 0">
+      class="grow-0" style="flex-order: 0">
       <div class="inline-block">
+        <div class="inline-block pl-[2px]">
+          <InfuIconButton icon="fa fa-file" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+        </div>
 
         <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
