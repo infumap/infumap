@@ -325,6 +325,11 @@ function changeMouseActionStateMaybe(
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
   } else if (veFlagIsRoot(activeVisualElement.flags)) {
+    if (isPage(activeVisualElement.displayItem) &&
+      asPageItem(activeVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+      store.overlay.selectionMarqueePx.set(null);
+      return;
+    }
     MouseActionState.setAction(MouseAction.Selecting);
     const startPx = MouseActionState.getStartPx()!;
     store.overlay.selectionMarqueePx.set({ x: startPx.x, y: startPx.y, w: 0, h: 0 });

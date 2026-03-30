@@ -261,11 +261,18 @@ export function makePerVeStore(): PerVeStoreContextModel {
   };
 
   const setCalendarYear = (vePath: VisualElementPath, year: number): void => {
+    const previousYear = calendarYear.get(vePath)?.get();
     if (!calendarYear.get(vePath)) {
       calendarYear.set(vePath, createNumberSignal(year));
-      return;
+    } else {
+      calendarYear.get(vePath)!.set(year);
     }
-    calendarYear.get(vePath)!.set(year);
+
+    if (previousYear == null || previousYear !== year) {
+      if (calendarMonthResize.get(vePath)) {
+        calendarMonthResize.get(vePath)!.set(null);
+      }
+    }
   };
 
   const getCalendarMonthResize = (vePath: VisualElementPath): CalendarMonthResize | null => {

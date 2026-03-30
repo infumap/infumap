@@ -340,7 +340,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
                 {/* Month title */}
                 <div
-                  class={`text-center font-semibold text-base rounded-sm cursor-pointer transition-colors hover:bg-gray-100 ${calendarResizeMaybe?.month == month ? "bg-gray-100" : ""}`}
+                  class="text-center font-semibold text-base rounded-sm cursor-pointer transition-colors hover:bg-gray-100"
                   style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px;`}
                   onMouseDown={(ev) => {
                     ev.preventDefault();
