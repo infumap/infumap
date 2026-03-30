@@ -73,7 +73,10 @@ export const Toolbar_File: Component = () => {
           <InfuIconButton icon="fa fa-file" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
         </div>
 
-        <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
+        {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+
+        <div ref={qrDiv} class="inline-block pl-[18px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
         </div>
         <div class="inline-block">
