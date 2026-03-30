@@ -113,6 +113,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     h: Math.max(blockSize().h - 2, 0),
   });
   const popupIconSizePx = () => Math.max(Math.min(popupIconBoundsPx().w, popupIconBoundsPx().h) - 6, 8);
+  const popupTextIndentPx = () => {
+    if (!showPopupIcon() || textBlockScale() <= 0) { return 0; }
+    return Math.max(blockSize().w / textBlockScale() - NOTE_PADDING_PX, 0);
+  };
 
   const blockSize = () => {
     return {
@@ -378,6 +382,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                 `font-size: ${infuTextStyle().fontSize}px; ` +
                 `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                `text-indent: ${popupTextIndentPx()}px; ` +
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}>
               <a id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -425,6 +430,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                 `font-size: ${infuTextStyle().fontSize}px; ` +
                 `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                `text-indent: ${popupTextIndentPx()}px; ` +
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent; ` +
                 `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}
