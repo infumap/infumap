@@ -265,6 +265,26 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
     const calendarResizeMaybe = store.perVe.getCalendarMonthResize(pagePath);
     const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx(), calendarResizeMaybe);
+    const toggleMonthHeadingWidth = (month: number) => {
+      const currentResize = store.perVe.getCalendarMonthResize(pagePath);
+      if (currentResize != null && currentResize.month == month) {
+        store.perVe.setCalendarMonthResize(pagePath, null);
+        requestArrange(store, "page-calendar-month-heading-uniform");
+        return;
+      }
+
+      const childAreaBounds = pageFns().childAreaBoundsPx();
+      const defaultWidthPx = calculateCalendarDimensions(childAreaBounds).columnWidth;
+      const requestedWidthPx = currentResize?.widthPx ?? defaultWidthPx * 2.0;
+      const normalizedWidthPx = calculateCalendarDimensions(childAreaBounds, {
+        month,
+        widthPx: requestedWidthPx,
+      }).columnWidths[month - 1];
+      store.perVe.setCalendarMonthResize(pagePath, { month, widthPx: normalizedWidthPx });
+      requestArrange(store, currentResize == null
+        ? "page-calendar-month-heading-wide"
+        : "page-calendar-month-heading-switch-wide");
+    };
 
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 
@@ -293,7 +313,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
               onClick={() => {
-                store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear - 1);
+                store.perVe.setCalendarYear(pagePath, currentYear - 1);
                 requestArrange(store, "page-calendar-year-change");
               }}>
               <i class="fas fa-angle-left" />
@@ -301,7 +321,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             <span class="mx-2">{currentYear}</span>
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
               onClick={() => {
-                store.perVe.setCalendarYear(VeFns.veToPath(props.visualElement), currentYear + 1);
+                store.perVe.setCalendarYear(pagePath, currentYear + 1);
                 requestArrange(store, "page-calendar-year-change");
               }}>
               <i class="fas fa-angle-right" />
@@ -319,8 +339,18 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 style={`left: ${leftPos}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING}px; width: ${monthWidth}px;`}>
 
                 {/* Month title */}
-                <div class="text-center font-semibold text-base"
-                  style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px;`}>
+                <div
+                  class={`text-center font-semibold text-base rounded-sm cursor-pointer transition-colors hover:bg-gray-100 ${calendarResizeMaybe?.month == month ? "bg-gray-100" : ""}`}
+                  style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px;`}
+                  onMouseDown={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                  }}
+                  onClick={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    toggleMonthHeadingWidth(month);
+                  }}>
                   {monthNames[month - 1]}
                 </div>
 
