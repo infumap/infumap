@@ -112,7 +112,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     w: Math.max(blockSize().w - 2, 0),
     h: Math.max(blockSize().h - 2, 0),
   });
-  const popupIconScale = () => blockSize().h / LINE_HEIGHT_PX;
+  const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.9;
+  const popupIconTopPx = () => -Math.max(blockSize().h * 0.06, 1);
   const popupTextIndentPx = () => {
     if (!showPopupIcon() || textBlockScale() <= 0) { return 0; }
     return Math.max(blockSize().w / textBlockScale() - NOTE_PADDING_PX, 0);
@@ -366,7 +367,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `border: 1px solid ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#cbd5e1' : 'transparent'}; ` +
               `z-index: ${Z_INDEX_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
           <div class="absolute text-center pointer-events-none"
-            style={`left: 0px; top: 0px; ` +
+            style={`left: 0px; top: ${popupIconTopPx()}px; ` +
               `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
               `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
               `z-index: ${Z_INDEX_HIGHLIGHT};`}>
