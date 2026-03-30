@@ -25,6 +25,7 @@ import { asFileItem } from "../../../items/file-item";
 import { FileFlags } from "../../../items/base/flags-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { requestArrange } from "../../../layout/arrange";
+import { VesCache } from "../../../layout/ves-cache";
 
 
 export const Toolbar_File: Component = () => {
@@ -32,7 +33,9 @@ export const Toolbar_File: Component = () => {
 
   let qrDiv: HTMLDivElement | undefined;
 
-  const fileItem = () => asFileItem(store.history.getFocusItem());
+  const fileVisualElementSignal = () => VesCache.render.getNode(store.history.getFocusPath())!;
+  const fileVisualElement = () => fileVisualElementSignal().get();
+  const fileItem = () => asFileItem(fileVisualElement().displayItem);
 
   const desktopPopupIconVisible = (): boolean => {
     return !!(fileItem().flags & FileFlags.ShowDesktopPopupIcon);
