@@ -112,7 +112,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     w: Math.max(blockSize().w - 2, 0),
     h: Math.max(blockSize().h - 2, 0),
   });
-  const popupIconSizePx = () => Math.max(Math.min(popupIconBoundsPx().w, popupIconBoundsPx().h) - 6, 8);
+  const popupIconScale = () => blockSize().h / LINE_HEIGHT_PX;
   const popupTextIndentPx = () => {
     if (!showPopupIcon() || textBlockScale() <= 0) { return 0; }
     return Math.max(blockSize().w / textBlockScale() - NOTE_PADDING_PX, 0);
@@ -359,14 +359,17 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `z-index: ${Z_INDEX_HIGHLIGHT};`} />
         </Show>
         <Show when={showPopupIcon()}>
-          <div class="absolute flex items-center justify-center rounded-xs pointer-events-none"
+          <div class="absolute rounded-xs pointer-events-none"
             style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
               `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
-              `font-size: ${popupIconSizePx()}px; line-height: 1; ` +
-              `color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? FEATURE_COLOR : '#64748b'}; ` +
               `background-color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#0044ff0a' : 'transparent'}; ` +
               `border: 1px solid ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#cbd5e1' : 'transparent'}; ` +
-              `z-index: ${Z_INDEX_HIGHLIGHT}; transition: color 0.1s, background-color 0.1s, border-color 0.1s;`}>
+              `z-index: ${Z_INDEX_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
+          <div class="absolute text-center pointer-events-none"
+            style={`left: 0px; top: 0px; ` +
+              `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
+              `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
+              `z-index: ${Z_INDEX_HIGHLIGHT};`}>
             <i class="fas fa-sticky-note" />
           </div>
         </Show>
