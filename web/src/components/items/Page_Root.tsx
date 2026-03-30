@@ -343,6 +343,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                   class="text-center font-semibold text-base rounded-sm cursor-pointer transition-colors hover:bg-gray-100"
                   style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px;`}
                   onMouseDown={(ev) => {
+                    if (ev.button !== 0) { return; }
                     ev.preventDefault();
                     ev.stopPropagation();
                   }}

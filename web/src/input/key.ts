@@ -32,7 +32,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { CursorEventState } from "./state";
+import { CursorEventState, MouseActionState } from "./state";
 import { newItemInContext } from "./create";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
@@ -44,6 +44,7 @@ import { asContainerItem } from "../items/base/container-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { HitboxFlags } from "../layout/hitbox";
 import { setCaretPosition } from "../util/caret";
+import { MOUSE_RIGHT, mouseDownHandler } from "./mouse_down";
 
 
 /**
@@ -57,11 +58,48 @@ export function isArrowKey(key: string) {
   return false;
 }
 
+function isShiftKey(code: string): boolean {
+  return code == "ShiftLeft" || code == "ShiftRight";
+}
+
+let shiftNavigationGesture = {
+  pending: false,
+  cancelled: false,
+};
+
+function beginShiftNavigationGesture(ev: KeyboardEvent): void {
+  if (ev.repeat) { return; }
+
+  // Treat a bare Shift tap as the keyboard equivalent of right-click/back-up,
+  // but cancel it as soon as Shift becomes part of another gesture.
+  shiftNavigationGesture = {
+    pending: true,
+    cancelled: ev.ctrlKey || ev.metaKey || ev.altKey || !MouseActionState.empty(),
+  };
+}
+
+function consumeShiftNavigationGesture(): boolean {
+  const shouldNavigate = shiftNavigationGesture.pending && !shiftNavigationGesture.cancelled;
+  shiftNavigationGesture = { pending: false, cancelled: false };
+  return shouldNavigate;
+}
+
+export function cancelShiftNavigationGesture(): void {
+  if (!shiftNavigationGesture.pending) { return; }
+  shiftNavigationGesture.cancelled = true;
+}
+
 
 /**
  * Top level handler for keydown events.
  */
 export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): void {
+  if (isShiftKey(ev.code)) {
+    beginShiftNavigationGesture(ev);
+    return;
+  }
+
+  cancelShiftNavigationGesture();
 
   // IMPORTANT: keep these in sync with the code below.
 
@@ -264,6 +302,15 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   else {
     panic(`Unexpected key code: ${ev.code}`);
   }
+}
+
+export async function keyUpHandler(store: StoreContextModel, ev: KeyboardEvent): Promise<void> {
+  if (!isShiftKey(ev.code)) { return; }
+  if (ev.shiftKey) { return; }
+  if (!consumeShiftNavigationGesture()) { return; }
+
+  ev.preventDefault();
+  await mouseDownHandler(store, MOUSE_RIGHT);
 }
 
 

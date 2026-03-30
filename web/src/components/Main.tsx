@@ -44,7 +44,7 @@ import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler, clearMouseOverState } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
-import { keyDownHandler } from "../input/key";
+import { cancelShiftNavigationGesture, keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
@@ -167,6 +167,7 @@ export const Main: Component = () => {
 
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
     document.addEventListener('keydown', keyDownListener);
+    document.addEventListener('keyup', keyUpListener);
     window.addEventListener('resize', windowResizeListener);
     document.addEventListener('selectionchange', selectionChangeListener);
   });
@@ -176,6 +177,7 @@ export const Main: Component = () => {
 
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
     document.removeEventListener('keydown', keyDownListener);
+    document.removeEventListener('keyup', keyUpListener);
     window.removeEventListener('resize', windowResizeListener);
     document.removeEventListener('selectionchange', selectionChangeListener)
   });
@@ -186,6 +188,10 @@ export const Main: Component = () => {
 
   const keyDownListener = (ev: KeyboardEvent) => {
     keyDownHandler(store, ev);
+  };
+
+  const keyUpListener = (ev: KeyboardEvent) => {
+    void keyUpHandler(store, ev);
   };
 
   const windowResizeListener = () => {
@@ -214,6 +220,7 @@ export const Main: Component = () => {
 
   let ignoreMouseDown = false;
   const mouseDownListener = async (ev: MouseEvent) => {
+    cancelShiftNavigationGesture();
     if (ignoreMouseDown) {
       ignoreMouseDown = false;
       return;
@@ -225,6 +232,7 @@ export const Main: Component = () => {
   };
 
   const touchListener = async (ev: TouchEvent) => {
+    cancelShiftNavigationGesture();
     if (ev.touches.length > 1) {
       ignoreMouseDown = true;
       CursorEventState.setFromTouchEvent(ev);
