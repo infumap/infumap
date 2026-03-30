@@ -101,10 +101,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
-  const showPopupIcon = () =>
+  const reservePopupIconSpace = () =>
     NoteFns.showsDesktopPopupIcon(noteItem()) &&
     hasPopupHandle() &&
-    !isPopup() &&
+    !isPopup();
+  const showPopupIcon = () =>
+    reservePopupIconSpace() &&
     (!store.overlay.textEditInfo() || store.overlay.textEditInfo()!.itemPath != vePath());
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
@@ -115,7 +117,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.94;
   const popupIconTopPx = () => -Math.max(blockSize().h * 0.03, 0.5);
   const popupTextIndentPx = () => {
-    if (!showPopupIcon() || textBlockScale() <= 0) { return 0; }
+    if (!reservePopupIconSpace() || textBlockScale() <= 0) { return 0; }
     return Math.max(blockSize().w / textBlockScale() - NOTE_PADDING_PX, 0);
   };
 
@@ -413,6 +415,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                 `font-size: ${infuTextStyle().fontSize}px; ` +
                 `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                `text-indent: ${popupTextIndentPx()}px; ` +
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent;`}
               contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
