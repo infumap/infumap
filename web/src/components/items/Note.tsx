@@ -112,8 +112,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     w: Math.max(blockSize().w - 2, 0),
     h: Math.max(blockSize().h - 2, 0),
   });
-  const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.9;
-  const popupIconTopPx = () => -Math.max(blockSize().h * 0.06, 1);
+  const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.94;
+  const popupIconTopPx = () => -Math.max(blockSize().h * 0.03, 0.5);
   const popupTextIndentPx = () => {
     if (!showPopupIcon() || textBlockScale() <= 0) { return 0; }
     return Math.max(blockSize().w / textBlockScale() - NOTE_PADDING_PX, 0);
