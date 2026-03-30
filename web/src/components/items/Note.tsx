@@ -103,11 +103,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
   const reservePopupIconSpace = () =>
     NoteFns.showsDesktopPopupIcon(noteItem()) &&
-    hasPopupHandle() &&
-    !isPopup();
-  const showPopupIcon = () =>
-    reservePopupIconSpace() &&
-    (!store.overlay.textEditInfo() || store.overlay.textEditInfo()!.itemPath != vePath());
+    (hasPopupHandle() || isPopup());
+  const showPopupIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
     y: 1,
