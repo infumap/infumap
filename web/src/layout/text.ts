@@ -22,8 +22,13 @@ import { NoteFlags } from "../items/base/flags-item";
 
 const lineCountCache = new Map<String, number>();
 
-export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): number {
-  const key = s + "-#####-" + widthBl + "~" + flags; // TODO (LOW): not foolproof.
+export function desktopPopupIconTextIndentPx(widthBl: number): number {
+  if (widthBl <= 0) { return 0; }
+  return Math.max(((widthBl * LINE_HEIGHT_PX) - NOTE_PADDING_PX * 2) / widthBl - NOTE_PADDING_PX, 0);
+}
+
+export function measureLineCount(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0): number {
+  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx; // TODO (LOW): not foolproof.
   if (lineCountCache.has(key)) {
     return lineCountCache.get(key)!;
   }
@@ -42,7 +47,8 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
     `${style.isBold ? 'font-weight: bold; ' : ""}` +
     `font-size: ${style.fontSize}px; ` +
     `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
-    `overflow-wrap: break-word; white-space: pre-wrap;`);
+    `overflow-wrap: break-word; white-space: pre-wrap; ` +
+    `text-indent: ${textIndentPx}px;`);
   const txt = document.createTextNode(s);
   div.appendChild(txt);
   document.body.appendChild(div);

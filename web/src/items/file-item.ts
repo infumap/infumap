@@ -31,7 +31,7 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { measureLineCount } from '../layout/text';
+import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
 import { FileFlags, FlagsMixin } from './base/flags-item';
 import { VesCache } from '../layout/ves-cache';
 import { arrangeNow, requestArrange } from '../layout/arrange';
@@ -99,9 +99,11 @@ export const FileFns = {
   },
 
   calcSpatialDimensionsBl: (file: FileMeasurable): Dimensions => {
-    let lineCount = measureLineCount(file.title, file.spatialWidthGr / GRID_SIZE, 0);
+    const widthBl = file.spatialWidthGr / GRID_SIZE;
+    const textIndentPx = FileFns.showsDesktopPopupIcon(file) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    let lineCount = measureLineCount(file.title, widthBl, 0, textIndentPx);
     if (lineCount < 1) { lineCount = 1; }
-    return { w: file.spatialWidthGr / GRID_SIZE, h: lineCount };
+    return { w: widthBl, h: lineCount };
   },
 
   calcGeometry_Spatial: (file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {

@@ -33,7 +33,7 @@ import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-eleme
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { measureLineCount, getTextStyleForNote } from '../layout/text';
+import { desktopPopupIconTextIndentPx, measureLineCount, getTextStyleForNote } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -138,7 +138,9 @@ export const NoteFns = {
       return { w: note.spatialWidthGr / GRID_SIZE, h: note.spatialHeightGr / GRID_SIZE };
     }
     const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
-    let lineCount = measureLineCount(formattedTitle, note.spatialWidthGr / GRID_SIZE, note.flags);
+    const widthBl = note.spatialWidthGr / GRID_SIZE;
+    const textIndentPx = NoteFns.showsDesktopPopupIcon(note) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    let lineCount = measureLineCount(formattedTitle, widthBl, note.flags, textIndentPx);
     if (lineCount < 1) { lineCount = 1; }
 
     // Adjust height for text styles (e.g. headings)

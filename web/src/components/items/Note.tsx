@@ -27,7 +27,7 @@ import { itemState } from "../../store/ItemState";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
-import { getTextStyleForNote } from "../../layout/text";
+import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
 import { HitboxFlags } from "../../layout/hitbox";
 import { useStore } from "../../store/StoreProvider";
 import { CompositeFns, isComposite } from "../../items/composite-item";
@@ -114,8 +114,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.94;
   const popupIconTopPx = () => -Math.max(blockSize().h * 0.03, 0.5);
   const popupTextIndentPx = () => {
-    if (!reservePopupIconSpace() || textBlockScale() <= 0) { return 0; }
-    return Math.max(blockSize().w / textBlockScale() - NOTE_PADDING_PX, 0);
+    if (!reservePopupIconSpace()) { return 0; }
+    return desktopPopupIconTextIndentPx(sizeBl().w);
   };
 
   const blockSize = () => {

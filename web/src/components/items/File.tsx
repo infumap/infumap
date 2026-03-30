@@ -37,6 +37,7 @@ import { useStore } from "../../store/StoreProvider";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { CompositeFns, isComposite } from "../../items/composite-item";
 import { FEATURE_COLOR } from "../../style";
+import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { arrangeNow } from "../../layout/arrange";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
@@ -151,8 +152,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.94;
   const popupIconTopPx = () => -Math.max(blockSize().h * 0.03, 0.5);
   const popupTextIndentPx = () => {
-    if (!reservePopupIconSpace() || textBlockScale() <= 0) { return 0; }
-    return Math.max(blockSize().w / textBlockScale() - NOTE_PADDING_PX, 0);
+    if (!reservePopupIconSpace()) { return 0; }
+    return desktopPopupIconTextIndentPx(sizeBl().w);
   };
 
   const blockSize = () => {
