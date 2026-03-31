@@ -131,6 +131,20 @@ impl ImageCache {
           let entry_name = entry.file_name();
           let filename =
             entry_name.to_str().ok_or(format!("Invalid cached image filename '{}'.", &path.display()))?.to_string();
+          if filename.ends_with(".tmp") {
+            warn!("Deleting leftover temp cache file '{}' (likely left by a previous crash).", entry.path().display());
+            if let Err(e) = tokio::fs::remove_file(entry.path()).await {
+              warn!("Failed to delete leftover temp cache file '{}': {}", entry.path().display(), e);
+            }
+            continue;
+          }
+          if md.len() == 0 {
+            warn!("Deleting zero-byte cache file '{}' (likely left by a previous crash).", entry.path().display());
+            if let Err(e) = tokio::fs::remove_file(entry.path()).await {
+              warn!("Failed to delete zero-byte cache file '{}': {}", entry.path().display(), e);
+            }
+            continue;
+          }
           let file_info = FileInfo {
             size_bytes: md.len() as usize,
             last_accessed: md.accessed()?.duration_since(UNIX_EPOCH)?.as_secs(),
@@ -244,12 +258,16 @@ pub async fn put_if_not_exist(
   key: ImageCacheKey,
   val: Vec<u8>,
 ) -> InfuResult<()> {
+  if val.is_empty() {
+    return Err("Cannot cache empty (zero-byte) image data.".into());
+  }
+
   let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
 
   let cache_dir;
   {
     let mut image_cache = image_cache.lock().unwrap();
-    if image_cache.filenames_by_item_id.contains_key(&filename) {
+    if image_cache.fileinfo_by_filename.contains_key(&filename) {
       return Ok(());
     }
     cache_dir = image_cache.cache_dir.clone();
@@ -264,15 +282,23 @@ pub async fn put_if_not_exist(
   }
 
   // TODO (LOW): race condition still exists. to reproduce, repeatedly reload a page with images not yet in cache (use debug build to slow it down).
+  // Write to a temp file first, then rename atomically. This ensures that even if the server
+  // crashes mid-write, no zero-byte or partial cache file is left behind to be loaded on restart.
   let path = construct_file_subpath(&cache_dir, &filename)?;
+  let mut temp_path = path.clone();
+  temp_path.set_file_name(format!("{}.tmp", filename));
   let mut file = OpenOptions::new()
-    .create_new(true)
+    .create(true)
     .write(true)
-    .open(path.clone())
+    .truncate(true)
+    .open(temp_path.clone())
     .await
-    .map_err(|e| format!("Error opening file {:?} (create new/write): {}", path, e))?;
-  file.write_all(&val).await.map_err(|e| format!("Error writing to file {:?}: {}", path, e))?;
+    .map_err(|e| format!("Error opening temp file {:?}: {}", temp_path, e))?;
+  file.write_all(&val).await.map_err(|e| format!("Error writing to temp file {:?}: {}", temp_path, e))?;
   file.flush().await?;
+  drop(file);
+  tokio::fs::rename(&temp_path, &path).await
+    .map_err(|e| format!("Error renaming temp cache file {:?} to {:?}: {}", temp_path, path, e))?;
 
   purge_maybe(image_cache).await?;
 
