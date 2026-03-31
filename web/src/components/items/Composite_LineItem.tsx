@@ -23,6 +23,7 @@ import { asCompositeItem } from "../../items/composite-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
+import { FOCUS_RING_COLOR } from "../../style";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { cloneBoundingBox } from "../../util/geometry";
@@ -132,6 +133,11 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
       {renderText()}
       {renderExpandIcon()}
       {renderLinkMarkingMaybe()}
+      <Show when={props.visualElement.flags & VisualElementFlags.FocusPageSelected}>
+        <div class="absolute pointer-events-none"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+      </Show>
     </>
   )
 }

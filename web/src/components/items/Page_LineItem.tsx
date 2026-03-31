@@ -26,7 +26,7 @@ import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_HIGHLIGHT 
 import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { hexToRGBA } from "../../util/color";
-import { Colors, SELECTED_DARK, SELECTED_LIGHT } from "../../style";
+import { Colors, SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_COLOR } from "../../style";
 import { cloneBoundingBox } from "../../util/geometry";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -218,6 +218,11 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       {renderText()}
       {renderExpandIcon()}
       {renderLinkMarkingMaybe()}
+      <Show when={props.visualElement.flags & VisualElementFlags.FocusPageSelected}>
+        <div class="absolute pointer-events-none"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+      </Show>
     </>
   );
 }

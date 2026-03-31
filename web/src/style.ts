@@ -129,3 +129,4 @@ export let LINK_TRIANGLE_COLOR = "#b143";
 
 export const FIND_HIGHLIGHT_COLOR = 'rgba(255, 255, 0, 0.4)';
 export const SELECTION_HIGHLIGHT_COLOR = '#4a90e233';
+export const FOCUS_RING_COLOR = 'rgba(0, 68, 255, 0.5)';

@@ -22,7 +22,7 @@ import { useStore } from "../../store/StoreProvider";
 import { cloneBoundingBox } from "../../util/geometry";
 import { VisualElementProps } from "../VisualElement";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
+import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_COLOR } from "../../style";
 import { Z_INDEX_ITEMS_OVERLAY } from "../../constants";
 
 
@@ -70,6 +70,11 @@ export const Placeholder_LineItem: Component<VisualElementProps> = (props: Visua
       <div class={`absolute rounded-xs border border-slate-200`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   "background: repeating-linear-gradient(315deg, #00000000, #00000000 3px, #eee 2px, #eee 5px);"} />
+      <Show when={props.visualElement.flags & VisualElementFlags.FocusPageSelected}>
+        <div class="absolute pointer-events-none"
+          style={`left: ${props.visualElement.boundsPx.x}px; top: ${props.visualElement.boundsPx.y}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
+            `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+      </Show>
     </>
   );
 }
