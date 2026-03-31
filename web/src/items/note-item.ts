@@ -299,7 +299,7 @@ export const NoteFns = {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
-    if (!forceEdit) {
+    if (!forceEdit && store.history.getFocusPath() !== itemPath) {
       store.history.setFocus(itemPath);
       arrangeNow(store, "note-focus");
       return;
