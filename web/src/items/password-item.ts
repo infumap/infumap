@@ -236,15 +236,20 @@ export const PasswordFns = {
       h: boundsPx.h / sizeBl.h,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const hitboxes: Array<Hitbox> = [];
+    if (PasswordFns.showsDesktopPopupIcon(password)) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
+    }
+    hitboxes.push(
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+    );
     return ({
       boundsPx: cloneBoundingBox(boundsPx)!,
       blockSizePx,
       viewportBoundsPx: null,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
-      ]
+      hitboxes,
     });
   },
 
