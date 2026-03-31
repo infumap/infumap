@@ -218,8 +218,8 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
 
-        // For right-click, keep focus on the item unless it's a note or file (those lose focus entirely on right-click)
-        if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Note && editingItemType != ItemType.File) {
+        // For right-click, keep focus on the item unless it's a note, file, table, or page (those lose focus entirely on right-click)
+        if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Note && editingItemType != ItemType.File && editingItemType != ItemType.Table && editingItemType != ItemType.Page) {
           store.history.setFocus(editingItemPath);
         }
 

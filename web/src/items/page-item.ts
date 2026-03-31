@@ -825,7 +825,13 @@ export const PageFns = {
   handleClick: (visualElement: VisualElement, hitboxFlags: HitboxFlags, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if ((asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) && (hitboxFlags & HitboxFlags.ContentEditable)) {
-      PageFns.handleEditTitleClick(visualElement, store);
+      const focusPath = VeFns.veToPath(visualElement);
+      if (store.history.getFocusPath() !== focusPath) {
+        store.history.setFocus(focusPath);
+        arrangeNow(store, "page-focus");
+      } else {
+        PageFns.handleEditTitleClick(visualElement, store);
+      }
     } else {
       const focusPath = VeFns.veToPath(visualElement);
       store.history.setFocus(focusPath);

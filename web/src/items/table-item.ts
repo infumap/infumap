@@ -269,6 +269,11 @@ export const TableFns = {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
+    if (!forceEdit && hitboxMeta == null && store.history.getFocusPath() !== itemPath) {
+      store.history.setFocus(itemPath);
+      arrangeNow(store, "table-focus");
+      return;
+    }
     store.overlay.setTextEditInfo(store.history, {
       itemPath,
       itemType: ItemType.Table,
