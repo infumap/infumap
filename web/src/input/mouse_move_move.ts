@@ -362,6 +362,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
   const newPosGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
 
+  if (asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.Calendar) {
+    store.movingItemTargetCalendarInfo.set(null);
+  }
+
   if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
     const xAdj = (inElementVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) ||
       (inElementVe.flags & VisualElementFlags.Popup)
@@ -402,6 +406,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const position = calculateCalendarPosition(desktopPosPx, inElementVe, store);
     const combinedIndex = encodeCalendarCombinedIndex(position.month, position.day);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), combinedIndex);
+    store.movingItemTargetCalendarInfo.set({ pageItemId: inElement.id, combinedIndex });
   }
 
   const dockWidthPx = store.getCurrentDockWidthPx();

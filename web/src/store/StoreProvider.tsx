@@ -62,6 +62,7 @@ export interface StoreContextModel {
   anItemIsResizing: InfuSignal<boolean>,
   anItemIsMoving: InfuSignal<boolean>,
   movingItemSourceCalendarInfo: InfuSignal<{ pageItemId: string, combinedIndex: number } | null>,
+  movingItemTargetCalendarInfo: InfuSignal<{ pageItemId: string, combinedIndex: number } | null>,
   mouseOverTableHeaderColumnNumber: InfuSignal<number | null>,
 
   touchToolbar: () => void,
@@ -197,6 +198,7 @@ export function StoreProvider(props: StoreContextProps) {
     anItemIsResizing: createInfuSignal<boolean>(false),
     anItemIsMoving: createInfuSignal<boolean>(false),
     movingItemSourceCalendarInfo: createInfuSignal<{ pageItemId: string, combinedIndex: number } | null>(null),
+    movingItemTargetCalendarInfo: createInfuSignal<{ pageItemId: string, combinedIndex: number } | null>(null),
     mouseOverTableHeaderColumnNumber: createInfuSignal<number | null>(null),
 
     perVe,
