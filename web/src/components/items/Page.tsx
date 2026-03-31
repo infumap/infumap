@@ -38,6 +38,7 @@ import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
 import { ItemFns } from "../../items/base/item-polymorphism";
+import { calculateCalendarDimensions, decodeCalendarCombinedIndex, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -251,6 +252,19 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
         return pageFns.renderJustifiedMoveOverHighlight();
+      } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+        const combinedIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
+        const { month, day } = decodeCalendarCombinedIndex(combinedIndex);
+        const monthResizeMaybe = store.perVe.getCalendarMonthResize(pageFns.vePath());
+        const dimensions = calculateCalendarDimensions(pageFns.childAreaBoundsPx(), monthResizeMaybe);
+        const leftPx = getCalendarMonthLeftPx(dimensions, month);
+        const widthPx = getCalendarMonthWidthPx(dimensions, month);
+        const topPx = dimensions.dayAreaTopPx + (day - 1) * dimensions.dayRowHeight;
+        return (
+          <div class="absolute pointer-events-none"
+            style={`left: ${leftPx}px; top: ${topPx}px; width: ${widthPx}px; height: ${dimensions.dayRowHeight}px; ` +
+              `background-color: #3b82f633; border: 1px solid #3b82f6;`} />
+        );
       } else {
         return <></>;
       }

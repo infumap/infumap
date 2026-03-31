@@ -432,6 +432,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             });
             return overlays;
           })()}
+          {pageFns().renderMoveOverAnnotationMaybe()}
           <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
             <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
           </Show>
