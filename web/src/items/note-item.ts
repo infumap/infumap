@@ -299,6 +299,11 @@ export const NoteFns = {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
+    if (!forceEdit) {
+      store.history.setFocus(itemPath);
+      arrangeNow(store, "note-focus");
+      return;
+    }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Note });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;
