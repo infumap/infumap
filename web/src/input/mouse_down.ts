@@ -214,12 +214,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
         serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
 
-        // When ending text edit via right-click, keep focus on the item but exit edit mode.
+        const editingItemType = store.overlay.textEditInfo()!.itemType;
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
 
-        // For right-click, keep focus on the item (it will show enhanced shadow via focusPath check)
-        if (buttonNumber != MOUSE_LEFT) {
+        // For right-click, keep focus on the item unless it's a note (notes lose focus entirely on right-click)
+        if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Note) {
           store.history.setFocus(editingItemPath);
         }
 
