@@ -25,7 +25,7 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
-import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, isVeTranslucentPage } from "../layout/visual-element";
+import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
 
 
 import { StoreContextModel } from "../store/StoreProvider";
@@ -324,11 +324,11 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   // Arrow keys should apply to the parent context (navigating to sibling items) instead.
   const focusPath = store.history.getFocusPath();
   const focusVe = VesCache.current.readNode(focusPath);
-  const isTranslucentPageFocused = !!focusVe && isVeTranslucentPage(focusVe);
+  const focusedPageIsRoot = !!focusVe && isPage(focusVe.displayItem) && veFlagIsRoot(focusVe.flags);
 
-  if (handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
-  if (!isTranslucentPageFocused && handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
-  if (!isTranslucentPageFocused && handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
+  if (focusedPageIsRoot && handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
+  if (focusedPageIsRoot && handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
+  if (focusedPageIsRoot && handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
 
   // Handle arrow keys when an item (including pages) has focus but no popup
   // This enables navigation from a focused (non-editable) item
