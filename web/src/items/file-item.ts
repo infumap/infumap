@@ -262,10 +262,15 @@ export const FileFns = {
       });
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel, caretAtEnd: boolean = false): void => {
+  handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
-    if (handledByList) { return; }
+    if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
+    if (!forceEdit && store.history.getFocusPath() !== itemPath) {
+      store.history.setFocus(itemPath);
+      arrangeNow(store, "file-focus");
+      return;
+    }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.File });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;

@@ -247,7 +247,7 @@ export const ItemFns = {
     else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), store); }
     else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), store); }
-    else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), store, caretAtEnd); }
+    else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), store, caretAtEnd); }
     else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal); }
     else if (isLink(item)) { }
