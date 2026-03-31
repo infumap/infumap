@@ -495,7 +495,12 @@ function hitPageSelectedRootMaybe(
       }
     }
   }
-  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
+  // The root's own hitboxes (e.g. ShiftLeft) are in viewport-local coords (no scroll offset),
+  // so scan them with the position relative to the root's bounds top-left, without scroll adjustment.
+  const posForRootHitboxScan = changedRoot
+    ? vectorSubtract(posRelativeToRootVeViewportPx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y })
+    : posRelativeToRootVeBoundsPx;
+  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan);
   let hitMaybe = null as HitInfo | null;
   if (hitboxType != HitboxFlags.None) {
     hitMaybe = new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe3").build();
