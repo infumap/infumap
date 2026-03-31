@@ -215,7 +215,7 @@ export function arrange_calendar_page(
     return CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING;
   })();
   const dividerHitboxes: Array<ReturnType<typeof HitboxFns.create>> = [];
-  if (!(flags & ArrangeItemFlags.IsPopupRoot)) {
+  if (flags & ArrangeItemFlags.IsTopRoot || flags & ArrangeItemFlags.IsListPageMainRoot) {
     for (let dividerMonth = 1; dividerMonth < CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT; ++dividerMonth) {
       const dividerCenterPx = getCalendarDividerCenterPx(calendarDimensions, dividerMonth);
       dividerHitboxes.push(HitboxFns.create(
