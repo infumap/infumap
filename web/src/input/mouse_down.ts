@@ -33,7 +33,7 @@ import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { HitInfoFns } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFlags, PageFns, asPageItem, isPage } from "../items/page-item";
 import { GRID_SIZE } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
@@ -248,6 +248,16 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+  }
+
+  if (buttonNumber != MOUSE_LEFT) {
+    const focusItem = store.history.getFocusItem();
+    if (isNote(focusItem) || isFile(focusItem) || isTable(focusItem) || isPassword(focusItem) ||
+        (isPage(focusItem) && (asPageItem(focusItem).flags & PageFlags.EmbeddedInteractive))) {
+      store.history.setFocus(store.history.currentPagePath()!);
+      arrangeNow(store, "mouse-right-clear-item-focus");
+      return defaultResult;
+    }
   }
 
   if (isInsideItemOptionsToolbarArea()) {
