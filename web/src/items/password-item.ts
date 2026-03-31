@@ -280,9 +280,14 @@ export const PasswordFns = {
     return !!(password.flags & PasswordFlags.ShowDesktopPopupIcon);
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel, caretAtEnd: boolean = false): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+  handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
+    if (!forceEdit && handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const itemPath = VeFns.veToPath(visualElement);
+    if (!forceEdit && store.history.getFocusPath() !== itemPath) {
+      store.history.setFocus(itemPath);
+      arrangeNow(store, "password-focus");
+      return;
+    }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Password });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;

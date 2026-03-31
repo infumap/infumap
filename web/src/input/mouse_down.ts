@@ -44,7 +44,7 @@ import { MouseEventActionFlags } from "./enums";
 import { asNoteItem, isNote, NoteFns } from "../items/note-item";
 import { asFileItem, FileFns, isFile } from "../items/file-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
-import { asPasswordItem } from "../items/password-item";
+import { asPasswordItem, isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 
 
@@ -218,8 +218,8 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
 
-        // For right-click, keep focus on the item unless it's a note, file, table, or page (those lose focus entirely on right-click)
-        if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Note && editingItemType != ItemType.File && editingItemType != ItemType.Table && editingItemType != ItemType.Page) {
+        // For right-click, keep focus on the item unless it's a note, file, table, page, or password (those lose focus entirely on right-click)
+        if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Note && editingItemType != ItemType.File && editingItemType != ItemType.Table && editingItemType != ItemType.Page && editingItemType != ItemType.Password) {
           store.history.setFocus(editingItemPath);
         }
 
@@ -410,6 +410,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     } else if (isFile(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
       FileFns.handleClick(hitVe, store, true);
+      MouseActionState.set(null);
+    } else if (isPassword(overDisplayItem)) {
+      ClickState.setLinkWasClicked(false);
+      PasswordFns.handleClick(hitVe, store, true);
       MouseActionState.set(null);
     } else if (isImage(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
