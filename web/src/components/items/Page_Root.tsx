@@ -31,6 +31,7 @@ import { getMonthInfo } from "../../util/time";
 import {
   calculateCalendarDimensions,
   CALENDAR_LAYOUT_CONSTANTS,
+  decodeCalendarCombinedIndex,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCurrentDay,
@@ -432,6 +433,22 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             });
             return overlays;
           })()}
+          <Show when={store.anItemIsMoving.get() &&
+            store.movingItemSourceCalendarInfo.get() != null &&
+            store.movingItemSourceCalendarInfo.get()!.pageItemId === props.visualElement.displayItem.id}>
+            {(() => {
+              const info = store.movingItemSourceCalendarInfo.get()!;
+              const { month, day } = decodeCalendarCombinedIndex(info.combinedIndex);
+              const leftPx = getCalendarMonthLeftPx(calendarDimensions, month);
+              const widthPx = getCalendarMonthWidthPx(calendarDimensions, month);
+              const topPx = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
+              return (
+                <div class="absolute pointer-events-none"
+                  style={`left: ${leftPx}px; top: ${topPx}px; width: ${widthPx}px; height: ${calendarDimensions.dayRowHeight}px; ` +
+                    `background-color: #f59e0b33; border: 1px solid #f59e0b;`} />
+              );
+            })()}
+          </Show>
           {pageFns().renderMoveOverAnnotationMaybe()}
           <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
             <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />

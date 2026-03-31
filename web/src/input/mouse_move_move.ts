@@ -236,6 +236,15 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     }
   }
 
+  if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+    const itemDate = new Date(activeItem.dateTime * 1000);
+    const month = itemDate.getMonth() + 1;
+    const day = itemDate.getDate();
+    store.movingItemSourceCalendarInfo.set({ pageItemId: parentItem.id, combinedIndex: encodeCalendarCombinedIndex(month, day) });
+  } else {
+    store.movingItemSourceCalendarInfo.set(null);
+  }
+
   store.anItemIsMoving.set(true);
   MouseActionState.setAction(MouseAction.Moving);
 }
