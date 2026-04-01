@@ -74,7 +74,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
       <div class={`absolute rounded-xs border border-slate-200`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${backgroundStyle()}`} />
-      <Show when={props.visualElement.flags & VisualElementFlags.FocusPageSelected}>
+      <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${props.visualElement.boundsPx.x}px; top: ${props.visualElement.boundsPx.y}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
             `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />

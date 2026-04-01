@@ -171,7 +171,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
       {renderIcon()}
       {renderText()}
       {renderLinkMarkingMaybe()}
-      <Show when={props.visualElement.flags & VisualElementFlags.FocusPageSelected}>
+      <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
