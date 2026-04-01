@@ -34,8 +34,9 @@ warn when more than a week has passed without an audit.
 
 Required tools (install if missing):
   Rust:   cargo install cargo-deny   (or cargo install cargo-audit)
-  Python: uv tool install pip-audit          (preferred; install uv: curl -LsSf https://astral.sh/uv/install.sh | sh)
-          python -m pip install --user pip-audit  (if pip is available)
+  Python: sudo apt install pipx && pipx install pip-audit   (Debian/Raspberry Pi OS)
+          brew install pipx && pipx install pip-audit       (macOS)
+          uv tool install pip-audit                         (universal, no pip needed)
   npm:    included with Node.js
 EOF
 }

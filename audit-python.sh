@@ -33,11 +33,10 @@ Usage: ./audit-python.sh
 
 Audit Python dependencies for all GPU tools for known vulnerabilities.
 Requires pip-audit. Install with one of:
-  uv tool install pip-audit          # preferred: uv is a standalone binary, no pip needed
-                                     # install uv: curl -LsSf https://astral.sh/uv/install.sh | sh
-  python -m pip install --user pip-audit
-  sudo apt install python3-pip && python -m pip install --user pip-audit  # Debian/Ubuntu
-  brew install pipx && pipx install pip-audit                             # macOS Homebrew
+  sudo apt install pipx && pipx install pip-audit   # Debian/Raspberry Pi OS
+  brew install pipx && pipx install pip-audit       # macOS Homebrew
+  uv tool install pip-audit                         # universal: uv needs no pip
+    (install uv: curl -LsSf https://astral.sh/uv/install.sh | sh)
 EOF
 }
 
@@ -95,11 +94,10 @@ PIP_AUDIT_CMD=""
 if ! PIP_AUDIT_CMD="$(find_pip_audit)"; then
   echo "pip-audit is not installed." >&2
   echo "Install it with one of:" >&2
-  echo "  uv tool install pip-audit          # preferred: uv needs no pip" >&2
+  echo "  sudo apt install pipx && pipx install pip-audit   # Debian/Raspberry Pi OS" >&2
+  echo "  brew install pipx && pipx install pip-audit       # macOS Homebrew" >&2
+  echo "  uv tool install pip-audit                         # universal: uv needs no pip" >&2
   echo "    (install uv: curl -LsSf https://astral.sh/uv/install.sh | sh)" >&2
-  echo "  python -m pip install --user pip-audit" >&2
-  echo "  sudo apt install python3-pip && python -m pip install --user pip-audit  # Debian/Ubuntu" >&2
-  echo "  brew install pipx && pipx install pip-audit                             # macOS Homebrew" >&2
   exit 1
 fi
 
