@@ -74,7 +74,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $INCLUDE_ONNX -eq 1 ]]; then
-  INFUMAP_BUILD_ARGS+=(--features embed-onnx)
+  INFUMAP_BUILD_ARGS+=(--features=embed-onnx)
 fi
 
 echo "Build options:"
