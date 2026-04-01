@@ -188,17 +188,7 @@ ensure_python_packages() {
     fi
 
     "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip install --upgrade \
-        fastapi \
-        uvicorn \
-        "python-multipart>=0.0.18" \
-        Pillow \
-        httpx \
-        torch \
-        torchvision \
-        transformers \
-        "huggingface_hub[hf_xet]" \
-        hf_xet
+    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements.txt"
 }
 
 has_nvidia_gpu() {

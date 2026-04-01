@@ -95,7 +95,25 @@ else
   echo "  - ONNX embedding support: disabled (--no-onnx)"
 fi
 
-pushd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Warn if no security audit has been run in the past week.
+AUDIT_TIMESTAMP="$SCRIPT_DIR/.last-audit"
+if [[ ! -f "$AUDIT_TIMESTAMP" ]]; then
+  echo ""
+  echo "  *** SECURITY AUDIT WARNING ***"
+  echo "  No security audit has been recorded for this repository."
+  echo "  Run: ./audit.sh"
+  echo ""
+elif ! find "$AUDIT_TIMESTAMP" -mtime -7 -type f 2>/dev/null | grep -q .; then
+  echo ""
+  echo "  *** SECURITY AUDIT WARNING ***"
+  echo "  Last security audit was more than a week ago."
+  echo "  Run: ./audit.sh"
+  echo ""
+fi
+
+pushd "$SCRIPT_DIR"
 ./web/build.sh "${WEB_BUILD_ARGS[@]}"
 ./infumap/build.sh "${INFUMAP_BUILD_ARGS[@]}"
 popd

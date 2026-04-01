@@ -1,0 +1,11 @@
+# Direct requirements for text_embedding service (CPU variant).
+# Pinned to the tested versions running on this machine.
+#
+# GPU variant: fastembed-gpu replaces fastembed at runtime (see run.sh).
+# GPU packages are inherently platform-specific and are not pinned here.
+#
+# To update after upgrading packages:
+#   .venv/bin/pip freeze | grep -v '^-e' > requirements-full-lock.txt
+#   (then extract direct deps back into this file)
+fastapi==0.135.2
+uvicorn==0.42.0

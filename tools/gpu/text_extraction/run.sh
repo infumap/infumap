@@ -185,7 +185,7 @@ ensure_venv_pip
 
 if ! "$VENV_PYTHON" -m pip show marker-pdf >/dev/null 2>&1 || ! "$VENV_PYTHON" -m pip show fastapi >/dev/null 2>&1 || ! "$VENV_PYTHON" -m pip show uvicorn >/dev/null 2>&1 || ! "$VENV_PYTHON" -m pip show python-multipart >/dev/null 2>&1; then
     "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip install --upgrade "marker-pdf[full]" fastapi uvicorn python-multipart
+    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements.txt"
 fi
 
 set_runtime_defaults

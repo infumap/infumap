@@ -270,11 +270,12 @@ ensure_python_packages() {
 
     "$VENV_PYTHON" -m pip install --upgrade pip
     "$VENV_PYTHON" -m pip uninstall -y fastembed fastembed-gpu onnxruntime onnxruntime-gpu >/dev/null 2>&1 || true
+    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements.txt"
     if [ "$FASTEMBED_PACKAGE" = "fastembed-gpu" ]; then
-        "$VENV_PYTHON" -m pip install --upgrade fastapi uvicorn "$FASTEMBED_PACKAGE" "onnxruntime-gpu[cuda,cudnn]>=1.21.0"
+        "$VENV_PYTHON" -m pip install --upgrade "$FASTEMBED_PACKAGE" "onnxruntime-gpu[cuda,cudnn]>=1.21.0"
         return 0
     fi
-    "$VENV_PYTHON" -m pip install --upgrade fastapi uvicorn "$FASTEMBED_PACKAGE"
+    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements-fastembed.txt"
 }
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then

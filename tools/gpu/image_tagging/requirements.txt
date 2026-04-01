@@ -1,0 +1,16 @@
+# Direct requirements for image_tagging service.
+# Common packages are pinned; heavy ML packages (torch, transformers) are
+# intentionally left unpinned here because they vary by platform and CUDA version.
+#
+# After first install on a target platform, capture a full lock with:
+#   .venv/bin/pip freeze | grep -v '^-e' > requirements.txt
+fastapi==0.135.2
+uvicorn==0.42.0
+python-multipart>=0.0.18
+Pillow
+httpx
+torch
+torchvision
+transformers
+huggingface_hub[hf_xet]
+hf_xet

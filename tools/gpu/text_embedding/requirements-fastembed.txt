@@ -1,0 +1,4 @@
+# CPU fastembed version pin.
+# Installed by run.sh when no NVIDIA GPU is detected.
+# For GPU, fastembed-gpu is installed instead (unpinned — platform-specific).
+fastembed==0.8.0

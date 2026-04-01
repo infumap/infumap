@@ -67,8 +67,23 @@ if [[ "$ACTIVE_NODE_VERSION" != "$EXPECTED_NODE_VERSION" ]]; then
   exit 1
 fi
 
+EXPECTED_NPM_VERSION="$(node -p "const pkg = require('./package.json'); pkg.engines && pkg.engines.npm ? pkg.engines.npm : ''")"
+ACTIVE_NPM_VERSION="$(npm --version)"
+
+if [[ -z "$EXPECTED_NPM_VERSION" ]]; then
+  echo "Error: web/package.json is missing engines.npm."
+  exit 1
+fi
+
+if [[ "$ACTIVE_NPM_VERSION" != "$EXPECTED_NPM_VERSION" ]]; then
+  echo "Error: expected npm $EXPECTED_NPM_VERSION (from web/package.json engines.npm), but found $ACTIVE_NPM_VERSION."
+  echo "Update npm with: npm install -g npm@$EXPECTED_NPM_VERSION"
+  echo "Or enable corepack (once per machine): corepack enable"
+  exit 1
+fi
+
 rm -rf ./dist
-npm ci --no-audit --no-fund
+npm ci --no-fund
 
 # Build with appropriate settings
 if [ "$NO_MINIFY" = true ]; then

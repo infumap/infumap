@@ -1,0 +1,9 @@
+# Direct requirements for text_extraction service.
+# marker-pdf is left unpinned as it pulls large platform-specific deps (torch, etc.).
+#
+# After first install on a target platform, capture a full lock with:
+#   .venv/bin/pip freeze | grep -v '^-e' > requirements.txt
+fastapi==0.135.2
+uvicorn==0.42.0
+python-multipart>=0.0.18
+marker-pdf[full]
