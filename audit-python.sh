@@ -32,9 +32,12 @@ print_usage() {
 Usage: ./audit-python.sh
 
 Audit Python dependencies for all GPU tools for known vulnerabilities.
-Requires pip-audit. Install with:
-  python -m pip install pip-audit
-  # or in an isolated environment: python -m pip install --user pip-audit
+Requires pip-audit. Install with one of:
+  uv tool install pip-audit          # preferred: uv is a standalone binary, no pip needed
+                                     # install uv: curl -LsSf https://astral.sh/uv/install.sh | sh
+  python -m pip install --user pip-audit
+  sudo apt install python3-pip && python -m pip install --user pip-audit  # Debian/Ubuntu
+  brew install pipx && pipx install pip-audit                             # macOS Homebrew
 EOF
 }
 
@@ -54,10 +57,15 @@ find_python() {
   return 1
 }
 
-# Find pip-audit: prefer the standalone command, fall back to python -m pip_audit.
+# Find pip-audit: prefer standalone commands, fall back to python -m pip_audit.
 find_pip_audit() {
   if command -v pip-audit >/dev/null 2>&1; then
     printf '%s' "pip-audit"
+    return 0
+  fi
+  # uv tool installs go to a uv-managed bin dir that may not be in PATH in all shells
+  if command -v uv >/dev/null 2>&1 && uv tool run pip-audit --version >/dev/null 2>&1; then
+    printf '%s' "uv tool run pip-audit"
     return 0
   fi
   local py
@@ -85,11 +93,13 @@ fi
 
 PIP_AUDIT_CMD=""
 if ! PIP_AUDIT_CMD="$(find_pip_audit)"; then
-  PYTHON_CMD="$(find_python || echo python)"
   echo "pip-audit is not installed." >&2
-  echo "Install it with:" >&2
-  echo "  $PYTHON_CMD -m pip install pip-audit" >&2
-  echo "  # or in an isolated environment: $PYTHON_CMD -m pip install --user pip-audit" >&2
+  echo "Install it with one of:" >&2
+  echo "  uv tool install pip-audit          # preferred: uv needs no pip" >&2
+  echo "    (install uv: curl -LsSf https://astral.sh/uv/install.sh | sh)" >&2
+  echo "  python -m pip install --user pip-audit" >&2
+  echo "  sudo apt install python3-pip && python -m pip install --user pip-audit  # Debian/Ubuntu" >&2
+  echo "  brew install pipx && pipx install pip-audit                             # macOS Homebrew" >&2
   exit 1
 fi
 

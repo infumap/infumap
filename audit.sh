@@ -34,7 +34,8 @@ warn when more than a week has passed without an audit.
 
 Required tools (install if missing):
   Rust:   cargo install cargo-deny   (or cargo install cargo-audit)
-  Python: python -m pip install pip-audit   (or: python -m pip install --user pip-audit)
+  Python: uv tool install pip-audit          (preferred; install uv: curl -LsSf https://astral.sh/uv/install.sh | sh)
+          python -m pip install --user pip-audit  (if pip is available)
   npm:    included with Node.js
 EOF
 }
