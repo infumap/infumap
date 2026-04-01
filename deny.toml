@@ -4,7 +4,6 @@ all-features = true
 [advisories]
 yanked = "deny"
 ignore = []
-minimum-age = 7
 
 [bans]
 multiple-versions = "warn"

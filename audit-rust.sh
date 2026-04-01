@@ -137,3 +137,25 @@ if [[ "$audit_exit" -ne 0 ]]; then
   print_fix_guidance
   exit "$audit_exit"
 fi
+
+# Check publish-date age of all crates.io dependencies.
+find_python() {
+  for cmd in python3 python; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      printf '%s' "$cmd"
+      return 0
+    fi
+  done
+  return 1
+}
+
+PYTHON=""
+if PYTHON="$(find_python)"; then
+  lock_paths=()
+  for crate_dir in "${CRATE_DIRS[@]}"; do
+    lock_paths+=("$ROOT_DIR/$crate_dir/Cargo.lock")
+  done
+  "$PYTHON" "$ROOT_DIR/check-crate-ages.py" "${lock_paths[@]}" || exit $?
+else
+  echo "Warning: Python not found; skipping crate publish-date age check." >&2
+fi
