@@ -3,7 +3,19 @@ all-features = true
 
 [advisories]
 yanked = "deny"
-ignore = []
+ignore = [
+  # adler (unmaintained) — pulled in by png 0.17 → image 0.24 → qrcodegen-image → totp-rs.
+  # totp-rs has not updated its image dependency to 0.25 yet. Remove once totp-rs
+  # (or qrcodegen-image) upgrades to image ≥0.25, which uses miniz_oxide ≥0.8 (adler2).
+  { id = "RUSTSEC-2025-0056", reason = "transitive dep via totp-rs→qrcodegen-image→image 0.24; no upstream fix available yet" },
+  # paste (unmaintained, archived by dtolnay) — pulled in by rav1e (latest, 0.8.1) and
+  # tokenizers (via fastembed). Both are latest versions with no successor that drops paste.
+  # Remove once rav1e and/or tokenizers migrate to pastey or a built-in alternative.
+  { id = "RUSTSEC-2024-0436", reason = "transitive dep via rav1e 0.8.1 and tokenizers; no upstream fix available yet" },
+  # rustls-pemfile (unmaintained) — pulled in by reqwest 0.12.x. Will be resolved when
+  # reqwest 0.13 (which drops rustls-pemfile) is released as stable and we can upgrade.
+  { id = "RUSTSEC-2025-0134", reason = "transitive dep via reqwest 0.12; remove when upgrading to reqwest 0.13" },
+]
 
 [bans]
 multiple-versions = "warn"
