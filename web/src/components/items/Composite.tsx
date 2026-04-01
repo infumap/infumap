@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
@@ -108,11 +108,11 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
           <>
             <VisualElement_Desktop visualElement={childVe.get()} />
-            <Show when={store.history.getFocusPathMaybe() === VeFns.veToPath(childVe.get())}>
+            <Show when={store.overlay.textEditInfo() == null && store.history.getFocusPathMaybe() === VeFns.veToPath(childVe.get())}>
               <div class="absolute pointer-events-none"
                 style={`left: ${childVe.get().boundsPx.x}px; top: ${childVe.get().boundsPx.y}px; ` +
                   `width: ${childVe.get().boundsPx.w}px; height: ${childVe.get().boundsPx.h}px; ` +
-                  `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR};`} />
+                  `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
             </Show>
           </>
         }</For>
