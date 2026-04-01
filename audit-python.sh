@@ -33,8 +33,8 @@ Usage: ./audit-python.sh
 
 Audit Python dependencies for all GPU tools for known vulnerabilities.
 Requires pip-audit. Install with:
-  pip install pip-audit
-  # or: pipx install pip-audit
+  python -m pip install pip-audit
+  # or in an isolated environment: python -m pip install --user pip-audit
 EOF
 }
 
@@ -43,8 +43,31 @@ fail() {
   exit 1
 }
 
-have_pip_audit() {
-  command -v pip-audit >/dev/null 2>&1
+# Find a working Python interpreter.
+find_python() {
+  for cmd in python3 python; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      printf '%s' "$cmd"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Find pip-audit: prefer the standalone command, fall back to python -m pip_audit.
+find_pip_audit() {
+  if command -v pip-audit >/dev/null 2>&1; then
+    printf '%s' "pip-audit"
+    return 0
+  fi
+  local py
+  if py="$(find_python)"; then
+    if "$py" -m pip_audit --version >/dev/null 2>&1; then
+      printf '%s' "$py -m pip_audit"
+      return 0
+    fi
+  fi
+  return 1
 }
 
 if [[ $# -gt 0 ]]; then
@@ -60,11 +83,13 @@ if [[ $# -gt 0 ]]; then
   esac
 fi
 
-if ! have_pip_audit; then
+PIP_AUDIT_CMD=""
+if ! PIP_AUDIT_CMD="$(find_pip_audit)"; then
+  PYTHON_CMD="$(find_python || echo python)"
   echo "pip-audit is not installed." >&2
-  echo "Install it with one of:" >&2
-  echo "  pip install pip-audit" >&2
-  echo "  pipx install pip-audit" >&2
+  echo "Install it with:" >&2
+  echo "  $PYTHON_CMD -m pip install pip-audit" >&2
+  echo "  # or in an isolated environment: $PYTHON_CMD -m pip install --user pip-audit" >&2
   exit 1
 fi
 
@@ -80,7 +105,7 @@ for entry in "${REQUIREMENTS_FILES[@]}"; do
   fi
 
   echo "Running pip-audit for $label ($req_path)"
-  if ! pip-audit -r "$req_path"; then
+  if ! $PIP_AUDIT_CMD -r "$req_path"; then
     overall_exit=1
   fi
   echo ""

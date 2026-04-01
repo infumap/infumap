@@ -34,7 +34,7 @@ warn when more than a week has passed without an audit.
 
 Required tools (install if missing):
   Rust:   cargo install cargo-deny   (or cargo install cargo-audit)
-  Python: pip install pip-audit      (or: pipx install pip-audit)
+  Python: python -m pip install pip-audit   (or: python -m pip install --user pip-audit)
   npm:    included with Node.js
 EOF
 }
