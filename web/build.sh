@@ -21,7 +21,7 @@ set -euo pipefail
 NO_MINIFY=false
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --no-minify)
+    --dev|--no-minify)
       NO_MINIFY=true
       shift
       ;;

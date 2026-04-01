@@ -21,6 +21,7 @@ WEB_BUILD_ARGS=()
 INFUMAP_BUILD_ARGS=()
 INCLUDE_ONNX=1
 MINIFY_WEB=1
+DEV_BUILD=0
 
 print_usage() {
   cat <<'EOF'
@@ -30,6 +31,7 @@ Build the web client and Infumap server.
 ONNX embedding support is included in the server build by default.
 
 Options:
+  --dev        Dev build: no web minification, no Rust optimizations (faster).
   --no-minify  Disable web minification for easier debugging.
   --no-onnx    Build the server without ONNX embedding support.
   -h, --help   Show this help.
@@ -47,6 +49,13 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       print_usage
       exit 0
+      ;;
+    --dev)
+      DEV_BUILD=1
+      MINIFY_WEB=0
+      WEB_BUILD_ARGS+=(--dev)
+      INFUMAP_BUILD_ARGS+=(--dev)
+      shift
       ;;
     --no-minify)
       MINIFY_WEB=0
@@ -69,10 +78,15 @@ if [[ $INCLUDE_ONNX -eq 1 ]]; then
 fi
 
 echo "Build options:"
+if [[ $DEV_BUILD -eq 1 ]]; then
+  echo "  - Mode: dev (unoptimized, faster build)"
+else
+  echo "  - Mode: release (optimized)"
+fi
 if [[ $MINIFY_WEB -eq 1 ]]; then
   echo "  - Web minification: enabled"
 else
-  echo "  - Web minification: disabled (--no-minify)"
+  echo "  - Web minification: disabled"
 fi
 
 if [[ $INCLUDE_ONNX -eq 1 ]]; then
