@@ -116,6 +116,7 @@ How to fix Rust vulnerabilities:
     cargo install cargo-deny
   Install cargo-audit (advisory checks only):
     cargo install cargo-audit
+  (Run either command from any directory — cargo installs to ~/.cargo/bin/.)
 EOF
 }
 
@@ -126,7 +127,10 @@ if have_cargo_deny; then
 elif have_cargo_audit; then
   run_cargo_audit || audit_exit=$?
 else
-  fail "Neither cargo-deny nor cargo-audit is installed. Install cargo-deny for full checks, or cargo-audit for advisory-only checks."
+  fail "Neither cargo-deny nor cargo-audit is installed. Run from any directory:
+    cargo install cargo-deny   # preferred: checks advisories, sources, and duplicates
+    cargo install cargo-audit  # advisory checks only
+  cargo install places the binary in ~/.cargo/bin/ regardless of the current directory."
 fi
 
 if [[ "$audit_exit" -ne 0 ]]; then
