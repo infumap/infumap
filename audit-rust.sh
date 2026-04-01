@@ -96,14 +96,40 @@ if [[ $# -gt 0 ]]; then
   esac
 fi
 
+print_fix_guidance() {
+  cat <<'EOF'
+
+How to fix Rust vulnerabilities:
+  For a vulnerable crate, update it to the fixed version:
+    cd infumap && cargo update <crate-name> --precise <fixed-version>
+    cd infusdk && cargo update <crate-name> --precise <fixed-version>
+  Or relax the version constraint in Cargo.toml if needed, then run:
+    cargo update <crate-name>
+  Commit the updated Cargo.lock, then re-run ./audit.sh.
+
+  If no fix is available yet and you need to suppress a known advisory:
+    Add the advisory ID to deny.toml under [advisories] ignore:
+      ignore = ["RUSTSEC-YYYY-NNNN"]
+    Remove it from the ignore list once a fixed version is available.
+
+  Install cargo-deny (preferred, checks advisories + sources + duplicates):
+    cargo install cargo-deny
+  Install cargo-audit (advisory checks only):
+    cargo install cargo-audit
+EOF
+}
+
+audit_exit=0
+
 if have_cargo_deny; then
-  run_cargo_deny
-  exit 0
+  run_cargo_deny || audit_exit=$?
+elif have_cargo_audit; then
+  run_cargo_audit || audit_exit=$?
+else
+  fail "Neither cargo-deny nor cargo-audit is installed. Install cargo-deny for full checks, or cargo-audit for advisory-only checks."
 fi
 
-if have_cargo_audit; then
-  run_cargo_audit
-  exit 0
+if [[ "$audit_exit" -ne 0 ]]; then
+  print_fix_guidance
+  exit "$audit_exit"
 fi
-
-fail "Neither cargo-deny nor cargo-audit is installed. Install cargo-deny for full checks, or cargo-audit for advisory-only checks."

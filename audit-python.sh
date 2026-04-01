@@ -119,4 +119,24 @@ for entry in "${REQUIREMENTS_FILES[@]}"; do
   echo ""
 done
 
+if [[ "$overall_exit" -ne 0 ]]; then
+  cat <<'EOF'
+How to fix Python vulnerabilities:
+  1. If the vulnerable package is listed directly in requirements.txt:
+       Update or pin the version there, e.g. change 'pillow' to 'pillow==12.1.1'
+  2. If the vulnerable package is a transitive dependency (not in requirements.txt):
+       Add it explicitly with the fixed version, e.g. add 'pillow==12.1.1' on its own line.
+       This overrides the version that the parent package would otherwise pull in.
+  3. Restart the affected service so it reinstalls from the updated requirements.txt.
+  4. Re-run ./audit.sh to confirm the fix.
+
+Skipped packages (shown in the table above with a "Skip Reason"):
+  These could not be audited — usually because they have a non-standard version string
+  not recognised by PyPI (e.g. flatbuffers 20181003210633 is a date-based version
+  bundled inside onnxruntime). They are not confirmed safe — review them manually.
+  If a newer version of the parent package (e.g. fastembed, onnxruntime) is available,
+  upgrading it will usually resolve the non-standard version.
+EOF
+fi
+
 exit "$overall_exit"

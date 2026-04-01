@@ -54,6 +54,32 @@ if [[ ! -f "$ROOT_DIR/web/package-lock.json" ]]; then
   fail "web/package-lock.json not found. Run 'npm install' in web/ first."
 fi
 
-echo "Running npm audit for web/"
 cd "$ROOT_DIR/web"
-npm audit
+
+echo "Running npm audit for web/"
+audit_exit=0
+npm audit || audit_exit=$?
+
+echo ""
+echo "Running npm audit signatures for web/"
+npm audit signatures
+
+if [[ "$audit_exit" -ne 0 ]]; then
+  cat <<'EOF'
+
+How to fix npm vulnerabilities:
+  Automatic fix (safe changes only — no major version bumps):
+    cd web && npm audit fix
+  If vulnerabilities remain after that, check what's needed:
+    cd web && npm audit
+  For a breaking fix (major version bump — review the diff carefully):
+    cd web && npm audit fix --force
+  Then commit the updated package-lock.json and re-run ./audit.sh.
+
+  If a vulnerability is in a transitive dependency with no fix available yet,
+  you can temporarily suppress it in package.json under an "overrides" key:
+    "overrides": { "vulnerable-package": ">=fixed.version" }
+  Remove the override once the parent package releases a proper fix.
+EOF
+  exit "$audit_exit"
+fi

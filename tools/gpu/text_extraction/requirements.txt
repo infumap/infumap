@@ -7,3 +7,8 @@ fastapi==0.135.2
 uvicorn==0.42.0
 python-multipart>=0.0.18
 marker-pdf[full]
+# Pinned to fix CVE-2026-25990 (pillow) and CVE-2025-68616 (weasyprint),
+# which are transitive deps of marker-pdf. Remove these pins once marker-pdf
+# itself depends on fixed versions.
+pillow>=12.1.1
+weasyprint>=68.0
