@@ -1,0 +1,17 @@
+# Direct requirements for image_tagging_mlx service (macOS / Apple Silicon only).
+# mlx-vlm provides the VLM inference server; torch/torchvision/transformers are
+# kept for the DINOv2 image-embedding model which runs on PyTorch MPS.
+#
+# After first install on a target platform, capture a full lock with:
+#   .venv/bin/pip freeze | grep -v '^-e' > requirements.txt
+fastapi==0.135.2
+uvicorn==0.42.0
+python-multipart>=0.0.18
+Pillow
+httpx
+mlx-vlm
+torch
+torchvision
+transformers
+huggingface_hub[hf_xet]
+hf_xet
