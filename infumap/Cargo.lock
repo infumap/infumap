@@ -3003,6 +3003,7 @@ dependencies = [
 [[package]]
 name = "rust-s3"
 version = "0.37.1"
+source = "git+https://github.com/infumap/rust-s3?rev=927d89791c4af5e9a66fdd087ffaf59287b35e5b#927d89791c4af5e9a66fdd087ffaf59287b35e5b"
 dependencies = [
  "async-trait",
  "aws-creds",
