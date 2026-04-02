@@ -160,11 +160,11 @@ impl ImageTagArtifact {
   }
 
   fn model_id(&self) -> Option<String> {
-    self.extra.get("model_id").and_then(value_as_string)
+    self.extra.get("model_id").cloned().and_then(value_as_string)
   }
 
   fn backend(&self) -> Option<String> {
-    self.extra.get("backend").and_then(value_as_string)
+    self.extra.get("backend").cloned().and_then(value_as_string)
   }
 }
 
@@ -1228,6 +1228,8 @@ async fn write_failed_manifest(
       image_tagging_url: image_tagging_url.to_owned(),
       tagged_at_unix_secs: unix_now_secs()?,
       duration_ms: None,
+      model_id: None,
+      backend: None,
     },
     error: Some(error_message.to_owned()),
   };
