@@ -28,3 +28,5 @@ class ImageTagResponse(BaseModel):
     tags: list[str] = Field(default_factory=list)
     ocr_text: list[str] = Field(default_factory=list)
     image_embedding: list[float] = Field(default_factory=list)
+    model_id: str | None = None
+    backend: str | None = None

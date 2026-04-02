@@ -1176,6 +1176,8 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             tags=tags,
             ocr_text=ocr_text,
             image_embedding=image_embedding,
+            model_id=APP_STATE.get("model_id") or None,
+            backend=MLX_BACKEND_NAME,
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

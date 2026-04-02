@@ -103,6 +103,10 @@ struct ImageTagManifestExtractor {
   image_tagging_url: String,
   tagged_at_unix_secs: i64,
   duration_ms: Option<u64>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  model_id: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  backend: Option<String>,
 }
 
 enum TagOutcome {
@@ -153,6 +157,14 @@ impl ImageTagArtifact {
 
   fn duration_ms(&self) -> Option<u64> {
     self.extra.get("duration_ms").and_then(value_as_u64)
+  }
+
+  fn model_id(&self) -> Option<String> {
+    self.extra.get("model_id").and_then(value_as_string)
+  }
+
+  fn backend(&self) -> Option<String> {
+    self.extra.get("backend").and_then(value_as_string)
   }
 }
 
@@ -1186,6 +1198,8 @@ async fn write_success_artifacts(
       image_tagging_url: image_tagging_url.to_owned(),
       tagged_at_unix_secs: unix_now_secs()?,
       duration_ms,
+      model_id: tag_data.model_id(),
+      backend: tag_data.backend(),
     },
     error: None,
   };
