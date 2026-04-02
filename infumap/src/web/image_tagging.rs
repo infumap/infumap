@@ -128,6 +128,10 @@ struct ImageTagArtifact {
   #[serde(skip_serializing_if = "Option::is_none")]
   image_metadata: Option<ImageMetadata>,
   image_embedding: Vec<f32>,
+  #[serde(skip)]
+  model_id: Option<String>,
+  #[serde(skip)]
+  backend: Option<String>,
   #[serde(flatten)]
   extra: BTreeMap<String, Value>,
 }
@@ -151,20 +155,14 @@ impl ImageTagArtifact {
       ocr_text: take_string_list(&mut map, "ocr_text"),
       image_metadata: None,
       image_embedding: take_f32_list(&mut map, "image_embedding"),
+      model_id: take_optional_string(&mut map, "model_id"),
+      backend: take_optional_string(&mut map, "backend"),
       extra: map.into_iter().collect(),
     }
   }
 
   fn duration_ms(&self) -> Option<u64> {
     self.extra.get("duration_ms").and_then(value_as_u64)
-  }
-
-  fn model_id(&self) -> Option<String> {
-    self.extra.get("model_id").cloned().and_then(value_as_string)
-  }
-
-  fn backend(&self) -> Option<String> {
-    self.extra.get("backend").cloned().and_then(value_as_string)
   }
 }
 
@@ -1198,8 +1196,8 @@ async fn write_success_artifacts(
       image_tagging_url: image_tagging_url.to_owned(),
       tagged_at_unix_secs: unix_now_secs()?,
       duration_ms,
-      model_id: tag_data.model_id(),
-      backend: tag_data.backend(),
+      model_id: tag_data.model_id.clone(),
+      backend: tag_data.backend.clone(),
     },
     error: None,
   };
