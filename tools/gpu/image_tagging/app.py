@@ -285,7 +285,7 @@ def load_image_embedding_backend() -> tuple[Any, Any, Any, str]:
     model_id = image_embedding_model_id()
     device = image_embedding_device()
     model_kwargs: dict[str, Any] = {}
-    if device.startswith("cuda"):
+    if device.startswith("cuda") or device == "mps":
         model_kwargs["torch_dtype"] = torch.float16
 
     try:

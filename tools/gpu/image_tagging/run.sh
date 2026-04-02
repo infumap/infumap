@@ -195,12 +195,16 @@ has_nvidia_gpu() {
     command_exists nvidia-smi
 }
 
+has_metal_gpu() {
+    [ "$(uname -s)" = "Darwin" ]
+}
+
 effective_llama_ngl() {
     if [ -n "${IMAGE_TAGGING_LLAMA_NGL:-}" ]; then
         printf '%s\n' "${IMAGE_TAGGING_LLAMA_NGL}"
         return 0
     fi
-    if has_nvidia_gpu; then
+    if has_nvidia_gpu || has_metal_gpu; then
         printf '%s\n' "all"
         return 0
     fi
@@ -212,7 +216,7 @@ effective_llama_flash_attn() {
         printf '%s\n' "${IMAGE_TAGGING_LLAMA_FLASH_ATTN}"
         return 0
     fi
-    if has_nvidia_gpu; then
+    if has_nvidia_gpu || has_metal_gpu; then
         printf '%s\n' "auto"
         return 0
     fi
@@ -267,6 +271,9 @@ ensure_local_llama_server() {
     )
     if has_nvidia_gpu; then
         cmake_configure_args+=(-DGGML_CUDA=ON)
+    fi
+    if has_metal_gpu; then
+        cmake_configure_args+=(-DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON)
     fi
     if [ -n "$LLAMA_CMAKE_ARGS" ]; then
         local -a extra_cmake_args
@@ -430,6 +437,9 @@ echo "IMAGE_TAGGING_MAX_CONCURRENCY=${IMAGE_TAGGING_MAX_CONCURRENCY}"
 if has_nvidia_gpu; then
     echo "Detected GPUs via nvidia-smi:"
     nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true
+elif has_metal_gpu; then
+    echo "Detected Metal GPU (macOS)"
+    system_profiler SPDisplaysDataType 2>/dev/null | grep -E "Chipset Model|VRAM" || true
 else
     echo "nvidia-smi: not found"
 fi

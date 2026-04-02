@@ -42,7 +42,6 @@ readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
 readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
 
 readonly MLX_EXTRA_ARGS="${IMAGE_TAGGING_MLX_EXTRA_ARGS:-}"
-readonly MLX_MAX_TOKENS="${IMAGE_TAGGING_MAX_TOKENS:-8192}"
 
 mlx_pid=""
 api_pid=""
@@ -324,7 +323,6 @@ if [ "$MANAGE_MLX_SERVER" = "1" ]; then
         --model "$MODEL_PATH"
         --host "$MLX_HOST"
         --port "$MLX_PORT"
-        --max-tokens "$MLX_MAX_TOKENS"
     )
     if [ -n "$MLX_EXTRA_ARGS" ]; then
         local -a mlx_extra_args
