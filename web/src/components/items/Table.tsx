@@ -18,7 +18,7 @@
 
 import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_COLOR } from "../../style";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
@@ -170,8 +170,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const shadowClass = () => {
-    // Enhanced shadow when item is a popup OR focused
-    if (isPopup() || isFocused()) {
+    if (isPopup()) {
       return `${positionClass()} border border-transparent rounded-xs shadow-xl blur-md bg-slate-700`;
     }
     return `${positionClass()} border border-transparent rounded-xs shadow-xl`;
@@ -190,6 +189,13 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW};`} />
         </Show>
       </>
+    </Show>;
+
+  const renderFocusRingMaybe = () =>
+    <Show when={isFocused()}>
+      <div class={`${positionClass()} pointer-events-none rounded-xs`}
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const renderNotDetailed = () =>
@@ -325,10 +331,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Switch>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed)}>
         {renderShadowMaybe()}
+        {renderFocusRingMaybe()}
         {renderNotDetailed()}
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Detailed}>
         {renderShadowMaybe()}
+        {renderFocusRingMaybe()}
         {renderDetailed()}
       </Match>
     </Switch>

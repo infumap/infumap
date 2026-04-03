@@ -21,7 +21,7 @@ import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW } from "../../constan
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
-import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
+import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, FOCUS_RING_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -106,10 +106,18 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderShadowMaybe = () =>
     <Show when={isEmbeddedInteractive()}>
-      <div class={`absolute border border-transparent rounded-xs pointer-events-none ${isFocused() ? 'shadow-xl blur-md bg-slate-700' : ''}`}
+      <div class={`absolute border border-transparent rounded-xs pointer-events-none`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `z-index: ${Z_INDEX_SHADOW};`} />
+    </Show>;
+
+  const renderFocusRingMaybe = () =>
+    <Show when={isFocused()}>
+      <div class="absolute pointer-events-none rounded-xs"
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+          `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+          `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const renderEmbeddedInteractiveBackground = () =>
@@ -239,6 +247,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   return (
     <>
       {renderShadowMaybe()}
+      {renderFocusRingMaybe()}
       <div class={`absolute`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
         {renderEmbeddedInteractiveBackground()}

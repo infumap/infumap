@@ -17,8 +17,8 @@
 */
 
 import { Component, For, JSX, Show, createEffect, onCleanup } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX, Z_INDEX_SHADOW } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW } from "../../constants";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_COLOR } from "../../style";
 import { ImageFns, asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -245,9 +245,16 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
       !(props.visualElement.flags & VisualElementFlags.DockItem) &&
       (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()) || isFocused())}>
-      <div class={`absolute border border-transparent rounded-xs shadow-xl ${isFocused() ? 'blur-md bg-slate-700' : 'bg-white'}`}
+      <div class={`absolute border border-transparent rounded-xs shadow-xl bg-white`}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - 2}px; height: ${boundsPx().h - 2}px; ` +
           `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
+
+  const renderFocusRingMaybe = () =>
+    <Show when={isFocused()}>
+      <div class="absolute pointer-events-none rounded-xs"
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const renderPopupBaseMaybe = (): JSX.Element =>
@@ -432,6 +439,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX} fallback={tooSmallFallback()}>
       {renderPopupBaseMaybe()}
       {renderShadowMaybe()}
+      {renderFocusRingMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
         `overflow-hidden border pointer-events-none rounded-xs ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
         (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}

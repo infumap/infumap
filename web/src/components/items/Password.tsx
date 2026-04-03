@@ -28,7 +28,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { FEATURE_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { FEATURE_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
@@ -157,8 +157,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   };
 
   const shadowOuterClass = () => {
-    // Enhanced shadow when item is a popup OR focused
-    if (isPopup() || isFocused()) {
+    if (isPopup()) {
       return `absolute border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     return `absolute border border-[#999] rounded-xs shadow-xl bg-white`;
@@ -178,6 +177,13 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       <div class={`${shadowOuterClass()}`}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
+
+  const renderFocusRingMaybe = () =>
+    <Show when={isFocused()}>
+      <div class="absolute pointer-events-none rounded-xs"
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const inputListener = (_ev: InputEvent) => {
@@ -322,6 +328,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   return (
     <>
       {renderShadowMaybe()}
+      {renderFocusRingMaybe()}
       <div class={outerClass()}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>

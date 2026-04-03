@@ -19,7 +19,7 @@
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW, Z_INDEX_POPUP, Z_INDEX_HIGHLIGHT } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_COLOR } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -174,8 +174,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
 
   const shadowOuterClass = () => {
-    // Enhanced shadow when item is a popup OR focused
-    if (isPopup() || isFocused()) {
+    if (isPopup()) {
       return `${positionClass()} border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (noteItem().flags & NoteFlags.HideBorder) {
@@ -348,6 +347,13 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
+  const renderFocusRingMaybe = () =>
+    <Show when={isFocused()}>
+      <div class="absolute pointer-events-none rounded-xs"
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+    </Show>;
+
   const renderDetailed = () =>
     <>
       <div class="absolute inset-0 rounded-xs overflow-hidden">
@@ -482,6 +488,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   return (
     <>
       {renderShadowMaybe()}
+      {renderFocusRingMaybe()}
       <div class={`${outerClass()}`}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +

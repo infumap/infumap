@@ -22,8 +22,8 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
-import { LINE_HEIGHT_PX, Z_INDEX_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_COLOR } from "../../style";
 import { FEATURE_COLOR, linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -382,7 +382,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     if (pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List) {
       return '';
     }
-    return isFocused() ? 'shadow-xl blur-md bg-slate-700' : 'shadow-xl';
+    return 'shadow-xl';
   };
 
   const renderShadowMaybe = () =>
@@ -390,6 +390,13 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       <div class={`absolute border border-transparent rounded-xs ${shadowClass()} overflow-hidden`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
+
+  const renderFocusRingMaybe = () =>
+    <Show when={isFocused()}>
+      <div class="absolute pointer-events-none rounded-xs"
+        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+          `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const renderResizeTriangleMaybe = () =>
@@ -404,6 +411,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   return (
     <>
       {renderShadowMaybe()}
+      {renderFocusRingMaybe()}
       <Switch>
         <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           {renderListPage()}
