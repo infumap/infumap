@@ -561,14 +561,22 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
   }
 
-  // If a non-page item is focused, move focus to parent page before navigating.
-  // If a page item is focused (not a root page) and no popup is open, move focus to parent container.
+  // If an item inside a table is focused, right click should return focus to the root page.
+  // Otherwise, move focus one level up before navigating.
   const currentFocusPath = store.history.getFocusPath();
   const currentFocusVe = VesCache.current.readNode(currentFocusPath);
   if (currentFocusVe && !store.history.currentPopupSpec()) {
     const focusVe = currentFocusVe;
-    const focusItem = focusVe.displayItem;
     if (!veFlagIsRoot(focusVe.flags)) {
+      if (VeFns.isInTable(focusVe)) {
+        const currentPagePath = store.history.currentPagePath();
+        if (currentPagePath && currentPagePath !== currentFocusPath) {
+          store.history.setFocus(currentPagePath);
+          arrangeNow(store, "mouse-right-focus-root-page-from-table-item");
+          return;
+        }
+      }
+
       // Move focus to parent container first.
       const parentPath = VeFns.parentPath(currentFocusPath);
       if (parentPath && parentPath !== UMBRELLA_PAGE_UID && parentPath !== "") {
