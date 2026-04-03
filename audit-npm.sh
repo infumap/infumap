@@ -33,6 +33,11 @@ fail() {
   exit 1
 }
 
+skip() {
+  echo "Skipping npm audit: $1" >&2
+  exit 2
+}
+
 if [[ $# -gt 0 ]]; then
   case "$1" in
     -h|--help)
@@ -47,7 +52,7 @@ if [[ $# -gt 0 ]]; then
 fi
 
 if ! command -v npm >/dev/null 2>&1; then
-  fail "npm is not installed. Install Node.js (see .nvmrc for the expected version)."
+  skip "npm is not installed. Install Node.js (see .nvmrc for the expected version)."
 fi
 
 if [[ ! -f "$ROOT_DIR/web/package-lock.json" ]]; then

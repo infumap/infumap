@@ -12,13 +12,15 @@ ignore = [
   # tokenizers (via fastembed). Both are latest versions with no successor that drops paste.
   # Remove once rav1e and/or tokenizers migrate to pastey or a built-in alternative.
   { id = "RUSTSEC-2024-0436", reason = "transitive dep via rav1e 0.8.1 and tokenizers; no upstream fix available yet" },
-  # rustls-pemfile (unmaintained) — pulled in by reqwest 0.12.x. Will be resolved when
-  # reqwest 0.13 (which drops rustls-pemfile) is released as stable and we can upgrade.
-  { id = "RUSTSEC-2025-0134", reason = "transitive dep via reqwest 0.12; remove when upgrading to reqwest 0.13" },
+  # rustls-pemfile (unmaintained) — still pulled in transitively by reqwest 0.12.x.
+  # No safe upgrade is available until reqwest moves off rustls-pemfile.
+  { id = "RUSTSEC-2025-0134", reason = "transitive dep via reqwest 0.12; remove once reqwest no longer depends on rustls-pemfile" },
 ]
 
 [bans]
-multiple-versions = "warn"
+# Duplicate versions are common in the transitive graph and too noisy for this audit.
+# Keep wildcard dependency bans enabled, but don't emit duplicate-version warnings.
+multiple-versions = "allow"
 wildcards = "deny"
 highlight = "all"
 
@@ -29,4 +31,8 @@ allow-registry = [
   "https://github.com/rust-lang/crates.io-index",
   "sparse+https://index.crates.io/",
 ]
-allow-git = []
+allow-git = [
+  # Temporary reqwest 0.12 compatibility patch for rust-s3 0.37.1.
+  # Remove once a fixed crates.io release is available and the patch is dropped.
+  "https://github.com/infumap/rust-s3",
+]

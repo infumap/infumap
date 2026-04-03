@@ -10,6 +10,7 @@ import sys
 import tomllib
 import urllib.request
 import urllib.error
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -49,6 +50,26 @@ def load_crates(lock_path: Path) -> set[tuple[str, str]]:
             continue  # skip local workspace members and git deps
         result.add((pkg["name"], pkg["version"]))
     return result
+
+
+def print_error_summary(errors: list[tuple[str, str, str]]) -> None:
+    error_counts = Counter(err for _, _, err in errors)
+
+    if len(error_counts) == 1 and len(errors) > 10:
+        err, count = error_counts.most_common(1)[0]
+        samples = ", ".join(
+            f"{name} {version}" for name, version, _ in sorted(errors)[:5]
+        )
+        print(
+            f"\nWarning: could not fetch publish dates for {count} crate(s)"
+            f" because crates.io was unreachable: {err}"
+        )
+        print(f"Sample affected crates: {samples}")
+        return
+
+    print(f"\nWarning: could not fetch publish date for {len(errors)} crate(s):")
+    for name, version, err in sorted(errors):
+        print(f"  {name} {version}: {err}")
 
 
 def main() -> int:
@@ -93,9 +114,7 @@ def main() -> int:
                 too_new.append((name, version, dt, age_days))
 
     if errors:
-        print(f"\nWarning: could not fetch publish date for {len(errors)} crate(s):")
-        for name, version, err in sorted(errors):
-            print(f"  {name} {version}: {err}")
+        print_error_summary(errors)
 
     if too_new:
         too_new.sort(key=lambda x: x[3])  # sort by age ascending (newest first)

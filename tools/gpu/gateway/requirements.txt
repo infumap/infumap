@@ -1,0 +1,6 @@
+# Direct requirements for the GPU gateway service.
+# Pinned to the reviewed versions so first install does not drift to whatever
+# happens to be latest on PyPI that day.
+fastapi==0.135.2
+uvicorn==0.42.0
+httpx==0.28.1

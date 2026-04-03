@@ -60,28 +60,40 @@ if [[ $# -gt 0 ]]; then
 fi
 
 overall_exit=0
+skipped_any=0
 
-echo "=== Rust audit ==="
-if ! "$ROOT_DIR/audit-rust.sh"; then
-  overall_exit=1
-fi
-echo ""
+run_audit() {
+  local title="$1"
+  local script_path="$2"
+  local status=0
 
-echo "=== npm audit ==="
-if ! "$ROOT_DIR/audit-npm.sh"; then
-  overall_exit=1
-fi
-echo ""
+  echo "=== $title ==="
+  if "$script_path"; then
+    :
+  else
+    status=$?
+    if [[ "$status" -eq 2 ]]; then
+      skipped_any=1
+    else
+      overall_exit=1
+    fi
+  fi
+  echo ""
+}
 
-echo "=== Python audit ==="
-if ! "$ROOT_DIR/audit-python.sh"; then
-  overall_exit=1
-fi
-echo ""
+run_audit "Rust audit" "$ROOT_DIR/audit-rust.sh"
+run_audit "npm audit" "$ROOT_DIR/audit-npm.sh"
+run_audit "Python audit" "$ROOT_DIR/audit-python.sh"
 
 if [[ "$overall_exit" -eq 0 ]]; then
-  touch "$TIMESTAMP_FILE"
-  echo "All audits passed. Timestamp recorded in .last-audit."
+  if [[ "$skipped_any" -eq 0 ]]; then
+    touch "$TIMESTAMP_FILE"
+    echo "All audits passed. Timestamp recorded in .last-audit."
+  else
+    echo "All available audits passed, but some audits were skipped." >&2
+    echo "Install the missing tools and re-run ./audit.sh for a complete audit." >&2
+    echo ".last-audit timestamp NOT updated." >&2
+  fi
 else
   echo "One or more audits reported issues. Fix them, then re-run ./audit.sh." >&2
   echo ".last-audit timestamp NOT updated." >&2

@@ -24,9 +24,11 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # conflicts. Document the reason in the requirements.txt file and remove the
 # suppression once the upstream package releases a fix.
 readonly REQUIREMENTS_FILES=(
+  "gateway:tools/gpu/gateway/requirements.txt"
   "text_embedding:tools/gpu/text_embedding/requirements.txt"
   "text_embedding (fastembed CPU):tools/gpu/text_embedding/requirements-fastembed.txt"
   "image_tagging:tools/gpu/image_tagging/requirements.txt"
+  "image_tagging_mlx:tools/gpu/image_tagging_mlx/requirements.txt"
   # CVE-2026-25990 (pillow >=10.3.0,<12.1.1, CVSS 8.9): out-of-bounds write loading
   #   PSD images. Low risk here — PDFs rarely embed PSD files.
   # CVE-2025-68616 (weasyprint <68.0, CVSS 7.5): SSRF bypass via HTTP redirects.
@@ -53,6 +55,11 @@ EOF
 fail() {
   echo "Error: $1" >&2
   exit 1
+}
+
+skip() {
+  echo "Skipping Python audit: $1" >&2
+  exit 2
 }
 
 # Find a working Python interpreter.
@@ -102,13 +109,12 @@ fi
 
 PIP_AUDIT_CMD=""
 if ! PIP_AUDIT_CMD="$(find_pip_audit)"; then
-  echo "pip-audit is not installed." >&2
-  echo "Install it with one of:" >&2
-  echo "  sudo apt install pipx && pipx install pip-audit   # Debian/Raspberry Pi OS" >&2
-  echo "  brew install pipx && pipx install pip-audit       # macOS Homebrew" >&2
-  echo "  uv tool install pip-audit                         # universal: uv needs no pip" >&2
-  echo "    (install uv: curl -LsSf https://astral.sh/uv/install.sh | sh)" >&2
-  exit 1
+  skip "pip-audit is not installed.
+  Install it with one of:
+    sudo apt install pipx && pipx install pip-audit   # Debian/Raspberry Pi OS
+    brew install pipx && pipx install pip-audit       # macOS Homebrew
+    uv tool install pip-audit                         # universal: uv needs no pip
+      (install uv: curl -LsSf https://astral.sh/uv/install.sh | sh)"
 fi
 
 overall_exit=0

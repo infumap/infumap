@@ -162,7 +162,7 @@ ensure_venv_pip
 
 if ! "$VENV_PYTHON" -c "import fastapi, uvicorn, httpx" >/dev/null 2>&1; then
     "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip install --upgrade fastapi uvicorn httpx
+    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements.txt"
 fi
 
 echo "Starting Infumap GPU gateway"

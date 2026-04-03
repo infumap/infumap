@@ -18,6 +18,7 @@ set -euo pipefail
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly LOCAL_CARGO_HOME="$ROOT_DIR/.audit-cache/cargo"
 readonly CRATE_DIRS=(
   "infumap"
   "infusdk"
@@ -40,6 +41,11 @@ fail() {
   exit 1
 }
 
+skip() {
+  echo "Skipping Rust audit: $1" >&2
+  exit 2
+}
+
 have_cargo_deny() {
   cargo deny --version >/dev/null 2>&1
 }
@@ -57,15 +63,54 @@ ensure_lockfile() {
   fi
 }
 
+prepare_local_cargo_home() {
+  local source_cargo_home="$1"
+
+  mkdir -p "$LOCAL_CARGO_HOME"
+
+  if [[ ! -e "$LOCAL_CARGO_HOME/registry" && -d "$source_cargo_home/registry" ]]; then
+    ln -s "$source_cargo_home/registry" "$LOCAL_CARGO_HOME/registry"
+  fi
+
+  if [[ ! -e "$LOCAL_CARGO_HOME/git" && -d "$source_cargo_home/git" ]]; then
+    ln -s "$source_cargo_home/git" "$LOCAL_CARGO_HOME/git"
+  fi
+
+  if [[ ! -d "$LOCAL_CARGO_HOME/advisory-dbs" && -d "$source_cargo_home/advisory-dbs" ]]; then
+    cp -a "$source_cargo_home/advisory-dbs" "$LOCAL_CARGO_HOME/"
+  fi
+}
+
 run_cargo_deny() {
   local crate_dir=""
+  local source_cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+  local deny_args=()
+
+  prepare_local_cargo_home "$source_cargo_home"
+  if [[ -d "$LOCAL_CARGO_HOME/advisory-dbs" ]]; then
+    deny_args+=(--disable-fetch)
+  fi
 
   for crate_dir in "${CRATE_DIRS[@]}"; do
     local manifest_path="$ROOT_DIR/$crate_dir/Cargo.toml"
+    local deny_cmd=(
+      cargo deny
+      --manifest-path "$manifest_path"
+      check
+      "${deny_args[@]}"
+      -A unmatched-source
+    )
     ensure_lockfile "$crate_dir"
 
+    if [[ "$crate_dir" == "infusdk" ]]; then
+      # infusdk shares the top-level deny.toml, but some ignore entries only apply to infumap.
+      deny_cmd+=(-A advisory-not-detected)
+    fi
+
+    deny_cmd+=(advisories bans sources)
+
     echo "Running cargo-deny for $crate_dir"
-    cargo deny --manifest-path "$manifest_path" check advisories bans sources
+    CARGO_HOME="$LOCAL_CARGO_HOME" "${deny_cmd[@]}"
   done
 }
 
@@ -127,7 +172,8 @@ if have_cargo_deny; then
 elif have_cargo_audit; then
   run_cargo_audit || audit_exit=$?
 else
-  fail "Neither cargo-deny nor cargo-audit is installed. Run from any directory:
+  skip "neither cargo-deny nor cargo-audit is installed.
+  Run from any directory:
     cargo install cargo-deny   # preferred: checks advisories, sources, and duplicates
     cargo install cargo-audit  # advisory checks only
   cargo install places the binary in ~/.cargo/bin/ regardless of the current directory."
