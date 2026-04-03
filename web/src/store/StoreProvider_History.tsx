@@ -225,7 +225,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
             if (parentVeid.itemId) {
               const parentItem = itemState.get(parentVeid.itemId);
               if (parentItem) {
-                if (isTable(parentItem)) {
+                if (isTable(parentItem) && !isPage(popupItem)) {
                   focusParent = true;
                   breadcrumb.focusPath = parentPath;
                 } else if (popupItem.relationshipToParent === RelationshipToParent.Attachment && parentItem.parentId) {
