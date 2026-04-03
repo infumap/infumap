@@ -17,7 +17,7 @@
 */
 
 import { Component, For, JSX, Show, createEffect, onCleanup } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { ImageFns, asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
@@ -254,7 +254,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Show when={isFocused()}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
     </Show>;
 
   const renderPopupBaseMaybe = (): JSX.Element =>

@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -183,7 +183,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     <Show when={isFocused()}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
     </Show>;
 
   const inputListener = (_ev: InputEvent) => {

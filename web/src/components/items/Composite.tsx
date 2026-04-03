@@ -55,6 +55,11 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * asCompositeItem(props.visualElement.displayItem).spatialWidthGr / GRID_SIZE); }
 
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
+  const isFocused = () => {
+    const focusPath = store.history.getFocusPathMaybe();
+    const textEditInfo = store.overlay.textEditInfo();
+    return focusPath === vePath() || textEditInfo?.itemPath === vePath();
+  };
   const activeChildPath = () => store.overlay.textEditInfo()?.itemPath ?? store.history.getFocusPathMaybe();
 
   const shadowClass = () => {
@@ -69,6 +74,13 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       <div class={shadowClass()}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
+
+  const renderFocusRingMaybe = () =>
+    <Show when={isFocused()}>
+      <div class="absolute pointer-events-none rounded-xs"
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
     </Show>;
 
   const keyUpHandler = (ev: KeyboardEvent) => {
@@ -86,6 +98,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   return (
     <>
       {renderShadowMaybe()}
+      {renderFocusRingMaybe()}
       <div class={`${positionClass()} border ` +
         `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
         `rounded-xs ` +
