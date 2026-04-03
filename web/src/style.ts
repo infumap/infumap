@@ -129,4 +129,7 @@ export let LINK_TRIANGLE_COLOR = "#b143";
 
 export const FIND_HIGHLIGHT_COLOR = 'rgba(255, 255, 0, 0.4)';
 export const SELECTION_HIGHLIGHT_COLOR = '#4a90e233';
-export const FOCUS_RING_COLOR = 'rgba(0, 68, 255, 0.5)';
+export const FOCUS_RING_INNER_COLOR = 'rgba(255, 255, 255, 0.72)';
+export const FOCUS_RING_COLOR = 'rgba(0, 82, 255, 0.9)';
+export const FOCUS_RING_BOX_SHADOW =
+  `inset 0 0 0 1px ${FOCUS_RING_INNER_COLOR}, inset 0 0 0 3px ${FOCUS_RING_COLOR}`;

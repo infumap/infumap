@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Show, createMemo } from "solid-js";
-import { FEATURE_COLOR_DARK, linearGradient, FOCUS_RING_COLOR } from "../../style";
+import { FEATURE_COLOR_DARK, linearGradient, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
@@ -132,7 +132,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <Show when={isFocused()}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const renderHighlightMaybe = () =>

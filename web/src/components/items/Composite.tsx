@@ -30,7 +30,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_COLOR } from "../../style";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -114,7 +114,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                 contentEditable={false}
                 style={`left: ${childVe.get().boundsPx.x}px; top: ${childVe.get().boundsPx.y}px; ` +
                   `width: ${childVe.get().boundsPx.w}px; height: ${childVe.get().boundsPx.h}px; ` +
-                  `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
+                  `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
             </Show>
           </>
         }</For>

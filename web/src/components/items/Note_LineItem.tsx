@@ -30,7 +30,7 @@ import { ClickState } from "../../input/state";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR, FOCUS_RING_COLOR } from "../../style";
+import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { getTextStyleForNote } from "../../layout/text";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
@@ -253,7 +253,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
       </Show>
     </>
   );

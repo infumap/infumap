@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { cloneBoundingBox } from "../../util/geometry";
 import { createLineHighlightBoundsPxFn } from "./helper";
-import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_COLOR } from "../../style";
+import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { Z_INDEX_ITEMS_OVERLAY } from "../../constants";
 
 
@@ -77,7 +77,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
       <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${props.visualElement.boundsPx.x}px; top: ${props.visualElement.boundsPx.y}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
-            `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
       </Show>
     </>
   );

@@ -25,7 +25,7 @@ import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./help
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_COLOR } from "../../style";
+import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
 
 
 export const PasswordLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -187,7 +187,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
       </Show>
     </>
   );

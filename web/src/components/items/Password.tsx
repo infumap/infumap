@@ -28,7 +28,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { FEATURE_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_COLOR } from "../../style";
+import { FEATURE_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
@@ -183,7 +183,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     <Show when={isFocused()}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const inputListener = (_ev: InputEvent) => {
