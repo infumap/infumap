@@ -153,7 +153,7 @@ How to fix Python vulnerabilities:
        Add it explicitly with the fixed version, e.g. add 'pillow==12.1.1' on its own line.
        This overrides the version that the parent package would otherwise pull in.
   3. Restart the affected service so it reinstalls from the updated requirements.txt.
-  4. Re-run ./audit.sh to confirm the fix.
+  4. Re-run ./audit.sh --gpu to confirm the fix.
 
 Skipped packages (shown in the table above with a "Skip Reason"):
   These could not be audited — usually because they have a non-standard version string

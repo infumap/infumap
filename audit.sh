@@ -18,19 +18,17 @@ set -euo pipefail
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly TIMESTAMP_FILE="$ROOT_DIR/.last-audit"
 
 print_usage() {
   cat <<'EOF'
-Usage: ./audit.sh
+Usage: ./audit.sh --server | --gpu
 
-Run all dependency security audits:
-  - Rust   (cargo-deny preferred, falls back to cargo-audit)
-  - npm    (npm audit)
-  - Python (pip-audit)
+Run dependency security audits for one host role:
+  --server  Rust + npm audits for the build host
+  --gpu     Python audits for the GPU/ML host
 
-On success, records a timestamp in .last-audit so that build.sh can
-warn when more than a week has passed without an audit.
+On success, records a role-specific timestamp so build.sh can warn when
+the server build host has not been audited recently.
 
 Required tools (install if missing):
   Rust:   cargo install cargo-deny   (or cargo install cargo-audit)
@@ -46,18 +44,34 @@ fail() {
   exit 1
 }
 
-if [[ $# -gt 0 ]]; then
-  case "$1" in
-    -h|--help)
-      print_usage
-      exit 0
-      ;;
-    *)
-      print_usage >&2
-      fail "Unknown argument: $1"
-      ;;
-  esac
+if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
+  print_usage
+  exit 0
 fi
+
+if [[ $# -ne 1 ]]; then
+  print_usage >&2
+  fail "Expected exactly one of: --server or --gpu"
+fi
+
+MODE="$1"
+TIMESTAMP_FILE=""
+MODE_LABEL=""
+
+case "$MODE" in
+  --server)
+    TIMESTAMP_FILE="$ROOT_DIR/.last-audit-server"
+    MODE_LABEL="server"
+    ;;
+  --gpu)
+    TIMESTAMP_FILE="$ROOT_DIR/.last-audit-gpu"
+    MODE_LABEL="gpu"
+    ;;
+  *)
+    print_usage >&2
+    fail "Unknown argument: $MODE"
+    ;;
+esac
 
 overall_exit=0
 skipped_any=0
@@ -81,21 +95,27 @@ run_audit() {
   echo ""
 }
 
-run_audit "Rust audit" "$ROOT_DIR/audit-rust.sh"
-run_audit "npm audit" "$ROOT_DIR/audit-npm.sh"
-run_audit "Python audit" "$ROOT_DIR/audit-python.sh"
+case "$MODE" in
+  --server)
+    run_audit "Rust audit" "$ROOT_DIR/audit-rust.sh"
+    run_audit "npm audit" "$ROOT_DIR/audit-npm.sh"
+    ;;
+  --gpu)
+    run_audit "Python audit" "$ROOT_DIR/audit-python.sh"
+    ;;
+esac
 
 if [[ "$overall_exit" -eq 0 ]]; then
   if [[ "$skipped_any" -eq 0 ]]; then
     touch "$TIMESTAMP_FILE"
-    echo "All audits passed. Timestamp recorded in .last-audit."
+    echo "All $MODE_LABEL audits passed. Timestamp recorded in $(basename "$TIMESTAMP_FILE")."
   else
-    echo "All available audits passed, but some audits were skipped." >&2
-    echo "Install the missing tools and re-run ./audit.sh for a complete audit." >&2
-    echo ".last-audit timestamp NOT updated." >&2
+    echo "All available $MODE_LABEL audits passed, but some audits were skipped." >&2
+    echo "Install the missing tools and re-run ./audit.sh $MODE for a complete audit." >&2
+    echo "$(basename "$TIMESTAMP_FILE") timestamp NOT updated." >&2
   fi
 else
-  echo "One or more audits reported issues. Fix them, then re-run ./audit.sh." >&2
-  echo ".last-audit timestamp NOT updated." >&2
+  echo "One or more $MODE_LABEL audits reported issues. Fix them, then re-run ./audit.sh $MODE." >&2
+  echo "$(basename "$TIMESTAMP_FILE") timestamp NOT updated." >&2
   exit 1
 fi

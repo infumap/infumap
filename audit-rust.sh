@@ -150,7 +150,7 @@ How to fix Rust vulnerabilities:
     cd infusdk && cargo update <crate-name> --precise <fixed-version>
   Or relax the version constraint in Cargo.toml if needed, then run:
     cargo update <crate-name>
-  Commit the updated Cargo.lock, then re-run ./audit.sh.
+  Commit the updated Cargo.lock, then re-run ./audit.sh --server.
 
   If no fix is available yet and you need to suppress a known advisory:
     Add the advisory ID to deny.toml under [advisories] ignore:

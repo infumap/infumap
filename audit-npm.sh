@@ -79,7 +79,7 @@ How to fix npm vulnerabilities:
     cd web && npm audit
   For a breaking fix (major version bump — review the diff carefully):
     cd web && npm audit fix --force
-  Then commit the updated package-lock.json and re-run ./audit.sh.
+  Then commit the updated package-lock.json and re-run ./audit.sh --server.
 
   If a vulnerability is in a transitive dependency with no fix available yet,
   you can temporarily suppress it in package.json under an "overrides" key:

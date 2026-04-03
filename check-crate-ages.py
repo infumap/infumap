@@ -131,7 +131,7 @@ def main() -> int:
         )
         print(
             f"Review the crates above. If they are expected upgrades, re-run"
-            f" ./audit.sh once {MIN_AGE_DAYS} days have passed."
+            f" ./audit.sh --server once {MIN_AGE_DAYS} days have passed."
         )
         return 1
 

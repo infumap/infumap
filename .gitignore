@@ -9,4 +9,6 @@ tools/gpu/text_embedding/.venv/
 tools/gpu/text_embedding/models/
 .codex
 .last-audit
+.last-audit-server
+.last-audit-gpu
 .audit-cache/

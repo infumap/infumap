@@ -97,19 +97,19 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Warn if no security audit has been run in the past week.
-AUDIT_TIMESTAMP="$SCRIPT_DIR/.last-audit"
+# Warn if no server security audit has been run in the past week.
+AUDIT_TIMESTAMP="$SCRIPT_DIR/.last-audit-server"
 if [[ ! -f "$AUDIT_TIMESTAMP" ]]; then
   echo ""
   echo "  *** SECURITY AUDIT WARNING ***"
-  echo "  No security audit has been recorded for this repository."
-  echo "  Run: ./audit.sh"
+  echo "  No server security audit has been recorded for this repository."
+  echo "  Run: ./audit.sh --server"
   echo ""
 elif ! find "$AUDIT_TIMESTAMP" -mtime -7 -type f 2>/dev/null | grep -q .; then
   echo ""
   echo "  *** SECURITY AUDIT WARNING ***"
-  echo "  Last security audit was more than a week ago."
-  echo "  Run: ./audit.sh"
+  echo "  Last server security audit was more than a week ago."
+  echo "  Run: ./audit.sh --server"
   echo ""
 fi
 
