@@ -251,7 +251,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  if (buttonNumber != MOUSE_LEFT) {
+  if (buttonNumber != MOUSE_LEFT && !store.history.currentPopupSpec()) {
     const focusItem = store.history.getFocusItem();
     if (isNote(focusItem) || isFile(focusItem) || isTable(focusItem) || isPassword(focusItem) ||
         (isPage(focusItem) && (asPageItem(focusItem).flags & PageFlags.EmbeddedInteractive))) {

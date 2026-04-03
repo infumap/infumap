@@ -24,8 +24,6 @@ import { itemState } from "./ItemState";
 import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { isImage, asImageItem } from "../items/image-item";
 import { isPage, asPageItem } from "../items/page-item";
-import { isTable } from "../items/table-item";
-import { RelationshipToParent } from "../layout/relationship-to-parent";
 
 
 export interface PopupSpec {
@@ -212,45 +210,9 @@ export function makeHistoryStore(): HistoryStoreContextModel {
         panic("popPopup: vePath is null");
       }
 
-      // Keep focus on the page that was popped up (not its parent)
-      // This ensures the page retains focus when closing its popup.
-      // EXCEPTION: If the popped item is inside a Table (and is not a Page), focus the Table (parent).
-      // This allows keyboard navigation to resume on the table immediately.
-      let focusParent = false;
-      if (popupItem) {
-        if (popupSpec!.vePath) {
-          const parentPath = VeFns.parentPath(popupSpec!.vePath);
-          if (parentPath) {
-            const parentVeid = VeFns.veidFromPath(parentPath);
-            if (parentVeid.itemId) {
-              const parentItem = itemState.get(parentVeid.itemId);
-              if (parentItem) {
-                if (isTable(parentItem) && !isPage(popupItem)) {
-                  focusParent = true;
-                  breadcrumb.focusPath = parentPath;
-                } else if (popupItem.relationshipToParent === RelationshipToParent.Attachment && parentItem.parentId) {
-                  // Check if grandparent is a table (case for attachments in a table row)
-                  const grandParentPath = VeFns.parentPath(parentPath);
-                  if (grandParentPath) {
-                    const grandParentVeid = VeFns.veidFromPath(grandParentPath);
-                    if (grandParentVeid.itemId) {
-                      const grandParentItem = itemState.get(grandParentVeid.itemId);
-                      if (grandParentItem && isTable(grandParentItem)) {
-                        focusParent = true;
-                        breadcrumb.focusPath = grandParentPath;
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      if (!focusParent) {
-        breadcrumb.focusPath = popupSpec!.vePath;
-      }
+      // Keep focus on the item that was popped up so closing a popup preserves
+      // the user's place, including for items opened from within tables.
+      breadcrumb.focusPath = popupSpec!.vePath;
     } else {
       const nextVePath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length - 1].vePath;
 
