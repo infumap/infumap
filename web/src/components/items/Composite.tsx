@@ -110,7 +110,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
           <>
             <VisualElement_Desktop visualElement={childVe.get()} />
             <Show when={activeChildPath() === VeFns.veToPath(childVe.get())}>
-              <div class="absolute pointer-events-none"
+              <div class="absolute pointer-events-none select-none"
+                contentEditable={false}
                 style={`left: ${childVe.get().boundsPx.x}px; top: ${childVe.get().boundsPx.y}px; ` +
                   `width: ${childVe.get().boundsPx.w}px; height: ${childVe.get().boundsPx.h}px; ` +
                   `box-shadow: inset 0 0 0 2px ${FOCUS_RING_COLOR}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
