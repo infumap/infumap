@@ -93,14 +93,28 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+function focusedNoteVisualElementMaybe(store: StoreContextModel) {
+  if (!isNote(store.history.getFocusItem())) {
+    return null;
+  }
+  const notePath = store.overlay.textEditInfo()?.itemPath ?? store.history.getFocusPathMaybe();
+  if (!notePath) {
+    return null;
+  }
+  return VesCache.render.getNode(notePath)?.get() ?? null;
+}
+
 export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   const popupType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const compositeVisualElementMaybe = () => {
-    if (!isNote(store.history.getFocusItem())) {
+    const noteVisualElement = focusedNoteVisualElementMaybe(store);
+    if (!noteVisualElement || !noteVisualElement.parentPath) {
       return null;
     }
-    const noteVisualElement = () => VesCache.render.getNode(store.overlay.textEditInfo()!.itemPath)!.get();
-    const parentVe = VesCache.render.getNode(noteVisualElement().parentPath!)!.get();
+    const parentVe = VesCache.render.getNode(noteVisualElement.parentPath)?.get();
+    if (!parentVe) {
+      return null;
+    }
     if (!isComposite(parentVe.displayItem)) { return null; }
     return parentVe;
   };
@@ -160,12 +174,16 @@ export const Toolbar_Popup: Component = () => {
   const ratingItem = () => asRatingItem(store.history.getFocusItem());
   const formatItem = () => asFormatItem(store.history.getFocusItem());
 
-  const noteVisualElement = () => VesCache.render.getNode(store.overlay.textEditInfo()!.itemPath)!.get();
+  const noteVisualElementMaybe = () => focusedNoteVisualElementMaybe(store);
   const compositeVisualElementMaybe = () => {
-    if (!isNote(store.history.getFocusItem())) {
+    const noteVisualElement = noteVisualElementMaybe();
+    if (!noteVisualElement || !noteVisualElement.parentPath) {
       return null;
     }
-    const parentVe = VesCache.render.getNode(noteVisualElement().parentPath!)!.get();
+    const parentVe = VesCache.render.getNode(noteVisualElement.parentPath)?.get();
+    if (!parentVe) {
+      return null;
+    }
     if (!isComposite(parentVe.displayItem)) { return null; }
     return parentVe;
   };
