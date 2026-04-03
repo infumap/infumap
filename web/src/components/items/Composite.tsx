@@ -55,6 +55,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * asCompositeItem(props.visualElement.displayItem).spatialWidthGr / GRID_SIZE); }
 
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
+  const activeChildPath = () => store.overlay.textEditInfo()?.itemPath ?? store.history.getFocusPathMaybe();
 
   const shadowClass = () => {
     if (isPopup()) {
@@ -108,7 +109,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
           <>
             <VisualElement_Desktop visualElement={childVe.get()} />
-            <Show when={store.overlay.textEditInfo() == null && store.history.getFocusPathMaybe() === VeFns.veToPath(childVe.get())}>
+            <Show when={activeChildPath() === VeFns.veToPath(childVe.get())}>
               <div class="absolute pointer-events-none"
                 style={`left: ${childVe.get().boundsPx.x}px; top: ${childVe.get().boundsPx.y}px; ` +
                   `width: ${childVe.get().boundsPx.w}px; height: ${childVe.get().boundsPx.h}px; ` +
