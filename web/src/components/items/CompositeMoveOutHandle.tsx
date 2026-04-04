@@ -17,32 +17,32 @@
 */
 
 import { Component } from "solid-js";
+import {
+  compositeMoveOutHandleLineGapPx,
+  compositeMoveOutHandleLineHeightPx,
+  compositeMoveOutHandleLineLeftPx,
+  compositeMoveOutHandleLineTopPx,
+  compositeMoveOutHandleLineWidthPx,
+} from "../../layout/composite-move-out";
 import { BoundingBox } from "../../util/geometry";
 
 
 interface CompositeMoveOutHandleProps {
   boundsPx: BoundingBox,
+  active?: boolean,
 }
 
 export const CompositeMoveOutHandle: Component<CompositeMoveOutHandleProps> = (props: CompositeMoveOutHandleProps) => {
-  const lineWidthPx = () => 1;
-  const lineGapPx = () => 2;
-  const totalLineWidthPx = () => lineWidthPx() * 2 + lineGapPx();
-  const lineHeightPx = () => Math.max(8, props.boundsPx.h - 6);
-  const lineTopPx = () => Math.max(0, Math.round((props.boundsPx.h - lineHeightPx()) / 2));
-  const lineLeftPx = () =>
-    Math.max(0, Math.min(
-      props.boundsPx.w - totalLineWidthPx(),
-      Math.round((props.boundsPx.w - totalLineWidthPx()) / 2) + 3
-    ));
+  const lineClass = () => props.active ? "absolute rounded-full bg-slate-700" : "absolute rounded-full bg-slate-500";
+  const lineOpacity = () => props.active ? 0.95 : 0.8;
 
   return (
     <div class="absolute pointer-events-none"
       style={`left: ${props.boundsPx.x}px; top: ${props.boundsPx.y}px; width: ${props.boundsPx.w}px; height: ${props.boundsPx.h}px;`}>
-      <div class="absolute rounded-full bg-slate-500"
-        style={`left: ${lineLeftPx()}px; top: ${lineTopPx()}px; width: ${lineWidthPx()}px; height: ${lineHeightPx()}px; opacity: 0.8;`} />
-      <div class="absolute rounded-full bg-slate-500"
-        style={`left: ${lineLeftPx() + lineWidthPx() + lineGapPx()}px; top: ${lineTopPx()}px; width: ${lineWidthPx()}px; height: ${lineHeightPx()}px; opacity: 0.8;`} />
+      <div class={lineClass()}
+        style={`left: ${compositeMoveOutHandleLineLeftPx(props.boundsPx)}px; top: ${compositeMoveOutHandleLineTopPx(props.boundsPx)}px; width: ${compositeMoveOutHandleLineWidthPx()}px; height: ${compositeMoveOutHandleLineHeightPx(props.boundsPx)}px; opacity: ${lineOpacity()};`} />
+      <div class={lineClass()}
+        style={`left: ${compositeMoveOutHandleLineLeftPx(props.boundsPx) + compositeMoveOutHandleLineWidthPx() + compositeMoveOutHandleLineGapPx()}px; top: ${compositeMoveOutHandleLineTopPx(props.boundsPx)}px; width: ${compositeMoveOutHandleLineWidthPx()}px; height: ${compositeMoveOutHandleLineHeightPx(props.boundsPx)}px; opacity: ${lineOpacity()};`} />
     </div>
   );
 };

@@ -168,7 +168,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           <Show when={pageFns().showMoveOutOfCompositeArea()}>
-            <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} />
+            <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} />
           </Show>
           {renderIsLinkMaybe()}
           <Show when={pageFns().showTriangleDetail()}>

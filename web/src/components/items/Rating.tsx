@@ -113,7 +113,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
              style={`left: ${boundsPx().w/2 - 6}px; bottom: 2px; width: 12px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4)}px;`} />
       </Show>
       <Show when={showMoveOutOfCompositeArea()}>
-        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
                   (props.visualElement.flags & VisualElementFlags.Detailed &&

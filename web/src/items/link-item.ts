@@ -30,6 +30,7 @@ import { PositionalMixin, asPositionalItem, isPositionalItem } from "./base/posi
 import { asXSizableItem, isXSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
+import { compositeMoveOutHitboxBoundsPx } from "../layout/composite-move-out";
 import { itemState } from "../store/ItemState";
 import { calcBoundsInCellFromSizeBl } from "./base/item-common-fns";
 
@@ -211,7 +212,7 @@ export const LinkFns = {
         h: blockSizePx.h
       };
       const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-      const moveBoundsPx = {
+      const moveAreaBoundsPx = {
         x: innerBoundsPx.w
           - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
           - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
@@ -219,15 +220,16 @@ export const LinkFns = {
           - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
         y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
         w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
-        h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
       };
+      const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
       return {
         boundsPx,
         blockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
           HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }),
-          HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+          HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true }),
           HitboxFns.create(HitboxFlags.AttachComposite, {
             x: 0,
             y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,

@@ -18,6 +18,7 @@
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from '../constants';
 import { HitboxFlags, HitboxFns, HitboxMeta } from '../layout/hitbox';
+import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { Item, ItemType, ItemTypeMixin } from './base/item';
@@ -148,12 +149,13 @@ export const RatingFns = {
       w: Math.min(blockSizePx.w, innerBoundsPx.w),
       h: innerBoundsPx.h,
     };
-    const moveBoundsPx = {
+    const moveAreaBoundsPx = {
       x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
-      h: innerBoundsPx.h
+      h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
     };
+    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
     const leftFocusBoundsPx = {
       x: innerBoundsPx.x,
       y: innerBoundsPx.y,
@@ -168,7 +170,7 @@ export const RatingFns = {
     };
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Click, valueClickBoundsPx),
-      HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true }),
       HitboxFns.create(HitboxFlags.AttachComposite, {
         x: 0,
         y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,

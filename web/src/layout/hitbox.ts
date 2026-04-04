@@ -78,6 +78,7 @@ export interface HitboxMeta {
   startBl?: number,
   endBl?: number,
   focusOnly?: boolean,
+  compositeMoveOut?: boolean,
   calendarYear?: number,
   calendarMonth?: number,
   calendarDay?: number,
@@ -111,6 +112,9 @@ export const HitboxFns = {
     }
     if (typeof (meta.focusOnly) != 'undefined') {
       result.focusOnly = meta.focusOnly;
+    }
+    if (typeof (meta.compositeMoveOut) != 'undefined') {
+      result.compositeMoveOut = meta.compositeMoveOut;
     }
     if (typeof (meta.calendarYear) != 'undefined') {
       result.calendarYear = meta.calendarYear;
@@ -152,7 +156,8 @@ export const HitboxFns = {
     return "[colNum: " +
       (meta.colNum ? meta.colNum : "undefined") + ", startBl: " +
       (meta.startBl ? meta.startBl : "undefined") + ", endBl: " +
-      (meta.endBl ? meta.endBl : "undefined") + ", year: " +
+      (meta.endBl ? meta.endBl : "undefined") + ", compositeMoveOut: " +
+      (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", year: " +
       (meta.calendarYear ? meta.calendarYear : "undefined") + ", month: " +
       (meta.calendarMonth ? meta.calendarMonth : "undefined") + ", day: " +
       (meta.calendarDay ? meta.calendarDay : "undefined") + ", dividerMonth: " +

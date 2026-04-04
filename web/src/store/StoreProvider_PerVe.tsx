@@ -34,6 +34,9 @@ export interface PerVeStoreContextModel {
   getMouseIsOverOpenPopup: (vePath: VisualElementPath) => boolean,
   setMouseIsOverOpenPopup: (vePath: VisualElementPath, isOver: boolean) => void,
 
+  getMouseIsOverCompositeMoveOut: (vePath: VisualElementPath) => boolean,
+  setMouseIsOverCompositeMoveOut: (vePath: VisualElementPath, isOver: boolean) => void,
+
   getMovingItemIsOver: (vePath: VisualElementPath) => boolean,  // for containers only.
   setMovingItemIsOver: (vePath: VisualElementPath, isOver: boolean) => void,
 
@@ -79,6 +82,7 @@ function clear() {
 export function makePerVeStore(): PerVeStoreContextModel {
   const mouseIsOver = new Map<string, BooleanSignal>();
   const mouseIsOverOpenPopup = new Map<string, BooleanSignal>();
+  const mouseIsOverCompositeMoveOut = new Map<string, BooleanSignal>();
   const movingItemIsOver = new Map<string, BooleanSignal>();
   const movingItemIsOverAttach = new Map<string, BooleanSignal>();
   const movingItemIsOverAttachComposite = new Map<string, BooleanSignal>();
@@ -120,6 +124,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
       return;
     }
     mouseIsOverOpenPopup.get(vePath)!.set(isOver);
+  };
+
+  const getMouseIsOverCompositeMoveOut = (vePath: VisualElementPath): boolean => {
+    if (!mouseIsOverCompositeMoveOut.get(vePath)) {
+      mouseIsOverCompositeMoveOut.set(vePath, createBooleanSignal(false));
+    }
+    return mouseIsOverCompositeMoveOut.get(vePath)!.get();
+  };
+
+  const setMouseIsOverCompositeMoveOut = (vePath: VisualElementPath, isOver: boolean): void => {
+    if (!mouseIsOverCompositeMoveOut.get(vePath)) {
+      mouseIsOverCompositeMoveOut.set(vePath, createBooleanSignal(isOver));
+      return;
+    }
+    mouseIsOverCompositeMoveOut.get(vePath)!.set(isOver);
   };
 
   const getMovingItemIsOver = (vePath: VisualElementPath): boolean => {
@@ -315,6 +334,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getMouseIsOverOpenPopup,
     setMouseIsOverOpenPopup,
+
+    getMouseIsOverCompositeMoveOut,
+    setMouseIsOverCompositeMoveOut,
 
     getMovingItemIsOver,
     setMovingItemIsOver,

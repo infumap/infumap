@@ -18,6 +18,7 @@
 
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX, PAGE_POPUP_TITLE_HEIGHT_BL, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, LIST_PAGE_TOP_PADDING_PX, PADDING_PROP, CONTAINER_IN_COMPOSITE_PADDING_PX, LINE_HEIGHT_PX, ANCHOR_OFFSET_PX } from '../constants';
 import { HitboxFlags, HitboxFns, HitboxMeta } from '../layout/hitbox';
+import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
@@ -714,7 +715,7 @@ export const PageFns = {
       x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
       w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0
     };
-    const moveBoundsPx = {
+    const moveAreaBoundsPx = {
       x: compositeWidthPx
         - boundsPx.x
         - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
@@ -723,8 +724,9 @@ export const PageFns = {
         - 2,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
-      h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+      h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
     };
+    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
     if (!(measurable.flags & PageFlags.EmbeddedInteractive)) {
       const result = ({
         boundsPx,
@@ -732,7 +734,7 @@ export const PageFns = {
         viewportBoundsPx: boundsPx,
         hitboxes: [
           HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+          HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true }),
           HitboxFns.create(HitboxFlags.AttachComposite, {
             x: 0,
             y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
@@ -763,7 +765,7 @@ export const PageFns = {
       viewportBoundsPx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+        HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true }),
         HitboxFns.create(HitboxFlags.AttachComposite, {
           x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,

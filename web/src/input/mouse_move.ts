@@ -52,6 +52,7 @@ import {
 
 let lastMouseOverVes: VisualElementSignal | null = null;
 let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
+let lastMouseOverCompositeMoveOutVes: VisualElementSignal | null = null;
 let lastSelectionArrangeTimeMs = 0;
 let lastSelectionSignature = "";
 const SELECTION_ARRANGE_THROTTLE_MS = 33;
@@ -141,6 +142,10 @@ export function clearMouseOverState(store: StoreContextModel) {
   if (lastMouseOverOpenPopupVes) {
     store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(lastMouseOverOpenPopupVes.get()), false);
     lastMouseOverOpenPopupVes = null;
+  }
+  if (lastMouseOverCompositeMoveOutVes) {
+    store.perVe.setMouseIsOverCompositeMoveOut(VeFns.veToPath(lastMouseOverCompositeMoveOutVes.get()), false);
+    lastMouseOverCompositeMoveOutVes = null;
   }
 }
 
@@ -922,6 +927,10 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   const overElementVes = HitInfoFns.getHitVes(hitInfo);
+  const overCompositeMoveOutVes =
+    (hitInfo.hitboxType & HitboxFlags.Move) && hitInfo.overElementMeta?.compositeMoveOut
+      ? overElementVes
+      : null;
   if (overElementVes != lastMouseOverVes || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverVes != null) {
       store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);
@@ -952,6 +961,22 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     } else {
       store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get()), false);
     }
+  }
+
+  if (overCompositeMoveOutVes != lastMouseOverCompositeMoveOutVes || hasModal || isInsideToolbarPopup) {
+    if (lastMouseOverCompositeMoveOutVes != null) {
+      store.perVe.setMouseIsOverCompositeMoveOut(VeFns.veToPath(lastMouseOverCompositeMoveOutVes.get()), false);
+      lastMouseOverCompositeMoveOutVes = null;
+    }
+  }
+
+  if (overCompositeMoveOutVes != null &&
+    (overCompositeMoveOutVes.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
+    !(overCompositeMoveOutVes.get().flags & VisualElementFlags.Popup) &&
+    !store.perVe.getMouseIsOverCompositeMoveOut(VeFns.veToPath(overCompositeMoveOutVes.get())) &&
+    !hasModal && !isInsideToolbarPopup) {
+    store.perVe.setMouseIsOverCompositeMoveOut(VeFns.veToPath(overCompositeMoveOutVes.get()), true);
+    lastMouseOverCompositeMoveOutVes = overCompositeMoveOutVes;
   }
 
   if (hasUser && !isInsideToolbarPopup) {
