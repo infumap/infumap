@@ -45,6 +45,7 @@ import { MouseActionState } from "../../input/state";
 export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
   let iconMouseDownPx: { x: number, y: number } | null = null;
+  let iconMouseDownStartedInComposite = false;
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
@@ -125,7 +126,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   };
 
   const iconMouseDownHandler = (ev: MouseEvent) => {
-    if (!isInComposite()) {
+    iconMouseDownStartedInComposite = isInComposite();
+    if (!iconMouseDownStartedInComposite) {
       ev.stopPropagation();
       return;
     }
@@ -133,13 +135,14 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   }
 
   const iconMouseUpHandler = (ev: MouseEvent) => {
-    if (!isInComposite()) {
+    if (!iconMouseDownStartedInComposite) {
       ev.stopPropagation();
       return;
     }
 
     const startPx = iconMouseDownPx;
     iconMouseDownPx = null;
+    iconMouseDownStartedInComposite = false;
     if (startPx == null) { return; }
 
     const movedBeyondClickTolerance =
