@@ -72,16 +72,18 @@ const _tableHandler: HitHandler = {
       {
         const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false);
         if (hit) {
+          const tableParentVe = parentVe(tableVe);
+          const tableIsInsideComposite = !!(tableVe.flags & VisualElementFlags.InsideCompositeOrDoc);
           return {
             overVes: hit.attachmentVes,
             parentRootVe,
             rootVes,
-            subRootVe: tableVe,
-            subSubRootVe: null,
+            subRootVe: tableIsInsideComposite ? tableParentVe : tableVe,
+            subSubRootVe: tableIsInsideComposite ? tableVe : null,
             hitboxType: hit.flags,
             compositeHitboxTypeMaybe: HitboxFlags.None,
             overElementMeta: hit.meta,
-            overPositionableVe: parentVe(tableVe),
+            overPositionableVe: tableIsInsideComposite ? parentVe(tableParentVe) : tableParentVe,
             overPositionGr: { x: 0, y: 0 },
             debugCreatedAt: "table-handler-attachment",
           };

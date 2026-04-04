@@ -223,7 +223,6 @@ function hitChildMaybe(
         if (hit) {
           const compositeParentVe = childVe;
           const parentOfComposite = parentVe(compositeParentVe);
-          const parentOfParent = parentVe(parentOfComposite);
           return {
             overVes: hit.attachmentVes,
             rootVes,
@@ -244,18 +243,18 @@ function hitChildMaybe(
     const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(childVe))(), posRelativeToChildElementPx, ignoreItems, true);
     if (hit) {
       const parent = parentVe(childVe);
-
       const grandparent = parentVe(parent);
+      const childIsInsideCompositeOrDoc = !!(childVe.flags & VisualElementFlags.InsideCompositeOrDoc);
       return {
         overVes: hit.attachmentVes,
         rootVes,
         subRootVe: parent,
-        subSubRootVe: childVe.flags & VisualElementFlags.InsideCompositeOrDoc ? childVe : null,
+        subSubRootVe: childIsInsideCompositeOrDoc ? childVe : null,
         parentRootVe,
         hitboxType: hit.flags,
         compositeHitboxTypeMaybe: HitboxFlags.None,
         overElementMeta: hit.meta,
-        overPositionableVe: parent,
+        overPositionableVe: childIsInsideCompositeOrDoc ? grandparent : parent,
         overPositionGr: { x: 0, y: 0 },
         debugCreatedAt: "hitChildMaybe1",
       };
