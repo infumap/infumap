@@ -177,10 +177,10 @@ export function findClosest(scene: FindSceneReader, path: VisualElementPath, dir
     const overlapPx = perpendicularOverlapPx(currentBoundsPx, candidates[i].boundsPx, direction);
     const gapPx = directionalGapPx(currentBoundsPx, candidates[i].boundsPx, direction);
     let dist = vectorDistance(currentCenterPx, boundingBoxCenter(candidates[i].boundsPx));
-    if (overlapPx > bestOverlapPx + EPSILON_PX ||
-      (Math.abs(overlapPx - bestOverlapPx) <= EPSILON_PX && (
-        gapPx < bestGapPx - EPSILON_PX ||
-        (Math.abs(gapPx - bestGapPx) <= EPSILON_PX && dist < bestDist)
+    if (gapPx < bestGapPx - EPSILON_PX ||
+      (Math.abs(gapPx - bestGapPx) <= EPSILON_PX && (
+        overlapPx > bestOverlapPx + EPSILON_PX ||
+        (Math.abs(overlapPx - bestOverlapPx) <= EPSILON_PX && dist < bestDist)
       ))) {
       best = candidates[i];
       bestOverlapPx = overlapPx;
