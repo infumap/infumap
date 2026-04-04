@@ -25,7 +25,6 @@ import { asPasswordItem } from "../../../items/password-item";
 import { PasswordFlags } from "../../../items/base/flags-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { requestArrange } from "../../../layout/arrange";
-import { VesCache } from "../../../layout/ves-cache";
 
 
 export const Toolbar_Password: Component = () => {
@@ -33,9 +32,7 @@ export const Toolbar_Password: Component = () => {
 
   let qrDiv: HTMLDivElement | undefined;
 
-  const passwordVisualElementSignal = () => VesCache.render.getNode(store.history.getFocusPath())!;
-  const passwordVisualElement = () => passwordVisualElementSignal().get();
-  const passwordItem = () => asPasswordItem(passwordVisualElement().displayItem);
+  const passwordItem = () => asPasswordItem(store.history.getFocusItem());
 
   const desktopPopupIconVisible = (): boolean => {
     return !!(passwordItem().flags & PasswordFlags.ShowDesktopPopupIcon);

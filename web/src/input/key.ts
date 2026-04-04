@@ -811,22 +811,23 @@ function handleVirtualizedTableVerticalNavigationMaybe(
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
   const headerRowsBl = TABLE_TITLE_HEADER_HEIGHT_BL;
   const colHeaderRowsBl = (tableItem.flags & TableFlags.ShowColHeader) ? TABLE_COL_HEADER_HEIGHT_BL : 0;
-  const visibleRowOffset = Math.max(0, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - headerRowsBl - colHeaderRowsBl));
+  const numVisibleRows = Math.max(1, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - headerRowsBl - colHeaderRowsBl));
   const firstVisibleRow = Math.floor(scrollYPos);
-  const lastVisibleRow = firstVisibleRow + visibleRowOffset;
+  const lastVisibleRow = firstVisibleRow + numVisibleRows - 1;
 
   let nextScrollYPos = scrollYPos;
   if (targetRow < firstVisibleRow) {
     nextScrollYPos = targetRow;
   } else if (targetRow > lastVisibleRow) {
-    nextScrollYPos = targetRow - visibleRowOffset;
+    nextScrollYPos = targetRow - (numVisibleRows - 1);
   }
 
-  const maxFirstVisibleRow = Math.max(0, tableItem.computed_children.length - (visibleRowOffset + 1));
+  const maxFirstVisibleRow = Math.max(0, tableItem.computed_children.length - numVisibleRows);
   nextScrollYPos = Math.max(0, Math.min(nextScrollYPos, maxFirstVisibleRow));
 
   if (nextScrollYPos !== scrollYPos) {
     store.perItem.setTableScrollYPos(tableVeid, nextScrollYPos);
+    arrangeNow(store, "key-arrow-scroll-table-before-focus");
   }
 
   store.history.setFocus(targetPath);

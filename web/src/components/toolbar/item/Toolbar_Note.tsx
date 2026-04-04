@@ -20,15 +20,15 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { NoteFns, asNoteItem } from "../../../items/note-item";
 import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
-import { VesCache } from "../../../layout/ves-cache";
 import { useStore } from "../../../store/StoreProvider";
-import { VeFns } from "../../../layout/visual-element";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { GRID_SIZE } from "../../../constants";
+import { itemState } from "../../../store/ItemState";
+import { isTable } from "../../../items/table-item";
 
 
 export const Toolbar_Note: Component = () => {
@@ -39,22 +39,24 @@ export const Toolbar_Note: Component = () => {
   let formatDiv: HTMLDivElement | undefined;
   let urlDiv: HTMLDivElement | undefined;
 
-  const noteVisualElementSignal = () => VesCache.render.getNode(store.history.getFocusPath())!;
-  const noteVisualElement = () => noteVisualElementSignal().get();
-  const noteItem = () => asNoteItem(noteVisualElement().displayItem);
-
-  const compositeVisualElementMaybe = () => {
-    const parentVe = VesCache.render.getNode(noteVisualElement().parentPath!)!.get();
-    if (!isComposite(parentVe.displayItem)) { return null; }
-    return parentVe;
-  };
+  const noteItem = () => asNoteItem(store.history.getFocusItem());
   const compositeItemMaybe = () => {
-    const compositeVeMaybe = compositeVisualElementMaybe();
-    if (compositeVeMaybe == null) { return null; }
-    return asCompositeItem(compositeVeMaybe.displayItem);
+    const parentItem = itemState.get(noteItem().parentId);
+    if (!parentItem || !isComposite(parentItem)) { return null; }
+    return asCompositeItem(parentItem);
   };
 
-  const isInTable = (): boolean => VeFns.isInTable(noteVisualElement());
+  const isInTable = (): boolean => {
+    let parentId = noteItem().parentId;
+    while (parentId) {
+      const parentItem = itemState.get(parentId);
+      if (!parentItem) { return false; }
+      if (isTable(parentItem)) { return true; }
+      if (parentItem.parentId == null || parentItem.parentId === parentId) { return false; }
+      parentId = parentItem.parentId;
+    }
+    return false;
+  };
 
   const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); requestArrange(store, "toolbar-note-text-style"); };
   const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; requestArrange(store, "toolbar-note-text-style"); };

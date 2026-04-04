@@ -21,7 +21,6 @@ import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { asImageItem } from "../../../items/image-item";
-import { VesCache } from "../../../layout/ves-cache";
 import { ImageFlags } from "../../../items/base/flags-item";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
@@ -32,8 +31,7 @@ import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 export const Toolbar_Image: Component = () => {
   const store = useStore();
 
-  const imageVisualElement = () => VesCache.render.getNode(store.history.getFocusPath())!.get();
-  const imageItem = () => asImageItem(imageVisualElement().displayItem);
+  const imageItem = () => asImageItem(store.history.getFocusItem());
 
   let qrDiv: HTMLDivElement | undefined;
 
