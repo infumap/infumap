@@ -495,7 +495,9 @@ function moving_handleOverTable(store: StoreContextModel, overContainerVe: Visua
 
 function moving_handleOverComposite(store: StoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
   assert(isComposite(overContainerVe.displayItem), "overContainerVe is not a composite");
-  const compositeChildren = VesCache.render.getChildren(VeFns.veToPath(overContainerVe))();
+  const activeItemId = MouseActionState.getActiveVisualElement()?.displayItem.id ?? null;
+  const compositeChildren = VesCache.render.getChildren(VeFns.veToPath(overContainerVe))()
+    .filter(childVe => childVe.get().displayItem.id !== activeItemId);
   let insertIndex = compositeChildren.length;
   for (let i = 0; i < compositeChildren.length; ++i) {
     const childVe = compositeChildren[i].get();

@@ -108,6 +108,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       h: ATTACH_AREA_SIZE_PX,
     }
   }
+  const attachCompositeBoundsPx = (): BoundingBox => {
+    return {
+      x: 0,
+      y: boundsPx().h - 1,
+      w: boundsPx().w - 2,
+      h: 1,
+    };
+  };
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
       x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
@@ -322,6 +330,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             `left: ${viewportBoundsPx()!.x + 1}px; top: ${viewportBoundsPx()!.y + 1 + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; ` +
             `width: ${viewportBoundsPx()!.w - 2}px; height: ${viewportBoundsPx()!.h - 2}px; ` +
             `${VeFns.zIndexStyle(props.visualElement)}`} />
+      </Show>
+      <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
+        <div class={`${positionClass()} border border-black pointer-events-none`}
+          style={`left: ${boundsPx().x + attachCompositeBoundsPx().x}px; top: ${boundsPx().y + attachCompositeBoundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;` +
+            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
     </>;
 

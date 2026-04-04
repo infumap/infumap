@@ -31,6 +31,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 
 
@@ -51,6 +52,37 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       w: boundsPx().w - 2,
       h: 1,
     }
+  };
+
+  const moveOverInsertLineBoundsPx = (): BoundingBox | null => {
+    const moveOverIndex = store.perVe.getMoveOverIndex(vePath());
+    if (moveOverIndex < 0) { return null; }
+
+    const activeItemId = MouseActionState.isAction(MouseAction.Moving)
+      ? MouseActionState.getActiveVisualElement()?.displayItem.id ?? null
+      : null;
+    const childVes = VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()
+      .filter(childVe => childVe.get().displayItem.id !== activeItemId);
+
+    const widthPx = Math.max(0, boundsPx().w - 2);
+    if (childVes.length == 0) {
+      return { x: 0, y: 0, w: widthPx, h: 1 };
+    }
+    if (moveOverIndex <= 0) {
+      return { x: 0, y: childVes[0].get().boundsPx.y, w: widthPx, h: 1 };
+    }
+    if (moveOverIndex >= childVes.length) {
+      const lastVe = childVes[childVes.length - 1].get();
+      return { x: 0, y: lastVe.boundsPx.y + lastVe.boundsPx.h, w: widthPx, h: 1 };
+    }
+    const prevVe = childVes[moveOverIndex - 1].get();
+    const nextVe = childVes[moveOverIndex].get();
+    return {
+      x: 0,
+      y: (prevVe.boundsPx.y + prevVe.boundsPx.h + nextVe.boundsPx.y) / 2,
+      w: widthPx,
+      h: 1,
+    };
   };
 
   const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * asCompositeItem(props.visualElement.displayItem).spatialWidthGr / GRID_SIZE); }
@@ -144,6 +176,14 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
           <div class={`absolute border border-black`}
             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />
+        </Show>
+        <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
+          !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
+          moveOverInsertLineBoundsPx()}>
+          {lineBoundsPx => (
+            <div class="absolute pointer-events-none border border-black"
+              style={`left: ${lineBoundsPx().x}px; top: ${lineBoundsPx().y}px; width: ${lineBoundsPx().w}px; height: ${lineBoundsPx().h}px;`} />
+          )}
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
           !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
