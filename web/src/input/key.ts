@@ -16,11 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../constants";
+import { GRID_SIZE, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { PageFlags } from "../items/base/flags-item";
+import { PageFlags, TableFlags } from "../items/base/flags-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
+import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
@@ -47,6 +48,7 @@ import { FileFns, isFile } from "../items/file-item";
 import { NoteFns, isNote } from "../items/note-item";
 import { PasswordFns, isPassword } from "../items/password-item";
 import { ItemFns } from "../items/base/item-polymorphism";
+import { getVePropertiesForItem } from "../layout/arrange/util";
 
 
 /**
@@ -486,6 +488,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     if (focusVe) {
       // Navigate to closest item from current focus
       const direction = findDirectionFromKeyCode(ev.code);
+      if (handleVirtualizedTableVerticalNavigationMaybe(store, focusPath, focusVe, direction)) { return; }
       const closest = findClosest(VesCache.current, focusPath, direction, true);
       if (closest != null) {
         // Just set focus to the new item - don't pop up pages
@@ -739,6 +742,96 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       }
     }
   }
+}
+
+function handleVirtualizedTableVerticalNavigationMaybe(
+  store: StoreContextModel,
+  focusPath: string,
+  focusVe: VisualElement,
+  direction: FindDirection
+): boolean {
+  if (direction != FindDirection.Up && direction != FindDirection.Down) { return false; }
+  if (!(focusVe.flags & VisualElementFlags.InsideTable)) { return false; }
+  if (focusVe.row == null) { return false; }
+
+  const isAttachment = !!(focusVe.flags & VisualElementFlags.Attachment);
+  const rowPath = isAttachment ? focusVe.parentPath : focusPath;
+  if (!rowPath) { return false; }
+
+  const rowVe = isAttachment ? VesCache.current.readNode(rowPath) : focusVe;
+  if (!rowVe) { return false; }
+
+  const tablePath = rowVe.parentPath;
+  if (!tablePath) { return false; }
+
+  const tableVe = VesCache.current.readNode(tablePath);
+  if (!tableVe || !isTable(tableVe.displayItem) || !tableVe.blockSizePx) { return false; }
+
+  const tableVeid = VeFns.veidFromVe(tableVe);
+  const tableItem = asTableItem(tableVe.displayItem);
+  const delta = direction == FindDirection.Up ? -1 : 1;
+
+  let targetPath: string | null = null;
+  let targetRow = focusVe.row;
+
+  if (!isAttachment) {
+    targetRow = focusVe.row + delta;
+    if (targetRow < 0 || targetRow >= tableItem.computed_children.length) { return false; }
+
+    const childItem = itemState.get(tableItem.computed_children[targetRow]);
+    if (!childItem) { return false; }
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+    targetPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), tablePath);
+  } else {
+    if (focusVe.col == null || focusVe.col < 1) { return false; }
+    const attachmentColPos = focusVe.col - 1;
+
+    for (let rowIdx = focusVe.row + delta; rowIdx >= 0 && rowIdx < tableItem.computed_children.length; rowIdx += delta) {
+      const childItem = itemState.get(tableItem.computed_children[rowIdx]);
+      if (!childItem || !isAttachmentsItem(childItem)) { continue; }
+
+      const attachments = asAttachmentsItem(childItem).computed_attachments;
+      if (attachmentColPos >= attachments.length) { continue; }
+
+      const { displayItem: rowDisplayItem, linkItemMaybe: rowLinkItemMaybe } = getVePropertiesForItem(store, childItem);
+      const rowTargetPath = VeFns.addVeidToPath(VeFns.veidFromItems(rowDisplayItem, rowLinkItemMaybe), tablePath);
+
+      const attachmentItem = itemState.get(attachments[attachmentColPos]);
+      if (!attachmentItem) { continue; }
+
+      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, attachmentItem);
+      targetPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), rowTargetPath);
+      targetRow = rowIdx;
+      break;
+    }
+  }
+
+  if (!targetPath) { return false; }
+
+  const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
+  const headerRowsBl = TABLE_TITLE_HEADER_HEIGHT_BL;
+  const colHeaderRowsBl = (tableItem.flags & TableFlags.ShowColHeader) ? TABLE_COL_HEADER_HEIGHT_BL : 0;
+  const visibleRowOffset = Math.max(0, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - headerRowsBl - colHeaderRowsBl));
+  const firstVisibleRow = Math.floor(scrollYPos);
+  const lastVisibleRow = firstVisibleRow + visibleRowOffset;
+
+  let nextScrollYPos = scrollYPos;
+  if (targetRow < firstVisibleRow) {
+    nextScrollYPos = targetRow;
+  } else if (targetRow > lastVisibleRow) {
+    nextScrollYPos = targetRow - visibleRowOffset;
+  }
+
+  const maxFirstVisibleRow = Math.max(0, tableItem.computed_children.length - (visibleRowOffset + 1));
+  nextScrollYPos = Math.max(0, Math.min(nextScrollYPos, maxFirstVisibleRow));
+
+  if (nextScrollYPos !== scrollYPos) {
+    store.perItem.setTableScrollYPos(tableVeid, nextScrollYPos);
+  }
+
+  store.history.setFocus(targetPath);
+  arrangeNow(store, "key-arrow-focus-table-virtual-row");
+  return true;
 }
 
 
