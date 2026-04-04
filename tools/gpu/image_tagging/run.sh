@@ -71,7 +71,7 @@ case "$MODEL_SELECTOR" in
         ;;
 esac
 
-readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$ROOT_DIR/models}"
+readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$ROOT_DIR/models/$MODEL_SELECTOR}"
 readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-$model_repo_default}"
 readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-$model_file_default}"
 readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-$mmproj_file_default}"

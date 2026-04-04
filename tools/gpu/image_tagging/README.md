@@ -21,7 +21,7 @@ By default:
 
 - the HTTP service listens on `127.0.0.1:8788`
 - local `llama-server` listens on `127.0.0.1:18080`
-- model files live under `tools/gpu/image_tagging/models`
+- model files live under `tools/gpu/image_tagging/models/<preset>` by default
 - the launcher uses:
   - repo: `unsloth/Qwen3.5-9B-GGUF`
   - model file: `Qwen3.5-9B-Q4_K_M.gguf`
