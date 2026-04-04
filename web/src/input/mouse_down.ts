@@ -667,6 +667,13 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   const focusVe = VesCache.current.readNode(focusPath);
   if (focusVe) {
     if (focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
+      if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
+
+      // Once an embedded interactive page has been promoted to root,
+      // right click should follow the normal page-history back path.
+      const changedPages = await navigateBack(store);
+      if (changedPages) { return; }
+
       store.history.setFocus(focusVe.parentPath!);
       arrangeNow(store, "mouse-right-exit-embedded-interactive");
       return;
