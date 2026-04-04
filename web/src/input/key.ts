@@ -327,6 +327,27 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
       return false;
     }
 
+    if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      const topLeftChild = VesCache.current.readIndexedChildren(focusPath)
+        .filter(child =>
+          !!child.boundsPx &&
+          !(child.flags & VisualElementFlags.Attachment) &&
+          !(child.flags & VisualElementFlags.Popup) &&
+          !(child.flags & VisualElementFlags.LineItem))
+        .sort((a, b) => {
+          if (a.boundsPx!.y !== b.boundsPx!.y) { return a.boundsPx!.y - b.boundsPx!.y; }
+          if (a.boundsPx!.x !== b.boundsPx!.x) { return a.boundsPx!.x - b.boundsPx!.x; }
+          return VeFns.veToPath(a).localeCompare(VeFns.veToPath(b));
+        })[0];
+
+      if (topLeftChild) {
+        store.history.setFocus(VeFns.veToPath(topLeftChild));
+        arrangeNow(store, "key-enter-focus-spatial-top-left-child");
+        return true;
+      }
+      return false;
+    }
+
     if (pageItem.computed_children.length > 0) {
       store.history.setFocus(VeFns.addVeidToPath(VeFns.veidFromId(pageItem.computed_children[0]), focusPath));
       arrangeNow(store, "key-enter-focus-page-child");
