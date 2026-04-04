@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, MOUSE_MOVE_AMBIGUOUS_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -37,15 +37,13 @@ import { arrangeNow } from "../../layout/arrange";
 import { HitboxFlags } from "../../layout/hitbox";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { MouseActionState } from "../../input/state";
+import { MouseAction, MouseActionState } from "../../input/state";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
-  let iconMouseDownPx: { x: number, y: number } | null = null;
-  let iconMouseDownStartedInComposite = false;
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
@@ -126,32 +124,21 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   };
 
   const iconMouseDownHandler = (ev: MouseEvent) => {
-    iconMouseDownStartedInComposite = isInComposite();
-    if (!iconMouseDownStartedInComposite) {
+    if (!isInComposite()) {
       ev.stopPropagation();
-      return;
     }
-    iconMouseDownPx = { x: ev.clientX, y: ev.clientY };
   }
 
   const iconMouseUpHandler = (ev: MouseEvent) => {
-    if (!iconMouseDownStartedInComposite) {
+    if (MouseActionState.empty()) {
       ev.stopPropagation();
       return;
     }
 
-    const startPx = iconMouseDownPx;
-    iconMouseDownPx = null;
-    iconMouseDownStartedInComposite = false;
-    if (startPx == null) { return; }
-
-    const movedBeyondClickTolerance =
-      Math.abs(ev.clientX - startPx.x) > MOUSE_MOVE_AMBIGUOUS_PX ||
-      Math.abs(ev.clientY - startPx.y) > MOUSE_MOVE_AMBIGUOUS_PX;
-    if (movedBeyondClickTolerance) { return; }
-
-    ev.stopPropagation();
-    MouseActionState.set(null);
+    if (MouseActionState.isAction(MouseAction.Ambiguous)) {
+      ev.stopPropagation();
+      MouseActionState.set(null);
+    }
   }
 
   const copyClickHandler = () => {
