@@ -53,7 +53,7 @@ export const Toolbar_Composite: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <div ref={qrDiv} class="inline-block pl-[18px]" onMouseDown={handleQrDown}>
+        <div ref={qrDiv} class="inline-block pl-[7px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
         </div>
         <div class="inline-block">
