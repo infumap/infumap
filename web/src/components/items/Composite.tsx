@@ -178,7 +178,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />
         </Show>
         <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
-          !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
+          MouseActionState.getMoveOverAttachCompositePath() == null &&
           moveOverInsertLineBoundsPx()}>
           {lineBoundsPx => (
             <div class="absolute pointer-events-none border border-black"
