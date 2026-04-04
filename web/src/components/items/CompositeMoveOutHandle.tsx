@@ -25,12 +25,16 @@ interface CompositeMoveOutHandleProps {
 }
 
 export const CompositeMoveOutHandle: Component<CompositeMoveOutHandleProps> = (props: CompositeMoveOutHandleProps) => {
-  const lineWidthPx = () => 2;
-  const lineGapPx = () => 4;
+  const lineWidthPx = () => 1;
+  const lineGapPx = () => 2;
   const totalLineWidthPx = () => lineWidthPx() * 2 + lineGapPx();
   const lineHeightPx = () => Math.max(8, props.boundsPx.h - 6);
   const lineTopPx = () => Math.max(0, Math.round((props.boundsPx.h - lineHeightPx()) / 2));
-  const lineLeftPx = () => Math.max(0, Math.round((props.boundsPx.w - totalLineWidthPx()) / 2));
+  const lineLeftPx = () =>
+    Math.max(0, Math.min(
+      props.boundsPx.w - totalLineWidthPx(),
+      Math.round((props.boundsPx.w - totalLineWidthPx()) / 2) + 3
+    ));
 
   return (
     <div class="absolute pointer-events-none"
