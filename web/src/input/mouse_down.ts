@@ -561,6 +561,36 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
   }
 
+  const clearCalendarMonthResizeBeforeBackMaybe = (): boolean => {
+    if (store.history.currentPopupSpec() != null) { return false; }
+    const currentPageVeid = store.history.currentPageVeid();
+    const currentPagePath = store.history.currentPagePath();
+    if (!currentPageVeid || !currentPagePath) { return false; }
+
+    const currentPageItem = itemState.get(currentPageVeid.itemId);
+    if (!currentPageItem || !isPage(currentPageItem)) { return false; }
+    if (asPageItem(currentPageItem).arrangeAlgorithm !== ArrangeAlgorithm.Calendar) { return false; }
+
+    if (store.perVe.getCalendarMonthResize(currentPagePath) == null) { return false; }
+
+    store.perVe.setCalendarMonthResize(currentPagePath, null);
+    arrangeNow(store, "mouse-right-reset-calendar-month-width");
+    return true;
+  };
+
+  const currentRootPageVeid = store.history.currentPageVeid();
+  const currentRootPageItem = currentRootPageVeid ? itemState.get(currentRootPageVeid.itemId) : null;
+
+  if (currentRootPageItem &&
+    isPage(currentRootPageItem) &&
+    !!(asPageItem(currentRootPageItem).flags & PageFlags.EmbeddedInteractive) &&
+    store.history.currentPopupSpec() == null &&
+    store.history.peekPrevPageVeid() != null) {
+    if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
+    await navigateBack(store);
+    return;
+  }
+
   // If an item inside a table is focused, right click should return focus to the root page.
   // Otherwise, move focus one level up before navigating.
   const currentFocusPath = store.history.getFocusPath();
@@ -589,23 +619,6 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
       }
     }
   }
-
-  const clearCalendarMonthResizeBeforeBackMaybe = (): boolean => {
-    if (store.history.currentPopupSpec() != null) { return false; }
-    const currentPageVeid = store.history.currentPageVeid();
-    const currentPagePath = store.history.currentPagePath();
-    if (!currentPageVeid || !currentPagePath) { return false; }
-
-    const currentPageItem = itemState.get(currentPageVeid.itemId);
-    if (!currentPageItem || !isPage(currentPageItem)) { return false; }
-    if (asPageItem(currentPageItem).arrangeAlgorithm !== ArrangeAlgorithm.Calendar) { return false; }
-
-    if (store.perVe.getCalendarMonthResize(currentPagePath) == null) { return false; }
-
-    store.perVe.setCalendarMonthResize(currentPagePath, null);
-    arrangeNow(store, "mouse-right-reset-calendar-month-width");
-    return true;
-  };
 
   const topPagePaths = store.topTitledPages.get();
   const focusPath = store.history.getFocusPath();
