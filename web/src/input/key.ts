@@ -132,12 +132,16 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   }
 
   if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-    // Allow Escape key to exit text editing mode
-    if (ev.code != "Escape") {
-      // TODO (HIGH)
-      // event is fired before content is updated.
+    if (ev.code == "Escape") {
+      ev.preventDefault();
+      store.overlay.setTextEditInfo(store.history, null, true);
+      arrangeNow(store, "key-escape-cancel-edit");
       return;
     }
+
+    // TODO (HIGH)
+    // event is fired before content is updated.
+    return;
   }
 
   // input box is in toolbar.

@@ -843,6 +843,19 @@ export const PageFns = {
   },
 
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    const parentVe = visualElement.parentPath ? VesCache.current.readNode(visualElement.parentPath) : null;
+    if ((visualElement.flags & VisualElementFlags.LineItem) &&
+      parentVe != null &&
+      isPage(parentVe.displayItem) &&
+      asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+      const clickedVeid = VeFns.actualVeidFromVe(visualElement);
+      const currentVeid = store.history.currentPageVeid();
+      if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
+        switchToPage(store, clickedVeid, true, false, false);
+      }
+      return;
+    }
+
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const focusPath = VeFns.veToPath(visualElement);
     store.history.setFocus(focusPath);
@@ -867,6 +880,17 @@ export const PageFns = {
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, isFromAttachment?: boolean): void => {
     const parentVe = VesCache.current.readNode(visualElement.parentPath!)!;
+    const itemPath = VeFns.veToPath(visualElement);
+
+    // For pages inside pages, use the inner box as a focus-first affordance:
+    // first click focuses the page item, second click opens it as a popup.
+    if (!(visualElement.flags & VisualElementFlags.LineItem) &&
+      isPage(parentVe.displayItem) &&
+      store.history.getFocusPathMaybe() !== itemPath) {
+      store.history.setFocus(itemPath);
+      arrangeNow(store, "page-focus-before-popup");
+      return;
+    }
 
     // Calculate source position for attachment popups (center of the attachment in parent page Gr coordinates)
     let sourcePositionGr: { x: number, y: number } | null = null;
