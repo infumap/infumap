@@ -116,6 +116,10 @@ const _compositeHandler: HitHandler = {
       const compositeChildVes = compositeVeChildren[j];
       const compositeChildVe = compositeChildVes.get();
       const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVeViewportPx);
+      const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
+      if ((hitboxType & HitboxFlags.AttachComposite) && !ignoreItems.has(compositeChildVe.displayItem.id)) {
+        return new HitBuilder(parentRootVe, rootVes).over(compositeChildVes).hitboxes(hitboxType, compositeHitboxType).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-attach-child").build();
+      }
       if (isTable(compositeChildVe.displayItem) && !(compositeChildVe.flags & VisualElementFlags.LineItem)) {
         const tableHit = _tableHandler.handle(compositeChildVe, compositeChildVes, {
           ...ctx,
@@ -123,7 +127,6 @@ const _compositeHandler: HitHandler = {
         });
         if (tableHit) { return tableHit; }
       }
-      const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
       const isInPageGutter =
         isPage(compositeChildVe.displayItem) &&
         isInside(posRelativeToCompositeChildAreaPx, {

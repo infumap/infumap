@@ -376,6 +376,11 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);
   if (tableContainerVeMaybe) {
     moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx);
+  } else {
+    const moveOverContainerVe = MouseActionState.readMoveOverContainer()!;
+    if (isComposite(moveOverContainerVe.displayItem)) {
+      moving_handleOverComposite(store, moveOverContainerVe, desktopPosPx);
+    }
   }
 
   const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
@@ -486,6 +491,21 @@ function moving_handleOverTable(store: StoreContextModel, overContainerVe: Visua
   } else {
     store.perVe.setMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe), -1);
   }
+}
+
+function moving_handleOverComposite(store: StoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
+  assert(isComposite(overContainerVe.displayItem), "overContainerVe is not a composite");
+  const compositeChildren = VesCache.render.getChildren(VeFns.veToPath(overContainerVe))();
+  let insertIndex = compositeChildren.length;
+  for (let i = 0; i < compositeChildren.length; ++i) {
+    const childVe = compositeChildren[i].get();
+    const childBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, childVe);
+    if (desktopPx.y < childBoundsPx.y + childBoundsPx.h / 2) {
+      insertIndex = i;
+      break;
+    }
+  }
+  store.perVe.setMoveOverIndex(VeFns.veToPath(overContainerVe), insertIndex);
 }
 
 

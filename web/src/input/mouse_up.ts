@@ -395,6 +395,10 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     mouseUpHandler_moving_toTable(store, activeItem, overContainerVe);
     return;
   }
+  if (isComposite(overContainerVe.displayItem)) {
+    mouseUpHandler_moving_toComposite(store, activeItem, overContainerVe);
+    return;
+  }
 
   if (overContainerVe.displayItem.id != activeItem.parentId) {
     if (isPage(overContainerVe.displayItem)) {
@@ -702,6 +706,37 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
 
   finalizeMouseUp(store);
   arrangeNow(store, "mouse-up-move-to-opaque-page");
+}
+
+function mouseUpHandler_moving_toComposite(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  if (!isComposite(overContainerVe.displayItem)) { panic("mouseUpHandler_moving_toComposite: over container is not a composite."); }
+
+  const moveOverContainerId = overContainerVe.displayItem.id;
+  if (moveOverContainerId == activeItem.id) {
+    console.error("activeItem", activeItem);
+    console.error("overContainerVe", overContainerVe);
+    panic("mouseUpHandler_moving_toComposite: Attempt was made to move an item into itself.");
+  }
+
+  const path = VeFns.veToPath(overContainerVe);
+  const moveToIndex = store.perVe.getMoveOverIndex(path);
+  const moveToOrdering = itemState.newOrderingAtChildrenPosition(
+    moveOverContainerId,
+    moveToIndex >= 0 ? moveToIndex : asCompositeItem(overContainerVe.displayItem).computed_children.length,
+    activeItem.id,
+  );
+
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  if (activeItem.parentId != moveOverContainerId) {
+    itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
+  } else {
+    activeItem.ordering = moveToOrdering;
+    itemState.sortChildren(moveOverContainerId);
+  }
+  serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+
+  finalizeMouseUp(store);
+  arrangeNow(store, "mouse-up-move-to-composite");
 }
 
 
