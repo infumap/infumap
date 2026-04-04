@@ -249,7 +249,7 @@ export const ItemFns = {
     else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), store); }
     else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
-    else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal); }
+    else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal, hitboxMeta); }
     else if (isLink(item)) { }
     else if (isPlaceholder(item)) { panic("handleClick: placeholder."); }
     else { panic(`Unknown item type: ${item.itemType}`); }

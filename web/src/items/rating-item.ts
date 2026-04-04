@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from '../constants';
-import { HitboxFlags, HitboxFns } from '../layout/hitbox';
+import { HitboxFlags, HitboxFns, HitboxMeta } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { Item, ItemType, ItemTypeMixin } from './base/item';
@@ -29,7 +29,8 @@ import { serverOrRemote } from '../server';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
-import { requestArrange } from '../layout/arrange';
+import { arrangeNow, requestArrange } from '../layout/arrange';
+import { VeFns } from '../layout/visual-element';
 
 
 export type RatingType = "Number" | "Star" | "HorizontalBar" | "VerticalBar";
@@ -141,26 +142,51 @@ export const RatingFns = {
       h: blockSizePx.h
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const valueClickBoundsPx = {
+      x: Math.max(0, (innerBoundsPx.w - blockSizePx.w) / 2),
+      y: innerBoundsPx.y,
+      w: Math.min(blockSizePx.w, innerBoundsPx.w),
+      h: innerBoundsPx.h,
+    };
     const moveBoundsPx = {
       x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h
     };
+    const leftFocusBoundsPx = {
+      x: innerBoundsPx.x,
+      y: innerBoundsPx.y,
+      w: Math.max(0, valueClickBoundsPx.x - innerBoundsPx.x),
+      h: innerBoundsPx.h,
+    };
+    const rightFocusBoundsPx = {
+      x: valueClickBoundsPx.x + valueClickBoundsPx.w,
+      y: innerBoundsPx.y,
+      w: Math.max(0, moveBoundsPx.x - (valueClickBoundsPx.x + valueClickBoundsPx.w)),
+      h: innerBoundsPx.h,
+    };
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Click, valueClickBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+      HitboxFns.create(HitboxFlags.AttachComposite, {
+        x: 0,
+        y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+        w: innerBoundsPx.w,
+        h: ATTACH_AREA_SIZE_PX,
+      }),
+    ];
+    if (leftFocusBoundsPx.w > 0) {
+      hitboxes.unshift(HitboxFns.create(HitboxFlags.Click, leftFocusBoundsPx, { focusOnly: true }));
+    }
+    if (rightFocusBoundsPx.w > 0) {
+      hitboxes.splice(hitboxes.length - 2, 0, HitboxFns.create(HitboxFlags.Click, rightFocusBoundsPx, { focusOnly: true }));
+    }
     return {
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
-        HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: 0,
-          y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w,
-          h: ATTACH_AREA_SIZE_PX,
-        }),
-      ]
+      hitboxes
     };
   },
 
@@ -212,9 +238,14 @@ export const RatingFns = {
     });
   },
 
-  handleClick: (store: StoreContextModel, visualElementSignal: VisualElementSignal): void => {
+  handleClick: (store: StoreContextModel, visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null = null): void => {
     const visualElement = visualElementSignal.get();
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    if (hitboxMeta?.focusOnly) {
+      store.history.setFocus(VeFns.veToPath(visualElement));
+      arrangeNow(store, "rating-focus-only");
+      return;
+    }
     const item = asRatingItem(visualElementSignal.get().displayItem);
     item.rating += 1;
     if (item.rating == 6) { item.rating = 0; }
