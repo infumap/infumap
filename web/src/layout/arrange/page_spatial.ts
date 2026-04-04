@@ -105,21 +105,19 @@ export function arrange_spatial_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  const pageScrollXProp = store.perItem.getPageScrollXProp(pageWithChildrenVeid);
-  const pageScrollYProp = store.perItem.getPageScrollYProp(pageWithChildrenVeid);
-  const visibleChildAreaBoundsPx: BoundingBox = {
-    x: Math.max(0, pageSpec.childAreaBoundsPx.w - geometry.viewportBoundsPx!.w) * pageScrollXProp,
-    y: Math.max(0, pageSpec.childAreaBoundsPx.h - geometry.viewportBoundsPx!.h) * pageScrollYProp,
-    w: geometry.viewportBoundsPx!.w,
-    h: geometry.viewportBoundsPx!.h,
+  const scrollableChildAreaBoundsPx: BoundingBox = {
+    x: 0,
+    y: 0,
+    w: pageSpec.childAreaBoundsPx.w,
+    h: pageSpec.childAreaBoundsPx.h,
   };
 
-  const keepGeometryVisibleInViewport = (itemGeometry: ItemGeometry): { geometry: ItemGeometry, wasAutoMoved: boolean } => {
+  const keepGeometryInsideScrollableArea = (itemGeometry: ItemGeometry): { geometry: ItemGeometry, wasAutoMoved: boolean } => {
     const nextBoundsPx = cloneBoundingBox(itemGeometry.boundsPx)!;
-    const minX = visibleChildAreaBoundsPx.x;
-    const minY = visibleChildAreaBoundsPx.y;
-    const maxX = visibleChildAreaBoundsPx.x + Math.max(0, visibleChildAreaBoundsPx.w - nextBoundsPx.w);
-    const maxY = visibleChildAreaBoundsPx.y + Math.max(0, visibleChildAreaBoundsPx.h - nextBoundsPx.h);
+    const minX = scrollableChildAreaBoundsPx.x;
+    const minY = scrollableChildAreaBoundsPx.y;
+    const maxX = scrollableChildAreaBoundsPx.x + Math.max(0, scrollableChildAreaBoundsPx.w - nextBoundsPx.w);
+    const maxY = scrollableChildAreaBoundsPx.y + Math.max(0, scrollableChildAreaBoundsPx.h - nextBoundsPx.h);
     const clampedX = Math.min(Math.max(nextBoundsPx.x, minX), maxX);
     const clampedY = Math.min(Math.max(nextBoundsPx.y, minY), maxY);
     const dx = clampedX - nextBoundsPx.x;
@@ -169,7 +167,7 @@ export function arrange_spatial_page(
       hasDefaultChanges,
       false,
       store.smallScreenMode());
-    const { geometry: visibleItemGeometry, wasAutoMoved } = keepGeometryVisibleInViewport(itemGeometry);
+    const { geometry: visibleItemGeometry, wasAutoMoved } = keepGeometryInsideScrollableArea(itemGeometry);
     let childPath: VisualElementPath;
     if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
       childPath = arrangeItemPath(
