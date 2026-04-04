@@ -35,6 +35,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
   const vePath = () => VeFns.veToPath(props.visualElement);
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
   const ratingType = () => ratingItem().ratingType;
+  if (!props.visualElement.blockSizePx) { return <></>; }
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const boundsPx = () => {
     let result = props.visualElement.boundsPx;

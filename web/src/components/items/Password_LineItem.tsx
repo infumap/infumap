@@ -39,6 +39,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const iconScale = () => scale() * 0.92;
   const smallScale = () => scale() * 0.7;
+  if (!props.visualElement.blockSizePx) { return <></>; }
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().x
