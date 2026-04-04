@@ -26,7 +26,6 @@ import { requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
-import { VesCache } from "../../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
 import { panic } from "../../util/lang";
@@ -93,36 +92,15 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-function focusedNoteVisualElementMaybe(store: StoreContextModel) {
-  if (!isNote(store.history.getFocusItem())) {
-    return null;
-  }
-  const notePath = store.overlay.textEditInfo()?.itemPath ?? store.history.getFocusPathMaybe();
-  if (!notePath) {
-    return null;
-  }
-  return VesCache.render.getNode(notePath)?.get() ?? null;
-}
-
 export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   const popupType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
-  const compositeVisualElementMaybe = () => {
-    const noteVisualElement = focusedNoteVisualElementMaybe(store);
-    if (!noteVisualElement || !noteVisualElement.parentPath) {
-      return null;
-    }
-    const parentVe = VesCache.render.getNode(noteVisualElement.parentPath)?.get();
-    if (!parentVe) {
-      return null;
-    }
-    if (!isComposite(parentVe.displayItem)) { return null; }
-    return parentVe;
-  };
   const compositeItemMaybe = () => {
-    const compositeVeMaybe = compositeVisualElementMaybe();
-    if (compositeVeMaybe == null) { return null; }
-    return asCompositeItem(compositeVeMaybe.displayItem);
+    const focusItem = store.history.getFocusItem();
+    if (!isComposite(focusItem)) { return null; }
+    return asCompositeItem(focusItem);
   };
+  const showSeparateCompositeSection = () =>
+    compositeItemMaybe() != null && compositeItemMaybe()!.id != store.history.getFocusItem().id;
 
   if (popupType != ToolbarPopupType.PageColor &&
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
@@ -135,7 +113,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: popupWidth,
-      h: toolbarPopupHeight(popupType, compositeItemMaybe() != null)
+      h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
     }
   } else if (popupType == ToolbarPopupType.PageColor) {
     return {
@@ -173,25 +151,13 @@ export const Toolbar_Popup: Component = () => {
   const tableItem = () => asTableItem(store.history.getFocusItem());
   const ratingItem = () => asRatingItem(store.history.getFocusItem());
   const formatItem = () => asFormatItem(store.history.getFocusItem());
-
-  const noteVisualElementMaybe = () => focusedNoteVisualElementMaybe(store);
-  const compositeVisualElementMaybe = () => {
-    const noteVisualElement = noteVisualElementMaybe();
-    if (!noteVisualElement || !noteVisualElement.parentPath) {
-      return null;
-    }
-    const parentVe = VesCache.render.getNode(noteVisualElement.parentPath)?.get();
-    if (!parentVe) {
-      return null;
-    }
-    if (!isComposite(parentVe.displayItem)) { return null; }
-    return parentVe;
-  };
   const compositeItemMaybe = () => {
-    const compositeVeMaybe = compositeVisualElementMaybe();
-    if (compositeVeMaybe == null) { return null; }
-    return asCompositeItem(compositeVeMaybe.displayItem);
+    const focusItem = store.history.getFocusItem();
+    if (!isComposite(focusItem)) { return null; }
+    return asCompositeItem(focusItem);
   };
+  const showSeparateCompositeSection = () =>
+    compositeItemMaybe() != null && compositeItemMaybe()!.id != store.history.getFocusItem().id;
 
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()!.type;
@@ -541,10 +507,10 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <canvas id="qrcanvas" style="margin: auto; width: 200px; height: 200px; margin-top: 12px;" width="200" height="200" />
-            <Show when={compositeItemMaybe() != null}>
+            <Show when={showSeparateCompositeSection()}>
               <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
             </Show>
-            <Show when={compositeItemMaybe() == null}>
+            <Show when={!showSeparateCompositeSection()}>
               <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
             </Show>
             <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
@@ -552,7 +518,7 @@ export const Toolbar_Popup: Component = () => {
               <span class="font-mono text-slate-400">{`${store.history.getFocusItem().id}`}</span>
               <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyItemIdClickHandler} />
             </div>
-            <Show when={compositeItemMaybe() != null}>
+            <Show when={showSeparateCompositeSection()}>
               <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
                 <span class="font-mono text-slate-400">Composite Id:</span><br />
                 <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
