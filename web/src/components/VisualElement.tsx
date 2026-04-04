@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Switch } from "solid-js";
+import { Component, Match, Show, Switch } from "solid-js";
 import { isFile } from "../items/file-item";
 import { isImage } from "../items/image-item";
 import { isNote } from "../items/note-item";
@@ -49,6 +49,9 @@ import { LinkDefault_LineItem } from "./items/LinkDefault_LineItem";
 import { Image_LineItem } from "./items/Image_LineItem";
 import { FileLineItem } from "./items/File_LineItem";
 import { Composite_LineItem } from "./items/Composite_LineItem";
+import { useStore } from "../store/StoreProvider";
+import { VisualElementFlags, VeFns } from "../layout/visual-element";
+import { Z_INDEX_ITEMS_OVERLAY } from "../constants";
 
 
 export interface VisualElementProps {
@@ -56,20 +59,34 @@ export interface VisualElementProps {
 }
 
 export const VisualElement_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+  const vePath = () => VeFns.veToPath(props.visualElement);
+  const warningTopPx = () =>
+    props.visualElement.boundsPx.y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0);
+
   return (
-    <Switch fallback={<div>VisualElement_Desktop: unknown display item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
-      <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
-      <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
-      <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
-      <Match when={isComposite(props.visualElement.displayItem)}><Composite_Desktop {...props} /></Match>
-      <Match when={isNote(props.visualElement.displayItem)}><Note_Desktop {...props} /></Match>
-      <Match when={isTable(props.visualElement.displayItem)}><Table_Desktop {...props} /></Match>
-      <Match when={isImage(props.visualElement.displayItem)}><Image_Desktop {...props} /></Match>
-      <Match when={isFile(props.visualElement.displayItem)}><File {...props} /></Match>
-      <Match when={isPassword(props.visualElement.displayItem)}><Password {...props} /></Match>
-      <Match when={isRating(props.visualElement.displayItem)}><Rating_Desktop {...props} /></Match>
-      <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_Desktop {...props} /></Match>
-    </Switch>
+    <>
+      <Switch fallback={<div>VisualElement_Desktop: unknown display item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
+        <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
+        <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
+        <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
+        <Match when={isComposite(props.visualElement.displayItem)}><Composite_Desktop {...props} /></Match>
+        <Match when={isNote(props.visualElement.displayItem)}><Note_Desktop {...props} /></Match>
+        <Match when={isTable(props.visualElement.displayItem)}><Table_Desktop {...props} /></Match>
+        <Match when={isImage(props.visualElement.displayItem)}><Image_Desktop {...props} /></Match>
+        <Match when={isFile(props.visualElement.displayItem)}><File {...props} /></Match>
+        <Match when={isPassword(props.visualElement.displayItem)}><Password {...props} /></Match>
+        <Match when={isRating(props.visualElement.displayItem)}><Rating_Desktop {...props} /></Match>
+        <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_Desktop {...props} /></Match>
+      </Switch>
+      <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? 'fixed' : 'absolute'} pointer-events-none rounded-xs`}
+          style={`left: ${props.visualElement.boundsPx.x}px; top: ${warningTopPx()}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
+            `border: 2px solid rgba(245, 158, 11, 0.95); ` +
+            `background: repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.12) 8px, rgba(251, 191, 36, 0.20) 8px, rgba(251, 191, 36, 0.20) 16px); ` +
+            `box-shadow: inset 0 0 0 1px rgba(255, 251, 235, 0.7); z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+      </Show>
+    </>
   );
 }
 

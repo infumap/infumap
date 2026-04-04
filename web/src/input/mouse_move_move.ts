@@ -71,7 +71,8 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     arrangeNow(store, "moving-init-out-of-composite");
   }
   else {
-    MouseActionState.setStartPosBl({
+    const renderedStartPosBl = spatialStartPosBlFromRenderedVe(activeVisualElement);
+    MouseActionState.setStartPosBl(renderedStartPosBl ?? {
       x: activeItem.spatialPositionGr.x / GRID_SIZE,
       y: activeItem.spatialPositionGr.y / GRID_SIZE
     });
@@ -89,7 +90,13 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
           .filter(e => isPositionalItem(e.item))
           .map(e => ({
             veid: e.veid,
-            startPosGr: (e.item as PositionalItem).spatialPositionGr,
+            startPosGr: (() => {
+              const renderedVe = VesCache.current.findNodes(e.veid)[0];
+              const renderedPosBl = renderedVe ? spatialStartPosBlFromRenderedVe(renderedVe) : null;
+              return renderedPosBl
+                ? { x: renderedPosBl.x * GRID_SIZE, y: renderedPosBl.y * GRID_SIZE }
+                : (e.item as PositionalItem).spatialPositionGr;
+            })(),
             parentId: (e.item as PositionalItem).parentId,
           }));
         MouseActionState.setGroupMoveItems(group);
@@ -247,6 +254,22 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
   store.anItemIsMoving.set(true);
   MouseActionState.setAction(MouseAction.Moving);
+}
+
+function spatialStartPosBlFromRenderedVe(visualElement: VisualElement): Vector | null {
+  if (!(visualElement.flags & VisualElementFlags.Detailed) || !visualElement.parentPath) { return null; }
+
+  const parentVe = VesCache.current.readNode(visualElement.parentPath);
+  if (!parentVe || !isPage(parentVe.displayItem) || !parentVe.childAreaBoundsPx) { return null; }
+
+  const parentPage = asPageItem(parentVe.displayItem);
+  if (parentPage.arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch) { return null; }
+
+  const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
+  return {
+    x: visualElement.boundsPx.x / parentVe.childAreaBoundsPx.w * parentInnerSizeBl.w,
+    y: visualElement.boundsPx.y / parentVe.childAreaBoundsPx.h * parentInnerSizeBl.h,
+  };
 }
 
 

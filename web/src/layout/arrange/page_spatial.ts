@@ -23,7 +23,7 @@ import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -105,6 +105,48 @@ export function arrange_spatial_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
+  const pageScrollXProp = store.perItem.getPageScrollXProp(pageWithChildrenVeid);
+  const pageScrollYProp = store.perItem.getPageScrollYProp(pageWithChildrenVeid);
+  const visibleChildAreaBoundsPx: BoundingBox = {
+    x: Math.max(0, pageSpec.childAreaBoundsPx.w - geometry.viewportBoundsPx!.w) * pageScrollXProp,
+    y: Math.max(0, pageSpec.childAreaBoundsPx.h - geometry.viewportBoundsPx!.h) * pageScrollYProp,
+    w: geometry.viewportBoundsPx!.w,
+    h: geometry.viewportBoundsPx!.h,
+  };
+
+  const keepGeometryVisibleInViewport = (itemGeometry: ItemGeometry): { geometry: ItemGeometry, wasAutoMoved: boolean } => {
+    const nextBoundsPx = cloneBoundingBox(itemGeometry.boundsPx)!;
+    const minX = visibleChildAreaBoundsPx.x;
+    const minY = visibleChildAreaBoundsPx.y;
+    const maxX = visibleChildAreaBoundsPx.x + Math.max(0, visibleChildAreaBoundsPx.w - nextBoundsPx.w);
+    const maxY = visibleChildAreaBoundsPx.y + Math.max(0, visibleChildAreaBoundsPx.h - nextBoundsPx.h);
+    const clampedX = Math.min(Math.max(nextBoundsPx.x, minX), maxX);
+    const clampedY = Math.min(Math.max(nextBoundsPx.y, minY), maxY);
+    const dx = clampedX - nextBoundsPx.x;
+    const dy = clampedY - nextBoundsPx.y;
+    if (dx === 0 && dy === 0) {
+      return { geometry: itemGeometry, wasAutoMoved: false };
+    }
+
+    nextBoundsPx.x += dx;
+    nextBoundsPx.y += dy;
+
+    return {
+      geometry: {
+        ...itemGeometry,
+        boundsPx: nextBoundsPx,
+        viewportBoundsPx: itemGeometry.viewportBoundsPx == null
+          ? null
+          : {
+            ...itemGeometry.viewportBoundsPx,
+            x: itemGeometry.viewportBoundsPx.x + dx,
+            y: itemGeometry.viewportBoundsPx.y + dy,
+          },
+      },
+      wasAutoMoved: true,
+    };
+  };
+
   const childrenPaths: Array<VisualElementPath> = [];
   for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
     const childId = displayItem_pageWithChildren.computed_children[i];
@@ -127,21 +169,25 @@ export function arrange_spatial_page(
       hasDefaultChanges,
       false,
       store.smallScreenMode());
+    const { geometry: visibleItemGeometry, wasAutoMoved } = keepGeometryVisibleInViewport(itemGeometry);
+    let childPath: VisualElementPath;
     if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
-      childrenPaths.push(arrangeItemPath(
-        store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
+      childPath = arrangeItemPath(
+        store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, visibleItemGeometry,
         ArrangeItemFlags.RenderChildrenAsFull |
         (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
-        (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
+        (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     } else {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
-      childrenPaths.push(arrangeItemNoChildrenPath(
-        store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry,
+      childPath = arrangeItemNoChildrenPath(
+        store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, visibleItemGeometry,
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
         (flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None) |
-        ArrangeItemFlags.RenderAsOutline));
+        ArrangeItemFlags.RenderAsOutline);
     }
+    store.perVe.setAutoMovedIntoView(childPath, wasAutoMoved);
+    childrenPaths.push(childPath);
   }
   pageRelationships.childrenPaths = childrenPaths;
 

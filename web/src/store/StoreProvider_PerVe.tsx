@@ -67,6 +67,9 @@ export interface PerVeStoreContextModel {
   getCalendarMonthResize: (vePath: VisualElementPath) => CalendarMonthResize | null,
   setCalendarMonthResize: (vePath: VisualElementPath, resize: CalendarMonthResize | null) => void,
 
+  getAutoMovedIntoView: (vePath: VisualElementPath) => boolean,
+  setAutoMovedIntoView: (vePath: VisualElementPath, isAutoMoved: boolean) => void,
+
   clear: () => void,
 }
 
@@ -87,6 +90,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const isExpanded = new Map<string, BooleanSignal>();
   const calendarYear = new Map<string, NumberSignal>();
   const calendarMonthResize = new Map<string, InfuSignal<CalendarMonthResize | null>>();
+  const autoMovedIntoView = new Map<string, BooleanSignal>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
     if (!mouseIsOver.get(vePath)) {
@@ -290,6 +294,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
     calendarMonthResize.get(vePath)!.set(resize);
   };
 
+  const getAutoMovedIntoView = (vePath: VisualElementPath): boolean => {
+    if (!autoMovedIntoView.get(vePath)) {
+      autoMovedIntoView.set(vePath, createBooleanSignal(false));
+    }
+    return autoMovedIntoView.get(vePath)!.get();
+  };
+
+  const setAutoMovedIntoView = (vePath: VisualElementPath, isAutoMoved: boolean): void => {
+    if (!autoMovedIntoView.get(vePath)) {
+      autoMovedIntoView.set(vePath, createBooleanSignal(isAutoMoved));
+      return;
+    }
+    autoMovedIntoView.get(vePath)!.set(isAutoMoved);
+  };
+
   return ({
     getMouseIsOver,
     setMouseIsOver,
@@ -329,6 +348,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getCalendarMonthResize,
     setCalendarMonthResize,
+
+    getAutoMovedIntoView,
+    setAutoMovedIntoView,
 
     clear
   });
