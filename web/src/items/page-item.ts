@@ -836,6 +836,14 @@ export const PageFns = {
       const focusPath = VeFns.veToPath(visualElement);
       store.history.setFocus(focusPath);
 
+      // For page line items inside tables, a plain click should stop at focus.
+      // Opening as root is handled explicitly by title-link clicks instead.
+      if ((visualElement.flags & VisualElementFlags.LineItem) &&
+        (visualElement.flags & VisualElementFlags.InsideTable)) {
+        arrangeNow(store, "page-line-item-focus");
+        return;
+      }
+
       // Find the outermost list page in the current hierarchy (e.g. if in a popup).
       // If it's different from the current page, switch to it.
       PageFns.switchToOutermostListPageMaybe(visualElement, store);
