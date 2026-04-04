@@ -394,6 +394,14 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     x: (startPx.x - boundsOnTopLevelPagePx.x) / boundsOnTopLevelPagePx.w,
     y: (startPx.y - boundsOnTopLevelPagePx.y) / boundsOnTopLevelPagePx.h
   };
+  if (hitInfo.overElementMeta?.compositeMoveOut) {
+    // Composite move-out can start from a synthetic gutter outside the item's visible bounds.
+    // Anchor the drag to the nearest point on the real item box so the dragged item stays near the cursor.
+    clickOffsetProp = {
+      x: Math.max(0, Math.min(1, clickOffsetProp.x)),
+      y: Math.max(0, Math.min(1, clickOffsetProp.y)),
+    };
+  }
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
 
