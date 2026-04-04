@@ -30,6 +30,7 @@ import { asNoteItem, isNote } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
+import { isFile } from "../items/file-item";
 import { arrangeNow } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
@@ -263,7 +264,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         arrangeNow(store, "mouse-up-focus-link");
 
       } else if (ClickState.getLinkWasClicked()) {
-        ItemFns.handleLinkClick(activeVisualElement, store);
+        if (isPage(activeVisualElement.displayItem) ||
+          isNote(activeVisualElement.displayItem) ||
+          isImage(activeVisualElement.displayItem) ||
+          isFile(activeVisualElement.displayItem)) {
+          ItemFns.handleLinkClick(activeVisualElement, store);
+        } else {
+          ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
+        }
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TriangleLinkSettings)) {
         const focusPath = VeFns.addVeidToPath(
