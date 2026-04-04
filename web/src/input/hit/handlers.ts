@@ -115,12 +115,30 @@ const _compositeHandler: HitHandler = {
       const compositeChildVe = compositeChildVes.get();
       const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVeViewportPx);
       const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
+      const isInPageGutter =
+        isPage(compositeChildVe.displayItem) &&
+        isInside(posRelativeToCompositeChildAreaPx, {
+          x: compositeChildVe.boundsPx.x + compositeChildVe.boundsPx.w,
+          y: compositeChildVe.boundsPx.y,
+          w: compositeVe.boundsPx.w - (compositeChildVe.boundsPx.x + compositeChildVe.boundsPx.w),
+          h: compositeChildVe.boundsPx.h,
+        });
       const hitExtendedPageMoveArea =
         isPage(compositeChildVe.displayItem) &&
         !!(hitboxType & HitboxFlags.Move);
-      if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx) || hitExtendedPageMoveArea) {
+      if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx) || hitExtendedPageMoveArea || isInPageGutter) {
         if (!ignoreItems.has(compositeChildVe.displayItem.id)) {
           // table will be delegated to the table handler later in traversal
+        }
+        if (isInPageGutter && hitboxType == HitboxFlags.None && !ignoreItems.has(compositeChildVe.displayItem.id)) {
+          return new HitBuilder(parentRootVe, rootVes)
+            .over(compositeChildVes)
+            .hitboxes(HitboxFlags.Click, compositeHitboxType)
+            .meta(null)
+            .pos(posRelativeToRootVeViewportPx)
+            .allowEmbeddedInteractive(false)
+            .createdAt("composite-handler-page-gutter")
+            .build();
         }
         if (hitboxType == HitboxFlags.None && !isTable(compositeChildVe.displayItem)) {
           if (!ignoreItems.has(compositeVe.displayItem.id)) {
