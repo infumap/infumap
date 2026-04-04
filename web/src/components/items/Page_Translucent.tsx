@@ -393,7 +393,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     </Show>;
 
   const renderFocusRingMaybe = () =>
-    <Show when={isFocused()}>
+    <Show when={isFocused() && !pageFns().isInComposite()}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />

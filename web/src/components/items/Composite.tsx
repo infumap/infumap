@@ -24,6 +24,7 @@ import { asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
+import { isPage } from "../../items/page-item";
 
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -61,6 +62,10 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     return focusPath === vePath() || textEditInfo?.itemPath === vePath();
   };
   const activeChildPath = () => store.overlay.textEditInfo()?.itemPath ?? store.history.getFocusPathMaybe();
+  const childFocusBoundsPx = (childBoundsPx: BoundingBox, isPageInComposite: boolean): BoundingBox =>
+    isPageInComposite
+      ? { x: 0, y: childBoundsPx.y, w: boundsPx().w, h: childBoundsPx.h }
+      : childBoundsPx;
 
   const shadowClass = () => {
     if (isPopup()) {
@@ -123,11 +128,16 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
           <>
             <VisualElement_Desktop visualElement={childVe.get()} />
             <Show when={activeChildPath() === VeFns.veToPath(childVe.get())}>
+              {(() => {
+                const focusBoundsPx = childFocusBoundsPx(childVe.get().boundsPx, isPage(childVe.get().displayItem));
+                return (
               <div class="absolute pointer-events-none select-none"
                 contentEditable={false}
-                style={`left: ${childVe.get().boundsPx.x}px; top: ${childVe.get().boundsPx.y}px; ` +
-                  `width: ${childVe.get().boundsPx.w}px; height: ${childVe.get().boundsPx.h}px; ` +
+                style={`left: ${focusBoundsPx.x}px; top: ${focusBoundsPx.y}px; ` +
+                  `width: ${focusBoundsPx.w}px; height: ${focusBoundsPx.h}px; ` +
                   `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
+                );
+              })()}
             </Show>
           </>
         }</For>
