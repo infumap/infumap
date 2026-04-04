@@ -19,8 +19,8 @@
 import { GRID_SIZE } from "../constants";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
-import { isImage } from "../items/image-item";
-import { asTableItem, isTable } from "../items/table-item";
+import { ImageFns, isImage } from "../items/image-item";
+import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
@@ -41,10 +41,11 @@ import { ItemType } from "../items/base/item";
 import { HitInfoFns } from "./hit";
 import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { asContainerItem } from "../items/base/container-item";
-import { ItemFns } from "../items/base/item-polymorphism";
-import { HitboxFlags } from "../layout/hitbox";
-import { setCaretPosition } from "../util/caret";
 import { MOUSE_RIGHT, mouseDownHandler } from "./mouse_down";
+import { isComposite } from "../items/composite-item";
+import { FileFns, isFile } from "../items/file-item";
+import { NoteFns, isNote } from "../items/note-item";
+import { PasswordFns, isPassword } from "../items/password-item";
 
 
 /**
@@ -104,7 +105,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   // IMPORTANT: keep these in sync with the code below.
 
   const recognizedKeys = [
-    "Slash", "Backslash", "Escape", "Enter",
+    "Slash", "Backslash", "Escape", "Enter", "F2",
     "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
     "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE", "KeyF",
   ];
@@ -175,16 +176,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       return;
     }
 
-    // If a page is focused (not popped up), move focus to parent container
-    const focusPath = store.history.getFocusPath();
-    const focusVe = VesCache.current.readNode(focusPath);
-    if (focusVe && isPage(focusVe.displayItem)) {
-      const parentPath = VeFns.parentPath(focusPath);
-      if (parentPath && parentPath !== UMBRELLA_PAGE_UID && parentPath !== "") {
-        store.history.setFocus(parentPath);
-        arrangeNow(store, "key-escape-focus-parent");
-      }
-    }
+    focusParentMaybe(store);
   }
 
   else if (isArrowKey(ev.code)) {
@@ -204,55 +196,49 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       return;
     }
 
-    // If a non-page item has focus and we're not already editing, make it editable
     const focusPath = store.history.getFocusPath();
     const focusVe = VesCache.current.readNode(focusPath);
-    const focusVes = VesCache.render.getNode(focusPath);
-    if (focusVe && focusVes && !isPage(focusVe.displayItem) && !store.overlay.textEditInfo()) {
-      ev.preventDefault();
-      ItemFns.handleClick(focusVes, null, HitboxFlags.None, store, true); // caretAtEnd=true
-      return;
-    }
-
-    // If an embedded interactive page has focus (and title is not being edited), start title editing
-    if (focusVe && isPage(focusVe.displayItem) && !store.overlay.textEditInfo()) {
-      const pageItem = asPageItem(focusVe.displayItem);
-      if (pageItem.flags & PageFlags.EmbeddedInteractive) {
+    if (focusVe && !store.overlay.textEditInfo()) {
+      if (!isPage(focusVe.displayItem) && focusFirstChildMaybe(store, focusPath, focusVe)) {
         ev.preventDefault();
-        PageFns.handleEditTitleClick(focusVe, store);
         return;
+      }
+
+      if (isPage(focusVe.displayItem)) {
+        const pageItem = asPageItem(focusVe.displayItem);
+        if ((veFlagIsRoot(focusVe.flags) || !!(pageItem.flags & PageFlags.EmbeddedInteractive)) &&
+          focusFirstChildMaybe(store, focusPath, focusVe)) {
+          ev.preventDefault();
+          return;
+        }
       }
     }
 
     // If an opaque/translucent page has focus (no popup showing), open the popup
-    // But for root pages, make the toolbar title editable instead
     if (focusVe && isPage(focusVe.displayItem) && !store.history.currentPopupSpec()) {
       const pageItem = asPageItem(focusVe.displayItem);
       if (!(pageItem.flags & PageFlags.EmbeddedInteractive)) {
         ev.preventDefault();
-        // Check if this is a root page (in topTitledPages)
-        const topPages = store.topTitledPages.get();
-        const focusPageIdx = topPages.indexOf(focusPath);
-        if (focusPageIdx >= 0) {
-          // Root page: focus the toolbar title div to make it editable
-          const toolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${focusPageIdx}`);
-          if (toolbarTitleDiv) {
-            toolbarTitleDiv.focus();
-            // Set cursor at end of text
-            const textLength = toolbarTitleDiv.innerText.length;
-            setCaretPosition(toolbarTitleDiv, textLength);
-          }
-        } else {
+        if (!veFlagIsRoot(focusVe.flags)) {
           // Non-root page: open popup
           PageFns.handleOpenPopupClick(focusVe, store, false);
+          return;
         }
-        return;
       }
     }
 
     const spec = store.history.currentPopupSpec();
     if (spec && itemState.get(spec.actualVeid.itemId)!.itemType == ItemType.Page) {
       switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false, false);
+    }
+  }
+
+  else if (ev.code == "F2") {
+    ev.preventDefault();
+    const focusPath = store.history.getFocusPath();
+    const focusVe = VesCache.current.readNode(focusPath);
+    if (focusVe) {
+      editFocusedItemMaybe(store, focusVe);
     }
   }
 
@@ -302,6 +288,87 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   else {
     panic(`Unexpected key code: ${ev.code}`);
   }
+}
+
+function focusParentMaybe(store: StoreContextModel): boolean {
+  const focusPath = store.history.getFocusPath();
+  const focusVe = VesCache.current.readNode(focusPath);
+  if (!focusVe || veFlagIsRoot(focusVe.flags)) { return false; }
+
+  const parentPath = VeFns.parentPath(focusPath);
+  if (!parentPath || parentPath === UMBRELLA_PAGE_UID || parentPath === "") { return false; }
+
+  store.history.setFocus(parentPath);
+  arrangeNow(store, "key-focus-parent");
+  return true;
+}
+
+function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focusVe: VisualElement): boolean {
+  const focusItem = focusVe.displayItem;
+
+  if (isPage(focusItem)) {
+    const pageItem = asPageItem(focusItem);
+    if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
+      const pageVeid = VeFns.actualVeidFromVe(focusVe);
+      PageFns.setDefaultListPageSelectedItemMaybe(store, pageVeid);
+      let selectedVeid = store.perItem.getSelectedListPageItem(pageVeid);
+      if (selectedVeid == EMPTY_VEID && pageItem.computed_children.length > 0) {
+        selectedVeid = VeFns.veidFromId(pageItem.computed_children[0]);
+      }
+      if (selectedVeid != EMPTY_VEID && selectedVeid.itemId !== "") {
+        store.history.setFocus(VeFns.addVeidToPath(selectedVeid, focusPath));
+        arrangeNow(store, "key-enter-focus-list-child");
+        return true;
+      }
+      return false;
+    }
+
+    if (pageItem.computed_children.length > 0) {
+      store.history.setFocus(VeFns.addVeidToPath(VeFns.veidFromId(pageItem.computed_children[0]), focusPath));
+      arrangeNow(store, "key-enter-focus-page-child");
+      return true;
+    }
+    return false;
+  }
+
+  if (isTable(focusItem) || isComposite(focusItem)) {
+    const containerItem = asContainerItem(focusItem);
+    if (containerItem.computed_children.length > 0) {
+      store.history.setFocus(VeFns.addVeidToPath(VeFns.veidFromId(containerItem.computed_children[0]), focusPath));
+      arrangeNow(store, "key-enter-focus-container-child");
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function editFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement): boolean {
+  if (isPage(focusVe.displayItem)) {
+    PageFns.handleEditTitleClick(focusVe, store);
+    return true;
+  }
+  if (isTable(focusVe.displayItem)) {
+    TableFns.handleClick(focusVe, null, store, true);
+    return true;
+  }
+  if (isNote(focusVe.displayItem)) {
+    NoteFns.handleClick(focusVe, store, true, true);
+    return true;
+  }
+  if (isFile(focusVe.displayItem)) {
+    FileFns.handleClick(focusVe, store, true, true);
+    return true;
+  }
+  if (isPassword(focusVe.displayItem)) {
+    PasswordFns.handleClick(focusVe, store, true, true);
+    return true;
+  }
+  if (isImage(focusVe.displayItem)) {
+    ImageFns.handleEditClick(focusVe, store);
+    return true;
+  }
+  return false;
 }
 
 export async function keyUpHandler(store: StoreContextModel, ev: KeyboardEvent): Promise<void> {
