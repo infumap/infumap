@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 
 import { VesCache } from "../../layout/ves-cache";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { HitboxFlags } from "../../layout/hitbox";
@@ -28,7 +28,7 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { VisualElementFlags, VeFns, VisualElement } from "../../layout/visual-element";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
-import { isComposite } from "../../items/composite-item";
+import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { Page_Opaque } from "./Page_Opaque";
 import { Page_Trash } from "./Page_Trash";
 import { Page_Translucent } from "./Page_Translucent";
@@ -125,8 +125,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     },
 
     moveOutOfCompositeBox: (): BoundingBox => {
+      const parentCompositeWidthPx = pageFns.isInComposite()
+        ? asCompositeItem(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId)!).spatialWidthGr / GRID_SIZE * props.visualElement.blockSizePx!.w
+        : pageFns.boundsPx().w;
       return ({
-        x: pageFns.boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,
+        x: parentCompositeWidthPx
+          - pageFns.boundsPx().x
+          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+          - CONTAINER_IN_COMPOSITE_PADDING_PX
+          - 2,
         y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
         w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
         h: pageFns.boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),

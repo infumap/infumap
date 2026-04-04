@@ -708,13 +708,19 @@ export const PageFns = {
       h: sizeBl.h * blockSizePx.h
     };
     let innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const compositeWidthPx = compositeWidthBl * blockSizePx.w;
     const popupClickBoundsPx =
     {
       x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
       w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0
     };
     const moveBoundsPx = {
-      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      x: compositeWidthPx
+        - boundsPx.x
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX
+        - 2,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX

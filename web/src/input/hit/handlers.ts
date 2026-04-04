@@ -18,6 +18,7 @@
 
 import { HitboxFlags } from "../../layout/hitbox";
 import { isComposite } from "../../items/composite-item";
+import { isPage } from "../../items/page-item";
 import { isTable } from "../../items/table-item";
 import { getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy } from "../../util/geometry";
 import { panic } from "../../util/lang";
@@ -113,8 +114,11 @@ const _compositeHandler: HitHandler = {
       const compositeChildVes = compositeVeChildren[j];
       const compositeChildVe = compositeChildVes.get();
       const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVeViewportPx);
-      if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx)) {
-        const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
+      const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
+      const hitExtendedPageMoveArea =
+        isPage(compositeChildVe.displayItem) &&
+        !!(hitboxType & HitboxFlags.Move);
+      if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx) || hitExtendedPageMoveArea) {
         if (!ignoreItems.has(compositeChildVe.displayItem.id)) {
           // table will be delegated to the table handler later in traversal
         }
