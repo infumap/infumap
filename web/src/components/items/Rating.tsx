@@ -24,10 +24,11 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
-import { FEATURE_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -112,9 +113,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
              style={`left: ${boundsPx().w/2 - 6}px; bottom: 2px; width: 12px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4)}px;`} />
       </Show>
       <Show when={showMoveOutOfCompositeArea()}>
-        <div class={`absolute rounded-xs`}
-             style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                    `background-color: ${FEATURE_COLOR};`} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
                   (props.visualElement.flags & VisualElementFlags.Detailed &&

@@ -22,9 +22,9 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
-import { FEATURE_COLOR } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX } from "../../constants";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -87,9 +87,7 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0)}px; height: ${boundsPx().h}px;` +
         `${backgroundStyle()}${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
       <Show when={showMoveOutOfCompositeArea()}>
-        <div class={`absolute rounded-xs`}
-          style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-            `background-color: ${FEATURE_COLOR};`} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute border border-black`}

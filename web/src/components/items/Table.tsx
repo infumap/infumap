@@ -31,9 +31,9 @@ import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { itemState } from "../../store/ItemState";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
-import { FEATURE_COLOR } from "../../style";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { arrangeNow } from "../../layout/arrange";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -250,9 +250,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
-          <div class={`absolute rounded-xs`}
-            style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-              `background-color: ${FEATURE_COLOR};`} />
+          <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null &&
           (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&

@@ -29,12 +29,12 @@ import { useStore } from "../../store/StoreProvider";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { ImageFlags } from "../../items/base/flags-item";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { FEATURE_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createInfuSignal } from "../../util/signals";
 import { asPageItem } from "../../items/page-item";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -321,9 +321,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
-          <div class={`absolute rounded-xs`}
-            style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-              `background-color: ${FEATURE_COLOR};`} />
+          <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null &&
           (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&

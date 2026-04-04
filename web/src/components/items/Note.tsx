@@ -37,11 +37,11 @@ import { appendNewlineIfEmpty, isUrl, trimNewline } from "../../util/string";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { VesCache } from "../../layout/ves-cache";
-import { FEATURE_COLOR } from "../../style";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { arrangeNow } from "../../layout/arrange";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 import { asPositionalItem } from "../../items/base/positional-item";
 import { server, serverOrRemote } from "../../server";
@@ -457,9 +457,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
-        <div class={`absolute rounded-xs`}
-          style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-            `background-color: ${FEATURE_COLOR};`} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
         (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&

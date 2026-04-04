@@ -24,7 +24,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { useStore } from "../../store/StoreProvider";
 import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { FEATURE_COLOR, linearGradient } from "../../style";
+import { linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { ArrangeAlgorithm } from "../../items/page-item";
@@ -37,6 +37,7 @@ import { Item } from "../../items/base/item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -440,9 +441,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={pageFns().showMoveOutOfCompositeArea()}>
-          <div class={`absolute rounded-xs`}
-            style={`left: ${pageFns().moveOutOfCompositeBox().x}px; top: ${pageFns().moveOutOfCompositeBox().y}px; width: ${pageFns().moveOutOfCompositeBox().w}px; height: ${pageFns().moveOutOfCompositeBox().h}px; ` +
-              `background-color: ${FEATURE_COLOR};`} />
+          <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} />
         </Show>
         {renderIsLinkMaybe()}
       </div>

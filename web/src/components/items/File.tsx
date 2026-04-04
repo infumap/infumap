@@ -36,11 +36,11 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { CompositeFns, isComposite } from "../../items/composite-item";
-import { FEATURE_COLOR } from "../../style";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { arrangeNow } from "../../layout/arrange";
 import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 import { panic } from "../../util/lang";
 import { asPositionalItem } from "../../items/base/positional-item";
@@ -374,9 +374,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
-        <div class={`absolute rounded-xs`}
-          style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-            `background-color: ${FEATURE_COLOR};`} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
         (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&

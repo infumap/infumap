@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Show, createMemo } from "solid-js";
-import { FEATURE_COLOR_DARK, linearGradient, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { linearGradient, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
@@ -28,6 +28,7 @@ import { appendNewlineIfEmpty } from "../../util/string";
 import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { PageVisualElementProps } from "./Page";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -167,9 +168,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           <Show when={pageFns().showMoveOutOfCompositeArea()}>
-            <div class={`absolute rounded-xs`}
-              style={`left: ${pageFns().moveOutOfCompositeBox().x}px; top: ${pageFns().moveOutOfCompositeBox().y}px; width: ${pageFns().moveOutOfCompositeBox().w}px; height: ${pageFns().moveOutOfCompositeBox().h}px; ` +
-                `background-color: ${FEATURE_COLOR_DARK};`} />
+            <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} />
           </Show>
           {renderIsLinkMaybe()}
           <Show when={pageFns().showTriangleDetail()}>
