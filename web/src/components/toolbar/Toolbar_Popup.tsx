@@ -22,7 +22,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
-import { requestArrange } from "../../layout/arrange";
+import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
@@ -382,10 +382,10 @@ export const Toolbar_Popup: Component = () => {
 
   const finalizeAAChange = () => {
     itemState.sortChildren(pageItem().id);
-    requestArrange(store, "toolbar-popup-arrange-algorithm");
-    store.touchToolbar();
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.touchToolbar();
+    arrangeNow(store, "toolbar-popup-arrange-algorithm");
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
   }
 
   const aaSpatialClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.SpatialStretch; finalizeAAChange(); }
