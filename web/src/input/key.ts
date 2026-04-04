@@ -203,6 +203,14 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     const focusPath = store.history.getFocusPath();
     const focusVe = VesCache.current.readNode(focusPath);
     if (focusVe && !store.overlay.textEditInfo()) {
+      if (isPage(focusVe.displayItem) &&
+        !!(asPageItem(focusVe.displayItem).flags & PageFlags.EmbeddedInteractive) &&
+        ev.shiftKey) {
+        ev.preventDefault();
+        switchToPage(store, VeFns.actualVeidFromVe(focusVe), true, false, false);
+        return;
+      }
+
       if (!isPage(focusVe.displayItem) && focusFirstChildMaybe(store, focusPath, focusVe)) {
         ev.preventDefault();
         return;

@@ -31,6 +31,7 @@ import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../.
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { switchToPage } from "../../layout/navigation";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -172,6 +173,13 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           `z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
+  const backgroundDoubleClickHandler = (ev: MouseEvent) => {
+    if (ev.target !== ev.currentTarget) { return; }
+    ev.preventDefault();
+    ev.stopPropagation();
+    switchToPage(store, VeFns.actualVeidFromVe(props.visualElement), true, false, false);
+  };
+
   const renderListPage = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
       style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
@@ -187,10 +195,12 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           `width: ${pageFns().viewportBoundsPx().w}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
           `background-color: #ffffff;` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+        ondblclick={backgroundDoubleClickHandler}>
         <div class="absolute"
           style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; ` +
-            `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
+            `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}
+          ondblclick={backgroundDoubleClickHandler}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
@@ -217,7 +227,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
         `${scrollGestureStyleForArrangeAlgorithm(pageFns().pageItem().arrangeAlgorithm)}` +
         `background-color: #ffffff; ` +
-        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+      ondblclick={backgroundDoubleClickHandler}>
       <div class="absolute"
         style={`left: 0px; top: 0px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
@@ -226,7 +237,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
-        onInput={inputListener}>
+        onInput={inputListener}
+        ondblclick={backgroundDoubleClickHandler}>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>

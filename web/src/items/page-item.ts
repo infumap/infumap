@@ -832,6 +832,8 @@ export const PageFns = {
       } else {
         PageFns.handleEditTitleClick(visualElement, store);
       }
+    } else if (asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) {
+      return;
     } else {
       const focusPath = VeFns.veToPath(visualElement);
       store.history.setFocus(focusPath);
