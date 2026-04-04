@@ -335,6 +335,9 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
           !(child.flags & VisualElementFlags.Popup) &&
           !(child.flags & VisualElementFlags.LineItem))
         .sort((a, b) => {
+          const aDistanceSq = a.boundsPx!.x * a.boundsPx!.x + a.boundsPx!.y * a.boundsPx!.y;
+          const bDistanceSq = b.boundsPx!.x * b.boundsPx!.x + b.boundsPx!.y * b.boundsPx!.y;
+          if (aDistanceSq !== bDistanceSq) { return aDistanceSq - bDistanceSq; }
           if (a.boundsPx!.y !== b.boundsPx!.y) { return a.boundsPx!.y - b.boundsPx!.y; }
           if (a.boundsPx!.x !== b.boundsPx!.x) { return a.boundsPx!.x - b.boundsPx!.x; }
           return VeFns.veToPath(a).localeCompare(VeFns.veToPath(b));
