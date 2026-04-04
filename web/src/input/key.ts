@@ -105,7 +105,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   // IMPORTANT: keep these in sync with the code below.
 
   const recognizedKeys = [
-    "Slash", "Backslash", "Escape", "Enter", "F2",
+    "Slash", "Backslash", "Escape", "Enter", "Space", "F2",
     "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
     "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE", "KeyF",
   ];
@@ -211,6 +211,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
         return;
       }
 
+      if (openPopupForFocusedItemMaybe(store, focusVe, false)) {
+        ev.preventDefault();
+        return;
+      }
+
       if (!isPage(focusVe.displayItem) && focusFirstChildMaybe(store, focusPath, focusVe)) {
         ev.preventDefault();
         return;
@@ -242,6 +247,15 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     const spec = store.history.currentPopupSpec();
     if (spec && itemState.get(spec.actualVeid.itemId)!.itemType == ItemType.Page) {
       switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false, false);
+    }
+  }
+
+  else if (ev.code == "Space") {
+    const focusPath = store.history.getFocusPath();
+    const focusVe = VesCache.current.readNode(focusPath);
+    if (focusVe && !store.overlay.textEditInfo() && openPopupForFocusedItemMaybe(store, focusVe, true)) {
+      ev.preventDefault();
+      return;
     }
   }
 
@@ -376,6 +390,26 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
     }
   }
 
+  return false;
+}
+
+function openPopupForFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement, includeTables: boolean): boolean {
+  if (isNote(focusVe.displayItem)) {
+    NoteFns.handlePopupClick(focusVe, store);
+    return true;
+  }
+  if (isFile(focusVe.displayItem)) {
+    FileFns.handlePopupClick(focusVe, store);
+    return true;
+  }
+  if (isPassword(focusVe.displayItem)) {
+    PasswordFns.handlePopupClick(focusVe, store);
+    return true;
+  }
+  if (includeTables && isTable(focusVe.displayItem)) {
+    TableFns.handlePopupClick(focusVe, store);
+    return true;
+  }
   return false;
 }
 
