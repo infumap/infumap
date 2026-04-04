@@ -253,8 +253,16 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (buttonNumber != MOUSE_LEFT && !store.history.currentPopupSpec()) {
     const focusItem = store.history.getFocusItem();
+    const focusPath = store.history.getFocusPath();
+    const currentPagePath = store.history.currentPagePath();
+    const shouldClearEmbeddedInteractiveFocus =
+      isPage(focusItem) &&
+      !!(asPageItem(focusItem).flags & PageFlags.EmbeddedInteractive) &&
+      currentPagePath != null &&
+      focusPath !== currentPagePath;
+
     if (isNote(focusItem) || isFile(focusItem) || isTable(focusItem) || isPassword(focusItem) ||
-        (isPage(focusItem) && (asPageItem(focusItem).flags & PageFlags.EmbeddedInteractive))) {
+        shouldClearEmbeddedInteractiveFocus) {
       store.history.setFocus(store.history.currentPagePath()!);
       arrangeNow(store, "mouse-right-clear-item-focus");
       return defaultResult;
