@@ -272,6 +272,16 @@ function spatialStartPosBlFromRenderedVe(visualElement: VisualElement): Vector |
   };
 }
 
+function resolveMoveTargetPageVe(moveToVe: VisualElement): VisualElement {
+  let candidate: VisualElement | null = moveToVe;
+  while (candidate) {
+    if (isPage(candidate.displayItem)) { return candidate; }
+    if (!candidate.parentPath) { break; }
+    candidate = VesCache.current.readNode(candidate.parentPath)!;
+  }
+  panic(`unexpected move target type: ${moveToVe.displayItem.itemType}`);
+}
+
 
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
   const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
@@ -356,8 +366,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     MouseActionState.setMoveOverAttachCompositePath(null);
   }
 
-  if (MouseActionState.readScaleDefiningElement()!.displayItem != hitInfo.overPositionableVe!.displayItem) {
-    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false, false);
+  const hitMoveTargetVe = resolveMoveTargetPageVe(hitInfo.overPositionableVe!);
+  if (MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
+    moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false);
     arrangeNow(store, "moving-enter-new-container");
     return;
   }
@@ -486,6 +497,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   }
   const activeElement = activeSignal.get();
   const treeActiveItem = asPositionalItem(VeFns.treeItem(activeElement));
+  moveToVe = resolveMoveTargetPageVe(moveToVe);
 
   const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
 
