@@ -41,8 +41,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
-  if (!props.visualElement.blockSizePx) { return <></>; }
-  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
     r.w = oneBlockWidthPx();

@@ -44,8 +44,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  if (!props.visualElement.blockSizePx) { return <></>; }
-  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
 
   const isInCalendarPage = () => {
     if (props.visualElement.parentPath) {

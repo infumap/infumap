@@ -41,8 +41,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
-  if (!props.visualElement.blockSizePx) { return <></>; }
-  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
   const leftPx = () => boundsPx().x + oneBlockWidthPx();
   const widthPx = () => boundsPx().w - oneBlockWidthPx();
   const titleText = () => {
