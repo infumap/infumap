@@ -180,7 +180,8 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
           <a id={VeFns.veToPath(props.visualElement) + ":title"}
             href={""}
             class={`text-black`}
-            style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+            style={`display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; ` +
+              `-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
             onClick={aHrefClick}
             onMouseDown={aHrefMouseDown}
             onMouseUp={aHrefMouseUp}>
