@@ -19,7 +19,7 @@
 import { isImage } from "../items/image-item";
 import { isPage } from "../items/page-item";
 import { isPlaceholder } from "../items/placeholder-item";
-import { boundingBoxCenter, vectorDistance } from "../util/geometry";
+import { BoundingBox, boundingBoxCenter, vectorDistance } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./visual-element";
 
@@ -53,6 +53,44 @@ type FindSceneReader = {
   readStructuralChildren: (parentPath: VisualElementPath) => Array<VisualElement>,
   readSiblings: (path: VisualElementPath) => Array<VisualElement>,
 };
+
+function overlappingSpanPx(aStartPx: number, aEndPx: number, bStartPx: number, bEndPx: number): number {
+  return Math.max(0, Math.min(aEndPx, bEndPx) - Math.max(aStartPx, bStartPx));
+}
+
+function perpendicularOverlapPx(currentBoundsPx: BoundingBox, candidateBoundsPx: BoundingBox, direction: FindDirection): number {
+  if (direction == FindDirection.Left || direction == FindDirection.Right) {
+    return overlappingSpanPx(
+      currentBoundsPx.y,
+      currentBoundsPx.y + currentBoundsPx.h,
+      candidateBoundsPx.y,
+      candidateBoundsPx.y + candidateBoundsPx.h
+    );
+  }
+
+  return overlappingSpanPx(
+    currentBoundsPx.x,
+    currentBoundsPx.x + currentBoundsPx.w,
+    candidateBoundsPx.x,
+    candidateBoundsPx.x + candidateBoundsPx.w
+  );
+}
+
+function directionalGapPx(currentBoundsPx: BoundingBox, candidateBoundsPx: BoundingBox, direction: FindDirection): number {
+  if (direction == FindDirection.Left) {
+    return currentBoundsPx.x - (candidateBoundsPx.x + candidateBoundsPx.w);
+  }
+  if (direction == FindDirection.Right) {
+    return candidateBoundsPx.x - (currentBoundsPx.x + currentBoundsPx.w);
+  }
+  if (direction == FindDirection.Up) {
+    return currentBoundsPx.y - (candidateBoundsPx.y + candidateBoundsPx.h);
+  }
+  if (direction == FindDirection.Down) {
+    return candidateBoundsPx.y - (currentBoundsPx.y + currentBoundsPx.h);
+  }
+  panic(`Unknown direction: ${direction}`);
+}
 
 export function findClosest(scene: FindSceneReader, path: VisualElementPath, direction: FindDirection, allItemTypes: boolean): VisualElementPath | null {
   const currentVe = scene.readNode(path)!;
@@ -130,12 +168,23 @@ export function findClosest(scene: FindSceneReader, path: VisualElementPath, dir
   }
 
   const currentCenterPx = boundingBoxCenter(currentBoundsPx);
+  const EPSILON_PX = 0.001;
   let best = candidates[0];
+  let bestOverlapPx = perpendicularOverlapPx(currentBoundsPx, candidates[0].boundsPx, direction);
+  let bestGapPx = directionalGapPx(currentBoundsPx, candidates[0].boundsPx, direction);
   let bestDist = vectorDistance(currentCenterPx, boundingBoxCenter(candidates[0].boundsPx));
   for (let i = 1; i < candidates.length; ++i) {
+    const overlapPx = perpendicularOverlapPx(currentBoundsPx, candidates[i].boundsPx, direction);
+    const gapPx = directionalGapPx(currentBoundsPx, candidates[i].boundsPx, direction);
     let dist = vectorDistance(currentCenterPx, boundingBoxCenter(candidates[i].boundsPx));
-    if (dist < bestDist) {
+    if (overlapPx > bestOverlapPx + EPSILON_PX ||
+      (Math.abs(overlapPx - bestOverlapPx) <= EPSILON_PX && (
+        gapPx < bestGapPx - EPSILON_PX ||
+        (Math.abs(gapPx - bestGapPx) <= EPSILON_PX && dist < bestDist)
+      ))) {
       best = candidates[i];
+      bestOverlapPx = overlapPx;
+      bestGapPx = gapPx;
       bestDist = dist;
     }
   }
