@@ -46,6 +46,7 @@ import { isComposite } from "../items/composite-item";
 import { FileFns, isFile } from "../items/file-item";
 import { NoteFns, isNote } from "../items/note-item";
 import { PasswordFns, isPassword } from "../items/password-item";
+import { ItemFns } from "../items/base/item-polymorphism";
 
 
 /**
@@ -394,20 +395,30 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
 }
 
 function openPopupForFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement, includeTables: boolean): boolean {
+  const openUsingPopupHotspot = () => {
+    const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, focusVe);
+    const hotspotWidthPx = Math.min(focusVe.blockSizePx?.w ?? focusVe.boundsPx.w, boundsPx.w);
+    const hotspotHeightPx = Math.min(focusVe.blockSizePx?.h ?? focusVe.boundsPx.h, boundsPx.h);
+    ItemFns.handleOpenPopupClick(focusVe, store, false, {
+      x: boundsPx.x + hotspotWidthPx / 2,
+      y: boundsPx.y + hotspotHeightPx / 2,
+    });
+  };
+
   if (isNote(focusVe.displayItem)) {
-    NoteFns.handlePopupClick(focusVe, store);
+    openUsingPopupHotspot();
     return true;
   }
   if (isFile(focusVe.displayItem)) {
-    FileFns.handlePopupClick(focusVe, store);
+    openUsingPopupHotspot();
     return true;
   }
   if (isPassword(focusVe.displayItem)) {
-    PasswordFns.handlePopupClick(focusVe, store);
+    openUsingPopupHotspot();
     return true;
   }
   if (includeTables && isTable(focusVe.displayItem)) {
-    TableFns.handlePopupClick(focusVe, store);
+    openUsingPopupHotspot();
     return true;
   }
   return false;
