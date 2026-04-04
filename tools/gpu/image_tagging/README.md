@@ -90,6 +90,7 @@ llama-server management:
 
 Model selection:
 
+- `IMAGE_TAGGING_MODEL` preset selector: `qwen9` or `gemma26` (default `qwen9`)
 - `IMAGE_TAGGING_MODELS_DIR`
 - `IMAGE_TAGGING_MODEL_REPO`
 - `IMAGE_TAGGING_MODEL_FILE`
@@ -129,6 +130,12 @@ Use a different GGUF within the same repo:
 
 ```bash
 IMAGE_TAGGING_MODEL_FILE=Qwen3.5-9B-Q6_K.gguf ./tools/gpu/image_tagging/run.sh
+```
+
+Switch to the Gemma 4 preset:
+
+```bash
+IMAGE_TAGGING_MODEL=gemma26 ./tools/gpu/image_tagging/run.sh
 ```
 
 Pass extra flags straight through to `llama-server`:

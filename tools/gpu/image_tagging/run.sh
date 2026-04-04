@@ -28,22 +28,13 @@ readonly LLAMA_HOST="${IMAGE_TAGGING_LLAMA_HOST:-127.0.0.1}"
 readonly LLAMA_PORT="${IMAGE_TAGGING_LLAMA_PORT:-18080}"
 readonly LLAMA_SERVER_URL_DEFAULT="http://${LLAMA_HOST}:${LLAMA_PORT}"
 readonly STARTUP_TIMEOUT_SECS="${IMAGE_TAGGING_STARTUP_TIMEOUT_SECS:-900}"
-
-readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$ROOT_DIR/models}"
-readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-unsloth/Qwen3.5-9B-GGUF}"
-readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-Qwen3.5-9B-Q4_K_M.gguf}"
-readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-mmproj-BF16.gguf}"
-readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
-readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
-readonly MODEL_PATH="${MODELS_DIR}/${MODEL_FILE}"
-readonly MMPROJ_PATH="${MODELS_DIR}/${MMPROJ_FILE}"
+readonly MODEL_SELECTOR="${IMAGE_TAGGING_MODEL:-qwen9}"
 
 readonly LLAMA_CPP_REPO_URL="${IMAGE_TAGGING_LLAMA_CPP_REPO_URL:-https://github.com/ggml-org/llama.cpp.git}"
 readonly LLAMA_CPP_DIR="${IMAGE_TAGGING_LLAMA_CPP_DIR:-$ROOT_DIR/.llama.cpp}"
 readonly LLAMA_BUILD_DIR="${IMAGE_TAGGING_LLAMA_BUILD_DIR:-$LLAMA_CPP_DIR/build}"
 readonly LLAMA_BIN_OVERRIDE="${IMAGE_TAGGING_LLAMA_BIN:-}"
 readonly LLAMA_CMAKE_ARGS="${IMAGE_TAGGING_LLAMA_CMAKE_ARGS:-}"
-readonly LLAMA_EXTRA_ARGS="${IMAGE_TAGGING_LLAMA_EXTRA_ARGS:-}"
 readonly LLAMA_CTX="${IMAGE_TAGGING_LLAMA_CTX:-8192}"
 readonly LLAMA_BATCH_SIZE="${IMAGE_TAGGING_LLAMA_BATCH_SIZE:-2048}"
 readonly LLAMA_UBATCH_SIZE="${IMAGE_TAGGING_LLAMA_UBATCH_SIZE:-512}"
@@ -61,6 +52,34 @@ fail() {
     echo "Error: $1" >&2
     exit 1
 }
+
+case "$MODEL_SELECTOR" in
+    qwen9)
+        model_repo_default="unsloth/Qwen3.5-9B-GGUF"
+        model_file_default="Qwen3.5-9B-Q4_K_M.gguf"
+        mmproj_file_default="mmproj-BF16.gguf"
+        model_default_llama_extra_args=""
+        ;;
+    gemma26)
+        model_repo_default="unsloth/gemma-4-26B-A4B-it-GGUF"
+        model_file_default="gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
+        mmproj_file_default="mmproj-BF16.gguf"
+        model_default_llama_extra_args='--chat-template-kwargs {"enable_thinking":false}'
+        ;;
+    *)
+        fail "Unsupported IMAGE_TAGGING_MODEL: $MODEL_SELECTOR (expected qwen9 or gemma26)"
+        ;;
+esac
+
+readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$ROOT_DIR/models}"
+readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-$model_repo_default}"
+readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-$model_file_default}"
+readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-$mmproj_file_default}"
+readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
+readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
+readonly MODEL_PATH="${MODELS_DIR}/${MODEL_FILE}"
+readonly MMPROJ_PATH="${MODELS_DIR}/${MMPROJ_FILE}"
+readonly LLAMA_EXTRA_ARGS="${IMAGE_TAGGING_LLAMA_EXTRA_ARGS:-$model_default_llama_extra_args}"
 
 venv_package_name() {
     "$PYTHON_BIN" - <<'PY'
@@ -417,6 +436,7 @@ else
 fi
 export IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING="$IMAGE_EMBEDDING_ENABLED"
 export IMAGE_TAGGING_EMBEDDING_MODEL_ID="$IMAGE_EMBEDDING_MODEL_ID"
+export IMAGE_TAGGING_MODEL="$MODEL_SELECTOR"
 export IMAGE_TAGGING_MODEL_REPO="$MODEL_REPO"
 export IMAGE_TAGGING_MODEL_FILE="$MODEL_FILE"
 export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-${MODEL_REPO}:${MODEL_FILE}}"
@@ -427,6 +447,7 @@ echo "Starting Infumap image tagging service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "API host/port: $HOST:$PORT"
 echo "llama-server URL: $IMAGE_TAGGING_LLAMA_SERVER_URL"
+echo "Model preset: $MODEL_SELECTOR"
 echo "Model repo: $MODEL_REPO"
 echo "Model file: $MODEL_FILE"
 echo "mmproj file: $MMPROJ_FILE"
