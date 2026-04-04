@@ -114,6 +114,13 @@ const _compositeHandler: HitHandler = {
       const compositeChildVes = compositeVeChildren[j];
       const compositeChildVe = compositeChildVes.get();
       const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVeViewportPx);
+      if (isTable(compositeChildVe.displayItem) && !(compositeChildVe.flags & VisualElementFlags.LineItem)) {
+        const tableHit = _tableHandler.handle(compositeChildVe, compositeChildVes, {
+          ...ctx,
+          posRelativeToRootVeViewportPx: posRelativeToCompositeChildAreaPx,
+        });
+        if (tableHit) { return tableHit; }
+      }
       const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
       const isInPageGutter =
         isPage(compositeChildVe.displayItem) &&
