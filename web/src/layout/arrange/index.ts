@@ -197,6 +197,10 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   }
 
   const hasUser = store.user.getUserMaybe() != null;
-  mouseMove_handleNoButtonDown(store, hasUser);
+  try {
+    mouseMove_handleNoButtonDown(store, hasUser);
+  } catch (e) {
+    console.warn("post-arrange hover sync failed; skipping hover refresh for this arrange", e);
+  }
   // console.timeEnd("fullArrange-total");
 }

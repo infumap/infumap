@@ -126,7 +126,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     moveOutOfCompositeBox: (): BoundingBox => {
       const parentCompositeWidthPx = pageFns.isInComposite()
-        ? asCompositeItem(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId)!).spatialWidthGr / GRID_SIZE * props.visualElement.blockSizePx!.w
+        ? props.visualElement.blockSizePx
+          ? asCompositeItem(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId)!).spatialWidthGr / GRID_SIZE * props.visualElement.blockSizePx.w
+          : pageFns.boundsPx().w
         : pageFns.boundsPx().w;
       return ({
         x: parentCompositeWidthPx

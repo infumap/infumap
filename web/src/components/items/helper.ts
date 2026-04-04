@@ -25,7 +25,9 @@ import { cloneBoundingBox } from "../../util/geometry";
 export const createHighlightBoundsPxFn = (veFn: () => VisualElement) => {
   return (() => {
     if (veFn().displayItem.relationshipToParent == RelationshipToParent.Child &&
-        veFn().tableDimensionsPx) { // not set if not in table.
+        veFn().tableDimensionsPx &&
+        veFn().blockSizePx &&
+        veFn().indentBl != null) { // not set if not in table.
       let r = cloneBoundingBox(veFn().boundsPx)!;
       r.w = veFn().tableDimensionsPx!.w - veFn().indentBl! * veFn().blockSizePx!.w;
       return r;
