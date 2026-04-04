@@ -828,7 +828,7 @@ export const PageFns = {
     panic("not page measurable.");
   },
 
-  handleClick: (visualElement: VisualElement, hitboxFlags: HitboxFlags, store: StoreContextModel): void => {
+  handleClick: (visualElement: VisualElement, hitboxFlags: HitboxFlags, store: StoreContextModel, hitboxMeta: HitboxMeta | null = null): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if ((asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) && (hitboxFlags & HitboxFlags.ContentEditable)) {
       const focusPath = VeFns.veToPath(visualElement);
@@ -843,6 +843,11 @@ export const PageFns = {
     } else {
       const focusPath = VeFns.veToPath(visualElement);
       store.history.setFocus(focusPath);
+
+      if (hitboxMeta?.focusOnly) {
+        arrangeNow(store, "page-focus-only");
+        return;
+      }
 
       // For page line items inside tables, a plain click should stop at focus.
       // Opening as root is handled explicitly by title-link clicks instead.

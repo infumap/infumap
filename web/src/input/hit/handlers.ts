@@ -134,7 +134,7 @@ const _compositeHandler: HitHandler = {
           return new HitBuilder(parentRootVe, rootVes)
             .over(compositeChildVes)
             .hitboxes(HitboxFlags.Click, compositeHitboxType)
-            .meta(null)
+            .meta({ focusOnly: true })
             .pos(posRelativeToRootVeViewportPx)
             .allowEmbeddedInteractive(false)
             .createdAt("composite-handler-page-gutter")

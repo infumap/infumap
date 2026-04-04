@@ -77,6 +77,7 @@ export interface HitboxMeta {
   colNum?: number,
   startBl?: number,
   endBl?: number,
+  focusOnly?: boolean,
   calendarYear?: number,
   calendarMonth?: number,
   calendarDay?: number,
@@ -107,6 +108,9 @@ export const HitboxFns = {
     }
     if (typeof (meta.endBl) != 'undefined') {
       result.endBl = meta.endBl;
+    }
+    if (typeof (meta.focusOnly) != 'undefined') {
+      result.focusOnly = meta.focusOnly;
     }
     if (typeof (meta.calendarYear) != 'undefined') {
       result.calendarYear = meta.calendarYear;

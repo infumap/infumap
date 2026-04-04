@@ -242,7 +242,7 @@ export const ItemFns = {
 
   handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, hitboxFlags: HitboxFlags, store: StoreContextModel, caretAtEnd: boolean = false): void => {
     const item = visualElementSignal.get().displayItem;
-    if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), hitboxFlags, store); }
+    if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), hitboxFlags, store, hitboxMeta); }
     else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, store); }
     else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), store); }
     else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
