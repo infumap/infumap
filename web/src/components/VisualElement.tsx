@@ -51,7 +51,7 @@ import { FileLineItem } from "./items/File_LineItem";
 import { Composite_LineItem } from "./items/Composite_LineItem";
 import { useStore } from "../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
-import { Z_INDEX_ITEMS_OVERLAY } from "../constants";
+import { Z_INDEX_ABOVE_TRANSLUCENT } from "../constants";
 
 
 export interface VisualElementProps {
@@ -83,8 +83,8 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? 'fixed' : 'absolute'} pointer-events-none rounded-xs`}
           style={`left: ${props.visualElement.boundsPx.x}px; top: ${warningTopPx()}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
             `border: 2px solid rgba(245, 158, 11, 0.95); ` +
-            `background: repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.12) 8px, rgba(251, 191, 36, 0.20) 8px, rgba(251, 191, 36, 0.20) 16px); ` +
-            `box-shadow: inset 0 0 0 1px rgba(255, 251, 235, 0.7); z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `background: repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px); ` +
+            `box-shadow: inset 0 0 0 1px rgba(255, 251, 235, 0.8); z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 2};`} />
       </Show>
     </>
   );
