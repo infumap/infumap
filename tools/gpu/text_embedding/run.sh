@@ -19,18 +19,49 @@ set -euo pipefail
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
 readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${TEXT_EMBEDDING_VENV_DIR:-$ROOT_DIR/.venv}"
 readonly HOST="${TEXT_EMBEDDING_HOST:-127.0.0.1}"
 readonly PORT="${TEXT_EMBEDDING_PORT:-8789}"
 readonly RESTART_DELAY_SECS="${TEXT_EMBEDDING_RESTART_DELAY_SECS:-5}"
-export TEXT_EMBEDDING_MODELS_DIR="${TEXT_EMBEDDING_MODELS_DIR:-$ROOT_DIR/models}"
+readonly MODEL_SELECTOR="${TEXT_EMBEDDING_MODEL:-}"
+readonly MODEL_ALIAS_REGISTRY="${GPU_MODEL_ALIAS_REGISTRY:-$GPU_ROOT_DIR/model_aliases.json}"
+readonly SHARED_MODELS_DIR="${GPU_MODELS_DIR:-$GPU_ROOT_DIR/models}"
+
+export HF_HOME="${HF_HOME:-$SHARED_MODELS_DIR/huggingface}"
+export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
+export TORCH_HOME="${TORCH_HOME:-$SHARED_MODELS_DIR/torch}"
 LAUNCHED_CHILD_PID=""
 
 fail() {
     echo "Error: $1" >&2
     exit 1
 }
+
+resolve_model_alias() {
+    local resolved_alias_env=""
+    local -a resolve_cmd=(
+        "$PYTHON_BIN" "$GPU_ROOT_DIR/resolve_model_alias.py"
+        --registry "$MODEL_ALIAS_REGISTRY"
+        --tool text_embedding
+    )
+    if [ -n "$MODEL_SELECTOR" ]; then
+        resolve_cmd+=(--alias "$MODEL_SELECTOR")
+    fi
+    if ! resolved_alias_env="$("${resolve_cmd[@]}" 2>&1)"; then
+        fail "$resolved_alias_env"
+    fi
+    eval "$resolved_alias_env"
+}
+
+resolve_model_alias
+
+export TEXT_EMBEDDING_MODELS_DIR="${TEXT_EMBEDDING_MODELS_DIR:-$SHARED_MODELS_DIR/$RESOLVED_MODELS_SUBDIR}"
+export TEXT_EMBEDDING_MODEL="$RESOLVED_ALIAS"
+export TEXT_EMBEDDING_MODEL_ALIAS="$RESOLVED_ALIAS"
+export TEXT_EMBEDDING_MODEL_NAME="${TEXT_EMBEDDING_MODEL_NAME:-$RESOLVED_MODEL_NAME}"
 
 venv_package_name() {
     "$PYTHON_BIN" - <<'PY'
@@ -323,6 +354,10 @@ mkdir -p "$TEXT_EMBEDDING_MODELS_DIR"
 echo "Starting Infumap text embedding service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
+echo "Shared models dir: $SHARED_MODELS_DIR"
+echo "TEXT_EMBEDDING_MODEL_ALIAS=${TEXT_EMBEDDING_MODEL_ALIAS}"
+echo "TEXT_EMBEDDING_DEFAULT_MODEL_ALIAS=${RESOLVED_DEFAULT_ALIAS}"
+echo "TEXT_EMBEDDING_MODEL_NAME=${TEXT_EMBEDDING_MODEL_NAME}"
 echo "TEXT_EMBEDDING_MODELS_DIR=${TEXT_EMBEDDING_MODELS_DIR}"
 echo "TEXT_EMBEDDING_DEVICE=${TEXT_EMBEDDING_DEVICE}"
 echo "TEXT_EMBEDDING_FASTEMBED_PACKAGE=${FASTEMBED_PACKAGE}"

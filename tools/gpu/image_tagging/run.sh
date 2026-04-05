@@ -19,6 +19,7 @@ set -euo pipefail
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
 readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${IMAGE_TAGGING_VENV_DIR:-$ROOT_DIR/.venv}"
 readonly HOST="${IMAGE_TAGGING_HOST:-127.0.0.1}"
@@ -28,7 +29,14 @@ readonly LLAMA_HOST="${IMAGE_TAGGING_LLAMA_HOST:-127.0.0.1}"
 readonly LLAMA_PORT="${IMAGE_TAGGING_LLAMA_PORT:-18080}"
 readonly LLAMA_SERVER_URL_DEFAULT="http://${LLAMA_HOST}:${LLAMA_PORT}"
 readonly STARTUP_TIMEOUT_SECS="${IMAGE_TAGGING_STARTUP_TIMEOUT_SECS:-900}"
-readonly MODEL_SELECTOR="${IMAGE_TAGGING_MODEL:-qwen9}"
+readonly MODEL_SELECTOR="${IMAGE_TAGGING_MODEL:-}"
+readonly MODEL_ALIAS_REGISTRY="${GPU_MODEL_ALIAS_REGISTRY:-$GPU_ROOT_DIR/model_aliases.json}"
+readonly SHARED_MODELS_DIR="${GPU_MODELS_DIR:-$GPU_ROOT_DIR/models}"
+
+export HF_HOME="${HF_HOME:-$SHARED_MODELS_DIR/huggingface}"
+export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
+export TORCH_HOME="${TORCH_HOME:-$SHARED_MODELS_DIR/torch}"
 
 readonly LLAMA_CPP_REPO_URL="${IMAGE_TAGGING_LLAMA_CPP_REPO_URL:-https://github.com/ggml-org/llama.cpp.git}"
 readonly LLAMA_CPP_DIR="${IMAGE_TAGGING_LLAMA_CPP_DIR:-$ROOT_DIR/.llama.cpp}"
@@ -53,33 +61,33 @@ fail() {
     exit 1
 }
 
-case "$MODEL_SELECTOR" in
-    qwen9)
-        model_repo_default="unsloth/Qwen3.5-9B-GGUF"
-        model_file_default="Qwen3.5-9B-Q4_K_M.gguf"
-        mmproj_file_default="mmproj-BF16.gguf"
-        model_default_llama_extra_args=""
-        ;;
-    gemma26)
-        model_repo_default="unsloth/gemma-4-26B-A4B-it-GGUF"
-        model_file_default="gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
-        mmproj_file_default="mmproj-BF16.gguf"
-        model_default_llama_extra_args='--chat-template-kwargs {"enable_thinking":false}'
-        ;;
-    *)
-        fail "Unsupported IMAGE_TAGGING_MODEL: $MODEL_SELECTOR (expected qwen9 or gemma26)"
-        ;;
-esac
+resolve_model_alias() {
+    local resolved_alias_env=""
+    local -a resolve_cmd=(
+        "$PYTHON_BIN" "$GPU_ROOT_DIR/resolve_model_alias.py"
+        --registry "$MODEL_ALIAS_REGISTRY"
+        --tool image_tagging
+    )
+    if [ -n "$MODEL_SELECTOR" ]; then
+        resolve_cmd+=(--alias "$MODEL_SELECTOR")
+    fi
+    if ! resolved_alias_env="$("${resolve_cmd[@]}" 2>&1)"; then
+        fail "$resolved_alias_env"
+    fi
+    eval "$resolved_alias_env"
+}
 
-readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$ROOT_DIR/models/$MODEL_SELECTOR}"
-readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-$model_repo_default}"
-readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-$model_file_default}"
-readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-$mmproj_file_default}"
+resolve_model_alias
+
+readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$SHARED_MODELS_DIR/$RESOLVED_MODELS_SUBDIR}"
+readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-$RESOLVED_MODEL_REPO}"
+readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-$RESOLVED_MODEL_FILE}"
+readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-$RESOLVED_MMPROJ_FILE}"
 readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
 readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
 readonly MODEL_PATH="${MODELS_DIR}/${MODEL_FILE}"
 readonly MMPROJ_PATH="${MODELS_DIR}/${MMPROJ_FILE}"
-readonly LLAMA_EXTRA_ARGS="${IMAGE_TAGGING_LLAMA_EXTRA_ARGS:-$model_default_llama_extra_args}"
+readonly LLAMA_EXTRA_ARGS="${IMAGE_TAGGING_LLAMA_EXTRA_ARGS:-$RESOLVED_LLAMA_EXTRA_ARGS}"
 
 venv_package_name() {
     "$PYTHON_BIN" - <<'PY'
@@ -436,18 +444,21 @@ else
 fi
 export IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING="$IMAGE_EMBEDDING_ENABLED"
 export IMAGE_TAGGING_EMBEDDING_MODEL_ID="$IMAGE_EMBEDDING_MODEL_ID"
-export IMAGE_TAGGING_MODEL="$MODEL_SELECTOR"
+export IMAGE_TAGGING_MODEL="$RESOLVED_ALIAS"
+export IMAGE_TAGGING_MODEL_ALIAS="$RESOLVED_ALIAS"
 export IMAGE_TAGGING_MODEL_REPO="$MODEL_REPO"
 export IMAGE_TAGGING_MODEL_FILE="$MODEL_FILE"
-export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-${MODEL_REPO}:${MODEL_FILE}}"
-export IMAGE_TAGGING_LLAMA_MODEL_NAME="${IMAGE_TAGGING_LLAMA_MODEL_NAME:-${MODEL_FILE%.gguf}}"
+export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-${RESOLVED_MODEL_ID:-${MODEL_REPO}:${MODEL_FILE}}}"
+export IMAGE_TAGGING_LLAMA_MODEL_NAME="${IMAGE_TAGGING_LLAMA_MODEL_NAME:-${RESOLVED_LLAMA_MODEL_NAME:-${MODEL_FILE%.gguf}}}"
 export IMAGE_TAGGING_MAX_CONCURRENCY="1"
 
 echo "Starting Infumap image tagging service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "API host/port: $HOST:$PORT"
 echo "llama-server URL: $IMAGE_TAGGING_LLAMA_SERVER_URL"
-echo "Model preset: $MODEL_SELECTOR"
+echo "Shared models dir: $SHARED_MODELS_DIR"
+echo "Model alias: $RESOLVED_ALIAS"
+echo "Default alias: $RESOLVED_DEFAULT_ALIAS"
 echo "Model repo: $MODEL_REPO"
 echo "Model file: $MODEL_FILE"
 echo "mmproj file: $MMPROJ_FILE"
@@ -474,7 +485,7 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
 
     echo "llama-server binary: $LLAMA_SERVER_BIN"
     echo "Local llama.cpp checkout: $LLAMA_CPP_DIR"
-    echo "Local models dir: $MODELS_DIR"
+    echo "Model directory: $MODELS_DIR"
     echo "llama ctx: $LLAMA_CTX"
     echo "llama batch size: $LLAMA_BATCH_SIZE"
     echo "llama ubatch size: $LLAMA_UBATCH_SIZE"

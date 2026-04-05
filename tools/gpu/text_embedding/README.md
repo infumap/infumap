@@ -21,19 +21,22 @@ to the external service.
 - accepts JSON batches at `POST /embed`
 - loads the embedding model once at startup
 - returns one embedding per input in request order
-- caches the model files under `tools/gpu/text_embedding/models` by default
+- caches the model files under `tools/gpu/models/embeddings/bgebase` by default
 
 ## Default Layout
 
 By default:
 
 - the HTTP service listens on `127.0.0.1:8789`
-- model files live under `tools/gpu/text_embedding/models`
+- model files live under `tools/gpu/models/embeddings/bgebase`
 - the launcher creates or reuses `tools/gpu/text_embedding/.venv`
 - the launcher defaults to `TEXT_EMBEDDING_DEVICE=cpu`
 - the launcher installs regular `fastembed` for CPU mode
 - when `TEXT_EMBEDDING_DEVICE=gpu` is requested on an NVIDIA host, the launcher
   installs `fastembed-gpu`
+
+Shared model aliases are defined in `tools/gpu/model_aliases.json`, with
+per-tool defaults and compatibility rules in the same file.
 
 ## Start The Service
 
@@ -66,7 +69,11 @@ On first run that command:
 - `TEXT_EMBEDDING_HOST`
 - `TEXT_EMBEDDING_PORT`
 - `TEXT_EMBEDDING_VENV_DIR`
+- `TEXT_EMBEDDING_MODEL`
+- `TEXT_EMBEDDING_MODEL_NAME`
 - `TEXT_EMBEDDING_MODELS_DIR`
+- `GPU_MODELS_DIR`
+- `GPU_MODEL_ALIAS_REGISTRY`
 - `TEXT_EMBEDDING_DEVICE`
 - `TEXT_EMBEDDING_MAX_BATCH_ITEMS`
 - `TEXT_EMBEDDING_MAX_TEXT_CHARS`
@@ -80,6 +87,8 @@ Notes:
   Python FastEmbed package currently used by this tool, the built-in public
   alias `BAAI/bge-base-en-v1.5` resolves to a quantized Qdrant artifact
   instead of the Xenova ONNX file that Infumap has been matching historically.
+- `TEXT_EMBEDDING_MODEL` defaults via the tool config in
+  `tools/gpu/model_aliases.json`; the current default alias is `bgebase`.
 - `TEXT_EMBEDDING_DEVICE` accepts `cpu` or `gpu`. The default is `cpu`.
 - `TEXT_EMBEDDING_DEVICE=gpu` requests an accelerated ONNX Runtime provider.
   On NVIDIA Linux hosts that means CUDA. On macOS it prefers CoreML when the

@@ -162,6 +162,13 @@ def root_path() -> str:
     return "/" + configured.strip("/")
 
 
+def model_alias() -> str:
+    configured = os.environ.get("IMAGE_TAGGING_MODEL_ALIAS", "").strip()
+    if configured:
+        return configured
+    return env_str("IMAGE_TAGGING_MODEL", "local-model")
+
+
 def mlx_server_url() -> str:
     configured = os.environ.get("IMAGE_TAGGING_MLX_SERVER_URL", "").strip()
     if configured:
@@ -241,6 +248,7 @@ def build_runtime_summary() -> list[str]:
         f"transformers={package_version('transformers')}",
         f"backend={MLX_BACKEND_NAME}",
         f"mlx_server_url={mlx_server_url()}",
+        f"model_alias={model_alias()}",
         f"model_id={mlx_model_id()}",
         f"model_name={mlx_model_name()}",
         f"image_embedding_enabled={embedding_enabled}",
@@ -326,6 +334,7 @@ async def lifespan(_: FastAPI):
         pool=max(5.0, env_float("IMAGE_TAGGING_MLX_POOL_TIMEOUT_SECS", 60.0)),
     )
     APP_STATE["mlx_client"] = httpx.AsyncClient(base_url=mlx_server_url(), timeout=timeout)
+    APP_STATE["model_alias"] = model_alias()
     APP_STATE["model_name"] = mlx_model_name()
     APP_STATE["model_id"] = mlx_model_id()
     APP_STATE["image_embedding_enabled"] = image_embedding_enabled()
@@ -1050,6 +1059,8 @@ async def root(request: Request) -> dict[str, str]:
     return {
         "service": "infumap-image-tagging-mlx",
         "backend": MLX_BACKEND_NAME,
+        "model_alias": APP_STATE.get("model_alias") or model_alias(),
+        "model_id": APP_STATE.get("model_id") or mlx_model_id(),
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
         "tag": rooted_path(request, "/tag"),
@@ -1062,6 +1073,7 @@ async def healthz() -> dict[str, Any]:
     return {
         "ok": ok,
         "backend": MLX_BACKEND_NAME,
+        "model_alias": APP_STATE.get("model_alias") or model_alias(),
         "model_id": APP_STATE.get("model_id"),
         "mlx_server_url": mlx_server_url(),
         "image_embedding_enabled": APP_STATE.get("image_embedding_enabled"),

@@ -126,7 +126,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96,
-      h: store.general.installationState()?.devFeatureFlag ? 164 : 138
+      h: 164
     }
   } else if (popupType == ToolbarPopupType.RatingType) {
     return {
@@ -472,14 +472,9 @@ export const Toolbar_Popup: Component = () => {
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCalendarClick}>
               Calendar
             </div>
-            <Show when={store.general.installationState()?.devFeatureFlag}>
-              <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
-                Document
-              </div>
-              <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCalendarClick}>
-                Calendar
-              </div>
-            </Show>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
+              Document
+            </div>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.RatingType}>

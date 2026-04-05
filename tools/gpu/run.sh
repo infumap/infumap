@@ -20,6 +20,7 @@ set -euo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly RESTART_DELAY_SECS="${GPU_RESTART_DELAY_SECS:-5}"
+export GPU_MODELS_DIR="${GPU_MODELS_DIR:-$ROOT_DIR/models}"
 readonly SERVICES=(
     "gateway"
     "image_tagging"
@@ -178,6 +179,7 @@ trap cleanup EXIT INT TERM
 
 echo "Starting Infumap GPU services"
 echo "GPU_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
+echo "GPU_MODELS_DIR=${GPU_MODELS_DIR}"
 echo "Services: ${SERVICES[*]}"
 if command -v nvidia-smi >/dev/null 2>&1; then
     echo "Detected GPUs via nvidia-smi:"

@@ -39,14 +39,15 @@ EMBED_SEMAPHORE: asyncio.Semaphore | None = None
 DEFAULT_MAX_BATCH_ITEMS = 256
 DEFAULT_MAX_TEXT_CHARS = 32_768
 DEFAULT_MAX_CONCURRENCY = 1
-DEFAULT_MODEL_CACHE_DIR = Path(__file__).resolve().parent / "models"
+DEFAULT_MODEL_ALIAS = "bgebase"
+DEFAULT_MODEL_NAME = "Xenova/bge-base-en-v1.5"
+DEFAULT_MODEL_CACHE_DIR = Path(__file__).resolve().parent.parent / "models" / "embeddings" / DEFAULT_MODEL_ALIAS
 DEFAULT_DEVICE = "cpu"
 GPU_EXECUTION_PROVIDERS = {
     "CUDAExecutionProvider",
     "CoreMLExecutionProvider",
 }
 
-COMPATIBLE_MODEL_NAME = "Xenova/bge-base-en-v1.5"
 FASTEMBED_PUBLIC_ALIAS = "BAAI/bge-base-en-v1.5"
 COMPATIBLE_MODEL_FILE = "onnx/model.onnx"
 COMPATIBLE_MODEL_DIMENSIONS = 768
@@ -118,6 +119,14 @@ def max_text_chars() -> int:
 
 def max_concurrency() -> int:
     return max(1, env_int("TEXT_EMBEDDING_MAX_CONCURRENCY", DEFAULT_MAX_CONCURRENCY))
+
+
+def embedding_model_alias() -> str:
+    return os.environ.get("TEXT_EMBEDDING_MODEL_ALIAS", DEFAULT_MODEL_ALIAS).strip() or DEFAULT_MODEL_ALIAS
+
+
+def embedding_model_name() -> str:
+    return os.environ.get("TEXT_EMBEDDING_MODEL_NAME", DEFAULT_MODEL_NAME).strip() or DEFAULT_MODEL_NAME
 
 
 def embedding_device() -> str:
@@ -230,20 +239,21 @@ def active_onnx_providers(model: TextEmbedding) -> list[str]:
 
 
 def ensure_compatible_model_registered() -> None:
+    model_name = embedding_model_name()
     existing = getattr(TextEmbedding, "list_supported_models", None)
     if callable(existing):
         for description in existing():
             if isinstance(description, dict):
-                if description.get("model") == COMPATIBLE_MODEL_NAME:
+                if description.get("model") == model_name:
                     return
-            elif getattr(description, "model", None) == COMPATIBLE_MODEL_NAME:
+            elif getattr(description, "model", None) == model_name:
                 return
 
     TextEmbedding.add_custom_model(
-        model=COMPATIBLE_MODEL_NAME,
+        model=model_name,
         pooling=PoolingType.CLS,
         normalization=COMPATIBLE_MODEL_NORMALIZATION,
-        sources=ModelSource(hf=COMPATIBLE_MODEL_NAME),
+        sources=ModelSource(hf=model_name),
         dim=COMPATIBLE_MODEL_DIMENSIONS,
         model_file=COMPATIBLE_MODEL_FILE,
     )
@@ -264,7 +274,8 @@ def build_runtime_summary() -> list[str]:
         f"uvicorn={package_version('uvicorn')}",
         f"fastembed={package_version_any('fastembed-gpu', 'fastembed')}",
         f"onnxruntime={package_version_any('onnxruntime-gpu', 'onnxruntime')}",
-        f"model={COMPATIBLE_MODEL_NAME}",
+        f"model_alias={embedding_model_alias()}",
+        f"model={embedding_model_name()}",
         f"fastembed_builtin_alias={FASTEMBED_PUBLIC_ALIAS}",
         f"device={device}",
         f"compatible_with_rust_model={COMPATIBLE_WITH_RUST_MODEL}",
@@ -288,7 +299,7 @@ def build_embedding_model() -> TextEmbedding:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     kwargs: dict[str, Any] = {
-        "model_name": COMPATIBLE_MODEL_NAME,
+        "model_name": embedding_model_name(),
         "cache_dir": str(cache_dir),
     }
     providers = effective_onnx_providers()
@@ -392,7 +403,8 @@ async def root(request: Request) -> dict[str, Any]:
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
         "embed": rooted_path(request, "/embed"),
-        "model": COMPATIBLE_MODEL_NAME,
+        "model_alias": embedding_model_alias(),
+        "model": embedding_model_name(),
         "fastembed_builtin_alias": FASTEMBED_PUBLIC_ALIAS,
         "compatible_with_rust_model": COMPATIBLE_WITH_RUST_MODEL,
         "compatible_with_rust_call": COMPATIBLE_WITH_RUST_CALL,
@@ -413,7 +425,8 @@ async def root(request: Request) -> dict[str, Any]:
 async def healthz() -> dict[str, Any]:
     return {
         "ok": "embedding_model" in APP_STATE,
-        "model": COMPATIBLE_MODEL_NAME,
+        "model_alias": embedding_model_alias(),
+        "model": embedding_model_name(),
         "dimensions": COMPATIBLE_MODEL_DIMENSIONS,
         "device": APP_STATE.get("device", embedding_device()),
         "configured_providers": APP_STATE.get("configured_providers", []),
@@ -444,7 +457,7 @@ async def embed(request: EmbedRequest) -> EmbedResponse:
     ]
     return EmbedResponse(
         success=True,
-        model=COMPATIBLE_MODEL_NAME,
+        model=embedding_model_name(),
         compatible_with_rust_model=COMPATIBLE_WITH_RUST_MODEL,
         dimensions=COMPATIBLE_MODEL_DIMENSIONS,
         normalized=COMPATIBLE_MODEL_NORMALIZATION,

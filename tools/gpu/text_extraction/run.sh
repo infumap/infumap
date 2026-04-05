@@ -19,11 +19,18 @@ set -euo pipefail
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
 readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${TEXT_EXTRACTION_VENV_DIR:-${MARKER_SERVICE_VENV_DIR:-$ROOT_DIR/.venv}}"
 readonly HOST="${TEXT_EXTRACTION_HOST:-${MARKER_SERVICE_HOST:-127.0.0.1}}"
 readonly PORT="${TEXT_EXTRACTION_PORT:-${MARKER_SERVICE_PORT:-8790}}"
 readonly RESTART_DELAY_SECS="${TEXT_EXTRACTION_RESTART_DELAY_SECS:-5}"
+readonly SHARED_MODELS_DIR="${GPU_MODELS_DIR:-$GPU_ROOT_DIR/models}"
+
+export HF_HOME="${HF_HOME:-$SHARED_MODELS_DIR/huggingface}"
+export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
+export TORCH_HOME="${TORCH_HOME:-$SHARED_MODELS_DIR/torch}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 LAUNCHED_CHILD_PID=""
 
@@ -193,6 +200,7 @@ set_runtime_defaults
 echo "Starting Infumap text extraction service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
+echo "Shared models dir: $SHARED_MODELS_DIR"
 echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"

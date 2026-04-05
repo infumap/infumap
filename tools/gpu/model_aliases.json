@@ -1,0 +1,55 @@
+{
+  "aliases": {
+    "qwen9": {
+      "modalities": ["text", "image"],
+      "runtime": "llama.cpp-vlm",
+      "model_repo": "unsloth/Qwen3.5-9B-GGUF",
+      "model_file": "Qwen3.5-9B-Q4_K_M.gguf",
+      "mmproj_file": "mmproj-BF16.gguf",
+      "models_subdir": "vlm/qwen9",
+      "model_id": "unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf",
+      "llama_model_name": "Qwen3.5-9B-Q4_K_M",
+      "llama_extra_args": ""
+    },
+    "gemma26": {
+      "modalities": ["text", "image"],
+      "runtime": "llama.cpp-vlm",
+      "model_repo": "unsloth/gemma-4-26B-A4B-it-GGUF",
+      "model_file": "gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf",
+      "mmproj_file": "mmproj-BF16.gguf",
+      "models_subdir": "vlm/gemma26",
+      "model_id": "unsloth/gemma-4-26B-A4B-it-GGUF:gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf",
+      "llama_model_name": "gemma-4-26B-A4B-it-UD-Q4_K_XL",
+      "llama_extra_args": "--chat-template-kwargs {\"enable_thinking\":false}"
+    },
+    "qwen25vl7b4bit": {
+      "modalities": ["text", "image"],
+      "runtime": "mlx-vlm",
+      "model_repo": "mlx-community/Qwen2.5-VL-7B-Instruct-4bit",
+      "models_subdir": "mlx/qwen25vl7b4bit",
+      "model_id": "mlx-community/Qwen2.5-VL-7B-Instruct-4bit",
+      "mlx_model_name": "Qwen2.5-VL-7B-Instruct-4bit"
+    },
+    "bgebase": {
+      "modalities": ["text_embedding"],
+      "runtime": "fastembed",
+      "model_name": "Xenova/bge-base-en-v1.5",
+      "models_subdir": "embeddings/bgebase",
+      "model_id": "Xenova/bge-base-en-v1.5"
+    }
+  },
+  "tools": {
+    "image_tagging": {
+      "default_alias": "qwen9",
+      "allowed_aliases": ["qwen9", "gemma26"]
+    },
+    "image_tagging_mlx": {
+      "default_alias": "qwen25vl7b4bit",
+      "allowed_aliases": ["qwen25vl7b4bit"]
+    },
+    "text_embedding": {
+      "default_alias": "bgebase",
+      "allowed_aliases": ["bgebase"]
+    }
+  }
+}

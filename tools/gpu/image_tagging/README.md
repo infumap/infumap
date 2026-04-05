@@ -21,11 +21,14 @@ By default:
 
 - the HTTP service listens on `127.0.0.1:8788`
 - local `llama-server` listens on `127.0.0.1:18080`
-- model files live under `tools/gpu/image_tagging/models/<preset>` by default
+- model files live under `tools/gpu/models/vlm/<alias>` by default
 - the launcher uses:
   - repo: `unsloth/Qwen3.5-9B-GGUF`
   - model file: `Qwen3.5-9B-Q4_K_M.gguf`
   - mmproj file: `mmproj-BF16.gguf`
+
+Shared model aliases are defined in `tools/gpu/model_aliases.json`, with
+per-tool defaults and compatibility rules in the same file.
 
 ## Requirements
 
@@ -90,7 +93,10 @@ llama-server management:
 
 Model selection:
 
-- `IMAGE_TAGGING_MODEL` preset selector: `qwen9` or `gemma26` (default `qwen9`)
+- `IMAGE_TAGGING_MODEL` shared alias selector. If unset, the default comes from
+  `tools/gpu/model_aliases.json` and is currently `qwen9`.
+- `GPU_MODELS_DIR`
+- `GPU_MODEL_ALIAS_REGISTRY`
 - `IMAGE_TAGGING_MODELS_DIR`
 - `IMAGE_TAGGING_MODEL_REPO`
 - `IMAGE_TAGGING_MODEL_FILE`
@@ -136,6 +142,12 @@ Switch to the Gemma 4 preset:
 
 ```bash
 IMAGE_TAGGING_MODEL=gemma26 ./tools/gpu/image_tagging/run.sh
+```
+
+Use a different shared models root:
+
+```bash
+GPU_MODELS_DIR=/srv/infumap-gpu-models ./tools/gpu/image_tagging/run.sh
 ```
 
 Pass extra flags straight through to `llama-server`:

@@ -24,6 +24,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
 fi
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
 readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${IMAGE_TAGGING_VENV_DIR:-$ROOT_DIR/.venv}"
 readonly HOST="${IMAGE_TAGGING_HOST:-127.0.0.1}"
@@ -33,11 +34,15 @@ readonly MLX_HOST="${IMAGE_TAGGING_MLX_HOST:-127.0.0.1}"
 readonly MLX_PORT="${IMAGE_TAGGING_MLX_PORT:-18080}"
 readonly MLX_SERVER_URL_DEFAULT="http://${MLX_HOST}:${MLX_PORT}"
 readonly STARTUP_TIMEOUT_SECS="${IMAGE_TAGGING_STARTUP_TIMEOUT_SECS:-900}"
+readonly MODEL_SELECTOR="${IMAGE_TAGGING_MODEL:-}"
+readonly MODEL_ALIAS_REGISTRY="${GPU_MODEL_ALIAS_REGISTRY:-$GPU_ROOT_DIR/model_aliases.json}"
+readonly SHARED_MODELS_DIR="${GPU_MODELS_DIR:-$GPU_ROOT_DIR/models}"
 
-readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$ROOT_DIR/models}"
-readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-mlx-community/Qwen2.5-VL-7B-Instruct-4bit}"
-readonly MODEL_DIR_NAME="${MODEL_REPO##*/}"
-readonly MODEL_PATH="${MODELS_DIR}/${MODEL_DIR_NAME}"
+export HF_HOME="${HF_HOME:-$SHARED_MODELS_DIR/huggingface}"
+export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
+export TORCH_HOME="${TORCH_HOME:-$SHARED_MODELS_DIR/torch}"
+
 readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
 readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
 
@@ -52,6 +57,28 @@ fail() {
     echo "Error: $1" >&2
     exit 1
 }
+
+resolve_model_alias() {
+    local resolved_alias_env=""
+    local -a resolve_cmd=(
+        "$PYTHON_BIN" "$GPU_ROOT_DIR/resolve_model_alias.py"
+        --registry "$MODEL_ALIAS_REGISTRY"
+        --tool image_tagging_mlx
+    )
+    if [ -n "$MODEL_SELECTOR" ]; then
+        resolve_cmd+=(--alias "$MODEL_SELECTOR")
+    fi
+    if ! resolved_alias_env="$("${resolve_cmd[@]}" 2>&1)"; then
+        fail "$resolved_alias_env"
+    fi
+    eval "$resolved_alias_env"
+}
+
+resolve_model_alias
+
+readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$SHARED_MODELS_DIR/$RESOLVED_MODELS_SUBDIR}"
+readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-$RESOLVED_MODEL_REPO}"
+readonly MODEL_PATH="${MODELS_DIR}"
 
 venv_package_name() {
     "$PYTHON_BIN" - <<'PY'
@@ -300,15 +327,20 @@ else
 fi
 export IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING="$IMAGE_EMBEDDING_ENABLED"
 export IMAGE_TAGGING_EMBEDDING_MODEL_ID="$IMAGE_EMBEDDING_MODEL_ID"
+export IMAGE_TAGGING_MODEL="$RESOLVED_ALIAS"
+export IMAGE_TAGGING_MODEL_ALIAS="$RESOLVED_ALIAS"
 export IMAGE_TAGGING_MODEL_REPO="$MODEL_REPO"
-export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-${MODEL_PATH}}"
-export IMAGE_TAGGING_MLX_MODEL_NAME="${IMAGE_TAGGING_MLX_MODEL_NAME:-${MODEL_PATH}}"
+export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-${RESOLVED_MODEL_ID:-${MODEL_REPO}}}"
+export IMAGE_TAGGING_MLX_MODEL_NAME="${IMAGE_TAGGING_MLX_MODEL_NAME:-${RESOLVED_MLX_MODEL_NAME:-${MODEL_REPO##*/}}}"
 export IMAGE_TAGGING_MAX_CONCURRENCY="1"
 
 echo "Starting Infumap image tagging service (MLX)"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "API host/port: $HOST:$PORT"
 echo "mlx-vlm server URL: $IMAGE_TAGGING_MLX_SERVER_URL"
+echo "Shared models dir: $SHARED_MODELS_DIR"
+echo "Model alias: $RESOLVED_ALIAS"
+echo "Default alias: $RESOLVED_DEFAULT_ALIAS"
 echo "Model repo: $MODEL_REPO"
 echo "Model path: $MODEL_PATH"
 echo "Image embedding enabled: $IMAGE_EMBEDDING_ENABLED"
@@ -327,7 +359,6 @@ if [ "$MANAGE_MLX_SERVER" = "1" ]; then
         --max-kv-size "$MLX_MAX_KV_SIZE"
     )
     if [ -n "$MLX_EXTRA_ARGS" ]; then
-        local -a mlx_extra_args
         # shellcheck disable=SC2206
         mlx_extra_args=($MLX_EXTRA_ARGS)
         mlx_cmd+=("${mlx_extra_args[@]}")
