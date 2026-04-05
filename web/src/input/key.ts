@@ -462,6 +462,67 @@ function editFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement):
   return false;
 }
 
+function getTableHorizontalNavigationTarget(currentPath: string, direction: FindDirection): string | null {
+  if (direction != FindDirection.Left && direction != FindDirection.Right) { return null; }
+
+  const currentVe = VesCache.current.readNode(currentPath);
+  if (!currentVe || !(currentVe.flags & VisualElementFlags.InsideTable)) { return null; }
+
+  const isAttachment = !!(currentVe.flags & VisualElementFlags.Attachment);
+  const currentCol = currentVe.col;
+  if (currentCol == null) { return null; }
+
+  if (!isAttachment && currentCol === 0 && direction === FindDirection.Right) {
+    const rowAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(currentVe));
+    for (const attachmentVe of rowAttachmentsVes) {
+      if (attachmentVe.col === 1) {
+        return VeFns.veToPath(attachmentVe);
+      }
+    }
+    return null;
+  }
+
+  if (!isAttachment || !currentVe.parentPath) { return null; }
+
+  const rowVe = VesCache.current.readNode(currentVe.parentPath);
+  if (!rowVe) { return null; }
+
+  if (direction === FindDirection.Left) {
+    if (currentCol === 1) {
+      return VeFns.veToPath(rowVe);
+    }
+
+    if (currentCol > 1) {
+      const rowAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(rowVe));
+      for (const attachmentVe of rowAttachmentsVes) {
+        if (attachmentVe.col === currentCol - 1) {
+          return VeFns.veToPath(attachmentVe);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  const rowAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(rowVe));
+  for (const attachmentVe of rowAttachmentsVes) {
+    if (attachmentVe.col === currentCol + 1) {
+      return VeFns.veToPath(attachmentVe);
+    }
+  }
+
+  return null;
+}
+
+function handleTableItemFocusHorizontalNavigation(store: StoreContextModel, currentPath: string, direction: FindDirection): boolean {
+  const targetPath = getTableHorizontalNavigationTarget(currentPath, direction);
+  if (!targetPath) { return false; }
+
+  store.history.setFocus(targetPath);
+  arrangeNow(store, "key-table-focus-horizontal-nav");
+  return true;
+}
+
 export async function keyUpHandler(store: StoreContextModel, ev: KeyboardEvent): Promise<void> {
   if (!isShiftKey(ev.code)) { return; }
   if (ev.shiftKey) { return; }
@@ -497,6 +558,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       // Navigate to closest item from current focus
       const direction = findDirectionFromKeyCode(ev.code);
       if (handleVirtualizedTableVerticalNavigationMaybe(store, focusPath, focusVe, direction)) { return; }
+      if (handleTableItemFocusHorizontalNavigation(store, focusPath, direction)) { return; }
       const closest = findClosest(VesCache.current, focusPath, direction, true);
       if (closest != null) {
         // Just set focus to the new item - don't pop up pages
@@ -1145,87 +1207,11 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
  * - On an attachment (col>0), Right navigates to next attachment if available
  */
 function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, currentPath: string, direction: FindDirection): boolean {
-  if (direction != FindDirection.Left && direction != FindDirection.Right) { return false; }
+  const targetPath = getTableHorizontalNavigationTarget(currentPath, direction);
+  if (!targetPath) { return false; }
 
-  const currentVe = VesCache.current.readNode(currentPath);
-  if (!currentVe) { return false; }
-
-  // Check if we're inside a table
-  if (!(currentVe.flags & VisualElementFlags.InsideTable)) {
-    return false;
-  }
-
-  const isAttachment = !!(currentVe.flags & VisualElementFlags.Attachment);
-  const currentCol = currentVe.col;
-
-  if (currentCol == null) { return false; }
-
-  // Case 1: On a table child (col=0), pressing Right -> go to first attachment
-  if (!isAttachment && currentCol === 0 && direction === FindDirection.Right) {
-    // currentVe is the table child, check its attachments
-    // currentVe is the table child, check its attachments
-    const currentAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(currentVe));
-    if (!currentAttachmentsVes || currentAttachmentsVes.length === 0) {
-      return false;
-    }
-
-    // Find the first attachment (col=1)
-    // Find the first attachment (col=1)
-    for (const attachmentVe of currentAttachmentsVes) {
-        if (attachmentVe.col === 1) {
-          const targetPath = VeFns.veToPath(attachmentVe);
-          const targetVeid = VeFns.veidFromPath(targetPath);
-          store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-          arrangeNow(store, "key-table-popup-right-to-first-attachment");
-          return true;
-        }
-      }
-    return false;
-  }
-
-  // Case 2: On an attachment, navigating left or right
-  if (isAttachment && currentVe.parentPath) {
-    const rowVe = VesCache.current.readNode(currentVe.parentPath);
-    if (!rowVe) { return false; }
-
-    if (direction === FindDirection.Left) {
-      // Navigate to previous column
-      if (currentCol === 1) {
-        // Go back to the table child (the parent row)
-        const targetPath = VeFns.veToPath(rowVe);
-        const targetVeid = VeFns.veidFromPath(targetPath);
-        store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-        arrangeNow(store, "key-table-popup-left-to-row");
-        return true;
-      } else if (currentCol > 1) {
-        // Go to previous attachment
-        // Go to previous attachment
-        const rowAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(rowVe));
-        for (const attachmentVe of rowAttachmentsVes) {
-          if (attachmentVe.col === currentCol - 1) {
-            const targetPath = VeFns.veToPath(attachmentVe);
-            const targetVeid = VeFns.veidFromPath(targetPath);
-            store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-            arrangeNow(store, "key-table-popup-left-to-attachment");
-            return true;
-          }
-        }
-      }
-    } else if (direction === FindDirection.Right) {
-      // Navigate to next attachment
-      // Navigate to next attachment
-      const rowAttachmentsVes = VesCache.current.readAttachments(VeFns.veToPath(rowVe));
-      for (const attachmentVe of rowAttachmentsVes) {
-        if (attachmentVe.col === currentCol + 1) {
-          const targetPath = VeFns.veToPath(attachmentVe);
-          const targetVeid = VeFns.veidFromPath(targetPath);
-          store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-          arrangeNow(store, "key-table-popup-right-to-attachment");
-          return true;
-        }
-      }
-    }
-  }
-
-  return false;
+  const targetVeid = VeFns.veidFromPath(targetPath);
+  store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+  arrangeNow(store, "key-table-popup-horizontal-nav");
+  return true;
 }
