@@ -20,31 +20,33 @@ export default defineConfig(({ command, mode }) => {
       proxy: {
         '/assets': {
           target: `http://${host}:8000`,
-          changeOrigin: true
+          // Preserve the browser-facing Host header so backend same-origin
+          // session checks keep accepting cookies when running through Vite.
+          changeOrigin: false
         },
         '/account': {
           target: `http://${host}:8000`,
-          changeOrigin: true
+          changeOrigin: false
         },
         '/admin': {
           target: `http://${host}:8000`,
-          changeOrigin: true
+          changeOrigin: false
         },
         '/command': {
           target: `http://${host}:8000`,
-          changeOrigin: true
+          changeOrigin: false
         },
         '/ingest': {
           target: `http://${host}:8000`,
-          changeOrigin: true
+          changeOrigin: false
         },
         '/files': {
           target: `http://${host}:8000`,
-          changeOrigin: true
+          changeOrigin: false
         },
         '/add': {
           target: `http://${host}:8000`,
-          changeOrigin: true
+          changeOrigin: false
         },
       }
     },
