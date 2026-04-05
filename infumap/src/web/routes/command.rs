@@ -43,6 +43,10 @@ use std::str;
 use std::sync::Arc;
 use tokio::sync::MutexGuard;
 
+use crate::ai::image_tagging::{
+  delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
+};
+use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
 use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};
@@ -52,12 +56,8 @@ use crate::storage::object;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
 use crate::util::mime::detect_mime_type;
 use crate::util::ordering::new_ordering_at_end;
-use crate::web::image_tagging::{
-  delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
-};
 use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
-use crate::web::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use std::collections::{HashMap, HashSet};
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly

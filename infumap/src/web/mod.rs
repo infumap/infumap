@@ -15,10 +15,8 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 mod dist_handlers;
-pub mod image_tagging;
 mod prometheus;
 mod serve;
-pub mod text_extraction;
 
 pub mod cookie;
 pub mod routes;
@@ -44,6 +42,8 @@ use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tokio::{task, time};
 
+use crate::ai::image_tagging::init_image_tagging_processing_loop;
+use crate::ai::text_extraction::init_text_extraction_processing_loop;
 use crate::config::*;
 use crate::setup::init_fs_maybe_and_get_config;
 use crate::storage::backup::{self as storage_backup, BackupStore};
@@ -55,10 +55,8 @@ use crate::tokiort::TokioIo;
 use crate::util::crypto::{decrypt_file_data, encrypt_file_data};
 use crate::util::fs::expand_tilde;
 
-use self::image_tagging::init_image_tagging_processing_loop;
 use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
-use self::text_extraction::init_text_extraction_processing_loop;
 
 pub static METRIC_BACKUPS_INITIATED_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
   IntCounter::new("backups_total", "Total number of times a user database backup has been initiated.")

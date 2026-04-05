@@ -8,11 +8,11 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::fs::{expand_tilde, path_exists};
-use crate::web::image_tagging::is_supported_image_tagging_mime_type;
 
 const PDF_MIME_TYPE: &str = "application/pdf";
 
@@ -220,7 +220,7 @@ impl DerivedKind {
   fn matches_source_mime_type(self, mime_type: &str) -> bool {
     match self {
       DerivedKind::Image | DerivedKind::Geo => {
-        crate::web::image_tagging::is_supported_image_tagging_mime_type(Some(mime_type))
+        crate::ai::image_tagging::is_supported_image_tagging_mime_type(Some(mime_type))
       }
       DerivedKind::Pdf => mime_type == PDF_MIME_TYPE,
     }

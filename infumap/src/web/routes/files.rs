@@ -32,6 +32,7 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
 use crate::config::{
   CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT,
 };
@@ -41,7 +42,6 @@ use crate::storage::db::Db;
 use crate::storage::object;
 use crate::util::fs::expand_tilde;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
-use crate::web::image_tagging::is_supported_image_tagging_mime_type;
 use crate::web::serve::{cors_response, full_body, internal_server_error_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 

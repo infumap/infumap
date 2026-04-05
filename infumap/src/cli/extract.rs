@@ -31,6 +31,16 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
+use crate::ai::image_tagging::{
+  LoadedImageTagging, delete_item_image_tag_dir, image_tagging_url_from_config, is_supported_image_tagging_mime_type,
+  item_needs_image_tagging, list_failed_images, load_image_for_tagging, mark_item_image_tagging_failed,
+  process_loaded_image_tagging, should_tag_image_item, tag_single_item_no_retry,
+};
+use crate::ai::text_extraction::{
+  LoadedPdfExtraction, delete_item_text_dir, extract_single_item_no_retry, item_needs_text_extraction,
+  list_failed_pdfs, load_pdf_for_extraction, mark_item_text_extraction_failed, process_loaded_pdf_extraction,
+  text_extraction_url_from_config,
+};
 use crate::config::{
   CONFIG_DATA_DIR, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE,
   CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_S3_1_BUCKET, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_KEY, CONFIG_S3_1_REGION,
@@ -41,16 +51,6 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 use crate::util::fs::{expand_tilde, path_exists};
-use crate::web::image_tagging::{
-  LoadedImageTagging, delete_item_image_tag_dir, image_tagging_url_from_config, is_supported_image_tagging_mime_type,
-  item_needs_image_tagging, list_failed_images, load_image_for_tagging, mark_item_image_tagging_failed,
-  process_loaded_image_tagging, should_tag_image_item, tag_single_item_no_retry,
-};
-use crate::web::text_extraction::{
-  LoadedPdfExtraction, delete_item_text_dir, extract_single_item_no_retry, item_needs_text_extraction,
-  list_failed_pdfs, load_pdf_for_extraction, mark_item_text_extraction_failed, process_loaded_pdf_extraction,
-  text_extraction_url_from_config,
-};
 
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 

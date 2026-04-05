@@ -14,11 +14,11 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use super::build_http_client;
+use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
-use crate::web::image_tagging::is_supported_image_tagging_mime_type;
 
 const DEFAULT_GEOAPIFY_REVERSE_URL: &str = "https://api.geoapify.com/v1/geocode/reverse";
 const JSON_CONTENT_MIME_TYPE: &str = "application/json";

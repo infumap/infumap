@@ -16,6 +16,7 @@ use time::format_description::well_known::Rfc3339;
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::ai::image_tagging::should_tag_image_item;
 use crate::config::CONFIG_DATA_DIR;
 use crate::rag::{
   FragmentBuildOutcome, FragmentInput, FragmentSourceKind, build_fragment_inputs_for_item, clear_fragments_for_item,
@@ -24,7 +25,6 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::fs::expand_tilde;
 use crate::util::ordering::compare_orderings;
-use crate::web::image_tagging::should_tag_image_item;
 
 const PDF_MIME_TYPE: &str = "application/pdf";
 const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
