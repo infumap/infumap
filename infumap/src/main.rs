@@ -17,7 +17,6 @@
 mod ai;
 mod cli;
 mod config;
-mod rag;
 mod setup;
 mod storage;
 mod tokiort;

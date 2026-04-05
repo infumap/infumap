@@ -17,10 +17,10 @@ use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::ai::image_tagging::should_tag_image_item;
-use crate::config::CONFIG_DATA_DIR;
-use crate::rag::{
+use crate::ai::rag::{
   FragmentBuildOutcome, FragmentInput, FragmentSourceKind, build_fragment_inputs_for_item, clear_fragments_for_item,
 };
+use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::fs::expand_tilde;
