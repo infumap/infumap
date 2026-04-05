@@ -68,6 +68,9 @@
 # under each user's text directory in the data directory.
 #image_tagging_url = "http://127.0.0.1:8787/tag"
 
+# Optional URL for the external text embedding service.
+#text_embedding_url = "http://127.0.0.1:8787/embed"
+
 # Maximum aggregate size (in megabytes) of all files in the cache. Files are
 # removed using an LRU policy if this size is exceeded.
 #cache_max_mb = 500

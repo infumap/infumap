@@ -1,6 +1,6 @@
 # GPU Services
 
-This folder contains the three GPU-backed HTTP tools plus a shared HTTP gateway:
+This folder contains the three HTTP tools plus a shared HTTP gateway:
 
 - `gateway`
 - `image_tagging`
@@ -24,6 +24,9 @@ The child services keep their own defaults:
 - `image_tagging`: `127.0.0.1:8788`
 - `text_embedding`: `127.0.0.1:8789`
 - `text_extraction`: `127.0.0.1:8790`
+
+Note: `tools/gpu/text_embedding` now defaults to CPU execution. Set
+`TEXT_EMBEDDING_DEVICE=gpu` if you want that service to request acceleration.
 
 The combined launcher keeps each service independent:
 

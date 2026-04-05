@@ -40,6 +40,7 @@ DEFAULT_MAX_BATCH_ITEMS = 256
 DEFAULT_MAX_TEXT_CHARS = 32_768
 DEFAULT_MAX_CONCURRENCY = 1
 DEFAULT_MODEL_CACHE_DIR = Path(__file__).resolve().parent / "models"
+DEFAULT_DEVICE = "cpu"
 GPU_EXECUTION_PROVIDERS = {
     "CUDAExecutionProvider",
     "CoreMLExecutionProvider",
@@ -119,6 +120,14 @@ def max_concurrency() -> int:
     return max(1, env_int("TEXT_EMBEDDING_MAX_CONCURRENCY", DEFAULT_MAX_CONCURRENCY))
 
 
+def embedding_device() -> str:
+    raw = os.environ.get("TEXT_EMBEDDING_DEVICE", DEFAULT_DEVICE).strip().lower()
+    if raw in {"cpu", "gpu"}:
+        return raw
+    LOGGER.warning("Invalid TEXT_EMBEDDING_DEVICE=%r; using %s", raw, DEFAULT_DEVICE)
+    return DEFAULT_DEVICE
+
+
 def root_path() -> str:
     configured = os.environ.get("TEXT_EMBEDDING_ROOT_PATH", "").strip()
     if not configured or configured == "/":
@@ -161,17 +170,17 @@ def effective_onnx_providers() -> list[str]:
     if configured is not None:
         return configured
 
+    if embedding_device() == "cpu":
+        return ["CPUExecutionProvider"]
+
     available = available_onnx_providers()
     if "CUDAExecutionProvider" in available:
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
     if platform.system() == "Darwin" and "CoreMLExecutionProvider" in available:
         return ["CoreMLExecutionProvider", "CPUExecutionProvider"]
-    return []
-
-
-def require_gpu() -> bool:
-    raw = os.environ.get("TEXT_EMBEDDING_REQUIRE_GPU", "0").strip().lower()
-    return raw not in {"", "0", "false", "no", "off"}
+    if platform.system() == "Darwin":
+        return ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+    return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
 
 def requested_gpu_providers(providers: list[str]) -> list[str]:
@@ -241,6 +250,7 @@ def ensure_compatible_model_registered() -> None:
 
 
 def build_runtime_summary() -> list[str]:
+    device = APP_STATE.get("device", embedding_device())
     configured_providers = onnx_providers()
     provider_summary = ",".join(configured_providers) if configured_providers else "<auto>"
     selected_providers = APP_STATE.get("configured_providers", effective_onnx_providers())
@@ -256,6 +266,7 @@ def build_runtime_summary() -> list[str]:
         f"onnxruntime={package_version_any('onnxruntime-gpu', 'onnxruntime')}",
         f"model={COMPATIBLE_MODEL_NAME}",
         f"fastembed_builtin_alias={FASTEMBED_PUBLIC_ALIAS}",
+        f"device={device}",
         f"compatible_with_rust_model={COMPATIBLE_WITH_RUST_MODEL}",
         f"compatible_with_rust_call={COMPATIBLE_WITH_RUST_CALL}",
         f"pooling={COMPATIBLE_MODEL_POOLING}",
@@ -265,7 +276,6 @@ def build_runtime_summary() -> list[str]:
         f"providers_selected={selected_provider_summary}",
         f"providers_available={available_provider_summary}",
         f"providers_active={active_provider_summary}",
-        f"require_gpu={require_gpu()}",
         f"max_batch_items={max_batch_items()}",
         f"max_text_chars={max_text_chars()}",
         f"max_concurrency={max_concurrency()}",
@@ -285,25 +295,7 @@ def build_embedding_model() -> TextEmbedding:
     if providers:
         kwargs["providers"] = providers
         preload_onnxruntime_gpu_libraries(providers)
-    try:
-        return TextEmbedding(**kwargs)
-    except Exception:
-        auto_gpu_fallback = os.environ.get("TEXT_EMBEDDING_AUTO_GPU_FALLBACK", "1").strip().lower() not in {
-            "0",
-            "false",
-            "no",
-            "off",
-        }
-        if not providers or not auto_gpu_fallback or not requested_gpu_providers(providers) or require_gpu():
-            raise
-        LOGGER.warning(
-            "Could not initialize FastEmbed with providers=%s; falling back to CPUExecutionProvider.",
-            providers,
-            exc_info=True,
-        )
-        fallback_kwargs = dict(kwargs)
-        fallback_kwargs["providers"] = ["CPUExecutionProvider"]
-        return TextEmbedding(**fallback_kwargs)
+    return TextEmbedding(**kwargs)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -313,12 +305,13 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
 
 def validate_active_providers() -> None:
+    device = APP_STATE.get("device", embedding_device())
     configured = APP_STATE.get("configured_providers", [])
     active = APP_STATE.get("active_providers", [])
-    gpu_requested = requested_gpu_providers(configured)
-    if not gpu_requested:
+    if device != "gpu":
         return
 
+    gpu_requested = requested_gpu_providers(configured)
     gpu_active = active_compatible_gpu_providers(configured, active)
     if gpu_active:
         return
@@ -327,9 +320,7 @@ def validate_active_providers() -> None:
         f"Configured GPU provider(s) {gpu_requested} were requested, "
         f"but active providers are {active or ['<none>']}."
     )
-    if require_gpu():
-        raise RuntimeError(message)
-    LOGGER.warning(message)
+    raise RuntimeError(message)
 
 
 def validate_inputs(request: EmbedRequest) -> list[str]:
@@ -360,6 +351,7 @@ async def lifespan(_: FastAPI):
     global EMBED_SEMAPHORE
 
     started_at = time.perf_counter()
+    APP_STATE["device"] = embedding_device()
     APP_STATE["available_providers"] = available_onnx_providers()
     APP_STATE["configured_providers"] = effective_onnx_providers()
     embedding_model = build_embedding_model()
@@ -407,6 +399,7 @@ async def root(request: Request) -> dict[str, Any]:
         "dimensions": COMPATIBLE_MODEL_DIMENSIONS,
         "pooling": COMPATIBLE_MODEL_POOLING,
         "normalized": COMPATIBLE_MODEL_NORMALIZATION,
+        "device": APP_STATE.get("device", embedding_device()),
         "providers": APP_STATE.get("configured_providers", []),
         "available_providers": APP_STATE.get("available_providers", []),
         "active_providers": APP_STATE.get("active_providers", []),
@@ -422,10 +415,10 @@ async def healthz() -> dict[str, Any]:
         "ok": "embedding_model" in APP_STATE,
         "model": COMPATIBLE_MODEL_NAME,
         "dimensions": COMPATIBLE_MODEL_DIMENSIONS,
+        "device": APP_STATE.get("device", embedding_device()),
         "configured_providers": APP_STATE.get("configured_providers", []),
         "available_providers": APP_STATE.get("available_providers", []),
         "active_providers": APP_STATE.get("active_providers", []),
-        "require_gpu": require_gpu(),
     }
 
 

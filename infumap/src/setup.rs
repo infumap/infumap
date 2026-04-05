@@ -303,6 +303,14 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_IMAGE_TAGGING_URL, "<not set>");
     }
   }
+  match config.get_string(CONFIG_TEXT_EMBEDDING_URL) {
+    Ok(v) => {
+      info!(" {} = '{}'", CONFIG_TEXT_EMBEDDING_URL, v);
+    }
+    Err(_) => {
+      info!(" {} = {}", CONFIG_TEXT_EMBEDDING_URL, "<not set>");
+    }
+  }
   info!(" {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB).map_err(|e| e.to_string())?);
   info!(
     " {} = {}",

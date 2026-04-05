@@ -19,7 +19,6 @@ set -euo pipefail
 
 WEB_BUILD_ARGS=()
 INFUMAP_BUILD_ARGS=()
-INCLUDE_ONNX=1
 MINIFY_WEB=1
 DEV_BUILD=0
 
@@ -28,12 +27,10 @@ print_usage() {
 Usage: ./build.sh [options] [target-triple]
 
 Build the web client and Infumap server.
-ONNX embedding support is included in the server build by default.
 
 Options:
   --dev        Dev build: no web minification, no Rust optimizations (faster).
   --no-minify  Disable web minification for easier debugging.
-  --no-onnx    Build the server without ONNX embedding support.
   -h, --help   Show this help.
 
 Arguments:
@@ -62,20 +59,12 @@ while [[ $# -gt 0 ]]; do
       WEB_BUILD_ARGS+=(--no-minify)
       shift
       ;;
-    --no-onnx)
-      INCLUDE_ONNX=0
-      shift
-      ;;
     *)
       INFUMAP_BUILD_ARGS+=("$1")
       shift
       ;;
   esac
 done
-
-if [[ $INCLUDE_ONNX -eq 1 ]]; then
-  INFUMAP_BUILD_ARGS+=(--features=embed-onnx)
-fi
 
 echo "Build options:"
 if [[ $DEV_BUILD -eq 1 ]]; then
@@ -87,12 +76,6 @@ if [[ $MINIFY_WEB -eq 1 ]]; then
   echo "  - Web minification: enabled"
 else
   echo "  - Web minification: disabled"
-fi
-
-if [[ $INCLUDE_ONNX -eq 1 ]]; then
-  echo "  - ONNX embedding support: enabled"
-else
-  echo "  - ONNX embedding support: disabled (--no-onnx)"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

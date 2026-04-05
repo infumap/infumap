@@ -297,7 +297,8 @@ pub async fn put_if_not_exist(
   file.write_all(&val).await.map_err(|e| format!("Error writing to temp file {:?}: {}", temp_path, e))?;
   file.flush().await?;
   drop(file);
-  tokio::fs::rename(&temp_path, &path).await
+  tokio::fs::rename(&temp_path, &path)
+    .await
     .map_err(|e| format!("Error renaming temp cache file {:?} to {:?}: {}", temp_path, path, e))?;
 
   purge_maybe(image_cache).await?;

@@ -1,8 +1,9 @@
-# Direct requirements for text_embedding service (CPU variant).
+# Direct requirements for text_embedding service.
 # Pinned to the tested versions running on this machine.
 #
-# GPU variant: fastembed-gpu replaces fastembed at runtime (see run.sh).
-# GPU packages are inherently platform-specific and are not pinned here.
+# The launcher installs the embedding backend package separately:
+# - CPU/default path: fastembed from requirements-fastembed.txt
+# - GPU path on NVIDIA hosts: fastembed-gpu at runtime
 #
 # To update after upgrading packages:
 #   .venv/bin/pip freeze | grep -v '^-e' > requirements-full-lock.txt

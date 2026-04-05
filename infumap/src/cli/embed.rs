@@ -1,28 +1,22 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Arg, ArgMatches, Command};
-#[cfg(feature = "embed-onnx")]
-use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
+use config::Config;
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-#[cfg(feature = "embed-onnx")]
 use super::build_http_client;
-use crate::config::CONFIG_DATA_DIR;
+use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EMBEDDING_URL};
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::fs::expand_tilde;
 
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
-const MODEL_NAME: &str = "BAAI/bge-base-en-v1.5";
-const EMBED_ONNX_FEATURE: &str = "embed-onnx";
-
 pub fn make_clap_subcommand() -> Command {
   Command::new("embed")
-    .about("Embed one item's existing fragments with fastembed and print vectors to stdout.")
+    .about("Embed one item's existing fragments via the external text embedding service and print vectors to stdout.")
     .arg(settings_arg())
     .arg(
       Arg::new("item_id")
@@ -34,34 +28,18 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Service URL. When present, also embed the same fragments via the text embedding service, compare both results, and still print the embedded Rust vectors to stdout.")
+        .help("Text embedding service base URL or /embed endpoint. Falls back to text_embedding_url in settings.toml.")
         .num_args(1)
         .required(false),
     )
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
-  if !embedding_capability_enabled() {
-    eprintln!(
-      "This infumap build does not include ONNX embedding support. Rebuild with `cargo build --features {}` to enable the embed command.",
-      EMBED_ONNX_FEATURE
-    );
-    return Ok(());
-  }
-
-  execute_with_onnx(sub_matches).await
-}
-
-#[cfg(feature = "embed-onnx")]
-async fn execute_with_onnx(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let (data_dir, item) = load_data_dir_and_item(sub_matches).await?;
+  let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
+  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
+  let item = load_item(&data_dir, sub_matches).await?;
   let fragments_path = fragments_path_for_item(&data_dir, &item.owner_id, &item.id)?;
-  let embedding_cache_dir = embedding_cache_dir(&data_dir)?;
-  let service_url =
-    sub_matches.get_one::<String>("service_url").map(|value| value.trim().to_owned()).filter(|value| !value.is_empty());
-  fs::create_dir_all(&embedding_cache_dir)
-    .await
-    .map_err(|e| format!("Could not create embedding cache directory '{}': {}", embedding_cache_dir.display(), e))?;
+  let embed_url = service_embed_url(&resolve_service_url(&config, sub_matches, "service_url", "--service-url")?)?;
   let fragments = load_fragment_records(&fragments_path).await?;
   if fragments.is_empty() {
     return Err(
@@ -74,31 +52,15 @@ async fn execute_with_onnx(sub_matches: &ArgMatches) -> InfuResult<()> {
     );
   }
 
-  let texts = fragments.iter().map(|fragment| fragment.text.clone()).collect::<Vec<String>>();
-  eprintln!(
-    "Embedding {} fragment(s) for item '{}' with {}. Model cache: {}.",
-    fragments.len(),
-    item.id,
-    MODEL_NAME,
-    embedding_cache_dir.display()
-  );
-  let embeddings = tokio::task::spawn_blocking(move || embed_texts(texts.clone(), embedding_cache_dir))
-    .await
-    .map_err(|e| format!("Embedding task failed: {}", e))??;
+  eprintln!("Embedding {} fragment(s) for item '{}' via '{}'.", fragments.len(), item.id, embed_url);
 
-  if let Some(service_url) = service_url {
-    let embed_url = service_embed_url(&service_url)?;
-    let client = build_http_client(None).await?;
-    eprintln!("Comparing embedded vectors against service '{}'.", embed_url);
-    let service_embeddings = fetch_service_embeddings(&client, &embed_url, &item.id, &fragments).await?;
-    let comparison = compare_embeddings(&embeddings, &service_embeddings)?;
-    print_comparison_report(&embed_url, &comparison);
-  }
+  let client = build_http_client(None).await?;
+  let response = fetch_service_embeddings(&client, &embed_url, &item.id, &fragments).await?;
 
-  for (fragment, embedding) in fragments.iter().zip(embeddings.into_iter()) {
+  for (fragment, embedding) in fragments.iter().zip(response.results.into_iter()) {
     let record = PrintedEmbeddingRecord {
       item_id: item.id.clone(),
-      model: MODEL_NAME,
+      model: response.model.clone(),
       ordinal: fragment.ordinal,
       page_start: fragment.page_start,
       page_end: fragment.page_end,
@@ -111,16 +73,8 @@ async fn execute_with_onnx(sub_matches: &ArgMatches) -> InfuResult<()> {
   Ok(())
 }
 
-#[cfg(not(feature = "embed-onnx"))]
-async fn execute_with_onnx(_sub_matches: &ArgMatches) -> InfuResult<()> {
-  Ok(())
-}
-
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
-async fn load_data_dir_and_item(sub_matches: &ArgMatches) -> InfuResult<(String, Item)> {
-  let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
-  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  let mut db = Db::new(&data_dir).await.map_err(|e| format!("Failed to initialize database: {}", e))?;
+async fn load_item(data_dir: &str, sub_matches: &ArgMatches) -> InfuResult<Item> {
+  let mut db = Db::new(data_dir).await.map_err(|e| format!("Failed to initialize database: {}", e))?;
 
   let all_user_ids: Vec<String> = db.user.all_user_ids().iter().cloned().collect();
   for user_id in all_user_ids {
@@ -128,11 +82,9 @@ async fn load_data_dir_and_item(sub_matches: &ArgMatches) -> InfuResult<(String,
   }
 
   let item_id = sub_matches.get_one::<String>("item_id").expect("clap requires --item-id");
-  let item = db.item.get(item_id).map_err(|e| e.to_string())?.clone();
-  Ok((data_dir, item))
+  Ok(db.item.get(item_id).map_err(|e| e.to_string())?.clone())
 }
 
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 async fn load_fragment_records(path: &Path) -> InfuResult<Vec<StoredFragmentRecord>> {
   let contents =
     fs::read_to_string(path).await.map_err(|e| format!("Could not read fragments file '{}': {}", path.display(), e))?;
@@ -157,26 +109,12 @@ fn parse_fragment_records(contents: &str) -> InfuResult<Vec<StoredFragmentRecord
   Ok(out)
 }
 
-pub fn embedding_capability_enabled() -> bool {
-  cfg!(feature = "embed-onnx")
-}
-
-#[cfg(feature = "embed-onnx")]
-fn embed_texts(texts: Vec<String>, cache_dir: PathBuf) -> InfuResult<Vec<Vec<f32>>> {
-  let mut model = TextEmbedding::try_new(
-    InitOptions::new(EmbeddingModel::BGEBaseENV15).with_cache_dir(cache_dir).with_show_download_progress(true),
-  )
-  .map_err(|e| format!("Could not initialize fastembed model {}: {}", MODEL_NAME, e))?;
-  model.embed(texts, None).map_err(|e| format!("Could not embed fragments with {}: {}", MODEL_NAME, e).into())
-}
-
-#[cfg(feature = "embed-onnx")]
 async fn fetch_service_embeddings(
   client: &reqwest::Client,
   embed_url: &Url,
   item_id: &str,
   fragments: &[StoredFragmentRecord],
-) -> InfuResult<Vec<Vec<f32>>> {
+) -> InfuResult<ResolvedServiceEmbedResponse> {
   let request = ServiceEmbedRequest {
     inputs: fragments
       .iter()
@@ -253,18 +191,44 @@ async fn fetch_service_embeddings(
     ordered[result.index] = Some(result.embedding);
   }
 
-  ordered
-    .into_iter()
-    .enumerate()
-    .map(|(index, vector)| {
-      vector.ok_or_else(|| {
-        format!("Text embedding service '{}' did not return an embedding for result index {}.", embed_url, index).into()
+  Ok(ResolvedServiceEmbedResponse {
+    model: response.model,
+    results: ordered
+      .into_iter()
+      .enumerate()
+      .map(|(index, vector)| {
+        vector.ok_or_else(|| {
+          format!("Text embedding service '{}' did not return an embedding for result index {}.", embed_url, index)
+            .into()
+        })
       })
-    })
-    .collect()
+      .collect::<InfuResult<Vec<Vec<f32>>>>()?,
+  })
 }
 
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
+fn resolve_service_url(
+  config: &Config,
+  sub_matches: &ArgMatches,
+  arg_name: &str,
+  flag_name: &str,
+) -> InfuResult<String> {
+  match sub_matches.get_one::<String>(arg_name) {
+    Some(url) if !url.trim().is_empty() => Ok(url.clone()),
+    _ => text_embedding_url_from_config(config)?
+      .ok_or(format!("{} must be configured or specified via {}.", CONFIG_TEXT_EMBEDDING_URL, flag_name).into()),
+  }
+}
+
+fn text_embedding_url_from_config(config: &Config) -> InfuResult<Option<String>> {
+  match config.get_string(CONFIG_TEXT_EMBEDDING_URL) {
+    Ok(value) => {
+      let trimmed = value.trim();
+      if trimmed.is_empty() { Ok(None) } else { Ok(Some(trimmed.to_owned())) }
+    }
+    Err(_) => Ok(None),
+  }
+}
+
 fn service_embed_url(base_url: &str) -> InfuResult<Url> {
   let mut parsed = Url::parse(base_url).map_err(|e| format!("Could not parse service URL '{}': {}", base_url, e))?;
   if parsed.path().ends_with("/embed") {
@@ -277,99 +241,6 @@ fn service_embed_url(base_url: &str) -> InfuResult<Url> {
   }
 }
 
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
-fn compare_embeddings(embedded: &[Vec<f32>], service: &[Vec<f32>]) -> InfuResult<EmbeddingComparisonSummary> {
-  if embedded.len() != service.len() {
-    return Err(
-      format!("Embedded result count {} does not match service count {}.", embedded.len(), service.len()).into(),
-    );
-  }
-
-  let mut fragments = Vec::with_capacity(embedded.len());
-  let mut min_cosine_similarity = f64::INFINITY;
-  let mut max_abs_diff = 0.0_f64;
-  let mut mean_abs_diff_sum = 0.0_f64;
-  let mut cosine_similarity_sum = 0.0_f64;
-
-  for (index, (embedded_vec, service_vec)) in embedded.iter().zip(service.iter()).enumerate() {
-    if embedded_vec.len() != service_vec.len() {
-      return Err(
-        format!(
-          "Embedded vector {} has dimension {} but service returned dimension {}.",
-          index,
-          embedded_vec.len(),
-          service_vec.len()
-        )
-        .into(),
-      );
-    }
-
-    let mut dot = 0.0_f64;
-    let mut embedded_norm_sq = 0.0_f64;
-    let mut service_norm_sq = 0.0_f64;
-    let mut vector_abs_diff_sum = 0.0_f64;
-    let mut vector_max_abs_diff = 0.0_f64;
-
-    for (&embedded_value, &service_value) in embedded_vec.iter().zip(service_vec.iter()) {
-      let embedded_value = embedded_value as f64;
-      let service_value = service_value as f64;
-      let abs_diff = (embedded_value - service_value).abs();
-      vector_abs_diff_sum += abs_diff;
-      vector_max_abs_diff = vector_max_abs_diff.max(abs_diff);
-      dot += embedded_value * service_value;
-      embedded_norm_sq += embedded_value * embedded_value;
-      service_norm_sq += service_value * service_value;
-    }
-
-    let cosine_similarity = if embedded_norm_sq == 0.0 || service_norm_sq == 0.0 {
-      if embedded_norm_sq == service_norm_sq { 1.0 } else { 0.0 }
-    } else {
-      dot / (embedded_norm_sq.sqrt() * service_norm_sq.sqrt())
-    };
-    let mean_abs_diff = if embedded_vec.is_empty() { 0.0 } else { vector_abs_diff_sum / embedded_vec.len() as f64 };
-
-    min_cosine_similarity = min_cosine_similarity.min(cosine_similarity);
-    max_abs_diff = max_abs_diff.max(vector_max_abs_diff);
-    mean_abs_diff_sum += mean_abs_diff;
-    cosine_similarity_sum += cosine_similarity;
-    fragments.push(FragmentComparison {
-      index,
-      dimensions: embedded_vec.len(),
-      cosine_similarity,
-      max_abs_diff: vector_max_abs_diff,
-      mean_abs_diff,
-    });
-  }
-
-  let fragment_count = fragments.len();
-  Ok(EmbeddingComparisonSummary {
-    fragments,
-    min_cosine_similarity: if fragment_count == 0 { 1.0 } else { min_cosine_similarity },
-    mean_cosine_similarity: if fragment_count == 0 { 1.0 } else { cosine_similarity_sum / fragment_count as f64 },
-    max_abs_diff,
-    mean_abs_diff: if fragment_count == 0 { 0.0 } else { mean_abs_diff_sum / fragment_count as f64 },
-  })
-}
-
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
-fn print_comparison_report(embed_url: &Url, summary: &EmbeddingComparisonSummary) {
-  eprintln!(
-    "Service comparison via '{}': {} fragment(s), min cosine={:.9}, mean cosine={:.9}, max abs diff={:.9}, mean abs diff={:.9}.",
-    embed_url,
-    summary.fragments.len(),
-    summary.min_cosine_similarity,
-    summary.mean_cosine_similarity,
-    summary.max_abs_diff,
-    summary.mean_abs_diff
-  );
-  for fragment in &summary.fragments {
-    eprintln!(
-      "  fragment {}: dims={}, cosine={:.9}, max abs diff={:.9}, mean abs diff={:.9}",
-      fragment.index, fragment.dimensions, fragment.cosine_similarity, fragment.max_abs_diff, fragment.mean_abs_diff
-    );
-  }
-}
-
 fn settings_arg() -> Arg {
   Arg::new("settings_path")
     .short('s')
@@ -379,7 +250,6 @@ fn settings_arg() -> Arg {
     .required(false)
 }
 
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 fn fragments_path_for_item(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   if item_id.len() < 2 {
     return Err(format!("Item id '{}' is too short.", item_id).into());
@@ -393,18 +263,7 @@ fn fragments_path_for_item(data_dir: &str, user_id: &str, item_id: &str) -> Infu
   Ok(path)
 }
 
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
-fn embedding_cache_dir(data_dir: &str) -> InfuResult<PathBuf> {
-  let data_path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  let mut path =
-    data_path.parent().ok_or(format!("Data directory '{}' has no parent.", data_path.display()))?.to_path_buf();
-  path.push("models");
-  path.push("fastembed");
-  Ok(path)
-}
-
 #[derive(Deserialize)]
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 struct StoredFragmentRecord {
   ordinal: usize,
   text: String,
@@ -413,10 +272,9 @@ struct StoredFragmentRecord {
 }
 
 #[derive(Serialize)]
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 struct PrintedEmbeddingRecord {
   item_id: String,
-  model: &'static str,
+  model: String,
   ordinal: usize,
   page_start: Option<usize>,
   page_end: Option<usize>,
@@ -425,59 +283,38 @@ struct PrintedEmbeddingRecord {
 }
 
 #[derive(Serialize)]
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 struct ServiceEmbedRequest {
   inputs: Vec<ServiceEmbedInput>,
 }
 
 #[derive(Serialize)]
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 struct ServiceEmbedInput {
   id: Option<String>,
   text: String,
 }
 
 #[derive(Deserialize)]
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 struct ServiceEmbedResponse {
   success: bool,
+  model: String,
   count: usize,
   results: Vec<ServiceEmbedResult>,
 }
 
 #[derive(Deserialize)]
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
 struct ServiceEmbedResult {
   index: usize,
   embedding: Vec<f32>,
 }
 
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
-struct EmbeddingComparisonSummary {
-  fragments: Vec<FragmentComparison>,
-  min_cosine_similarity: f64,
-  mean_cosine_similarity: f64,
-  max_abs_diff: f64,
-  mean_abs_diff: f64,
-}
-
-#[cfg_attr(not(feature = "embed-onnx"), allow(dead_code))]
-struct FragmentComparison {
-  index: usize,
-  dimensions: usize,
-  cosine_similarity: f64,
-  max_abs_diff: f64,
-  mean_abs_diff: f64,
+struct ResolvedServiceEmbedResponse {
+  model: String,
+  results: Vec<Vec<f32>>,
 }
 
 #[cfg(test)]
 mod tests {
-  use std::path::PathBuf;
-
-  use super::{
-    EMBED_ONNX_FEATURE, compare_embeddings, embedding_cache_dir, embedding_capability_enabled, parse_fragment_records,
-    service_embed_url,
-  };
+  use super::{parse_fragment_records, service_embed_url};
 
   #[test]
   fn parses_fragment_jsonl_records() {
@@ -497,34 +334,11 @@ mod tests {
   }
 
   #[test]
-  fn embedding_cache_path_is_under_data_dir() {
-    let path = embedding_cache_dir("/tmp/infumap-data/data").unwrap();
-    assert_eq!(path, PathBuf::from("/tmp/infumap-data/models/fastembed"));
-  }
-
-  #[test]
-  fn embedding_capability_matches_build_feature() {
-    assert_eq!(embedding_capability_enabled(), cfg!(feature = "embed-onnx"));
-    assert_eq!(EMBED_ONNX_FEATURE, "embed-onnx");
-  }
-
-  #[test]
   fn service_url_defaults_to_embed_path() {
     let url = service_embed_url("http://127.0.0.1:8789").unwrap();
     assert_eq!(url.as_str(), "http://127.0.0.1:8789/embed");
 
     let url = service_embed_url("http://127.0.0.1:8789/embed").unwrap();
     assert_eq!(url.as_str(), "http://127.0.0.1:8789/embed");
-  }
-
-  #[test]
-  fn comparison_metrics_are_zero_for_identical_vectors() {
-    let summary = compare_embeddings(&[vec![1.0, 0.0], vec![0.5, -0.25]], &[vec![1.0, 0.0], vec![0.5, -0.25]]).unwrap();
-
-    assert_eq!(summary.fragments.len(), 2);
-    assert!((summary.min_cosine_similarity - 1.0).abs() < 1e-12);
-    assert!((summary.mean_cosine_similarity - 1.0).abs() < 1e-12);
-    assert!(summary.max_abs_diff.abs() < 1e-12);
-    assert!(summary.mean_abs_diff.abs() < 1e-12);
   }
 }

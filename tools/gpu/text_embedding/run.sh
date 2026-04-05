@@ -154,12 +154,26 @@ is_macos() {
     [ "$(uname -s)" = "Darwin" ]
 }
 
+normalize_device() {
+    local raw="${TEXT_EMBEDDING_DEVICE:-cpu}"
+    raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+    case "$raw" in
+        cpu|gpu)
+            printf '%s\n' "$raw"
+            ;;
+        *)
+            echo "Warning: invalid TEXT_EMBEDDING_DEVICE=${TEXT_EMBEDDING_DEVICE:-<unset>}; defaulting to cpu." >&2
+            printf '%s\n' "cpu"
+            ;;
+    esac
+}
+
 effective_fastembed_package() {
     if [ -n "${TEXT_EMBEDDING_FASTEMBED_PACKAGE:-}" ]; then
         printf '%s\n' "${TEXT_EMBEDDING_FASTEMBED_PACKAGE}"
         return 0
     fi
-    if has_nvidia_gpu; then
+    if [ "$TEXT_EMBEDDING_DEVICE" = "gpu" ] && has_nvidia_gpu; then
         printf '%s\n' "fastembed-gpu"
         return 0
     fi
@@ -171,8 +185,8 @@ effective_providers() {
         printf '%s\n' "${TEXT_EMBEDDING_PROVIDERS}"
         return 0
     fi
-    if [ "${TEXT_EMBEDDING_AUTO_GPU_PROVIDERS:-}" = "0" ]; then
-        printf '%s\n' ""
+    if [ "$TEXT_EMBEDDING_DEVICE" = "cpu" ]; then
+        printf '%s\n' "CPUExecutionProvider"
         return 0
     fi
     if has_nvidia_gpu; then
@@ -183,7 +197,7 @@ effective_providers() {
         printf '%s\n' "CoreMLExecutionProvider,CPUExecutionProvider"
         return 0
     fi
-    printf '%s\n' ""
+    printf '%s\n' "CUDAExecutionProvider,CPUExecutionProvider"
 }
 
 prepend_env_path() {
@@ -293,20 +307,13 @@ fi
 readonly VENV_PYTHON="$VENV_DIR/bin/python"
 ensure_venv_pip
 
+export TEXT_EMBEDDING_DEVICE="$(normalize_device)"
 readonly FASTEMBED_PACKAGE="$(effective_fastembed_package)"
 readonly EFFECTIVE_PROVIDERS="$(effective_providers)"
 
 if [ -n "$EFFECTIVE_PROVIDERS" ]; then
     export TEXT_EMBEDDING_PROVIDERS="$EFFECTIVE_PROVIDERS"
 fi
-if [ -n "${TEXT_EMBEDDING_REQUIRE_GPU:-}" ]; then
-    export TEXT_EMBEDDING_REQUIRE_GPU
-elif has_nvidia_gpu; then
-    export TEXT_EMBEDDING_REQUIRE_GPU="1"
-else
-    export TEXT_EMBEDDING_REQUIRE_GPU="0"
-fi
-export TEXT_EMBEDDING_AUTO_GPU_FALLBACK="${TEXT_EMBEDDING_AUTO_GPU_FALLBACK:-1}"
 
 ensure_python_packages
 export_cuda_runtime_paths
@@ -317,13 +324,12 @@ echo "Starting Infumap text embedding service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
 echo "TEXT_EMBEDDING_MODELS_DIR=${TEXT_EMBEDDING_MODELS_DIR}"
+echo "TEXT_EMBEDDING_DEVICE=${TEXT_EMBEDDING_DEVICE}"
 echo "TEXT_EMBEDDING_FASTEMBED_PACKAGE=${FASTEMBED_PACKAGE}"
 echo "TEXT_EMBEDDING_MAX_BATCH_ITEMS=${TEXT_EMBEDDING_MAX_BATCH_ITEMS:-256}"
 echo "TEXT_EMBEDDING_MAX_TEXT_CHARS=${TEXT_EMBEDDING_MAX_TEXT_CHARS:-32768}"
 echo "TEXT_EMBEDDING_MAX_CONCURRENCY=${TEXT_EMBEDDING_MAX_CONCURRENCY:-1}"
 echo "TEXT_EMBEDDING_PROVIDERS=${TEXT_EMBEDDING_PROVIDERS:-<default>}"
-echo "TEXT_EMBEDDING_REQUIRE_GPU=${TEXT_EMBEDDING_REQUIRE_GPU}"
-echo "TEXT_EMBEDDING_AUTO_GPU_FALLBACK=${TEXT_EMBEDDING_AUTO_GPU_FALLBACK}"
 echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-<unset>}"
 echo "TEXT_EMBEDDING_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
 if has_nvidia_gpu; then
