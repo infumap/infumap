@@ -851,10 +851,10 @@ export const PageFns = {
         return;
       }
 
-      // For page line items inside tables, a plain click should stop at focus.
-      // Opening as root is handled explicitly by title-link clicks instead.
-      if ((visualElement.flags & VisualElementFlags.LineItem) &&
-        (visualElement.flags & VisualElementFlags.InsideTable)) {
+      // For pages rendered inside tables, a plain click on the row body should stop at focus.
+      // This applies both to the first-column child and attachment columns, where title-link
+      // clicks remain the explicit affordance for opening the page as root.
+      if (visualElement.flags & VisualElementFlags.InsideTable) {
         arrangeNow(store, "page-line-item-focus");
         return;
       }
