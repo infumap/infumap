@@ -61,6 +61,46 @@ export const setCaretPosition = (el: HTMLElement, targetPosition: number) => {
   sel.addRange(range);
 };
 
+type TextRangePosition = {
+  node: Node,
+  offset: number,
+};
+
+function resolveTextRangePosition(root: Node, targetPosition: number): TextRangePosition {
+  const clampedTargetPosition = Math.max(0, targetPosition);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let remaining = clampedTargetPosition;
+  let lastTextNode: Node | null = null;
+
+  while (walker.nextNode()) {
+    const current = walker.currentNode;
+    lastTextNode = current;
+    const len = current.textContent?.length ?? 0;
+    if (remaining <= len) {
+      return { node: current, offset: remaining };
+    }
+    remaining -= len;
+  }
+
+  if (lastTextNode != null) {
+    return {
+      node: lastTextNode,
+      offset: lastTextNode.textContent?.length ?? 0,
+    };
+  }
+
+  return { node: root, offset: root.childNodes.length };
+}
+
+function createTextRange(root: HTMLElement, startPosition: number, endPosition: number): Range {
+  const range = document.createRange();
+  const start = resolveTextRangePosition(root, startPosition);
+  const end = resolveTextRangePosition(root, endPosition);
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset);
+  return range;
+}
+
 
 /**
  * Get the caret position in contentEditable @param el.
@@ -73,6 +113,26 @@ export const getCaretPosition = (el: HTMLElement) => {
   clonedRange.selectNodeContents(el!);
   clonedRange.setEnd(range.endContainer, range.endOffset);
   return clonedRange.toString().length;
+}
+
+/**
+ * Return a DOMRect for the visual line containing a caret position in a contentEditable element.
+ */
+export const getCaretLineRect = (el: HTMLElement, targetPosition: number): DOMRect => {
+  const textLength = el.textContent?.length ?? 0;
+  if (textLength == 0) {
+    return el.getBoundingClientRect();
+  }
+
+  const clampedPosition = Math.max(0, Math.min(targetPosition, textLength));
+  const startPosition = clampedPosition >= textLength
+    ? Math.max(0, textLength - 1)
+    : clampedPosition;
+  const endPosition = clampedPosition >= textLength
+    ? textLength
+    : Math.min(textLength, startPosition + 1);
+
+  return createTextRange(el, startPosition, endPosition).getBoundingClientRect();
 }
 
 

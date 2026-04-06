@@ -31,7 +31,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
-import { currentCaretElement, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretPosition, setCaretPosition, editPathInfoToDomId } from "../util/caret";
+import { currentCaretElement, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, setCaretPosition, editPathInfoToDomId } from "../util/caret";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -43,6 +43,60 @@ import { asImageItem } from "../items/image-item";
 
 let arrowKeyDown_caretPosition = null;
 let arrowKeyDown_element: HTMLElement | null = null;
+let arrowKeyDown_boundaryNavigation: { targetPath: string, targetCaretPosition: number } | null = null;
+
+function persistCurrentEditTarget(store: StoreContextModel) {
+  const focusItem = store.history.getFocusItem();
+  if (focusItem.relationshipToParent == RelationshipToParent.Child) {
+    const parentItem = itemState.get(focusItem.parentId);
+    if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
+      itemState.sortChildren(focusItem.parentId);
+    }
+  }
+  serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+}
+
+function editableItemType(ve: VisualElement): ItemType | null {
+  if (isNote(ve.displayItem)) { return ItemType.Note; }
+  if (isFile(ve.displayItem)) { return ItemType.File; }
+  if (isPassword(ve.displayItem)) { return ItemType.Password; }
+  if (isTable(ve.displayItem)) { return ItemType.Table; }
+  return null;
+}
+
+function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, key: string): boolean {
+  const currentLineRect = getCaretLineRect(textElement, caretPosition);
+  const boundaryLineRect = key == "ArrowUp"
+    ? getCaretLineRect(textElement, 0)
+    : getCaretLineRect(textElement, textElement.textContent?.length ?? 0);
+  const TOLERANCE_PX = 1;
+  return key == "ArrowUp"
+    ? currentLineRect.top <= boundaryLineRect.top + TOLERANCE_PX
+    : currentLineRect.bottom >= boundaryLineRect.bottom - TOLERANCE_PX;
+}
+
+function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, visualElement: VisualElement, key: string, textElement: HTMLElement, caretPosition: number) {
+  if (!isComposite(visualElement.displayItem)) { return null; }
+  if (key != "ArrowUp" && key != "ArrowDown") { return null; }
+  if (!isCaretOnBoundaryLine(textElement, caretPosition, key)) { return null; }
+
+  const currentPath = store.overlay.textEditInfo()!.itemPath;
+  const childVes = VesCache.current.readStructuralChildren(VeFns.veToPath(visualElement));
+  const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == currentPath);
+  if (currentIndex < 0) { return null; }
+
+  const step = key == "ArrowUp" ? -1 : 1;
+  for (let i = currentIndex + step; i >= 0 && i < childVes.length; i += step) {
+    const targetVe = childVes[i];
+    if (editableItemType(targetVe) == null) { continue; }
+    return {
+      targetPath: VeFns.veToPath(targetVe),
+      targetCaretPosition: caretPosition,
+    };
+  }
+
+  return null;
+}
 
 export function composite_selectionChangeListener() {
   if (arrowKeyDown_element != null) {
@@ -61,8 +115,10 @@ export const edit_keyUpHandler = (store: StoreContextModel, ev: KeyboardEvent) =
 }
 
 const keyUp_Arrow = (store: StoreContextModel) => {
+  const boundaryNavigation = arrowKeyDown_boundaryNavigation;
   arrowKeyDown_caretPosition = null;
   arrowKeyDown_element = null;
+  arrowKeyDown_boundaryNavigation = null;
 
   let currentCaretItemInfo;
   try {
@@ -73,14 +129,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   }
   const currentEditingPath = store.history.getFocusPath();
   if (currentEditingPath != currentCaretItemInfo.path) {
-    const focusItem = store.history.getFocusItem();
-    if (focusItem.relationshipToParent == RelationshipToParent.Child) {
-      const parentItem = itemState.get(focusItem.parentId);
-      if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
-        itemState.sortChildren(focusItem.parentId);
-      }
-    }
-    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    persistCurrentEditTarget(store);
 
     const newEditingDomId = editPathInfoToDomId(currentCaretItemInfo);
     let newEditingTextElement = document.getElementById(newEditingDomId);
@@ -102,6 +151,28 @@ const keyUp_Arrow = (store: StoreContextModel) => {
     newEditingTextElement = document.getElementById(newEditingDomId);
     setCaretPosition(newEditingTextElement!, caretPosition);
     newEditingTextElement!.focus();
+    return;
+  }
+
+  if (boundaryNavigation != null) {
+    const targetVe = VesCache.current.readNode(boundaryNavigation.targetPath);
+    if (!targetVe) { return; }
+
+    const itemType = editableItemType(targetVe);
+    if (itemType == null) { return; }
+
+    persistCurrentEditTarget(store);
+
+    store.overlay.setTextEditInfo(store.history, { itemPath: boundaryNavigation.targetPath, itemType });
+    const newEditingDomId = boundaryNavigation.targetPath + ":title";
+    const newEditingTextElement = document.getElementById(newEditingDomId);
+    if (!newEditingTextElement) {
+      console.warn("Could not find target text element after composite arrow navigation");
+      return;
+    }
+
+    setCaretPosition(newEditingTextElement, boundaryNavigation.targetCaretPosition);
+    newEditingTextElement.focus();
   }
 }
 
@@ -113,6 +184,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     const caretPosition = getCaretPosition(textElement!);
     arrowKeyDown_caretPosition = caretPosition;
     arrowKeyDown_element = textElement;
+    arrowKeyDown_boundaryNavigation = maybeBuildCompositeBoundaryNavigation(store, visualElement, ev.key, textElement!, caretPosition);
     return;
   }
 
