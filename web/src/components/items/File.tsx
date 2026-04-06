@@ -29,7 +29,7 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { HitboxFlags } from "../../layout/hitbox";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { itemState } from "../../store/ItemState";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -207,8 +207,6 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const enterKeyHandler = () => {
     if (store.user.getUserMaybe() == null || fileItem().ownerId != store.user.getUser().userId) { return; }
     const ve = props.visualElement;
-    const parentVe = VesCache.render.getNode(ve.parentPath!)!.get();
-
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     const caretPosition = getCaretPosition(textElement!);
@@ -218,11 +216,6 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
-    } else if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
-      console.log("isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document")
-    } else if (isComposite(parentVe.displayItem)) {
-      // inside composite
-      panic("File.enterKeyHandler called for note in composite");
     } else {
       // single note on a page.
       const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;

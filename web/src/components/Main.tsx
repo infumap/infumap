@@ -186,19 +186,19 @@ export const Main: Component = () => {
     textEditSelectionChangeListener();
   }
 
-  const shouldDebugCompositeArrows = (): boolean => {
+  const shouldDebugLinearEdit = (): boolean => {
     try {
-      return window.localStorage.getItem("debug:composite-arrows") == "1";
+      return window.localStorage.getItem("debug:linear-edit") == "1";
     } catch (_e) {
       return false;
     }
   };
 
   const keyDownListener = (ev: KeyboardEvent) => {
-    if (shouldDebugCompositeArrows() &&
+    if (shouldDebugLinearEdit() &&
       (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&
       store.overlay.textEditInfo()) {
-      console.log("[composite-arrow-main] keydown", {
+      console.log("[linear-edit-main] keydown", {
         code: ev.code,
         activeElementId: (document.activeElement as HTMLElement | null)?.id ?? null,
         targetId: (ev.target as HTMLElement | null)?.id ?? null,
@@ -209,10 +209,10 @@ export const Main: Component = () => {
   };
 
   const keyUpListener = (ev: KeyboardEvent) => {
-    if (shouldDebugCompositeArrows() &&
+    if (shouldDebugLinearEdit() &&
       (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&
       store.overlay.textEditInfo()) {
-      console.log("[composite-arrow-main] keyup", {
+      console.log("[linear-edit-main] keyup", {
         code: ev.code,
         activeElementId: (document.activeElement as HTMLElement | null)?.id ?? null,
         targetId: (ev.target as HTMLElement | null)?.id ?? null,

@@ -51,22 +51,22 @@ type LinearEditContext = {
 };
 
 let arrowKeyDown_pendingBoundaryNavigation: PendingBoundaryNavigation | null = null;
-const COMPOSITE_ARROW_DEBUG_KEY = "debug:composite-arrows";
+const LINEAR_EDIT_DEBUG_KEY = "debug:linear-edit";
 
-function compositeArrowDebugEnabled(): boolean {
+function linearEditDebugEnabled(): boolean {
   try {
-    return window.localStorage.getItem(COMPOSITE_ARROW_DEBUG_KEY) == "1";
+    return window.localStorage.getItem(LINEAR_EDIT_DEBUG_KEY) == "1";
   } catch (_e) {
     return false;
   }
 }
 
-function logCompositeArrow(message: string, details?: Record<string, unknown>) {
-  if (!compositeArrowDebugEnabled()) { return; }
+function logLinearEdit(message: string, details?: Record<string, unknown>) {
+  if (!linearEditDebugEnabled()) { return; }
   if (details == null) {
-    console.log(`[composite-arrow] ${message}`);
+    console.log(`[linear-edit] ${message}`);
   } else {
-    console.log(`[composite-arrow] ${message}`, details);
+    console.log(`[linear-edit] ${message}`, details);
   }
 }
 
@@ -178,7 +178,7 @@ function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, 
   const isBoundary = key == "ArrowUp"
     ? currentLineRect.top <= boundaryLineRect.top + TOLERANCE_PX
     : currentLineRect.bottom >= boundaryLineRect.bottom - TOLERANCE_PX;
-  logCompositeArrow("boundary-check", {
+  logLinearEdit("boundary-check", {
     key,
     caretPosition,
     currentTop: currentLineRect.top,
@@ -251,7 +251,7 @@ function maybeBuildLinearBoundaryNavigation(
 ): PendingBoundaryNavigation | null {
   const context = currentLinearEditContext(store);
   if (context == null) {
-    logCompositeArrow("boundary-navigation-no-linear-parent", {
+    logLinearEdit("boundary-navigation-no-linear-parent", {
       key,
       currentPath: store.overlay.textEditInfo()?.itemPath ?? null,
     });
@@ -263,7 +263,7 @@ function maybeBuildLinearBoundaryNavigation(
   const targetPath = adjacentEditableChildPathInCurrentLinearContext(context, key);
   if (targetPath == null) {
     const childCount = VesCache.current.readStructuralChildren(context.containerPath).length;
-    logCompositeArrow("no-boundary-target", { key, currentPath: context.editingPath, childCount });
+    logLinearEdit("no-boundary-target", { key, currentPath: context.editingPath, childCount });
     return null;
   }
 
@@ -271,7 +271,7 @@ function maybeBuildLinearBoundaryNavigation(
     targetPath,
     targetCaretPosition: caretPosition,
   };
-  logCompositeArrow("prepared-boundary-navigation", {
+  logLinearEdit("prepared-boundary-navigation", {
     key,
     containerPath: context.containerPath,
     currentPath: context.editingPath,
@@ -283,7 +283,7 @@ function maybeBuildLinearBoundaryNavigation(
 
 export function textEditSelectionChangeListener() {
   if (arrowKeyDown_pendingBoundaryNavigation != null) {
-    logCompositeArrow("selectionchange-skip-restore-during-boundary-navigation", {
+    logLinearEdit("selectionchange-skip-restore-during-boundary-navigation", {
       targetPath: arrowKeyDown_pendingBoundaryNavigation.targetPath,
       selection: selectionDebugInfo(),
     });
@@ -294,7 +294,7 @@ export function textEditSelectionChangeListener() {
     try {
       getCurrentCaretVeInfo();
     } catch (e) {
-      logCompositeArrow("selectionchange-restoring-caret", {
+      logLinearEdit("selectionchange-restoring-caret", {
         elementId: arrowKeyDown_element.id,
         caretPosition: arrowKeyDown_caretPosition,
         selection: selectionDebugInfo(),
@@ -321,7 +321,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   try {
     currentCaretItemInfo = getCurrentCaretVeInfo();
   } catch (e) {
-    logCompositeArrow("keyup-caret-lookup-failed", {
+    logLinearEdit("keyup-caret-lookup-failed", {
       error: `${e}`,
       selection: selectionDebugInfo(),
       boundaryNavigation: pendingBoundaryNavigation,
@@ -330,7 +330,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   }
   const currentEditingPath = store.history.getFocusPath();
   if (currentCaretItemInfo != null && currentEditingPath != currentCaretItemInfo.path) {
-    logCompositeArrow("keyup-browser-moved-to-new-item", {
+    logLinearEdit("keyup-browser-moved-to-new-item", {
       currentEditingPath,
       caretPath: currentCaretItemInfo.path,
       boundaryNavigation: pendingBoundaryNavigation,
@@ -345,7 +345,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   }
 
   if (pendingBoundaryNavigation != null) {
-    logCompositeArrow("keyup-applying-boundary-navigation", {
+    logLinearEdit("keyup-applying-boundary-navigation", {
       currentEditingPath,
       targetPath: pendingBoundaryNavigation.targetPath,
       targetCaretPosition: pendingBoundaryNavigation.targetCaretPosition,
@@ -365,7 +365,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
     return;
   }
 
-  logCompositeArrow("keyup-no-op", {
+  logLinearEdit("keyup-no-op", {
     currentEditingPath,
     caretPath: currentCaretItemInfo?.path ?? null,
     selection: selectionDebugInfo(),
@@ -381,7 +381,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     arrowKeyDown_caretPosition = caretPosition;
     arrowKeyDown_element = textElement;
     arrowKeyDown_pendingBoundaryNavigation = maybeBuildLinearBoundaryNavigation(store, ev.key, textElement!, caretPosition);
-    logCompositeArrow("keydown-arrow", {
+    logLinearEdit("keydown-arrow", {
       key: ev.key,
       itemPath,
       caretPosition,
@@ -389,7 +389,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
       selection: selectionDebugInfo(),
     });
     if (arrowKeyDown_pendingBoundaryNavigation != null) {
-      logCompositeArrow("keydown-prevent-default-for-boundary-navigation", {
+      logLinearEdit("keydown-prevent-default-for-boundary-navigation", {
         key: ev.key,
         itemPath,
         targetPath: arrowKeyDown_pendingBoundaryNavigation.targetPath,

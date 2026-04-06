@@ -34,7 +34,7 @@ import { CompositeFns, isComposite } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { appendNewlineIfEmpty, isUrl, trimNewline } from "../../util/string";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { VesCache } from "../../layout/ves-cache";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -253,8 +253,6 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
 
     const ve = props.visualElement;
-    const parentVe = VesCache.render.getNode(ve.parentPath!)!.get();
-
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     const caretPosition = getCaretPosition(textElement!);
@@ -264,11 +262,6 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
-    } else if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
-      console.log("isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document")
-    } else if (isComposite(parentVe.displayItem)) {
-      // inside composite
-      panic("Note.enterKeyHandler called for note in composite");
     } else {
       // single note on a page.
       const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;
