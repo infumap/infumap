@@ -165,6 +165,14 @@ function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, _visual
 }
 
 export function composite_selectionChangeListener() {
+  if (arrowKeyDown_boundaryNavigation != null) {
+    logCompositeArrow("selectionchange-skip-restore-during-boundary-navigation", {
+      targetPath: arrowKeyDown_boundaryNavigation.targetPath,
+      selection: selectionDebugInfo(),
+    });
+    return;
+  }
+
   if (arrowKeyDown_element != null) {
     try {
       getCurrentCaretVeInfo();
