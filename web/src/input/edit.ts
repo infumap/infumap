@@ -37,7 +37,7 @@ import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
-import { asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { asImageItem } from "../items/image-item";
 
 
@@ -93,7 +93,12 @@ function editableItemType(ve: VisualElement): ItemType | null {
   return null;
 }
 
-function editingCompositeVeMaybe(store: StoreContextModel): VisualElement | null {
+function isLinearEditableContainer(ve: VisualElement): boolean {
+  return isComposite(ve.displayItem) ||
+    (isPage(ve.displayItem) && asPageItem(ve.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document);
+}
+
+function editingLinearContainerVeMaybe(store: StoreContextModel): VisualElement | null {
   const textEditInfo = store.overlay.textEditInfo();
   if (textEditInfo == null) { return null; }
 
@@ -101,7 +106,7 @@ function editingCompositeVeMaybe(store: StoreContextModel): VisualElement | null
   if (!parentPath) { return null; }
 
   const parentVe = VesCache.current.readNode(parentPath);
-  if (!parentVe || !isComposite(parentVe.displayItem)) { return null; }
+  if (!parentVe || !isLinearEditableContainer(parentVe)) { return null; }
   return parentVe;
 }
 
@@ -127,10 +132,10 @@ function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, 
   return isBoundary;
 }
 
-function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, _visualElement: VisualElement, key: string, textElement: HTMLElement, caretPosition: number) {
-  const compositeVe = editingCompositeVeMaybe(store);
-  if (compositeVe == null) {
-    logCompositeArrow("boundary-navigation-no-composite-parent", {
+function maybeBuildLinearBoundaryNavigation(store: StoreContextModel, _visualElement: VisualElement, key: string, textElement: HTMLElement, caretPosition: number) {
+  const containerVe = editingLinearContainerVeMaybe(store);
+  if (containerVe == null) {
+    logCompositeArrow("boundary-navigation-no-linear-parent", {
       key,
       currentPath: store.overlay.textEditInfo()?.itemPath ?? null,
     });
@@ -140,7 +145,7 @@ function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, _visual
   if (!isCaretOnBoundaryLine(textElement, caretPosition, key)) { return null; }
 
   const currentPath = store.overlay.textEditInfo()!.itemPath;
-  const childVes = VesCache.current.readStructuralChildren(VeFns.veToPath(compositeVe));
+  const childVes = VesCache.current.readStructuralChildren(VeFns.veToPath(containerVe));
   const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == currentPath);
   if (currentIndex < 0) { return null; }
 
@@ -154,6 +159,7 @@ function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, _visual
     };
     logCompositeArrow("prepared-boundary-navigation", {
       key,
+      containerPath: VeFns.veToPath(containerVe),
       currentPath,
       targetPath: navigation.targetPath,
       caretPosition,
@@ -288,7 +294,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     const caretPosition = getCaretPosition(textElement!);
     arrowKeyDown_caretPosition = caretPosition;
     arrowKeyDown_element = textElement;
-    arrowKeyDown_boundaryNavigation = maybeBuildCompositeBoundaryNavigation(store, visualElement, ev.key, textElement!, caretPosition);
+    arrowKeyDown_boundaryNavigation = maybeBuildLinearBoundaryNavigation(store, visualElement, ev.key, textElement!, caretPosition);
     logCompositeArrow("keydown-arrow", {
       key: ev.key,
       itemPath,
