@@ -30,9 +30,8 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
-import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { createPageTitleEditHandlers, scrollGestureStyleForArrangeAlgorithm } from "./helper";
 import { switchToPage } from "../../layout/navigation";
-import { isArrowKey } from "../../input/key";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -76,29 +75,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const titleScale = () => (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
   const vePath = () => VeFns.veToPath(props.visualElement);
-  const isEditingTitle = () => store.overlay.textEditInfo()?.itemPath == vePath();
-
-  const titleKeyDownHandler = (ev: KeyboardEvent) => {
-    if (ev.key === "Escape") {
-      ev.preventDefault();
-      ev.stopPropagation();
-      store.overlay.setTextEditInfo(store.history, null, true);
-      requestArrange(store, "embedded-interactive-escape");
-      return;
-    }
-
-    if (isArrowKey(ev.key)) {
-      edit_keyDownHandler(store, props.visualElement, ev);
-    }
-  };
-
-  const titleKeyUpHandler = (ev: KeyboardEvent) => {
-    edit_keyUpHandler(store, ev);
-  };
-
-  const titleInputListener = (ev: InputEvent) => {
-    edit_inputListener(store, ev);
-  };
+  const titleEditHandlers = createPageTitleEditHandlers(
+    store,
+    () => props.visualElement,
+    () => requestArrange(store, "embedded-interactive-escape"),
+  );
 
   // Check if this page is currently focused (via focusPath or textEditInfo)
   const isFocused = () => {
@@ -170,11 +151,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
             `overflow-wrap: break-word;` +
             `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
             `outline: 0px solid transparent;`}
-          spellcheck={isEditingTitle()}
-          contentEditable={isEditingTitle()}
-          onKeyDown={titleKeyDownHandler}
-          onKeyUp={titleKeyUpHandler}
-          onInput={titleInputListener}>
+          spellcheck={titleEditHandlers.isEditingTitle()}
+          contentEditable={titleEditHandlers.isEditingTitle()}
+          onKeyDown={titleEditHandlers.titleKeyDownHandler}
+          onKeyUp={titleEditHandlers.titleKeyUpHandler}
+          onInput={titleEditHandlers.titleInputListener}>
           {pageFns().pageItem().title}
         </div>
       </div>

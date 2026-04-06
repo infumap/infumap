@@ -18,7 +18,10 @@
 
 import { ArrangeAlgorithm } from "../../items/page-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { VisualElement } from "../../layout/visual-element";
+import { VeFns, VisualElement } from "../../layout/visual-element";
+import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { isArrowKey } from "../../input/key";
+import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox } from "../../util/geometry";
 
 
@@ -54,4 +57,39 @@ export const scrollGestureStyleForArrangeAlgorithm = (arrangeAlgorithm: ArrangeA
     return "";
   }
   return "overscroll-behavior: contain; touch-action: pan-x pan-y; ";
+}
+
+export const createPageTitleEditHandlers = (
+  store: StoreContextModel,
+  veFn: () => VisualElement,
+  onEscapeMaybe?: () => void,
+) => {
+  const vePath = () => VeFns.veToPath(veFn());
+
+  const exitTitleEdit = () => {
+    store.overlay.setTextEditInfo(store.history, null, true);
+    onEscapeMaybe?.();
+  };
+
+  return {
+    isEditingTitle: () => store.overlay.textEditInfo()?.itemPath == vePath(),
+    titleKeyDownHandler: (ev: KeyboardEvent) => {
+      if (ev.key == "Escape") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        exitTitleEdit();
+        return;
+      }
+
+      if (isArrowKey(ev.key)) {
+        edit_keyDownHandler(store, veFn(), ev);
+      }
+    },
+    titleKeyUpHandler: (ev: KeyboardEvent) => {
+      edit_keyUpHandler(store, ev);
+    },
+    titleInputListener: (ev: InputEvent) => {
+      edit_inputListener(store, ev);
+    },
+  };
 }
