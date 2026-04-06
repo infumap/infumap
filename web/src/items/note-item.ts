@@ -34,7 +34,7 @@ import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-eleme
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { desktopPopupIconTextIndentPx, measureLineCount, getTextStyleForNote } from '../layout/text';
+import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -141,14 +141,12 @@ export const NoteFns = {
     const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
     const widthBl = note.spatialWidthGr / GRID_SIZE;
     const textIndentPx = NoteFns.showsDesktopPopupIcon(note) ? desktopPopupIconTextIndentPx(widthBl) : 0;
-    let lineCount = measureLineCount(formattedTitle, widthBl, note.flags, textIndentPx);
-    if (lineCount < 1) { lineCount = 1; }
+    let measuredHeightBl = measureLineCount(formattedTitle, widthBl, note.flags, textIndentPx);
+    if (measuredHeightBl < 1) { measuredHeightBl = 1; }
 
-    // Adjust height for text styles (e.g. headings)
-    const style = getTextStyleForNote(note.flags);
-    const heightBl = lineCount * style.lineHeightMultiplier;
-
-    return { w: note.spatialWidthGr / GRID_SIZE, h: heightBl };
+    // measureLineCount already measures using the style's actual line-height,
+    // so headings should not be scaled a second time here.
+    return { w: note.spatialWidthGr / GRID_SIZE, h: measuredHeightBl };
   },
 
   calcGeometry_Spatial: (note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean): ItemGeometry => {
