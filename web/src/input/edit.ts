@@ -43,7 +43,9 @@ import { asImageItem } from "../items/image-item";
 
 let arrowKeyDown_caretPosition = null;
 let arrowKeyDown_element: HTMLElement | null = null;
-let arrowKeyDown_boundaryNavigation: { targetPath: string, targetCaretPosition: number } | null = null;
+type PendingBoundaryNavigation = { targetPath: string, targetCaretPosition: number };
+
+let arrowKeyDown_pendingBoundaryNavigation: PendingBoundaryNavigation | null = null;
 const COMPOSITE_ARROW_DEBUG_KEY = "debug:composite-arrows";
 
 function compositeArrowDebugEnabled(): boolean {
@@ -166,7 +168,31 @@ function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, 
   return isBoundary;
 }
 
-function maybeBuildLinearBoundaryNavigation(store: StoreContextModel, _visualElement: VisualElement, key: string, textElement: HTMLElement, caretPosition: number) {
+function adjacentEditableChildPathInLinearContainer(
+  containerVe: VisualElement,
+  currentPath: string,
+  key: "ArrowUp" | "ArrowDown",
+): string | null {
+  const childVes = VesCache.current.readStructuralChildren(VeFns.veToPath(containerVe));
+  const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == currentPath);
+  if (currentIndex < 0) { return null; }
+
+  const step = key == "ArrowUp" ? -1 : 1;
+  for (let i = currentIndex + step; i >= 0 && i < childVes.length; i += step) {
+    const targetVe = childVes[i];
+    if (editableItemType(targetVe) == null) { continue; }
+    return VeFns.veToPath(targetVe);
+  }
+
+  return null;
+}
+
+function maybeBuildLinearBoundaryNavigation(
+  store: StoreContextModel,
+  key: string,
+  textElement: HTMLElement,
+  caretPosition: number,
+): PendingBoundaryNavigation | null {
   const containerVe = editingLinearContainerVeMaybe(store);
   if (containerVe == null) {
     logCompositeArrow("boundary-navigation-no-linear-parent", {
@@ -179,36 +205,31 @@ function maybeBuildLinearBoundaryNavigation(store: StoreContextModel, _visualEle
   if (!isCaretOnBoundaryLine(textElement, caretPosition, key)) { return null; }
 
   const currentPath = store.overlay.textEditInfo()!.itemPath;
-  const childVes = VesCache.current.readStructuralChildren(VeFns.veToPath(containerVe));
-  const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == currentPath);
-  if (currentIndex < 0) { return null; }
-
-  const step = key == "ArrowUp" ? -1 : 1;
-  for (let i = currentIndex + step; i >= 0 && i < childVes.length; i += step) {
-    const targetVe = childVes[i];
-    if (editableItemType(targetVe) == null) { continue; }
-    const navigation = {
-      targetPath: VeFns.veToPath(targetVe),
-      targetCaretPosition: caretPosition,
-    };
-    logCompositeArrow("prepared-boundary-navigation", {
-      key,
-      containerPath: VeFns.veToPath(containerVe),
-      currentPath,
-      targetPath: navigation.targetPath,
-      caretPosition,
-    });
-    return navigation;
+  const targetPath = adjacentEditableChildPathInLinearContainer(containerVe, currentPath, key);
+  if (targetPath == null) {
+    const childCount = VesCache.current.readStructuralChildren(VeFns.veToPath(containerVe)).length;
+    logCompositeArrow("no-boundary-target", { key, currentPath, childCount });
+    return null;
   }
 
-  logCompositeArrow("no-boundary-target", { key, currentPath, childCount: childVes.length });
-  return null;
+  const navigation = {
+    targetPath,
+    targetCaretPosition: caretPosition,
+  };
+  logCompositeArrow("prepared-boundary-navigation", {
+    key,
+    containerPath: VeFns.veToPath(containerVe),
+    currentPath,
+    targetPath: navigation.targetPath,
+    caretPosition,
+  });
+  return navigation;
 }
 
-export function composite_selectionChangeListener() {
-  if (arrowKeyDown_boundaryNavigation != null) {
+export function textEditSelectionChangeListener() {
+  if (arrowKeyDown_pendingBoundaryNavigation != null) {
     logCompositeArrow("selectionchange-skip-restore-during-boundary-navigation", {
-      targetPath: arrowKeyDown_boundaryNavigation.targetPath,
+      targetPath: arrowKeyDown_pendingBoundaryNavigation.targetPath,
       selection: selectionDebugInfo(),
     });
     return;
@@ -236,10 +257,10 @@ export const edit_keyUpHandler = (store: StoreContextModel, ev: KeyboardEvent) =
 }
 
 const keyUp_Arrow = (store: StoreContextModel) => {
-  const boundaryNavigation = arrowKeyDown_boundaryNavigation;
+  const pendingBoundaryNavigation = arrowKeyDown_pendingBoundaryNavigation;
   arrowKeyDown_caretPosition = null;
   arrowKeyDown_element = null;
-  arrowKeyDown_boundaryNavigation = null;
+  arrowKeyDown_pendingBoundaryNavigation = null;
 
   let currentCaretItemInfo: EditPathInfo | null = null;
   try {
@@ -248,7 +269,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
     logCompositeArrow("keyup-caret-lookup-failed", {
       error: `${e}`,
       selection: selectionDebugInfo(),
-      boundaryNavigation,
+      boundaryNavigation: pendingBoundaryNavigation,
       currentEditingPath: store.history.getFocusPathMaybe(),
     });
   }
@@ -257,7 +278,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
     logCompositeArrow("keyup-browser-moved-to-new-item", {
       currentEditingPath,
       caretPath: currentCaretItemInfo.path,
-      boundaryNavigation,
+      boundaryNavigation: pendingBoundaryNavigation,
     });
     persistCurrentEditTarget(store);
 
@@ -268,13 +289,13 @@ const keyUp_Arrow = (store: StoreContextModel) => {
     return;
   }
 
-  if (boundaryNavigation != null) {
+  if (pendingBoundaryNavigation != null) {
     logCompositeArrow("keyup-applying-boundary-navigation", {
       currentEditingPath,
-      targetPath: boundaryNavigation.targetPath,
-      targetCaretPosition: boundaryNavigation.targetCaretPosition,
+      targetPath: pendingBoundaryNavigation.targetPath,
+      targetCaretPosition: pendingBoundaryNavigation.targetCaretPosition,
     });
-    const targetVe = VesCache.current.readNode(boundaryNavigation.targetPath);
+    const targetVe = VesCache.current.readNode(pendingBoundaryNavigation.targetPath);
     if (!targetVe) { return; }
 
     const itemType = editableItemType(targetVe);
@@ -282,10 +303,10 @@ const keyUp_Arrow = (store: StoreContextModel) => {
 
     persistCurrentEditTarget(store);
     focusTextEditPathInfo(store, {
-      path: boundaryNavigation.targetPath,
+      path: pendingBoundaryNavigation.targetPath,
       type: EditElementType.Title,
       colNumMaybe: null,
-    }, boundaryNavigation.targetCaretPosition);
+    }, pendingBoundaryNavigation.targetCaretPosition);
     return;
   }
 
@@ -304,19 +325,19 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     const caretPosition = getCaretPosition(textElement!);
     arrowKeyDown_caretPosition = caretPosition;
     arrowKeyDown_element = textElement;
-    arrowKeyDown_boundaryNavigation = maybeBuildLinearBoundaryNavigation(store, visualElement, ev.key, textElement!, caretPosition);
+    arrowKeyDown_pendingBoundaryNavigation = maybeBuildLinearBoundaryNavigation(store, ev.key, textElement!, caretPosition);
     logCompositeArrow("keydown-arrow", {
       key: ev.key,
       itemPath,
       caretPosition,
-      boundaryNavigation: arrowKeyDown_boundaryNavigation,
+      boundaryNavigation: arrowKeyDown_pendingBoundaryNavigation,
       selection: selectionDebugInfo(),
     });
-    if (arrowKeyDown_boundaryNavigation != null) {
+    if (arrowKeyDown_pendingBoundaryNavigation != null) {
       logCompositeArrow("keydown-prevent-default-for-boundary-navigation", {
         key: ev.key,
         itemPath,
-        targetPath: arrowKeyDown_boundaryNavigation.targetPath,
+        targetPath: arrowKeyDown_pendingBoundaryNavigation.targetPath,
       });
       ev.preventDefault();
       ev.stopPropagation();

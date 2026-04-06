@@ -48,7 +48,7 @@ import { cancelShiftNavigationGesture, keyDownHandler, keyUpHandler } from "../i
 import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
-import { composite_selectionChangeListener } from "../input/edit";
+import { textEditSelectionChangeListener } from "../input/edit";
 import { Toolbar_TransientMessage } from "./toolbar/Toolbar_TransientMessage";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { asPageItem, isPage } from "../items/page-item";
@@ -183,7 +183,7 @@ export const Main: Component = () => {
   });
 
   const selectionChangeListener = () => {
-    composite_selectionChangeListener();
+    textEditSelectionChangeListener();
   }
 
   const shouldDebugCompositeArrows = (): boolean => {
