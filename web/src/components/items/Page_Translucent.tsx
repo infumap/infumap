@@ -38,6 +38,8 @@ import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
+import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { isArrowKey } from "../../input/key";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -49,6 +51,28 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   let translucentDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
+  const isEditingTitle = () => store.overlay.textEditInfo()?.itemPath == VeFns.veToPath(props.visualElement);
+
+  const titleKeyDownHandler = (ev: KeyboardEvent) => {
+    if (ev.key == "Escape") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      store.overlay.setTextEditInfo(store.history, null, true);
+      return;
+    }
+
+    if (isArrowKey(ev.key)) {
+      edit_keyDownHandler(store, props.visualElement, ev);
+    }
+  };
+
+  const titleKeyUpHandler = (ev: KeyboardEvent) => {
+    edit_keyUpHandler(store, ev);
+  };
+
+  const titleInputListener = (ev: InputEvent) => {
+    edit_inputListener(store, ev);
+  };
 
   onMount(() => {
     let veid = VeFns.veidFromVe(props.visualElement);
@@ -185,8 +209,11 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       <div id={VeFns.veToPath(props.visualElement) + ":title"}
         class={`absolute flex font-bold text-white pointer-events-none`}
         style={calendarTitleStyle()}
-        spellcheck={store.overlay.textEditInfo() != null}
-        contentEditable={store.overlay.textEditInfo() != null}>
+        spellcheck={isEditingTitle()}
+        contentEditable={isEditingTitle()}
+        onKeyDown={titleKeyDownHandler}
+        onKeyUp={titleKeyUpHandler}
+        onInput={titleInputListener}>
         {pageFns().pageItem().title}
       </div>
     </Show>;

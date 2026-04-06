@@ -37,7 +37,7 @@ import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
-import { asPageItem } from "../items/page-item";
+import { asPageItem, isPage } from "../items/page-item";
 import { asImageItem } from "../items/image-item";
 
 
@@ -88,6 +88,7 @@ function editableItemType(ve: VisualElement): ItemType | null {
   if (isNote(ve.displayItem)) { return ItemType.Note; }
   if (isFile(ve.displayItem)) { return ItemType.File; }
   if (isPassword(ve.displayItem)) { return ItemType.Password; }
+  if (isPage(ve.displayItem)) { return ItemType.Page; }
   if (isTable(ve.displayItem)) { return ItemType.Table; }
   return null;
 }
@@ -231,6 +232,8 @@ const keyUp_Arrow = (store: StoreContextModel) => {
       store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.File });
     } else if (isPassword(newVe.displayItem)) {
       store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Password });
+    } else if (isPage(newVe.displayItem)) {
+      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Page });
     } else if (isTable(newVe.displayItem)) {
       store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Table });
     } else {

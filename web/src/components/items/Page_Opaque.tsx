@@ -29,6 +29,8 @@ import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
+import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { isArrowKey } from "../../input/key";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -37,6 +39,28 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const store = useStore();
 
   const pageFns = () => props.pageFns;
+  const isEditingTitle = () => store.overlay.textEditInfo()?.itemPath == VeFns.veToPath(props.visualElement);
+
+  const titleKeyDownHandler = (ev: KeyboardEvent) => {
+    if (ev.key == "Escape") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      store.overlay.setTextEditInfo(store.history, null, true);
+      return;
+    }
+
+    if (isArrowKey(ev.key)) {
+      edit_keyDownHandler(store, props.visualElement, ev);
+    }
+  };
+
+  const titleKeyUpHandler = (ev: KeyboardEvent) => {
+    edit_keyUpHandler(store, ev);
+  };
+
+  const titleInputListener = (ev: InputEvent) => {
+    edit_inputListener(store, ev);
+  };
 
   const opaqueTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("xs"));
 
@@ -50,8 +74,11 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
         `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
         `justify-content: center; align-items: center; text-align: center;` +
         `outline: 0px solid transparent;`}
-      contentEditable={store.overlay.textEditInfo() != null}
-      spellcheck={store.overlay.textEditInfo() != null}>
+      contentEditable={isEditingTitle()}
+      spellcheck={isEditingTitle()}
+      onKeyDown={titleKeyDownHandler}
+      onKeyUp={titleKeyUpHandler}
+      onInput={titleInputListener}>
       {appendNewlineIfEmpty(pageFns().pageItem().title)}
     </div>;
 
