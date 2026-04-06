@@ -30,7 +30,6 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
     if (props.icon == "fa fa-header-1") { return "fa fa-header"; }
     if (props.icon == "fa fa-header-2") { return "fa fa-header"; }
     if (props.icon == "fa fa-header-3") { return "fa fa-header"; }
-    if (props.icon == "fa fa-header-4") { return "fa fa-header"; }
     if (props.icon == "fa fa-info-circle-1") { return "fa fa-info-circle"; }
     if (props.icon == "fa fa-info-circle-2") { return "fa fa-info-circle"; }
     if (props.icon == "fa fa-info-circle-3") { return "fa fa-info-circle"; }
@@ -41,7 +40,6 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
     if (props.icon == "fa fa-header-1") { return "1"; }
     if (props.icon == "fa fa-header-2") { return "2"; }
     if (props.icon == "fa fa-header-3") { return "3"; }
-    if (props.icon == "fa fa-header-4") { return "4"; }
     if (props.icon == "fa fa-info-circle-1") { return "1"; }
     if (props.icon == "fa fa-info-circle-2") { return "2"; }
     if (props.icon == "fa fa-info-circle-3") { return "3"; }
