@@ -31,7 +31,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
-import { currentCaretElement, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, setCaretPosition, editPathInfoToDomId } from "../util/caret";
+import { currentCaretElement, type EditPathInfo, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, setCaretPosition, editPathInfoToDomId } from "../util/caret";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -44,6 +44,34 @@ import { asImageItem } from "../items/image-item";
 let arrowKeyDown_caretPosition = null;
 let arrowKeyDown_element: HTMLElement | null = null;
 let arrowKeyDown_boundaryNavigation: { targetPath: string, targetCaretPosition: number } | null = null;
+const COMPOSITE_ARROW_DEBUG_KEY = "debug:composite-arrows";
+
+function compositeArrowDebugEnabled(): boolean {
+  try {
+    return window.localStorage.getItem(COMPOSITE_ARROW_DEBUG_KEY) == "1";
+  } catch (_e) {
+    return false;
+  }
+}
+
+function logCompositeArrow(message: string, details?: Record<string, unknown>) {
+  if (!compositeArrowDebugEnabled()) { return; }
+  if (details == null) {
+    console.log(`[composite-arrow] ${message}`);
+  } else {
+    console.log(`[composite-arrow] ${message}`, details);
+  }
+}
+
+function selectionDebugInfo(): Record<string, unknown> {
+  const selection = window.getSelection();
+  return {
+    anchorNode: selection?.anchorNode?.nodeName ?? null,
+    anchorParentId: selection?.anchorNode?.parentElement?.id ?? null,
+    focusNode: selection?.focusNode?.nodeName ?? null,
+    focusParentId: selection?.focusNode?.parentElement?.id ?? null,
+  };
+}
 
 function persistCurrentEditTarget(store: StoreContextModel) {
   const focusItem = store.history.getFocusItem();
@@ -70,9 +98,20 @@ function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, 
     ? getCaretLineRect(textElement, 0)
     : getCaretLineRect(textElement, textElement.textContent?.length ?? 0);
   const TOLERANCE_PX = 1;
-  return key == "ArrowUp"
+  const isBoundary = key == "ArrowUp"
     ? currentLineRect.top <= boundaryLineRect.top + TOLERANCE_PX
     : currentLineRect.bottom >= boundaryLineRect.bottom - TOLERANCE_PX;
+  logCompositeArrow("boundary-check", {
+    key,
+    caretPosition,
+    currentTop: currentLineRect.top,
+    currentBottom: currentLineRect.bottom,
+    boundaryTop: boundaryLineRect.top,
+    boundaryBottom: boundaryLineRect.bottom,
+    isBoundary,
+    text: textElement.textContent,
+  });
+  return isBoundary;
 }
 
 function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, visualElement: VisualElement, key: string, textElement: HTMLElement, caretPosition: number) {
@@ -89,12 +128,20 @@ function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, visualE
   for (let i = currentIndex + step; i >= 0 && i < childVes.length; i += step) {
     const targetVe = childVes[i];
     if (editableItemType(targetVe) == null) { continue; }
-    return {
+    const navigation = {
       targetPath: VeFns.veToPath(targetVe),
       targetCaretPosition: caretPosition,
     };
+    logCompositeArrow("prepared-boundary-navigation", {
+      key,
+      currentPath,
+      targetPath: navigation.targetPath,
+      caretPosition,
+    });
+    return navigation;
   }
 
+  logCompositeArrow("no-boundary-target", { key, currentPath, childCount: childVes.length });
   return null;
 }
 
@@ -103,6 +150,12 @@ export function composite_selectionChangeListener() {
     try {
       getCurrentCaretVeInfo();
     } catch (e) {
+      logCompositeArrow("selectionchange-restoring-caret", {
+        elementId: arrowKeyDown_element.id,
+        caretPosition: arrowKeyDown_caretPosition,
+        selection: selectionDebugInfo(),
+        error: `${e}`,
+      });
       setCaretPosition(arrowKeyDown_element!, arrowKeyDown_caretPosition!);
     }
   }
@@ -120,15 +173,24 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   arrowKeyDown_element = null;
   arrowKeyDown_boundaryNavigation = null;
 
-  let currentCaretItemInfo;
+  let currentCaretItemInfo: EditPathInfo | null = null;
   try {
     currentCaretItemInfo = getCurrentCaretVeInfo();
   } catch (e) {
-    console.log("bad current caret ve path: ", e);
-    return;
+    logCompositeArrow("keyup-caret-lookup-failed", {
+      error: `${e}`,
+      selection: selectionDebugInfo(),
+      boundaryNavigation,
+      currentEditingPath: store.history.getFocusPathMaybe(),
+    });
   }
   const currentEditingPath = store.history.getFocusPath();
-  if (currentEditingPath != currentCaretItemInfo.path) {
+  if (currentCaretItemInfo != null && currentEditingPath != currentCaretItemInfo.path) {
+    logCompositeArrow("keyup-browser-moved-to-new-item", {
+      currentEditingPath,
+      caretPath: currentCaretItemInfo.path,
+      boundaryNavigation,
+    });
     persistCurrentEditTarget(store);
 
     const newEditingDomId = editPathInfoToDomId(currentCaretItemInfo);
@@ -155,6 +217,11 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   }
 
   if (boundaryNavigation != null) {
+    logCompositeArrow("keyup-applying-boundary-navigation", {
+      currentEditingPath,
+      targetPath: boundaryNavigation.targetPath,
+      targetCaretPosition: boundaryNavigation.targetCaretPosition,
+    });
     const targetVe = VesCache.current.readNode(boundaryNavigation.targetPath);
     if (!targetVe) { return; }
 
@@ -173,7 +240,14 @@ const keyUp_Arrow = (store: StoreContextModel) => {
 
     setCaretPosition(newEditingTextElement, boundaryNavigation.targetCaretPosition);
     newEditingTextElement.focus();
+    return;
   }
+
+  logCompositeArrow("keyup-no-op", {
+    currentEditingPath,
+    caretPath: currentCaretItemInfo?.path ?? null,
+    selection: selectionDebugInfo(),
+  });
 }
 
 export const edit_keyDownHandler = (store: StoreContextModel, visualElement: VisualElement, ev: KeyboardEvent) => {
@@ -185,6 +259,13 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     arrowKeyDown_caretPosition = caretPosition;
     arrowKeyDown_element = textElement;
     arrowKeyDown_boundaryNavigation = maybeBuildCompositeBoundaryNavigation(store, visualElement, ev.key, textElement!, caretPosition);
+    logCompositeArrow("keydown-arrow", {
+      key: ev.key,
+      itemPath,
+      caretPosition,
+      boundaryNavigation: arrowKeyDown_boundaryNavigation,
+      selection: selectionDebugInfo(),
+    });
     return;
   }
 
