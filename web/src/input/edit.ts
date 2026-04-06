@@ -31,7 +31,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
-import { currentCaretElement, type EditPathInfo, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, setCaretPosition, editPathInfoToDomId } from "../util/caret";
+import { currentCaretElement, EditElementType, type EditPathInfo, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, setCaretPosition, editPathInfoToDomId } from "../util/caret";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -91,6 +91,40 @@ function editableItemType(ve: VisualElement): ItemType | null {
   if (isPage(ve.displayItem)) { return ItemType.Page; }
   if (isTable(ve.displayItem)) { return ItemType.Table; }
   return null;
+}
+
+function textEditInfoForPathInfo(pathInfo: EditPathInfo): { itemPath: string, itemType: ItemType, colNum?: number | null } | null {
+  const ve = VesCache.current.readNode(pathInfo.path);
+  if (!ve) { return null; }
+
+  const itemType = editableItemType(ve);
+  if (itemType == null) { return null; }
+
+  return {
+    itemPath: pathInfo.path,
+    itemType,
+    colNum: pathInfo.type == EditElementType.Column ? pathInfo.colNumMaybe : null,
+  };
+}
+
+function focusTextEditPathInfo(store: StoreContextModel, pathInfo: EditPathInfo, caretPosition: number): boolean {
+  const nextTextEditInfo = textEditInfoForPathInfo(pathInfo);
+  if (nextTextEditInfo == null) {
+    console.warn("Could not derive text edit info for path", pathInfo.path);
+    return false;
+  }
+
+  store.overlay.setTextEditInfo(store.history, nextTextEditInfo);
+  const editingDomId = editPathInfoToDomId(pathInfo);
+  const editingTextElement = document.getElementById(editingDomId);
+  if (!editingTextElement) {
+    console.warn("Could not find target text element for path", editingDomId);
+    return false;
+  }
+
+  setCaretPosition(editingTextElement, caretPosition);
+  editingTextElement.focus();
+  return true;
 }
 
 function isLinearEditableContainer(ve: VisualElement): boolean {
@@ -228,27 +262,9 @@ const keyUp_Arrow = (store: StoreContextModel) => {
     persistCurrentEditTarget(store);
 
     const newEditingDomId = editPathInfoToDomId(currentCaretItemInfo);
-    let newEditingTextElement = document.getElementById(newEditingDomId);
-    let caretPosition = getCaretPosition(newEditingTextElement!);
-
-    const newVe = VesCache.current.readNode(currentCaretItemInfo.path)!;
-    if (isNote(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Note });
-    } else if (isFile(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.File });
-    } else if (isPassword(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Password });
-    } else if (isPage(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Page });
-    } else if (isTable(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Table });
-    } else {
-      console.warn("arrow key handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
-    }
-    // after setting the text edit info, the <a /> (if this is a link) is turned into a <span />
-    newEditingTextElement = document.getElementById(newEditingDomId);
-    setCaretPosition(newEditingTextElement!, caretPosition);
-    newEditingTextElement!.focus();
+    const newEditingTextElement = document.getElementById(newEditingDomId);
+    const caretPosition = getCaretPosition(newEditingTextElement!);
+    focusTextEditPathInfo(store, currentCaretItemInfo, caretPosition);
     return;
   }
 
@@ -265,17 +281,11 @@ const keyUp_Arrow = (store: StoreContextModel) => {
     if (itemType == null) { return; }
 
     persistCurrentEditTarget(store);
-
-    store.overlay.setTextEditInfo(store.history, { itemPath: boundaryNavigation.targetPath, itemType });
-    const newEditingDomId = boundaryNavigation.targetPath + ":title";
-    const newEditingTextElement = document.getElementById(newEditingDomId);
-    if (!newEditingTextElement) {
-      console.warn("Could not find target text element after composite arrow navigation");
-      return;
-    }
-
-    setCaretPosition(newEditingTextElement, boundaryNavigation.targetCaretPosition);
-    newEditingTextElement.focus();
+    focusTextEditPathInfo(store, {
+      path: boundaryNavigation.targetPath,
+      type: EditElementType.Title,
+      colNumMaybe: null,
+    }, boundaryNavigation.targetCaretPosition);
     return;
   }
 
