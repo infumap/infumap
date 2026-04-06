@@ -293,6 +293,15 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
       boundaryNavigation: arrowKeyDown_boundaryNavigation,
       selection: selectionDebugInfo(),
     });
+    if (arrowKeyDown_boundaryNavigation != null) {
+      logCompositeArrow("keydown-prevent-default-for-boundary-navigation", {
+        key: ev.key,
+        itemPath,
+        targetPath: arrowKeyDown_boundaryNavigation.targetPath,
+      });
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
     return;
   }
 
