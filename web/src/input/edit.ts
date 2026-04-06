@@ -23,7 +23,6 @@ import { arrangeNow } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { assert, panic } from "../util/lang";
-import { FindDirection, findClosest } from "../layout/find";
 import { asFileItem, isFile } from "../items/file-item";
 import { ItemType } from "../items/base/item";
 import { asPositionalItem } from "../items/base/positional-item";
@@ -44,6 +43,12 @@ import { asImageItem } from "../items/image-item";
 let arrowKeyDown_caretPosition = null;
 let arrowKeyDown_element: HTMLElement | null = null;
 type PendingBoundaryNavigation = { targetPath: string, targetCaretPosition: number };
+type LinearEditContext = {
+  containerVe: VisualElement,
+  containerPath: string,
+  editingVe: VisualElement,
+  editingPath: string,
+};
 
 let arrowKeyDown_pendingBoundaryNavigation: PendingBoundaryNavigation | null = null;
 const COMPOSITE_ARROW_DEBUG_KEY = "debug:composite-arrows";
@@ -146,6 +151,24 @@ function editingLinearContainerVeMaybe(store: StoreContextModel): VisualElement 
   return parentVe;
 }
 
+function currentLinearEditContext(store: StoreContextModel): LinearEditContext | null {
+  const textEditInfo = store.overlay.textEditInfo();
+  if (textEditInfo == null) { return null; }
+
+  const editingVe = VesCache.current.readNode(textEditInfo.itemPath);
+  if (!editingVe) { return null; }
+
+  const containerVe = editingLinearContainerVeMaybe(store);
+  if (containerVe == null) { return null; }
+
+  return {
+    containerVe,
+    containerPath: VeFns.veToPath(containerVe),
+    editingVe,
+    editingPath: textEditInfo.itemPath,
+  };
+}
+
 function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, key: string): boolean {
   const currentLineRect = getCaretLineRect(textElement, caretPosition);
   const boundaryLineRect = key == "ArrowUp"
@@ -187,14 +210,47 @@ function adjacentEditableChildPathInLinearContainer(
   return null;
 }
 
+function adjacentEditableChildPathInCurrentLinearContext(
+  context: LinearEditContext,
+  key: "ArrowUp" | "ArrowDown",
+): string | null {
+  return adjacentEditableChildPathInLinearContainer(context.containerVe, context.editingPath, key);
+}
+
+function itemPathInLinearContainer(itemId: string, containerPath: string): string | null {
+  const veid = { itemId, linkIdMaybe: null };
+  const allVes = VesCache.current.findNodes(veid);
+  const targetVe = allVes.find(ve => VeFns.parentPath(VeFns.veToPath(ve)) === containerPath);
+  return targetVe ? VeFns.veToPath(targetVe) : null;
+}
+
+function focusItemInLinearContainer(
+  store: StoreContextModel,
+  containerPath: string,
+  itemId: string,
+  caretPosition: number,
+): boolean {
+  const itemPath = itemPathInLinearContainer(itemId, containerPath);
+  if (itemPath == null) {
+    console.error("Could not find item visual element in the current linear container context");
+    return false;
+  }
+
+  return focusTextEditPathInfo(store, {
+    path: itemPath,
+    type: EditElementType.Title,
+    colNumMaybe: null,
+  }, caretPosition);
+}
+
 function maybeBuildLinearBoundaryNavigation(
   store: StoreContextModel,
   key: string,
   textElement: HTMLElement,
   caretPosition: number,
 ): PendingBoundaryNavigation | null {
-  const containerVe = editingLinearContainerVeMaybe(store);
-  if (containerVe == null) {
+  const context = currentLinearEditContext(store);
+  if (context == null) {
     logCompositeArrow("boundary-navigation-no-linear-parent", {
       key,
       currentPath: store.overlay.textEditInfo()?.itemPath ?? null,
@@ -204,11 +260,10 @@ function maybeBuildLinearBoundaryNavigation(
   if (key != "ArrowUp" && key != "ArrowDown") { return null; }
   if (!isCaretOnBoundaryLine(textElement, caretPosition, key)) { return null; }
 
-  const currentPath = store.overlay.textEditInfo()!.itemPath;
-  const targetPath = adjacentEditableChildPathInLinearContainer(containerVe, currentPath, key);
+  const targetPath = adjacentEditableChildPathInCurrentLinearContext(context, key);
   if (targetPath == null) {
-    const childCount = VesCache.current.readStructuralChildren(VeFns.veToPath(containerVe)).length;
-    logCompositeArrow("no-boundary-target", { key, currentPath, childCount });
+    const childCount = VesCache.current.readStructuralChildren(context.containerPath).length;
+    logCompositeArrow("no-boundary-target", { key, currentPath: context.editingPath, childCount });
     return null;
   }
 
@@ -218,8 +273,8 @@ function maybeBuildLinearBoundaryNavigation(
   };
   logCompositeArrow("prepared-boundary-navigation", {
     key,
-    containerPath: VeFns.veToPath(containerVe),
-    currentPath,
+    containerPath: context.containerPath,
+    currentPath: context.editingPath,
     targetPath: navigation.targetPath,
     caretPosition,
   });
@@ -362,84 +417,66 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
   }
 }
 
-const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualElement) => {
-  const editingVe = VesCache.current.readNode(store.overlay.textEditInfo()!.itemPath)!;
-  const initialEditingItem = VeFns.treeItem(editingVe);
+const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualElement) => {
+  const context = currentLinearEditContext(store);
+  if (context == null) { return; }
+
+  const initialEditingItem = VeFns.treeItem(context.editingVe);
   if (!isNote(initialEditingItem)) { return; }
 
-  const compositeVe = visualElement;
-  const compositeParentPath = VeFns.parentPath(VeFns.veToPath(compositeVe));
-  if (!isComposite(compositeVe.displayItem)) { return; }
-  const compositeItem = asCompositeItem(compositeVe.displayItem);
-  const closestPathUp = findClosest(VesCache.current, VeFns.veToPath(editingVe), FindDirection.Up, true);
-  if (closestPathUp == null) { return; }
+  const upPath = adjacentEditableChildPathInCurrentLinearContext(context, "ArrowUp");
+  if (upPath == null) { return; }
 
-  const upVeid = VeFns.veidFromPath(closestPathUp);
+  const upVeid = VeFns.veidFromPath(upPath);
   const upFocusItem = asTitledItem(itemState.get(upVeid.itemId)!);
 
   if (!isNote(upFocusItem) && !isFile(upFocusItem)) { return; }
   const upTextLength = upFocusItem.title.length;
-  upFocusItem.title = upFocusItem.title + asTitledItem(editingVe.displayItem).title;
+  upFocusItem.title = upFocusItem.title + asTitledItem(context.editingVe.displayItem).title;
 
-  store.history.setFocus(closestPathUp);
+  store.history.setFocus(upPath);
   arrangeNow(store, "join-items-focus-up-item");
 
   server.updateItem(upFocusItem, store.general.networkStatus);
   itemState.delete(initialEditingItem.id);
   server.deleteItem(initialEditingItem.id, store.general.networkStatus);
 
-  assert(compositeItem.computed_children.length != 0, "composite item does not have any children.");
-  if (compositeItem.computed_children.length == 1) {
-    const posGr = compositeItem.spatialPositionGr;
-    const widthGr = compositeItem.spatialWidthGr;
-    itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child);
-    asPositionalItem(upFocusItem).spatialPositionGr = posGr;
+  if (isComposite(context.containerVe.displayItem)) {
+    const compositeItem = asCompositeItem(context.containerVe.displayItem);
+    assert(compositeItem.computed_children.length != 0, "composite item does not have any children.");
+    if (compositeItem.computed_children.length == 1) {
+      const compositeParentPath = VeFns.parentPath(context.containerPath);
+      if (compositeParentPath == null) { return; }
 
-    asXSizableItem(upFocusItem).spatialWidthGr = widthGr;
-    server.updateItem(upFocusItem, store.general.networkStatus);
-    itemState.delete(compositeItem.id);
-    server.deleteItem(compositeItem.id, store.general.networkStatus);
-    arrangeNow(store, "join-items-collapse-composite");
-    const itemPath = VeFns.addVeidToPath(upVeid, compositeParentPath);
-    store.history.setFocus(itemPath);
-    store.overlay.setTextEditInfo(store.history, { itemPath: itemPath, itemType: upFocusItem.itemType });
-    const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
-    const textElement = document.getElementById(editingDomId);
-    setCaretPosition(textElement!, upTextLength);
-    textElement!.focus();
-  }
-  else {
-    arrangeNow(store, "join-items-restore-edit-focus");
-    const allUpVes = VesCache.current.findNodes(upVeid);
-    const currentCompositeVePath = VeFns.veToPath(compositeVe);
-    const upVe = allUpVes.find(ve => {
-      const vesPath = VeFns.veToPath(ve);
-      const vesParentPath = VeFns.parentPath(vesPath);
-      return vesParentPath === currentCompositeVePath;
-    });
+      const posGr = compositeItem.spatialPositionGr;
+      const widthGr = compositeItem.spatialWidthGr;
+      itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child);
+      asPositionalItem(upFocusItem).spatialPositionGr = posGr;
 
-    if (!upVe) {
-      console.error("Could not find up item visual element in the current composite context");
+      asXSizableItem(upFocusItem).spatialWidthGr = widthGr;
+      server.updateItem(upFocusItem, store.general.networkStatus);
+      itemState.delete(compositeItem.id);
+      server.deleteItem(compositeItem.id, store.general.networkStatus);
+      arrangeNow(store, "join-items-collapse-composite");
+      focusItemInLinearContainer(store, compositeParentPath, upFocusItem.id, upTextLength);
       return;
     }
-
-    const currentUpPath = VeFns.veToPath(upVe);
-    store.overlay.setTextEditInfo(store.history, { itemPath: currentUpPath, itemType: upFocusItem.itemType });
-    const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
-    const textElement = document.getElementById(editingDomId);
-    setCaretPosition(textElement!, upTextLength);
-    textElement!.focus();
   }
+
+  arrangeNow(store, "join-items-restore-edit-focus");
+  focusItemInLinearContainer(store, context.containerPath, upFocusItem.id, upTextLength);
 }
 
-const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement) => {
-  const itemPath = store.overlay.textEditInfo()!.itemPath;
-  const noteVeid = VeFns.veidFromPath(itemPath);
+const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement) => {
+  const context = currentLinearEditContext(store);
+  if (context == null) { return; }
+
+  const noteVeid = VeFns.veidFromPath(context.editingPath);
   const item = itemState.get(noteVeid.itemId)!;
   if (!isNote(item) && !isFile(item)) { return; }
   const titledItem = asTitledItem(item);
 
-  const editingDomId = itemPath + ":title";
+  const editingDomId = context.editingPath + ":title";
   const textElement = document.getElementById(editingDomId);
   const caretPosition = getCaretPosition(textElement!);
 
@@ -460,32 +497,14 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
 
   serverOrRemote.updateItem(titledItem, store.general.networkStatus);
 
-  const ordering = itemState.newOrderingDirectlyAfterChild(visualElement.displayItem.id, VeFns.treeItemFromVeid(noteVeid)!.id);
-  const note = NoteFns.create(titledItem.ownerId, visualElement.displayItem.id, RelationshipToParent.Child, "", ordering);
+  const ordering = itemState.newOrderingDirectlyAfterChild(context.containerVe.displayItem.id, VeFns.treeItemFromVeid(noteVeid)!.id);
+  const note = NoteFns.create(titledItem.ownerId, context.containerVe.displayItem.id, RelationshipToParent.Child, "", ordering);
   note.title = afterText;
   itemState.add(note);
   server.addItem(note, null, store.general.networkStatus);
   arrangeNow(store, "enter-key-create-note");
 
-  const veid = { itemId: note.id, linkIdMaybe: null };
-  const allNewVes = VesCache.current.findNodes(veid);
-  const currentCompositeVePath = VeFns.veToPath(visualElement);
-  const newVe = allNewVes.find(ve => {
-    const vesPath = VeFns.veToPath(ve);
-    const vesParentPath = VeFns.parentPath(vesPath);
-    return vesParentPath === currentCompositeVePath;
-  });
-
-  if (!newVe) {
-    console.error("Could not find new note visual element in the current composite context");
-    return;
-  }
-  store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVe), itemType: ItemType.Note });
-
-  const newEditingPath = store.overlay.textEditInfo()!.itemPath + ":title";
-  const newEditingTextElement = document.getElementById(newEditingPath);
-  setCaretPosition(newEditingTextElement!, 0);
-  textElement!.focus();
+  focusItemInLinearContainer(store, context.containerPath, note.id, 0);
 }
 
 export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) => {
