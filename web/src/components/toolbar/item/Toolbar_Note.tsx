@@ -39,11 +39,18 @@ export const Toolbar_Note: Component = () => {
   let formatDiv: HTMLDivElement | undefined;
   let urlDiv: HTMLDivElement | undefined;
 
-  const noteItem = () => asNoteItem(store.history.getFocusItem());
+  const noteItem = () => {
+    store.touchToolbarDependency();
+    return asNoteItem(store.history.getFocusItem());
+  };
   const compositeItemMaybe = () => {
     const parentItem = itemState.get(noteItem().parentId);
     if (!parentItem || !isComposite(parentItem)) { return null; }
     return asCompositeItem(parentItem);
+  };
+
+  const touchToolbar = () => {
+    store.touchToolbar();
   };
 
   const isInTable = (): boolean => {
@@ -58,17 +65,17 @@ export const Toolbar_Note: Component = () => {
     return false;
   };
 
-  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); requestArrange(store, "toolbar-note-text-style"); };
-  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; requestArrange(store, "toolbar-note-text-style"); };
-  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; requestArrange(store, "toolbar-note-text-style"); };
-  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; requestArrange(store, "toolbar-note-text-style"); };
-  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; requestArrange(store, "toolbar-note-text-style"); };
-  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; requestArrange(store, "toolbar-note-text-style"); };
+  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
+  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
+  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
+  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
+  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
+  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
 
-  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); requestArrange(store, "toolbar-note-alignment"); };
-  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; requestArrange(store, "toolbar-note-alignment"); };
-  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; requestArrange(store, "toolbar-note-alignment"); };
-  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; requestArrange(store, "toolbar-note-alignment"); };
+  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
+  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
+  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
+  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -84,6 +91,7 @@ export const Toolbar_Note: Component = () => {
       noteItem().flags |= NoteFlags.ShowCopyIcon;
     }
     requestArrange(store, "toolbar-note-copy-icon");
+    touchToolbar();
   };
 
   const borderButtonHandler = (): void => {
@@ -101,6 +109,7 @@ export const Toolbar_Note: Component = () => {
       }
     }
     requestArrange(store, "toolbar-note-border");
+    touchToolbar();
   };
 
   const explicitHeightEnabled = (): boolean => {
@@ -121,6 +130,7 @@ export const Toolbar_Note: Component = () => {
       noteItem().spatialHeightGr = naturalDims.h * GRID_SIZE;
     }
     requestArrange(store, "toolbar-note-explicit-height");
+    touchToolbar();
   };
 
   const desktopPopupIconButtonHandler = (): void => {
@@ -130,6 +140,7 @@ export const Toolbar_Note: Component = () => {
       noteItem().flags |= NoteFlags.ShowDesktopPopupIcon;
     }
     requestArrange(store, "toolbar-note-desktop-popup-icon");
+    touchToolbar();
   };
 
   // QR
