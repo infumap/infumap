@@ -92,6 +92,18 @@ function editableItemType(ve: VisualElement): ItemType | null {
   return null;
 }
 
+function editingCompositeVeMaybe(store: StoreContextModel): VisualElement | null {
+  const textEditInfo = store.overlay.textEditInfo();
+  if (textEditInfo == null) { return null; }
+
+  const parentPath = VeFns.parentPath(textEditInfo.itemPath);
+  if (!parentPath) { return null; }
+
+  const parentVe = VesCache.current.readNode(parentPath);
+  if (!parentVe || !isComposite(parentVe.displayItem)) { return null; }
+  return parentVe;
+}
+
 function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, key: string): boolean {
   const currentLineRect = getCaretLineRect(textElement, caretPosition);
   const boundaryLineRect = key == "ArrowUp"
@@ -114,13 +126,20 @@ function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, 
   return isBoundary;
 }
 
-function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, visualElement: VisualElement, key: string, textElement: HTMLElement, caretPosition: number) {
-  if (!isComposite(visualElement.displayItem)) { return null; }
+function maybeBuildCompositeBoundaryNavigation(store: StoreContextModel, _visualElement: VisualElement, key: string, textElement: HTMLElement, caretPosition: number) {
+  const compositeVe = editingCompositeVeMaybe(store);
+  if (compositeVe == null) {
+    logCompositeArrow("boundary-navigation-no-composite-parent", {
+      key,
+      currentPath: store.overlay.textEditInfo()?.itemPath ?? null,
+    });
+    return null;
+  }
   if (key != "ArrowUp" && key != "ArrowDown") { return null; }
   if (!isCaretOnBoundaryLine(textElement, caretPosition, key)) { return null; }
 
   const currentPath = store.overlay.textEditInfo()!.itemPath;
-  const childVes = VesCache.current.readStructuralChildren(VeFns.veToPath(visualElement));
+  const childVes = VesCache.current.readStructuralChildren(VeFns.veToPath(compositeVe));
   const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == currentPath);
   if (currentIndex < 0) { return null; }
 

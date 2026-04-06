@@ -186,11 +186,39 @@ export const Main: Component = () => {
     composite_selectionChangeListener();
   }
 
+  const shouldDebugCompositeArrows = (): boolean => {
+    try {
+      return window.localStorage.getItem("debug:composite-arrows") == "1";
+    } catch (_e) {
+      return false;
+    }
+  };
+
   const keyDownListener = (ev: KeyboardEvent) => {
+    if (shouldDebugCompositeArrows() &&
+      (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&
+      store.overlay.textEditInfo()) {
+      console.log("[composite-arrow-main] keydown", {
+        code: ev.code,
+        activeElementId: (document.activeElement as HTMLElement | null)?.id ?? null,
+        targetId: (ev.target as HTMLElement | null)?.id ?? null,
+        itemPath: store.overlay.textEditInfo()!.itemPath,
+      });
+    }
     keyDownHandler(store, ev);
   };
 
   const keyUpListener = (ev: KeyboardEvent) => {
+    if (shouldDebugCompositeArrows() &&
+      (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&
+      store.overlay.textEditInfo()) {
+      console.log("[composite-arrow-main] keyup", {
+        code: ev.code,
+        activeElementId: (document.activeElement as HTMLElement | null)?.id ?? null,
+        targetId: (ev.target as HTMLElement | null)?.id ?? null,
+        itemPath: store.overlay.textEditInfo()!.itemPath,
+      });
+    }
     void keyUpHandler(store, ev);
   };
 
