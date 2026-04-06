@@ -130,8 +130,21 @@ export const closestCaretPositionToClientPx = (el: HTMLElement, clientPx: Vector
  */
 export const currentCaretElement = (): HTMLElement | null => {
   const selection = window.getSelection();
-  if (selection == null) { return null; }
-  return selection.anchorNode!.parentElement;
+  if (selection == null || selection.anchorNode == null) { return null; }
+
+  let fallback: HTMLElement | null = null;
+  let node: Node | null = selection.anchorNode;
+  while (node != null) {
+    if (node instanceof HTMLElement) {
+      fallback = fallback ?? node;
+      if (parseEditPathInfoFromDomId(node.id) != null) {
+        return node;
+      }
+    }
+    node = node.parentNode;
+  }
+
+  return fallback;
 }
 
 
@@ -144,6 +157,27 @@ export interface EditPathInfo {
   path: VisualElementPath,
   type: EditElementType,
   colNumMaybe: number | null,
+}
+
+function parseEditPathInfoFromDomId(id: string): EditPathInfo | null {
+  if (id.endsWith(":title")) {
+    return {
+      path: id.substring(0, id.length - ":title".length),
+      type: EditElementType.Title,
+      colNumMaybe: null,
+    };
+  }
+
+  const colMatch = id.match(/^(.*):col(\d+)$/);
+  if (colMatch != null) {
+    return {
+      path: colMatch[1],
+      type: EditElementType.Column,
+      colNumMaybe: parseInt(colMatch[2], 10),
+    };
+  }
+
+  return null;
 }
 
 export function editPathInfoToDomId(epi: EditPathInfo): string {
@@ -162,25 +196,8 @@ export const getCurrentCaretVePath_title = (): EditPathInfo => {
   const el = currentCaretElement();
   if (!el) { throw("No HTML element selection."); }
 
-  const currentCaretElementId = currentCaretElement()!.id;
-
-  if (currentCaretElementId.endsWith(":title")) {
-    return ({
-      path: currentCaretElementId.substring(0, currentCaretElementId.length - ":title".length),
-      type: EditElementType.Title,
-      colNumMaybe: null,
-    });
-  }
-
-  if (currentCaretElementId.includes(":col")) {
-    const idx = currentCaretElementId.lastIndexOf(":");
-    const numStr = currentCaretElementId.substring(idx + ":col".length);
-    return ({
-      path: currentCaretElementId.substring(0, currentCaretElementId.length - (":col".length + numStr.length)),
-      type: EditElementType.Column,
-      colNumMaybe: parseInt(numStr),
-    });
-  }
+  const pathInfo = parseEditPathInfoFromDomId(el.id);
+  if (pathInfo != null) { return pathInfo; }
 
   throw("HTML element with caret has id that does not end with :title or :col[number]");
 }
