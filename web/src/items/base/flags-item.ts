@@ -43,6 +43,7 @@ export enum NoteFlags {
   Code = 0x200,
   ExplicitHeight = 0x400,
   ShowDesktopPopupIcon = 0x800,
+  Heading4 = 0x1000,
 };
 
 export enum FileFlags {

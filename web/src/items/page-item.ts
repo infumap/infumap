@@ -37,8 +37,8 @@ import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-
 import { switchToPage } from '../layout/navigation';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
-import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/text';
-import { FlagsMixin, NoteFlags, PageFlags } from './base/flags-item';
+import { InfuTextStyle, measureWidthBl } from '../layout/text';
+import { FlagsMixin, PageFlags } from './base/flags-item';
 import { serverOrRemote } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
@@ -387,13 +387,11 @@ export const PageFns = {
   },
 
   pageTitleStyle: (): InfuTextStyle => {
-    const flags = NoteFlags.Heading2;
-    return getTextStyleForNote(flags);
+    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true, isCode: false, alignClass: "text-left" };
   },
 
   pageTitleStyle_List: (): InfuTextStyle => {
-    const flags = NoteFlags.Heading3;
-    return getTextStyleForNote(flags);
+    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true, isCode: false, alignClass: "text-left" };
   },
 
   calcTitleSpatialDimensionsBl: (page: PageItem): Dimensions => {

@@ -352,6 +352,7 @@ export const NoteFns = {
       !(flagsItem.flags & NoteFlags.Heading1) &&
       !(flagsItem.flags & NoteFlags.Heading2) &&
       !(flagsItem.flags & NoteFlags.Heading3) &&
+      !(flagsItem.flags & NoteFlags.Heading4) &&
       !(flagsItem.flags & NoteFlags.Bullet1) &&
       !(flagsItem.flags & NoteFlags.Code)
     );
@@ -373,6 +374,7 @@ export const NoteFns = {
     flagsItem.flags &= ~NoteFlags.Heading1;
     flagsItem.flags &= ~NoteFlags.Heading2;
     flagsItem.flags &= ~NoteFlags.Heading3;
+    flagsItem.flags &= ~NoteFlags.Heading4;
     flagsItem.flags &= ~NoteFlags.Bullet1;
     flagsItem.flags &= ~NoteFlags.Code;
   },

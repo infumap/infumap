@@ -97,6 +97,12 @@ export interface InfuTextStyle {
 }
 
 export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
+  const bodyFontSizePx = 16;
+  const heading1Scale = 1.9;
+  const heading2Scale = 1.45;
+  const heading3Scale = 1.2;
+  const heading4Scale = 1.0;
+
   let alignClass = "text-left";
   if (flags & NoteFlags.AlignRight) {
     alignClass = "text-right";
@@ -108,15 +114,18 @@ export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
 
   const isCode = (flags & NoteFlags.Code) != 0;
 
-  if (flags & NoteFlags.Heading3) {
-    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true, isCode, alignClass };
+  if (flags & NoteFlags.Heading1) {
+    return { fontSize: bodyFontSizePx * heading1Scale, lineHeightMultiplier: heading1Scale, isBold: true, isCode, alignClass };
   }
   if (flags & NoteFlags.Heading2) {
-    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true, isCode, alignClass };
+    return { fontSize: bodyFontSizePx * heading2Scale, lineHeightMultiplier: heading2Scale, isBold: true, isCode, alignClass };
   }
-  if (flags & NoteFlags.Heading1) {
-    return { fontSize: 48, lineHeightMultiplier: 2.0, isBold: true, isCode, alignClass };
+  if (flags & NoteFlags.Heading3) {
+    return { fontSize: bodyFontSizePx * heading3Scale, lineHeightMultiplier: heading3Scale, isBold: true, isCode, alignClass };
+  }
+  if (flags & NoteFlags.Heading4) {
+    return { fontSize: bodyFontSizePx * heading4Scale, lineHeightMultiplier: heading4Scale, isBold: true, isCode, alignClass };
   }
 
-  return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode, alignClass };
+  return { fontSize: bodyFontSizePx, lineHeightMultiplier: 1.0, isBold: false, isCode, alignClass };
 }

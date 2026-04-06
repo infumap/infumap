@@ -69,6 +69,7 @@ export const Toolbar_Note: Component = () => {
   const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
   const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
   const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
+  const selectHeading4 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading4; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
   const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
   const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
 
@@ -197,6 +198,7 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
         </Show>
         <InfuIconButton icon="bi-type-h3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+        <InfuIconButton icon="fa fa-header-4" highlighted={(noteItem().flags & NoteFlags.Heading4) ? true : false} clickHandler={selectHeading4} />
         <Show when={!isInTable()}>
           <InfuIconButton icon="fa fa-list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
         </Show>
@@ -244,6 +246,7 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
         <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
         <InfuIconButton icon="bi-type-h3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+        <InfuIconButton icon="fa fa-header-4" highlighted={(noteItem().flags & NoteFlags.Heading4) ? true : false} clickHandler={selectHeading4} />
         <InfuIconButton icon="fa fa-list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
         <InfuIconButton icon="fa fa-code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
         <div class="inline-block ml-[20px]"></div>
