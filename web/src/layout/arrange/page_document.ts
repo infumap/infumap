@@ -18,6 +18,7 @@
 
 import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
+import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
@@ -28,7 +29,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItemPath, getCommonVisualElementFlags } from "./item";
-import { getVePropertiesForItem } from "./util";
+import { addContiguousStackedGapHitboxes, getVePropertiesForItem } from "./util";
 
 
 export function arrange_document_page(
@@ -59,6 +60,12 @@ export function arrange_document_page(
   const documentWidthPx = totalWidthBl * blockSizePx.w;
 
   const childrenPaths: Array<VisualElementPath> = [];
+  const childArrangeData: Array<{
+    childItem: Item,
+    actualLinkItemMaybe: LinkItem | null,
+    geometry: ItemGeometry,
+    childItemIsEmbeddedInteractive: boolean,
+  }> = [];
 
   let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX * scale;
   if (PageFns.showDocumentTitleInDocument(displayItem_pageWithChildren)) {
@@ -85,16 +92,26 @@ export function arrange_document_page(
     };
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
-    const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
-
-    childrenPaths.push(arrangeItemPath(
-      store, pageWithChildrenVePath, ArrangeAlgorithm.Document, childItem, actualLinkItemMaybe, documentChildGeometry,
-      (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
-      ArrangeItemFlags.InsideCompositeOrDoc |
-      (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
-      (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
+    childArrangeData.push({
+      childItem,
+      actualLinkItemMaybe,
+      geometry: documentChildGeometry,
+      childItemIsEmbeddedInteractive,
+    });
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
+  }
+
+  addContiguousStackedGapHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx);
+
+  const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
+  for (const child of childArrangeData) {
+    childrenPaths.push(arrangeItemPath(
+      store, pageWithChildrenVePath, ArrangeAlgorithm.Document, child.childItem, child.actualLinkItemMaybe, child.geometry,
+      (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
+      ArrangeItemFlags.InsideCompositeOrDoc |
+      (child.childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
+      (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.boundsPx)!);

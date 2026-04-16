@@ -37,7 +37,7 @@ import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { arrangePageWithChildren } from "./page";
 import { arrangeTable } from "./table";
-import { getVePropertiesForItem } from "./util";
+import { addContiguousStackedGapHitboxes, getVePropertiesForItem } from "./util";
 
 
 export const arrangeComposite = (
@@ -90,6 +90,11 @@ export const arrangeComposite = (
   const blockSizePx = { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
 
   let compositeChildPaths: Array<VisualElementPath> = [];
+  const compositeChildArrangeData: Array<{
+    displayItem_childItem: Item,
+    linkItemMaybe_childItem: LinkItem | null,
+    geometry: ItemGeometry,
+  }> = [];
   let topPx = 0.0;
   for (let idx = 0; idx < displayItem_Composite.computed_children.length; ++idx) {
     const childId = displayItem_Composite.computed_children[idx];
@@ -111,12 +116,20 @@ export const arrangeComposite = (
     };
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
+    compositeChildArrangeData.push({
+      displayItem_childItem,
+      linkItemMaybe_childItem,
+      geometry: compositeChildGeometry,
+    });
+  }
 
+  addContiguousStackedGapHitboxes(compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w);
+
+  for (const child of compositeChildArrangeData) {
     const compositeChildPath = arrangeCompositeChildItemPath(
       store, compositeVePath,
-      displayItem_childItem, linkItemMaybe_childItem,
-      compositeChildGeometry, blockSizePx, compositeSizeBl.w);
-
+      child.displayItem_childItem, child.linkItemMaybe_childItem,
+      child.geometry, blockSizePx, compositeSizeBl.w);
     compositeChildPaths.push(compositeChildPath);
   }
 

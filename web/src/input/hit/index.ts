@@ -32,7 +32,7 @@ import { Uid } from "../../util/uid";
 import { HitInfo, RootInfo } from "./types";
 import { HitBuilder } from "./builder";
 import { HitHandlers } from "./handlers";
-import { findAttachmentHit, isIgnored, scanHitboxes, toChildBoundsLocalFromViewport, toInnerAttachmentLocalInComposite } from "./utils";
+import { findAttachmentHit, isIgnored, isInsideBoundsOrAllowedHitbox, scanHitboxes, toChildBoundsLocalFromViewport, toInnerAttachmentLocalInComposite } from "./utils";
 
 export type { HitInfo } from "./types";
 
@@ -273,7 +273,7 @@ function hitChildMaybe(
       };
     }
   }
-  if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { return null; }
+  if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx))) { return null; }
   const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive };
   for (const handler of HitHandlers) {
     if (handler.canHandle(childVe)) {
@@ -398,7 +398,7 @@ function hitNonPagePopupMaybe(
           });
         }
       }
-      if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
+      if (isInsideBoundsOrAllowedHitbox(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx))) {
         const { flags: thFlags, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx));
         if (!isIgnored(tableChildVe.displayItem.id, ignoreItems)) {
           const hitMaybe = new HitBuilder(parentRootInfo.parentRootVe, rootVes).over(tableChildVes).hitboxes(thFlags, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitNonPagePopupMaybe-table-child").build();

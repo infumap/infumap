@@ -36,7 +36,7 @@ import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
 import { calcGeometryOfEmptyItem_ListItem } from './item-common-fns';
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
 import { LINE_HEIGHT_PX, GRID_SIZE } from '../../constants';
-import { requestArrange } from '../../layout/arrange';
+import { arrangeNow, requestArrange } from '../../layout/arrange';
 import { VesCache } from '../../layout/ves-cache';
 import { VisualElementFlags, VeFns } from '../../layout/visual-element';
 
@@ -241,7 +241,17 @@ export const ItemFns = {
   },
 
   handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, hitboxFlags: HitboxFlags, store: StoreContextModel, caretAtEnd: boolean = false): void => {
-    const item = visualElementSignal.get().displayItem;
+    const visualElement = visualElementSignal.get();
+    const item = visualElement.displayItem;
+    if (hitboxMeta?.focusOnly) {
+      if (isPage(item)) { PageFns.handleClick(visualElement, hitboxFlags, store, hitboxMeta); }
+      else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal, hitboxMeta); }
+      else {
+        store.history.setFocus(VeFns.veToPath(visualElement));
+        arrangeNow(store, "item-focus-only");
+      }
+      return;
+    }
     if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), hitboxFlags, store, hitboxMeta); }
     else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, store); }
     else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), store); }

@@ -25,6 +25,8 @@ import { MouseActionState } from "../../input/state";
 import { EMPTY_UID } from "../../util/uid";
 import { initiateLoadItemMaybe, initiateLoadItemFromRemoteMaybe, retryLinkIfVisible, RemoteLoadStatus, itemLoadFromRemoteStatus, linkIdToRemoteInfo, itemLoadLastSessionId } from "../load";
 import { RemoteSessions } from "../../store/RemoteSessions";
+import { ItemGeometry } from "../item-geometry";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 
 
 export interface VePropertiesForItem {
@@ -109,4 +111,42 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
   }
 
   return { displayItem, linkItemMaybe, spatialWidthGr };
+}
+
+export function addContiguousStackedGapHitboxes(
+  childGeometries: Array<ItemGeometry>,
+  bandWidthPx: number,
+): void {
+  for (let i = 0; i < childGeometries.length; ++i) {
+    const geometry = childGeometries[i];
+    const prevGeometry = i > 0 ? childGeometries[i - 1] : null;
+    const nextGeometry = i + 1 < childGeometries.length ? childGeometries[i + 1] : null;
+
+    const bandTopPx = prevGeometry == null
+      ? geometry.boundsPx.y
+      : (prevGeometry.boundsPx.y + prevGeometry.boundsPx.h + geometry.boundsPx.y) / 2;
+    const bandBottomPx = nextGeometry == null
+      ? geometry.boundsPx.y + geometry.boundsPx.h
+      : (geometry.boundsPx.y + geometry.boundsPx.h + nextGeometry.boundsPx.y) / 2;
+
+    const gapAboveHeightPx = geometry.boundsPx.y - bandTopPx;
+    if (gapAboveHeightPx > 0) {
+      geometry.hitboxes.unshift(HitboxFns.create(HitboxFlags.Click, {
+        x: -geometry.boundsPx.x,
+        y: bandTopPx - geometry.boundsPx.y,
+        w: bandWidthPx,
+        h: gapAboveHeightPx,
+      }, { focusOnly: true, allowOutsideBounds: true }));
+    }
+
+    const gapBelowHeightPx = bandBottomPx - (geometry.boundsPx.y + geometry.boundsPx.h);
+    if (gapBelowHeightPx > 0) {
+      geometry.hitboxes.unshift(HitboxFns.create(HitboxFlags.Click, {
+        x: -geometry.boundsPx.x,
+        y: geometry.boundsPx.h,
+        w: bandWidthPx,
+        h: gapBelowHeightPx,
+      }, { focusOnly: true, allowOutsideBounds: true }));
+    }
+  }
 }

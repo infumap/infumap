@@ -58,6 +58,33 @@ export function scanHitboxes(
   return { flags, meta };
 }
 
+export function isInsideBoundsOrAllowedHitbox(
+  ve: VisualElement,
+  localPos: Vector,
+  offsetTopLeft?: Vector,
+): boolean {
+  if (isInside(localPos, typeof offsetTopLeft === 'undefined' ? ve.boundsPx : offsetBoundingBoxTopLeftBy(ve.boundsPx, offsetTopLeft))) {
+    return true;
+  }
+  for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
+    if (!ve.hitboxes[i].meta?.allowOutsideBounds) { continue; }
+    const hbBounds = typeof offsetTopLeft === 'undefined'
+      ? ve.hitboxes[i].boundsPx
+      : offsetBoundingBoxTopLeftBy(ve.hitboxes[i].boundsPx, offsetTopLeft);
+    let inside = isInside(localPos, hbBounds);
+    if (inside) {
+      const type = ve.hitboxes[i].type;
+      if (type & HitboxFlags.TriangleLinkSettings) {
+        inside = isInsideTopLeftTriangle(localPos, hbBounds);
+      } else if (type & HitboxFlags.Resize) {
+        inside = isInsideBottomRightTriangle(localPos, hbBounds);
+      }
+    }
+    if (inside) { return true; }
+  }
+  return false;
+}
+
 export function findAttachmentHit(
   attachmentsVes: Array<VisualElementSignal>,
   localPos: Vector,
@@ -132,5 +159,3 @@ export function isInsideBottomRightTriangle(localPos: Vector, rect: BoundingBox)
   const size = Math.min(rect.w, rect.h);
   return (dx + dy) <= size;
 }
-
-
