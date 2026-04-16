@@ -105,6 +105,11 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
     serverOrRemote.updateItem(focusItem, store.general.networkStatus);
   }
+  const exitToolbarTitleEdit = (): MouseEventActionFlags => {
+    saveActiveTitleDivState();
+    arrangeNow(store, "mouse-down-exit-toolbar-title-edit");
+    return MouseEventActionFlags.None;
+  }
   const focusToolbarTitleAt = (idx: number, caretPosition: number) => {
     let ttpPath = store.topTitledPages.get()[idx];
     setTimeout(() => {
@@ -121,10 +126,15 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     const titleBounds = boundingBoxFromDOMRect(toolbarTitleDiv.getBoundingClientRect())!;
     if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
       if (document.activeElement!.id.includes("toolbarTitleDiv")) {
+        if (buttonNumber != MOUSE_LEFT) {
+          return exitToolbarTitleEdit();
+        }
         if (document.activeElement!.id == `toolbarTitleDiv-${i}`) {
           return MouseEventActionFlags.None;
         }
         saveActiveTitleDivState();
+      } else if (buttonNumber != MOUSE_LEFT) {
+        return defaultResult;
       }
       const caretPosition = getCaretPosition(toolbarTitleDiv);
       focusToolbarTitleAt(i, caretPosition);
@@ -138,11 +148,16 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       const lastToolbarTitleDiv = toolbarTitleDivs[lastToolbarTitleIdx];
       const caretPosition = lastToolbarTitleDiv.innerText.length;
       if (document.activeElement!.id.includes("toolbarTitleDiv")) {
+        if (buttonNumber != MOUSE_LEFT) {
+          return exitToolbarTitleEdit();
+        }
         if (document.activeElement!.id == `toolbarTitleDiv-${lastToolbarTitleIdx}`) {
           setTimeout(() => { setCaretPosition(lastToolbarTitleDiv, caretPosition); }, 0);
           return MouseEventActionFlags.None;
         }
         saveActiveTitleDivState();
+      } else if (buttonNumber != MOUSE_LEFT) {
+        return defaultResult;
       }
       focusToolbarTitleAt(lastToolbarTitleIdx, caretPosition);
       return MouseEventActionFlags.None;
@@ -150,9 +165,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
   // If here, click was NOT inside a toolbar title div. If one is active, update the page item.
   if (document.activeElement!.id.includes("toolbarTitleDiv")) {
-    saveActiveTitleDivState();
-    arrangeNow(store, "mouse-down-exit-toolbar-title-edit");
-    defaultResult = MouseEventActionFlags.None;
+    defaultResult = exitToolbarTitleEdit();
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
