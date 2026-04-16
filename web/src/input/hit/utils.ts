@@ -63,7 +63,7 @@ export function isInsideBoundsOrAllowedHitbox(
   localPos: Vector,
   offsetTopLeft?: Vector,
 ): boolean {
-  if (isInside(localPos, typeof offsetTopLeft === 'undefined' ? ve.boundsPx : offsetBoundingBoxTopLeftBy(ve.boundsPx, offsetTopLeft))) {
+  if (isInside(localPos, ve.boundsPx)) {
     return true;
   }
   for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
