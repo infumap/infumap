@@ -20,7 +20,7 @@ import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
