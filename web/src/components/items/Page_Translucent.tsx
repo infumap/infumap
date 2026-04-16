@@ -84,19 +84,28 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   });
 
   const translucentTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("lg"));
+  const isCalendarTranslucentPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar;
+  const translucentTitleClass = () =>
+    isCalendarTranslucentPage()
+      ? "absolute flex text-white pointer-events-none"
+      : "absolute flex font-bold text-white pointer-events-none";
 
   const calendarTitleStyle = (): string => {
+    const fontSizePx = isCalendarTranslucentPage()
+      ? 18 * translucentTitleInBoxScale()
+      : 20 * translucentTitleInBoxScale();
     const base = `left: ${pageFns().boundsPx().x}px; ` +
       `top: ${pageFns().boundsPx().y}px; ` +
       `width: ${pageFns().boundsPx().w}px; ` +
       `height: ${pageFns().boundsPx().h}px;` +
-      `font-size: ${20 * translucentTitleInBoxScale()}px; ` +
+      `font-size: ${fontSizePx}px; ` +
       `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
       `outline: 0px solid transparent;`;
-    if (pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+    if (isCalendarTranslucentPage()) {
       const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
       const padLeft = (CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + 4) * scale;
-      return base + `justify-content: flex-start; align-items: flex-start; text-align: left; padding-top: 6px; padding-left: ${padLeft}px;`;
+      return base + `justify-content: flex-start; align-items: flex-start; text-align: left; padding-top: 8px; padding-left: ${padLeft}px; ` +
+        `font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; text-shadow: 0 1px 2px rgba(57, 81, 118, 0.18);`;
     } else {
       return base + `justify-content: center; align-items: center; text-align: center;`;
     }
@@ -184,7 +193,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const renderBoxTitleMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
       <div id={VeFns.veToPath(props.visualElement) + ":title"}
-        class={`absolute flex font-bold text-white pointer-events-none`}
+        class={translucentTitleClass()}
         style={calendarTitleStyle()}
         spellcheck={titleEditHandlers.isEditingTitle()}
         contentEditable={titleEditHandlers.isEditingTitle()}
@@ -231,11 +240,14 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const textLeft = leftMargin + 3; // align with item title text (after icon)
     const rowH = LINE_HEIGHT_PX;
     const titleTopOffsetPx = 30; // keep items below page title on first render
-    const dayHeaderTextH = 18;
-    const daySeparatorSpacing = 4;
+    const dayHeaderTextH = 20;
+    const dayHeaderFontSizePx = 15;
+    const dayHeaderMetaFontSizePx = 12;
+    const daySeparatorSpacing = 3;
     const daySeparatorH = 1;
     const dayHeaderH = dayHeaderTextH + daySeparatorSpacing + daySeparatorH;
-    const dayHeaderTopMargin = 12; // extra space above each section heading
+    const dayHeaderTopMargin = 14; // extra space above each section heading
+    const emptyStateFontSizePx = 13;
 
     // Compute total height needed
     const totalHeight = days.reduce((acc, day) => {
@@ -260,22 +272,29 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
               const sectionTop = runningY + dayHeaderTopMargin;
               // Date header text
               sections.push(
-                <div class="absolute font-semibold"
-                  style={`left: ${textLeft}px; top: ${sectionTop}px; width: ${innerWidth - NATURAL_BLOCK_SIZE_PX.w}px; height: ${dayHeaderTextH}px; line-height: ${dayHeaderTextH}px;`}>
-                  {day.display}{day.key === todayKey ? " (today)" : ""}
+                <div class="absolute"
+                  style={`left: ${textLeft}px; top: ${sectionTop}px; width: ${innerWidth - NATURAL_BLOCK_SIZE_PX.w}px; height: ${dayHeaderTextH}px; line-height: ${dayHeaderTextH}px; ` +
+                    `font-size: ${dayHeaderFontSizePx}px; font-weight: 600; letter-spacing: -0.02em; color: #1f2937;`}>
+                  <span>{day.display}</span>
+                  <Show when={day.key === todayKey}>
+                    <span style={`margin-left: 6px; font-size: ${dayHeaderMetaFontSizePx}px; font-weight: 500; color: #64748b; letter-spacing: 0em;`}>
+                      (today)
+                    </span>
+                  </Show>
                 </div>
               );
               // Separator line spanning inner width
               sections.push(
                 <div class="absolute"
-                  style={`left: ${textLeft}px; top: ${sectionTop + dayHeaderTextH + daySeparatorSpacing}px; width: ${childArea.w - 2 * textLeft - 4}px; height: ${daySeparatorH}px; background-color: #aaaaaa;`} />
+                  style={`left: ${textLeft}px; top: ${sectionTop + dayHeaderTextH + daySeparatorSpacing}px; width: ${childArea.w - 2 * textLeft - 4}px; height: ${daySeparatorH}px; background-color: #94a3b866;`} />
               );
 
               const contentTop = sectionTop + dayHeaderH;
               if (items.length === 0) {
                 sections.push(
-                  <div class="absolute text-[#666] italic"
-                    style={`left: ${textLeft}px; top: ${contentTop}px; width: ${childArea.w - textLeft - leftMargin}px; height: ${rowH}px; line-height: ${rowH}px;`}>
+                  <div class="absolute"
+                    style={`left: ${textLeft}px; top: ${contentTop}px; width: ${childArea.w - textLeft - leftMargin}px; height: ${rowH}px; line-height: ${rowH}px; ` +
+                      `font-size: ${emptyStateFontSizePx}px; font-weight: 500; letter-spacing: 0.01em; color: #64748b;`}>
                     [no items]
                   </div>
                 );
