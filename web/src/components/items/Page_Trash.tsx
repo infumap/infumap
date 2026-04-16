@@ -17,6 +17,7 @@
 */
 
 import { Component } from "solid-js";
+import { DOCK_GAP_PX } from "../../constants";
 import { useStore } from "../../store/StoreProvider";
 import { PageVisualElementProps } from "./Page";
 
@@ -27,11 +28,11 @@ export const Page_Trash: Component<PageVisualElementProps> = (props: PageVisualE
   const store = useStore();
 
   const trashFontSizePx = () => {
-    return props.pageFns.boundsPx().h * 0.65;
+    return Math.max(0, props.pageFns.boundsPx().h - DOCK_GAP_PX * 2) * 0.65;
   }
 
   return (
-    <div class={`absolute rounded-xs align-middle text-center`}
+    <div class={`absolute flex items-center justify-center rounded-xs text-center`}
          style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
                 `z-index: 1; ` +
                 `background-color: ${store.perVe.getMovingItemIsOver(props.pageFns.vePath()) ? "#dddddd" : (store.perVe.getMouseIsOver(props.pageFns.vePath()) ? "#eeeeee" : "#ffffff")}; ` +

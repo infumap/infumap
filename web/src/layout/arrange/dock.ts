@@ -199,7 +199,7 @@ export const renderDockMaybe = (
       x: dockSideMarginPx,
       y: dockViewportBoundsPx.h - trashHeightPx - DOCK_GAP_PX * 2,
       w: dockViewportWidthPx - dockSideMarginPx,
-      h: trashHeightPx,
+      h: trashHeightPx + DOCK_GAP_PX * 2,
     }
     const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
     const trashVisualElementSpec: VisualElementSpec = {
