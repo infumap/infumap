@@ -78,6 +78,12 @@ export const renderDockMaybe = (
   const dockSideMarginPx = DOCK_GAP_PX * 1.25;
   const dockResizeGutterPx = dockSideMarginPx;
   const dockViewportWidthPx = Math.max(0, dockWidthPx - dockResizeGutterPx);
+  let trashHeightPx = 50;
+  if (dockViewportWidthPx - DOCK_GAP_PX * 2 < trashHeightPx) {
+    trashHeightPx = dockViewportWidthPx - DOCK_GAP_PX * 2;
+    if (trashHeightPx < 0) { trashHeightPx = 0; }
+  }
+  const dockTrashAreaHeightPx = trashHeightPx + DOCK_GAP_PX * 2;
   const dockBoundsPx = {
     x: 0,
     y: 0,
@@ -88,7 +94,7 @@ export const renderDockMaybe = (
     x: 0,
     y: 0,
     w: dockViewportWidthPx,
-    h: store.desktopBoundsPx().h,
+    h: Math.max(0, store.desktopBoundsPx().h - dockTrashAreaHeightPx),
   };
 
   let yCurrentPx = 0;
@@ -140,14 +146,9 @@ export const renderDockMaybe = (
   }
   yCurrentPx += DOCK_GAP_PX;
 
-  let trashHeightPx = 50;
-  if (dockViewportWidthPx - DOCK_GAP_PX * 2 < trashHeightPx) {
-    trashHeightPx = dockViewportWidthPx - DOCK_GAP_PX * 2;
-    if (trashHeightPx < 0) { trashHeightPx = 0; }
-  }
   const dockChildAreaHeightPx = Math.max(
-    store.desktopBoundsPx().h,
-    yCurrentPx + trashHeightPx + DOCK_GAP_PX * 2,
+    dockViewportBoundsPx.h,
+    yCurrentPx,
   );
 
   if (movingItemInThisPage) {
@@ -197,9 +198,9 @@ export const renderDockMaybe = (
     const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
     const trashBoundsPx = {
       x: dockSideMarginPx,
-      y: dockViewportBoundsPx.h - trashHeightPx - DOCK_GAP_PX * 2,
+      y: dockViewportBoundsPx.h,
       w: dockViewportWidthPx - dockSideMarginPx,
-      h: trashHeightPx + DOCK_GAP_PX * 2,
+      h: dockTrashAreaHeightPx,
     }
     const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
     const trashVisualElementSpec: VisualElementSpec = {
