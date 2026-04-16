@@ -75,7 +75,9 @@ export const renderDockMaybe = (
   }
 
   const dockWidthPx = store.getCurrentDockWidthPx();
-  const dockViewportWidthPx = Math.max(0, dockWidthPx - RESIZE_BOX_SIZE_PX);
+  const dockSideMarginPx = DOCK_GAP_PX * 1.25;
+  const dockResizeGutterPx = dockSideMarginPx;
+  const dockViewportWidthPx = Math.max(0, dockWidthPx - dockResizeGutterPx);
   const dockBoundsPx = {
     x: 0,
     y: 0,
@@ -102,9 +104,9 @@ export const renderDockMaybe = (
       continue;
     }
 
-    let wPx = dockViewportWidthPx - DOCK_GAP_PX * 3;
+    let wPx = dockViewportWidthPx - dockSideMarginPx;
     if (wPx < 0) { wPx = 0; }
-    const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockViewportWidthPx * 10 };
+    const cellBoundsPx = { x: dockSideMarginPx, y: 0, w: wPx, h: dockViewportWidthPx * 10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, false, true, store.smallScreenMode());
 
     const hasAttachHb = geometry.hitboxes.some(hb => (hb.type & HitboxFlags.Attach) !== 0);
@@ -129,7 +131,7 @@ export const renderDockMaybe = (
     }
     yCurrentPx += geometry.boundsPx.h + DOCK_GAP_PX;
 
-    if (dockWidthPx > NATURAL_BLOCK_SIZE_PX.w * 2 + 1) {
+  if (dockWidthPx > NATURAL_BLOCK_SIZE_PX.w * 2 + 1) {
       arrangeItem(
         store, dockPath, ArrangeAlgorithm.Dock, childItem, actualLinkItemMaybe, geometry,
         ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
@@ -168,8 +170,8 @@ export const renderDockMaybe = (
   }
 
   const resizeBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
-  resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
-  resizeBoundsPx.x = dockWidthPx - RESIZE_BOX_SIZE_PX;
+  resizeBoundsPx.w = dockResizeGutterPx;
+  resizeBoundsPx.x = dockWidthPx - dockResizeGutterPx;
 
   const dockSpec: VisualElementSpec = {
     displayItem: dockPage,
@@ -194,9 +196,9 @@ export const renderDockMaybe = (
   } else {
     const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
     const trashBoundsPx = {
-      x: DOCK_GAP_PX,
+      x: dockSideMarginPx,
       y: dockChildAreaHeightPx - trashHeightPx - DOCK_GAP_PX * 2,
-      w: dockViewportWidthPx - DOCK_GAP_PX * 2,
+      w: dockViewportWidthPx - dockSideMarginPx,
       h: trashHeightPx,
     }
     const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
@@ -232,6 +234,7 @@ export function dockInsertIndexAndPositionFromDockChildAreaY(
   dockViewportWidthPx: number,
   dockChildAreaYPx: number,
 ): IndexAndPosition {
+  const dockSideMarginPx = DOCK_GAP_PX * 1.25;
   let positionIndex = 0;
   let yCurrentPx = 0;
   for (let i = 0; i < dockItem.computed_children.length; ++i) {
@@ -243,9 +246,9 @@ export function dockInsertIndexAndPositionFromDockChildAreaY(
       continue;
     }
 
-    let wPx = dockViewportWidthPx - DOCK_GAP_PX * 3;
+    let wPx = dockViewportWidthPx - dockSideMarginPx;
     if (wPx < 0) { wPx = 0; }
-    const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockViewportWidthPx * 10 };
+    const cellBoundsPx = { x: dockSideMarginPx, y: 0, w: wPx, h: dockViewportWidthPx * 10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, false, true, store.smallScreenMode());
 
     let viewportOffsetPx = 0;
