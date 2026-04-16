@@ -38,16 +38,25 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
   };
 
   const documentTextColumnLeftPx = () =>
-    PAGE_DOCUMENT_LEFT_MARGIN_BL * LINE_HEIGHT_PX * documentScale() + NOTE_PADDING_PX;
+    PAGE_DOCUMENT_LEFT_MARGIN_BL * LINE_HEIGHT_PX * documentScale();
 
-  const documentTextColumnWidthPx = () =>
+  const documentBlockWidthPx = () =>
     Math.max(
-      pageFns().pageItem().docWidthBl * LINE_HEIGHT_PX * documentScale() - (NOTE_PADDING_PX * 2),
+      pageFns().pageItem().docWidthBl * LINE_HEIGHT_PX * documentScale(),
+      1,
+    );
+
+  const naturalTextWidthPx = () =>
+    Math.max(
+      pageFns().pageItem().docWidthBl * LINE_HEIGHT_PX - (NOTE_PADDING_PX * 2),
       1,
     );
 
   const titleStyle = () => PageFns.documentTitleStyle();
-  const titleHeightPx = () => PageFns.calcDocumentTitleHeightPx(pageFns().pageItem(), documentTextColumnWidthPx());
+  const textBlockScale = () =>
+    Math.max((documentBlockWidthPx() - NOTE_PADDING_PX * 2) / naturalTextWidthPx(), 0);
+
+  const titleHeightPx = () => PageFns.calcDocumentTitleHeightBl(pageFns().pageItem()) * LINE_HEIGHT_PX * documentScale();
 
   const handleTitleClick = (ev: MouseEvent) => {
     if (!allowEditing() || titleEditHandlers.isEditingTitle() || ev.button !== 0) { return; }
@@ -55,22 +64,28 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
   };
 
   return (
-    <div id={VeFns.veToPath(props.visualElement) + ":title"}
-      class="absolute font-bold cursor-text"
+    <div class="absolute"
       style={`left: ${documentTextColumnLeftPx()}px; ` +
         `top: ${PAGE_DOCUMENT_TOP_MARGIN_PX * documentScale()}px; ` +
-        `width: ${documentTextColumnWidthPx()}px; min-height: ${titleHeightPx()}px; ` +
-        `font-size: ${titleStyle().fontSize}px; ` +
-        `line-height: ${LINE_HEIGHT_PX * titleStyle().lineHeightMultiplier}px; ` +
-        `overflow-wrap: break-word; white-space: pre-wrap; ` +
-        `outline: 0px solid transparent;`}
-      spellcheck={allowEditing() && titleEditHandlers.isEditingTitle()}
-      contentEditable={allowEditing() && titleEditHandlers.isEditingTitle()}
-      onClick={allowEditing() ? handleTitleClick : undefined}
-      onKeyDown={allowEditing() ? titleEditHandlers.titleKeyDownHandler : undefined}
-      onKeyUp={allowEditing() ? titleEditHandlers.titleKeyUpHandler : undefined}
-      onInput={allowEditing() ? titleEditHandlers.titleInputListener : undefined}>
-      {pageFns().pageItem().title}
+        `width: ${documentBlockWidthPx()}px; height: ${titleHeightPx()}px;`}>
+      <span id={VeFns.veToPath(props.visualElement) + ":title"}
+        class={`absolute block font-bold cursor-text ${titleStyle().alignClass}`}
+        style={`left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+          `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+          `width: ${naturalTextWidthPx()}px; ` +
+          `line-height: ${LINE_HEIGHT_PX * titleStyle().lineHeightMultiplier}px; ` +
+          `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+          `font-size: ${titleStyle().fontSize}px; ` +
+          `overflow-wrap: break-word; white-space: pre-wrap; ` +
+          `outline: 0px solid transparent;`}
+        spellcheck={allowEditing() && titleEditHandlers.isEditingTitle()}
+        contentEditable={allowEditing() && titleEditHandlers.isEditingTitle()}
+        onClick={allowEditing() ? handleTitleClick : undefined}
+        onKeyDown={allowEditing() ? titleEditHandlers.titleKeyDownHandler : undefined}
+        onKeyUp={allowEditing() ? titleEditHandlers.titleKeyUpHandler : undefined}
+        onInput={allowEditing() ? titleEditHandlers.titleInputListener : undefined}>
+        {pageFns().pageItem().title}
+      </span>
     </div>
   );
 }

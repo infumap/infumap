@@ -37,7 +37,7 @@ import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-
 import { switchToPage } from '../layout/navigation';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
-import { getTextStyleForNote, InfuTextStyle, measureWidthBl } from '../layout/text';
+import { getTextStyleForNote, InfuTextStyle, measureLineCount, measureWidthBl } from '../layout/text';
 import { FlagsMixin, PageFlags } from './base/flags-item';
 import { serverOrRemote } from '../server';
 import { ItemFns } from './base/item-polymorphism';
@@ -103,8 +103,6 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   childrenLoaded: boolean;
   computed_children: Array<Uid>;
 }
-
-const documentTitleHeightCache = new Map<string, number>();
 
 function pageHeaderHeightBl(page: PageMeasurable, isPopup: boolean): number {
   if (page.arrangeAlgorithm == ArrangeAlgorithm.Document) {
@@ -412,33 +410,9 @@ export const PageFns = {
     return page.arrangeAlgorithm == ArrangeAlgorithm.Document && !(page.flags & PageFlags.HideDocumentTitle);
   },
 
-  calcDocumentTitleHeightPx: (page: PageItem, widthPx: number): number => {
-    const style = PageFns.documentTitleStyle();
-    const clampedWidthPx = Math.max(widthPx, 1);
+  calcDocumentTitleHeightBl: (page: PageItem): number => {
     const titleText = page.title == "" ? " " : page.title;
-    const key = `${titleText}~~${clampedWidthPx}`;
-    if (documentTitleHeightCache.has(key)) {
-      return documentTitleHeightCache.get(key)!;
-    }
-    if (documentTitleHeightCache.size > 10000) {
-      documentTitleHeightCache.clear();
-    }
-
-    const div = document.createElement("div");
-    div.setAttribute("class", style.alignClass);
-    div.setAttribute("style",
-      `${style.isBold ? 'font-weight: bold; ' : ""}` +
-      `font-size: ${style.fontSize}px; ` +
-      `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
-      `width: ${clampedWidthPx}px; ` +
-      `overflow-wrap: break-word; white-space: pre-wrap; ` +
-      `position: absolute; visibility: hidden; pointer-events: none;`);
-    div.appendChild(document.createTextNode(titleText));
-    document.body.appendChild(div);
-    const result = Math.max(div.offsetHeight, LINE_HEIGHT_PX * style.lineHeightMultiplier);
-    document.body.removeChild(div);
-    documentTitleHeightCache.set(key, result);
-    return result;
+    return measureLineCount(titleText, page.docWidthBl, NoteFlags.Heading1);
   },
 
   calcTitleSpatialDimensionsBl: (page: PageItem): Dimensions => {

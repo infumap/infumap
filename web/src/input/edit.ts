@@ -38,6 +38,7 @@ import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { asImageItem } from "../items/image-item";
+import { PageFlags } from "../items/base/flags-item";
 
 
 let arrowKeyDown_caretPosition = null;
