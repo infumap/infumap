@@ -30,7 +30,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
-import { createPageTitleEditHandlers, scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { createPageTitleEditHandlers, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { switchToPage } from "../../layout/navigation";
 
 
@@ -109,7 +109,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </Show>;
 
   const renderFocusRingMaybe = () =>
-    <Show when={isFocused()}>
+    <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +

@@ -33,6 +33,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -114,7 +115,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     </Show>;
 
   const renderFocusRingMaybe = () =>
-    <Show when={isFocused()}>
+    <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
@@ -159,7 +160,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
           <>
             <VisualElement_Desktop visualElement={childVe.get()} />
-            <Show when={activeChildPath() === VeFns.veToPath(childVe.get())}>
+            <Show when={activeChildPath() === VeFns.veToPath(childVe.get()) && shouldShowFocusRingForVisualElement(store, () => childVe.get())}>
               {(() => {
                 const focusBoundsPx = childFocusBoundsPx(childVe.get().boundsPx, isPage(childVe.get().displayItem));
                 return (
