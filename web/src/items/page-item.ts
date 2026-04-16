@@ -106,7 +106,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 function pageHeaderHeightBl(page: PageMeasurable, isPopup: boolean): number {
   if (page.arrangeAlgorithm == ArrangeAlgorithm.Document) {
-    return 0;
+    return isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : 0;
   }
   return isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
 }

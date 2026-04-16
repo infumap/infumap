@@ -149,6 +149,19 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   };
   const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
   const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
+  const titleRegionMouseDown = (ev: MouseEvent) => {
+    if (store.overlay.textEditInfo()?.itemPath === vePath()) { return; }
+    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(true); }
+    ev.preventDefault();
+  };
+  const titleRegionClick = (ev: MouseEvent) => {
+    if (store.overlay.textEditInfo()?.itemPath === vePath()) { return; }
+    ev.preventDefault();
+  };
+  const titleRegionMouseUp = (ev: MouseEvent) => {
+    if (store.overlay.textEditInfo()?.itemPath === vePath()) { return; }
+    ev.preventDefault();
+  };
 
   const inputListener = (_ev: InputEvent) => {
     // fullArrange is not required in the line item case, because the ve geometry does not change.
@@ -174,7 +187,10 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
         `top: ${boundsPx().y}px; ` +
         `width: ${(boundsPx().w - oneBlockWidthPx()) / scale()}px; ` +
         `height: ${boundsPx().h / scale()}px; ` +
-        `transform: scale(${scale()}); transform-origin: top left;`}>
+        `transform: scale(${scale()}); transform-origin: top left;`}
+      onClick={titleRegionClick}
+      onMouseDown={titleRegionMouseDown}
+      onMouseUp={titleRegionMouseUp}>
       <Switch>
         <Match when={(store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <a id={VeFns.veToPath(props.visualElement) + ":title"}

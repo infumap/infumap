@@ -52,7 +52,6 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   let popupDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
-  const isMinimalDocumentPopup = () => pageFns().isDocumentPage();
 
   onMount(() => {
     const veid = store.history.currentPopupSpec()!.actualVeid;
@@ -335,7 +334,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
   const renderPage = () =>
     <div ref={popupDiv}
-      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}${isMinimalDocumentPopup() ? "" : " border-t border-slate-300"}`}
+      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border-t border-slate-300`}
       style={`left: ${pageFns().viewportBoundsPx().x}px; ` +
         `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
@@ -346,7 +345,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         `${VeFns.zIndexStyle(props.visualElement)}`}
       onscroll={popupScrollHandler}>
       <div class="absolute"
-        style={`left: ${isMinimalDocumentPopup() ? pageFns().documentContentLeftPx() : pageFns().viewportBoundsPx().w - pageFns().childAreaBoundsPx().w}px; ` +
+        style={`left: ${pageFns().isDocumentPage() ? pageFns().documentContentLeftPx() : pageFns().viewportBoundsPx().w - pageFns().childAreaBoundsPx().w}px; ` +
           `top: ${0}px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;`}>
@@ -601,12 +600,10 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           {renderPage()}
         </Match>
       </Switch>
-      <Show when={!isMinimalDocumentPopup()}>
-        {renderPopupTitle()}
-        {renderAnchorChildMaybe()}
-        {renderAnchorDefaultMaybe()}
-        {renderBorder()}
-      </Show>
+      {renderPopupTitle()}
+      {renderAnchorChildMaybe()}
+      {renderAnchorDefaultMaybe()}
+      {renderBorder()}
     </>
   );
 }
