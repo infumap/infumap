@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { CONTAINER_IN_COMPOSITE_PADDING_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { LINE_HEIGHT_PX, NOTE_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { PageFns } from "../../items/page-item";
 import { VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
@@ -38,11 +38,11 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
   };
 
   const documentTextColumnLeftPx = () =>
-    PAGE_DOCUMENT_LEFT_MARGIN_BL * LINE_HEIGHT_PX * documentScale() + CONTAINER_IN_COMPOSITE_PADDING_PX + NOTE_PADDING_PX;
+    PAGE_DOCUMENT_LEFT_MARGIN_BL * LINE_HEIGHT_PX * documentScale() + NOTE_PADDING_PX;
 
   const documentTextColumnWidthPx = () =>
     Math.max(
-      pageFns().pageItem().docWidthBl * LINE_HEIGHT_PX * documentScale() - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2 - (NOTE_PADDING_PX * 2),
+      pageFns().pageItem().docWidthBl * LINE_HEIGHT_PX * documentScale() - (NOTE_PADDING_PX * 2),
       1,
     );
 
