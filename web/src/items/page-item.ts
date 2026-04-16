@@ -72,7 +72,6 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   gridNumberOfColumns: number;
   gridCellAspect: number;
   docWidthBl: number;
-  showTitleInDocument: boolean;
   justifiedRowAspect: number;
   calendarDayRowHeightBl: number;
   defaultPopupPositionGr: Vector;
@@ -98,7 +97,6 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   gridNumberOfColumns: number;
   gridCellAspect: number;
   docWidthBl: number,
-  showTitleInDocument: boolean,
   justifiedRowAspect: number;
   calendarDayRowHeightBl: number;
 
@@ -263,7 +261,6 @@ export const PageFns = {
       gridNumberOfColumns: 6,
       gridCellAspect: 1.5,
       docWidthBl: 36,
-      showTitleInDocument: true,
       justifiedRowAspect: 7.0,
       calendarDayRowHeightBl: 1.0,
 
@@ -325,7 +322,6 @@ export const PageFns = {
       gridNumberOfColumns: o.gridNumberOfColumns,
       gridCellAspect: o.gridCellAspect,
       docWidthBl: o.docWidthBl,
-      showTitleInDocument: o.showTitleInDocument ?? true,
       justifiedRowAspect: o.justifiedRowAspect,
       calendarDayRowHeightBl: o.calendarDayRowHeightBl,
 
@@ -381,7 +377,6 @@ export const PageFns = {
       gridNumberOfColumns: p.gridNumberOfColumns,
       gridCellAspect: p.gridCellAspect,
       docWidthBl: p.docWidthBl,
-      showTitleInDocument: p.showTitleInDocument,
       justifiedRowAspect: p.justifiedRowAspect,
       calendarDayRowHeightBl: p.calendarDayRowHeightBl,
 
@@ -414,7 +409,7 @@ export const PageFns = {
   },
 
   showDocumentTitleInDocument: (page: PageMeasurable): boolean => {
-    return page.arrangeAlgorithm == ArrangeAlgorithm.Document && page.showTitleInDocument;
+    return page.arrangeAlgorithm == ArrangeAlgorithm.Document && !(page.flags & PageFlags.HideDocumentTitle);
   },
 
   calcDocumentTitleHeightPx: (page: PageItem, widthPx: number): number => {
@@ -1200,7 +1195,6 @@ export const PageFns = {
       gridNumberOfColumns: page.gridNumberOfColumns,
       gridCellAspect: page.gridCellAspect,
       docWidthBl: page.docWidthBl,
-      showTitleInDocument: page.showTitleInDocument,
       justifiedRowAspect: page.justifiedRowAspect,
       calendarDayRowHeightBl: page.calendarDayRowHeightBl,
       childrenLoaded: page.childrenLoaded,
@@ -1344,7 +1338,7 @@ export const PageFns = {
   },
 
   getFingerprint: (pageItem: PageItem): string => {
-    return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm + "~~!@#~~~" + pageItem.flags + "~~!@#~~~" + pageItem.permissionFlags + "~~!@#~~~" + pageItem.showTitleInDocument;
+    return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm + "~~!@#~~~" + pageItem.flags + "~~!@#~~~" + pageItem.permissionFlags;
   },
 
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {

@@ -350,7 +350,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           `top: ${0}px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;`}>
-        <Show when={pageFns().isDocumentPage() && pageFns().pageItem().showTitleInDocument}>
+        <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} />
         </Show>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>

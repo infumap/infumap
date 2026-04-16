@@ -244,7 +244,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         onKeyDown={keyDownHandler}
         onInput={inputListener}
         ondblclick={backgroundDoubleClickHandler}>
-        <Show when={pageFns().isDocumentPage() && pageFns().pageItem().showTitleInDocument}>
+        <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>

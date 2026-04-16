@@ -149,7 +149,7 @@ function editingLinearContainerVeMaybe(store: StoreContextModel): VisualElement 
   if (textEditInfo.itemType == ItemType.Page &&
     isPage(editingVe.displayItem) &&
     asPageItem(editingVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
-    asPageItem(editingVe.displayItem).showTitleInDocument) {
+    !(asPageItem(editingVe.displayItem).flags & PageFlags.HideDocumentTitle)) {
     return editingVe;
   }
 
@@ -210,7 +210,7 @@ function adjacentEditableChildPathInLinearContainer(
   const childVes = VesCache.current.readStructuralChildren(containerPath);
   const containerHasMirroredTitle = isPage(containerVe.displayItem) &&
     asPageItem(containerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
-    asPageItem(containerVe.displayItem).showTitleInDocument;
+    !(asPageItem(containerVe.displayItem).flags & PageFlags.HideDocumentTitle);
 
   if (currentPath == containerPath) {
     if (key == "ArrowUp") { return null; }

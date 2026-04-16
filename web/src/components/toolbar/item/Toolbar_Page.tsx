@@ -158,7 +158,7 @@ export const Toolbar_Page: Component = () => {
 
   const showTitleInDocument = () => {
     store.touchToolbarDependency();
-    return pageItem().showTitleInDocument;
+    return !(pageItem().flags & PageFlags.HideDocumentTitle);
   }
 
   const aspectText = () => {
@@ -222,12 +222,16 @@ export const Toolbar_Page: Component = () => {
   }
 
   const handleToggleDocumentTitle = () => {
-    if (pageItem().showTitleInDocument &&
+    if (!(pageItem().flags & PageFlags.HideDocumentTitle) &&
       store.overlay.textEditInfo()?.itemType == ItemType.Page &&
       store.overlay.textEditInfo()?.itemPath == store.history.getFocusPathMaybe()) {
       store.overlay.setTextEditInfo(store.history, null, true);
     }
-    pageItem().showTitleInDocument = !pageItem().showTitleInDocument;
+    if (pageItem().flags & PageFlags.HideDocumentTitle) {
+      pageItem().flags &= ~PageFlags.HideDocumentTitle;
+    } else {
+      pageItem().flags |= PageFlags.HideDocumentTitle;
+    }
     requestArrange(store, "toolbar-page-toggle-document-title");
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
