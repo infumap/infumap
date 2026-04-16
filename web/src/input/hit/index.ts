@@ -460,8 +460,11 @@ function hitPagePopupRootMaybe(
   // Calculate posRelativeToRootVeViewportPx - only adjust for title bar here
   // Scroll offset for list pages will be applied in getHitInfoUnderRoot
   let posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
-  // Adjust for title bar (boundsPx.h - viewportBoundsPx.h is the title bar height)
-  posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y - (rootVe.boundsPx.h - rootVe.viewportBoundsPx!.h);
+  // Dock pages reserve space below the viewport for the fixed trash area, not above it.
+  const rootTopInsetPx = rootVe.flags & VisualElementFlags.IsDock
+    ? 0
+    : (rootVe.boundsPx.h - rootVe.viewportBoundsPx!.h);
+  posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y - rootTopInsetPx;
 
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
@@ -521,8 +524,10 @@ function hitPageSelectedRootMaybe(
   // Calculate posRelativeToRootVeViewportPx - only adjust for title bar here
   // Scroll offset for list pages will be applied in getHitInfoUnderRoot
   posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
-  // Adjust for title bar (if any)
-  posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y - (rootVe.boundsPx.h - rootVe.viewportBoundsPx!.h);
+  const rootTopInsetPx = rootVe.flags & VisualElementFlags.IsDock
+    ? 0
+    : (rootVe.boundsPx.h - rootVe.viewportBoundsPx!.h);
+  posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y - rootTopInsetPx;
 
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
