@@ -900,6 +900,17 @@ export const PageFns = {
       return;
     }
 
+    // For pages rendered inside tables, title-link clicks are the explicit affordance
+    // for opening the clicked page as the new root, including attachment columns.
+    if (visualElement.flags & VisualElementFlags.InsideTable) {
+      const clickedVeid = VeFns.actualVeidFromVe(visualElement);
+      const currentVeid = store.history.currentPageVeid();
+      if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
+        switchToPage(store, clickedVeid, true, false, false);
+      }
+      return;
+    }
+
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const focusPath = VeFns.veToPath(visualElement);
     store.history.setFocus(focusPath);
