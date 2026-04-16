@@ -72,6 +72,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     edit_inputListener(store, ev);
   }
 
+  const showDocumentMarginGuides = () =>
+    isPage(VeFns.treeItem(props.visualElement)) &&
+    asPageItem(VeFns.treeItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+    store.overlay.textEditInfo() == null;
+
   const titleScale = () => (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
   const vePath = () => VeFns.veToPath(props.visualElement);
@@ -242,7 +247,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
           <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
         </Show>
-        <Show when={isPage(VeFns.treeItem(props.visualElement)) && asPageItem(VeFns.treeItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
+        <Show when={showDocumentMarginGuides()}>
           <>
             <div class="absolute" style={`left: ${2.5 * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
             <div class="absolute" style={`left: ${(asPageItem(VeFns.treeItem(props.visualElement)).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />

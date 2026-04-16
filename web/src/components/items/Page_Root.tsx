@@ -239,6 +239,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     edit_inputListener(store, ev);
   }
 
+  const showDocumentMarginGuides = () =>
+    pageFns().isDocumentPage() && store.overlay.textEditInfo() == null;
+
   const rootScrollHandler = (_ev: Event) => {
     if (!rootDiv || updatingRootScrollTop) { return; }
 
@@ -501,7 +504,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
           <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
         </Show>
-        <Show when={pageFns().isDocumentPage()}>
+        <Show when={showDocumentMarginGuides()}>
           <>
             <div class="absolute" style={`left: ${(PAGE_DOCUMENT_LEFT_MARGIN_BL - 0.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
             <div class="absolute" style={`left: ${(asPageItem(props.visualElement.displayItem).docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + 0.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
