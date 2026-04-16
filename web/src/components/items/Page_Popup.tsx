@@ -51,6 +51,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   let popupDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
+  const isMinimalDocumentPopup = () => pageFns().isDocumentPage();
 
   onMount(() => {
     const veid = store.history.currentPopupSpec()!.actualVeid;
@@ -68,10 +69,10 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       popupDiv.scrollLeft = 0;
     } else {
       const scrollXProp = store.perItem.getPageScrollXProp(veid);
-      const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+      const scrollXPx = scrollXProp * Math.max(0, pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
 
       const scrollYProp = store.perItem.getPageScrollYProp(veid);
-      const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+      const scrollYPx = scrollYProp * Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
 
       popupDiv.scrollTop = scrollYPx;
       popupDiv.scrollLeft = scrollXPx;
@@ -101,10 +102,10 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       } else {
         popupDiv.scrollTop =
           store.perItem.getPageScrollYProp(veid) *
-          (pageFns().childAreaBoundsPx().h - props.visualElement.viewportBoundsPx!.h);
+          Math.max(0, pageFns().childAreaBoundsPx().h - props.visualElement.viewportBoundsPx!.h);
         popupDiv.scrollLeft =
           store.perItem.getPageScrollXProp(veid) *
-          (pageFns().childAreaBoundsPx().w - props.visualElement.viewportBoundsPx!.w);
+          Math.max(0, pageFns().childAreaBoundsPx().w - props.visualElement.viewportBoundsPx!.w);
       }
     }
 
@@ -333,7 +334,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
   const renderPage = () =>
     <div ref={popupDiv}
-      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border-t border-slate-300`}
+      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}${isMinimalDocumentPopup() ? "" : " border-t border-slate-300"}`}
       style={`left: ${pageFns().viewportBoundsPx().x}px; ` +
         `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
@@ -344,7 +345,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         `${VeFns.zIndexStyle(props.visualElement)}`}
       onscroll={popupScrollHandler}>
       <div class="absolute"
-        style={`left: ${pageFns().viewportBoundsPx().w - pageFns().childAreaBoundsPx().w}px; ` +
+        style={`left: ${isMinimalDocumentPopup() ? pageFns().documentContentLeftPx() : pageFns().viewportBoundsPx().w - pageFns().childAreaBoundsPx().w}px; ` +
           `top: ${0}px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;`}>
@@ -596,10 +597,12 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           {renderPage()}
         </Match>
       </Switch>
-      {renderPopupTitle()}
-      {renderAnchorChildMaybe()}
-      {renderAnchorDefaultMaybe()}
-      {renderBorder()}
+      <Show when={!isMinimalDocumentPopup()}>
+        {renderPopupTitle()}
+        {renderAnchorChildMaybe()}
+        {renderAnchorDefaultMaybe()}
+        {renderBorder()}
+      </Show>
     </>
   );
 }

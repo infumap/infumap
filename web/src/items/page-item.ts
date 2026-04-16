@@ -103,6 +103,13 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   computed_children: Array<Uid>;
 }
 
+function pageHeaderHeightBl(page: PageMeasurable, isPopup: boolean): number {
+  if (page.arrangeAlgorithm == ArrangeAlgorithm.Document) {
+    return 0;
+  }
+  return isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+}
+
 
 export const PageFns = {
   findOutermostListPage: (visualElement: VisualElement): VisualElement => {
@@ -461,7 +468,7 @@ export const PageFns = {
       return result;
     }
 
-    let headerHeightBl = isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+    let headerHeightBl = pageHeaderHeightBl(page, isPopup);
     let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
     boundsPx.h = boundsPx.h + headerHeightBl * blockSizePx.h;
     viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;
@@ -481,9 +488,9 @@ export const PageFns = {
     }
 
     if (isPopup) {
-      const scale = blockSizePx.h / LINE_HEIGHT_PX * PAGE_POPUP_TITLE_HEIGHT_BL;
+      const scale = blockSizePx.h / LINE_HEIGHT_PX * headerHeightBl;
       let rightOffset = ANCHOR_OFFSET_PX * scale;
-      if (hasChildChanges) {
+      if (headerHeightBl > 0 && hasChildChanges) {
         const anchorChildBoundsPx = {
           x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - rightOffset,
           y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
@@ -493,7 +500,7 @@ export const PageFns = {
         hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
         rightOffset += ANCHOR_BOX_SIZE_PX * scale + ANCHOR_OFFSET_PX * scale;
       }
-      if (hasDefaultChanges) {
+      if (headerHeightBl > 0 && hasDefaultChanges) {
         const anchorDefaultBoundsPx = {
           x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - rightOffset,
           y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
@@ -579,7 +586,7 @@ export const PageFns = {
 
     // page types with a header.
 
-    const headerHeightBl = isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+    const headerHeightBl = pageHeaderHeightBl(page, isPopup);
     const adjustedCellBoundsPx = cloneBoundingBox(cellBoundsPx)!;
     adjustedCellBoundsPx.h -= headerHeightBl * NATURAL_BLOCK_SIZE_PX.h;
     if (adjustedCellBoundsPx.h < 10) { adjustedCellBoundsPx.h = 10; } // TODO (LOW): better behavior for small sizing.
@@ -633,7 +640,7 @@ export const PageFns = {
         hitboxes.push(HitboxFns.create(HitboxFlags.VerticalResize, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
       }
 
-      if (hasChildChanges) {
+      if (headerHeightBl > 0 && hasChildChanges) {
         const anchorChildBoundsPx = {
           x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - anchorRightOffset,
           y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
@@ -643,7 +650,7 @@ export const PageFns = {
         hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
         anchorRightOffset += ANCHOR_BOX_SIZE_PX * scale + ANCHOR_OFFSET_PX * scale;
       }
-      if (hasDefaultChanges) {
+      if (headerHeightBl > 0 && hasDefaultChanges) {
         const anchorDefaultBoundsPx = {
           x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - anchorRightOffset,
           y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
@@ -751,7 +758,7 @@ export const PageFns = {
       return result;
     }
 
-    let headerHeightBl = PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+    let headerHeightBl = pageHeaderHeightBl(measurable, false);
     let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
     boundsPx.h = boundsPx.h + headerHeightBl * blockSizePx.h;
     viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;

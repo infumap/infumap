@@ -153,6 +153,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     isDocumentPage: () =>
       pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document,
 
+    documentContentLeftPx: () =>
+      pageFns.isDocumentPage()
+        ? Math.max((pageFns.viewportBoundsPx().w - pageFns.childAreaBoundsPx().w) / 2, 0)
+        : 0,
+
     showMoveOutOfCompositeArea: () =>
       store.user.getUserMaybe() != null &&
       store.perVe.getMouseIsOver(pageFns.vePath()) &&

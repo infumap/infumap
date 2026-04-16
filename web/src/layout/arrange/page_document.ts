@@ -56,6 +56,7 @@ export function arrange_document_page(
   let scale = geometry.boundsPx.w / requiredWidthPx;
   if (scale > 1.0) { scale = 1.0; }
   const blockSizePx = { w: NATURAL_BLOCK_SIZE_PX.w * scale, h: NATURAL_BLOCK_SIZE_PX.h * scale };
+  const documentWidthPx = totalWidthBl * blockSizePx.w;
 
   const childrenPaths: Array<VisualElementPath> = [];
 
@@ -94,6 +95,7 @@ export function arrange_document_page(
   }
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.boundsPx)!);
+  childAreaBoundsPx.w = documentWidthPx;
   childAreaBoundsPx.h = topPx;
 
   const isEmbeddedInteractive =

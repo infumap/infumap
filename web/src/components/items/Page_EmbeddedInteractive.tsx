@@ -26,7 +26,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
@@ -42,6 +42,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   let rootDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
+  const isMinimalDocumentPage = () => pageFns().isDocumentPage();
 
   onMount(() => {
     let veid = VeFns.veidFromVe(props.visualElement);
@@ -51,10 +52,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     }
 
     const scrollXProp = store.perItem.getPageScrollXProp(veid);
-    const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+    const scrollXPx = scrollXProp * Math.max(0, pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
 
     const scrollYProp = store.perItem.getPageScrollYProp(veid);
-    const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+    const scrollYPx = scrollYProp * Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
 
     rootDiv.scrollTop = scrollYPx;
     rootDiv.scrollLeft = scrollXPx;
@@ -71,11 +72,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const inputListener = (ev: InputEvent) => {
     edit_inputListener(store, ev);
   }
-
-  const showDocumentMarginGuides = () =>
-    isPage(VeFns.treeItem(props.visualElement)) &&
-    asPageItem(VeFns.treeItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document &&
-    store.overlay.textEditInfo() == null;
 
   const titleScale = () => (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
@@ -122,17 +118,23 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </Show>;
 
   const renderEmbeddedInteractiveBackground = () =>
-    <div class="absolute w-full"
-      style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
-        `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
-        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
-        borderStyle()} />;
+    isMinimalDocumentPage()
+      ? <div class="absolute w-full bg-white"
+        style={`top: 0px; bottom: 0px; ` +
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+      : <div class="absolute w-full"
+        style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
+          `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
+          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+          borderStyle()} />;
 
   const renderEmbeddedInteractiveForeground = () =>
-    <div class="absolute w-full pointer-events-none"
-      style={`${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
-        `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
-        borderStyle()} />;
+    <Show when={!isMinimalDocumentPage()}>
+      <div class="absolute w-full pointer-events-none"
+        style={`${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+          `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
+          borderStyle()} />
+    </Show>;
 
   const renderIsLinkMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
@@ -146,7 +148,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </Show>;
 
   const renderEmbeddedInteractiveTitleMaybe = () =>
-    <Show when={isEmbeddedInteractive()}>
+    <Show when={isEmbeddedInteractive() && !isMinimalDocumentPage()}>
       <div class={`absolute`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px;`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -232,7 +234,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
       ondblclick={backgroundDoubleClickHandler}>
       <div class="absolute"
-        style={`left: 0px; top: 0px; ` +
+        style={`left: ${pageFns().documentContentLeftPx()}px; top: 0px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px; ` +
           `outline: 0px solid transparent; `}
@@ -246,12 +248,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         }</For>
         <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
           <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
-        </Show>
-        <Show when={showDocumentMarginGuides()}>
-          <>
-            <div class="absolute" style={`left: ${2.5 * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
-            <div class="absolute" style={`left: ${(asPageItem(VeFns.treeItem(props.visualElement)).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
-          </>
         </Show>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}

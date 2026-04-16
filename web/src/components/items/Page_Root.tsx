@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { Veid, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
+import { LINE_HEIGHT_PX } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -84,10 +84,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       rootDiv.scrollLeft = 0;
     } else {
       const scrollXProp = store.perItem.getPageScrollXProp(veid);
-      const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+      const scrollXPx = scrollXProp * Math.max(0, pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
 
       const scrollYProp = store.perItem.getPageScrollYProp(veid);
-      const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+      const scrollYPx = scrollYProp * Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
 
       rootDiv.scrollTop = scrollYPx;
       rootDiv.scrollLeft = scrollXPx;
@@ -121,10 +121,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       } else {
         rootDiv.scrollTop =
           store.perItem.getPageScrollYProp(veid) *
-          (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+          Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
         rootDiv.scrollLeft =
           store.perItem.getPageScrollXProp(veid) *
-          (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+          Math.max(0, pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
       }
     }
 
@@ -238,9 +238,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   const inputListener = (ev: InputEvent) => {
     edit_inputListener(store, ev);
   }
-
-  const showDocumentMarginGuides = () =>
-    pageFns().isDocumentPage() && store.overlay.textEditInfo() == null;
 
   const rootScrollHandler = (_ev: Event) => {
     if (!rootDiv || updatingRootScrollTop) { return; }
@@ -489,7 +486,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         `${VeFns.zIndexStyle(props.visualElement)} `}
       onscroll={rootScrollHandler}>
       <div class="absolute"
-        style={`left: 0px; top: 0px; ` +
+        style={`left: ${pageFns().documentContentLeftPx()}px; top: 0px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;` +
           `outline: 0px solid transparent; `}
@@ -503,12 +500,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         }</For>
         <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
           <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
-        </Show>
-        <Show when={showDocumentMarginGuides()}>
-          <>
-            <div class="absolute" style={`left: ${(PAGE_DOCUMENT_LEFT_MARGIN_BL - 0.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
-            <div class="absolute" style={`left: ${(asPageItem(props.visualElement.displayItem).docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + 0.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${pageFns().childAreaBoundsPx().h}px; background-color: #eee;`} />
-          </>
         </Show>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
