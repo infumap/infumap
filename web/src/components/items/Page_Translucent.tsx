@@ -104,7 +104,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     if (isCalendarTranslucentPage()) {
       const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
       const padLeft = (CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + 4) * scale;
-      return base + `justify-content: flex-start; align-items: flex-start; text-align: left; padding-top: 8px; padding-left: ${padLeft}px; ` +
+      return base + `justify-content: flex-start; align-items: flex-start; text-align: left; padding-top: 11px; padding-left: ${padLeft}px; ` +
         `font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; text-shadow: 0 1px 2px rgba(57, 81, 118, 0.18);`;
     } else {
       return base + `justify-content: center; align-items: center; text-align: center;`;
