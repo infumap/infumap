@@ -31,6 +31,7 @@ import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { PageFlags } from "../../../items/base/flags-item";
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
+import { ItemType } from "../../../items/base/item";
 
 
 export const Toolbar_Page: Component = () => {
@@ -155,6 +156,11 @@ export const Toolbar_Page: Component = () => {
     return pageItem().docWidthBl;
   }
 
+  const showTitleInDocument = () => {
+    store.touchToolbarDependency();
+    return pageItem().showTitleInDocument;
+  }
+
   const aspectText = () => {
     store.touchToolbarDependency();
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
@@ -211,6 +217,18 @@ export const Toolbar_Page: Component = () => {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
     requestArrange(store, "toolbar-page-interactive");
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    store.touchToolbar();
+  }
+
+  const handleToggleDocumentTitle = () => {
+    if (pageItem().showTitleInDocument &&
+      store.overlay.textEditInfo()?.itemType == ItemType.Page &&
+      store.overlay.textEditInfo()?.itemPath == store.history.getFocusPathMaybe()) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
+    pageItem().showTitleInDocument = !pageItem().showTitleInDocument;
+    requestArrange(store, "toolbar-page-toggle-document-title");
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -432,6 +450,9 @@ export const Toolbar_Page: Component = () => {
         </div>
       </Show>
       <Show when={showDocumentButtons()}>
+        <div class="inline-block ml-[10px]">
+          <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} />
+        </div>
         <div ref={docWidthDiv}
           class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
           style={`font-size: 13px;`}

@@ -32,6 +32,7 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
 import { createPageTitleEditHandlers, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { switchToPage } from "../../layout/navigation";
+import { DocumentPageTitle } from "./DocumentPageTitle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -243,6 +244,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         onKeyDown={keyDownHandler}
         onInput={inputListener}
         ondblclick={backgroundDoubleClickHandler}>
+        <Show when={pageFns().isDocumentPage() && pageFns().pageItem().showTitleInDocument}>
+          <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
+        </Show>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>

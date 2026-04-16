@@ -143,6 +143,16 @@ function editingLinearContainerVeMaybe(store: StoreContextModel): VisualElement 
   const textEditInfo = store.overlay.textEditInfo();
   if (textEditInfo == null) { return null; }
 
+  const editingVe = VesCache.current.readNode(textEditInfo.itemPath);
+  if (!editingVe) { return null; }
+
+  if (textEditInfo.itemType == ItemType.Page &&
+    isPage(editingVe.displayItem) &&
+    asPageItem(editingVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+    asPageItem(editingVe.displayItem).showTitleInDocument) {
+    return editingVe;
+  }
+
   const parentPath = VeFns.parentPath(textEditInfo.itemPath);
   if (!parentPath) { return null; }
 
@@ -196,7 +206,21 @@ function adjacentEditableChildPathInLinearContainer(
   currentPath: string,
   key: "ArrowUp" | "ArrowDown",
 ): string | null {
-  const childVes = VesCache.current.readStructuralChildren(VeFns.veToPath(containerVe));
+  const containerPath = VeFns.veToPath(containerVe);
+  const childVes = VesCache.current.readStructuralChildren(containerPath);
+  const containerHasMirroredTitle = isPage(containerVe.displayItem) &&
+    asPageItem(containerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+    asPageItem(containerVe.displayItem).showTitleInDocument;
+
+  if (currentPath == containerPath) {
+    if (key == "ArrowUp") { return null; }
+    for (let i = 0; i < childVes.length; ++i) {
+      if (editableItemType(childVes[i]) == null) { continue; }
+      return VeFns.veToPath(childVes[i]);
+    }
+    return null;
+  }
+
   const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == currentPath);
   if (currentIndex < 0) { return null; }
 
@@ -205,6 +229,10 @@ function adjacentEditableChildPathInLinearContainer(
     const targetVe = childVes[i];
     if (editableItemType(targetVe) == null) { continue; }
     return VeFns.veToPath(targetVe);
+  }
+
+  if (containerHasMirroredTitle && key == "ArrowUp" && currentIndex == 0) {
+    return containerPath;
   }
 
   return null;

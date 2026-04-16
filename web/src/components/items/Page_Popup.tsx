@@ -40,6 +40,7 @@ import {
 import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { DocumentPageTitle } from "./DocumentPageTitle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -349,6 +350,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           `top: ${0}px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;`}>
+        <Show when={pageFns().isDocumentPage() && pageFns().pageItem().showTitleInDocument}>
+          <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} />
+        </Show>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
 
           <VisualElement_Desktop visualElement={childVe.get()} />

@@ -37,7 +37,7 @@ import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-
 import { switchToPage } from '../layout/navigation';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
-import { InfuTextStyle, measureWidthBl } from '../layout/text';
+import { getTextStyleForNote, InfuTextStyle, measureWidthBl } from '../layout/text';
 import { FlagsMixin, PageFlags } from './base/flags-item';
 import { serverOrRemote } from '../server';
 import { ItemFns } from './base/item-polymorphism';
@@ -50,6 +50,7 @@ import { TabularItem, TabularMixin } from './base/tabular-item';
 import { ColorableMixin } from './base/colorable-item';
 import { AspectItem, AspectMixin } from './base/aspect-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
+import { NoteFlags } from './base/flags-item';
 
 
 export const ArrangeAlgorithm = {
@@ -71,6 +72,7 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   gridNumberOfColumns: number;
   gridCellAspect: number;
   docWidthBl: number;
+  showTitleInDocument: boolean;
   justifiedRowAspect: number;
   calendarDayRowHeightBl: number;
   defaultPopupPositionGr: Vector;
@@ -96,12 +98,15 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   gridNumberOfColumns: number;
   gridCellAspect: number;
   docWidthBl: number,
+  showTitleInDocument: boolean,
   justifiedRowAspect: number;
   calendarDayRowHeightBl: number;
 
   childrenLoaded: boolean;
   computed_children: Array<Uid>;
 }
+
+const documentTitleHeightCache = new Map<string, number>();
 
 function pageHeaderHeightBl(page: PageMeasurable, isPopup: boolean): number {
   if (page.arrangeAlgorithm == ArrangeAlgorithm.Document) {
@@ -258,6 +263,7 @@ export const PageFns = {
       gridNumberOfColumns: 6,
       gridCellAspect: 1.5,
       docWidthBl: 36,
+      showTitleInDocument: true,
       justifiedRowAspect: 7.0,
       calendarDayRowHeightBl: 1.0,
 
@@ -319,6 +325,7 @@ export const PageFns = {
       gridNumberOfColumns: o.gridNumberOfColumns,
       gridCellAspect: o.gridCellAspect,
       docWidthBl: o.docWidthBl,
+      showTitleInDocument: o.showTitleInDocument ?? true,
       justifiedRowAspect: o.justifiedRowAspect,
       calendarDayRowHeightBl: o.calendarDayRowHeightBl,
 
@@ -374,6 +381,7 @@ export const PageFns = {
       gridNumberOfColumns: p.gridNumberOfColumns,
       gridCellAspect: p.gridCellAspect,
       docWidthBl: p.docWidthBl,
+      showTitleInDocument: p.showTitleInDocument,
       justifiedRowAspect: p.justifiedRowAspect,
       calendarDayRowHeightBl: p.calendarDayRowHeightBl,
 
@@ -399,6 +407,43 @@ export const PageFns = {
 
   pageTitleStyle_List: (): InfuTextStyle => {
     return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true, isCode: false, alignClass: "text-left" };
+  },
+
+  documentTitleStyle: (): InfuTextStyle => {
+    return getTextStyleForNote(NoteFlags.Heading1);
+  },
+
+  showDocumentTitleInDocument: (page: PageMeasurable): boolean => {
+    return page.arrangeAlgorithm == ArrangeAlgorithm.Document && page.showTitleInDocument;
+  },
+
+  calcDocumentTitleHeightPx: (page: PageItem, widthPx: number): number => {
+    const style = PageFns.documentTitleStyle();
+    const clampedWidthPx = Math.max(widthPx, 1);
+    const titleText = page.title == "" ? " " : page.title;
+    const key = `${titleText}~~${clampedWidthPx}`;
+    if (documentTitleHeightCache.has(key)) {
+      return documentTitleHeightCache.get(key)!;
+    }
+    if (documentTitleHeightCache.size > 10000) {
+      documentTitleHeightCache.clear();
+    }
+
+    const div = document.createElement("div");
+    div.setAttribute("class", style.alignClass);
+    div.setAttribute("style",
+      `${style.isBold ? 'font-weight: bold; ' : ""}` +
+      `font-size: ${style.fontSize}px; ` +
+      `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
+      `width: ${clampedWidthPx}px; ` +
+      `overflow-wrap: break-word; white-space: pre-wrap; ` +
+      `position: absolute; visibility: hidden; pointer-events: none;`);
+    div.appendChild(document.createTextNode(titleText));
+    document.body.appendChild(div);
+    const result = Math.max(div.offsetHeight, LINE_HEIGHT_PX * style.lineHeightMultiplier);
+    document.body.removeChild(div);
+    documentTitleHeightCache.set(key, result);
+    return result;
   },
 
   calcTitleSpatialDimensionsBl: (page: PageItem): Dimensions => {
@@ -892,14 +937,14 @@ export const PageFns = {
     PageFns.switchToOutermostListPageMaybe(visualElement, store);
   },
 
-  handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel, clientPxMaybe?: { x: number, y: number }): void => {
     let itemPath = VeFns.veToPath(visualElement);
     handleListPageLineItemClickMaybe(visualElement, store);
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page });
     const editingPath = itemPath + ":title";
     const el = document.getElementById(editingPath)!;
     el.focus();
-    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    const closestIdx = closestCaretPositionToClientPx(el, clientPxMaybe ?? CursorEventState.getLatestClientPx());
     arrangeNow(store, "page-enter-title-edit-mode");
     const freshEl = document.getElementById(editingPath)!;
     if (freshEl) {
@@ -1155,6 +1200,7 @@ export const PageFns = {
       gridNumberOfColumns: page.gridNumberOfColumns,
       gridCellAspect: page.gridCellAspect,
       docWidthBl: page.docWidthBl,
+      showTitleInDocument: page.showTitleInDocument,
       justifiedRowAspect: page.justifiedRowAspect,
       calendarDayRowHeightBl: page.calendarDayRowHeightBl,
       childrenLoaded: page.childrenLoaded,
@@ -1298,7 +1344,7 @@ export const PageFns = {
   },
 
   getFingerprint: (pageItem: PageItem): string => {
-    return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm + "~~!@#~~~" + pageItem.flags + "~~!@#~~~" + pageItem.permissionFlags;
+    return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm + "~~!@#~~~" + pageItem.flags + "~~!@#~~~" + pageItem.permissionFlags + "~~!@#~~~" + pageItem.showTitleInDocument;
   },
 
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {

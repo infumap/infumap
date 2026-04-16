@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, NOTE_PADDING_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
@@ -61,6 +61,13 @@ export function arrange_document_page(
   const childrenPaths: Array<VisualElementPath> = [];
 
   let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX * scale;
+  if (PageFns.showDocumentTitleInDocument(displayItem_pageWithChildren)) {
+    const documentTextColumnWidthPx = Math.max(
+      displayItem_pageWithChildren.docWidthBl * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2 - (NOTE_PADDING_PX * 2),
+      1,
+    );
+    topPx += PageFns.calcDocumentTitleHeightPx(displayItem_pageWithChildren, documentTextColumnWidthPx) + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
+  }
   for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
     const childId = displayItem_pageWithChildren.computed_children[idx];
     const childItem = itemState.get(childId)!;
