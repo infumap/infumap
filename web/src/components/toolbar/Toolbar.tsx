@@ -318,7 +318,8 @@ export const Toolbar: Component = () => {
           </>
         }</For>
 
-        <div class="inline-block flex-nowrap border-b"
+        <div id="toolbarTrailingTitleEditArea"
+          class="inline-block flex-nowrap border-b cursor-text"
           style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
             `${rightMostTitleSpec().bg} ` +
             `border-top-color: ${rightMostTitleSpec().borderColor};` +

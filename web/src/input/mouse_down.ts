@@ -81,7 +81,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   // Page Title Edit
   const toolbarTitleDivs = (() => {
-    let result = [];
+    let result: HTMLElement[] = [];
     const TOO_MANY_TITLE_DIVS = 100;
     for (let i = 0; i < TOO_MANY_TITLE_DIVS; ++i) {
       const toolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${i}`)!;
@@ -90,6 +90,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
     return result;
   })();
+  const toolbarTrailingTitleEditArea = document.getElementById("toolbarTrailingTitleEditArea");
   const saveActiveTitleDivState = () => {
     const titleText = (document.activeElement! as HTMLElement).innerText;
     let selection = window.getSelection();
@@ -104,6 +105,17 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
     serverOrRemote.updateItem(focusItem, store.general.networkStatus);
   }
+  const focusToolbarTitleAt = (idx: number, caretPosition: number) => {
+    let ttpPath = store.topTitledPages.get()[idx];
+    setTimeout(() => {
+      store.history.setFocus(ttpPath);
+      arrangeNow(store, "mouse-down-switch-toolbar-title-focus");
+      const newToolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${idx}`);
+      if (newToolbarTitleDiv) {
+        setCaretPosition(newToolbarTitleDiv as HTMLElement, caretPosition);
+      }
+    }, 0);
+  }
   for (let i = 0; i < toolbarTitleDivs.length; ++i) {
     const toolbarTitleDiv = toolbarTitleDivs[i];
     const titleBounds = boundingBoxFromDOMRect(toolbarTitleDiv.getBoundingClientRect())!;
@@ -114,14 +126,25 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         }
         saveActiveTitleDivState();
       }
-      let ttpPath = store.topTitledPages.get()[i];
-      setTimeout(() => {
-        const caretPosition = getCaretPosition(toolbarTitleDiv);
-        store.history.setFocus(ttpPath);
-        arrangeNow(store, "mouse-down-switch-toolbar-title-focus");
-        const newToolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${i}`)!;
-        setCaretPosition(newToolbarTitleDiv, caretPosition);
-      }, 0);
+      const caretPosition = getCaretPosition(toolbarTitleDiv);
+      focusToolbarTitleAt(i, caretPosition);
+      return MouseEventActionFlags.None;
+    }
+  }
+  if (toolbarTrailingTitleEditArea && toolbarTitleDivs.length > 0) {
+    const trailingBounds = boundingBoxFromDOMRect(toolbarTrailingTitleEditArea.getBoundingClientRect())!;
+    if (isInside(CursorEventState.getLatestClientPx(), trailingBounds)) {
+      const lastToolbarTitleIdx = toolbarTitleDivs.length - 1;
+      const lastToolbarTitleDiv = toolbarTitleDivs[lastToolbarTitleIdx];
+      const caretPosition = lastToolbarTitleDiv.innerText.length;
+      if (document.activeElement!.id.includes("toolbarTitleDiv")) {
+        if (document.activeElement!.id == `toolbarTitleDiv-${lastToolbarTitleIdx}`) {
+          setTimeout(() => { setCaretPosition(lastToolbarTitleDiv, caretPosition); }, 0);
+          return MouseEventActionFlags.None;
+        }
+        saveActiveTitleDivState();
+      }
+      focusToolbarTitleAt(lastToolbarTitleIdx, caretPosition);
       return MouseEventActionFlags.None;
     }
   }
