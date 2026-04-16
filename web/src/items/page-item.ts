@@ -779,7 +779,7 @@ export const PageFns = {
     return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean, padTop: boolean, expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
     const innerBoundsPx = {
       x: 0.0,
@@ -808,10 +808,12 @@ export const PageFns = {
     };
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-      HitboxFns.create(HitboxFlags.ShowPointer, clickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
     ];
+    if (!inTable) {
+      hitboxes.splice(1, 0, HitboxFns.create(HitboxFlags.ShowPointer, clickAreaBoundsPx));
+    }
     if (expandable) {
       hitboxes.push(HitboxFns.create(HitboxFlags.Expand, expandAreaBoundsPx));
     }

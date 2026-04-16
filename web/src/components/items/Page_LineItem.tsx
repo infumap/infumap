@@ -181,6 +181,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
             href={""}
             class={`text-black`}
             style={`display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; ` +
+              `cursor: pointer; ` +
               `-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
             onClick={aHrefClick}
             onMouseDown={aHrefMouseDown}
