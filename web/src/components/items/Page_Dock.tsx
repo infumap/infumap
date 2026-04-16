@@ -25,7 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { PageVisualElementProps } from "./Page";
 import { VesCache } from "../../layout/ves-cache";
-import { VeFns } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { getDockScrollYPx } from "../../layout/arrange/dock";
 
 
@@ -90,6 +90,8 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
           `width: ${props.pageFns.viewportBoundsPx().w}px;`} />
     </Show>;
 
+  const dockChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
+
   return (
     <>
       <Show when={store.dockVisible.get() && !store.smallScreenMode()}>
@@ -113,12 +115,19 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
               style={`left: 0px; top: 0px; ` +
                 `width: ${props.visualElement.childAreaBoundsPx!.w}px; ` +
                 `height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-              <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
-                <VisualElement_Desktop visualElement={childVe.get()} />
+              <For each={dockChildren()}>{childVe =>
+                <Show when={!(childVe.get().flags & VisualElementFlags.IsTrash)}>
+                  <VisualElement_Desktop visualElement={childVe.get()} />
+                </Show>
               }</For>
               {renderDockMoveOverIndexMaybe()}
             </div>
           </div>
+          <For each={dockChildren()}>{childVe =>
+            <Show when={childVe.get().flags & VisualElementFlags.IsTrash}>
+              <VisualElement_Desktop visualElement={childVe.get()} />
+            </Show>
+          }</For>
         </div>
       </Show>
       <Show when={!store.dockVisible.get() && !store.smallScreenMode()}>

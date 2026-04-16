@@ -668,7 +668,8 @@ export const VeFns = {
           adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid);
           adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid);
         } else {
-          if (ve.flags & VisualElementFlags.ShowChildren) {
+          if ((ve.flags & VisualElementFlags.ShowChildren) &&
+            !((visualElement.flags & VisualElementFlags.IsTrash) && (ve.flags & VisualElementFlags.IsDock))) {
             adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.actualVeidFromVe(ve));
             adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.actualVeidFromVe(ve));
           }
@@ -821,7 +822,8 @@ export const VeFns = {
           adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid);
           adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid);
         } else {
-          if (ve.flags & VisualElementFlags.ShowChildren) {
+          if ((ve.flags & VisualElementFlags.ShowChildren) &&
+            !((visualElement.flags & VisualElementFlags.IsTrash) && (ve.flags & VisualElementFlags.IsDock))) {
             adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.actualVeidFromVe(ve));
             adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.actualVeidFromVe(ve));
           }

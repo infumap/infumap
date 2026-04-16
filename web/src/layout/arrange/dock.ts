@@ -197,7 +197,7 @@ export const renderDockMaybe = (
     const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
     const trashBoundsPx = {
       x: dockSideMarginPx,
-      y: dockChildAreaHeightPx - trashHeightPx - DOCK_GAP_PX * 2,
+      y: dockViewportBoundsPx.h - trashHeightPx - DOCK_GAP_PX * 2,
       w: dockViewportWidthPx - dockSideMarginPx,
       h: trashHeightPx,
     }

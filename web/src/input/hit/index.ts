@@ -214,6 +214,18 @@ function hitChildMaybe(
 ): HitInfo | null {
   const childVe = childVes.get();
   if (childVe.flags & VisualElementFlags.IsDock) { return null; }
+  if ((rootVes.get().flags & VisualElementFlags.IsDock) && (childVe.flags & VisualElementFlags.IsTrash)) {
+    const dockViewportLocalPosPx = {
+      x: posRelativeToRootVeViewportPx.x,
+      y: posRelativeToRootVeViewportPx.y - getDockScrollYPx(store, rootVes.get()),
+    };
+    if (!isInside(dockViewportLocalPosPx, childVe.boundsPx)) { return null; }
+    const { flags: hitboxType, meta } = scanHitboxes(childVe, dockViewportLocalPosPx, getBoundingBoxTopLeft(childVe.boundsPx));
+    if (!isIgnored(childVe.displayItem.id, ignoreItems)) {
+      return new HitBuilder(parentRootVe, rootVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(dockViewportLocalPosPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitChildMaybe-dock-trash").build();
+    }
+    return null;
+  }
   {
     if (isComposite(childVe.displayItem)) {
       const childVeChildren = VesCache.render.getChildren(VeFns.veToPath(childVe))();
