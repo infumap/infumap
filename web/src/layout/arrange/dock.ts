@@ -30,9 +30,21 @@ import { zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../load";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { getVePropertiesForItem } from "./util";
+
+
+export function getDockScrollYPx(store: StoreContextModel, dockVe: VisualElement): number {
+  if (!dockVe.childAreaBoundsPx || !dockVe.viewportBoundsPx) {
+    return 0;
+  }
+  const scrollableHeightPx = Math.max(0, dockVe.childAreaBoundsPx.h - dockVe.viewportBoundsPx.h);
+  if (scrollableHeightPx == 0) {
+    return 0;
+  }
+  return store.perItem.getPageScrollYProp(VeFns.actualVeidFromVe(dockVe)) * scrollableHeightPx;
+}
 
 
 export const renderDockMaybe = (
@@ -63,6 +75,19 @@ export const renderDockMaybe = (
   }
 
   const dockWidthPx = store.getCurrentDockWidthPx();
+  const dockViewportWidthPx = Math.max(0, dockWidthPx - RESIZE_BOX_SIZE_PX);
+  const dockBoundsPx = {
+    x: 0,
+    y: 0,
+    w: dockWidthPx,
+    h: store.desktopBoundsPx().h,
+  };
+  const dockViewportBoundsPx = {
+    x: 0,
+    y: 0,
+    w: dockViewportWidthPx,
+    h: store.desktopBoundsPx().h,
+  };
 
   let yCurrentPx = 0;
   const dockChildren: Array<VisualElementPath> = [];
@@ -77,9 +102,9 @@ export const renderDockMaybe = (
       continue;
     }
 
-    let wPx = dockWidthPx - DOCK_GAP_PX * 3;
+    let wPx = dockViewportWidthPx - DOCK_GAP_PX * 3;
     if (wPx < 0) { wPx = 0; }
-    const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockWidthPx * 10 };
+    const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockViewportWidthPx * 10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, false, true, store.smallScreenMode());
 
     const hasAttachHb = geometry.hitboxes.some(hb => (hb.type & HitboxFlags.Attach) !== 0);
@@ -113,30 +138,34 @@ export const renderDockMaybe = (
   }
   yCurrentPx += DOCK_GAP_PX;
 
+  let trashHeightPx = 50;
+  if (dockViewportWidthPx - DOCK_GAP_PX * 2 < trashHeightPx) {
+    trashHeightPx = dockViewportWidthPx - DOCK_GAP_PX * 2;
+    if (trashHeightPx < 0) { trashHeightPx = 0; }
+  }
+  const dockChildAreaHeightPx = Math.max(
+    store.desktopBoundsPx().h,
+    yCurrentPx + trashHeightPx + DOCK_GAP_PX * 2,
+  );
+
   if (movingItemInThisPage) {
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItemInThisPage);
     const actualLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
     const movingPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), dockPath);
 
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-    const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDesktopPosPx);
+    const dockScrollYPx = store.perItem.getPageScrollYProp({ itemId: dockPageId, linkIdMaybe: null }) *
+      Math.max(0, dockChildAreaHeightPx - dockViewportBoundsPx.h);
+    const mouseDockChildAreaPosPx = {
+      x: mouseDesktopPosPx.x - dockBoundsPx.x,
+      y: mouseDesktopPosPx.y - dockBoundsPx.y + dockScrollYPx,
+    };
+    const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDockChildAreaPosPx);
     arrangeItem(
       store, dockPath, ArrangeAlgorithm.Dock, movingItemInThisPage, actualLinkItemMaybe, cellGeometry,
       ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
     dockChildren.push(movingPath);
   }
-
-  let trashHeightPx = 50;
-  if (dockWidthPx - DOCK_GAP_PX * 2 < trashHeightPx) {
-    trashHeightPx = dockWidthPx - DOCK_GAP_PX * 2;
-    if (trashHeightPx < 0) { trashHeightPx = 0; }
-  }
-
-  const dockBoundsPx = {
-    x: 0, y: 0,
-    w: dockWidthPx,
-    h: store.desktopBoundsPx().h
-  };
 
   const resizeBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
   resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
@@ -148,8 +177,8 @@ export const renderDockMaybe = (
     flags: VisualElementFlags.IsDock | VisualElementFlags.ShowChildren,
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: dockBoundsPx,
-    viewportBoundsPx: dockBoundsPx,
-    childAreaBoundsPx: zeroBoundingBoxTopLeft(dockBoundsPx),
+    viewportBoundsPx: dockViewportBoundsPx,
+    childAreaBoundsPx: { x: 0, y: 0, w: dockViewportWidthPx, h: dockChildAreaHeightPx },
     hitboxes: [
       HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx),
     ],
@@ -166,8 +195,8 @@ export const renderDockMaybe = (
     const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
     const trashBoundsPx = {
       x: DOCK_GAP_PX,
-      y: store.desktopBoundsPx().h - trashHeightPx - DOCK_GAP_PX * 2,
-      w: dockWidthPx - DOCK_GAP_PX * 2,
+      y: dockChildAreaHeightPx - trashHeightPx - DOCK_GAP_PX * 2,
+      w: dockViewportWidthPx - DOCK_GAP_PX * 2,
       h: trashHeightPx,
     }
     const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
@@ -185,7 +214,7 @@ export const renderDockMaybe = (
     };
     const trashRelationships: VisualElementRelationships = {};
 
-    if (dockWidthPx > 25) {
+    if (dockViewportWidthPx > 25) {
       const trashPath = VeFns.addVeidToPath({ itemId: trashPage.id, linkIdMaybe: null }, dockPath);
       VesCache.arrange.writeVisualElement(trashVisualElementSpec, trashRelationships, trashPath);
       dockChildren.push(trashPath);
@@ -196,7 +225,13 @@ export const renderDockMaybe = (
   return dockPath;
 }
 
-export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel, dockItem: PageItem, movingItem: Item, dockWidthPx: number, desktopYPx: number): IndexAndPosition {
+export function dockInsertIndexAndPositionFromDockChildAreaY(
+  store: StoreContextModel,
+  dockItem: PageItem,
+  movingItem: Item,
+  dockViewportWidthPx: number,
+  dockChildAreaYPx: number,
+): IndexAndPosition {
   let positionIndex = 0;
   let yCurrentPx = 0;
   for (let i = 0; i < dockItem.computed_children.length; ++i) {
@@ -208,9 +243,9 @@ export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel,
       continue;
     }
 
-    let wPx = dockWidthPx - DOCK_GAP_PX * 3;
+    let wPx = dockViewportWidthPx - DOCK_GAP_PX * 3;
     if (wPx < 0) { wPx = 0; }
-    const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockWidthPx * 10 };
+    const cellBoundsPx = { x: DOCK_GAP_PX * 1.25, y: 0, w: wPx, h: dockViewportWidthPx * 10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, false, true, store.smallScreenMode());
 
     let viewportOffsetPx = 0;
@@ -224,7 +259,7 @@ export function dockInsertIndexAndPositionFromDesktopY(store: StoreContextModel,
     }
 
     const newYPx = yCurrentPx + geometry.boundsPx.h + DOCK_GAP_PX;
-    if (newYPx > desktopYPx) { break; }
+    if (newYPx > dockChildAreaYPx) { break; }
     yCurrentPx = newYPx;
   }
 

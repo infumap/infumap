@@ -21,6 +21,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { isTable } from "../../items/table-item";
 import { isContainer } from "../../items/base/container-item";
 import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
+import { getDockScrollYPx } from "../../layout/arrange/dock";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -282,7 +283,7 @@ function determineTopLevelRoot(
   posOnDesktopPx: Vector,
 ): RootInfo {
   if (VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length != 1) { panic("expected umbrellaVisualElement to have a child"); }
-  const dockRootMaybe = determineIfDockRoot(umbrellaVe, posOnDesktopPx);
+  const dockRootMaybe = determineIfDockRoot(store, umbrellaVe, posOnDesktopPx);
   if (dockRootMaybe != null) { return dockRootMaybe; }
   let currentPageVes = VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))()[0];
   let currentPageVe = currentPageVes.get();
@@ -546,16 +547,18 @@ function hitEmbeddedRootMaybe(
 }
 
 
-function determineIfDockRoot(umbrellaVe: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
+function determineIfDockRoot(store: StoreContextModel, umbrellaVe: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
   const dockVesAccessor = VesCache.render.getDock(VeFns.veToPath(umbrellaVe));
   if (!dockVesAccessor()) { return null; }
   let dockVes = dockVesAccessor()!;
   const dockVe = dockVes.get();
   if (!isInside(posOnDesktopPx, dockVe.boundsPx)) { return null; }
-  const posRelativeToRootVePx = vectorSubtract(posOnDesktopPx, { x: dockVe.boundsPx.x, y: dockVe.boundsPx.y });
-  const { flags: hitboxType } = scanHitboxes(dockVe, posRelativeToRootVePx);
+  const posRelativeToDockViewportPx = vectorSubtract(posOnDesktopPx, { x: dockVe.boundsPx.x, y: dockVe.boundsPx.y });
+  const { flags: hitboxType } = scanHitboxes(dockVe, posRelativeToDockViewportPx);
   if (hitboxType != HitboxFlags.None) {
-    return ({ parentRootVe: null, rootVes: dockVes, rootVe: dockVe, posRelativeToRootVeBoundsPx: posRelativeToRootVePx, posRelativeToRootVeViewportPx: posRelativeToRootVePx, hitMaybe: new HitBuilder(null, dockVes).over(dockVes).hitboxes(hitboxType, HitboxFlags.None).meta(null).pos(posRelativeToRootVePx).allowEmbeddedInteractive(false).createdAt("determineIfDockRoot").build() });
+    return ({ parentRootVe: null, rootVes: dockVes, rootVe: dockVe, posRelativeToRootVeBoundsPx: posRelativeToDockViewportPx, posRelativeToRootVeViewportPx: posRelativeToDockViewportPx, hitMaybe: new HitBuilder(null, dockVes).over(dockVes).hitboxes(hitboxType, HitboxFlags.None).meta(null).pos(posRelativeToDockViewportPx).allowEmbeddedInteractive(false).createdAt("determineIfDockRoot").build() });
   }
-  return ({ parentRootVe: null, rootVes: dockVes, rootVe: dockVe, posRelativeToRootVeBoundsPx: posRelativeToRootVePx, posRelativeToRootVeViewportPx: posRelativeToRootVePx, hitMaybe: null });
+  const dockScrollYPx = getDockScrollYPx(store, dockVe);
+  const posRelativeToDockChildAreaPx = vectorAdd(posRelativeToDockViewportPx, { x: 0, y: dockScrollYPx });
+  return ({ parentRootVe: null, rootVes: dockVes, rootVe: dockVe, posRelativeToRootVeBoundsPx: posRelativeToDockChildAreaPx, posRelativeToRootVeViewportPx: posRelativeToDockChildAreaPx, hitMaybe: null });
 }

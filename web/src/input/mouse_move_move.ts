@@ -40,7 +40,7 @@ import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
-import { dockInsertIndexAndPositionFromDesktopY } from "../layout/arrange/dock";
+import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "../layout/arrange/dock";
 import { asContainerItem } from "../items/base/container-item";
 import { newUid } from "../util/uid";
 import { isDataItem } from "../items/base/data-item";
@@ -448,10 +448,16 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.movingItemTargetCalendarInfo.set({ pageItemId: inElement.id, combinedIndex });
   }
 
-  const dockWidthPx = store.getCurrentDockWidthPx();
-
   if (inElementVe.flags & VisualElementFlags.IsDock) {
-    const indexAndPosition = dockInsertIndexAndPositionFromDesktopY(store, asPageItem(inElement), activeItem, dockWidthPx, desktopPosPx.y);
+    const dockScrollYPx = getDockScrollYPx(store, inElementVe);
+    const dockChildAreaYPx = desktopPosPx.y - inElementVe.boundsPx.y + dockScrollYPx;
+    const indexAndPosition = dockInsertIndexAndPositionFromDockChildAreaY(
+      store,
+      asPageItem(inElement),
+      activeItem,
+      inElementVe.viewportBoundsPx!.w,
+      dockChildAreaYPx,
+    );
     store.perVe.setMoveOverIndexAndPosition(VeFns.veToPath(inElementVe), indexAndPosition);
   }
 

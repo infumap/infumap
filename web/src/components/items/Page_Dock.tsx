@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, For, Show, createEffect, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { requestArrange } from "../../layout/arrange";
 import { VisualElement_Desktop } from "../VisualElement";
@@ -26,6 +26,7 @@ import { Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { PageVisualElementProps } from "./Page";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns } from "../../layout/visual-element";
+import { getDockScrollYPx } from "../../layout/arrange/dock";
 
 
 
@@ -33,18 +34,60 @@ import { VeFns } from "../../layout/visual-element";
 
 export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
+  let dockDiv: HTMLDivElement | undefined;
+  let updatingDockScrollTop = false;
 
   const showDock = () => {
     store.dockVisible.set(true);
     requestArrange(store, "dock-show");
   }
 
+  const dockVeid = () => VeFns.actualVeidFromVe(props.visualElement);
+
+  const syncDockScrollPosition = () => {
+    if (!dockDiv) {
+      return;
+    }
+    updatingDockScrollTop = true;
+    dockDiv.scrollTop = getDockScrollYPx(store, props.visualElement);
+    dockDiv.scrollLeft = 0;
+    setTimeout(() => {
+      updatingDockScrollTop = false;
+    }, 0);
+  };
+
+  onMount(() => {
+    syncDockScrollPosition();
+  });
+
+  createEffect(() => {
+    if (!props.visualElement.childAreaBoundsPx || !props.visualElement.viewportBoundsPx) {
+      return;
+    }
+    props.visualElement.childAreaBoundsPx.h;
+    props.visualElement.viewportBoundsPx.h;
+    store.perItem.getPageScrollYProp(dockVeid());
+    syncDockScrollPosition();
+  });
+
+  const dockScrollHandler = (_ev: Event) => {
+    if (!dockDiv || updatingDockScrollTop) {
+      return;
+    }
+    const scrollableHeightPx = Math.max(0, props.visualElement.childAreaBoundsPx!.h - props.visualElement.viewportBoundsPx!.h);
+    if (scrollableHeightPx == 0) {
+      store.perItem.setPageScrollYProp(dockVeid(), 0);
+      return;
+    }
+    store.perItem.setPageScrollYProp(dockVeid(), dockDiv.scrollTop / scrollableHeightPx);
+  };
+
   const renderDockMoveOverIndexMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOver(props.pageFns.vePath())}>
-      <div class="absolute border border-black"
+      <div class="absolute pointer-events-none border border-black"
         style={`left: 0px;` +
           `top: ${store.perVe.getMoveOverIndexAndPosition(props.pageFns.vePath()).position}px; ` +
-          `width: ${store.getCurrentDockWidthPx()}px;`} />
+          `width: ${props.pageFns.viewportBoundsPx().w}px;`} />
     </Show>;
 
   return (
@@ -58,11 +101,24 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
             `background-color: #ffffff; ` +
             `border-right-width: ${mainPageBorderWidth(store)}px; ` +
             `border-color: ${mainPageBorderColor(store, itemState.get)}; `}>
-          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
-
-            <VisualElement_Desktop visualElement={childVe.get()} />
-          }</For>
-          {renderDockMoveOverIndexMaybe()}
+          <div ref={dockDiv}
+            class="absolute"
+            style={`left: 0px; top: 0px; ` +
+              `width: ${props.pageFns.viewportBoundsPx().w}px; ` +
+              `height: ${props.pageFns.viewportBoundsPx().h}px; ` +
+              `overflow-y: auto; overflow-x: hidden; ` +
+              `overscroll-behavior: contain; touch-action: pan-y;`}
+            onscroll={dockScrollHandler}>
+            <div class="absolute"
+              style={`left: 0px; top: 0px; ` +
+                `width: ${props.visualElement.childAreaBoundsPx!.w}px; ` +
+                `height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+              <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
+                <VisualElement_Desktop visualElement={childVe.get()} />
+              }</For>
+              {renderDockMoveOverIndexMaybe()}
+            </div>
+          </div>
         </div>
       </Show>
       <Show when={!store.dockVisible.get() && !store.smallScreenMode()}>
