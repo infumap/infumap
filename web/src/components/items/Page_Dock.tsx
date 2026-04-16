@@ -108,6 +108,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
             style={`left: 0px; top: 0px; ` +
               `width: ${props.pageFns.viewportBoundsPx().w}px; ` +
               `height: ${props.pageFns.viewportBoundsPx().h}px; ` +
+              `z-index: 0; ` +
               `overflow-y: auto; overflow-x: hidden; ` +
               `overscroll-behavior: contain; touch-action: pan-y;`}
             onscroll={dockScrollHandler}>
