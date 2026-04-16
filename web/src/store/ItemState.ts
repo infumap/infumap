@@ -96,6 +96,28 @@ function removeRelationshipSubtreeIfCurrent(
   items.delete(id);
 }
 
+function wouldCreateRelationshipCycle(itemId: Uid, moveToParentId: Uid): boolean {
+  if (itemId == moveToParentId) {
+    return true;
+  }
+
+  const seen = new Set<Uid | null>();
+  let currentId: Uid | null = moveToParentId;
+  while (currentId != null && currentId != EMPTY_UID && !seen.has(currentId)) {
+    if (currentId == itemId) {
+      return true;
+    }
+    seen.add(currentId);
+    const currentItem = items.get(currentId);
+    if (!currentItem) {
+      return false;
+    }
+    currentId = currentItem.parentId as Uid | null;
+  }
+
+  return false;
+}
+
 
 export const itemState = {
 
@@ -440,6 +462,15 @@ export const itemState = {
   },
 
   moveToNewParent: (item: Item, moveToParentId: Uid, newRelationshipToParent: string, ordering?: Uint8Array) => {
+    if (wouldCreateRelationshipCycle(item.id, moveToParentId)) {
+      console.error("moveToNewParent: refusing to create relationship cycle", {
+        itemId: item.id,
+        moveToParentId,
+        newRelationshipToParent,
+      });
+      panic(`moveToNewParent: attempted to create a relationship cycle for item '${item.id}'.`);
+    }
+
     const prevParentId = item.parentId;
     const prevRelationshipToParent = item.relationshipToParent;
     if (ordering) {
