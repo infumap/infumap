@@ -26,7 +26,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
-import { ArrangeAlgorithm } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";

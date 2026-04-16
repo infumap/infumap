@@ -23,7 +23,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { LINE_HEIGHT_PX } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
-import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
