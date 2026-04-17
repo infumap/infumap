@@ -346,13 +346,54 @@ export const TableFns = {
   /**
    * Determine if the desktopPx position is inside the table visual element's viewport.
    */
-  isInsideViewport(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): boolean {
+  desktopViewportBoundsPx(store: StoreContextModel, tableVe: VisualElement): BoundingBox {
     const tableDesktopBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
     const viewportDesktopPx = cloneBoundingBox(tableVe.viewportBoundsPx)!;
     const headerHeightPx = tableVe.boundsPx.h - tableVe.viewportBoundsPx!.h;
     viewportDesktopPx.x = tableDesktopBoundsPx.x;
     viewportDesktopPx.y = tableDesktopBoundsPx.y + headerHeightPx;
-    return isInside(desktopPx, viewportDesktopPx!);
+    return viewportDesktopPx;
+  },
+
+  isInsideViewport(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): boolean {
+    return isInside(desktopPx, TableFns.desktopViewportBoundsPx(store, tableVe));
+  },
+
+  /**
+   * Determine whether a header hover should use the table's top-right attachment insertion UI.
+   */
+  isNearHeaderAttachmentInsertionPoint(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): boolean {
+    const tableDesktopBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
+    if (!isInside(desktopPx, tableDesktopBoundsPx)) { return false; }
+    const viewportDesktopPx = TableFns.desktopViewportBoundsPx(store, tableVe);
+    if (desktopPx.y >= viewportDesktopPx.y) { return false; }
+
+    const tableItem = asTableItem(tableVe.displayItem);
+    const attachmentBlockSizePx = tableDesktopBoundsPx.w / (tableItem.spatialWidthGr / GRID_SIZE);
+    const mouseXFromRight = tableDesktopBoundsPx.x + tableDesktopBoundsPx.w - desktopPx.x;
+    const rawSlotIndex = Math.floor((mouseXFromRight + attachmentBlockSizePx * 0.5) / attachmentBlockSizePx);
+    if (rawSlotIndex < 0 || rawSlotIndex > tableItem.computed_attachments.length) { return false; }
+
+    return desktopPx.y <= tableDesktopBoundsPx.y + ATTACH_AREA_SIZE_PX;
+  },
+
+  /**
+   * When the pointer is over a table header, reuse the first-row insertion logic unless we're
+   * intentionally targeting the table's own top-right attachment insertion point.
+   */
+  normalizeMoveOverDesktopPx(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): Vector {
+    const tableDesktopBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
+    if (!isInside(desktopPx, tableDesktopBoundsPx)) { return desktopPx; }
+
+    const viewportDesktopPx = TableFns.desktopViewportBoundsPx(store, tableVe);
+    if (desktopPx.y >= viewportDesktopPx.y) { return desktopPx; }
+    if (TableFns.isNearHeaderAttachmentInsertionPoint(store, tableVe, desktopPx)) { return desktopPx; }
+
+    const normalizedYOffsetPx = Math.min(Math.max(1, Math.round(tableVe.blockSizePx!.h * 0.25)), Math.max(0, Math.floor(viewportDesktopPx.h - 1)));
+    return {
+      x: desktopPx.x,
+      y: viewportDesktopPx.y + normalizedYOffsetPx,
+    };
   },
 
   /**
@@ -360,6 +401,7 @@ export const TableFns = {
    * This may or not have an existing associated item.
    */
   tableModifiableColRow(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number } {
+    desktopPx = TableFns.normalizeMoveOverDesktopPx(store, tableVe, desktopPx);
     const tableItem = asTableItem(tableVe.displayItem);
     const tableDimensionsBl: Dimensions = {
       w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,

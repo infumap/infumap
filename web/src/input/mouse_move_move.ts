@@ -306,6 +306,18 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, MouseActionState.usesEmbeddedInteractiveHitTesting(), false);
+  const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);
+  const normalizedTableMoveDesktopPx = tableContainerVeMaybe != null
+    ? TableFns.normalizeMoveOverDesktopPx(store, tableContainerVeMaybe, desktopPosPx)
+    : desktopPosPx;
+  const isOverTableRootAttach =
+    !!(hitInfo.hitboxType & HitboxFlags.Attach) &&
+    hitInfo.overVes != null &&
+    isTable(hitInfo.overVes.get().displayItem);
+  const shouldTreatTableHeaderAsFirstRow =
+    isOverTableRootAttach &&
+    tableContainerVeMaybe != null &&
+    normalizedTableMoveDesktopPx.y !== desktopPosPx.y;
 
   // update move over element state.
   const moveOverContainerPath = VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds));
@@ -328,7 +340,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(ve), false);
     store.perVe.setMoveOverAttachmentIndex(VeFns.veToPath(ve), -1);
   }
-  if (hitInfo.hitboxType & HitboxFlags.Attach) {
+  if ((hitInfo.hitboxType & HitboxFlags.Attach) && !shouldTreatTableHeaderAsFirstRow) {
     const attachVe = hitInfo.overVes!.get();
     const attachVePath = VeFns.veToPath(attachVe);
     store.perVe.setMovingItemIsOverAttach(attachVePath, true);
@@ -382,8 +394,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     return;
   }
 
-  const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);
-  if (tableContainerVeMaybe) {
+  if (tableContainerVeMaybe && (!isOverTableRootAttach || shouldTreatTableHeaderAsFirstRow)) {
     moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx);
   } else {
     const moveOverContainerVe = MouseActionState.readMoveOverContainer()!;

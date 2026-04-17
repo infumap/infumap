@@ -109,6 +109,17 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       h: ATTACH_AREA_SIZE_PX,
     }
   }
+  const attachInsertBarPx = (): BoundingBox => {
+    const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
+    const attachmentBlockSizePx = boundsPx().w / (tableItem().spatialWidthGr / GRID_SIZE);
+    const xOffset = insertIndex === 0 ? -4 : -2;
+    return {
+      x: boundsPx().w - insertIndex * attachmentBlockSizePx + xOffset,
+      y: -attachmentBlockSizePx / 2,
+      w: 4,
+      h: attachmentBlockSizePx,
+    };
+  }
   const attachCompositeBoundsPx = (): BoundingBox => {
     return {
       x: 0,
@@ -308,9 +319,16 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </Show>
         }</For>
       </div>
+      <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
+        store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>
+        <div class={`${positionClass()} bg-black pointer-events-none`}
+          style={`left: ${boundsPx().x + attachInsertBarPx().x}px; top: ${boundsPx().y + attachInsertBarPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px;` +
+            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+      </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverRowNumber(vePath()) > -1 &&
         store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
+        !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
         !isSortedByTitle()}>
         <div class={`${positionClass()} border border-black`}
@@ -319,6 +337,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0 &&
+        !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`${positionClass()} border border-black bg-black`}
           style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;` +
@@ -327,6 +346,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverRowNumber(vePath()) > -2 && // always true, create dependency.
         store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
+        !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
         isSortedByTitle()}>
         <div class={`${positionClass()} pointer-events-none`}
