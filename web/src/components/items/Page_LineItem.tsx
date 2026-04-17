@@ -73,10 +73,20 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const isPoppedUp = () =>
     store.history.currentPopupSpecVeid() != null &&
     VeFns.compareVeids(VeFns.actualVeidFromVe(props.visualElement), store.history.currentPopupSpecVeid()!) == 0;
+  const tableDropTargetOwnerPath = () => {
+    if (!(props.visualElement.flags & VisualElementFlags.InsideTable) || props.visualElement.parentPath == null) {
+      return null;
+    }
+    if (props.visualElement.flags & VisualElementFlags.Attachment) {
+      const tablePath = VeFns.parentPath(props.visualElement.parentPath);
+      return tablePath != "" ? tablePath : null;
+    }
+    return props.visualElement.parentPath;
+  };
   const isTableChildDropTarget = () =>
     store.anItemIsMoving.get() &&
-    props.visualElement.parentPath != null &&
-    store.perVe.getMoveOverChildContainerPath(props.visualElement.parentPath) === vePath();
+    tableDropTargetOwnerPath() != null &&
+    store.perVe.getMoveOverChildContainerPath(tableDropTargetOwnerPath()!) === vePath();
 
   const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
 
