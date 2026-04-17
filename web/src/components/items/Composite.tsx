@@ -18,16 +18,13 @@
 
 import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { isPage } from "../../items/page-item";
-import { isNote } from "../../items/note-item";
-import { isFile } from "../../items/file-item";
-import { isPassword } from "../../items/password-item";
 
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -37,6 +34,7 @@ import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../.
 import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { shouldShowFocusRingForVisualElement } from "./helper";
+import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -60,49 +58,13 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const moveOverInsertLineBoundsPx = (): BoundingBox | null => {
     const moveOverIndex = store.perVe.getMoveOverIndex(vePath());
-    if (moveOverIndex < 0) { return null; }
-
     const activeItemId = MouseActionState.isAction(MouseAction.Moving)
       ? MouseActionState.getActiveVisualElement()?.displayItem.id ?? null
       : null;
     const childVes = VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()
-      .filter(childVe => childVe.get().displayItem.id !== activeItemId);
-
-    const childVisibleVerticalBoundsPx = (childVe: ReturnType<typeof childVes[number]["get"]>) => {
-      if (isNote(childVe.displayItem) || isFile(childVe.displayItem) || isPassword(childVe.displayItem)) {
-        const scale = childVe.blockSizePx ? childVe.blockSizePx.h / LINE_HEIGHT_PX : 1;
-        return {
-          top: childVe.boundsPx.y + (NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * scale,
-          bottom: childVe.boundsPx.y + childVe.boundsPx.h - 3 * scale,
-        };
-      }
-      return {
-        top: childVe.boundsPx.y,
-        bottom: childVe.boundsPx.y + childVe.boundsPx.h,
-      };
-    };
-
-    const widthPx = Math.max(0, boundsPx().w - 2);
-    if (childVes.length == 0) {
-      return { x: 0, y: 0, w: widthPx, h: 1 };
-    }
-    if (moveOverIndex <= 0) {
-      return { x: 0, y: Math.round(childVisibleVerticalBoundsPx(childVes[0].get()).top), w: widthPx, h: 1 };
-    }
-    if (moveOverIndex >= childVes.length) {
-      const lastVe = childVes[childVes.length - 1].get();
-      return { x: 0, y: Math.round(childVisibleVerticalBoundsPx(lastVe).bottom), w: widthPx, h: 1 };
-    }
-    const prevVe = childVes[moveOverIndex - 1].get();
-    const nextVe = childVes[moveOverIndex].get();
-    const prevVisibleBoundsPx = childVisibleVerticalBoundsPx(prevVe);
-    const nextVisibleBoundsPx = childVisibleVerticalBoundsPx(nextVe);
-    return {
-      x: 0,
-      y: Math.round((prevVisibleBoundsPx.bottom + nextVisibleBoundsPx.top) / 2),
-      w: widthPx,
-      h: 1,
-    };
+      .filter(childVe => childVe.get().displayItem.id !== activeItemId)
+      .map(childVe => childVe.get());
+    return stackedInsertionLineBoundsPx(childVes, Math.max(0, boundsPx().w - 2), moveOverIndex);
   };
 
   const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * asCompositeItem(props.visualElement.displayItem).spatialWidthGr / GRID_SIZE); }

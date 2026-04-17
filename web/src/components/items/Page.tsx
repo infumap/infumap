@@ -19,8 +19,8 @@
 import { Component, For, Match, Show, Switch } from "solid-js";
 
 import { VesCache } from "../../layout/ves-cache";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { HitboxFlags } from "../../layout/hitbox";
@@ -39,6 +39,7 @@ import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { calculateCalendarDimensions, decodeCalendarCombinedIndex, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
+import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -158,6 +159,46 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         ? Math.max((pageFns.viewportBoundsPx().w - pageFns.childAreaBoundsPx().w) / 2, 0)
         : 0,
 
+    documentScale: () => {
+      const totalWidthBl = pageFns.pageItem().docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
+      if (totalWidthBl <= 0) {
+        return 1;
+      }
+      return pageFns.childAreaBoundsPx().w / (totalWidthBl * NATURAL_BLOCK_SIZE_PX.w);
+    },
+
+    documentInsertStartTopPx: () => {
+      if (!pageFns.isDocumentPage()) {
+        return 0;
+      }
+
+      let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX * pageFns.documentScale();
+      if (PageFns.showDocumentTitleInDocument(pageFns.pageItem())) {
+        topPx += PageFns.calcDocumentTitleHeightBl(pageFns.pageItem()) * NATURAL_BLOCK_SIZE_PX.h * pageFns.documentScale();
+        topPx += COMPOSITE_ITEM_GAP_BL * NATURAL_BLOCK_SIZE_PX.h * pageFns.documentScale();
+      }
+      return topPx;
+    },
+
+    documentMoveOverInsertLineBoundsPx: (): BoundingBox | null => {
+      const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
+      if (moveOverIndex < 0) {
+        return null;
+      }
+
+      const childVes = pageFns.nonMovingChildren().map(childVe => childVe.get());
+      if (childVes.length === 0) {
+        return {
+          x: 0,
+          y: Math.round(pageFns.documentInsertStartTopPx()),
+          w: pageFns.childAreaBoundsPx().w,
+          h: 1,
+        };
+      }
+
+      return stackedInsertionLineBoundsPx(childVes, pageFns.childAreaBoundsPx().w, moveOverIndex);
+    },
+
     showMoveOutOfCompositeArea: () =>
       store.user.getUserMaybe() != null &&
       store.perVe.getMouseIsOver(pageFns.vePath()) &&
@@ -215,7 +256,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (!store.perVe.getMovingItemIsOver(pageFns.vePath())) {
         return <></>;
       }
-      if (store.perVe.getMovingItemIsOver(pageFns.vePath()) && pageFns.pageItem().orderChildrenBy != "") {
+      if (store.perVe.getMovingItemIsOver(pageFns.vePath()) &&
+        pageFns.pageItem().orderChildrenBy != "" &&
+        pageFns.pageItem().arrangeAlgorithm != ArrangeAlgorithm.Document) {
         return pageFns.renderMoveOverSortedMaybe();
       }
       if (store.perVe.getMovingItemIsOver(pageFns.vePath())) {
@@ -264,6 +307,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const widthPx = LINE_HEIGHT_PX * pageFns.listColumnWidthBl();
         return (
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: 1px; width: ${widthPx}px;`} />
+        );
+      } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document) {
+        const lineBoundsPx = pageFns.documentMoveOverInsertLineBoundsPx();
+        if (!lineBoundsPx) {
+          return <></>;
+        }
+        return (
+          <div class="absolute pointer-events-none bg-black"
+            style={`left: ${lineBoundsPx.x}px; top: ${lineBoundsPx.y - 1}px; width: ${lineBoundsPx.w}px; height: 2px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
         return pageFns.renderJustifiedMoveOverHighlight();

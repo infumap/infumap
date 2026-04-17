@@ -480,6 +480,9 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         MouseActionState.set(null);
         arrangeNow(store, "mouse-up-move-to-calendar-page");
         return;
+      } else if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Document) {
+        mouseUpHandler_moving_toOrderedPage(store, activeItem, overContainerVe);
+        return;
       } else {
         mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
         return;
@@ -502,13 +505,10 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     }
     else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
       pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
-      pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-      const path = VeFns.veToPath(overContainerVe);
-      const idx = store.perVe.getMoveOverIndex(path);
-      const insertIndex = pageItem.orderChildrenBy != "" ? 0 : idx;
-      activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
-      itemState.sortChildren(pageItem.id);
-      persistMovedItems(store, [activeItem.id]);
+      pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
+      pageItem.arrangeAlgorithm == ArrangeAlgorithm.Document) {
+      mouseUpHandler_moving_toOrderedPage(store, activeItem, overContainerVe);
+      return;
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
       const startPosBl = MouseActionState.getStartPosBl()!;
       if (startPosBl.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
@@ -564,6 +564,38 @@ function persistMovedItems(store: StoreContextModel, defaultIds: string[]) {
       serverOrRemote.updateItem(itemState.get(id)!, store.general.networkStatus);
     }
   }
+}
+
+function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  if (!isPage(overContainerVe.displayItem)) {
+    panic("mouseUpHandler_moving_toOrderedPage: over container is not a page.");
+  }
+
+  const pageItem = asPageItem(overContainerVe.displayItem);
+  const path = VeFns.veToPath(overContainerVe);
+  const idx = store.perVe.getMoveOverIndex(path);
+  const insertIndex =
+    pageItem.arrangeAlgorithm != ArrangeAlgorithm.Document && pageItem.orderChildrenBy != ""
+      ? 0
+      : idx;
+  const moveToOrdering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
+
+  if (activeItem.parentId != pageItem.id) {
+    itemState.moveToNewParent(activeItem, pageItem.id, RelationshipToParent.Child, moveToOrdering);
+  } else {
+    activeItem.ordering = moveToOrdering;
+    itemState.sortChildren(pageItem.id);
+  }
+
+  persistMovedItems(store, [activeItem.id]);
+  finalizeMouseUp(store);
+  MouseActionState.set(null);
+  arrangeNow(
+    store,
+    pageItem.arrangeAlgorithm == ArrangeAlgorithm.Document
+      ? "mouse-up-move-to-document-page"
+      : "mouse-up-move-to-ordered-page",
+  );
 }
 
 
