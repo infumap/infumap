@@ -21,6 +21,8 @@ import { HitInfoFns } from "./input/hit";
 import { clearMouseOverState } from "./input/mouse_move";
 import { HitboxFlags } from "./layout/hitbox";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
+import { stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
+import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
 import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { ItemType } from "./items/base/item";
@@ -43,6 +45,7 @@ const MAX_EXTERNAL_UPLOAD_FILES = 10;
 
 type UploadTarget =
   | { kind: "page-background", parent: PageItem }
+  | { kind: "page-ordered", parent: PageItem, insertIndex: number }
   | { kind: "page-child-container", parent: PageItem }
   | { kind: "table-row", tableId: string, insertRow: number }
   | { kind: "table-cell-attachment", parent: AttachmentsItem, insertPosition: number }
@@ -58,6 +61,7 @@ type UploadPlacement = {
 
 let externalUploadMoveOverContainerPath: VisualElementPath | null = null;
 let externalUploadAttachHitboxPath: VisualElementPath | null = null;
+let externalUploadDropTarget: UploadTarget | null = null;
 
 
 function showTransientMessage(
@@ -88,10 +92,16 @@ function clearTableUploadHoverState(store: StoreContextModel, tablePath: VisualE
   store.perVe.setMoveOverChildContainerPath(tablePath, null);
 }
 
+function clearExternalUploadContainerHoverState(store: StoreContextModel, containerPath: VisualElementPath): void {
+  clearTableUploadHoverState(store, containerPath);
+  store.perVe.setMoveOverIndex(containerPath, -1);
+  store.perVe.setMoveOverIndexAndPosition(containerPath, { index: -1, position: -1 });
+}
+
 function syncExternalUploadMoveOverContainer(store: StoreContextModel, nextPath: VisualElementPath | null): void {
   if (externalUploadMoveOverContainerPath != null && externalUploadMoveOverContainerPath != nextPath) {
     store.perVe.setMovingItemIsOver(externalUploadMoveOverContainerPath, false);
-    clearTableUploadHoverState(store, externalUploadMoveOverContainerPath);
+    clearExternalUploadContainerHoverState(store, externalUploadMoveOverContainerPath);
   }
 
   if (nextPath != null) {
@@ -148,6 +158,61 @@ function getTableCellAttachmentTarget(tableVe: VisualElement, insertRow: number)
   return isAttachmentsItem(targetItem) ? asAttachmentsItem(targetItem!) : null;
 }
 
+function supportsOrderedPageExternalUpload(page: PageItem): boolean {
+  return page.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+    page.arrangeAlgorithm == ArrangeAlgorithm.List ||
+    page.arrangeAlgorithm == ArrangeAlgorithm.Document ||
+    (page.arrangeAlgorithm == ArrangeAlgorithm.Justified && page.orderChildrenBy != "");
+}
+
+function orderedPageInsertIndexFromDesktopPx(
+  store: StoreContextModel,
+  pageVe: VisualElement,
+  desktopPx: Vector,
+): number {
+  const page = asPageItem(pageVe.displayItem);
+  if (page.orderChildrenBy != "" && page.arrangeAlgorithm != ArrangeAlgorithm.Document) {
+    return 0;
+  }
+
+  switch (page.arrangeAlgorithm) {
+    case ArrangeAlgorithm.Grid: {
+      if (!pageVe.viewportBoundsPx || !pageVe.childAreaBoundsPx || !pageVe.cellSizePx) {
+        return page.computed_children.length;
+      }
+
+      const xAdj = (pageVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) ||
+        (pageVe.flags & VisualElementFlags.Popup)
+        ? store.getCurrentDockWidthPx()
+        : 0.0;
+      const xOffsetPx = desktopPx.x - (pageVe.viewportBoundsPx.x + xAdj);
+      const yOffsetPx = desktopPx.y - pageVe.viewportBoundsPx.y;
+      const veid = VeFns.veidFromVe(pageVe);
+      const scrollYPx = store.perItem.getPageScrollYProp(veid)
+        * (pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h);
+      const scrollXPx = store.perItem.getPageScrollXProp(veid)
+        * (pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w);
+      const cellX = Math.floor((xOffsetPx + scrollXPx) / pageVe.cellSizePx.w);
+      const cellY = Math.floor((yOffsetPx + scrollYPx) / pageVe.cellSizePx.h);
+      const rawIndex = cellY * page.gridNumberOfColumns + cellX;
+      return Math.max(0, Math.min(rawIndex, page.computed_children.length));
+    }
+
+    case ArrangeAlgorithm.List:
+    case ArrangeAlgorithm.Document: {
+      const pagePath = VeFns.veToPath(pageVe);
+      const childVes = VesCache.render.getNonMovingChildren(pagePath)().map((childVe) => childVe.get());
+      return stackedInsertionIndexFromDesktopPx(store, childVes, desktopPx);
+    }
+
+    case ArrangeAlgorithm.Justified:
+      return 0;
+
+    default:
+      return page.computed_children.length;
+  }
+}
+
 function resolveExternalUploadTarget(
   store: StoreContextModel,
   desktopPx: Vector,
@@ -155,6 +220,13 @@ function resolveExternalUploadTarget(
 ): UploadTarget | null {
   const hitInfo = HitInfoFns.hit(store, desktopPx, [], false);
   const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);
+  const rootPageVeMaybe = isPage(hitInfo.rootVes.get().displayItem) ? hitInfo.rootVes.get() : null;
+  const orderedPageTargetVeMaybe =
+    tableContainerVeMaybe == null &&
+      rootPageVeMaybe != null &&
+      supportsOrderedPageExternalUpload(asPageItem(rootPageVeMaybe.displayItem))
+      ? rootPageVeMaybe
+      : null;
   const nextMoveOverContainerPath = tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null;
   const normalizedTableMoveDesktopPx = tableContainerVeMaybe != null
     ? TableFns.normalizeMoveOverDesktopPx(store, tableContainerVeMaybe, desktopPx)
@@ -175,14 +247,30 @@ function resolveExternalUploadTarget(
       isPage(hitInfo.overVes.get().displayItem)
       ? VeFns.veToPath(hitInfo.overVes.get())
       : null;
+  const orderedPageTargetPath = orderedPageTargetVeMaybe != null ? VeFns.veToPath(orderedPageTargetVeMaybe) : null;
 
   if (syncHoverState) {
     clearMouseOverState(store);
     store.mouseOverTableHeaderColumnNumber.set(null);
-    syncExternalUploadMoveOverContainer(store, nextMoveOverContainerPath);
+    syncExternalUploadMoveOverContainer(store, nextMoveOverContainerPath ?? orderedPageTargetPath);
   }
 
   if (tableContainerVeMaybe == null) {
+    if (orderedPageTargetVeMaybe != null) {
+      const insertIndex = orderedPageInsertIndexFromDesktopPx(store, orderedPageTargetVeMaybe, desktopPx);
+      if (syncHoverState) {
+        store.perVe.setMoveOverIndex(orderedPageTargetPath!, insertIndex);
+        syncExternalUploadAttachHover(store, null, -1);
+        store.externalFileDragActive.set(true);
+      }
+
+      return {
+        kind: "page-ordered",
+        parent: asPageItem(orderedPageTargetVeMaybe.displayItem),
+        insertIndex,
+      };
+    }
+
     if (syncHoverState) {
       syncExternalUploadAttachHover(store, null, -1);
       store.externalFileDragActive.set(false);
@@ -258,6 +346,12 @@ function handleStringTypeDataMaybe(dataTransfer: DataTransfer, desktopPx: Vector
       });
     }
   }
+}
+
+function waitForBrowserAfterDrop(): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, 0);
+  });
 }
 
 function uploadPositionForPage(
@@ -369,6 +463,15 @@ function placementForUploadTarget(
         useDropPosition: true,
       };
 
+    case "page-ordered":
+      return {
+        parentId: target.parent.id,
+        relationshipToParent: RelationshipToParent.Child,
+        ordering: itemState.newOrderingAtChildrenPosition(target.parent.id, target.insertIndex + fileIndex, null),
+        pageParentMaybe: null,
+        useDropPosition: false,
+      };
+
     case "page-child-container":
       return {
         parentId: target.parent.id,
@@ -446,11 +549,10 @@ function makeUploadPartialObject(
 
 async function uploadFilesToTarget(
   store: StoreContextModel,
-  dataTransfer: DataTransfer,
+  files: ReadonlyArray<File>,
   desktopPx: Vector,
   target: UploadTarget,
 ): Promise<void> {
-  const files = Array.from(dataTransfer.files);
   if (files.length > 0) {
     store.overlay.uploadOverlayInfo.set({
       currentFile: 0,
@@ -504,6 +606,7 @@ export function clearExternalUploadHover(store: StoreContextModel): void {
   clearMouseOverState(store);
   store.mouseOverTableHeaderColumnNumber.set(null);
   store.externalFileDragActive.set(false);
+  externalUploadDropTarget = null;
 }
 
 export function updateExternalUploadHover(
@@ -516,7 +619,7 @@ export function updateExternalUploadHover(
     return;
   }
 
-  resolveExternalUploadTarget(store, desktopPx, true);
+  externalUploadDropTarget = resolveExternalUploadTarget(store, desktopPx, true);
 }
 
 export async function handleExternalUploadDrop(
@@ -524,10 +627,13 @@ export async function handleExternalUploadDrop(
   dataTransfer: DataTransfer,
   desktopPx: Vector,
 ): Promise<void> {
-  const target = resolveExternalUploadTarget(store, desktopPx, true);
+  const files = Array.from(dataTransfer.files);
+  const target = externalUploadDropTarget ?? resolveExternalUploadTarget(store, desktopPx, false);
 
   try {
-    const fileCount = dataTransfer.files.length;
+    await waitForBrowserAfterDrop();
+
+    const fileCount = files.length;
     if (fileCount > MAX_EXTERNAL_UPLOAD_FILES) {
       showTransientMessage(store, `Can only drop up to ${MAX_EXTERNAL_UPLOAD_FILES} files at once.`);
       return;
@@ -548,12 +654,7 @@ export async function handleExternalUploadDrop(
       return;
     }
 
-    if (target.kind == "page-background") {
-      await handleUpload(store, dataTransfer, desktopPx, target.parent);
-      return;
-    }
-
-    await uploadFilesToTarget(store, dataTransfer, desktopPx, target);
+    await uploadFilesToTarget(store, files, desktopPx, target);
   } finally {
     clearExternalUploadHover(store);
   }
@@ -566,5 +667,6 @@ export async function handleUpload(
   parent: PageItem) {
 
   handleStringTypeDataMaybe(dataTransfer, desktopPx);
-  await uploadFilesToTarget(store, dataTransfer, desktopPx, { kind: "page-background", parent });
+  await waitForBrowserAfterDrop();
+  await uploadFilesToTarget(store, Array.from(dataTransfer.files), desktopPx, { kind: "page-background", parent });
 }
