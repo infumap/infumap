@@ -32,7 +32,7 @@ import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -319,6 +319,14 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     isOverTableRootAttach &&
     tableContainerVeMaybe != null &&
     normalizedTableMoveDesktopPx.y !== desktopPosPx.y;
+  const tableChildContainerDropTargetPath =
+    tableContainerVeMaybe != null &&
+      hitInfo.overVes != null &&
+      !!(hitInfo.hitboxType & HitboxFlags.OpenPopup) &&
+      !!(hitInfo.overVes.get().flags & VisualElementFlags.InsideTable) &&
+      isPage(hitInfo.overVes.get().displayItem)
+      ? VeFns.veToPath(hitInfo.overVes.get())
+      : null;
   const hitMoveTargetVe = resolveMoveTargetPageVe(hitInfo.overPositionableVe!);
   const moveTargetIsDocumentPage =
     isPage(hitMoveTargetVe.displayItem) &&
@@ -328,6 +336,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const moveOverContainerPath = moveTargetIsDocumentPage
     ? VeFns.veToPath(hitMoveTargetVe)
     : VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds));
+  const previousMoveOverContainerPath = MouseActionState.getMoveOverContainerPath();
   if (MouseActionState.getMoveOverContainerPath() == null ||
     MouseActionState.getMoveOverContainerPath()! != moveOverContainerPath) {
     if (MouseActionState.getMoveOverContainerPath() != null) {
@@ -336,6 +345,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
         store.perVe.setMovingItemIsOver(VeFns.veToPath(veMaybe), false);
       }
     }
+    clearTableChildContainerDropTarget(store, previousMoveOverContainerPath);
 
     store.perVe.setMovingItemIsOver(moveOverContainerPath, true);
     MouseActionState.setMoveOverContainerPath(moveOverContainerPath);
@@ -395,14 +405,16 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   if (MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
+    clearTableChildContainerDropTarget(store, moveOverContainerPath);
     moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false);
     arrangeNow(store, "moving-enter-new-container");
     return;
   }
 
   if (!moveTargetIsDocumentPage && tableContainerVeMaybe && (!isOverTableRootAttach || shouldTreatTableHeaderAsFirstRow)) {
-    moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx);
+    moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx, tableChildContainerDropTargetPath);
   } else {
+    clearTableChildContainerDropTarget(store, tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null);
     const moveOverContainerVe = MouseActionState.readMoveOverContainer()!;
     if (!moveTargetIsDocumentPage && isComposite(moveOverContainerVe.displayItem)) {
       moving_handleOverComposite(store, moveOverContainerVe, desktopPosPx);
@@ -518,17 +530,29 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 }
 
 
-function moving_handleOverTable(store: StoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
+function clearTableChildContainerDropTarget(store: StoreContextModel, tablePath: VisualElementPath | null): void {
+  if (tablePath == null) { return; }
+  store.perVe.setMoveOverChildContainerPath(tablePath, null);
+}
+
+function moving_handleOverTable(
+  store: StoreContextModel,
+  overContainerVe: VisualElement,
+  desktopPx: Vector,
+  childContainerDropTargetPath: VisualElementPath | null,
+) {
   assert(isTable(overContainerVe.displayItem), "overContainerVe is not a table");
+  const tablePath = VeFns.veToPath(overContainerVe);
   const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overContainerVe, desktopPx);
-  store.perVe.setMoveOverRowNumber(VeFns.veToPath(overContainerVe), insertRow);
+  store.perVe.setMoveOverRowNumber(tablePath, insertRow);
+  store.perVe.setMoveOverChildContainerPath(tablePath, childContainerDropTargetPath);
 
   const tableItem = asTableItem(overContainerVe.displayItem);
   const childItem = itemState.get(tableItem.computed_children[insertRow]);
   if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemState.get(LinkFns.getLinkToId(asLinkItem(childItem!))!)))) {
-    store.perVe.setMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe), attachmentPos);
+    store.perVe.setMoveOverColAttachmentNumber(tablePath, attachmentPos);
   } else {
-    store.perVe.setMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe), -1);
+    store.perVe.setMoveOverColAttachmentNumber(tablePath, -1);
   }
 }
 

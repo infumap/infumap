@@ -58,6 +58,9 @@ export interface PerVeStoreContextModel {
   getMoveOverColAttachmentNumber: (vePath: VisualElementPath) => number,  // for tables only
   setMoveOverColAttachmentNumber: (vePath: VisualElementPath, colNumber: number) => void,
 
+  getMoveOverChildContainerPath: (vePath: VisualElementPath) => VisualElementPath | null,  // for tables only
+  setMoveOverChildContainerPath: (vePath: VisualElementPath, childPath: VisualElementPath | null) => void,
+
   getMoveOverAttachmentIndex: (vePath: VisualElementPath) => number,  // for attachable items
   setMoveOverAttachmentIndex: (vePath: VisualElementPath, index: number) => void,
 
@@ -88,6 +91,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const movingItemIsOverAttachComposite = new Map<string, BooleanSignal>();
   const moveOverRowNumber = new Map<string, NumberSignal>();
   const moveOverColAttachmentNumber = new Map<string, NumberSignal>();
+  const moveOverChildContainerPath = new Map<string, InfuSignal<VisualElementPath | null>>();
   const moveOverAttachmentIndex = new Map<string, NumberSignal>();
   const moveOverIndex = new Map<string, NumberSignal>();
   const moveOverIndexAndPosition = new Map<string, InfuSignal<IndexAndPosition>>();
@@ -246,6 +250,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
     moveOverColAttachmentNumber.get(vePath)!.set(colNumber);
   };
 
+  const getMoveOverChildContainerPath = (vePath: VisualElementPath): VisualElementPath | null => {
+    if (!moveOverChildContainerPath.get(vePath)) {
+      moveOverChildContainerPath.set(vePath, createInfuSignal<VisualElementPath | null>(null));
+    }
+    return moveOverChildContainerPath.get(vePath)!.get();
+  };
+
+  const setMoveOverChildContainerPath = (vePath: VisualElementPath, childPath: VisualElementPath | null): void => {
+    if (!moveOverChildContainerPath.get(vePath)) {
+      moveOverChildContainerPath.set(vePath, createInfuSignal<VisualElementPath | null>(childPath));
+      return;
+    }
+    moveOverChildContainerPath.get(vePath)!.set(childPath);
+  };
+
   const getMoveOverAttachmentIndex = (vePath: VisualElementPath): number => {
     if (!moveOverAttachmentIndex.get(vePath)) {
       moveOverAttachmentIndex.set(vePath, createNumberSignal(-1));
@@ -358,6 +377,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getMoveOverColAttachmentNumber,
     setMoveOverColAttachmentNumber,
+
+    getMoveOverChildContainerPath,
+    setMoveOverChildContainerPath,
 
     getMoveOverAttachmentIndex,
     setMoveOverAttachmentIndex,

@@ -140,6 +140,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.touchToolbarDependency();
     return tableItem().orderChildrenBy == "title[ASC]";
   }
+  const moveOverChildContainerPath = () => store.perVe.getMoveOverChildContainerPath(vePath());
 
   const columnSpecs = createMemo(() => {
     // TODO (LOW): I believe this would be more optimized if this calc was done at arrange time.
@@ -328,6 +329,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverRowNumber(vePath()) > -1 &&
         store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
+        moveOverChildContainerPath() == null &&
         !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
         !isSortedByTitle()}>
@@ -346,6 +348,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverRowNumber(vePath()) > -2 && // always true, create dependency.
         store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
+        moveOverChildContainerPath() == null &&
         !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
         isSortedByTitle()}>

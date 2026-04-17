@@ -823,6 +823,7 @@ function mouseUpHandler_moving_toComposite(store: StoreContextModel, activeItem:
 
 function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   const moveOverContainerId = overContainerVe.displayItem.id;
+  const tablePath = VeFns.veToPath(overContainerVe);
   if (moveOverContainerId == activeItem.id) {
     // TODO (HIGH): more rigorous check of entire hierarchy.
     // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
@@ -831,12 +832,22 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
     panic("mouseUpHandler_moving_toTable: Attempt was made to move an item into itself.");
   }
 
-  if (store.perVe.getMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe)) >= 0) {
+  const moveIntoChildContainerPath = store.perVe.getMoveOverChildContainerPath(tablePath);
+  store.perVe.setMoveOverChildContainerPath(tablePath, null);
+  if (moveIntoChildContainerPath != null) {
+    const moveIntoChildContainerVe = MouseActionState.readVisualElement(moveIntoChildContainerPath);
+    if (moveIntoChildContainerVe != null && isPage(moveIntoChildContainerVe.displayItem)) {
+      mouseUpHandler_moving_toOpaquePage(store, activeItem, moveIntoChildContainerVe);
+      return;
+    }
+  }
+
+  if (store.perVe.getMoveOverColAttachmentNumber(tablePath) >= 0) {
     mouseUpHandler_moving_toTable_attachmentCell(store, activeItem, overContainerVe);
     return;
   }
 
-  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(VeFns.veToPath(overContainerVe)), activeItem.id);
+  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(tablePath), activeItem.id);
   itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 

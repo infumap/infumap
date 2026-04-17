@@ -73,6 +73,10 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const isPoppedUp = () =>
     store.history.currentPopupSpecVeid() != null &&
     VeFns.compareVeids(VeFns.actualVeidFromVe(props.visualElement), store.history.currentPopupSpecVeid()!) == 0;
+  const isTableChildDropTarget = () =>
+    store.anItemIsMoving.get() &&
+    props.visualElement.parentPath != null &&
+    store.perVe.getMoveOverChildContainerPath(props.visualElement.parentPath) === vePath();
 
   const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
 
@@ -91,6 +95,19 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
               `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
               `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
               `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+        </Match>
+        <Match when={isTableChildDropTarget()}>
+          <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+            style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
+              `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px; ` +
+              `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+              `background-color: #0044ff0a;`} />
+          <Show when={lineHighlightBoundsPx() != null}>
+            <div class="absolute border border-slate-300 rounded-xs"
+              style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
+                `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px; ` +
+                `z-index: ${Z_INDEX_ITEMS_OVERLAY}; `} />
+          </Show>
         </Match>
         <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
