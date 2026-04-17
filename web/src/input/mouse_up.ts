@@ -80,17 +80,12 @@ function maybeEditDocumentPageRowFromBackgroundClick(
 
   const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
   const mouseDesktopPx = CursorEventState.getLatestDesktopPx(store);
-  const documentContentLeftPx = Math.max(
-    (viewportBoundsPx.w - pageVe.childAreaBoundsPx.w) / 2,
-    0,
-  );
-  const posInDocumentPx = {
-    x: mouseDesktopPx.x - viewportBoundsPx.x - documentContentLeftPx,
-    y: mouseDesktopPx.y - viewportBoundsPx.y,
-  };
+  const pageVeid = VeFns.actualVeidFromVe(pageVe);
+  const scrollYPx = store.perItem.getPageScrollYProp(pageVeid) *
+    Math.max(pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h, 0);
+  const posInDocumentYPx = mouseDesktopPx.y - viewportBoundsPx.y + scrollYPx;
 
-  if (posInDocumentPx.x < 0 || posInDocumentPx.x > pageVe.childAreaBoundsPx.w ||
-    posInDocumentPx.y < 0 || posInDocumentPx.y > pageVe.childAreaBoundsPx.h) {
+  if (posInDocumentYPx < 0 || posInDocumentYPx > pageVe.childAreaBoundsPx.h) {
     return false;
   }
 
@@ -106,7 +101,7 @@ function maybeEditDocumentPageRowFromBackgroundClick(
       ? childVe.boundsPx.y + childVe.boundsPx.h
       : (childVe.boundsPx.y + childVe.boundsPx.h + nextChildVe.boundsPx.y) / 2;
 
-    if (posInDocumentPx.y < bandTopPx || posInDocumentPx.y > bandBottomPx) { continue; }
+    if (posInDocumentYPx < bandTopPx || posInDocumentYPx > bandBottomPx) { continue; }
 
     ItemFns.handleClick(childVes[i], null, HitboxFlags.Click, store);
     return true;
