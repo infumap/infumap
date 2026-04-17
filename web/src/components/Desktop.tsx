@@ -19,7 +19,7 @@
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { useStore } from "../store/StoreProvider";
 import { ContextMenu } from "./overlay/ContextMenu";
-import { handleUpload } from "../upload";
+import { clearExternalUploadHover, handleExternalUploadDrop, handleUpload, updateExternalUploadHover } from "../upload";
 import { HitboxFlags } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
 import { Page_Desktop } from "./items/Page";
@@ -38,12 +38,21 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   const store = useStore();
 
   let desktopDiv: HTMLDivElement | undefined;
+  let clearExternalUploadHoverTimeoutId: number | null = null;
 
   const dropListener = async (ev: DragEvent) => {
     CursorEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
+      if (clearExternalUploadHoverTimeoutId != null) {
+        clearTimeout(clearExternalUploadHoverTimeoutId);
+        clearExternalUploadHoverTimeoutId = null;
+      }
+      if (Array.from(ev.dataTransfer.types).includes("Files")) {
+        await handleExternalUploadDrop(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
+        return;
+      }
       let hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
       if (hitInfo.hitboxType != HitboxFlags.None) {
         store.overlay.toolbarTransientMessage.set({ text: "Must upload on background", type: TransientMessageType.Error });
@@ -65,20 +74,43 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   };
 
   const dragoverListener = (ev: DragEvent) => {
+    CursorEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
       ev.dataTransfer.dropEffect = "copy";
+      if (clearExternalUploadHoverTimeoutId != null) {
+        clearTimeout(clearExternalUploadHoverTimeoutId);
+        clearExternalUploadHoverTimeoutId = null;
+      }
+      updateExternalUploadHover(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
     }
+  };
+
+  const dragleaveListener = (_ev: DragEvent) => {
+    if (clearExternalUploadHoverTimeoutId != null) {
+      clearTimeout(clearExternalUploadHoverTimeoutId);
+    }
+    clearExternalUploadHoverTimeoutId = window.setTimeout(() => {
+      clearExternalUploadHover(store);
+      clearExternalUploadHoverTimeoutId = null;
+    }, 40);
   };
 
   onMount(() => {
     desktopDiv!.addEventListener('dragover', dragoverListener);
+    desktopDiv!.addEventListener('dragleave', dragleaveListener);
     desktopDiv!.addEventListener('drop', dropListener);
   });
 
   onCleanup(() => {
+    if (clearExternalUploadHoverTimeoutId != null) {
+      clearTimeout(clearExternalUploadHoverTimeoutId);
+      clearExternalUploadHoverTimeoutId = null;
+    }
+    clearExternalUploadHover(store);
     desktopDiv!.removeEventListener('dragover', dragoverListener);
+    desktopDiv!.removeEventListener('dragleave', dragleaveListener);
     desktopDiv!.removeEventListener('drop', dropListener);
   });
 

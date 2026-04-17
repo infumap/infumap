@@ -84,7 +84,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return props.visualElement.parentPath;
   };
   const isTableChildDropTarget = () =>
-    store.anItemIsMoving.get() &&
+    (store.anItemIsMoving.get() || store.externalFileDragActive.get()) &&
     tableDropTargetOwnerPath() != null &&
     store.perVe.getMoveOverChildContainerPath(tableDropTargetOwnerPath()!) === vePath();
   const tableChildDropHighlightBoundsPx = () =>
