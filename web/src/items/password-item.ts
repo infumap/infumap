@@ -29,7 +29,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
@@ -283,9 +283,10 @@ export const PasswordFns = {
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
-    if (!forceEdit && handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    const shouldEditImmediately = forceEdit || isInsideDocumentPageClickContext(visualElement);
+    if (!shouldEditImmediately && handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const itemPath = VeFns.veToPath(visualElement);
-    if (!forceEdit && store.history.getFocusPath() !== itemPath) {
+    if (!shouldEditImmediately && store.history.getFocusPath() !== itemPath) {
       store.history.setFocus(itemPath);
       arrangeNow(store, "password-focus");
       return;

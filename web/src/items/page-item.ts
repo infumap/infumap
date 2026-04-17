@@ -33,7 +33,7 @@ import { PositionalMixin } from './base/positional-item';
 import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
-import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext } from './base/item-common-fns';
 import { switchToPage } from '../layout/navigation';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
@@ -867,6 +867,11 @@ export const PageFns = {
 
       if (hitboxMeta?.focusOnly) {
         arrangeNow(store, "page-focus-only");
+        return;
+      }
+
+      if (isInsideDocumentPageClickContext(visualElement)) {
+        PageFns.handleEditTitleClick(visualElement, store);
         return;
       }
 

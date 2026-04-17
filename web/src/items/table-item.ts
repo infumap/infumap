@@ -33,7 +33,7 @@ import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext } from "./base/item-common-fns";
 import { itemState } from "../store/ItemState";
 import { PlaceholderFns } from "./placeholder-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -268,9 +268,10 @@ export const TableFns = {
 
   handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel, forceEdit: boolean = false): void => {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
-    if (!forceEdit && handledByList) { return; }
+    const shouldEditImmediately = forceEdit || isInsideDocumentPageClickContext(visualElement);
+    if (!shouldEditImmediately && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
-    if (!forceEdit && hitboxMeta == null && store.history.getFocusPath() !== itemPath) {
+    if (!shouldEditImmediately && hitboxMeta == null && store.history.getFocusPath() !== itemPath) {
       store.history.setFocus(itemPath);
       arrangeNow(store, "table-focus");
       return;
