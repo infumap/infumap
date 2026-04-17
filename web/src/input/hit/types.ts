@@ -44,7 +44,8 @@ export interface HitTraversalContext {
   posRelativeToRootVeViewportPx: Vector,
   ignoreItems: Set<Uid>,
   posOnDesktopPx: Vector,
-  canHitEmbeddedInteractive: boolean
+  canHitEmbeddedInteractive: boolean,
+  allowOutsideBoundsHitboxes: boolean,
 }
 
 export interface HitHandler {
@@ -64,5 +65,4 @@ export interface RootInfo {
   posRelativeToRootVeBoundsPx: Vector,
   hitMaybe: HitInfo | null
 }
-
 

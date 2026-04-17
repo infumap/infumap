@@ -110,9 +110,9 @@ export const HitInfoFns = {
     result += "debugCreatedAt: " + hitInfo.debugCreatedAt + "\n";
     return result;
   },
-  hit: (store: StoreContextModel, posOnDesktopPx: Vector, ignoreItems: Array<Uid>, canHitEmbeddedInteractive: boolean): HitInfo => {
+  hit: (store: StoreContextModel, posOnDesktopPx: Vector, ignoreItems: Array<Uid>, canHitEmbeddedInteractive: boolean, allowOutsideBoundsHitboxes: boolean = true): HitInfo => {
     const ignoreSet = new Set<Uid>(ignoreItems);
-    return getHitInfo(store, posOnDesktopPx, ignoreSet, canHitEmbeddedInteractive);
+    return getHitInfo(store, posOnDesktopPx, ignoreSet, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
   }
 };
 
@@ -135,6 +135,7 @@ export function getHitInfo(
   posOnDesktopPx: Vector,
   ignoreItems: Set<Uid>,
   canHitEmbeddedInteractive: boolean,
+  allowOutsideBoundsHitboxes: boolean = true,
 ): HitInfo {
   const umbrellaVe: VisualElement = store.umbrellaVisualElement.get();
   assert(VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
@@ -144,7 +145,7 @@ export function getHitInfo(
   type RootResolver = (info: RootInfo) => RootInfo;
   const resolvers: Array<RootResolver> = [
     (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
-    (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems),
+    (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, allowOutsideBoundsHitboxes),
     (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
     (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive),
   ];
@@ -153,7 +154,7 @@ export function getHitInfo(
     const hit = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
     if (hit) { return hit; }
   }
-  return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo);
+  return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo, allowOutsideBoundsHitboxes);
 }
 
 
@@ -163,6 +164,7 @@ function getHitInfoUnderRoot(
   ignoreItems: Set<Uid>,
   canHitEmbeddedInteractive: boolean,
   rootInfo: RootInfo,
+  allowOutsideBoundsHitboxes: boolean,
 ): HitInfo {
   const { parentRootVe, rootVes, rootVe } = rootInfo;
   let { posRelativeToRootVeViewportPx } = rootInfo;
@@ -190,12 +192,12 @@ function getHitInfoUnderRoot(
 
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
-    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive);
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
     if (hitMaybe) { return hitMaybe; }
   }
   const selectedVes = VesCache.render.getSelected(VeFns.veToPath(rootVe))();
   if (selectedVes) {
-    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, selectedVes, ignoreItems, canHitEmbeddedInteractive);
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, selectedVes, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
     if (hitMaybe) { return hitMaybe; }
   }
   return new HitBuilder(parentRootVe, rootVes).over(rootVes).hitboxes(HitboxFlags.None, HitboxFlags.None).meta(null).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("getHitInfoUnderRoot").build();
@@ -211,6 +213,7 @@ function hitChildMaybe(
   childVes: VisualElementSignal,
   ignoreItems: Set<Uid>,
   canHitEmbeddedInteractive: boolean,
+  allowOutsideBoundsHitboxes: boolean,
 ): HitInfo | null {
   const childVe = childVes.get();
   if (childVe.flags & VisualElementFlags.IsDock) { return null; }
@@ -273,8 +276,8 @@ function hitChildMaybe(
       };
     }
   }
-  if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx))) { return null; }
-  const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive };
+  if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
+  const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes };
   for (const handler of HitHandlers) {
     if (handler.canHandle(childVe)) {
       const res = handler.handle(childVe, childVes, ctx as any);
@@ -333,6 +336,7 @@ function hitNonPagePopupMaybe(
   posOnDesktopPx: Vector,
   canHitEmbeddedInteractive: boolean,
   ignoreItems: Set<Uid>,
+  allowOutsideBoundsHitboxes: boolean,
 ): RootInfo {
   let rootVe = parentRootInfo.rootVe;
   if (!VesCache.render.getPopup(VeFns.veToPath(rootVe))()) { return parentRootInfo; }
@@ -413,7 +417,7 @@ function hitNonPagePopupMaybe(
   }
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
-    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive);
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
     if (hitMaybe) { return ({ parentRootVe: parentRootInfo.parentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe }); }
   }
   if (hitboxType != HitboxFlags.None && !isIgnored(rootVe.displayItem.id, ignoreItems)) {

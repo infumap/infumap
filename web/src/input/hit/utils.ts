@@ -62,9 +62,13 @@ export function isInsideBoundsOrAllowedHitbox(
   ve: VisualElement,
   localPos: Vector,
   offsetTopLeft?: Vector,
+  allowOutsideBoundsHitboxes: boolean = true,
 ): boolean {
   if (isInside(localPos, ve.boundsPx)) {
     return true;
+  }
+  if (!allowOutsideBoundsHitboxes) {
+    return false;
   }
   for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
     if (!ve.hitboxes[i].meta?.allowOutsideBounds) { continue; }
