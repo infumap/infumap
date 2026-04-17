@@ -32,7 +32,7 @@ import { PositionalMixin } from './base/positional-item';
 import { FlagsItem, FlagsMixin, NoteFlags } from './base/flags-item';
 import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
@@ -324,7 +324,7 @@ export const NoteFns = {
 
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    if (VesCache.current.readNode(visualElement.parentPath!)!.flags & VisualElementFlags.Popup) {
+    if (isInsidePopupHierarchy(visualElement)) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });

@@ -31,7 +31,7 @@ import { PositionalMixin } from "./base/positional-item";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { VesCache } from "../layout/ves-cache";
-import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
+import { calcBoundsInCell, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from "./base/item-common-fns";
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { ItemFns } from "./base/item-polymorphism";
 import { FlagsMixin } from "./base/flags-item";
@@ -352,11 +352,7 @@ export const ImageFns = {
             console.error(`Could not open remote file '${itemId}' from '${host}':`, e);
           });
       }
-    } else if (VesCache.current.readNode(visualElement.parentPath!)!.flags & VisualElementFlags.Popup) {
-      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      requestArrange(store, "image-popup-open");
-    } else if (store.history.currentPopupSpec() != null) {
-      // Inside a popup hierarchy (e.g., image inside a page displayed from a popup list)
+    } else if (isInsidePopupHierarchy(visualElement)) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       requestArrange(store, "image-popup-open");
     } else {
@@ -372,7 +368,11 @@ export const ImageFns = {
   },
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
-    store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    if (isInsidePopupHierarchy(visualElement)) {
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    } else {
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    }
     requestArrange(store, "image-popup-open");
   },
 
@@ -393,7 +393,11 @@ export const ImageFns = {
 
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    if (isInsidePopupHierarchy(visualElement)) {
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    } else {
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    }
     requestArrange(store, "image-popup-open");
   },
 

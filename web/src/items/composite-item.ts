@@ -30,7 +30,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { CompositeFlags, FlagsMixin, PageFlags } from './base/flags-item';
 import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
@@ -306,7 +306,7 @@ export const CompositeFns = {
 
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    if (VesCache.current.readNode(visualElement.parentPath!)!.flags & VisualElementFlags.Popup) {
+    if (isInsidePopupHierarchy(visualElement)) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
     } else {
       store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });

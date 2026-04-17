@@ -33,7 +33,7 @@ import { EMPTY_ITEM, Item, Measurable, isEmptyItem } from './item';
 import { asPlaceholderItem, isPlaceholder, PlaceholderFns } from '../placeholder-item';
 import { asPasswordItem, isPassword, PasswordFns } from '../password-item';
 import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
-import { calcGeometryOfEmptyItem_ListItem } from './item-common-fns';
+import { calcGeometryOfEmptyItem_ListItem, isInsidePopupHierarchy } from './item-common-fns';
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
 import { LINE_HEIGHT_PX, GRID_SIZE } from '../../constants';
 import { arrangeNow, requestArrange } from '../../layout/arrange';
@@ -380,13 +380,7 @@ function calcAttachmentPopupContext(
     }
   }
 
-  let insidePopup = parentVe.flags & VisualElementFlags.Popup ? true : false;
-
-  // Logic to detect if we are inside a table which is inside a popup (special nested case)
-  if (isTable(parentVe.displayItem)) {
-    const parentParentVe = VesCache.current.readNode(parentVe.parentPath!)!;
-    if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
-  }
+  const insidePopup = isInsidePopupHierarchy(visualElement);
 
   return { sourcePositionGr, insidePopup };
 }

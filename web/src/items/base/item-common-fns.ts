@@ -62,6 +62,19 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
   return false;
 }
 
+export function isInsidePopupHierarchy(visualElement: VisualElement): boolean {
+  let currentPath = visualElement.parentPath;
+
+  while (currentPath != null) {
+    const currentVe = VesCache.current.readNode(currentPath);
+    if (!currentVe) { return false; }
+    if (currentVe.flags & VisualElementFlags.Popup) { return true; }
+    currentPath = currentVe.parentPath;
+  }
+
+  return false;
+}
+
 export function isInsideDocumentPageClickContext(visualElement: VisualElement): boolean {
   let currentPath = visualElement.parentPath;
 
