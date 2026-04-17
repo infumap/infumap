@@ -30,7 +30,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
-import { currentCaretElement, EditElementType, type EditPathInfo, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, setCaretPosition, editPathInfoToDomId } from "../util/caret";
+import { currentCaretElement, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition } from "../util/caret";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -49,6 +49,18 @@ type LinearEditContext = {
   containerPath: string,
   editingVe: VisualElement,
   editingPath: string,
+};
+type LinearSelectionBoundary = {
+  pathInfo: EditPathInfo,
+  offset: number,
+};
+type LinearSelectionDeleteSpec = {
+  context: LinearEditContext,
+  orderedPaths: Array<string>,
+  start: LinearSelectionBoundary,
+  end: LinearSelectionBoundary,
+  startIndex: number,
+  endIndex: number,
 };
 
 let arrowKeyDown_pendingBoundaryNavigation: PendingBoundaryNavigation | null = null;
@@ -178,6 +190,203 @@ function currentLinearEditContext(store: StoreContextModel): LinearEditContext |
     editingVe,
     editingPath: textEditInfo.itemPath,
   };
+}
+
+function editablePathsInLinearContainer(context: LinearEditContext): Array<string> {
+  const orderedPaths: Array<string> = [];
+  if (isPage(context.containerVe.displayItem) &&
+    asPageItem(context.containerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+    !(asPageItem(context.containerVe.displayItem).flags & PageFlags.HideDocumentTitle)) {
+    orderedPaths.push(context.containerPath);
+  }
+
+  const childVes = VesCache.current.readStructuralChildren(context.containerPath);
+  for (const childVe of childVes) {
+    if (editableItemType(childVe) == null) { continue; }
+    orderedPaths.push(VeFns.veToPath(childVe));
+  }
+
+  return orderedPaths;
+}
+
+function supportsLinearSelectionDeletePath(
+  context: LinearEditContext,
+  path: string,
+  allowContainerTitle: boolean,
+): boolean {
+  if (path == context.containerPath) {
+    return allowContainerTitle &&
+      isPage(context.containerVe.displayItem) &&
+      asPageItem(context.containerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+      !(asPageItem(context.containerVe.displayItem).flags & PageFlags.HideDocumentTitle);
+  }
+
+  const item = itemState.get(VeFns.veidFromPath(path).itemId);
+  return !!item && (isNote(item) || isFile(item));
+}
+
+function textForLinearSelectionDeletePath(context: LinearEditContext, path: string): string | null {
+  if (path == context.containerPath) {
+    if (!isPage(context.containerVe.displayItem)) { return null; }
+    return asPageItem(context.containerVe.displayItem).title;
+  }
+
+  const item = itemState.get(VeFns.veidFromPath(path).itemId);
+  if (item == null || (!isNote(item) && !isFile(item))) { return null; }
+  return asTitledItem(item).title;
+}
+
+function setTextForLinearSelectionDeletePath(context: LinearEditContext, path: string, text: string): boolean {
+  if (path == context.containerPath) {
+    const pageItem = itemState.get(context.containerVe.displayItem.id);
+    if (pageItem == null || !isPage(pageItem)) { return false; }
+    asPageItem(pageItem).title = text;
+    return true;
+  }
+
+  const item = itemState.get(VeFns.veidFromPath(path).itemId);
+  if (item == null || (!isNote(item) && !isFile(item))) { return false; }
+  asTitledItem(item).title = text;
+  return true;
+}
+
+function persistLinearSelectionDeletePath(store: StoreContextModel, context: LinearEditContext, path: string): void {
+  if (path == context.containerPath) {
+    const pageItem = itemState.get(context.containerVe.displayItem.id);
+    if (pageItem != null) {
+      serverOrRemote.updateItem(pageItem, store.general.networkStatus);
+    }
+    return;
+  }
+
+  const item = itemState.get(VeFns.veidFromPath(path).itemId);
+  if (item != null) {
+    serverOrRemote.updateItem(item, store.general.networkStatus);
+  }
+}
+
+function linearSelectionBoundaryFromRangeBoundary(node: Node, offset: number): LinearSelectionBoundary | null {
+  const pathInfo = getEditPathInfoForNode(node);
+  if (pathInfo == null || pathInfo.type != EditElementType.Title) { return null; }
+
+  const editingElement = document.getElementById(editPathInfoToDomId(pathInfo));
+  if (!(editingElement instanceof HTMLElement)) { return null; }
+
+  return {
+    pathInfo,
+    offset: getTextOffsetWithinElement(editingElement, node, offset),
+  };
+}
+
+function maybeBuildLinearSelectionDeleteSpec(store: StoreContextModel, key: string): LinearSelectionDeleteSpec | null {
+  if (key != "Backspace" && key != "Delete") { return null; }
+
+  const context = currentLinearEditContext(store);
+  if (context == null) { return null; }
+
+  const selection = window.getSelection();
+  if (selection == null || selection.rangeCount == 0 || selection.isCollapsed) { return null; }
+
+  const range = selection.getRangeAt(0);
+  const start = linearSelectionBoundaryFromRangeBoundary(range.startContainer, range.startOffset);
+  const end = linearSelectionBoundaryFromRangeBoundary(range.endContainer, range.endOffset);
+  if (start == null || end == null) { return null; }
+
+  const orderedPaths = editablePathsInLinearContainer(context);
+  const startIndex = orderedPaths.indexOf(start.pathInfo.path);
+  const endIndex = orderedPaths.indexOf(end.pathInfo.path);
+  if (startIndex < 0 || endIndex < 0 || startIndex >= endIndex) { return null; }
+
+  for (let i = startIndex; i <= endIndex; ++i) {
+    if (!supportsLinearSelectionDeletePath(context, orderedPaths[i], i == startIndex)) {
+      return null;
+    }
+  }
+
+  return {
+    context,
+    orderedPaths,
+    start,
+    end,
+    startIndex,
+    endIndex,
+  };
+}
+
+function focusAfterLinearSelectionDelete(
+  store: StoreContextModel,
+  deleteSpec: LinearSelectionDeleteSpec,
+  keepStartPath: boolean,
+  startCaretPosition: number,
+): void {
+  arrangeNow(store, "linear-delete-selection");
+
+  if (keepStartPath && focusTextEditPathInfo(store, deleteSpec.start.pathInfo, startCaretPosition)) {
+    return;
+  }
+
+  const prevPath = deleteSpec.startIndex > 0
+    ? deleteSpec.orderedPaths[deleteSpec.startIndex - 1]
+    : null;
+  if (prevPath != null) {
+    const prevText = textForLinearSelectionDeletePath(deleteSpec.context, prevPath);
+    if (prevText != null && focusTextEditPathInfo(store, {
+      path: prevPath,
+      type: EditElementType.Title,
+      colNumMaybe: null,
+    }, prevText.length)) {
+      return;
+    }
+  }
+
+  const nextPath = deleteSpec.endIndex + 1 < deleteSpec.orderedPaths.length
+    ? deleteSpec.orderedPaths[deleteSpec.endIndex + 1]
+    : null;
+  if (nextPath != null && focusTextEditPathInfo(store, {
+    path: nextPath,
+    type: EditElementType.Title,
+    colNumMaybe: null,
+  }, 0)) {
+    return;
+  }
+
+  store.overlay.setTextEditInfo(store.history, null);
+  arrangeNow(store, "linear-delete-selection-exit-edit");
+}
+
+function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: LinearSelectionDeleteSpec): boolean {
+  const startPath = deleteSpec.start.pathInfo.path;
+  const endPath = deleteSpec.end.pathInfo.path;
+  const startText = textForLinearSelectionDeletePath(deleteSpec.context, startPath);
+  const endText = textForLinearSelectionDeletePath(deleteSpec.context, endPath);
+  if (startText == null || endText == null) { return false; }
+
+  const startOffset = Math.max(0, Math.min(deleteSpec.start.offset, startText.length));
+  const endOffset = Math.max(0, Math.min(deleteSpec.end.offset, endText.length));
+  const mergedText = startText.substring(0, startOffset) + endText.substring(endOffset);
+
+  const pathsToDelete = deleteSpec.orderedPaths.slice(deleteSpec.startIndex + 1, deleteSpec.endIndex + 1);
+  let keepStartPath = true;
+  if (startPath != deleteSpec.context.containerPath && mergedText.length == 0) {
+    keepStartPath = false;
+    pathsToDelete.unshift(startPath);
+  } else {
+    if (!setTextForLinearSelectionDeletePath(deleteSpec.context, startPath, mergedText)) {
+      return false;
+    }
+    persistLinearSelectionDeletePath(store, deleteSpec.context, startPath);
+  }
+
+  for (const path of pathsToDelete) {
+    if (path == deleteSpec.context.containerPath) { continue; }
+    const item = itemState.get(VeFns.veidFromPath(path).itemId);
+    if (item == null) { continue; }
+    itemState.delete(item.id);
+    server.deleteItem(item.id, store.general.networkStatus);
+  }
+
+  focusAfterLinearSelectionDelete(store, deleteSpec, keepStartPath, startOffset);
+  return true;
 }
 
 function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, key: string): boolean {
@@ -415,6 +624,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     const itemPath = store.overlay.textEditInfo()!.itemPath;
     const editingDomId = itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
+    if (!(textElement instanceof HTMLElement)) { return; }
     const caretPosition = getCaretPosition(textElement!);
     arrowKeyDown_caretPosition = caretPosition;
     arrowKeyDown_element = textElement;
@@ -439,9 +649,18 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     return;
   }
 
+  const linearSelectionDeleteSpec = maybeBuildLinearSelectionDeleteSpec(store, ev.key);
+  if (linearSelectionDeleteSpec != null) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    deleteLinearSelectionMaybe(store, linearSelectionDeleteSpec);
+    return;
+  }
+
   switch (ev.key) {
     case "Backspace":
       const el = currentCaretElement();
+      if (!(el instanceof HTMLElement)) { return; }
       const position = getCaretPosition(el!);
       if (position > 0) { return; }
       ev.preventDefault();
@@ -555,6 +774,7 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
         ? focusItemPath + ":title"
         : focusItemPath + ":col" + colNum;
       const el = document.getElementById(focusItemDomId);
+      if (!(el instanceof HTMLElement)) { return; }
       const newText = el!.innerText;
       if (!store.overlay.toolbarPopupInfoMaybe.get()) {
         if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {

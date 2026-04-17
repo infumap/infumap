@@ -307,14 +307,18 @@ export const NoteFns = {
     }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Note });
     const editingDomId = itemPath + ":title";
-    const el = document.getElementById(editingDomId)!;
-    el.focus();
-    const closestIdx = caretAtEnd ? el.innerText.length : closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    const el = document.getElementById(editingDomId);
+    const closestIdx = el instanceof HTMLElement
+      ? (caretAtEnd ? el.innerText.length : closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx()))
+      : 0;
     arrangeNow(store, "note-enter-edit-mode");
-    const freshEl = document.getElementById(editingDomId)!;
-    if (freshEl) {
+    const freshEl = document.getElementById(editingDomId);
+    if (freshEl instanceof HTMLElement) {
       freshEl.focus();
       setCaretPosition(freshEl, caretAtEnd ? freshEl.innerText.length : closestIdx);
+    } else {
+      console.warn("Could not enter note edit mode because the text element no longer exists", { itemPath });
+      store.overlay.setTextEditInfo(store.history, null);
     }
   },
 

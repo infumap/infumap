@@ -240,11 +240,32 @@ function parseEditPathInfoFromDomId(id: string): EditPathInfo | null {
   return null;
 }
 
+export function getEditPathInfoForNode(node: Node | null): EditPathInfo | null {
+  let current: Node | null = node;
+  while (current != null) {
+    if (current instanceof HTMLElement) {
+      const pathInfo = parseEditPathInfoFromDomId(current.id);
+      if (pathInfo != null) {
+        return pathInfo;
+      }
+    }
+    current = current.parentNode;
+  }
+  return null;
+}
+
 export function editPathInfoToDomId(epi: EditPathInfo): string {
   if (epi.type == EditElementType.Title) {
     return epi.path + ":title";
   }
   return epi.path + ":col" + epi.colNumMaybe;
+}
+
+export function getTextOffsetWithinElement(el: HTMLElement, node: Node, offset: number): number {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.setEnd(node, offset);
+  return range.toString().length;
 }
 
 /**
