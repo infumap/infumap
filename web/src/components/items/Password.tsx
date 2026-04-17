@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -150,13 +150,34 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     return desktopPopupIconTextIndentPx(sizeBl().w);
   };
 
+  const isInsideResizeHotspot = (ev: MouseEvent) => {
+    if (isInCompositeOrDocument()) { return false; }
+    const itemEl = (ev.currentTarget as HTMLElement | null)?.parentElement;
+    if (!itemEl) { return false; }
+    const itemBounds = itemEl.getBoundingClientRect();
+    const localX = ev.clientX - itemBounds.left;
+    const localY = ev.clientY - itemBounds.top;
+    const hotspotX = boundsPx().w - RESIZE_BOX_SIZE_PX;
+    const hotspotY = boundsPx().h - RESIZE_BOX_SIZE_PX;
+    const dx = boundsPx().w - localX;
+    const dy = boundsPx().h - localY;
+    if (localX < hotspotX || localY < hotspotY || dx < 0 || dy < 0) { return false; }
+    return (dx + dy) <= RESIZE_BOX_SIZE_PX;
+  };
+
   const iconMouseDownHandler = (ev: MouseEvent) => {
+    if (isInsideResizeHotspot(ev)) {
+      return;
+    }
     if (!isInComposite()) {
       ev.stopPropagation();
     }
   }
 
   const iconMouseUpHandler = (ev: MouseEvent) => {
+    if (isInsideResizeHotspot(ev)) {
+      return;
+    }
     if (MouseActionState.empty()) {
       ev.stopPropagation();
       return;
@@ -168,12 +189,18 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     }
   }
 
-  const copyClickHandler = () => {
+  const copyClickHandler = (ev: MouseEvent) => {
+    if (isInsideResizeHotspot(ev)) {
+      return;
+    }
     navigator.clipboard.writeText(passwordItem().text);
   }
 
   const isVisible = () => store.currentVisiblePassword.get() == passwordItem().id;
-  const VisibleClickHandler = () => {
+  const VisibleClickHandler = (ev: MouseEvent) => {
+    if (isInsideResizeHotspot(ev)) {
+      return;
+    }
     if (!isVisible()) {
       store.currentVisiblePassword.set(passwordItem().id);
     } else {
