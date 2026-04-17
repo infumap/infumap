@@ -872,6 +872,18 @@ export const PageFns = {
         return;
       }
 
+      // Pages rendered in attachment columns of tables should open as root when clicked.
+      // These cells don't reliably travel through the title-link path, so handle them here.
+      if ((visualElement.flags & VisualElementFlags.InsideTable) &&
+        (visualElement.flags & VisualElementFlags.Attachment)) {
+        const clickedVeid = VeFns.actualVeidFromVe(visualElement);
+        const currentVeid = store.history.currentPageVeid();
+        if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
+          switchToPage(store, clickedVeid, true, false, false);
+        }
+        return;
+      }
+
       // For pages rendered inside tables, a plain click on the row body should stop at focus.
       // This applies both to the first-column child and attachment columns, where title-link
       // clicks remain the explicit affordance for opening the page as root.
