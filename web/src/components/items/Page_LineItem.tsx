@@ -87,6 +87,11 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     store.anItemIsMoving.get() &&
     tableDropTargetOwnerPath() != null &&
     store.perVe.getMoveOverChildContainerPath(tableDropTargetOwnerPath()!) === vePath();
+  const tableChildDropHighlightBoundsPx = () =>
+    (props.visualElement.flags & VisualElementFlags.InsideTable) &&
+      !(props.visualElement.flags & VisualElementFlags.Attachment)
+      ? boundsPx()
+      : highlightBoundsPx();
 
   const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
 
@@ -108,8 +113,8 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
         </Match>
         <Match when={isTableChildDropTarget()}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-            style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
-              `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px; ` +
+            style={`left: ${tableChildDropHighlightBoundsPx().x + 2}px; top: ${tableChildDropHighlightBoundsPx().y + 2}px; ` +
+              `width: ${tableChildDropHighlightBoundsPx().w - 4}px; height: ${tableChildDropHighlightBoundsPx().h - 4}px; ` +
               `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
           <Show when={lineHighlightBoundsPx() != null}>
