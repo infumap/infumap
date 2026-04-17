@@ -88,11 +88,13 @@ export function arrange_list_page(
 
   const hitboxes = geometry.hitboxes;
 
-  const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
+  const isPopupRoot = !!(flags & ArrangeItemFlags.IsPopupRoot);
+  const parentIsPopup = !!(flags & ArrangeItemFlags.ParentIsPopup);
+  const insidePopup = isPopupRoot || parentIsPopup;
   const isNestedListPage = !!(flags & ArrangeItemFlags.IsListPageMainRoot);
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
-  const scale = isFull ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
+  const listScale = (isFull || insidePopup) ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
 
   if (isFull) {
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
@@ -112,13 +114,13 @@ export function arrange_list_page(
   })();
 
   let resizeBoundsPx = {
-    x: listWidthBl * LINE_HEIGHT_PX * scale - RESIZE_BOX_SIZE_PX,
+    x: listWidthBl * LINE_HEIGHT_PX * listScale - RESIZE_BOX_SIZE_PX,
     y: 0,
     w: RESIZE_BOX_SIZE_PX,
     h: geometry.viewportBoundsPx!.h
   }
   // Add horizontal resize for root pages, popup pages, and nested list pages
-  if (isFull || parentIsPopup || isNestedListPage) {
+  if (isFull || insidePopup || isNestedListPage) {
     hitboxes.push(HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx));
   }
 
@@ -139,8 +141,8 @@ export function arrange_list_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
-  const listWidthPx = LINE_HEIGHT_PX * listWidthBl * scale;
-  const listChildAreaHeightPx1 = (displayItem_pageWithChildren.computed_children.length * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX) * scale;
+  const listWidthPx = LINE_HEIGHT_PX * listWidthBl * listScale;
+  const listChildAreaHeightPx1 = (displayItem_pageWithChildren.computed_children.length * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX) * listScale;
   const listChildAreaHeightPx2 = geometry.viewportBoundsPx!.h;
   const listChildAreaHeightPx = Math.max(listChildAreaHeightPx1, listChildAreaHeightPx2);
   const listViewportBoundsPx = cloneBoundingBox(geometry.viewportBoundsPx!)!;
@@ -205,9 +207,9 @@ export function arrange_list_page(
       }
     }
 
-    const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
+    const blockSizePx = { w: LINE_HEIGHT_PX * listScale, h: LINE_HEIGHT_PX * listScale };
 
-    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, parentIsPopup, true, false, false);
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, insidePopup, true, false, false);
 
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
 
@@ -267,31 +269,31 @@ export function arrange_list_page(
     const cellBoundsPx = {
       x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
       y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
-      w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
-      h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
+      w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
+      h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
     };
 
     const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
     cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
     cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
-    const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false, false, false, false, store.smallScreenMode());
+    const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, insidePopup, false, false, false, false, false, false, store.smallScreenMode());
     listChildPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
-      ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
+      ArrangeItemFlags.RenderChildrenAsFull | (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
 
   pageRelationships.childrenPaths = listChildPaths;
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
-      x: listWidthBl * LINE_HEIGHT_PX * scale,
+      x: listWidthPx,
       y: 0,
-      w: geometry.viewportBoundsPx!.w - (listWidthBl * LINE_HEIGHT_PX) * scale,
+      w: Math.max(0, geometry.viewportBoundsPx!.w - listWidthPx),
       h: geometry.viewportBoundsPx!.h
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
     const canShiftLeft = selectedIsRoot;
-    pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot);
+    pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot, insidePopup);
   }
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
@@ -313,7 +315,8 @@ export function arrangeSelectedListItem(
   boundsPx: BoundingBox,
   currentPath: VisualElementPath,
   canShiftLeft: boolean,
-  isRoot: boolean): VisualElementSignal | null {
+  isRoot: boolean,
+  insidePopup: boolean): VisualElementSignal | null {
 
   const item = itemState.get(veid.itemId)!;
   const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : asLinkItem(itemState.get(veid.linkIdMaybe)!);
@@ -361,7 +364,9 @@ export function arrangeSelectedListItem(
 
   const result = arrangeItem(
     store, currentPath, ArrangeAlgorithm.List, li, actualLinkItemMaybe, cellGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull | (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None));
+    ArrangeItemFlags.RenderChildrenAsFull |
+    (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
+    (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
   return result;
 }
 
@@ -371,9 +376,10 @@ export function arrangeSelectedListItemPath(
   boundsPx: BoundingBox,
   currentPath: VisualElementPath,
   canShiftLeft: boolean,
-  isRoot: boolean): VisualElementPath | null {
+  isRoot: boolean,
+  insidePopup: boolean): VisualElementPath | null {
 
-  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, isRoot);
+  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, isRoot, insidePopup);
   return selectedVes ? VeFns.veToPath(selectedVes.get()) : null;
 }
 

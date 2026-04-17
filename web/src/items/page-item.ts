@@ -951,19 +951,6 @@ export const PageFns = {
   },
 
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    const parentVe = visualElement.parentPath ? VesCache.current.readNode(visualElement.parentPath) : null;
-    if ((visualElement.flags & VisualElementFlags.LineItem) &&
-      parentVe != null &&
-      isPage(parentVe.displayItem) &&
-      asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-      const clickedVeid = VeFns.actualVeidFromVe(visualElement);
-      const currentVeid = store.history.currentPageVeid();
-      if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
-        switchToPage(store, clickedVeid, true, false, false);
-      }
-      return;
-    }
-
     // For pages rendered inside tables, title-link clicks are the explicit affordance
     // for opening the clicked page as the new root, including attachment columns.
     if (visualElement.flags & VisualElementFlags.InsideTable) {

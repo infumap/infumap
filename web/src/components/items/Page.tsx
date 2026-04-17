@@ -238,6 +238,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return asPageItem(props.visualElement.displayItem).tableColumns[0].widthGr / GRID_SIZE;
     },
 
+    listViewportWidthPx: () => {
+      return props.visualElement.listViewportBoundsPx?.w ??
+        (LINE_HEIGHT_PX * pageFns.listColumnWidthBl() * pageFns.listViewScale());
+    },
+
     renderGridLinesMaybe: () =>
       <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
         <For each={[...Array(pageFns.pageItem().gridNumberOfColumns).keys()]}>{i =>

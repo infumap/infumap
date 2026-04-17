@@ -179,9 +179,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       return result; // Not a list page, no nested titles to show
     }
 
-    // Add the root popup page - use popup's listViewScale
-    const listColumnWidthBl = rootPageItem.tableColumns[0].widthGr / GRID_SIZE;
-    const widthPx = listColumnWidthBl * LINE_HEIGHT_PX * pageFns().listViewScale();
+    // Add the root popup page using the arranged list viewport width
+    const widthPx = pageFns().listViewportWidthPx();
     result.push({
       ve: props.visualElement,
       pageItem: rootPageItem,
@@ -202,11 +201,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           selectedPageItem.arrangeAlgorithm === ArrangeAlgorithm.List;
 
         if (selectedIsListPage) {
-          // For list pages, calculate width based on list column width
-          const selectedListColumnWidthBl = selectedPageItem.tableColumns[0].widthGr / GRID_SIZE;
-          // Use the nested page's own scale (from its viewportBoundsPx) to match Page_Root's calculation
-          const nestedScale = selectedVe.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
-          const selectedWidthPx = selectedListColumnWidthBl * LINE_HEIGHT_PX * nestedScale;
+          const selectedWidthPx =
+            selectedVe.listViewportBoundsPx?.w ??
+            ((selectedPageItem.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX * (selectedVe.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w));
           result.push({
             ve: selectedVe,
             pageItem: selectedPageItem,
@@ -312,13 +309,13 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       <div ref={popupDiv}
         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border-r border-slate-300`}
         style={`overflow-y: auto; overflow-x: hidden; ` +
-          `width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * pageFns().listViewScale()}px; ` +
+          `width: ${pageFns().listViewportWidthPx()}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
           `background-color: #ffffff;` +
           `${VeFns.zIndexStyle(props.visualElement)}`}
         onscroll={popupListScrollHandler}>
         <div class="absolute"
-          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
+          style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>

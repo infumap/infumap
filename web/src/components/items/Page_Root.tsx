@@ -184,12 +184,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   };
 
   const renderListPage = () => {
-    // Determine if we're in a full-screen (root) context or popup context
-    // If bounds height equals desktop height, we're in root context and should use unscaled widths
-    // This matches the arrange code's isFull check: geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h
-    const isFull = pageFns().boundsPx().h == store.desktopMainAreaBoundsPx().h;
-    const effectiveScale = isFull ? 1.0 : pageFns().listViewScale();
-
     return (
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
         style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
@@ -200,12 +194,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <div ref={rootDiv}
           class="absolute"
           style={`left: 0px; top: 0px; ` +
-            `width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * effectiveScale}px; ` +
+            `width: ${pageFns().listViewportWidthPx()}px; ` +
             `height: ${pageFns().viewportBoundsPx().h}px; ` +
             `overflow-y: auto; `}
           onscroll={listRootScrollHandler}>
           <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
-            style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * effectiveScale}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
+            style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
               `border-right-width: ${VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))() == null ? 1 : 2}px;` +
               `${VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))() == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))()!).backgroundColorIndex, BorderType.MainPage) + ';'}`}>
             <For each={pageFns().lineChildren()}>{childVe =>

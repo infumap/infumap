@@ -136,14 +136,14 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       <div class={`absolute ${borderClass()}`}
         style={`overflow-y: auto; overflow-x: hidden; ` +
-          `width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * pageFns().listViewScale()}px; ` +
+          `width: ${pageFns().listViewportWidthPx()}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
           `left: ${pageFns().boundsPx().x}px; ` +
           `top: ${pageFns().boundsPx().y}px; ` +
           `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="absolute"
-          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; ` +
-            `height: ${LINE_HEIGHT_PX * pageFns().lineChildren().length}px`}>
+          style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
+            `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
