@@ -21,7 +21,6 @@ import { isComposite } from "../../items/composite-item";
 import { isPage } from "../../items/page-item";
 import { isTable } from "../../items/table-item";
 import { getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy } from "../../util/geometry";
-import { panic } from "../../util/lang";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElementSignal } from "../../util/signals";
@@ -33,6 +32,11 @@ function parentVe(ve: VisualElement): VisualElement {
   return VesCache.current.readNode(ve.parentPath!)!;
 }
 
+function lastResizeHitboxMaybe(ve: VisualElement) {
+  const hitbox = ve.hitboxes[ve.hitboxes.length - 1];
+  return hitbox?.type == HitboxFlags.Resize ? hitbox : null;
+}
+
 export const HitHandlers: Array<HitHandler> = [];
 
 const _tableHandler: HitHandler = {
@@ -42,14 +46,13 @@ const _tableHandler: HitHandler = {
     if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
     const tableVes = childVes;
     const tableVe = childVe;
-    const resizeHitbox = tableVe.hitboxes[tableVe.hitboxes.length - 1];
-    if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
-    if (isInsideBottomRightTriangle(
+    const resizeHitbox = lastResizeHitboxMaybe(tableVe);
+    if (resizeHitbox != null && isInsideBottomRightTriangle(
       posRelativeToRootVeViewportPx,
       offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
       return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-resize").build();
     }
-    for (let j = tableVe.hitboxes.length - 2; j >= 0; j--) {
+    for (let j = tableVe.hitboxes.length - (resizeHitbox ? 2 : 1); j >= 0; j--) {
       const hb = tableVe.hitboxes[j];
       if (hb.type != HitboxFlags.HorizontalResize) { break; }
       if (isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
@@ -103,9 +106,8 @@ const _compositeHandler: HitHandler = {
     if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
     const compositeVes = childVes;
     const compositeVe = childVe;
-    const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length - 1];
-    if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
-    if (isInsideBottomRightTriangle(
+    const resizeHitbox = lastResizeHitboxMaybe(compositeVe);
+    if (resizeHitbox != null && isInsideBottomRightTriangle(
       posRelativeToRootVeViewportPx,
       offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
       return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-resize").build();
