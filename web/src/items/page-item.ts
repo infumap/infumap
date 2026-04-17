@@ -829,12 +829,10 @@ export const PageFns = {
     };
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.ShowPointer, clickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
     ];
-    if (!inTable) {
-      hitboxes.splice(1, 0, HitboxFns.create(HitboxFlags.ShowPointer, clickAreaBoundsPx));
-    }
     if (expandable) {
       hitboxes.push(HitboxFns.create(HitboxFlags.Expand, expandAreaBoundsPx));
     }
