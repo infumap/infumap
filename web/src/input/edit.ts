@@ -310,6 +310,29 @@ function maybeBuildLinearBoundaryNavigation(
   return navigation;
 }
 
+function clearArrowKeyTracking(): void {
+  arrowKeyDown_caretPosition = null;
+  arrowKeyDown_element = null;
+  arrowKeyDown_pendingBoundaryNavigation = null;
+}
+
+function applyLinearBoundaryNavigation(store: StoreContextModel, navigation: PendingBoundaryNavigation): boolean {
+  logLinearEdit("keydown-applying-boundary-navigation", {
+    currentEditingPath: store.history.getFocusPathMaybe(),
+    targetPath: navigation.targetPath,
+    targetCaretPosition: navigation.targetCaretPosition,
+  });
+  arrowKeyDown_pendingBoundaryNavigation = navigation;
+  persistCurrentEditTarget(store);
+  const didFocus = focusTextEditPathInfo(store, {
+    path: navigation.targetPath,
+    type: EditElementType.Title,
+    colNumMaybe: null,
+  }, navigation.targetCaretPosition);
+  clearArrowKeyTracking();
+  return didFocus;
+}
+
 export function textEditSelectionChangeListener() {
   if (arrowKeyDown_pendingBoundaryNavigation != null) {
     logLinearEdit("selectionchange-skip-restore-during-boundary-navigation", {
@@ -342,9 +365,7 @@ export const edit_keyUpHandler = (store: StoreContextModel, ev: KeyboardEvent) =
 
 const keyUp_Arrow = (store: StoreContextModel) => {
   const pendingBoundaryNavigation = arrowKeyDown_pendingBoundaryNavigation;
-  arrowKeyDown_caretPosition = null;
-  arrowKeyDown_element = null;
-  arrowKeyDown_pendingBoundaryNavigation = null;
+  clearArrowKeyTracking();
 
   let currentCaretItemInfo: EditPathInfo | null = null;
   try {
@@ -357,7 +378,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
       currentEditingPath: store.history.getFocusPathMaybe(),
     });
   }
-  const currentEditingPath = store.history.getFocusPath();
+  const currentEditingPath = store.history.getFocusPathMaybe();
   if (currentCaretItemInfo != null && currentEditingPath != currentCaretItemInfo.path) {
     logLinearEdit("keyup-browser-moved-to-new-item", {
       currentEditingPath,
@@ -374,23 +395,11 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   }
 
   if (pendingBoundaryNavigation != null) {
-    logLinearEdit("keyup-applying-boundary-navigation", {
+    logLinearEdit("keyup-boundary-navigation-already-handled", {
       currentEditingPath,
       targetPath: pendingBoundaryNavigation.targetPath,
       targetCaretPosition: pendingBoundaryNavigation.targetCaretPosition,
     });
-    const targetVe = VesCache.current.readNode(pendingBoundaryNavigation.targetPath);
-    if (!targetVe) { return; }
-
-    const itemType = editableItemType(targetVe);
-    if (itemType == null) { return; }
-
-    persistCurrentEditTarget(store);
-    focusTextEditPathInfo(store, {
-      path: pendingBoundaryNavigation.targetPath,
-      type: EditElementType.Title,
-      colNumMaybe: null,
-    }, pendingBoundaryNavigation.targetCaretPosition);
     return;
   }
 
@@ -425,6 +434,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
       });
       ev.preventDefault();
       ev.stopPropagation();
+      applyLinearBoundaryNavigation(store, arrowKeyDown_pendingBoundaryNavigation);
     }
     return;
   }
