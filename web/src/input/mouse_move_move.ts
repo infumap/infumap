@@ -328,6 +328,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       ? VeFns.veToPath(hitInfo.overVes.get())
       : null;
   const hitMoveTargetVe = resolveMoveTargetPageVe(hitInfo.overPositionableVe!);
+  const hoveredPageInsideTable =
+    tableContainerVeMaybe != null &&
+    !!(hitMoveTargetVe.flags & VisualElementFlags.InsideTable);
   const moveTargetIsDocumentPage =
     isPage(hitMoveTargetVe.displayItem) &&
     asPageItem(hitMoveTargetVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
@@ -404,7 +407,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     MouseActionState.setMoveOverAttachCompositePath(null);
   }
 
-  if (MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
+  if (!hoveredPageInsideTable && MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
     clearTableChildContainerDropTarget(store, moveOverContainerPath);
     moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false);
     arrangeNow(store, "moving-enter-new-container");

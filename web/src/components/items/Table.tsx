@@ -339,6 +339,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0 &&
+        moveOverChildContainerPath() == null &&
         !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`${positionClass()} border border-black bg-black`}

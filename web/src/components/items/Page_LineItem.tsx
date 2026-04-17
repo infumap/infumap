@@ -117,12 +117,6 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
               `width: ${tableChildDropHighlightBoundsPx().w - 4}px; height: ${tableChildDropHighlightBoundsPx().h - 4}px; ` +
               `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
-          <Show when={lineHighlightBoundsPx() != null}>
-            <div class="absolute border border-slate-300 rounded-xs"
-              style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
-                `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px; ` +
-                `z-index: ${Z_INDEX_ITEMS_OVERLAY}; `} />
-          </Show>
         </Match>
         <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
