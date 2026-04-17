@@ -65,6 +65,52 @@ function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, sh
   }
 }
 
+function maybeEditDocumentPageRowFromBackgroundClick(
+  store: StoreContextModel,
+  pageVe: VisualElement,
+): boolean {
+  if (!isPage(pageVe.displayItem) || asPageItem(pageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Document) {
+    return false;
+  }
+  if (!pageVe.viewportBoundsPx || !pageVe.childAreaBoundsPx) { return false; }
+
+  const pagePath = VeFns.veToPath(pageVe);
+  const childVes = VesCache.render.getChildren(pagePath)();
+  if (childVes.length == 0) { return false; }
+
+  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
+  const mouseDesktopPx = CursorEventState.getLatestDesktopPx(store);
+  const pageVeid = VeFns.actualVeidFromVe(pageVe);
+  const scrollYPx = store.perItem.getPageScrollYProp(pageVeid) *
+    Math.max(pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h, 0);
+  const posInDocumentYPx = mouseDesktopPx.y - viewportBoundsPx.y + scrollYPx;
+
+  if (posInDocumentYPx < 0 || posInDocumentYPx > pageVe.childAreaBoundsPx.h) {
+    return false;
+  }
+
+  for (let i = 0; i < childVes.length; ++i) {
+    const childVe = childVes[i].get();
+    const prevChildVe = i > 0 ? childVes[i - 1].get() : null;
+    const nextChildVe = i + 1 < childVes.length ? childVes[i + 1].get() : null;
+
+    const bandTopPx = prevChildVe == null
+      ? childVe.boundsPx.y
+      : (prevChildVe.boundsPx.y + prevChildVe.boundsPx.h + childVe.boundsPx.y) / 2;
+    const bandBottomPx = nextChildVe == null
+      ? childVe.boundsPx.y + childVe.boundsPx.h
+      : (childVe.boundsPx.y + childVe.boundsPx.h + nextChildVe.boundsPx.y) / 2;
+
+    if (posInDocumentYPx < bandTopPx || posInDocumentYPx > bandBottomPx) { continue; }
+
+    ItemFns.handleClick(childVes[i], null, HitboxFlags.Click, store);
+    return true;
+  }
+
+  return false;
+}
+
+
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
 
   if (document.activeElement!.id.includes("toolbarTitleDiv")) {
@@ -336,6 +382,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
           // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
           arrangeNow(store, "mouse-up-focus-noncurrent-root");
+
+        } else if (maybeEditDocumentPageRowFromBackgroundClick(store, activeVisualElement)) {
+          DoubleClickState.preventDoubleClick();
+          arrangeNow(store, "mouse-up-edit-document-row-from-background");
 
         } else if (activeVisualElementSignal.get().flags & VisualElementFlags.Popup) {
           DoubleClickState.preventDoubleClick();
