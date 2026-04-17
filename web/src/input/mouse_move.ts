@@ -902,6 +902,11 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 
 
 export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: boolean) {
+  if (!MouseActionState.empty()) {
+    clearMouseOverState(store);
+    store.mouseOverTableHeaderColumnNumber.set(null);
+    return;
+  }
 
   let isInsideToolbarPopup = false;
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
