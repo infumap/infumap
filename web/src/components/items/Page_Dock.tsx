@@ -25,7 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { PageVisualElementProps } from "./Page";
 import { VesCache } from "../../layout/ves-cache";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { getDockScrollYPx } from "../../layout/arrange/dock";
 
 
@@ -43,13 +43,14 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
   }
 
   const dockVeid = () => VeFns.actualVeidFromVe(props.visualElement);
+  const dockScrollYPx = () => getDockScrollYPx(store, props.visualElement);
 
   const syncDockScrollPosition = () => {
     if (!dockDiv) {
       return;
     }
     updatingDockScrollTop = true;
-    dockDiv.scrollTop = getDockScrollYPx(store, props.visualElement);
+    dockDiv.scrollTop = dockScrollYPx();
     dockDiv.scrollLeft = 0;
     setTimeout(() => {
       updatingDockScrollTop = false;
@@ -91,6 +92,23 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
     </Show>;
 
   const dockChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
+  // Keep the drag preview out of the scroll-clipped dock viewport so it remains visible over trash.
+  const dockMovingOverlayVe = (visualElement: VisualElement): VisualElement => {
+    const scrollYPx = dockScrollYPx();
+    return {
+      ...visualElement,
+      resizingFromBoundsPx: visualElement.resizingFromBoundsPx == null
+        ? null
+        : { ...visualElement.resizingFromBoundsPx, y: visualElement.resizingFromBoundsPx.y - scrollYPx },
+      boundsPx: { ...visualElement.boundsPx, y: visualElement.boundsPx.y - scrollYPx },
+      viewportBoundsPx: visualElement.viewportBoundsPx == null
+        ? null
+        : { ...visualElement.viewportBoundsPx, y: visualElement.viewportBoundsPx.y - scrollYPx },
+      listViewportBoundsPx: visualElement.listViewportBoundsPx == null
+        ? null
+        : { ...visualElement.listViewportBoundsPx, y: visualElement.listViewportBoundsPx.y - scrollYPx },
+    };
+  };
 
   return (
     <>
@@ -117,7 +135,8 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
                 `width: ${props.visualElement.childAreaBoundsPx!.w}px; ` +
                 `height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
               <For each={dockChildren()}>{childVe =>
-                <Show when={!(childVe.get().flags & VisualElementFlags.IsTrash)}>
+                <Show when={!(childVe.get().flags & VisualElementFlags.IsTrash) &&
+                  !(childVe.get().flags & VisualElementFlags.Moving)}>
                   <VisualElement_Desktop visualElement={childVe.get()} />
                 </Show>
               }</For>
@@ -127,6 +146,11 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
           <For each={dockChildren()}>{childVe =>
             <Show when={childVe.get().flags & VisualElementFlags.IsTrash}>
               <VisualElement_Desktop visualElement={childVe.get()} />
+            </Show>
+          }</For>
+          <For each={dockChildren()}>{childVe =>
+            <Show when={childVe.get().flags & VisualElementFlags.Moving}>
+              <VisualElement_Desktop visualElement={dockMovingOverlayVe(childVe.get())} />
             </Show>
           }</For>
         </div>
