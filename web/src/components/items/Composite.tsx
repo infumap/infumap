@@ -70,17 +70,17 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       return { x: 0, y: 0, w: widthPx, h: 1 };
     }
     if (moveOverIndex <= 0) {
-      return { x: 0, y: childVes[0].get().boundsPx.y, w: widthPx, h: 1 };
+      return { x: 0, y: Math.round(childVes[0].get().boundsPx.y), w: widthPx, h: 1 };
     }
     if (moveOverIndex >= childVes.length) {
       const lastVe = childVes[childVes.length - 1].get();
-      return { x: 0, y: lastVe.boundsPx.y + lastVe.boundsPx.h, w: widthPx, h: 1 };
+      return { x: 0, y: Math.round(lastVe.boundsPx.y + lastVe.boundsPx.h), w: widthPx, h: 1 };
     }
     const prevVe = childVes[moveOverIndex - 1].get();
     const nextVe = childVes[moveOverIndex].get();
     return {
       x: 0,
-      y: (prevVe.boundsPx.y + prevVe.boundsPx.h + nextVe.boundsPx.y) / 2,
+      y: Math.round((prevVe.boundsPx.y + prevVe.boundsPx.h + nextVe.boundsPx.y) / 2),
       w: widthPx,
       h: 1,
     };
@@ -181,8 +181,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
           moveOverInsertLineBoundsPx()}>
           {lineBoundsPx => (
-            <div class="absolute pointer-events-none border border-black"
-              style={`left: ${lineBoundsPx().x}px; top: ${lineBoundsPx().y}px; width: ${lineBoundsPx().w}px; height: ${lineBoundsPx().h}px;`} />
+            <div class="absolute pointer-events-none bg-black"
+              style={`left: ${lineBoundsPx().x}px; top: ${lineBoundsPx().y}px; width: ${lineBoundsPx().w}px; height: 1px;`} />
           )}
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
