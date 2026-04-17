@@ -360,8 +360,17 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(ve), false);
   }
   if (hitInfo.hitboxType & HitboxFlags.AttachComposite) {
-    store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(hitInfo.overVes!.get()), true);
-    MouseActionState.setMoveOverAttachCompositePath(VeFns.veToPath(hitInfo.overVes!.get()));
+    const attachCompositeVe = hitInfo.overVes!.get();
+    const attachCompositeTargetIsAlreadyInComposite =
+      attachCompositeVe.displayItem.parentId != null &&
+      isComposite(itemState.get(attachCompositeVe.displayItem.parentId)!);
+
+    if (!attachCompositeTargetIsAlreadyInComposite) {
+      store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(attachCompositeVe), true);
+      MouseActionState.setMoveOverAttachCompositePath(VeFns.veToPath(attachCompositeVe));
+    } else {
+      MouseActionState.setMoveOverAttachCompositePath(null);
+    }
   } else {
     MouseActionState.setMoveOverAttachCompositePath(null);
   }
