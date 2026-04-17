@@ -190,14 +190,30 @@ function getHitInfoUnderRoot(
     posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y + scrollYPx;
   }
 
+  const posRelativeToRootChildAreaPx = (() => {
+    if (rootPageItem.arrangeAlgorithm != ArrangeAlgorithm.Document) {
+      return posRelativeToRootVeViewportPx;
+    }
+
+    const documentContentLeftPx = Math.max(
+      (rootVe.viewportBoundsPx!.w - rootVe.childAreaBoundsPx!.w) / 2,
+      0,
+    );
+
+    return {
+      ...posRelativeToRootVeViewportPx,
+      x: posRelativeToRootVeViewportPx.x - documentContentLeftPx,
+    };
+  })();
+
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
-    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
     if (hitMaybe) { return hitMaybe; }
   }
   const selectedVes = VesCache.render.getSelected(VeFns.veToPath(rootVe))();
   if (selectedVes) {
-    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, selectedVes, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, selectedVes, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
     if (hitMaybe) { return hitMaybe; }
   }
   return new HitBuilder(parentRootVe, rootVes).over(rootVes).hitboxes(HitboxFlags.None, HitboxFlags.None).meta(null).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("getHitInfoUnderRoot").build();
