@@ -116,6 +116,7 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
 export function addContiguousStackedGapHitboxes(
   childGeometries: Array<ItemGeometry>,
   bandWidthPx: number,
+  focusOnly: boolean = true,
 ): void {
   for (let i = 0; i < childGeometries.length; ++i) {
     const geometry = childGeometries[i];
@@ -136,7 +137,7 @@ export function addContiguousStackedGapHitboxes(
         y: bandTopPx - geometry.boundsPx.y,
         w: bandWidthPx,
         h: gapAboveHeightPx,
-      }, { focusOnly: true, allowOutsideBounds: true }));
+      }, { focusOnly, allowOutsideBounds: true }));
     }
 
     const gapBelowHeightPx = bandBottomPx - (geometry.boundsPx.y + geometry.boundsPx.h);
@@ -146,7 +147,7 @@ export function addContiguousStackedGapHitboxes(
         y: geometry.boundsPx.h,
         w: bandWidthPx,
         h: gapBelowHeightPx,
-      }, { focusOnly: true, allowOutsideBounds: true }));
+      }, { focusOnly, allowOutsideBounds: true }));
     }
   }
 }

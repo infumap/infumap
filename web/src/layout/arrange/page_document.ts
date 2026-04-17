@@ -102,7 +102,7 @@ export function arrange_document_page(
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
   }
 
-  addContiguousStackedGapHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx);
+  addContiguousStackedGapHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
 
   const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
   for (const child of childArrangeData) {
