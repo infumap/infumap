@@ -39,6 +39,10 @@ import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { shouldShowFocusRingForVisualElement } from "./helper";
+import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
+import { asPageItem, isPage } from "../../items/page-item";
+import { asLinkItem, isLink } from "../../items/link-item";
+import { panic } from "../../util/lang";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -92,6 +96,28 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     });
   };
   const sizeBl = () => {
+    if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
+      const cloned = PasswordFns.asPasswordMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
+      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+      const parentDisplayItem = itemState.get(parentVeid.itemId)!;
+
+      let parentTreeItem = VeFns.treeItemFromVeid(parentVeid);
+      if (parentTreeItem == null) {
+        // case where link is virtual (not in itemState). happens in list selected page case.
+        parentTreeItem = itemState.get(parentVeid.itemId)!;
+      }
+
+      if (isPage(parentDisplayItem)) {
+        cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
+      } else {
+        cloned.spatialWidthGr = isXSizableItem(parentTreeItem)
+          ? asXSizableItem(parentTreeItem).spatialWidthGr
+          : isLink(parentTreeItem)
+            ? asLinkItem(parentTreeItem).spatialWidthGr
+            : panic(`Password sizeBl: parentTreeItem has unexpected type: ${parentTreeItem.itemType}`);
+      }
+      return ItemFns.calcSpatialDimensionsBl(cloned);
+    }
     if (props.visualElement.linkItemMaybe != null) {
       return ItemFns.calcSpatialDimensionsBl(props.visualElement.linkItemMaybe!);
     }
