@@ -151,3 +151,32 @@ export function addContiguousStackedGapHitboxes(
     }
   }
 }
+
+export function addContiguousStackedRowMarginHitboxes(
+  childGeometries: Array<ItemGeometry>,
+  bandWidthPx: number,
+  focusOnly: boolean = true,
+): void {
+  for (let i = 0; i < childGeometries.length; ++i) {
+    const geometry = childGeometries[i];
+
+    if (geometry.boundsPx.x > 0) {
+      geometry.hitboxes.unshift(HitboxFns.create(HitboxFlags.Click, {
+        x: -geometry.boundsPx.x,
+        y: 0,
+        w: geometry.boundsPx.x,
+        h: geometry.boundsPx.h,
+      }, { focusOnly, allowOutsideBounds: true }));
+    }
+
+    const rightMarginWidthPx = bandWidthPx - (geometry.boundsPx.x + geometry.boundsPx.w);
+    if (rightMarginWidthPx > 0) {
+      geometry.hitboxes.unshift(HitboxFns.create(HitboxFlags.Click, {
+        x: geometry.boundsPx.w,
+        y: 0,
+        w: rightMarginWidthPx,
+        h: geometry.boundsPx.h,
+      }, { focusOnly, allowOutsideBounds: true }));
+    }
+  }
+}

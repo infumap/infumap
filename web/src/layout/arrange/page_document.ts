@@ -29,7 +29,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItemPath, getCommonVisualElementFlags } from "./item";
-import { addContiguousStackedGapHitboxes, getVePropertiesForItem } from "./util";
+import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getVePropertiesForItem } from "./util";
 
 
 export function arrange_document_page(
@@ -102,6 +102,7 @@ export function arrange_document_page(
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
   }
 
+  addContiguousStackedRowMarginHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
   addContiguousStackedGapHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
 
   const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
