@@ -36,7 +36,7 @@ import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
-import { createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 
@@ -476,6 +476,10 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         </div>
         {renderBoxTitleMaybe()}
         {renderFocusRingMaybe()}
+        <Show when={store.perVe.getAutoMovedIntoView(pageFns().vePath())}>
+          <div class="absolute pointer-events-none rounded-xs"
+            style={autoMovedIntoViewWarningStyle(pageFns().boundsPx().w, pageFns().boundsPx().h)} />
+        </Show>
       </div>
     </div>
   );

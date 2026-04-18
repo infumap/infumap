@@ -50,7 +50,7 @@ import { newOrdering } from "../../util/ordering";
 import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -402,6 +402,10 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         </Show>
       </div>
       {renderFocusRingMaybe()}
+      <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
+        <div class="absolute pointer-events-none rounded-xs"
+          style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
+      </Show>
     </div>
   );
 }

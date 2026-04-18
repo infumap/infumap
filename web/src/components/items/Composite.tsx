@@ -33,7 +33,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 
 
@@ -179,6 +179,10 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
             <InfuResizeTriangle />
           </div>
         </div>
+      </Show>
+      <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
+        <div class="absolute pointer-events-none rounded-xs"
+          style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>
   );

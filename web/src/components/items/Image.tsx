@@ -37,7 +37,7 @@ import { asPageItem } from "../../items/page-item";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
-import { desktopStackRootStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -459,6 +459,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         {renderFocusRingMaybe()}
         {renderTitleMaybe()}
         {renderPopupActionStripMaybe()}
+      </Show>
+      <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
+        <div class="absolute pointer-events-none rounded-xs"
+          style={autoMovedIntoViewWarningStyle(quantizedBoundsPx().w, quantizedBoundsPx().h)} />
       </Show>
     </div>
   );

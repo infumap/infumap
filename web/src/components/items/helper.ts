@@ -25,6 +25,8 @@ import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox } from "../../util/geometry";
 
+const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
+
 
 export const createHighlightBoundsPxFn = (veFn: () => VisualElement) => {
   return (() => {
@@ -90,6 +92,15 @@ export const shouldShowFocusRingForVisualElement = (
 // contentEditable/caret behavior predictable while still allowing local stacking.
 export const desktopStackRootStyle = (visualElement: VisualElement): string => {
   return `${VeFns.opacityStyle(visualElement)} ${VeFns.zIndexStyle(visualElement)} isolation: isolate;`;
+}
+
+// This warning now renders only inside item-local stack roots, so a high local z-index
+// is safe and won't leak across neighboring items.
+export const autoMovedIntoViewWarningStyle = (widthPx: number, heightPx: number): string => {
+  return `left: 0px; top: 0px; width: ${widthPx}px; height: ${heightPx}px; ` +
+    `border: 2px solid rgba(245, 158, 11, 0.95); ` +
+    `background: repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px); ` +
+    `box-shadow: inset 0 0 0 1px rgba(255, 251, 235, 0.8); z-index: ${LOCAL_AUTO_MOVED_WARNING_Z_INDEX};`;
 }
 
 export const createPageTitleEditHandlers = (

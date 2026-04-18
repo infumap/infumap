@@ -25,7 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX } from "../../constants";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { desktopStackRootStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -93,6 +93,10 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute border border-black`}
           style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />
+      </Show>
+      <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
+        <div class="absolute pointer-events-none rounded-xs"
+          style={autoMovedIntoViewWarningStyle(boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0), boundsPx().h)} />
       </Show>
     </div>
   );

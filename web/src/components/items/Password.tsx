@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -38,7 +38,7 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { MouseAction, MouseActionState } from "../../input/state";
-import { shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -54,6 +54,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
+  const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? "fixed" : "absolute";
   const attachBoundsPx = (): BoundingBox => {
     return {
       x: boundsPx().w - ATTACH_AREA_SIZE_PX - 2,
@@ -247,15 +248,14 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
       !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 0;`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
 
   const inputListener = (_ev: InputEvent) => {
@@ -396,16 +396,21 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     </>;
 
   return (
-    <>
+    <div class={positionClass()}
+      style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+        `${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      {renderFocusRingMaybe()}
       <div class={outerClass()}
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1;`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>
       </div>
-    </>
+      {renderFocusRingMaybe()}
+      <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
+        <div class="absolute pointer-events-none rounded-xs"
+          style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
+      </Show>
+    </div>
   );
 }

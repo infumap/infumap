@@ -29,7 +29,7 @@ import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { desktopStackRootStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -121,6 +121,10 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
                   (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)) &&
                   showTriangleDetail()}>
         <InfuLinkTriangle />
+      </Show>
+      <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
+        <div class="absolute pointer-events-none rounded-xs"
+             style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>
   );

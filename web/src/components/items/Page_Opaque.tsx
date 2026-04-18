@@ -29,7 +29,7 @@ import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { createPageTitleEditHandlers, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -182,6 +182,10 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
       </div>
       {renderHighlightMaybe()}
       {renderFocusRingMaybe()}
+      <Show when={store.perVe.getAutoMovedIntoView(pageFns().vePath())}>
+        <div class="absolute pointer-events-none rounded-xs"
+          style={autoMovedIntoViewWarningStyle(pageFns().boundsPx().w, pageFns().boundsPx().h)} />
+      </Show>
     </div>
   );
 }

@@ -30,7 +30,7 @@ import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
-import { createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { switchToPage } from "../../layout/navigation";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 
@@ -276,6 +276,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         {renderEmbeddedInteractiveTitleMaybe()}
         {renderFindHighlightedMaybe()}
         {renderFocusRingMaybe()}
+        <Show when={store.perVe.getAutoMovedIntoView(pageFns().vePath())}>
+          <div class="absolute pointer-events-none rounded-xs"
+            style={autoMovedIntoViewWarningStyle(pageFns().boundsPx().w, pageFns().boundsPx().h)} />
+        </Show>
       </div>
       {renderSelectedRootMaybe()}
       {renderPopupRootMaybe()}
