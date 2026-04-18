@@ -18,7 +18,7 @@
 
 import { Component } from "solid-js";
 import { VisualElementProps } from "../VisualElement";
-import { VeFns } from "../../layout/visual-element";
+import { desktopStackRootStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -31,6 +31,6 @@ export const Placeholder_Desktop: Component<VisualElementProps> = (props: Visual
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
         `background: repeating-linear-gradient(315deg, #fff, #fff 3px, #eee 2px, #eee 5px); ` +
         `pointer-events: none; opacity: 0.5; ` +
-        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+        `${desktopStackRootStyle(props.visualElement)}`} />
   );
 }

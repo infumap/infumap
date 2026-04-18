@@ -29,6 +29,7 @@ import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
+import { desktopStackRootStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -72,7 +73,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
   return (
     <div class={`absolute`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+                `${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-xs"
              style={`left: 0px; top: 0px; ` +

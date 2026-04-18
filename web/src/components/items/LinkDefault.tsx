@@ -25,6 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX } from "../../constants";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
+import { desktopStackRootStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -85,7 +86,7 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
   return (
     <div class={outerClass()}
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0)}px; height: ${boundsPx().h}px;` +
-        `${backgroundStyle()}${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
+        `${backgroundStyle()}${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
       </Show>

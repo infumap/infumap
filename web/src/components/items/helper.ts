@@ -85,6 +85,13 @@ export const shouldShowFocusRingForVisualElement = (
   return !isInsideDocumentPage(veFn);
 }
 
+// Use the item's existing top-level DOM node as its stack root when possible.
+// This avoids introducing extra wrapper DOM around desktop items, which helps keep
+// contentEditable/caret behavior predictable while still allowing local stacking.
+export const desktopStackRootStyle = (visualElement: VisualElement): string => {
+  return `${VeFns.opacityStyle(visualElement)} ${VeFns.zIndexStyle(visualElement)} isolation: isolate;`;
+}
+
 export const createPageTitleEditHandlers = (
   store: StoreContextModel,
   veFn: () => VisualElement,
