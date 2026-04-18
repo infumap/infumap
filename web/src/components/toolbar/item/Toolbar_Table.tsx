@@ -27,6 +27,7 @@ import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
+import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
 export const Toolbar_Table: Component = () => {
@@ -121,6 +122,8 @@ export const Toolbar_Table: Component = () => {
       </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
+
+      <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
       <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>

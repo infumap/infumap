@@ -23,6 +23,7 @@ import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { asRatingItem } from "../../../items/rating-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
+import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
 export const Toolbar_Rating: Component = () => {
@@ -74,6 +75,8 @@ export const Toolbar_Rating: Component = () => {
             {ratingTypeText()}
           </div>
         </div>
+
+        <Toolbar_ItemOrdering />
 
         <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />

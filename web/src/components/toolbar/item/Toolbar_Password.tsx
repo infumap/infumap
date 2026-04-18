@@ -25,6 +25,7 @@ import { asPasswordItem } from "../../../items/password-item";
 import { PasswordFlags } from "../../../items/base/flags-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { requestArrange } from "../../../layout/arrange";
+import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
 export const Toolbar_Password: Component = () => {
@@ -72,6 +73,8 @@ export const Toolbar_Password: Component = () => {
         <div class="inline-block pl-[2px]">
           <InfuIconButton icon="fa fa-eye-slash" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
         </div>
+
+        <Toolbar_ItemOrdering />
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
         <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>

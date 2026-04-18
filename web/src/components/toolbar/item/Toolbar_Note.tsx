@@ -29,6 +29,7 @@ import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { GRID_SIZE } from "../../../constants";
 import { itemState } from "../../../store/ItemState";
 import { isTable } from "../../../items/table-item";
+import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
 export const Toolbar_Note: Component = () => {
@@ -227,6 +228,8 @@ export const Toolbar_Note: Component = () => {
         </Show>
       </Show>
 
+      <Toolbar_ItemOrdering />
+
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
       <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
@@ -270,6 +273,8 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </div>
       </Show>
+
+      <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
       <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>

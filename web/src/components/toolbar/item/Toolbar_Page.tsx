@@ -32,6 +32,7 @@ import { PageFlags } from "../../../items/base/flags-item";
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
+import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
 export const Toolbar_Page: Component = () => {
@@ -490,6 +491,8 @@ export const Toolbar_Page: Component = () => {
         <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
       </Show>
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
+
+      <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
       <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>

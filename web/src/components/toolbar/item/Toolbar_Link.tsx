@@ -25,6 +25,7 @@ import { requestArrange } from "../../../layout/arrange";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
+import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
 export const Toolbar_Link: Component = () => {
@@ -81,6 +82,8 @@ export const Toolbar_Link: Component = () => {
                  onKeyUp={keyEventHandler}
                  onKeyPress={keyEventHandler} />
         </div>
+
+        <Toolbar_ItemOrdering />
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
         <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>

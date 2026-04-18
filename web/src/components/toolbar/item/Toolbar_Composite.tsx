@@ -22,6 +22,7 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { asCompositeItem } from "../../../items/composite-item";
 import { ClickState } from "../../../input/state";
+import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
 export const Toolbar_Composite: Component = () => {
@@ -53,6 +54,8 @@ export const Toolbar_Composite: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
+        <Toolbar_ItemOrdering />
+
         <div ref={qrDiv} class="inline-block pl-[5px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
         </div>

@@ -26,6 +26,7 @@ import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
 import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
+import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
 export const Toolbar_Image: Component = () => {
@@ -91,6 +92,8 @@ export const Toolbar_Image: Component = () => {
         <div class="inline-block">
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </div>
+
+        <Toolbar_ItemOrdering />
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
         <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
