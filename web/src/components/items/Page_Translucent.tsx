@@ -449,7 +449,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       </div>
       {renderSelectedRootMaybe()}
       {renderPopupRootMaybe()}
-      <div class="absolute"
+      <div class="absolute pointer-events-none"
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
         {renderResizeTriangleMaybe()}
         <div class={`absolute ${borderClass()} rounded-xs pointer-events-none`}
