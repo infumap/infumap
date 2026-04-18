@@ -24,7 +24,7 @@ pub mod session;
 
 use ::prometheus::IntCounter;
 use byteorder::{BigEndian, ReadBytesExt};
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command};
 use config::Config;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -82,46 +82,31 @@ pub static METRIC_BACKUP_CLEANUP_DELETE_FAILURES_TOTAL: Lazy<IntCounter> = Lazy:
 });
 
 pub fn make_clap_subcommand() -> Command {
-  Command::new("web")
-    .about("Starts the Infumap web server.")
-    .arg(
-      Arg::new("settings_path")
-        .short('s')
-        .long("settings")
-        .help(concat!(
-          "Path to a toml settings configuration file, or a directory containing settings.toml. ",
-          "If not specified and the env_only config is not defined ",
-          "via env vars, ~/.infumap/settings.toml will be used. If it does not exist, it will created with default ",
-          "values. On-disk data directories will also be created in ~/.infumap."
-        ))
-        .num_args(1)
-        .required(false),
-    )
-    .arg(
-      Arg::new("dev_feature_flag")
-        .long("dev")
-        .help("Enable experimental in-development features.")
-        .num_args(0)
-        .action(ArgAction::SetTrue)
-        .required(false),
-    )
+  Command::new("web").about("Starts the Infumap web server.").arg(
+    Arg::new("settings_path")
+      .short('s')
+      .long("settings")
+      .help(concat!(
+        "Path to a toml settings configuration file, or a directory containing settings.toml. ",
+        "If not specified and the env_only config is not defined ",
+        "via env vars, ~/.infumap/settings.toml will be used. If it does not exist, it will created with default ",
+        "values. On-disk data directories will also be created in ~/.infumap."
+      ))
+      .num_args(1)
+      .required(false),
+  )
 }
 
 pub async fn execute(arg_matches: &ArgMatches) -> InfuResult<()> {
   let config = init_fs_maybe_and_get_config(arg_matches.get_one::<String>("settings_path")).await?;
-  let dev_feature_flag = arg_matches.get_flag("dev_feature_flag");
-  start_server(config, dev_feature_flag).await
+  start_server(config).await
 }
 
-pub async fn start_server(config: Config, dev_feature_flag: bool) -> InfuResult<()> {
-  start_server_with_options(config, dev_feature_flag, false).await
+pub async fn start_server(config: Config) -> InfuResult<()> {
+  start_server_with_options(config, false).await
 }
 
-pub async fn start_server_with_options(
-  config: Config,
-  dev_feature_flag: bool,
-  skip_backup_validation: bool,
-) -> InfuResult<()> {
+pub async fn start_server_with_options(config: Config, skip_backup_validation: bool) -> InfuResult<()> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let db = Arc::new(tokio::sync::Mutex::new(match Db::new(&data_dir).await {
     Ok(db) => db,
@@ -264,8 +249,7 @@ pub async fn start_server_with_options(
     info!("Backup tracking validation completed successfully.");
   }
 
-  let result =
-    listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone(), dev_feature_flag).await;
+  let result = listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone()).await;
   result
 }
 
@@ -635,7 +619,6 @@ async fn listen(
   object_store: Arc<ObjectStore>,
   image_cache: Arc<std::sync::Mutex<ImageCache>>,
   config: Arc<config::Config>,
-  dev_feature_flag: bool,
 ) -> InfuResult<()> {
   let listener = TcpListener::bind(addr).await?;
   loop {
@@ -650,9 +633,7 @@ async fn listen(
       if let Err(err) = http1::Builder::new()
         .serve_connection(
           io,
-          service_fn(move |req| {
-            http_serve(db.clone(), object_store.clone(), image_cache.clone(), config.clone(), dev_feature_flag, req)
-          }),
+          service_fn(move |req| http_serve(db.clone(), object_store.clone(), image_cache.clone(), config.clone(), req)),
         )
         .await
       {

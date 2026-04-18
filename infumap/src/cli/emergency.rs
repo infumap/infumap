@@ -110,13 +110,6 @@ pub fn make_clap_subcommand() -> Command {
       .num_args(1)
       .required(false))
 
-    .arg(Arg::new("dev_feature_flag")
-      .long("dev")
-      .help("Enable experimental in-development features.")
-      .num_args(0)
-      .action(ArgAction::SetTrue)
-      .required(false))
-
     .arg(Arg::new("port")
       .long("port")
       .help("Port to write into generated settings.toml (default: 8042).")

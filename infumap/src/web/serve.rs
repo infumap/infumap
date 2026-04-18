@@ -27,7 +27,7 @@ use std::str;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::config::CONFIG_ALLOW_CROSS_INSTANCE_EMBED;
+use crate::config::{CONFIG_ALLOW_CROSS_INSTANCE_EMBED, CONFIG_ENABLE_EXPERIMENTAL};
 use crate::storage::cache::ImageCache;
 use crate::storage::db::Db;
 use crate::storage::db::session_db::SESSION_ROTATION_INTERVAL_SECS;
@@ -62,7 +62,6 @@ pub async fn http_serve(
   object_store: Arc<ObjectStore>,
   image_cache: Arc<std::sync::Mutex<ImageCache>>,
   config: Arc<Config>,
-  dev_feature_flag: bool,
   req: Request<hyper::body::Incoming>,
 ) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
   debug!("Serving: {} ({})", req.uri().path(), req.method());
@@ -72,6 +71,7 @@ pub async fn http_serve(
   let incoming_cookie_session_id_maybe = get_session_cookie_session_id_maybe(&req);
   let incoming_header_session_maybe =
     if incoming_cookie_session_id_maybe.is_some() { None } else { get_session_header_maybe(&req) };
+  let enable_experimental = config.get_bool(CONFIG_ENABLE_EXPERIMENTAL).unwrap_or(false);
 
   let (mut response, cors_policy) = if req.uri().path() == "/command" {
     (serve_command_route(&db, &object_store, image_cache.clone(), req).await, CorsPolicy::EmbedAllowed)
@@ -82,7 +82,7 @@ pub async fn http_serve(
   } else if req.uri().path().starts_with("/files/") {
     (serve_files_route(config.clone(), &db, object_store, image_cache.clone(), &req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path().starts_with("/admin/") {
-    (serve_admin_route(&db, dev_feature_flag, req).await, CorsPolicy::Disabled)
+    (serve_admin_route(&db, enable_experimental, req).await, CorsPolicy::Disabled)
   } else {
     match serve_dist_routes(&req) {
       Some(response) => (response, CorsPolicy::Disabled),

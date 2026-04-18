@@ -29,7 +29,7 @@ export const NETWORK_STATUS_ERROR = 2;
 
 interface InstallationState {
   hasRootUser: boolean,
-  devFeatureFlag: boolean,
+  enableExperimental: boolean,
 }
 
 interface LocalStorageData {

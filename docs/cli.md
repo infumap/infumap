@@ -20,7 +20,7 @@ For more information on configuring the Infumap web server, refer to [configurat
 
 Options:
 - **-s --settings (optional):** Path to a toml settings configuration file, or a directory containing `settings.toml`. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
-- **--dev (optional):** Enable experimental in-development features.
+Experimental features are controlled via the `enable_experimental` configuration setting or `INFUMAP_ENABLE_EXPERIMENTAL`.
 
 ### keygen
 
@@ -118,7 +118,6 @@ that you can act quickly if/when the time comes. This command does not start the
 - **--port (optional):** Port to write into generated `settings.toml` (default: 8042).
 - **--enable-backup (optional):** Enable backup to S3 in generated `settings.toml`. You will need to manually restore the backup using the `restore` command to use it with your main instance.
 - **--backup-period-minutes (optional):** Backup period in minutes to write into generated `settings.toml` (default: 1).
-- **--dev (optional):** Enable experimental in-development features.
 
 
 ### compact

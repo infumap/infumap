@@ -31,6 +31,9 @@ pub const CONFIG_ALLOW_CROSS_INSTANCE_EMBED_DEFAULT: bool = false;
 pub const CONFIG_ENABLE_PROMETHEUS_METRICS: &'static str = "enable_prometheus_metrics";
 pub const CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT: bool = false;
 
+pub const CONFIG_ENABLE_EXPERIMENTAL: &'static str = "enable_experimental";
+pub const CONFIG_ENABLE_EXPERIMENTAL_DEFAULT: bool = false;
+
 pub const CONFIG_PROMETHEUS_ADDRESS: &'static str = "prometheus_address";
 pub const CONFIG_PROMETHEUS_ADDRESS_DEFAULT: &'static str = "127.0.0.1";
 

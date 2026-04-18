@@ -395,6 +395,9 @@ export const Toolbar_Popup: Component = () => {
   const aaListClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.List; finalizeAAChange(); }
   const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
   const aaCalendarClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Calendar; finalizeAAChange(); }
+  const documentArrangeEnabled = () => store.general.installationState()?.enableExperimental ?? false;
+  const documentArrangeClass = () =>
+    `text-sm ml-[3px] mr-[5px] p-[3px] ${documentArrangeEnabled() ? "hover:bg-slate-300" : "text-slate-400 cursor-not-allowed"}`;
 
   const handleMouseDown = (e: MouseEvent) => {
     e.stopPropagation();  // Prevent global handler from closing popup
@@ -473,7 +476,13 @@ export const Toolbar_Popup: Component = () => {
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCalendarClick}>
               Calendar
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
+            <div
+              class={documentArrangeClass()}
+              onClick={() => {
+                if (!documentArrangeEnabled()) { return; }
+                aaDocumentClick();
+              }}
+              aria-disabled={!documentArrangeEnabled()}>
               Document
             </div>
           </div>

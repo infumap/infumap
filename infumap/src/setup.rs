@@ -277,6 +277,11 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
     CONFIG_ENABLE_PROMETHEUS_METRICS,
     config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS).map_err(|e| e.to_string())?
   );
+  info!(
+    " {} = {}",
+    CONFIG_ENABLE_EXPERIMENTAL,
+    config.get_bool(CONFIG_ENABLE_EXPERIMENTAL).map_err(|e| e.to_string())?
+  );
   if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS).map_err(|e| e.to_string())? {
     info!(
       "  {} = '{}'",
@@ -527,6 +532,8 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_ALLOW_CROSS_INSTANCE_EMBED, CONFIG_ALLOW_CROSS_INSTANCE_EMBED_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_ENABLE_PROMETHEUS_METRICS, CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_ENABLE_EXPERIMENTAL, CONFIG_ENABLE_EXPERIMENTAL_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_PROMETHEUS_ADDRESS, CONFIG_PROMETHEUS_ADDRESS_DEFAULT)
       .map_err(|e| e.to_string())?

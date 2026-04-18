@@ -164,3 +164,9 @@
 # required for login. This is automatically enabled when using the emergency
 # CLI command.
 #bypass_totp_check = false
+
+
+# Experimental feature configuration. If enabled, in-development features
+# such as selecting the Document page arrangement from the toolbar menu are
+# available. Existing document-arranged pages still display when this is disabled.
+#enable_experimental = false
