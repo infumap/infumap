@@ -35,7 +35,7 @@ import { asPasswordItem, isPassword, PasswordFns } from '../password-item';
 import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
 import { calcGeometryOfEmptyItem_ListItem, isInsidePopupHierarchy } from './item-common-fns';
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
-import { LINE_HEIGHT_PX, GRID_SIZE } from '../../constants';
+import { LINE_HEIGHT_PX } from '../../constants';
 import { arrangeNow, requestArrange } from '../../layout/arrange';
 import { VesCache } from '../../layout/ves-cache';
 import { VisualElementFlags, VeFns } from '../../layout/visual-element';
@@ -348,35 +348,21 @@ function calcAttachmentPopupContext(
   isFromAttachment?: boolean,
   clickPosPx?: Vector | null
 ): { sourcePositionGr: { x: number, y: number } | null, insidePopup: boolean } {
-  let sourcePositionGr: { x: number, y: number } | null = null;
-  const parentVe = VesCache.current.readNode(visualElement.parentPath!)!;
+  let sourcePositionGr: { x: number, y: number } | null = clickPosPx
+    ? VeFns.desktopPxToCurrentPageGr(store, clickPosPx)
+    : null;
+  const parentVe = visualElement.parentPath ? VesCache.current.readNode(visualElement.parentPath) : null;
 
-  if ((isFromAttachment || clickPosPx) && clickPosPx) {
-    // Traverse up to find the nearest Page ancestor to define the coordinate system
+  if (sourcePositionGr == null && (isFromAttachment || clickPosPx) && clickPosPx && parentVe) {
+    // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
     let pageVe = parentVe;
     while (pageVe && !isPage(pageVe.displayItem)) {
-      if (!pageVe.parentPath) break;
+      if (!pageVe.parentPath) { break; }
       pageVe = VesCache.current.readNode(pageVe.parentPath)!;
     }
 
-    const pageItem = pageVe && isPage(pageVe.displayItem) ? asPageItem(pageVe.displayItem) : null;
-
-    if (pageItem && pageVe && pageVe.childAreaBoundsPx) {
-      const pageBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, pageVe);
-      const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(pageItem);
-
-      const pxToGrX = (parentInnerSizeBl.w * GRID_SIZE) / pageVe.childAreaBoundsPx.w;
-      const pxToGrY = (parentInnerSizeBl.h * GRID_SIZE) / pageVe.childAreaBoundsPx.h;
-
-      // Calculate position relative to the page's child area
-      // Global Click Px - Page Global TopLeft - Child Area Left Offset
-      const relativeX = clickPosPx.x - pageBoundsPx.x - pageVe.childAreaBoundsPx.x;
-      const relativeY = clickPosPx.y - pageBoundsPx.y - pageVe.childAreaBoundsPx.y;
-
-      sourcePositionGr = {
-        x: relativeX * pxToGrX,
-        y: relativeY * pxToGrY
-      };
+    if (pageVe && isPage(pageVe.displayItem)) {
+      sourcePositionGr = VeFns.desktopPxToPageGr(store, pageVe, clickPosPx);
     }
   }
 

@@ -253,6 +253,7 @@ export const Toolbar_Popup: Component = () => {
     store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
     serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.touchToolbar();
     requestArrange(store, "toolbar-popup-page-color");
   }
 

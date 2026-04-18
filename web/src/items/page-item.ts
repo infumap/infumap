@@ -981,21 +981,27 @@ export const PageFns = {
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, isFromAttachment?: boolean): void => {
     const parentVe = VesCache.current.readNode(visualElement.parentPath!)!;
 
-    // Calculate source position for attachment popups (center of the attachment in parent page Gr coordinates)
+    // Calculate source position for attachment popups in the current page coordinate system.
     let sourcePositionGr: { x: number, y: number } | null = null;
     if (isFromAttachment && visualElement.boundsPx) {
-      // Get the parent page to convert to Gr coordinates
-      const parentPage = isPage(parentVe.displayItem) ? asPageItem(parentVe.displayItem) : null;
-      if (parentPage && parentVe.childAreaBoundsPx) {
-        const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
-        const pxToGrX = (parentInnerSizeBl.w * GRID_SIZE) / parentVe.childAreaBoundsPx.w;
-        const pxToGrY = (parentInnerSizeBl.h * GRID_SIZE) / parentVe.childAreaBoundsPx.h;
+      const attachmentBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, visualElement);
+      const attachmentCenterPx = {
+        x: attachmentBoundsPx.x + attachmentBoundsPx.w / 2,
+        y: attachmentBoundsPx.y + attachmentBoundsPx.h / 2
+      };
 
-        // Calculate attachment center in parent page Gr coordinates
-        sourcePositionGr = {
-          x: (visualElement.boundsPx.x + visualElement.boundsPx.w / 2) * pxToGrX,
-          y: (visualElement.boundsPx.y + visualElement.boundsPx.h / 2) * pxToGrY
-        };
+      sourcePositionGr = VeFns.desktopPxToCurrentPageGr(store, attachmentCenterPx);
+
+      if (sourcePositionGr == null) {
+        // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
+        let pageVe: VisualElement | null = parentVe;
+        while (pageVe && !isPage(pageVe.displayItem)) {
+          if (!pageVe.parentPath) { break; }
+          pageVe = VesCache.current.readNode(pageVe.parentPath)!;
+        }
+        if (pageVe && isPage(pageVe.displayItem)) {
+          sourcePositionGr = VeFns.desktopPxToPageGr(store, pageVe, attachmentCenterPx);
+        }
       }
     }
 

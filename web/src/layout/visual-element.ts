@@ -712,6 +712,35 @@ export const VeFns = {
     });
   },
 
+  desktopPxToPageGr: (store: StoreContextModel, pageVe: VisualElement, desktopPosPx: Vector): Vector | null => {
+    if (!isPage(pageVe.displayItem) || !pageVe.childAreaBoundsPx || !pageVe.viewportBoundsPx) {
+      return null;
+    }
+
+    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
+    const scrollVeid = VeFns.actualVeidFromVe(pageVe);
+    const scrollXPx = Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(scrollVeid);
+    const scrollYPx = Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(scrollVeid);
+    const pageItem = pageVe.displayItem as { innerSpatialWidthGr: number, naturalAspect: number };
+    const innerSizeBl = {
+      w: pageItem.innerSpatialWidthGr / GRID_SIZE,
+      h: Math.floor(pageItem.innerSpatialWidthGr / GRID_SIZE / pageItem.naturalAspect)
+    };
+
+    return {
+      x: (desktopPosPx.x - viewportBoundsPx.x + scrollXPx) * ((innerSizeBl.w * GRID_SIZE) / pageVe.childAreaBoundsPx.w),
+      y: (desktopPosPx.y - viewportBoundsPx.y + scrollYPx) * ((innerSizeBl.h * GRID_SIZE) / pageVe.childAreaBoundsPx.h)
+    };
+  },
+
+  desktopPxToCurrentPageGr: (store: StoreContextModel, desktopPosPx: Vector): Vector | null => {
+    const currentPagePath = store.history.currentPagePath();
+    if (!currentPagePath) { return null; }
+    const currentPageVe = VesCache.current.readNode(currentPagePath);
+    if (!currentPageVe) { return null; }
+    return VeFns.desktopPxToPageGr(store, currentPageVe, desktopPosPx);
+  },
+
   printCurrentVisualElementTree: (store: StoreContextModel) => {
     printRecursive(store.umbrellaVisualElement.get(), 0, "c");
   },

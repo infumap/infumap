@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
+import { TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PageFlags, TableFlags } from "../items/base/flags-item";
 import { ImageFns, isImage } from "../items/image-item";
@@ -717,29 +717,20 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
             y: veBoundsPx.y + veBoundsPx.h / 2,
           };
 
-          // Find the parent page to convert to Gr coordinates
-          const parentPath = VeFns.parentPath(closest);
-          if (parentPath) {
-            let pageVe = VesCache.current.readNode(parentPath);
-            while (pageVe && !isPage(pageVe.displayItem)) {
-              if (!pageVe.parentPath) break;
-              pageVe = VesCache.current.readNode(pageVe.parentPath);
-            }
-            if (pageVe && isPage(pageVe.displayItem) && pageVe.childAreaBoundsPx) {
-              const pageItem = asPageItem(pageVe.displayItem);
-              const pageBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, pageVe);
-              const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(pageItem);
+          sourcePositionGr = VeFns.desktopPxToCurrentPageGr(store, centerPx) ?? undefined;
 
-              const pxToGrX = (parentInnerSizeBl.w * GRID_SIZE) / pageVe.childAreaBoundsPx.w;
-              const pxToGrY = (parentInnerSizeBl.h * GRID_SIZE) / pageVe.childAreaBoundsPx.h;
-
-              const relativeX = centerPx.x - pageBoundsPx.x;
-              const relativeY = centerPx.y - pageBoundsPx.y;
-
-              sourcePositionGr = {
-                x: relativeX * pxToGrX,
-                y: relativeY * pxToGrY,
-              };
+          if (!sourcePositionGr) {
+            // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
+            const parentPath = VeFns.parentPath(closest);
+            if (parentPath) {
+              let pageVe = VesCache.current.readNode(parentPath);
+              while (pageVe && !isPage(pageVe.displayItem)) {
+                if (!pageVe.parentPath) { break; }
+                pageVe = VesCache.current.readNode(pageVe.parentPath);
+              }
+              if (pageVe && isPage(pageVe.displayItem)) {
+                sourcePositionGr = VeFns.desktopPxToPageGr(store, pageVe, centerPx) ?? undefined;
+              }
             }
           }
         }
