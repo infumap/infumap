@@ -51,6 +51,7 @@ import { ColorableMixin } from './base/colorable-item';
 import { AspectItem, AspectMixin } from './base/aspect-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { NoteFlags } from './base/flags-item';
+import { calcPopupActionStripLayout } from '../util/popupHeaderActions';
 
 
 export const ArrangeAlgorithm = {
@@ -109,6 +110,23 @@ function pageHeaderHeightBl(page: PageMeasurable, isPopup: boolean): number {
     return isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : 0;
   }
   return isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+}
+
+type PopupPageActionKey = "child" | "default";
+
+function calcPagePopupActionStripLayout(innerWidthPx: number, seamYPx: number, hasChildChanges: boolean, hasDefaultChanges: boolean) {
+  const heightPx = 19;
+  return calcPopupActionStripLayout<PopupPageActionKey>([
+    ...(hasChildChanges ? [{ key: "child", label: "pin here" } as const] : []),
+    ...(hasDefaultChanges ? [{ key: "default", label: "set default" } as const] : []),
+  ], innerWidthPx, seamYPx - Math.round(heightPx / 2), {
+    fontSizePx: 11,
+    gapPx: 4,
+    heightPx,
+    horizontalPaddingPx: 9,
+    minActionWidthPx: 58,
+    rightInsetPx: 10,
+  });
 }
 
 function maybeEditDocumentPageRowFromClick(
@@ -547,26 +565,14 @@ export const PageFns = {
     }
 
     if (isPopup) {
-      const scale = blockSizePx.h / LINE_HEIGHT_PX * headerHeightBl;
-      let rightOffset = ANCHOR_OFFSET_PX * scale;
-      if (headerHeightBl > 0 && hasChildChanges) {
-        const anchorChildBoundsPx = {
-          x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - rightOffset,
-          y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
-          w: ANCHOR_BOX_SIZE_PX * scale,
-          h: ANCHOR_BOX_SIZE_PX * scale
-        };
-        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
-        rightOffset += ANCHOR_BOX_SIZE_PX * scale + ANCHOR_OFFSET_PX * scale;
+      const actionLayout = calcPagePopupActionStripLayout(innerBoundsPx.w, Math.round(blockSizePx.h * headerHeightBl), hasChildChanges, hasDefaultChanges);
+      const childAction = actionLayout.actions.find(action => action.key === "child");
+      const defaultAction = actionLayout.actions.find(action => action.key === "default");
+      if (headerHeightBl > 0 && childAction) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, childAction.boundsPx));
       }
-      if (headerHeightBl > 0 && hasDefaultChanges) {
-        const anchorDefaultBoundsPx = {
-          x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - rightOffset,
-          y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
-          w: ANCHOR_BOX_SIZE_PX * scale,
-          h: ANCHOR_BOX_SIZE_PX * scale
-        };
-        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, anchorDefaultBoundsPx));
+      if (headerHeightBl > 0 && defaultAction) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, defaultAction.boundsPx));
       }
     }
 
@@ -675,8 +681,7 @@ export const PageFns = {
     const hitboxes: Array<{ type: HitboxFlags, boundsPx: BoundingBox, meta: HitboxMeta | null }> = [];
 
     if (isPopup) {
-      const scale = blockSizePx.h / LINE_HEIGHT_PX * headerHeightBl;
-      let anchorRightOffset = ANCHOR_OFFSET_PX * scale;
+      const actionLayout = calcPagePopupActionStripLayout(innerBoundsPx.w, Math.round(NATURAL_BLOCK_SIZE_PX.h * headerHeightBl), hasChildChanges, hasDefaultChanges);
 
       hitboxes.push(
         HitboxFns.create(HitboxFlags.Move | HitboxFlags.ContentEditable | HitboxFlags.Click, { x: 0, y: 0, h: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, w: innerBoundsPx.w })
@@ -699,24 +704,13 @@ export const PageFns = {
         hitboxes.push(HitboxFns.create(HitboxFlags.VerticalResize, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
       }
 
-      if (headerHeightBl > 0 && hasChildChanges) {
-        const anchorChildBoundsPx = {
-          x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - anchorRightOffset,
-          y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
-          w: ANCHOR_BOX_SIZE_PX * scale,
-          h: ANCHOR_BOX_SIZE_PX * scale
-        };
-        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
-        anchorRightOffset += ANCHOR_BOX_SIZE_PX * scale + ANCHOR_OFFSET_PX * scale;
+      const childAction = actionLayout.actions.find(action => action.key === "child");
+      const defaultAction = actionLayout.actions.find(action => action.key === "default");
+      if (headerHeightBl > 0 && childAction) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, childAction.boundsPx));
       }
-      if (headerHeightBl > 0 && hasDefaultChanges) {
-        const anchorDefaultBoundsPx = {
-          x: 1 + innerBoundsPx.w - ANCHOR_BOX_SIZE_PX * scale - anchorRightOffset,
-          y: 1 + ANCHOR_OFFSET_PX * scale / 3 * 2,
-          w: ANCHOR_BOX_SIZE_PX * scale,
-          h: ANCHOR_BOX_SIZE_PX * scale
-        };
-        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, anchorDefaultBoundsPx));
+      if (headerHeightBl > 0 && defaultAction) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, defaultAction.boundsPx));
       }
     } else {
       hitboxes.push(

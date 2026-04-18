@@ -35,12 +35,15 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createInfuSignal } from "../../util/signals";
 import { asPageItem } from "../../items/page-item";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
+import { PopupActionStrip } from "../library/PopupActionStrip";
+import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
+  type PopupImageActionKey = "child" | "default";
 
   const imageItem = () => asImageItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
@@ -369,50 +372,31 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
   };
 
+  const popupActionLayout = () => calcPopupActionStripLayout<PopupImageActionKey>([
+    ...(hasChildChanges() ? [{ key: "child", label: "pin here" } as const] : []),
+    ...(hasStoredPosition() ? [{ key: "default", label: "use default" } as const] : []),
+  ],
+  boundsPx().x + boundsPx().w,
+  boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0),
+  {
+    fontSizePx: 10,
+    gapPx: 4,
+    heightPx: 18,
+    horizontalPaddingPx: 8,
+    minActionWidthPx: 54,
+    rightInsetPx: 8,
+  });
 
-  const iconSize = LINE_HEIGHT_PX;
-  const iconOffset = 4; // small gap from edge - must match hitbox calculation
-
-  const renderAnchorChildMaybe = () => {
-    const rightOffset = iconOffset;
-    return (
-      <Show when={hasChildChanges()}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs text-gray-900 pointer-events-none`}
-          style={`left: ${boundsPx().x + boundsPx().w - iconSize - rightOffset}px; ` +
-            `top: ${boundsPx().y + iconOffset + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-            `width: ${iconSize}px; ` +
-            `height: ${iconSize}px; ` +
-            `${VeFns.zIndexStyle(props.visualElement)}`}>
-          <div class={`absolute text-gray-600 rounded-xs pointer-events-none flex items-center justify-center`}
-            style={`width: ${iconSize}px; height: ${iconSize}px;`}>
-            <i class={`fa fa-anchor`} />
-          </div>
-        </div>
-      </Show>
-    );
-  };
-
-  const renderHomeMaybe = () => {
-    let rightOffset = iconOffset;
-    if (hasChildChanges()) {
-      rightOffset += iconSize + iconOffset;
-    }
-    return (
-      <Show when={hasStoredPosition()}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs text-gray-900 pointer-events-none`}
-          style={`left: ${boundsPx().x + boundsPx().w - iconSize - rightOffset}px; ` +
-            `top: ${boundsPx().y + iconOffset + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-            `width: ${iconSize}px; ` +
-            `height: ${iconSize}px; ` +
-            `${VeFns.zIndexStyle(props.visualElement)}`}>
-          <div class={`absolute text-gray-600 rounded-xs pointer-events-none flex items-center justify-center`}
-            style={`width: ${iconSize}px; height: ${iconSize}px;`}>
-            <i class={`fa fa-home`} />
-          </div>
-        </div>
-      </Show>
-    );
-  };
+  const renderPopupActionStripMaybe = () =>
+    <PopupActionStrip
+      background="rgba(255, 255, 255, 0.95)"
+      borderColor="rgba(255, 255, 255, 0.78)"
+      fixed={!!(props.visualElement.flags & VisualElementFlags.Fixed)}
+      layout={popupActionLayout()}
+      shadow="0 1px 2px rgba(0, 0, 0, 0.15)"
+      textColor="rgba(51, 65, 85, 0.82)"
+      zIndexStyle={VeFns.zIndexStyle(props.visualElement)}
+    />;
 
 
   const renderCroppedImage = (): JSX.Element =>
@@ -473,8 +457,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </div>
       {renderAttachmentsAndDetailMaybe()}
       {renderTitleMaybe()}
-      {renderAnchorChildMaybe()}
-      {renderHomeMaybe()}
+      {renderPopupActionStripMaybe()}
     </Show>
   );
 }

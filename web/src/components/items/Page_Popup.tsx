@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
-import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, GRID_SIZE } from "../../constants";
+import { LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, GRID_SIZE } from "../../constants";
 import { VeFns, VisualElementFlags, VisualElement } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 
@@ -41,12 +41,15 @@ import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 import { DocumentPageTitle } from "./DocumentPageTitle";
+import { PopupActionStrip } from "../library/PopupActionStrip";
+import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
+  type PopupPageActionKey = "child" | "default";
 
   let updatingPopupScrollTop = false;
   let popupDiv: any = undefined; // HTMLDivElement | undefined
@@ -123,7 +126,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
   const titleScale = () => (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
-  const titleColor = () => `${hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], 1.0)}; `;
+  const headerHeightPx = () => pageFns().boundsPx().h - pageFns().viewportBoundsPx().h;
+
+  const titleColor = () => hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], 1.0);
 
   const popupScrollHandler = (_ev: Event) => {
     if (!popupDiv) { return; }
@@ -241,20 +246,21 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     if (titledPages.length === 0) {
       return (
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}`}
-          style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
+          style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; width: ${pageFns().boundsPx().w}px; height: ${headerHeightPx()}px; ` +
             `background-color: #fff; ` +
             `${VeFns.zIndexStyle(props.visualElement)}` +
             `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.9)};`}>
           <div class="absolute font-bold"
-            style={`left: 0px; top: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale() * 0.05}px; ` +
-              `width: ${pageFns().boundsPx().w / titleScale() * 0.9}px; ` +
-              `height: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale() * 0.9}px; ` +
+            style={`left: 0px; top: ${headerHeightPx() / titleScale() * 0.05}px; ` +
+              `width: ${pageFns().boundsPx().w / titleScale() * 0.92}px; ` +
+              `height: ${headerHeightPx() / titleScale() * 0.9}px; ` +
               `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale() * 0.9}); ` +
               `transform-origin: top left; ` +
               `overflow-wrap: break-word; ` +
-              `padding-left: 4px; ` +
-              `margin-left: 3px;` +
-              `color: ${titleColor()}`}>
+              `padding-left: 6px; ` +
+              `margin-left: 4px; ` +
+              `letter-spacing: -0.035em; ` +
+              `color: ${titleColor()};`}>
             {props.visualElement.evaluatedTitle ?? pageFns().pageItem().title}
           </div>
         </div>
@@ -286,8 +292,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                   `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale() * 0.9}); ` +
                   `transform-origin: top left; ` +
                   `white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ` +
-                  `padding-left: 4px; ` +
-                  `margin-left: 3px;` +
+                  `padding-left: 6px; ` +
+                  `margin-left: 4px; ` +
+                  `letter-spacing: -0.03em; ` +
                   `color: ${pageTitleColor};`}>
                 {pageTitle}
               </div>
@@ -531,48 +538,31 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     }
   };
 
-  const renderAnchorChildMaybe = () => {
-    const rightOffset = ANCHOR_OFFSET_PX * titleScale();
-    return (
-      <Show when={hasChildChanges()}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs text-gray-900 pointer-events-none`}
-          style={`left: ${1 + pageFns().boundsPx().x + pageFns().boundsPx().w - ANCHOR_BOX_SIZE_PX * titleScale() - rightOffset}px; ` +
-            `top: ${1 + pageFns().boundsPx().y + ANCHOR_OFFSET_PX * titleScale() / 3 * 2 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-            `width: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
-            `height: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
-            `${VeFns.zIndexStyle(props.visualElement)}`}>
-          <div class={`absolute text-gray-600 rounded-xs pointer-events-none`}
-            style={`transform: scale(${titleScale() * 0.9}) translate(${2}px, ${-1}px); ` +
-              `transform-origin: top left; `}>
-            <i class={`fa fa-anchor`} />
-          </div>
-        </div>
-      </Show>
-    );
-  };
+  const popupActionLayout = () => calcPopupActionStripLayout<PopupPageActionKey>([
+    ...(hasChildChanges() ? [{ key: "child", label: "pin here" } as const] : []),
+    ...(hasDefaultChanges() ? [{ key: "default", label: "set default" } as const] : []),
+  ],
+  pageFns().boundsPx().x + pageFns().boundsPx().w,
+  pageFns().viewportBoundsPx().y - Math.round(19 / 2) + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0),
+  {
+    fontSizePx: 11,
+    gapPx: 4,
+    heightPx: 19,
+    horizontalPaddingPx: 9,
+    minActionWidthPx: 58,
+    rightInsetPx: 10,
+  });
 
-  const renderAnchorDefaultMaybe = () => {
-    let rightOffset = ANCHOR_OFFSET_PX * titleScale();
-    if (hasChildChanges()) {
-      rightOffset += ANCHOR_BOX_SIZE_PX * titleScale() + ANCHOR_OFFSET_PX * titleScale();
-    }
-    return (
-      <Show when={hasDefaultChanges()}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs text-gray-900 pointer-events-none`}
-          style={`left: ${1 + pageFns().boundsPx().x + pageFns().boundsPx().w - ANCHOR_BOX_SIZE_PX * titleScale() - rightOffset}px; ` +
-            `top: ${1 + pageFns().boundsPx().y + ANCHOR_OFFSET_PX * titleScale() / 3 * 2 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-            `width: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
-            `height: ${ANCHOR_BOX_SIZE_PX * titleScale()}px; ` +
-            `${VeFns.zIndexStyle(props.visualElement)}`}>
-          <div class={`absolute text-gray-600 rounded-xs pointer-events-none`}
-            style={`transform: scale(${titleScale() * 0.9}) translate(${2}px, ${-1}px); ` +
-              `transform-origin: top left; `}>
-            <i class={`fa fa-home`} />
-          </div>
-        </div>
-      </Show>
-    );
-  };
+  const renderPopupActionStripMaybe = () =>
+    <PopupActionStrip
+      background="rgba(255, 255, 255, 0.96)"
+      borderColor={LIGHT_BORDER_COLOR}
+      fixed={!!(props.visualElement.flags & VisualElementFlags.Fixed)}
+      layout={popupActionLayout()}
+      shadow="0 1px 2px rgba(15, 23, 42, 0.06)"
+      textColor={hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], 0.72)}
+      zIndexStyle={VeFns.zIndexStyle(props.visualElement)}
+    />;
 
   const renderBorder = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
@@ -598,8 +588,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         </Match>
       </Switch>
       {renderPopupTitle()}
-      {renderAnchorChildMaybe()}
-      {renderAnchorDefaultMaybe()}
+      {renderPopupActionStripMaybe()}
       {renderBorder()}
     </>
   );

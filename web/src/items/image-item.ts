@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ANCHOR_BOX_SIZE_PX, ANCHOR_OFFSET_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, PAGE_POPUP_TITLE_HEIGHT_BL, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, PAGE_POPUP_TITLE_HEIGHT_BL, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { compositeMoveOutHitboxBoundsPx } from "../layout/composite-move-out";
 import { BoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft, cloneBoundingBox } from "../util/geometry";
@@ -38,6 +38,7 @@ import { FlagsMixin } from "./base/flags-item";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { CursorEventState } from "../input/state";
 import { openRemoteFileInNewTab } from "../util/remoteFile";
+import { calcPopupActionStripLayout } from "../util/popupHeaderActions";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -58,6 +59,22 @@ export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsIte
 
 export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
   imageSizePx: Dimensions,
+}
+
+type PopupImageActionKey = "child" | "default";
+
+function calcImagePopupActionStripLayout(innerWidthPx: number, topPx: number, hasChildChanges: boolean, hasDefaultChanges: boolean) {
+  return calcPopupActionStripLayout<PopupImageActionKey>([
+    ...(hasChildChanges ? [{ key: "child", label: "pin here" } as const] : []),
+    ...(hasDefaultChanges ? [{ key: "default", label: "use default" } as const] : []),
+  ], innerWidthPx, topPx, {
+    fontSizePx: 10,
+    gapPx: 4,
+    heightPx: 18,
+    horizontalPaddingPx: 8,
+    minActionWidthPx: 54,
+    rightInsetPx: 8,
+  });
 }
 
 
@@ -172,28 +189,14 @@ export const ImageFns = {
     ];
 
     if (isPopup && emitHitboxes) {
-      // Add anchor hitboxes for popup positioning - use 1x1 block size
-      const iconSize = LINE_HEIGHT_PX;
-      const iconOffset = 4; // small gap from edge
-      let rightOffset = iconOffset;
-      if (hasChildChanges) {
-        const anchorChildBoundsPx = {
-          x: innerBoundsPx.w - iconSize - rightOffset,
-          y: iconOffset,
-          w: iconSize,
-          h: iconSize
-        };
-        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
-        rightOffset += iconSize + iconOffset;
+      const actionLayout = calcImagePopupActionStripLayout(innerBoundsPx.w, 0, hasChildChanges, hasDefaultChanges);
+      const childAction = actionLayout.actions.find(action => action.key === "child");
+      const defaultAction = actionLayout.actions.find(action => action.key === "default");
+      if (childAction) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, childAction.boundsPx));
       }
-      if (hasDefaultChanges) {
-        const anchorDefaultBoundsPx = {
-          x: innerBoundsPx.w - iconSize - rightOffset,
-          y: iconOffset,
-          w: iconSize,
-          h: iconSize
-        };
-        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, anchorDefaultBoundsPx));
+      if (defaultAction) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, defaultAction.boundsPx));
       }
     }
 
@@ -306,29 +309,14 @@ export const ImageFns = {
         w: RESIZE_BOX_SIZE_PX,
         h: RESIZE_BOX_SIZE_PX
       }));
-
-      // Add anchor hitboxes for popup positioning - use 1x1 block size
-      const iconSize = LINE_HEIGHT_PX;
-      const iconOffset = 4; // small gap from edge
-      let rightOffset = iconOffset;
-      if (hasChildChanges) {
-        const anchorChildBoundsPx = {
-          x: innerBoundsPx.w - iconSize - rightOffset,
-          y: iconOffset,
-          w: iconSize,
-          h: iconSize
-        };
-        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, anchorChildBoundsPx));
-        rightOffset += iconSize + iconOffset;
+      const actionLayout = calcImagePopupActionStripLayout(innerBoundsPx.w, 0, hasChildChanges, hasDefaultChanges);
+      const childAction = actionLayout.actions.find(action => action.key === "child");
+      const defaultAction = actionLayout.actions.find(action => action.key === "default");
+      if (childAction) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorChild, childAction.boundsPx));
       }
-      if (hasDefaultChanges) {
-        const anchorDefaultBoundsPx = {
-          x: innerBoundsPx.w - iconSize - rightOffset,
-          y: iconOffset,
-          w: iconSize,
-          h: iconSize
-        };
-        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, anchorDefaultBoundsPx));
+      if (defaultAction) {
+        hitboxes.push(HitboxFns.create(HitboxFlags.AnchorDefault, defaultAction.boundsPx));
       }
     }
 
