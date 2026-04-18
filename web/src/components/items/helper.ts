@@ -16,12 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm } from "../../items/page-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { VeFns, VisualElement } from "../../layout/visual-element";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { isArrowKey } from "../../input/key";
-import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox } from "../../util/geometry";
 
@@ -62,29 +61,11 @@ export const scrollGestureStyleForArrangeAlgorithm = (arrangeAlgorithm: ArrangeA
   return "overscroll-behavior: contain; touch-action: pan-x pan-y; ";
 }
 
-export const isInsideDocumentPage = (veFn: () => VisualElement): boolean => {
-  let currentPath = veFn().parentPath;
-
-  while (currentPath) {
-    const parentItem = itemState.get(VeFns.veidFromPath(currentPath).itemId);
-    if (parentItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
-      return true;
-    }
-    currentPath = VeFns.parentPath(currentPath);
-  }
-
-  return false;
-}
-
 export const shouldShowFocusRingForVisualElement = (
   store: StoreContextModel,
   veFn: () => VisualElement,
 ): boolean => {
-  const textEditInfo = store.overlay.textEditInfo();
-  if (textEditInfo == null || textEditInfo.itemPath != VeFns.veToPath(veFn())) {
-    return true;
-  }
-  return !isInsideDocumentPage(veFn);
+  return store.overlay.textEditInfo()?.itemPath != VeFns.veToPath(veFn());
 }
 
 // Use the item's existing top-level DOM node as its stack root when possible.

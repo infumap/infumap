@@ -36,6 +36,12 @@ import { VeFns } from '../layout/visual-element';
 
 export type RatingType = "Number" | "Star" | "HorizontalBar" | "VerticalBar";
 
+export function ratingTypeLabel(ratingType: RatingType): string {
+  if (ratingType == "HorizontalBar") { return "Horizontal Bar"; }
+  if (ratingType == "VerticalBar") { return "Vertical Bar"; }
+  return ratingType;
+}
+
 export interface RatingItem extends RatingMeasurable, Item {
   rating: number,
   ratingType: RatingType,
@@ -274,7 +280,7 @@ export const RatingFns = {
   },
 
   debugSummary: (ratingItem: RatingItem) => {
-    return "[rating] " + ratingItem.rating + " (" + ratingItem.ratingType + ")";
+    return "[rating] " + ratingItem.rating + " (" + ratingTypeLabel(ratingItem.ratingType) + ")";
   },
 
   getFingerprint: (ratingItem: RatingItem): string => {

@@ -30,7 +30,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { StoreContextModel } from '../store/StoreProvider';
 import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
 import { FileFlags, FlagsMixin } from './base/flags-item';
@@ -266,14 +266,8 @@ export const FileFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
-    const shouldEditImmediately = forceEdit || isInsideDocumentPageClickContext(visualElement);
-    if (!shouldEditImmediately && handledByList) { return; }
+    if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
-    if (!shouldEditImmediately && store.history.getFocusPath() !== itemPath) {
-      store.history.setFocus(itemPath);
-      arrangeNow(store, "file-focus");
-      return;
-    }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.File });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;

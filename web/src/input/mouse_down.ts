@@ -255,8 +255,18 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
 
-        // For right-click, keep focus on the item unless it's a note, file, table, page, or password (those lose focus entirely on right-click)
-        if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Note && editingItemType != ItemType.File && editingItemType != ItemType.Table && editingItemType != ItemType.Page && editingItemType != ItemType.Password) {
+        const keepFocusedOnRightClick =
+          editingItemType == ItemType.Note ||
+          editingItemType == ItemType.File ||
+          editingItemType == ItemType.Password ||
+          editingItemType == ItemType.Table ||
+          (editingItemType == ItemType.Page && isPage(item) && !!(asPageItem(item).flags & PageFlags.EmbeddedInteractive));
+
+        // Right click should leave these items in focus-only mode after exiting edit.
+        if (buttonNumber != MOUSE_LEFT && keepFocusedOnRightClick) {
+          store.history.setFocus(editingItemPath);
+        }
+        else if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Page) {
           store.history.setFocus(editingItemPath);
         }
 

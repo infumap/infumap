@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { asTableItem } from "../../items/table-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { cloneBoundingBox } from "../../util/geometry";
@@ -155,7 +155,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
       {renderText()}
       {renderExpandIcon()}
       {renderLinkMarkingMaybe()}
-      <Show when={store.history.getFocusPathMaybe() === vePath()}>
+      <Show when={store.history.getFocusPathMaybe() === vePath() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />

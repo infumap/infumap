@@ -21,7 +21,7 @@ import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
-import { asRatingItem } from "../../../items/rating-item";
+import { asRatingItem, ratingTypeLabel } from "../../../items/rating-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
@@ -34,7 +34,7 @@ export const Toolbar_Rating: Component = () => {
   const ratingItem = () => asRatingItem(store.history.getFocusItem());
   const ratingTypeText = () => {
     store.touchToolbarDependency();
-    return ratingItem().ratingType;
+    return ratingTypeLabel(ratingItem().ratingType);
   }
 
   const handleQr = () => {
@@ -60,7 +60,7 @@ export const Toolbar_Rating: Component = () => {
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
 
-        <div class="inline-block w-[115px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
+        <div class="inline-block w-[115px] border border-slate-400 rounded-md ml-[10px] mr-[4px] cursor-pointer"
           style={`font-size: 13px;`}>
           <div class="inline-block w-[113px] pl-[6px] hover:bg-slate-300"
             onClick={(e) => {
@@ -78,7 +78,10 @@ export const Toolbar_Rating: Component = () => {
 
         <Toolbar_ItemOrdering />
 
-        <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
+        {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+
+        <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
         </div>
         <div class="inline-block">

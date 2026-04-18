@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asNoteItem, NoteFns } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { MOUSE_LEFT } from "../../input/mouse_down";
@@ -250,7 +250,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       {renderText()}
       {renderCopyIconMaybe()}
       {renderLinkMarkingMaybe()}
-      <Show when={store.history.getFocusPathMaybe() === vePath()}>
+      <Show when={store.history.getFocusPathMaybe() === vePath() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />

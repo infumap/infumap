@@ -395,6 +395,13 @@ export const Toolbar_Popup: Component = () => {
   const aaListClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.List; finalizeAAChange(); }
   const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
   const aaCalendarClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Calendar; finalizeAAChange(); }
+  const handleRatingTypeChange = (newRatingType: "Star" | "Number" | "HorizontalBar" | "VerticalBar") => {
+    ratingItem().ratingType = newRatingType;
+    store.touchToolbar();
+    requestArrange(store, "toolbar-popup-rating-type");
+    serverOrRemote.updateItem(ratingItem(), store.general.networkStatus);
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+  }
   const documentArrangeEnabled = () => store.general.installationState()?.enableExperimental ?? false;
   const documentArrangeClass = () =>
     `text-sm ml-[3px] mr-[5px] p-[3px] ${documentArrangeEnabled() ? "hover:bg-slate-300" : "text-slate-400 cursor-not-allowed"}`;
@@ -492,16 +499,16 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={() => { ratingItem().ratingType = "Star"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={() => { handleRatingTypeChange("Star"); }}>
               Star
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "Number"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { handleRatingTypeChange("Number"); }}>
               Number
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "HorizontalBar"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { handleRatingTypeChange("HorizontalBar"); }}>
               Horizontal Bar
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { ratingItem().ratingType = "VerticalBar"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { handleRatingTypeChange("VerticalBar"); }}>
               Vertical Bar
             </div>
           </div>

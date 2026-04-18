@@ -268,14 +268,8 @@ export const TableFns = {
 
   handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel, forceEdit: boolean = false): void => {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
-    const shouldEditImmediately = forceEdit || isInsideDocumentPageClickContext(visualElement);
-    if (!shouldEditImmediately && handledByList) { return; }
+    if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
-    if (!shouldEditImmediately && hitboxMeta == null && store.history.getFocusPath() !== itemPath) {
-      store.history.setFocus(itemPath);
-      arrangeNow(store, "table-focus");
-      return;
-    }
     store.overlay.setTextEditInfo(store.history, {
       itemPath,
       itemType: ItemType.Table,

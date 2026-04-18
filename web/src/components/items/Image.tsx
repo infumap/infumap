@@ -37,7 +37,7 @@ import { asPageItem } from "../../items/page-item";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -256,7 +256,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderFocusRingMaybe = () =>
-    <Show when={isFocused()}>
+    <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 3;`} />
