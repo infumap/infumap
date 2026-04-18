@@ -446,11 +446,15 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             {renderPage()}
           </Match>
         </Switch>
+      </div>
+      {renderSelectedRootMaybe()}
+      {renderPopupRootMaybe()}
+      <div class="absolute"
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
         {renderResizeTriangleMaybe()}
         <div class={`absolute ${borderClass()} rounded-xs pointer-events-none`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 2; ` +
-          backgroundStyle() +
-            ``}>
+            backgroundStyle()}>
           {renderHoverOverMaybe()}
           {renderMovingOverMaybe()}
           {renderMovingOverAttachMaybe()}
@@ -473,8 +477,6 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         {renderBoxTitleMaybe()}
         {renderFocusRingMaybe()}
       </div>
-      {renderSelectedRootMaybe()}
-      {renderPopupRootMaybe()}
     </div>
   );
 }
