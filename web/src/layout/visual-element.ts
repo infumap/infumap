@@ -28,7 +28,7 @@ import { asTableItem, isTable } from "../items/table-item";
 import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
-import { GRID_SIZE, Z_INDEX_ABOVE_TRANSLUCENT, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
+import { GRID_SIZE, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
 import { isPage } from "../items/page-item";
 import { ArrangeItemFlags } from "./arrange/item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
@@ -734,10 +734,6 @@ export const VeFns = {
   //   deciding which item is on top. That DOM order should ultimately come from item ordering.
   // - Internal layering for complex items (for example table header/body/scroll layers) should stay
   //   local to the item rather than introducing new global z-index bands.
-  //
-  // Historical note: ordinary items are still split here into page/table vs non-page bands. That is
-  // temporary; later refactors will collapse ordinary items into a single band without changing the
-  // explicit override bands above.
   zIndexStyle: (visualElement: VisualElement): string => {
     if (visualElement.flags & VisualElementFlags.Moving) {
       return ` z-index: ${Z_INDEX_MOVING};`;
@@ -747,11 +743,7 @@ export const VeFns = {
       return ` z-index: ${Z_INDEX_POPUP};`;
     }
 
-    if (isPage(visualElement.displayItem) || isTable(visualElement.displayItem)) {
-      return ` z-index: ${Z_INDEX_ITEMS};`;
-    }
-
-    return ` z-index: ${Z_INDEX_ABOVE_TRANSLUCENT};`;
+    return ` z-index: ${Z_INDEX_ITEMS};`;
   },
 
   opacityStyle: (visualElement: VisualElement): string => {
