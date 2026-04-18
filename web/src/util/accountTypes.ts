@@ -56,5 +56,6 @@ export type User = {
   homePageId: Uid,
   trashPageId: Uid,
   dockPageId: Uid,
+  searchesPageId: Uid,
   hasTotp: boolean,
 }

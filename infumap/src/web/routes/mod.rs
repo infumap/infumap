@@ -28,6 +28,8 @@ pub mod command;
 pub mod files;
 pub mod ingest;
 
+const PAGE_FLAG_IS_DRAFT: i64 = 0x004;
+
 pub fn default_home_page(
   owner_id: &str,
   title: &str,
@@ -124,6 +126,74 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
 
   item.owner_id = String::from(owner_id);
   item.id = dock_page_id;
+
+  item
+}
+
+pub fn default_searches_page(owner_id: &str, searches_page_id: Uid, natural_aspect: f64) -> Item {
+  let inner_spatial_width_br: i64 = 60;
+
+  let mut item = Item::new_page(
+    None,
+    vec![128],
+    Vector { x: 0, y: 0 },
+    inner_spatial_width_br * GRID_SIZE,
+    RelationshipToParent::NoParent,
+    "Searches",
+    "",
+    0,
+    0,
+    0,
+    natural_aspect,
+    inner_spatial_width_br * GRID_SIZE,
+    ArrangeAlgorithm::List,
+    1,
+    1.5,
+    36,
+    7.0,
+    1.0,
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    1,
+  );
+
+  item.owner_id = String::from(owner_id);
+  item.id = searches_page_id;
+
+  item
+}
+
+pub fn default_current_search_page(
+  owner_id: &str,
+  searches_page_id: &Uid,
+  current_search_page_id: Uid,
+  page_width_bl: i64,
+  natural_aspect: f64,
+) -> Item {
+  let mut item = Item::new_page(
+    Some(searches_page_id),
+    vec![128],
+    Vector { x: 0, y: 0 },
+    page_width_bl * GRID_SIZE,
+    RelationshipToParent::Child,
+    "Current Search",
+    "",
+    0,
+    0,
+    PAGE_FLAG_IS_DRAFT,
+    natural_aspect,
+    page_width_bl * GRID_SIZE,
+    ArrangeAlgorithm::SpatialStretch,
+    4,
+    1.5,
+    36,
+    7.0,
+    1.0,
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    1,
+  );
+
+  item.owner_id = String::from(owner_id);
+  item.id = current_search_page_id;
 
   item
 }

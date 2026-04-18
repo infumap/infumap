@@ -25,7 +25,7 @@ use serde_json::{Map, Number, Value};
 
 pub const ROOT_USER_NAME: &'static str = "root";
 
-const ALL_JSON_FIELDS: [&'static str; 12] = [
+const ALL_JSON_FIELDS: [&'static str; 13] = [
   "__recordType",
   "id",
   "username",
@@ -38,6 +38,7 @@ const ALL_JSON_FIELDS: [&'static str; 12] = [
   "objectEncryptionKey",
   "trashPageId",
   "dockPageId",
+  "searchesPageId",
 ];
 
 pub struct User {
@@ -49,6 +50,7 @@ pub struct User {
   pub home_page_id: Uid,
   pub trash_page_id: Uid,
   pub dock_page_id: Uid,
+  pub searches_page_id: Uid,
   pub default_page_width_bl: i64,
   pub default_page_natural_aspect: f64,
   pub object_encryption_key: String,
@@ -84,6 +86,7 @@ impl Clone for User {
       home_page_id: self.home_page_id.clone(),
       trash_page_id: self.trash_page_id.clone(),
       dock_page_id: self.dock_page_id.clone(),
+      searches_page_id: self.searches_page_id.clone(),
       default_page_width_bl: self.default_page_width_bl,
       default_page_natural_aspect: self.default_page_natural_aspect,
       object_encryption_key: self.object_encryption_key.clone(),
@@ -113,6 +116,7 @@ impl JsonLogSerializable<User> for User {
     result.insert(String::from("homePageId"), Value::String(self.home_page_id.clone()));
     result.insert(String::from("trashPageId"), Value::String(self.trash_page_id.clone()));
     result.insert(String::from("dockPageId"), Value::String(self.dock_page_id.clone()));
+    result.insert(String::from("searchesPageId"), Value::String(self.searches_page_id.clone()));
     result.insert(String::from("defaultPageWidthBl"), Value::Number(self.default_page_width_bl.into()));
     result.insert(
       String::from("defaultPageNaturalAspect"),
@@ -144,6 +148,8 @@ impl JsonLogSerializable<User> for User {
         .ok_or(format!("'trashPageId' field was missing in an entry for user '{}'.", id))?,
       dock_page_id: json::get_string_field(map, "dockPageId")?
         .ok_or(format!("'dockPageId' field was missing in an entry for user '{}'.", id))?,
+      searches_page_id: json::get_string_field(map, "searchesPageId")?
+        .ok_or(format!("'searchesPageId' field was missing in an entry for user '{}'.", id))?,
       default_page_width_bl: json::get_integer_field(map, "defaultPageWidthBl")?
         .ok_or(format!("'defaultPageWidthBl' field was missing in an entry for user '{}'.", id))?,
       default_page_natural_aspect: json::get_float_field(map, "defaultPageNaturalAspect")?
@@ -188,6 +194,9 @@ impl JsonLogSerializable<User> for User {
     if old.dock_page_id != new.dock_page_id {
       result.insert(String::from("dockPageId"), Value::String(new.dock_page_id.to_string()));
     }
+    if old.searches_page_id != new.searches_page_id {
+      result.insert(String::from("searchesPageId"), Value::String(new.searches_page_id.to_string()));
+    }
     if old.default_page_width_bl != new.default_page_width_bl {
       result.insert(String::from("defaultPageWidthBl"), Value::Number(new.default_page_width_bl.into()));
     }
@@ -225,6 +234,9 @@ impl JsonLogSerializable<User> for User {
     }
     if let Some(u) = json::get_string_field(map, "dockPageId")? {
       self.dock_page_id = u;
+    }
+    if let Some(u) = json::get_string_field(map, "searchesPageId")? {
+      self.searches_page_id = u;
     }
     if let Some(u) = json::get_integer_field(map, "defaultPageWidthBl")? {
       self.default_page_width_bl = u;

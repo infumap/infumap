@@ -40,7 +40,7 @@ use crate::storage::db::user::{ROOT_USER_NAME, User};
 use crate::storage::db::users_extra::UserExtra;
 use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
-use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
+use crate::web::routes::{default_current_search_page, default_dock_page, default_home_page, default_searches_page, default_trash_page};
 use crate::web::serve::{cors_response, forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 
@@ -116,6 +116,8 @@ pub struct LoginResponse {
   pub trash_page_id: Option<String>,
   #[serde(rename = "dockPageId")]
   pub dock_page_id: Option<String>,
+  #[serde(rename = "searchesPageId")]
+  pub searches_page_id: Option<String>,
   #[serde(rename = "hasTotp")]
   pub has_totp: bool,
 }
@@ -139,6 +141,7 @@ pub async fn login(
       home_page_id: None,
       trash_page_id: None,
       dock_page_id: None,
+      searches_page_id: None,
       has_totp: false,
       err: Some(String::from(msg)),
     });
@@ -248,6 +251,7 @@ pub async fn login(
         home_page_id: Some(user.home_page_id),
         trash_page_id: Some(user.trash_page_id),
         dock_page_id: Some(user.dock_page_id),
+        searches_page_id: Some(user.searches_page_id),
         has_totp: user.totp_secret.is_some(),
         err: None,
       };
@@ -392,6 +396,8 @@ pub async fn register(
   let home_page_id = new_uid();
   let trash_page_id = new_uid();
   let dock_page_id = new_uid();
+  let searches_page_id = new_uid();
+  let current_search_page_id = new_uid();
   let password_salt = new_uid();
   let password_hash = match User::hash_password(&payload.password) {
     Ok(hash) => hash,
@@ -410,6 +416,7 @@ pub async fn register(
     home_page_id: home_page_id.clone(),
     trash_page_id: trash_page_id.clone(),
     dock_page_id: dock_page_id.clone(),
+    searches_page_id: searches_page_id.clone(),
     default_page_width_bl: 60,
     default_page_natural_aspect: 2.0,
     object_encryption_key: generate_key(),
@@ -445,6 +452,22 @@ pub async fn register(
     let dock_page = default_dock_page(user_id.as_str(), dock_page_id, natural_aspect);
     if let Err(e) = db.item.add(dock_page).await {
       error!("Error adding default dock page: {}", e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+    }
+    let searches_page = default_searches_page(user_id.as_str(), searches_page_id.clone(), natural_aspect);
+    if let Err(e) = db.item.add(searches_page).await {
+      error!("Error adding default searches page: {}", e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+    }
+    let current_search_page = default_current_search_page(
+      user_id.as_str(),
+      &searches_page_id,
+      current_search_page_id,
+      page_width_bl,
+      natural_aspect,
+    );
+    if let Err(e) = db.item.add(current_search_page).await {
+      error!("Error adding default current search page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     info!("Created root user.");
@@ -958,6 +981,8 @@ pub struct ValidateResponse {
   pub trash_page_id: Option<String>,
   #[serde(rename = "dockPageId")]
   pub dock_page_id: Option<String>,
+  #[serde(rename = "searchesPageId")]
+  pub searches_page_id: Option<String>,
   #[serde(rename = "hasTotp")]
   pub has_totp: Option<bool>,
 }
@@ -976,6 +1001,7 @@ pub async fn validate(
         home_page_id: None,
         trash_page_id: None,
         dock_page_id: None,
+        searches_page_id: None,
         has_totp: None,
       });
     }
@@ -996,6 +1022,7 @@ pub async fn validate(
         home_page_id: None,
         trash_page_id: None,
         dock_page_id: None,
+        searches_page_id: None,
         has_totp: None,
       })
     }
@@ -1006,6 +1033,7 @@ pub async fn validate(
       home_page_id: Some(user.home_page_id),
       trash_page_id: Some(user.trash_page_id),
       dock_page_id: Some(user.dock_page_id),
+      searches_page_id: Some(user.searches_page_id),
       has_totp: Some(user.totp_secret.is_some()),
     }),
   }

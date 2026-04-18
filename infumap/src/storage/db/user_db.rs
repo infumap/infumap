@@ -27,7 +27,7 @@ use tokio::io::{AsyncReadExt, BufReader};
 use super::user::User;
 use crate::util::fs::expand_tilde;
 
-pub const CURRENT_USER_LOG_VERSION: i64 = 4;
+pub const CURRENT_USER_LOG_VERSION: i64 = 5;
 
 /// Db for managing User instances, assuming the mandated data folder hierarchy.
 /// Not thread safe.

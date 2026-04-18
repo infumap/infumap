@@ -371,7 +371,12 @@ impl ItemDb {
     let store = self.store_by_user_id.get(&user.id).ok_or(format!("no item store for user: {}", &user.id))?;
     let next_log_epoch = self.loaded_log_epoch_by_user_id.get(&user.id).copied().unwrap_or(0) + 1;
     let container_versions = self.loaded_container_versions_by_user_id.get(&user.id).cloned().unwrap_or_default();
-    let root_ids = vec![user.trash_page_id.as_str(), user.dock_page_id.as_str(), user.home_page_id.as_str()];
+    let root_ids = vec![
+      user.trash_page_id.as_str(),
+      user.dock_page_id.as_str(),
+      user.home_page_id.as_str(),
+      user.searches_page_id.as_str(),
+    ];
 
     let mut all_ids = store.get_iter().map(|e| e.1.id.as_str()).collect::<HashSet<&str>>();
     let mut ordered_ids = vec![];
@@ -2568,7 +2573,13 @@ mod tests {
     note
   }
 
-  fn test_user(user_id: &str, home_page_id: &str, trash_page_id: &str, dock_page_id: &str) -> User {
+  fn test_user(
+    user_id: &str,
+    home_page_id: &str,
+    trash_page_id: &str,
+    dock_page_id: &str,
+    searches_page_id: &str,
+  ) -> User {
     User {
       id: user_id.to_owned(),
       username: user_id.to_owned(),
@@ -2578,6 +2589,7 @@ mod tests {
       home_page_id: home_page_id.to_owned(),
       trash_page_id: trash_page_id.to_owned(),
       dock_page_id: dock_page_id.to_owned(),
+      searches_page_id: searches_page_id.to_owned(),
       default_page_width_bl: 80,
       default_page_natural_aspect: 1.6,
       object_encryption_key: "key".to_owned(),
@@ -2593,6 +2605,7 @@ mod tests {
     let home_page_id = new_uid();
     let trash_page_id = new_uid();
     let dock_page_id = new_uid();
+    let searches_page_id = new_uid();
     let child_a_id = new_uid();
     let child_b_id = new_uid();
     let attachment_id = new_uid();
@@ -2602,6 +2615,7 @@ mod tests {
     item_db.add(root_page(&user_id, &home_page_id, "Home")).await.unwrap();
     item_db.add(root_page(&user_id, &trash_page_id, "Trash")).await.unwrap();
     item_db.add(root_page(&user_id, &dock_page_id, "Dock")).await.unwrap();
+    item_db.add(root_page(&user_id, &searches_page_id, "Searches")).await.unwrap();
     item_db.add(note(&user_id, &child_a_id, &home_page_id, RelationshipToParent::Child, "Child A")).await.unwrap();
     item_db.add(note(&user_id, &child_b_id, &home_page_id, RelationshipToParent::Child, "Child B")).await.unwrap();
     item_db
@@ -2632,15 +2646,17 @@ mod tests {
     let home_page_id = new_uid();
     let trash_page_id = new_uid();
     let dock_page_id = new_uid();
+    let searches_page_id = new_uid();
     let child_id = new_uid();
     let attachment_id = new_uid();
-    let user = test_user(&user_id, &home_page_id, &trash_page_id, &dock_page_id);
+    let user = test_user(&user_id, &home_page_id, &trash_page_id, &dock_page_id, &searches_page_id);
 
     let mut item_db = ItemDb::init(data_dir.to_str().unwrap());
     item_db.load_user_items(&user_id, true).await.unwrap();
     item_db.add(root_page(&user_id, &home_page_id, "Home")).await.unwrap();
     item_db.add(root_page(&user_id, &trash_page_id, "Trash")).await.unwrap();
     item_db.add(root_page(&user_id, &dock_page_id, "Dock")).await.unwrap();
+    item_db.add(root_page(&user_id, &searches_page_id, "Searches")).await.unwrap();
     item_db.add(note(&user_id, &child_id, &home_page_id, RelationshipToParent::Child, "Child")).await.unwrap();
     item_db
       .add(note(&user_id, &attachment_id, &child_id, RelationshipToParent::Attachment, "Attachment"))
