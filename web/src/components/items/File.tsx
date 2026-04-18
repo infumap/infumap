@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { FileFns, asFileItem } from "../../items/file-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
@@ -50,7 +50,7 @@ import { newOrdering } from "../../util/ordering";
 import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { shouldShowFocusRingForVisualElement } from "./helper";
+import { desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -270,16 +270,16 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `${positionClass()} border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
-    return `${positionClass()} border border-[#999] rounded-xs shadow-xl bg-white`;
+    return `absolute border border-[#999] rounded-xs shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return `${positionClass()} rounded-xs`;
+      return `rounded-xs`;
     } else {
-      return `${positionClass()} border border-[#999] rounded-xs bg-white hover:shadow-md`;
+      return `border border-[#999] rounded-xs bg-white hover:shadow-md`;
     }
   };
 
@@ -287,15 +287,14 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
       !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 0;`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
 
   const renderDetailed = () =>
@@ -392,16 +391,17 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     </>;
 
   return (
-    <>
+    <div class={positionClass()}
+      style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+        `${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      {renderFocusRingMaybe()}
-      <div class={outerClass()}
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+      <div class={`absolute ${outerClass()}`}
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1;`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>
       </div>
-    </>
+      {renderFocusRingMaybe()}
+    </div>
   );
 }

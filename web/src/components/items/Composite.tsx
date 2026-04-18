@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_POPUP, Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
@@ -33,7 +33,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { shouldShowFocusRingForVisualElement } from "./helper";
+import { desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 
 
@@ -83,23 +83,22 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const shadowClass = () => {
     if (isPopup()) {
-      return `${positionClass()} border border-transparent rounded-xs overflow-hidden blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-transparent rounded-xs overflow-hidden blur-md bg-slate-700 pointer-events-none`;
     }
-    return `${positionClass()} border border-transparent rounded-xs shadow-xl overflow-hidden`;
+    return `absolute border border-transparent rounded-xs shadow-xl overflow-hidden`;
   };
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
       <div class={shadowClass()}
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 0;`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
 
   const keyUpHandler = (ev: KeyboardEvent) => {
@@ -115,18 +114,17 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   }
 
   return (
-    <>
+    <div class={positionClass()}
+      style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+        `${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      {renderFocusRingMaybe()}
-      <div class={`${positionClass()} border ` +
+      <div class={`absolute border ` +
         `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
         `rounded-xs ` +
         `bg-white  hover:shadow-md`}
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
           `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
-          `outline: 0px solid transparent; ` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+          `outline: 0px solid transparent; `}
         contentEditable={store.overlay.textEditInfo() != null}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
@@ -172,19 +170,16 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
           <InfuLinkTriangle />
         </Show>
       </div>
+      {renderFocusRingMaybe()}
       <Show when={showTriangleDetail()}>
-        <div class={`${positionClass()} border border-transparent pointer-events-none`}
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
-            `outline: 0px solid transparent; ` +
-            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        <div class="absolute border border-transparent pointer-events-none"
+          style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 3; outline: 0px solid transparent;`}>
           <div class="absolute"
-            style={"width: 0px; height: 0px; bottom: 0px; right: 0px;" +
-              `${VeFns.zIndexStyle(props.visualElement)}`}>
+            style={"width: 0px; height: 0px; bottom: 0px; right: 0px;"}>
             <InfuResizeTriangle />
           </div>
         </div>
       </Show>
-    </>
+    </div>
   );
 };

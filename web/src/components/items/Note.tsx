@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
-import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW, Z_INDEX_POPUP, Z_INDEX_HIGHLIGHT, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
@@ -51,7 +51,7 @@ import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { shouldShowFocusRingForVisualElement } from "./helper";
+import { desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -176,30 +176,30 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `${positionClass()} border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (noteItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
-        return `${positionClass()} border border-[#999] rounded-xs shadow-xl`;
+        return `absolute border border-[#999] rounded-xs shadow-xl`;
       } else {
-        return `${positionClass()} border border-transparent rounded-xs`;
+        return `absolute border border-transparent rounded-xs`;
       }
     }
-    return `${positionClass()} border border-[#999] rounded-xs shadow-xl bg-white`;
+    return `absolute border border-[#999] rounded-xs shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return `${positionClass()} rounded-xs`;
+      return `rounded-xs`;
     } else {
       if (noteItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `${positionClass()} border border-[#999] rounded-xs`;
+          return `border border-[#999] rounded-xs`;
         } else {
-          return `${positionClass()} border border-transparent rounded-xs`;
+          return `border border-transparent rounded-xs`;
         }
       }
-      return `${positionClass()} border border-[#999] rounded-xs bg-white hover:shadow-md`;
+      return `border border-[#999] rounded-xs bg-white hover:shadow-md`;
     }
   };
 
@@ -337,15 +337,14 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `z-index: ${isPopup() ? Z_INDEX_POPUP : Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 0;`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
 
   const renderDetailed = () =>
@@ -478,17 +477,18 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     </>;
 
   return (
-    <>
+    <div class={positionClass()}
+      style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+        `${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      {renderFocusRingMaybe()}
-      <div class={`${outerClass()}`}
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
+      <div class={`absolute ${outerClass()}`}
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
           `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>
       </div>
-    </>
+      {renderFocusRingMaybe()}
+    </div>
   );
 }
