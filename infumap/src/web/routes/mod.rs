@@ -28,8 +28,6 @@ pub mod command;
 pub mod files;
 pub mod ingest;
 
-const PAGE_FLAG_IS_DRAFT: i64 = 0x004;
-
 pub fn default_home_page(
   owner_id: &str,
   title: &str,
@@ -179,7 +177,7 @@ pub fn default_current_search_page(
     "",
     0,
     0,
-    PAGE_FLAG_IS_DRAFT,
+    0,
     natural_aspect,
     page_width_bl * GRID_SIZE,
     ArrangeAlgorithm::SpatialStretch,

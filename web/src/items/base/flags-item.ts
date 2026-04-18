@@ -65,7 +65,6 @@ export enum PageFlags {
   None = 0x000,
   EmbeddedInteractive = 0x001,
   HideDocumentTitle = 0x002,
-  IsDraft = 0x004,
 };
 
 export enum ImageFlags {
