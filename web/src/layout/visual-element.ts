@@ -725,6 +725,19 @@ export const VeFns = {
     return isTable(parentParent.displayItem);
   },
 
+  // Global stacking policy:
+  // - Moving items override everything in the ordinary item scene.
+  // - Popups / explicit "above" items override ordinary items, but remain below app-level overlays.
+  // - Selected detail roots also override ordinary items, but they do that by rendering in separate
+  //   parent slots rather than by getting their own per-item z-index branch here.
+  // - Ordinary desktop siblings are intended to share one global stacking band, with sibling DOM order
+  //   deciding which item is on top. That DOM order should ultimately come from item ordering.
+  // - Internal layering for complex items (for example table header/body/scroll layers) should stay
+  //   local to the item rather than introducing new global z-index bands.
+  //
+  // Historical note: ordinary items are still split here into page/table vs non-page bands. That is
+  // temporary; later refactors will collapse ordinary items into a single band without changing the
+  // explicit override bands above.
   zIndexStyle: (visualElement: VisualElement): string => {
     if (visualElement.flags & VisualElementFlags.Moving) {
       return ` z-index: ${Z_INDEX_MOVING};`;
