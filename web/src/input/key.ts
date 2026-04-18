@@ -704,22 +704,22 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
 
     if (isPageOrImage || isActualAttachment) {
       // Page/image or attachment items: use popup mechanism
-      let sourcePositionGr: { x: number, y: number } | undefined = undefined;
-      // Only calculate sourcePositionGr for non-page/non-image attachments
+      let sourceTopLeftGr: { x: number, y: number } | undefined = undefined;
+      // Only calculate sourceTopLeftGr for non-page/non-image attachments
       // Pages and images have their own popup positioning (popupPositionGr) and should not use attachment positioning
       if (isActualAttachment && !isPageOrImage) {
-        // Calculate sourcePositionGr from VE's center for attachments
+        // Anchor popup placement to the item's top-left, not the exact click/hotspot position.
         const ve = VesCache.current.readNode(closest);
         if (ve) {
           const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, ve);
-          const centerPx = {
-            x: veBoundsPx.x + veBoundsPx.w / 2,
-            y: veBoundsPx.y + veBoundsPx.h / 2,
+          const itemTopLeftPx = {
+            x: veBoundsPx.x,
+            y: veBoundsPx.y,
           };
 
-          sourcePositionGr = VeFns.desktopPxToCurrentPageGr(store, centerPx) ?? undefined;
+          sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftPx) ?? undefined;
 
-          if (!sourcePositionGr) {
+          if (!sourceTopLeftGr) {
             // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
             const parentPath = VeFns.parentPath(closest);
             if (parentPath) {
@@ -729,7 +729,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
                 pageVe = VesCache.current.readNode(pageVe.parentPath);
               }
               if (pageVe && isPage(pageVe.displayItem)) {
-                sourcePositionGr = VeFns.desktopPxToPageGr(store, pageVe, centerPx) ?? undefined;
+                sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftPx, pageVe) ?? undefined;
               }
             }
           }
@@ -744,7 +744,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         vePath: closest,
         actualVeid: closestVeid,
         isFromAttachment: treatAsAttachment ? true : undefined,
-        sourcePositionGr,
+        sourceTopLeftGr,
       });
       arrangeNow(store, "key-arrow-replace-popup");
     } else {

@@ -31,8 +31,10 @@ export interface PopupSpec {
   vePath: VisualElementPath | null,
   // For attachment popups: flag indicating this popup was opened from an attachment
   isFromAttachment?: boolean,
-  // For attachment popups: source attachment position in parent page coordinates (Gr units)
+  // For page/image attachment popups: source attachment center in parent page coordinates (Gr units)
   sourcePositionGr?: { x: number, y: number } | null,
+  // For non-page attachment-style popups: desired popup top-left in current page coordinates (Gr units)
+  sourceTopLeftGr?: { x: number, y: number } | null,
   // For attachment popups: pending position for movement (not persisted, cleared on popup close)
   pendingPositionGr?: { x: number, y: number } | null,
 };

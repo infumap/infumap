@@ -741,6 +741,18 @@ export const VeFns = {
     return VeFns.desktopPxToPageGr(store, currentPageVe, desktopPosPx);
   },
 
+  desktopPxToPopupTopLeftAnchorGr: (store: StoreContextModel, desktopPosPx: Vector, pageVe?: VisualElement | null): Vector | null => {
+    const topLeftGr = pageVe
+      ? VeFns.desktopPxToPageGr(store, pageVe, desktopPosPx)
+      : VeFns.desktopPxToCurrentPageGr(store, desktopPosPx);
+    if (!topLeftGr) { return null; }
+
+    return {
+      x: topLeftGr.x - GRID_SIZE / 2,
+      y: topLeftGr.y + GRID_SIZE / 2,
+    };
+  },
+
   printCurrentVisualElementTree: (store: StoreContextModel) => {
     printRecursive(store.umbrellaVisualElement.get(), 0, "c");
   },

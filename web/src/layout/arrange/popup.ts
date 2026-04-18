@@ -197,11 +197,23 @@ export function calcSpatialPopupGeometry(
 
     targetAspect = popupItemDimensionsBl.w / popupItemDimensionsBl.h;
 
-    // Use pending position if popup has been moved, otherwise use source position (attachment center)
+    // Use pending position if popup has been moved, otherwise use the initial anchor.
     if (currentPopupSpec?.pendingPositionGr) {
       popupCenter = currentPopupSpec.pendingPositionGr;
+    } else if (currentPopupSpec?.sourceTopLeftGr && !popupPage && !popupImage) {
+      // Non-page attachment-style popups anchor from the item's top-left with a fixed offset.
+      popupCenter = clampPopupPositionToScreen(
+        {
+          x: currentPopupSpec.sourceTopLeftGr.x + widthGr / 2.0,
+          y: currentPopupSpec.sourceTopLeftGr.y + (widthGr / targetAspect) / 2.0,
+        },
+        widthGr,
+        widthGr / targetAspect,
+        currentPage,
+        childAreaBoundsPx
+      );
     } else if (currentPopupSpec?.sourcePositionGr) {
-      // Initial open: center on the attachment, then clamp to screen bounds
+      // Page/image attachment popups still anchor from the attachment center.
       popupCenter = clampPopupPositionToScreen(
         currentPopupSpec.sourcePositionGr,
         widthGr,

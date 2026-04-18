@@ -290,17 +290,17 @@ export const ItemFns = {
     }
 
     // For all other item types, calculate source position and create popup centrally
-    const { sourcePositionGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, isFromAttachment, clickPosPx);
+    const { sourceTopLeftGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, isFromAttachment, clickPosPx);
 
     // Treat as attachment/spatial popup for non-page/non-image items only
     // Pages and images have their own popup sizing logic and should NOT use isFromAttachment
-    const treatAsAttachment = !isImage(item) && (isFromAttachment || !!sourcePositionGr);
+    const treatAsAttachment = !isImage(item) && (isFromAttachment || !!sourceTopLeftGr);
 
     const popupSpec = {
       actualVeid: VeFns.actualVeidFromVe(visualElement),
       vePath: VeFns.veToPath(visualElement),
       isFromAttachment: treatAsAttachment,
-      sourcePositionGr
+      sourceTopLeftGr
     };
 
     if (insidePopup) {
@@ -347,13 +347,13 @@ function calcAttachmentPopupContext(
   store: StoreContextModel,
   isFromAttachment?: boolean,
   clickPosPx?: Vector | null
-): { sourcePositionGr: { x: number, y: number } | null, insidePopup: boolean } {
-  let sourcePositionGr: { x: number, y: number } | null = clickPosPx
-    ? VeFns.desktopPxToCurrentPageGr(store, clickPosPx)
-    : null;
+): { sourceTopLeftGr: { x: number, y: number } | null, insidePopup: boolean } {
+  const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, visualElement);
+  const itemTopLeftDesktopPx = { x: boundsPx.x, y: boundsPx.y };
+  let sourceTopLeftGr: { x: number, y: number } | null = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftDesktopPx);
   const parentVe = visualElement.parentPath ? VesCache.current.readNode(visualElement.parentPath) : null;
 
-  if (sourcePositionGr == null && (isFromAttachment || clickPosPx) && clickPosPx && parentVe) {
+  if (sourceTopLeftGr == null && (isFromAttachment || clickPosPx) && parentVe) {
     // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
     let pageVe = parentVe;
     while (pageVe && !isPage(pageVe.displayItem)) {
@@ -362,11 +362,11 @@ function calcAttachmentPopupContext(
     }
 
     if (pageVe && isPage(pageVe.displayItem)) {
-      sourcePositionGr = VeFns.desktopPxToPageGr(store, pageVe, clickPosPx);
+      sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftDesktopPx, pageVe);
     }
   }
 
   const insidePopup = isInsidePopupHierarchy(visualElement);
 
-  return { sourcePositionGr, insidePopup };
+  return { sourceTopLeftGr, insidePopup };
 }
