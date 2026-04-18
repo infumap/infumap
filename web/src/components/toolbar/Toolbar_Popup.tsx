@@ -92,6 +92,10 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+function documentArrangeEnabled(store: StoreContextModel): boolean {
+  return store.general.installationState()?.enableExperimental ?? false;
+}
+
 export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   const popupType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const compositeItemMaybe = () => {
@@ -126,7 +130,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96,
-      h: 164
+      h: documentArrangeEnabled(store) ? 164 : 138
     }
   } else if (popupType == ToolbarPopupType.RatingType) {
     return {
@@ -395,6 +399,7 @@ export const Toolbar_Popup: Component = () => {
   const aaListClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.List; finalizeAAChange(); }
   const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
   const aaCalendarClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Calendar; finalizeAAChange(); }
+  const showDocumentArrange = () => documentArrangeEnabled(store);
   const handleRatingTypeChange = (newRatingType: "Star" | "Number" | "HorizontalBar" | "VerticalBar") => {
     ratingItem().ratingType = newRatingType;
     store.touchToolbar();
@@ -402,9 +407,6 @@ export const Toolbar_Popup: Component = () => {
     serverOrRemote.updateItem(ratingItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
   }
-  const documentArrangeEnabled = () => store.general.installationState()?.enableExperimental ?? false;
-  const documentArrangeClass = () =>
-    `text-sm ml-[3px] mr-[5px] p-[3px] ${documentArrangeEnabled() ? "hover:bg-slate-300" : "text-slate-400 cursor-not-allowed"}`;
 
   const handleMouseDown = (e: MouseEvent) => {
     e.stopPropagation();  // Prevent global handler from closing popup
@@ -483,15 +485,11 @@ export const Toolbar_Popup: Component = () => {
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCalendarClick}>
               Calendar
             </div>
-            <div
-              class={documentArrangeClass()}
-              onClick={() => {
-                if (!documentArrangeEnabled()) { return; }
-                aaDocumentClick();
-              }}
-              aria-disabled={!documentArrangeEnabled()}>
-              Document
-            </div>
+            <Show when={showDocumentArrange()}>
+              <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
+                Document
+              </div>
+            </Show>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.RatingType}>
