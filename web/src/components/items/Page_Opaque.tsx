@@ -29,7 +29,7 @@ import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { createPageTitleEditHandlers, shouldShowFocusRingForVisualElement } from "./helper";
+import { createPageTitleEditHandlers, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -44,9 +44,9 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const renderBoxTitle = () =>
     <div id={VeFns.veToPath(props.visualElement) + ":title"}
-      class={`flex font-bold text-white`}
-      style={`left: ${pageFns().boundsPx().x}px; ` +
-        `top: ${pageFns().boundsPx().y}px; ` +
+      class={`absolute flex font-bold text-white`}
+      style={`left: 0px; ` +
+        `top: 0px; ` +
         `width: ${pageFns().boundsPx().w}px; ` +
         `height: ${pageFns().boundsPx().h}px;` +
         `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
@@ -130,38 +130,37 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs overflow-hidden shadow-xl`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+          `z-index: ${Z_INDEX_SHADOW};`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && !pageFns().isInComposite() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const renderHighlightMaybe = () =>
     <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
+        style={`left: 0px; top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
           `z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   return (
-    <>
+    <div class="absolute"
+      style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      {renderFocusRingMaybe()}
-      {renderHighlightMaybe()}
       <div class={`absolute border border-[#555] rounded-xs hover:shadow-md`}
-        style={`left: ${pageFns().boundsPx().x}px; ` +
-          `top: ${pageFns().boundsPx().y}px; ` +
+        style={`left: 0px; ` +
+          `top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
           `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, isInsideTranslucentPage() ? 0.33 : 0.0)}; ` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+          `z-index: 1;`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderBoxTitle()}
           {renderHoverOverMaybe()}
@@ -181,6 +180,8 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           </Show>
         </Show>
       </div>
-    </>
+      {renderHighlightMaybe()}
+      {renderFocusRingMaybe()}
+    </div>
   );
 }

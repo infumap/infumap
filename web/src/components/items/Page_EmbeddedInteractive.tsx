@@ -30,7 +30,7 @@ import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
-import { createPageTitleEditHandlers, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
+import { createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { switchToPage } from "../../layout/navigation";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 
@@ -105,7 +105,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const renderShadowMaybe = () =>
     <Show when={isEmbeddedInteractive()}>
       <div class={`absolute border border-transparent rounded-xs pointer-events-none`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+        style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `z-index: ${Z_INDEX_SHADOW};`} />
     </Show>;
@@ -113,7 +113,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
+        style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
@@ -122,17 +122,17 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     isMinimalDocumentPage()
       ? <div class="absolute w-full bg-white"
         style={`top: 0px; bottom: 0px; ` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+          `z-index: 1;`} />
       : <div class="absolute w-full"
         style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
           `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+          `z-index: 1; ` +
           borderStyle()} />;
 
   const renderEmbeddedInteractiveForeground = () =>
     <Show when={!isMinimalDocumentPage()}>
       <div class="absolute w-full pointer-events-none"
-        style={`${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+        style={`z-index: 3; ` +
           `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
           borderStyle()} />
     </Show>;
@@ -151,13 +151,12 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const renderEmbeddedInteractiveTitleMaybe = () =>
     <Show when={isEmbeddedInteractive() && !isMinimalDocumentPage()}>
       <div class={`absolute`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px;`}>
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; z-index: 4;`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
           class="absolute font-bold"
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale()}px; ` +
             `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
             `overflow-wrap: break-word;` +
-            `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
             `outline: 0px solid transparent;`}
           spellcheck={titleEditHandlers.isEditingTitle()}
           contentEditable={titleEditHandlers.isEditingTitle()}
@@ -172,10 +171,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const renderFindHighlightedMaybe = () =>
     <Show when={isEmbeddedInteractive() && (props.visualElement.flags & VisualElementFlags.FindHighlighted)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
+        style={`left: 0px; top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
-          `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `z-index: 4;`} />
     </Show>;
 
   const backgroundDoubleClickHandler = (ev: MouseEvent) => {
@@ -191,16 +190,14 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
         `left: 0px; ` +
         `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
-        `background-color: #ffffff;` +
-        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        `background-color: #ffffff; z-index: 2;`}>
       <div ref={rootDiv}
         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
           `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
         style={`overflow-y: auto; overflow-x: hidden; ` +
           `width: ${pageFns().viewportBoundsPx().w}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `background-color: #ffffff;` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+          `background-color: #ffffff;`}
         ondblclick={backgroundDoubleClickHandler}>
         <div class="absolute"
           style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; ` +
@@ -214,12 +211,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <For each={pageFns().desktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
-      <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
-        <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()} />
-      </Show>
-      <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
-        <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
-      </Show>
     </div>;
 
   const renderPage = () =>
@@ -231,8 +222,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
         `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
         `${scrollGestureStyleForArrangeAlgorithm(pageFns().pageItem().arrangeAlgorithm)}` +
-        `background-color: #ffffff; ` +
-        `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+        `background-color: #ffffff; z-index: 2;`}
       ondblclick={backgroundDoubleClickHandler}>
       <div class="absolute"
         style={`left: ${pageFns().documentContentLeftPx()}px; top: 0px; ` +
@@ -250,20 +240,27 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
-        <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
-          <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
-        </Show>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
     </div>;
 
+  const renderSelectedRootMaybe = () =>
+    <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
+      <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
+    </Show>;
+
+  const renderPopupRootMaybe = () =>
+    <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
+      <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
+    </Show>;
+
   return (
-    <>
-      {renderShadowMaybe()}
-      {renderFocusRingMaybe()}
-      <div class={`absolute`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
+    <div class={`absolute`}
+      style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
+      <div class="absolute"
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
+        {renderShadowMaybe()}
         {renderEmbeddedInteractiveBackground()}
         <Switch>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
@@ -276,9 +273,12 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         {renderResizeTriangleMaybe()}
         {renderIsLinkMaybe()}
         {renderEmbeddedInteractiveForeground()}
+        {renderEmbeddedInteractiveTitleMaybe()}
+        {renderFindHighlightedMaybe()}
+        {renderFocusRingMaybe()}
       </div>
-      {renderEmbeddedInteractiveTitleMaybe()}
-      {renderFindHighlightedMaybe()}
-    </>
+      {renderSelectedRootMaybe()}
+      {renderPopupRootMaybe()}
+    </div>
   );
 }

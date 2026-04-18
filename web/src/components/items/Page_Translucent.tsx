@@ -36,7 +36,7 @@ import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
-import { createPageTitleEditHandlers, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
+import { createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 
@@ -94,12 +94,12 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const fontSizePx = isCalendarTranslucentPage()
       ? 18 * translucentTitleInBoxScale()
       : 20 * translucentTitleInBoxScale();
-    const base = `left: ${pageFns().boundsPx().x}px; ` +
-      `top: ${pageFns().boundsPx().y}px; ` +
+    const base = `left: 0px; ` +
+      `top: 0px; ` +
       `width: ${pageFns().boundsPx().w}px; ` +
       `height: ${pageFns().boundsPx().h}px;` +
       `font-size: ${fontSizePx}px; ` +
-      `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+      `z-index: 3; ` +
       `outline: 0px solid transparent;`;
     if (isCalendarTranslucentPage()) {
       const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
@@ -126,21 +126,16 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   };
 
   const renderListPage = () =>
-    <>
+    <div class={`absolute rounded-xs`}
+      style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 1;`}>
       <div class={`absolute rounded-xs`}
-        style={`width: ${pageFns().boundsPx().w}px; ` +
-          `height: ${pageFns().boundsPx().h}px; ` +
-          `left: ${pageFns().boundsPx().x}px; ` +
-          `top: ${pageFns().boundsPx().y}px; ` +
-          `background-color: #ffffff; ` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+        style={`width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; left: 0px; top: 0px; background-color: #ffffff;`} />
       <div class={`absolute ${borderClass()}`}
         style={`overflow-y: auto; overflow-x: hidden; ` +
           `width: ${pageFns().listViewportWidthPx()}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
-          `left: ${pageFns().boundsPx().x}px; ` +
-          `top: ${pageFns().boundsPx().y}px; ` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+          `left: 0px; ` +
+          `top: 0px; `}>
         <div class="absolute"
           style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
             `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
@@ -151,16 +146,12 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       </div>
       <div ref={translucentDiv}
         class={`absolute`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null}>
-          <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()} />
-        </Show>
       </div>
-    </>;
+    </div>;
 
   const renderPage = () =>
   (
@@ -168,15 +159,15 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       ? renderCalendarTranslucentPage()
       : <div ref={translucentDiv}
         class={`absolute ${borderClass()} rounded-xs`}
-        style={`left: ${pageFns().boundsPx().x}px; ` +
-          `top: ${pageFns().boundsPx().y}px; ` +
+        style={`left: 0px; ` +
+          `top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
           `background-color: #ffffff; ` +
           `overflow-y: ${pageFns().boundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
           `overflow-x: ${pageFns().boundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
           `${scrollGestureStyleForArrangeAlgorithm(pageFns().pageItem().arrangeAlgorithm)}` +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+          `z-index: 1;`}
         onscroll={translucentScrollHandler}>
         <div class="absolute"
           style={`left: ${0}px; top: ${0}px; ` +
@@ -259,7 +250,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     return (
       <div ref={translucentDiv}
         class={`absolute ${borderClass()} rounded-xs`}
-        style={`left: ${bounds.x}px; top: ${bounds.y}px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow-y: auto; overflow-x: hidden; ${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
+        style={`left: 0px; top: 0px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow-y: auto; overflow-x: hidden; z-index: 1;`}
         onscroll={translucentScrollHandler}>
         <div class="absolute"
           style={`left: 0px; top: 0px; width: ${childArea.w / scale}px; height: ${totalHeight / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
@@ -412,63 +403,78 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs ${shadowClass()} overflow-hidden`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+          `z-index: ${Z_INDEX_SHADOW};`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && !pageFns().isInComposite() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
     </Show>;
 
   const renderResizeTriangleMaybe = () =>
     <Show when={pageFns().showTriangleDetail()}>
       <div class={`absolute border border-transparent rounded-xs overflow-hidden pointer-events-none`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `${VeFns.opacityStyle(props.visualElement)}; ${VeFns.zIndexStyle(props.visualElement)}`}>
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 3;`}>
         <InfuResizeTriangle />
       </div>
     </Show>;
 
+  const renderSelectedRootMaybe = () =>
+    <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
+      <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
+    </Show>;
+
+  const renderPopupRootMaybe = () =>
+    <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
+      <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
+    </Show>;
+
   return (
-    <>
-      {renderShadowMaybe()}
-      {renderFocusRingMaybe()}
-      <Switch>
-        <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
-          {renderListPage()}
-        </Match>
-        <Match when={pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
-          {renderPage()}
-        </Match>
-      </Switch>
-      {renderResizeTriangleMaybe()}
-      <div class={`absolute ${borderClass()} rounded-xs pointer-events-none`}
-        style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+    <div class="absolute"
+      style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
+      <div class="absolute"
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
+        {renderShadowMaybe()}
+        <Switch>
+          <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
+            {renderListPage()}
+          </Match>
+          <Match when={pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
+            {renderPage()}
+          </Match>
+        </Switch>
+        {renderResizeTriangleMaybe()}
+        <div class={`absolute ${borderClass()} rounded-xs pointer-events-none`}
+          style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 2; ` +
           backgroundStyle() +
-          `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-        {renderHoverOverMaybe()}
-        {renderMovingOverMaybe()}
-        {renderMovingOverAttachMaybe()}
-        {renderMovingOverAttachCompositeMaybe()}
-        {renderPopupSelectedOverlayMaybe()}
-        <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-          <div class="absolute pointer-events-none rounded-xs"
-            style={`left: 0px; top: 0px; ` +
-              `width: 100%; height: 100%; ` +
-              `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
-        </Show>
-        <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
-          <VisualElement_Desktop visualElement={attachmentVe.get()} />
-        }</For>
-        <Show when={pageFns().showMoveOutOfCompositeArea()}>
-          <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} />
-        </Show>
-        {renderIsLinkMaybe()}
+            ``}>
+          {renderHoverOverMaybe()}
+          {renderMovingOverMaybe()}
+          {renderMovingOverAttachMaybe()}
+          {renderMovingOverAttachCompositeMaybe()}
+          {renderPopupSelectedOverlayMaybe()}
+          <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+            <div class="absolute pointer-events-none rounded-xs"
+              style={`left: 0px; top: 0px; ` +
+                `width: 100%; height: 100%; ` +
+                `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
+          </Show>
+          <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
+            <VisualElement_Desktop visualElement={attachmentVe.get()} />
+          }</For>
+          <Show when={pageFns().showMoveOutOfCompositeArea()}>
+            <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} />
+          </Show>
+          {renderIsLinkMaybe()}
+        </div>
+        {renderBoxTitleMaybe()}
+        {renderFocusRingMaybe()}
       </div>
-      {renderBoxTitleMaybe()}
-    </>
+      {renderSelectedRootMaybe()}
+      {renderPopupRootMaybe()}
+    </div>
   );
 }

@@ -183,6 +183,16 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     );
   };
 
+  const renderSelectedRootMaybe = () =>
+    <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
+      <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
+    </Show>;
+
+  const renderPopupRootMaybe = () =>
+    <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
+      <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
+    </Show>;
+
   const renderListPage = () => {
     return (
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
@@ -211,12 +221,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
-          <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
-        </Show>
-        <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
-          <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
-        </Show>
+        {renderSelectedRootMaybe()}
+        {renderPopupRootMaybe()}
         {renderBorderOverlay()}
       </div>
     );
@@ -460,10 +466,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               );
             })()}
           </Show>
-          <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
-            <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
-          </Show>
         </div>
+        {renderSelectedRootMaybe()}
+        {renderPopupRootMaybe()}
         {renderBorderOverlay()}
       </div>
     );
@@ -496,12 +501,11 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
-        <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
-          <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
-        </Show>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
+      {renderSelectedRootMaybe()}
+      {renderPopupRootMaybe()}
       {renderBorderOverlay()}
     </div>;
 
