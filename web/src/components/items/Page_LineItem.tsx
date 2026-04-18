@@ -22,7 +22,7 @@ import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { hexToRGBA } from "../../util/color";
@@ -109,39 +109,39 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
               `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
               `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
-              `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+              `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Match>
         <Match when={isTableChildDropTarget()}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
             style={`left: ${tableChildDropHighlightBoundsPx().x + 2}px; top: ${tableChildDropHighlightBoundsPx().y + 2}px; ` +
               `width: ${tableChildDropHighlightBoundsPx().w - 4}px; height: ${tableChildDropHighlightBoundsPx().h - 4}px; ` +
-              `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+              `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
         </Match>
         <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
             style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +
               `width: ${openPopupBoundsPx().w - 4}px; height: ${openPopupBoundsPx().h - 4}px; ` +
-              `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+              `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
           <Show when={lineHighlightBoundsPx() != null}>
             <div class="absolute border border-slate-300 rounded-xs"
               style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
                 `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px; ` +
-                `z-index: ${Z_INDEX_ITEMS_OVERLAY}; `} />
+                `z-index: ${Z_INDEX_LOCAL_OVERLAY}; `} />
           </Show>
         </Match>
         <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
             style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
               `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px; ` +
-              `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+              `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
           <Show when={lineHighlightBoundsPx() != null}>
             <div class="absolute border border-slate-300 rounded-xs"
               style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
                 `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px; ` +
-                `z-index: ${Z_INDEX_ITEMS_OVERLAY}; `} />
+                `z-index: ${Z_INDEX_LOCAL_OVERLAY}; `} />
           </Show>
         </Match>
         <Match when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
@@ -265,7 +265,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
     </>
   );

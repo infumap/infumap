@@ -18,7 +18,7 @@
 
 import { Component, Show, createSignal, createEffect } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { InfuButton } from "../library/InfuButton";
 import { post } from "../../server";
@@ -140,7 +140,7 @@ export const RemoteLoginOverlay: Component = () => {
   return (
     <Show when={loginInfo() != null}>
       <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
-           style={`background-color: #00000040; z-index: ${Z_INDEX_TEXT_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
+           style={`background-color: #00000040; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
            onmousedown={mouseDownListener}
            onmousemove={mouseMoveListener}
            onmouseup={mouseUpListener}>

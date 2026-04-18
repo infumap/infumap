@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -303,12 +303,12 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
             `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
             `background-color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#0044ff0a' : 'transparent'}; ` +
             `border: 1px solid ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#cbd5e1' : 'transparent'}; ` +
-            `z-index: ${Z_INDEX_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
+            `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
         <div class="absolute text-center pointer-events-none"
           style={`left: 0px; top: ${popupIconTopPx()}px; ` +
             `width: ${oneBlockWidthPx() / popupIconScale()}px; height: ${boundsPx().h / popupIconScale()}px; ` +
             `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
-            `z-index: ${Z_INDEX_HIGHLIGHT};`}>
+            `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
           <i class="fas fa-eye-slash" />
         </div>
       </Show>

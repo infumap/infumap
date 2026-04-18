@@ -61,17 +61,21 @@ export const ANCHOR_BOX_SIZE_PX = 20;
 export const ANCHOR_OFFSET_PX = 3;
 
 
-export const Z_INDEX_SHADOW = 0;
-export const Z_INDEX_ITEMS = 2;
-export const Z_INDEX_ITEMS_OVERLAY = 3;
-export const Z_INDEX_HIGHLIGHT = 4;
-export const Z_INDEX_ABOVE_TRANSLUCENT = 15;
-export const Z_INDEX_POPUP = 18;
-export const Z_INDEX_MOVING = 20;
-export const Z_INDEX_TEXT_OVERLAY = 30;
-export const Z_INDEX_SHOW_TOOLBAR_ICON = 30;
-export const Z_INDEX_TOOLBAR_OVERLAY = 40;
-export const Z_PANIC = 1000;
+// Item-local layers. These are only meaningful inside an isolated stack root
+// (desktop item, line item, etc.), so they may intentionally overlap the numeric
+// range used by the global scene/app bands below.
+export const Z_INDEX_LOCAL_SHADOW = 0;
+export const Z_INDEX_LOCAL_OVERLAY = 3;
+export const Z_INDEX_LOCAL_HIGHLIGHT = 4;
+
+// Global semantic bands. These participate in cross-item / app-wide stacking.
+export const Z_INDEX_GLOBAL_ITEMS = 2;
+export const Z_INDEX_GLOBAL_POPUP = 18;
+export const Z_INDEX_GLOBAL_MOVING = 20;
+export const Z_INDEX_GLOBAL_APP_OVERLAY = 30;
+export const Z_INDEX_GLOBAL_TOOLBAR_TRIGGER = 30;
+export const Z_INDEX_GLOBAL_TOOLBAR_OVERLAY = 40;
+export const Z_INDEX_GLOBAL_PANIC = 1000;
 
 
 export const PAGE_DOCUMENT_TOP_MARGIN_BL = 1;

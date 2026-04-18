@@ -19,7 +19,7 @@
 import { Component, For, Show, createMemo } from "solid-js";
 import { linearGradient, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
-import { Z_INDEX_SHADOW, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { Z_INDEX_LOCAL_SHADOW, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElement_Desktop } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
@@ -131,14 +131,14 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs overflow-hidden shadow-xl`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `z-index: ${Z_INDEX_SHADOW};`} />
+          `z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && !pageFns().isInComposite() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderHighlightMaybe = () =>
@@ -147,7 +147,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
         style={`left: 0px; top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-          `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   return (

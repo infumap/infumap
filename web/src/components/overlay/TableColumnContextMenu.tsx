@@ -19,7 +19,7 @@
 import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { MOUSE_LEFT } from "../../input/mouse_down";
-import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { TableFns, asTableItem } from "../../items/table-item";
 import { requestArrange } from "../../layout/arrange";
 import { VeFns } from "../../layout/visual-element";
@@ -82,7 +82,7 @@ export const TableColumnContextMenu: Component = () => {
   return (
     <div class="absolute"
          style={`left: ${posPx().x+10}px; top: ${posPx().y-12}px; ` +
-                `z-index: ${Z_INDEX_TEXT_OVERLAY};`}
+                `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onMouseDown={mouseDownListener}>
       <div class={`border rounded w-[160px] h-[${colNum() == 0 ? '60' : '120'}px] bg-slate-50 mb-1 shadow-lg`}>
         <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newColToRight}>

@@ -22,7 +22,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
-import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -404,14 +404,14 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs ${shadowClass()} overflow-hidden`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `z-index: ${Z_INDEX_SHADOW};`} />
+          `z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && !pageFns().isInComposite() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderResizeTriangleMaybe = () =>

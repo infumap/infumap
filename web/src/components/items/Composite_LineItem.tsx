@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asCompositeItem } from "../../items/composite-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
+import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
@@ -67,14 +67,14 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
              style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; ` +
                     `width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px; ` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+                    `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
                     `background-color: #0044ff0a;`} />
       </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
                     `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+                    `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
                     `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
@@ -136,7 +136,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
       <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
     </>
   )

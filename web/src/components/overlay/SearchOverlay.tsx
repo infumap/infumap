@@ -25,7 +25,7 @@ import { Uid } from "../../util/uid";
 import { switchToItem, switchToPage } from "../../layout/navigation";
 import { VeFns } from "../../layout/visual-element";
 import { createBooleanSignal, createNumberSignal } from "../../util/signals";
-import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { initiateLoadItemMaybe } from "../../layout/load";
 import { isInside } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
@@ -238,7 +238,7 @@ export const SearchOverlay: Component = () => {
 
   return (
     <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
-         style={`background-color: #00000010; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
+         style={`background-color: #00000010; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>

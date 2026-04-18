@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_ABOVE_TRANSLUCENT } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
@@ -134,7 +134,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
             style={`left: 0px; top: 0px; ` +
               `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
               `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-              `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+              `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
           <>
@@ -147,7 +147,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                 contentEditable={false}
                 style={`left: ${focusBoundsPx.x}px; top: ${focusBoundsPx.y}px; ` +
                   `width: ${focusBoundsPx.w}px; height: ${focusBoundsPx.h}px; ` +
-                  `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ABOVE_TRANSLUCENT + 1};`} />
+                  `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT + 1};`} />
                 );
               })()}
             </Show>

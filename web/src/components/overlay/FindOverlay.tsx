@@ -19,7 +19,7 @@
 import { Component, createEffect, onCleanup, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { CursorEventState } from "../../input/state";
-import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { isInside } from "../../util/geometry";
 import { performFind, navigateToNextMatch, navigateToPreviousMatch, closeFindOverlay } from "../../layout/find-on-page";
@@ -128,7 +128,7 @@ export const FindOverlay: Component = () => {
 
   return (
     <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
-         style={`background-color: #00000010; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
+         style={`background-color: #00000010; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>

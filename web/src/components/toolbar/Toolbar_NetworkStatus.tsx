@@ -19,7 +19,7 @@
 import { Component, For, Show } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
 import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS } from "../../store/StoreProvider_General";
-import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
+import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 
 
 export const Toolbar_NetworkStatus: Component = () => {
@@ -89,7 +89,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     <Show when={store.overlay.networkOverlayVisible.get()}>
       <div class={`absolute rounded border-slate-500 border bg-white shadow-lg`}
         style={`top: 45px; right: 5px; min-width: 300px; max-width: 400px; ` +
-          `padding: 12px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+          `padding: 12px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
         onMouseDown={(e: MouseEvent) => { e.stopPropagation(); }}
         onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>
         <div class="flex justify-between items-start mb-2">

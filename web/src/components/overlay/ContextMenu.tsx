@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { Vector } from "../../util/geometry";
 import { HitInfo } from "../../input/hit";
 import { MOUSE_LEFT } from "../../input/mouse_down";
-import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { newItemInContext } from "../../input/create";
 
 
@@ -88,7 +88,7 @@ export const ContextMenu: Component = () => {
   return (
     <div class="absolute"
          style={`left: ${posPx().x-10}px; top: ${posPx().y-30}px; ` +
-                `z-index: ${Z_INDEX_TEXT_OVERLAY};`}
+                `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onMouseDown={mouseDownListener}>
       <AddItem desktopPosPx={posPx()} hitInfo={hitInfo()} />
     </div>

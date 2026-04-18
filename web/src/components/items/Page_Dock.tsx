@@ -22,7 +22,7 @@ import { requestArrange } from "../../layout/arrange";
 import { VisualElement_Desktop } from "../VisualElement";
 import { mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { itemState } from "../../store/ItemState";
-import { Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
+import { Z_INDEX_GLOBAL_TOOLBAR_TRIGGER } from "../../constants";
 import { PageVisualElementProps } from "./Page";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
@@ -159,7 +159,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
         <div class={`absolute`}
           style={`left: ${5}px; ` +
             `top: ${props.pageFns.boundsPx().h - 30}px; ` +
-            `z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON};`}
+            `z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER};`}
           onmousedown={showDock}>
           <i class={`fa fa-chevron-right hover:bg-slate-300 p-[2px] text-xs ${!store.topToolbarVisible.get() ? 'text-white' : 'text-slate-400'}`} />
         </div>

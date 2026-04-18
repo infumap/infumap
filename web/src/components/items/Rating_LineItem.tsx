@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asRatingItem } from "../../items/rating-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createLineHighlightBoundsPxFn } from "./helper";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
@@ -51,7 +51,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; ` +
                     `width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px; ` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+                    `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
                     `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
@@ -83,7 +83,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
       <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${props.visualElement.boundsPx.x}px; top: ${props.visualElement.boundsPx.y}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
-            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
       <div class={`absolute`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>

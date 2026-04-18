@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
-import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_HIGHLIGHT } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
@@ -355,7 +355,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             style={`left: 0px; top: 0px; ` +
               `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
               `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-              `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+              `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
         <Show when={showPopupIcon()}>
           <div class="absolute rounded-xs pointer-events-none"
@@ -363,12 +363,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
               `background-color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#0044ff0a' : 'transparent'}; ` +
               `border: 1px solid ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#cbd5e1' : 'transparent'}; ` +
-              `z-index: ${Z_INDEX_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
+              `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
           <div class="absolute text-center pointer-events-none"
             style={`left: 0px; top: ${popupIconTopPx()}px; ` +
               `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
               `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
-              `z-index: ${Z_INDEX_HIGHLIGHT};`}>
+              `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
             <i class="fas fa-sticky-note" />
           </div>
         </Show>

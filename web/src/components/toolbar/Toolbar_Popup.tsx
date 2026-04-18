@@ -21,7 +21,7 @@ import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
 import { BoundingBox } from "../../util/geometry";
-import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
+import { GRID_SIZE, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { asNoteItem, isNote } from "../../items/note-item";
@@ -435,7 +435,7 @@ export const Toolbar_Popup: Component = () => {
       <Switch>
         <Match when={overlayType() == ToolbarPopupType.PageColor}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <div class="pt-[6px] pl-[4px]">
@@ -454,7 +454,7 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageArrangeAlgorithm}>
           <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
-            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={aaSpatialClick}>
@@ -479,7 +479,7 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={overlayType() == ToolbarPopupType.RatingType}>
           <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
-            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={() => { ratingItem().ratingType = "Star"; requestArrange(store, "toolbar-popup-rating-type"); serverOrRemote.updateItem(ratingItem(), store.general.networkStatus); store.overlay.toolbarPopupInfoMaybe.set(null); }}>
@@ -498,7 +498,7 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={overlayType() == ToolbarPopupType.QrLink}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <canvas id="qrcanvas" style="margin: auto; width: 200px; height: 200px; margin-top: 12px;" width="200" height="200" />
@@ -545,7 +545,7 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={true}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; cursor: default;`}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Show when={label() != null}>

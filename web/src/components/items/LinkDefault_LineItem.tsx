@@ -23,7 +23,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { cloneBoundingBox } from "../../util/geometry";
 import { createLineHighlightBoundsPxFn } from "./helper";
 import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { Z_INDEX_ITEMS_OVERLAY } from "../../constants";
+import { Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 
 
 export const LinkDefault_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -47,7 +47,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; ` +
                     `width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px; ` +
-                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+                    `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
                     `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
@@ -77,7 +77,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
       <Show when={store.history.getFocusPathMaybe() === vePath()}>
         <div class="absolute pointer-events-none"
           style={`left: ${props.visualElement.boundsPx.x}px; top: ${props.visualElement.boundsPx.y}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
-            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
     </>
   );

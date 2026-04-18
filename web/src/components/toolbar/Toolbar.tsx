@@ -33,7 +33,7 @@ import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
 import { requestArrange } from '../../layout/arrange';
-import { GRID_SIZE, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
+import { GRID_SIZE, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, Z_INDEX_GLOBAL_TOOLBAR_TRIGGER } from '../../constants';
 import { isNote } from '../../items/note-item';
 import { isTable } from '../../items/table-item';
 import { isRating } from '../../items/rating-item';
@@ -338,7 +338,7 @@ export const Toolbar: Component = () => {
 
   const showToolbarButton = () =>
     <div class="absolute"
-      style={`z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON}; ` +
+      style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER}; ` +
         `right: 6px; top: -3px;`} onmousedown={showToolbar}>
       <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
     </div>;

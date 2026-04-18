@@ -17,7 +17,7 @@
 */
 
 import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_HIGHLIGHT, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -219,7 +219,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderNotDetailed = () =>
@@ -233,14 +233,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           style={`left: 0px; top: 0px; ` +
             `width: ${boundsPx().w}px; height: ${headerHeightPx()}px; ` +
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-            `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+            `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-xs"
           style={`left: ${viewportBoundsLocalPx().x}px; top: ${viewportBoundsLocalPx().y}px; ` +
             `width: ${viewportBoundsLocalPx().w}px; height: ${viewportBoundsLocalPx().h}px; ` +
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-            `z-index: ${Z_INDEX_HIGHLIGHT};`} />
+            `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
       <TableChildArea visualElement={props.visualElement} />
       <div class={`absolute pointer-events-none ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
@@ -319,7 +319,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
         store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>
         <div class="absolute bg-black pointer-events-none"
-          style={`left: ${attachInsertBarPx().x}px; top: ${attachInsertBarPx().y}px; width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+          style={`left: ${attachInsertBarPx().x}px; top: ${attachInsertBarPx().y}px; width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverRowNumber(vePath()) > -1 &&
@@ -329,7 +329,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
         !isSortedByTitle()}>
         <div class="absolute border border-black"
-          style={`left: 0px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+          style={`left: 0px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0 &&
@@ -337,7 +337,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class="absolute border border-black bg-black"
-          style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+          style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
         store.perVe.getMoveOverRowNumber(vePath()) > -2 && // always true, create dependency.
@@ -349,11 +349,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <div class="absolute pointer-events-none"
           style={`background-color: #0044ff0a; ` +
             `left: ${viewportBoundsLocalPx().x + 1}px; top: ${viewportBoundsLocalPx().y + 1}px; ` +
-            `width: ${viewportBoundsLocalPx().w - 2}px; height: ${viewportBoundsLocalPx().h - 2}px; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+            `width: ${viewportBoundsLocalPx().w - 2}px; height: ${viewportBoundsLocalPx().h - 2}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class="absolute border border-black pointer-events-none"
-          style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; z-index: ${Z_INDEX_ITEMS_OVERLAY};`} />
+          style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
     </>;
 

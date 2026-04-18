@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, onMount } from "solid-js";
-import { LINE_HEIGHT_PX, Z_INDEX_HIGHLIGHT, Z_INDEX_SHADOW } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
@@ -107,7 +107,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <div class={`absolute border border-transparent rounded-xs pointer-events-none`}
         style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `z-index: ${Z_INDEX_SHADOW};`} />
+          `z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
@@ -115,7 +115,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_HIGHLIGHT};`} />
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderEmbeddedInteractiveBackground = () =>

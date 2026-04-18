@@ -18,7 +18,7 @@
 
 import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
+import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 
 
@@ -34,7 +34,7 @@ export const Toolbar_TransientMessage: Component = () => {
            "bg-white border-black text-slate-800": !isError(),
            "border-black text-white font-semibold": isError()
          }}
-         style={`right: ${5}px; top: ${47}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY}; ${isError() ? 'background-color: #dc2626;' : ''}`}>
+         style={`right: ${5}px; top: ${47}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; ${isError() ? 'background-color: #dc2626;' : ''}`}>
       {message()?.text}
     </div>
   );

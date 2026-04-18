@@ -28,7 +28,7 @@ import { asTableItem, isTable } from "../items/table-item";
 import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
-import { GRID_SIZE, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
+import { GRID_SIZE, Z_INDEX_GLOBAL_ITEMS, Z_INDEX_GLOBAL_MOVING, Z_INDEX_GLOBAL_POPUP } from "../constants";
 import { isPage } from "../items/page-item";
 import { ArrangeItemFlags } from "./arrange/item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
@@ -736,14 +736,14 @@ export const VeFns = {
   //   local to the item rather than introducing new global z-index bands.
   zIndexStyle: (visualElement: VisualElement): string => {
     if (visualElement.flags & VisualElementFlags.Moving) {
-      return ` z-index: ${Z_INDEX_MOVING};`;
+      return ` z-index: ${Z_INDEX_GLOBAL_MOVING};`;
     }
 
     if (visualElement.flags & VisualElementFlags.ZAbove || visualElement.flags & VisualElementFlags.Popup) {
-      return ` z-index: ${Z_INDEX_POPUP};`;
+      return ` z-index: ${Z_INDEX_GLOBAL_POPUP};`;
     }
 
-    return ` z-index: ${Z_INDEX_ITEMS};`;
+    return ` z-index: ${Z_INDEX_GLOBAL_ITEMS};`;
   },
 
   opacityStyle: (visualElement: VisualElement): string => {
