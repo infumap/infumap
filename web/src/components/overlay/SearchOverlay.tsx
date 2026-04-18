@@ -172,6 +172,7 @@ export const SearchOverlay: Component = () => {
         <Match when={itemType == ItemType.File}><i class="fa fa-file" /></Match>
         <Match when={itemType == ItemType.Image}><i class="fa fa-image" /></Match>
         <Match when={itemType == ItemType.Link}><i class="fa fa-link" /></Match>
+        <Match when={itemType == ItemType.Search}><i class="fa fa-search" /></Match>
         <Match when={itemType == ItemType.Password}><i class="fa fa-eye-slash" /></Match>
         <Match when={itemType == ItemType.Rating}><i class="fa fa-star" /></Match>
       </Switch>

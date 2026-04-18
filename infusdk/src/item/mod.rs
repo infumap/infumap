@@ -196,6 +196,7 @@ pub enum ItemType {
   Image,
   Rating,
   Link,
+  Search,
   Placeholder,
 }
 
@@ -211,6 +212,7 @@ impl ItemType {
       ItemType::Image => "image",
       ItemType::Rating => "rating",
       ItemType::Link => "link",
+      ItemType::Search => "search",
       ItemType::Placeholder => "placeholder",
     }
   }
@@ -226,6 +228,7 @@ impl ItemType {
       "image" => Ok(ItemType::Image),
       "rating" => Ok(ItemType::Rating),
       "link" => Ok(ItemType::Link),
+      "search" => Ok(ItemType::Search),
       "placeholder" => Ok(ItemType::Placeholder),
       other => Err(format!("Invalid ItemType value: '{}'.", other).into()),
     }
@@ -266,6 +269,7 @@ pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
     || item_type == ItemType::Table
     || item_type == ItemType::Image
     || item_type == ItemType::Password
+    || item_type == ItemType::Search
     || item_type == ItemType::Composite
 }
 
@@ -2678,6 +2682,63 @@ impl Item {
       spatial_position_gr: None,
       order_children_by: None,
       spatial_width_gr: None,
+      spatial_height_gr: None,
+      title: None,
+      url: None,
+      format: None,
+      link_to: None,
+      table_columns: None,
+      number_of_visible_columns: None,
+      original_creation_date: None,
+      mime_type: None,
+      file_size_bytes: None,
+      permission_flags: None,
+      inner_spatial_width_gr: None,
+      natural_aspect: None,
+      background_color_index: None,
+      arrange_algorithm: None,
+      default_popup_position_gr: None,
+      default_popup_width_gr: None,
+      popup_position_gr: None,
+      popup_width_gr: None,
+      default_cell_popup_position_norm: None,
+      default_cell_popup_width_norm: None,
+      cell_popup_position_norm: None,
+      cell_popup_width_norm: None,
+      grid_number_of_columns: None,
+      grid_cell_aspect: None,
+      doc_width_bl: None,
+      justified_row_aspect: None,
+      calendar_day_row_height_bl: None,
+      text: None,
+      image_size_px: None,
+      thumbnail: None,
+      rating: None,
+      rating_type: None,
+    }
+  }
+
+  pub fn new_search(
+    parent_id: &Uid,
+    ordering: Vec<u8>,
+    spatial_position_gr: Vector<i64>,
+    spatial_width_gr: i64,
+    relationship: RelationshipToParent,
+  ) -> Item {
+    Item {
+      item_type: ItemType::Search,
+      owner_id: EMPTY_UID.to_owned(),
+      id: new_uid(),
+      parent_id: Some(parent_id.to_owned()),
+      relationship_to_parent: relationship,
+      creation_date: unix_now_secs_i64().unwrap(),
+      last_modified_date: unix_now_secs_i64().unwrap(),
+      datetime: unix_now_secs_i64().unwrap(),
+      ordering,
+      flags: None,
+      spatial_position_gr: Some(spatial_position_gr),
+      order_children_by: None,
+      spatial_width_gr: Some(spatial_width_gr),
       spatial_height_gr: None,
       title: None,
       url: None,

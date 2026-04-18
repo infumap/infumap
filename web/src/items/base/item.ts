@@ -31,6 +31,7 @@ export const ItemType = {
   Image: "image",
   Rating: "rating",
   Link: "link",
+  Search: "search",
   Placeholder: "placeholder",
 };
 
