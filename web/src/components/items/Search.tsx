@@ -200,7 +200,6 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsPx().w);
     const inputWidthPx = calcSearchWorkspaceInputWidthPx(boundsPx().w);
     const lowerTopPx = calcSearchWorkspaceResultsTopPx();
-    const resultsBoundsPx = () => calcSearchWorkspaceResultsBoundsPx(boundsPx());
     return (
       <div class="absolute bg-white"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
@@ -210,58 +209,56 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
             style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
               `background-color: ${FIND_HIGHLIGHT_COLOR};`} />
         </Show>
-        <div class="absolute"
-          style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; top: ${SEARCH_WORKSPACE_TOP_INSET_PX}px; width: ${controlsWidthPx}px;`}>
-          <div class="flex items-center gap-[10px]">
-            <div
-              class="border border-[#999] rounded-xs bg-white overflow-hidden"
-              style={`width: ${inputWidthPx}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-              onMouseDown={queryInputMouseDown}>
-              <div class="flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
-                style="font-size: 16px;">
-                <Show when={isEditing()} fallback={
-                  <span class={`outline-hidden ${queryText() == "" ? "text-slate-500" : "text-black"}`}>
-                    {queryText() == "" ? "Search..." : queryText()}
-                  </span>
-                }>
-                  <span id={editingDomId()}
-                    class="outline-hidden text-black"
-                    style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px;"
-                    contentEditable={isEditing() ? true : undefined}
-                    spellcheck={isEditing()}
-                    onKeyDown={keyDownHandler}
-                    onInput={inputListener}>
-                    {editableQueryText()}<span></span>
-                  </span>
-                </Show>
+        <div class="absolute border-b border-slate-300 bg-white"
+          style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${lowerTopPx}px;`}>
+          <div class="absolute"
+            style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; top: ${SEARCH_WORKSPACE_TOP_INSET_PX}px; width: ${controlsWidthPx}px;`}>
+            <div class="flex items-center gap-[10px]">
+              <div
+                class="border border-[#999] rounded-xs bg-white overflow-hidden"
+                style={`width: ${inputWidthPx}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+                onMouseDown={queryInputMouseDown}>
+                <div class="flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
+                  style="font-size: 16px;">
+                  <Show when={isEditing()} fallback={
+                    <span class={`outline-hidden ${queryText() == "" ? "text-slate-500" : "text-black"}`}>
+                      {queryText() == "" ? "Search..." : queryText()}
+                    </span>
+                  }>
+                    <span id={editingDomId()}
+                      class="outline-hidden text-black"
+                      style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px;"
+                      contentEditable={isEditing() ? true : undefined}
+                      spellcheck={isEditing()}
+                      onKeyDown={keyDownHandler}
+                      onInput={inputListener}>
+                      {editableQueryText()}<span></span>
+                    </span>
+                  </Show>
+                </div>
               </div>
+              <button
+                class="border border-[#999] rounded-xs bg-white text-black cursor-pointer"
+                style={`width: ${SEARCH_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+                type="button"
+                onMouseDown={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  void runSearch();
+                }}
+                onMouseUp={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                }}
+                >
+                Search
+              </button>
             </div>
-            <button
-              class="border border-[#999] rounded-xs bg-white text-black cursor-pointer"
-              style={`width: ${SEARCH_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-              type="button"
-              onMouseDown={(ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                void runSearch();
-              }}
-              onMouseUp={(ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-              }}
-              >
-              Search
-            </button>
           </div>
         </div>
-        <div class="absolute border-t border-slate-300"
-          style={`left: 0px; top: ${lowerTopPx}px; width: ${boundsPx().w}px; height: ${Math.max(0, boundsPx().h - lowerTopPx)}px;`} />
-        <div class="absolute"
-          style={`left: ${resultsBoundsPx().x}px; top: ${resultsBoundsPx().y}px; width: ${resultsBoundsPx().w}px; height: ${resultsBoundsPx().h}px;`}>
-          <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
-            <VisualElement_Desktop visualElement={childVe.get()} />
-          }</For>
-        </div>
+        <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
         <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
           <div class="absolute pointer-events-none rounded-xs"
             style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />

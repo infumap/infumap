@@ -334,7 +334,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const renderHoverOverMaybe = () =>
     <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
       <>
-        <Show when={!pageFns().isInComposite()}>
+        <Show when={!pageFns().isInComposite() && pageFns().clickBoundsPx() != null}>
           <div class={`absolute rounded-xs pointer-events-none`}
             style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
               `background-color: #ffffff33;`} />
@@ -348,7 +348,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     </Show>;
 
   const renderMovingOverMaybe = () =>
-    <Show when={store.perVe.getMovingItemIsOver(pageFns().vePath())}>
+    <Show when={store.perVe.getMovingItemIsOver(pageFns().vePath()) && pageFns().clickBoundsPx() != null}>
       <div class={`absolute rounded-xs pointer-events-none`}
         style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
           `background-color: #ffffff33;`} />

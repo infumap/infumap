@@ -27,6 +27,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
+import { HitboxFlags } from "../hitbox";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes } from "./util";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -109,7 +110,7 @@ export function arrange_catalog_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  const childGeometries: Array<{ childItem: Item, actualLinkItemMaybe: LinkItem | null, geometry: ItemGeometry }> = [];
+  const childGeometries: Array<{ childItem: Item, actualLinkItemMaybe: LinkItem | null, geometry: ItemGeometry, baseHitboxCount: number }> = [];
   let idx = 0;
   for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
     const childItem = itemState.get(displayItem_pageWithChildren.computed_children[i])!;
@@ -129,11 +130,29 @@ export function arrange_catalog_page(
     const childGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     childGeometry.row = idx - 1;
     childGeometry.col = 0;
-    childGeometries.push({ childItem, actualLinkItemMaybe, geometry: childGeometry });
+    childGeometries.push({
+      childItem,
+      actualLinkItemMaybe,
+      geometry: childGeometry,
+      baseHitboxCount: childGeometry.hitboxes.length,
+    });
   }
 
   addContiguousStackedGapHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
   addContiguousStackedRowMarginHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
+
+  for (const child of childGeometries) {
+    if (!child.actualLinkItemMaybe) { continue; }
+    const addedHitboxCount = child.geometry.hitboxes.length - child.baseHitboxCount;
+    for (let i = 0; i < addedHitboxCount; ++i) {
+      const hitbox = child.geometry.hitboxes[i];
+      if (hitbox.type != HitboxFlags.Click || !hitbox.meta?.focusOnly) { continue; }
+      hitbox.meta = {
+        ...hitbox.meta,
+        openActualItem: true,
+      };
+    }
+  }
 
   const childrenPaths: Array<VisualElementPath> = [];
   for (const child of childGeometries) {

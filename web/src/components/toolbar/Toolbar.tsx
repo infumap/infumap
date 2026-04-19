@@ -114,39 +114,57 @@ export const Toolbar: Component = () => {
     for (let i = 0; i < topPageVePaths.length; ++i) {
       topPageVeids.push(VeFns.veidFromPath(topPageVePaths[i]));
     }
+    if (topPageVeids.length === 0) {
+      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
+    }
+
+    const firstTopPageMaybe = itemState.get(topPageVeids[0].itemId);
+    if (!firstTopPageMaybe || !isPage(firstTopPageMaybe)) {
+      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
+    }
+    const firstTopPage = asPageItem(firstTopPageMaybe);
+
     let focusPageIdx = -1;
     let focusPageItem = null;
     if (aTopPageHasFocus) {
       focusPageIdx = calcFocusPageIdx();
-      if (focusPageIdx == -1) {
+      if (focusPageIdx == -1 || focusPageIdx >= topPageVeids.length) {
         return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
       }
-      focusPageItem = asPageItem(itemState.get(topPageVeids[focusPageIdx].itemId)!);
+      const focusPageMaybe = itemState.get(topPageVeids[focusPageIdx].itemId);
+      if (!focusPageMaybe || !isPage(focusPageMaybe)) {
+        return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
+      }
+      focusPageItem = asPageItem(focusPageMaybe);
     }
 
     let r = [];
 
     let lPosPx = 0;
-    let rPosPx = (asPageItem(itemState.get(topPageVeids[0].itemId)!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+    let rPosPx = (firstTopPage.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
     if (topPageVeids.length == 1) { rPosPx = -1; }
     r.push({
-      title: asPageItem(itemState.get(topPageVeids[0].itemId)!).title,
+      title: firstTopPage.title,
       idx: 0,
       lPosPx,
       rPosPx,
-      bg: focusPageIdx == 0 ? `background-image: ${linearGradient(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, 0.92)};` : defaultBg,
-      col: `${hexToRGBA(Colors[asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex], 1.0)}; `,
+      bg: focusPageIdx == 0 ? `background-image: ${linearGradient(firstTopPage.backgroundColorIndex, 0.92)};` : defaultBg,
+      col: `${hexToRGBA(Colors[firstTopPage.backgroundColorIndex], 1.0)}; `,
       hasFocus: focusPageIdx == 0,
       nextHasFocus: focusPageIdx == 1,
       borderColor: focusPageIdx == 0
-        ? borderColorForColorIdx(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, BorderType.MainPage)
+        ? borderColorForColorIdx(firstTopPage.backgroundColorIndex, BorderType.MainPage)
         : ' ',
       borderWidthPx: focusPageIdx == 0 ? 2 : 1,
     });
 
     for (let i = 1; i < topPageVeids.length; ++i) {
       let pUid = topPageVeids[i].itemId;
-      let page = asPageItem(itemState.get(pUid)!);
+      const pageMaybe = itemState.get(pUid);
+      if (!pageMaybe || !isPage(pageMaybe)) {
+        continue;
+      }
+      let page = asPageItem(pageMaybe);
       lPosPx = rPosPx;
       rPosPx = lPosPx + (page.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
       if (i == topPageVeids.length - 1) {

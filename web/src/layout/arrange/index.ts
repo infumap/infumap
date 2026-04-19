@@ -18,10 +18,12 @@
 
 import { batch } from "solid-js";
 import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
+import { isContainer } from "../../items/base/container-item";
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { getPanickedMessage } from "../../util/lang";
+import { SOLO_ITEM_HOLDER_PAGE_UID } from "../../util/uid";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
@@ -193,7 +195,9 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     // console.time("fullArrange-finalizeArrange");
     VesCache.arrange.finalize(store, umbrellaSpec, umbrellaRelationships, umbrellaPath);
     // console.timeEnd("fullArrange-finalizeArrange");
-    VesCache.watch.addContainerUid(currentPage.id, currentPage.origin);
+    if (currentPage.id !== SOLO_ITEM_HOLDER_PAGE_UID && isContainer(currentPage)) {
+      VesCache.watch.addContainerUid(currentPage.id, currentPage.origin);
+    }
   }
 
   const hasUser = store.user.getUserMaybe() != null;

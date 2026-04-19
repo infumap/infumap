@@ -21,7 +21,7 @@ import { Item } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
-import { EMPTY_UID, Uid } from "./util/uid";
+import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "./util/uid";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
 import { isContainer } from "./items/base/container-item";
@@ -519,6 +519,13 @@ function getTrackedLocalContainerSubscriptions(): Array<SyncContainerSubscriptio
   }
 
   return Array.from(localContainers)
+    .filter((containerId) => {
+      if (containerId === SOLO_ITEM_HOLDER_PAGE_UID) {
+        return false;
+      }
+      const item = itemState.get(containerId);
+      return item != null && isContainer(item);
+    })
     .sort()
     .map((containerId) => {
       const existing = localContainerSyncVersions.get(containerId);

@@ -123,15 +123,9 @@ export function arrangeSearchResultsPathMaybe(
 
   const resultsPage = ensureTemporaryResultsPage(searchItem, results);
   const resultsBoundsPx = calcSearchWorkspaceResultsBoundsPx(searchItemGeometry.boundsPx);
-  const boundsPx = {
-    x: 0,
-    y: 0,
-    w: resultsBoundsPx.w,
-    h: resultsBoundsPx.h,
-  };
   const pageGeometry: ItemGeometry = {
-    boundsPx,
-    viewportBoundsPx: boundsPx,
+    boundsPx: resultsBoundsPx,
+    viewportBoundsPx: resultsBoundsPx,
     blockSizePx: searchItemGeometry.blockSizePx,
     hitboxes: [],
   };

@@ -78,6 +78,7 @@ export interface HitboxMeta {
   startBl?: number,
   endBl?: number,
   focusOnly?: boolean,
+  openActualItem?: boolean,
   allowOutsideBounds?: boolean,
   compositeMoveOut?: boolean,
   calendarYear?: number,
@@ -113,6 +114,9 @@ export const HitboxFns = {
     }
     if (typeof (meta.focusOnly) != 'undefined') {
       result.focusOnly = meta.focusOnly;
+    }
+    if (typeof (meta.openActualItem) != 'undefined') {
+      result.openActualItem = meta.openActualItem;
     }
     if (typeof (meta.allowOutsideBounds) != 'undefined') {
       result.allowOutsideBounds = meta.allowOutsideBounds;
@@ -160,7 +164,8 @@ export const HitboxFns = {
     return "[colNum: " +
       (meta.colNum ? meta.colNum : "undefined") + ", startBl: " +
       (meta.startBl ? meta.startBl : "undefined") + ", endBl: " +
-      (meta.endBl ? meta.endBl : "undefined") + ", allowOutsideBounds: " +
+      (meta.endBl ? meta.endBl : "undefined") + ", openActualItem: " +
+      (meta.openActualItem ? meta.openActualItem : "undefined") + ", allowOutsideBounds: " +
       (meta.allowOutsideBounds ? meta.allowOutsideBounds : "undefined") + ", compositeMoveOut: " +
       (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", year: " +
       (meta.calendarYear ? meta.calendarYear : "undefined") + ", month: " +

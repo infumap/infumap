@@ -18,6 +18,7 @@
 
 import { isComposite } from "../../items/composite-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { isSearch } from "../../items/search-item";
 import { isTable } from "../../items/table-item";
 import { isContainer } from "../../items/base/container-item";
 import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
@@ -292,6 +293,33 @@ function hitChildMaybe(
       };
     }
   }
+  {
+    const searchWorkspaceHit = hitSearchWorkspaceMaybe(
+      store,
+      posOnDesktopPx,
+      rootVes,
+      parentRootVe,
+      posRelativeToRootVeViewportPx,
+      childVes,
+      ignoreItems,
+      canHitEmbeddedInteractive,
+      allowOutsideBoundsHitboxes,
+    );
+    if (searchWorkspaceHit) { return searchWorkspaceHit; }
+  }
+  {
+    const searchWorkspaceChildPageHit = hitSearchWorkspaceChildPageMaybe(
+      store,
+      posOnDesktopPx,
+      rootVes,
+      posRelativeToRootVeViewportPx,
+      childVes,
+      ignoreItems,
+      canHitEmbeddedInteractive,
+      allowOutsideBoundsHitboxes,
+    );
+    if (searchWorkspaceChildPageHit) { return searchWorkspaceChildPageHit; }
+  }
   if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
   const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes };
   for (const handler of HitHandlers) {
@@ -308,6 +336,105 @@ function hitChildMaybe(
 }
 
 
+function hitSearchWorkspaceMaybe(
+  store: StoreContextModel,
+  posOnDesktopPx: Vector,
+  rootVes: VisualElementSignal,
+  parentRootVe: VisualElement | null,
+  posRelativeToRootVeViewportPx: Vector,
+  childVes: VisualElementSignal,
+  ignoreItems: Set<Uid>,
+  canHitEmbeddedInteractive: boolean,
+  allowOutsideBoundsHitboxes: boolean,
+): HitInfo | null {
+  const childVe = childVes.get();
+  if (!isSearch(childVe.displayItem)) { return null; }
+  if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { return null; }
+
+  const posRelativeToSearchBoundsPx = vectorSubtract(
+    posRelativeToRootVeViewportPx,
+    getBoundingBoxTopLeft(childVe.boundsPx),
+  );
+  const searchChildren = VesCache.render.getChildren(VeFns.veToPath(childVe))();
+  for (let i = searchChildren.length - 1; i >= 0; --i) {
+    const hitMaybe = hitChildMaybe(
+      store,
+      posOnDesktopPx,
+      childVes,
+      rootVes.get(),
+      posRelativeToSearchBoundsPx,
+      searchChildren[i],
+      ignoreItems,
+      canHitEmbeddedInteractive,
+      allowOutsideBoundsHitboxes,
+    );
+    if (hitMaybe) { return hitMaybe; }
+  }
+
+  return null;
+}
+
+
+function hitSearchWorkspaceChildPageMaybe(
+  store: StoreContextModel,
+  posOnDesktopPx: Vector,
+  rootVes: VisualElementSignal,
+  posRelativeToRootVeViewportPx: Vector,
+  childVes: VisualElementSignal,
+  ignoreItems: Set<Uid>,
+  canHitEmbeddedInteractive: boolean,
+  allowOutsideBoundsHitboxes: boolean,
+): HitInfo | null {
+  const childVe = childVes.get();
+  if (!isPage(childVe.displayItem) || !(childVe.flags & VisualElementFlags.ShowChildren)) { return null; }
+  if (!childVe.parentPath || !childVe.viewportBoundsPx || !childVe.childAreaBoundsPx) { return null; }
+
+  const parentVe = VesCache.current.readNode(childVe.parentPath);
+  if (!parentVe || !isSearch(parentVe.displayItem)) { return null; }
+  if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { return null; }
+
+  const childVeid = VeFns.actualVeidFromVe(childVe);
+  const scrollPropX = store.perItem.getPageScrollXProp(childVeid);
+  const scrollPropY = store.perItem.getPageScrollYProp(childVeid);
+  const posRelativeToChildBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, {
+    x: childVe.boundsPx.x - scrollPropX * (childVe.childAreaBoundsPx.w - childVe.viewportBoundsPx.w),
+    y: childVe.boundsPx.y - scrollPropY * (childVe.childAreaBoundsPx.h - childVe.viewportBoundsPx.h),
+  });
+  const posRelativeToChildViewportPx = {
+    ...posRelativeToChildBoundsPx,
+    y: posRelativeToChildBoundsPx.y - (childVe.boundsPx.h - childVe.viewportBoundsPx.h),
+  };
+
+  const childChildren = VesCache.render.getChildren(VeFns.veToPath(childVe))();
+  for (let i = childChildren.length - 1; i >= 0; --i) {
+    const hitMaybe = hitChildMaybe(
+      store,
+      posOnDesktopPx,
+      childVes,
+      rootVes.get(),
+      posRelativeToChildViewportPx,
+      childChildren[i],
+      ignoreItems,
+      canHitEmbeddedInteractive,
+      allowOutsideBoundsHitboxes,
+    );
+    if (hitMaybe) { return hitMaybe; }
+  }
+
+  const { flags: hitboxType, meta } = scanHitboxes(childVe, vectorSubtract(posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx)));
+  if (hitboxType == HitboxFlags.None || isIgnored(childVe.displayItem.id, ignoreItems)) { return null; }
+
+  return new HitBuilder(rootVes.get(), childVes)
+    .over(childVes)
+    .hitboxes(hitboxType, HitboxFlags.None)
+    .meta(meta)
+    .pos(posRelativeToChildBoundsPx)
+    .allowEmbeddedInteractive(canHitEmbeddedInteractive)
+    .createdAt("search-workspace-child-page")
+    .build();
+}
+
+
 function determineTopLevelRoot(
   store: StoreContextModel,
   umbrellaVe: VisualElement,
@@ -320,7 +447,7 @@ function determineTopLevelRoot(
   let currentPageVe = currentPageVes.get();
   const currentPageVeid = store.history.currentPageVeid()!;
   let posRelativeToTopLevelVePx: Vector | null = null;
-  if (asPageItem(currentPageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+  if (isPage(currentPageVe.displayItem) && asPageItem(currentPageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     if (posOnDesktopPx.x - store.getCurrentDockWidthPx() < currentPageVe.listViewportBoundsPx!.w) {
       posRelativeToTopLevelVePx = vectorAdd(posOnDesktopPx, { x: 0, y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.listChildAreaBoundsPx!.h - currentPageVe.boundsPx.h) });
     }

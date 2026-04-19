@@ -146,7 +146,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     childAreaBoundsPx: () => props.visualElement.childAreaBoundsPx!,
 
-    clickBoundsPx: (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.Click || hb.type == HitboxFlags.OpenAttachment)!.boundsPx,
+    clickBoundsPx: (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.Click || hb.type == HitboxFlags.OpenAttachment)?.boundsPx ?? null,
 
     popupClickBoundsPx: (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.OpenPopup)!.boundsPx,
 

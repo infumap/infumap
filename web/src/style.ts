@@ -17,7 +17,7 @@
 */
 
 import { Item } from "./items/base/item";
-import { asPageItem } from "./items/page-item";
+import { asPageItem, isPage } from "./items/page-item";
 import { StoreContextModel } from "./store/StoreProvider";
 import { hexToRGBA, rgbArrayToRgbaFunc, rgbHexToArray } from "./util/color";
 import { assert } from "./util/lang";
@@ -99,8 +99,12 @@ export const borderColorForColorIdx = (idx: number, borderType: BorderType) => {
 export const mainPageBorderColor = (store: StoreContextModel, getItem: (id: Uid) => Item | null) => {
   store.touchToolbarDependency();
   if (store.history.currentPageVeid() == null) { return LIGHT_BORDER_COLOR; }
+  const currentRootItem = getItem(store.history.currentPageVeid()!.itemId);
+  if (!currentRootItem || !isPage(currentRootItem)) {
+    return LIGHT_BORDER_COLOR;
+  }
   if (store.history.getFocusIsCurrentPage()) {
-    return borderColorForColorIdx(asPageItem(getItem(store.history.currentPageVeid()!.itemId)!).backgroundColorIndex, BorderType.MainPage);
+    return borderColorForColorIdx(asPageItem(currentRootItem).backgroundColorIndex, BorderType.MainPage);
   }
   return LIGHT_BORDER_COLOR;
 }
