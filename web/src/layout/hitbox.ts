@@ -17,6 +17,7 @@
 */
 
 import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geometry";
+import { Uid } from "../util/uid";
 
 
 export enum HitboxFlags {
@@ -79,6 +80,7 @@ export interface HitboxMeta {
   endBl?: number,
   focusOnly?: boolean,
   openActualItem?: boolean,
+  openContainingPageOfItemId?: Uid,
   allowOutsideBounds?: boolean,
   compositeMoveOut?: boolean,
   calendarYear?: number,
@@ -117,6 +119,9 @@ export const HitboxFns = {
     }
     if (typeof (meta.openActualItem) != 'undefined') {
       result.openActualItem = meta.openActualItem;
+    }
+    if (typeof (meta.openContainingPageOfItemId) != 'undefined') {
+      result.openContainingPageOfItemId = meta.openContainingPageOfItemId;
     }
     if (typeof (meta.allowOutsideBounds) != 'undefined') {
       result.allowOutsideBounds = meta.allowOutsideBounds;

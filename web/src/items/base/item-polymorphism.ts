@@ -38,7 +38,7 @@ import { calcGeometryOfEmptyItem_ListItem, isInsidePopupHierarchy } from './item
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
 import { LINE_HEIGHT_PX } from '../../constants';
 import { arrangeNow, requestArrange } from '../../layout/arrange';
-import { switchToItem, switchToPage } from '../../layout/navigation';
+import { navigateToContainingPageOfItem, switchToItem, switchToPage } from '../../layout/navigation';
 import { VesCache } from '../../layout/ves-cache';
 import { VisualElementFlags, VeFns } from '../../layout/visual-element';
 
@@ -254,6 +254,10 @@ export const ItemFns = {
   handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, hitboxFlags: HitboxFlags, store: StoreContextModel, caretAtEnd: boolean = false): void => {
     const visualElement = visualElementSignal.get();
     const item = visualElement.displayItem;
+    if (hitboxMeta?.openContainingPageOfItemId) {
+      void navigateToContainingPageOfItem(store, hitboxMeta.openContainingPageOfItemId);
+      return;
+    }
     if (hitboxMeta?.openActualItem) {
       if (isPage(item)) {
         switchToPage(store, { itemId: item.id, linkIdMaybe: null }, true, false, false);

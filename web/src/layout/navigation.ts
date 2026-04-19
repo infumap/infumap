@@ -88,6 +88,65 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   store.currentUrlPath.set(url);
 }
 
+export async function navigateToContainingPageOfItem(store: StoreContextModel, itemId: Uid): Promise<boolean> {
+  let currentItem = itemState.get(itemId);
+  if (!currentItem) {
+    const loadResult = await initiateLoadItemMaybe(store, itemId);
+    if (loadResult == InitiateLoadResult.Failed || !itemState.get(itemId)) {
+      return false;
+    }
+    currentItem = itemState.get(itemId)!;
+  }
+
+  const isRemote = currentItem.origin != null;
+  const MAX_LEVELS = 8;
+  let cnt = 0;
+  let parentId = currentItem.parentId;
+  let relationshipToParent = currentItem.relationshipToParent;
+
+  while (cnt++ < MAX_LEVELS) {
+    if (parentId == EMPTY_UID) {
+      if (isRemote) {
+        await navigateToLocalRoot(store);
+        return true;
+      }
+      return false;
+    }
+
+    const userMaybe = store.user.getUserMaybe();
+    if (userMaybe && parentId == userMaybe.dockPageId) {
+      if (isRemote) {
+        await navigateToLocalRoot(store);
+        return true;
+      }
+      return false;
+    }
+
+    let parentItem = itemState.get(parentId);
+    if (!parentItem) {
+      if (await initiateLoadItemMaybe(store, parentId) == InitiateLoadResult.Failed || !itemState.get(parentId)) {
+        return false;
+      }
+      parentItem = itemState.get(parentId)!;
+    }
+
+    if (isRemote && parentItem.origin !== currentItem.origin) {
+      await navigateToLocalRoot(store);
+      return true;
+    }
+
+    if (isPage(parentItem) && relationshipToParent === RelationshipToParent.Child) {
+      switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, false, false);
+      return true;
+    }
+
+    parentId = parentItem.parentId;
+    relationshipToParent = parentItem.relationshipToParent;
+  }
+
+  panic(`navigateToContainingPageOfItem: could not find page after ${MAX_LEVELS} levels.`);
+}
+
 export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, replace: boolean, focusPath?: VisualElementPath) {
   if (clearHistory) {
     store.history.setHistoryToSinglePage(pageVeid, focusPath);
@@ -172,7 +231,7 @@ export async function navigateToSearches(store: StoreContextModel): Promise<void
     return;
   }
 
-  switchToPage(store, { itemId: searchesPageId, linkIdMaybe: null }, false, false, false);
+  switchToPage(store, { itemId: searchesPageId, linkIdMaybe: null }, true, false, false);
 }
 
 
@@ -225,7 +284,6 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
 
   if (store.history.peekPrevPageVeid() != null) {
     window.history.back();
-    arrangeNow(store, "navigate-back-history");
     return true;
   }
 

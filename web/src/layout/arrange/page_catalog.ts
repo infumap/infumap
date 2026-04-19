@@ -19,7 +19,7 @@
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
+import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
 import { itemState } from "../../store/ItemState";
@@ -143,13 +143,14 @@ export function arrange_catalog_page(
 
   for (const child of childGeometries) {
     if (!child.actualLinkItemMaybe) { continue; }
+    const targetItemId = LinkFns.getLinkToId(child.actualLinkItemMaybe);
     const addedHitboxCount = child.geometry.hitboxes.length - child.baseHitboxCount;
     for (let i = 0; i < addedHitboxCount; ++i) {
       const hitbox = child.geometry.hitboxes[i];
       if (hitbox.type != HitboxFlags.Click || !hitbox.meta?.focusOnly) { continue; }
       hitbox.meta = {
         ...hitbox.meta,
-        openActualItem: true,
+        openContainingPageOfItemId: targetItemId,
       };
     }
   }
