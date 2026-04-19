@@ -47,6 +47,9 @@ export interface PerItemStoreContextModel {
   getSearchSelectedResultIndex: (itemId: string) => number,
   setSearchSelectedResultIndex: (itemId: string, index: number) => void,
 
+  getSearchFocusedResultIndex: (itemId: string) => number,
+  setSearchFocusedResultIndex: (itemId: string, index: number) => void,
+
   clear: () => void,
 }
 
@@ -61,6 +64,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const searchQueries = new Map<string, InfuSignal<string>>();
   const searchResults = new Map<string, InfuSignal<Array<SearchResult> | null>>();
   const searchSelectedResultIndexes = new Map<string, NumberSignal>();
+  const searchFocusedResultIndexes = new Map<string, NumberSignal>();
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
@@ -158,6 +162,21 @@ export function makePerItemStore(): PerItemStoreContextModel {
     searchSelectedResultIndexes.get(itemId)!.set(index);
   };
 
+  const getSearchFocusedResultIndex = (itemId: string): number => {
+    if (!searchFocusedResultIndexes.get(itemId)) {
+      searchFocusedResultIndexes.set(itemId, createNumberSignal(-1));
+    }
+    return searchFocusedResultIndexes.get(itemId)!.get();
+  };
+
+  const setSearchFocusedResultIndex = (itemId: string, index: number): void => {
+    if (!searchFocusedResultIndexes.get(itemId)) {
+      searchFocusedResultIndexes.set(itemId, createNumberSignal(index));
+      return;
+    }
+    searchFocusedResultIndexes.get(itemId)!.set(index);
+  };
+
   const getSelectedListPageItem = (listPageVeid: Veid): Veid => {
     const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
@@ -208,6 +227,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     searchQueries.clear();
     searchResults.clear();
     searchSelectedResultIndexes.clear();
+    searchFocusedResultIndexes.clear();
   }
 
   return ({
@@ -219,6 +239,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getSearchQuery, setSearchQuery,
     getSearchResults, setSearchResults,
     getSearchSelectedResultIndex, setSearchSelectedResultIndex,
+    getSearchFocusedResultIndex, setSearchFocusedResultIndex,
     clear
   });
 }

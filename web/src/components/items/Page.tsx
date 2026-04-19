@@ -47,7 +47,7 @@ import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
-import { SELECTED_LIGHT } from "../../style";
+import { FOCUS_RING_BOX_SHADOW, SELECTED_LIGHT } from "../../style";
 import { TEMP_SEARCH_RESULTS_ORIGIN } from "../../items/search-item";
 
 
@@ -337,10 +337,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const searchSourceItemId = () => pageFns.searchResultsSourceItemId();
           const selectedSearchRow = () =>
             searchSourceItemId() ? store.perItem.getSearchSelectedResultIndex(searchSourceItemId()!) : -1;
+          const focusedSearchRow = () =>
+            searchSourceItemId() ? store.perItem.getSearchFocusedResultIndex(searchSourceItemId()!) : -1;
           const isMouseOverRow = () =>
             store.perVe.getMoveOverRowNumber(pageFns.vePath()) == rowIndex() &&
             !store.anItemIsMoving.get();
           const isSelectedSearchRow = () => selectedSearchRow() == rowIndex();
+          const isFocusedSearchItem = () => focusedSearchRow() == rowIndex();
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
           const metadataLines = () => catalogMetadataLines(catalogItem());
           const rowIndex = () => childVe().row ?? Math.max(0, Math.round(childVe().boundsPx.y / pageFns.catalogRowHeightPx()));
@@ -358,6 +361,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                 <div class="absolute pointer-events-none"
                   style={`left: 0px; top: ${topPx()}px; width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                     `background-color: #00000007;`} />
+              </Show>
+              <Show when={isFocusedSearchItem()}>
+                <div class="absolute pointer-events-none rounded-xs"
+                  style={`left: ${childVe().boundsPx.x}px; top: ${childVe().boundsPx.y}px; width: ${childVe().boundsPx.w}px; height: ${childVe().boundsPx.h}px; ` +
+                    `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
               </Show>
               <div class="absolute flex items-start pointer-events-none"
                 style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +

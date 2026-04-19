@@ -22,7 +22,10 @@ import { VeFns, VisualElement } from "../../layout/visual-element";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { isArrowKey } from "../../input/key";
 import { StoreContextModel } from "../../store/StoreProvider";
+import { itemState } from "../../store/ItemState";
 import { cloneBoundingBox } from "../../util/geometry";
+import { isPage, asPageItem } from "../../items/page-item";
+import { isSearch } from "../../items/search-item";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
 
@@ -65,6 +68,17 @@ export const shouldShowFocusRingForVisualElement = (
   store: StoreContextModel,
   veFn: () => VisualElement,
 ): boolean => {
+  const currentPagePath = store.history.currentPagePath();
+  if (currentPagePath && veFn().parentPath == currentPagePath) {
+    const currentPage = itemState.get(VeFns.itemIdFromPath(currentPagePath));
+    if (currentPage && isPage(currentPage) && asPageItem(currentPage).arrangeAlgorithm == ArrangeAlgorithm.List) {
+      const selectedVeid = store.perItem.getSelectedListPageItem(VeFns.veidFromPath(currentPagePath));
+      const selectedItem = selectedVeid.itemId ? itemState.get(selectedVeid.itemId) : null;
+      if (selectedItem && isSearch(selectedItem)) {
+        return false;
+      }
+    }
+  }
   return store.overlay.textEditInfo()?.itemPath != VeFns.veToPath(veFn());
 }
 

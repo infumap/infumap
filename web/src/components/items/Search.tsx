@@ -65,7 +65,10 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const isEditing = () => store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
   const editableQueryText = () => queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText();
-  const clearSelectedResultRow = () => store.perItem.setSearchSelectedResultIndex(searchItem().id, -1);
+  const clearSearchResultSelection = () => {
+    store.perItem.setSearchSelectedResultIndex(searchItem().id, -1);
+    store.perItem.setSearchFocusedResultIndex(searchItem().id, -1);
+  };
   const exitEditMode = (editingElMaybe?: HTMLElement | null) => {
     if (!isEditing()) {
       return;
@@ -113,7 +116,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const requestEditMode = (caretIdx: number) => {
     setForceNonEditing(false);
     setPendingCaretIdx(caretIdx);
-    clearSelectedResultRow();
+    clearSearchResultSelection();
     if (!isEditing()) {
       store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
     }
@@ -151,7 +154,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const text = commitEditingQuery(editingElMaybe);
     if (text == "") {
       store.perItem.setSearchResults(searchItem().id, null);
-      clearSelectedResultRow();
+      clearSearchResultSelection();
       requestArrange(store, "search-clear-results");
       return;
     }
@@ -159,6 +162,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const result = await server.search(null, text, store.general.networkStatus);
     store.perItem.setSearchResults(searchItem().id, result);
     store.perItem.setSearchSelectedResultIndex(searchItem().id, selectFirstResultRow && result.length > 0 ? 0 : -1);
+    store.perItem.setSearchFocusedResultIndex(searchItem().id, -1);
     requestArrange(store, "search-results");
     void warmSearchResults(result);
   };
