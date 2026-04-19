@@ -107,16 +107,34 @@ function getActiveSearchWorkspace(store: StoreContextModel): ActiveSearchWorkspa
   if (store.overlay.anOverlayIsVisible()) { return null; }
   if (store.history.currentPopupSpec()) { return null; }
 
-  const listPagePath = store.history.currentPagePath();
-  if (!listPagePath) { return null; }
+  const listPageVeid = store.history.currentPageVeid();
+  if (!listPageVeid) { return null; }
 
-  const listPageVe = VesCache.current.readNode(listPagePath);
-  if (!listPageVe || !isPage(listPageVe.displayItem) || asPageItem(listPageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
+  const listPageItem = itemState.get(listPageVeid.itemId);
+  if (!listPageItem || !isPage(listPageItem) || asPageItem(listPageItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
     return null;
   }
 
-  const selectedVeSignal = VesCache.render.getSelected(listPagePath)();
-  const selectedVe = selectedVeSignal?.get() ?? null;
+  const selectedVeid = store.perItem.getSelectedListPageItem(listPageVeid);
+  if (!selectedVeid.itemId) {
+    return null;
+  }
+
+  const selectedItem = itemState.get(selectedVeid.itemId);
+  if (!selectedItem || !isSearch(selectedItem)) {
+    return null;
+  }
+
+  let selectedVe: VisualElement | null = null;
+  try {
+    selectedVe = VesCache.render.findSingle(selectedVeid).get();
+  } catch (_e) {
+    const listPagePath = store.history.currentPagePath();
+    if (!listPagePath) { return null; }
+    const selectedVeSignal = VesCache.render.getSelected(listPagePath)();
+    selectedVe = selectedVeSignal?.get() ?? null;
+  }
+
   if (!selectedVe || !isSearch(selectedVe.displayItem)) {
     return null;
   }
@@ -211,10 +229,11 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   const baseRow = focusedRow >= 0 ? focusedRow : selectedRow;
   if (baseRow < 0) { return false; }
 
-  const nextRow = clampSearchResultIndex(baseRow + (ev.code == "ArrowUp" ? -1 : 1), workspace.resultsCount);
-  if (nextRow == baseRow) {
+  const nextRowCandidate = baseRow + (ev.code == "ArrowUp" ? -1 : 1);
+  if (nextRowCandidate < 0 || nextRowCandidate >= workspace.resultsCount) {
     return true;
   }
+  const nextRow = nextRowCandidate;
 
   store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, nextRow);
   store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, focusedRow >= 0 ? nextRow : -1);
