@@ -168,7 +168,7 @@ function nearestCatalogPageVe(ve: VisualElement | null): VisualElement | null {
   return null;
 }
 
-function currentCatalogRowHover(store: StoreContextModel, hitInfo: ReturnType<typeof HitInfoFns.hit>): { pagePath: string | null, rowNumber: number } {
+function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, hitInfo: ReturnType<typeof HitInfoFns.hit>): { pagePath: string | null, rowNumber: number } {
   const overVe = hitInfo.overVes?.get() ?? null;
   const catalogPageVe =
     nearestCatalogPageVe(overVe) ??
@@ -180,9 +180,23 @@ function currentCatalogRowHover(store: StoreContextModel, hitInfo: ReturnType<ty
     return { pagePath: null, rowNumber: -1 };
   }
 
-  let rowNumber = typeof hitInfo.overElementMeta?.catalogRowNumber != "undefined"
-    ? hitInfo.overElementMeta.catalogRowNumber
-    : -1;
+  let rowNumber = -1;
+  if (catalogPageVe.childAreaBoundsPx) {
+    const catalogViewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, catalogPageVe);
+    const scrollVeid = VeFns.actualVeidFromVe(catalogPageVe);
+    const scrollYPx = Math.max(0, catalogPageVe.childAreaBoundsPx.h - catalogPageVe.viewportBoundsPx!.h) *
+      store.perItem.getPageScrollYProp(scrollVeid);
+    const localY = desktopPosPx.y - catalogViewportBoundsPx.y + scrollYPx;
+    const rowHeightPx = catalogPageVe.cellSizePx?.h ?? 0;
+    const numRows = catalogPageVe.numRows ?? 0;
+    if (rowHeightPx > 0 && localY >= 0 && localY < catalogPageVe.childAreaBoundsPx.h) {
+      rowNumber = Math.min(Math.floor(localY / rowHeightPx), Math.max(numRows - 1, 0));
+    }
+  }
+
+  if (rowNumber < 0 && typeof hitInfo.overElementMeta?.catalogRowNumber != "undefined") {
+    rowNumber = hitInfo.overElementMeta.catalogRowNumber;
+  }
 
   if (rowNumber < 0 && overVe) {
     let current: VisualElement | null = overVe;
@@ -992,7 +1006,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     (hitInfo.hitboxType & HitboxFlags.Move) && hitInfo.overElementMeta?.compositeMoveOut
       ? overElementVes
       : null;
-  const catalogRowHover = currentCatalogRowHover(store, hitInfo);
+  const catalogRowHover = currentCatalogRowHover(store, CursorEventState.getLatestDesktopPx(store), hitInfo);
 
   if (lastMouseOverCatalogPagePath != catalogRowHover.pagePath || (catalogRowHover.pagePath && store.perVe.getMoveOverRowNumber(catalogRowHover.pagePath) != catalogRowHover.rowNumber) || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverCatalogPagePath) {
