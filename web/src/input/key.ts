@@ -97,6 +97,7 @@ export function cancelShiftNavigationGesture(): void {
 
 interface ActiveSearchWorkspace {
   searchItemId: string,
+  searchVePath: string,
   resultsCount: number,
   results: Array<SearchResult>,
   resultChildVes: Array<VisualElement>,
@@ -107,8 +108,9 @@ function getActiveSearchWorkspace(store: StoreContextModel): ActiveSearchWorkspa
   if (store.overlay.anOverlayIsVisible()) { return null; }
   if (store.history.currentPopupSpec()) { return null; }
 
+  const listPagePath = store.history.currentPagePath();
   const listPageVeid = store.history.currentPageVeid();
-  if (!listPageVeid) { return null; }
+  if (!listPageVeid || !listPagePath) { return null; }
 
   const listPageItem = itemState.get(listPageVeid.itemId);
   if (!listPageItem || !isPage(listPageItem) || asPageItem(listPageItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
@@ -125,16 +127,8 @@ function getActiveSearchWorkspace(store: StoreContextModel): ActiveSearchWorkspa
     return null;
   }
 
-  let selectedVe: VisualElement | null = null;
-  try {
-    selectedVe = VesCache.render.findSingle(selectedVeid).get();
-  } catch (_e) {
-    const listPagePath = store.history.currentPagePath();
-    if (!listPagePath) { return null; }
-    const selectedVeSignal = VesCache.render.getSelected(listPagePath)();
-    selectedVe = selectedVeSignal?.get() ?? null;
-  }
-
+  const selectedVeSignal = VesCache.render.getSelected(listPagePath)();
+  const selectedVe = selectedVeSignal?.get() ?? null;
   if (!selectedVe || !isSearch(selectedVe.displayItem)) {
     return null;
   }
@@ -149,6 +143,7 @@ function getActiveSearchWorkspace(store: StoreContextModel): ActiveSearchWorkspa
 
   return {
     searchItemId,
+    searchVePath: VeFns.veToPath(selectedVe),
     resultsCount: results.length,
     results,
     resultChildVes,
@@ -211,6 +206,10 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   if (ev.code == "ArrowLeft") {
     if (selectedRow < 0 || focusedRow >= 0) { return false; }
     store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, selectedRow);
+    const targetVe = workspace.resultChildVes[selectedRow];
+    if (targetVe) {
+      store.history.setFocus(VeFns.veToPath(targetVe));
+    }
     arrangeNow(store, "key-search-row-to-item");
     return true;
   }
@@ -218,6 +217,7 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   if (ev.code == "ArrowRight") {
     if (focusedRow < 0) { return false; }
     store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+    store.history.setFocus(workspace.searchVePath);
     arrangeNow(store, "key-search-item-to-row");
     return true;
   }
@@ -237,6 +237,12 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
 
   store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, nextRow);
   store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, focusedRow >= 0 ? nextRow : -1);
+  if (focusedRow >= 0) {
+    const targetVe = workspace.resultChildVes[nextRow];
+    if (targetVe) {
+      store.history.setFocus(VeFns.veToPath(targetVe));
+    }
+  }
   scrollSearchResultRowIntoView(store, workspace, nextRow);
   arrangeNow(store, "key-search-row-nav");
   return true;
