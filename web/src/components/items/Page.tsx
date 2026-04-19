@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 
 import { VesCache } from "../../layout/ves-cache";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { HitboxFlags } from "../../layout/hitbox";
@@ -41,7 +41,8 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { calculateCalendarDimensions, decodeCalendarCombinedIndex, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx, CATALOG_DETAIL_COLUMN_PADDING_PX } from "../../layout/catalog";
-import { itemPathTextFromItem } from "../../util/item-path";
+import { itemPathSegmentsFromItem } from "../../util/item-path";
+import { ItemType } from "../../items/base/item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -53,6 +54,22 @@ export interface PageVisualElementProps {
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
+
+  const itemTypeIcon = (itemType: string) => {
+    return (
+      <Switch>
+        <Match when={itemType == ItemType.Page}><i class="fa fa-folder" /></Match>
+        <Match when={itemType == ItemType.Table}><i class="fa fa-table" /></Match>
+        <Match when={itemType == ItemType.Note}><i class="fa fa-sticky-note" /></Match>
+        <Match when={itemType == ItemType.File}><i class="fa fa-file" /></Match>
+        <Match when={itemType == ItemType.Image}><i class="fa fa-image" /></Match>
+        <Match when={itemType == ItemType.Link}><i class="fa fa-link" /></Match>
+        <Match when={itemType == ItemType.Search}><i class="fa fa-search" /></Match>
+        <Match when={itemType == ItemType.Password}><i class="fa fa-eye-slash" /></Match>
+        <Match when={itemType == ItemType.Rating}><i class="fa fa-star" /></Match>
+      </Switch>
+    );
+  };
 
   const pageFns = {
     pageItem: () => asPageItem(props.visualElement.displayItem),
@@ -284,10 +301,21 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const leftPx = () => pageFns.catalogPreviewColumnWidthPx() + CATALOG_DETAIL_COLUMN_PADDING_PX;
           const widthPx = () => Math.max(0, pageFns.childAreaBoundsPx().w - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
           return (
-            <div class="absolute flex items-center text-sm text-slate-600 pointer-events-none"
-              style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px;`}>
+            <div class="absolute flex items-start pointer-events-none"
+              style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
+                `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: 8px;`}>
               <div class="min-w-0 truncate whitespace-nowrap">
-                {itemPathTextFromItem(childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem)}
+                <For each={itemPathSegmentsFromItem(childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem)}>{(segment, idx) =>
+                  <Show when={segment.itemType != ItemType.Composite}>
+                    <span class="inline-flex items-center">
+                      <Show when={idx() != 0}>
+                        <span class="mx-2">/</span>
+                      </Show>
+                      <span>{itemTypeIcon(segment.itemType)}</span>
+                      <span class="ml-1">{segment.title}</span>
+                    </span>
+                  </Show>
+                }</For>
               </div>
             </div>
           );

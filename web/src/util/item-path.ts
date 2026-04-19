@@ -21,6 +21,12 @@ import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { itemState } from "../store/ItemState";
 import { EMPTY_UID, Uid } from "./uid";
 
+export interface ItemPathSegment {
+  id: Uid,
+  itemType: string,
+  title: string,
+}
+
 
 function fallbackTitleForItem(item: Item): string {
   switch (item.itemType) {
@@ -57,12 +63,12 @@ export function resolvedPathTargetIdForItem(item: Item): Uid {
   return linkToId;
 }
 
-export function itemPathSegmentsFromId(itemId: Uid): Array<string> {
+export function itemPathSegmentsFromId(itemId: Uid): Array<ItemPathSegment> {
   if (itemId == "" || itemId == EMPTY_UID) {
     return [];
   }
 
-  const segments: Array<string> = [];
+  const segments: Array<ItemPathSegment> = [];
   const seen = new Set<Uid>();
   let currentId: Uid | null = itemId;
 
@@ -72,7 +78,11 @@ export function itemPathSegmentsFromId(itemId: Uid): Array<string> {
     if (current == null) {
       break;
     }
-    segments.unshift(pathTitleForItem(current));
+    segments.unshift({
+      id: current.id,
+      itemType: current.itemType,
+      title: pathTitleForItem(current),
+    });
     if (!current.parentId || current.parentId == current.id) {
       break;
     }
@@ -82,7 +92,10 @@ export function itemPathSegmentsFromId(itemId: Uid): Array<string> {
   return segments;
 }
 
-export function itemPathTextFromItem(item: Item): string {
-  return itemPathSegmentsFromId(resolvedPathTargetIdForItem(item)).join(" / ");
+export function itemPathSegmentsFromItem(item: Item): Array<ItemPathSegment> {
+  return itemPathSegmentsFromId(resolvedPathTargetIdForItem(item));
 }
 
+export function itemPathTextFromItem(item: Item): string {
+  return itemPathSegmentsFromItem(item).map(segment => segment.title).join(" / ");
+}
