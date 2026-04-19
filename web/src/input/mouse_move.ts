@@ -27,7 +27,7 @@ import { NoteFlags } from "../items/base/flags-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage } from "../layout/visual-element";
 import { VisualElementSignal } from "../util/signals";
 import { HitInfoFns } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
@@ -53,6 +53,7 @@ import {
 let lastMouseOverVes: VisualElementSignal | null = null;
 let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 let lastMouseOverCompositeMoveOutVes: VisualElementSignal | null = null;
+let lastMouseOverCatalogPagePath: string | null = null;
 let lastSelectionArrangeTimeMs = 0;
 let lastSelectionSignature = "";
 const SELECTION_ARRANGE_THROTTLE_MS = 33;
@@ -147,6 +148,61 @@ export function clearMouseOverState(store: StoreContextModel) {
     store.perVe.setMouseIsOverCompositeMoveOut(VeFns.veToPath(lastMouseOverCompositeMoveOutVes.get()), false);
     lastMouseOverCompositeMoveOutVes = null;
   }
+  if (lastMouseOverCatalogPagePath) {
+    store.perVe.setMoveOverRowNumber(lastMouseOverCatalogPagePath, -1);
+    lastMouseOverCatalogPagePath = null;
+  }
+}
+
+function nearestCatalogPageVe(ve: VisualElement | null): VisualElement | null {
+  let current = ve;
+  while (current) {
+    if (isPage(current.displayItem) && asPageItem(current.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+      return current;
+    }
+    if (!current.parentPath) {
+      return null;
+    }
+    current = VesCache.current.readNode(current.parentPath) ?? null;
+  }
+  return null;
+}
+
+function currentCatalogRowHover(store: StoreContextModel, hitInfo: ReturnType<typeof HitInfoFns.hit>): { pagePath: string | null, rowNumber: number } {
+  const overVe = hitInfo.overVes?.get() ?? null;
+  const catalogPageVe =
+    nearestCatalogPageVe(overVe) ??
+    nearestCatalogPageVe(hitInfo.subSubRootVe ?? null) ??
+    nearestCatalogPageVe(hitInfo.subRootVe ?? null) ??
+    nearestCatalogPageVe(hitInfo.rootVes.get());
+
+  if (!catalogPageVe) {
+    return { pagePath: null, rowNumber: -1 };
+  }
+
+  let rowNumber = typeof hitInfo.overElementMeta?.catalogRowNumber != "undefined"
+    ? hitInfo.overElementMeta.catalogRowNumber
+    : -1;
+
+  if (rowNumber < 0 && overVe) {
+    let current: VisualElement | null = overVe;
+    const catalogPagePath = VeFns.veToPath(catalogPageVe);
+    while (current && VeFns.veToPath(current) != catalogPagePath) {
+      if (typeof current.row != "undefined") {
+        rowNumber = current.row;
+        break;
+      }
+      if (!current.parentPath) {
+        break;
+      }
+      current = VesCache.current.readNode(current.parentPath) ?? null;
+    }
+  }
+
+  return {
+    pagePath: VeFns.veToPath(catalogPageVe),
+    rowNumber,
+  };
 }
 
 
@@ -936,6 +992,21 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     (hitInfo.hitboxType & HitboxFlags.Move) && hitInfo.overElementMeta?.compositeMoveOut
       ? overElementVes
       : null;
+  const catalogRowHover = currentCatalogRowHover(store, hitInfo);
+
+  if (lastMouseOverCatalogPagePath != catalogRowHover.pagePath || (catalogRowHover.pagePath && store.perVe.getMoveOverRowNumber(catalogRowHover.pagePath) != catalogRowHover.rowNumber) || hasModal || isInsideToolbarPopup) {
+    if (lastMouseOverCatalogPagePath) {
+      store.perVe.setMoveOverRowNumber(lastMouseOverCatalogPagePath, -1);
+      lastMouseOverCatalogPagePath = null;
+    }
+  }
+
+  if (catalogRowHover.pagePath && catalogRowHover.rowNumber > -1 && !hasModal && !isInsideToolbarPopup) {
+    store.perVe.getMoveOverRowNumber(catalogRowHover.pagePath);
+    store.perVe.setMoveOverRowNumber(catalogRowHover.pagePath, catalogRowHover.rowNumber);
+    lastMouseOverCatalogPagePath = catalogRowHover.pagePath;
+  }
+
   if (overElementVes != lastMouseOverVes || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverVes != null) {
       store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);

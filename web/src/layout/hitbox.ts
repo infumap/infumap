@@ -76,6 +76,7 @@ export interface Hitbox {
 
 export interface HitboxMeta {
   colNum?: number,
+  catalogRowNumber?: number,
   startBl?: number,
   endBl?: number,
   focusOnly?: boolean,
@@ -107,6 +108,9 @@ export const HitboxFns = {
     let result: HitboxMeta = {};
     if (typeof (meta.colNum) != 'undefined') {
       result.colNum = meta.colNum;
+    }
+    if (typeof (meta.catalogRowNumber) != 'undefined') {
+      result.catalogRowNumber = meta.catalogRowNumber;
     }
     if (typeof (meta.startBl) != 'undefined') {
       result.startBl = meta.startBl;
@@ -167,7 +171,8 @@ export const HitboxFns = {
 
   hitboxMetaToString: (meta: HitboxMeta): string => {
     return "[colNum: " +
-      (meta.colNum ? meta.colNum : "undefined") + ", startBl: " +
+      (typeof meta.colNum != "undefined" ? meta.colNum : "undefined") + ", catalogRowNumber: " +
+      (typeof meta.catalogRowNumber != "undefined" ? meta.catalogRowNumber : "undefined") + ", startBl: " +
       (meta.startBl ? meta.startBl : "undefined") + ", endBl: " +
       (meta.endBl ? meta.endBl : "undefined") + ", openActualItem: " +
       (meta.openActualItem ? meta.openActualItem : "undefined") + ", allowOutsideBounds: " +

@@ -327,6 +327,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVeSignal => {
           const childVe = () => childVeSignal.get();
+          const isMouseOverRow = () =>
+            store.perVe.getMoveOverRowNumber(pageFns.vePath()) == rowIndex() &&
+            !store.anItemIsMoving.get();
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
           const metadataLines = () => catalogMetadataLines(catalogItem());
           const rowIndex = () => childVe().row ?? Math.max(0, Math.round(childVe().boundsPx.y / pageFns.catalogRowHeightPx()));
@@ -334,31 +337,38 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const leftPx = () => pageFns.catalogPreviewColumnWidthPx() + CATALOG_DETAIL_COLUMN_PADDING_PX;
           const widthPx = () => Math.max(0, pageFns.childAreaBoundsPx().w - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
           return (
-            <div class="absolute flex items-start pointer-events-none"
-              style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
-                `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: 8px;`}>
-              <div class="min-w-0 flex flex-col gap-[2px]">
-                <div class="min-w-0 truncate whitespace-nowrap">
-                  <For each={itemPathSegmentsFromItem(catalogItem())}>{(segment, idx) =>
-                    <Show when={segment.itemType != ItemType.Composite}>
-                      <span class="inline-flex items-center">
-                        <Show when={idx() != 0}>
-                          <span class="mx-2">/</span>
-                        </Show>
-                        <span>{itemTypeIcon(segment.itemType)}</span>
-                        <span class="ml-1">{segment.title}</span>
-                      </span>
-                    </Show>
+            <>
+              <Show when={isMouseOverRow()}>
+                <div class="absolute pointer-events-none"
+                  style={`left: 0px; top: ${topPx()}px; width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
+                    `background-color: #00000007;`} />
+              </Show>
+              <div class="absolute flex items-start pointer-events-none"
+                style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
+                  `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: 8px;`}>
+                <div class="min-w-0 flex flex-col gap-[2px]">
+                  <div class="min-w-0 truncate whitespace-nowrap">
+                    <For each={itemPathSegmentsFromItem(catalogItem())}>{(segment, idx) =>
+                      <Show when={segment.itemType != ItemType.Composite}>
+                        <span class="inline-flex items-center">
+                          <Show when={idx() != 0}>
+                            <span class="mx-2">/</span>
+                          </Show>
+                          <span>{itemTypeIcon(segment.itemType)}</span>
+                          <span class="ml-1">{segment.title}</span>
+                        </span>
+                      </Show>
+                    }</For>
+                  </div>
+                  <For each={metadataLines()}>{line =>
+                    <div class="min-w-0 truncate whitespace-nowrap text-slate-700"
+                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px;`}>
+                      {line}
+                    </div>
                   }</For>
                 </div>
-                <For each={metadataLines()}>{line =>
-                  <div class="min-w-0 truncate whitespace-nowrap text-slate-700"
-                    style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px;`}>
-                    {line}
-                  </div>
-                }</For>
               </div>
-            </div>
+            </>
           );
         }}</For>
       </Show>,

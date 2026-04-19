@@ -27,7 +27,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
-import { HitboxFlags } from "../hitbox";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes } from "./util";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -128,13 +128,23 @@ export function arrange_catalog_page(
     idx += 1;
 
     const childGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
+    const baseHitboxCount = childGeometry.hitboxes.length;
     childGeometry.row = idx - 1;
     childGeometry.col = 0;
+    childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
+      x: -childGeometry.boundsPx.x,
+      y: childGeometry.row * rowHeightPx - childGeometry.boundsPx.y,
+      w: childAreaBoundsPx.w,
+      h: rowHeightPx,
+    }, {
+      focusOnly: true,
+      allowOutsideBounds: true,
+    }));
     childGeometries.push({
       childItem,
       actualLinkItemMaybe,
       geometry: childGeometry,
-      baseHitboxCount: childGeometry.hitboxes.length,
+      baseHitboxCount,
     });
   }
 
@@ -142,15 +152,15 @@ export function arrange_catalog_page(
   addContiguousStackedRowMarginHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
 
   for (const child of childGeometries) {
-    if (!child.actualLinkItemMaybe) { continue; }
-    const targetItemId = LinkFns.getLinkToId(child.actualLinkItemMaybe);
     const addedHitboxCount = child.geometry.hitboxes.length - child.baseHitboxCount;
     for (let i = 0; i < addedHitboxCount; ++i) {
       const hitbox = child.geometry.hitboxes[i];
       if (hitbox.type != HitboxFlags.Click || !hitbox.meta?.focusOnly) { continue; }
+      const targetItemId = child.actualLinkItemMaybe ? LinkFns.getLinkToId(child.actualLinkItemMaybe) : undefined;
       hitbox.meta = {
         ...hitbox.meta,
-        openContainingPageOfItemId: targetItemId,
+        catalogRowNumber: child.geometry.row,
+        ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
       };
     }
   }
