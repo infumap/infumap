@@ -92,7 +92,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const renderSearchWorkspace = () => {
     const topInsetPx = 25;
     const sideInsetPx = 26;
-    const controlsHeightPx = 48;
+    const controlsHeightPx = 50;
     const resultsTopGapPx = 25;
     const buttonWidthPx = 92;
     const controlsGapPx = 10;
@@ -115,18 +115,19 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
           style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; top: ${topInsetPx}px; width: ${controlsWidthPx}px;`}>
           <div class="flex items-center gap-[10px]">
             <div
-              class="border border-slate-300 rounded-xs px-3 text-sm bg-white overflow-hidden"
+              class="border border-[#999] rounded-xs bg-white overflow-hidden"
               style={`width: ${inputWidthPx}px; height: ${controlsHeightPx}px;`}
               onMouseDown={queryInputMouseDown}>
-              <div class="flex items-center h-full overflow-hidden whitespace-nowrap">
+              <div class="flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
+                style="font-size: 16px;">
                 <Show when={isEditing()} fallback={
-                  <span class={`outline-hidden ${queryText() == "" ? "text-slate-400" : "text-black"}`}>
+                  <span class={`outline-hidden ${queryText() == "" ? "text-slate-500" : "text-black"}`}>
                     {queryText() == "" ? "Search..." : queryText()}
                   </span>
                 }>
                   <span id={editingDomId()}
                     class="outline-hidden text-black"
-                    style="display: inline-block; min-width: 1px; white-space: nowrap;"
+                    style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px;"
                     contentEditable={isEditing() ? true : undefined}
                     spellcheck={isEditing()}
                     onKeyDown={keyDownHandler}
@@ -137,18 +138,19 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
               </div>
             </div>
             <button
-              class="border border-slate-300 rounded-xs bg-white text-sm hover:bg-slate-50"
+              class="border border-[#999] rounded-xs bg-white text-black"
               style={`width: ${buttonWidthPx}px; height: ${controlsHeightPx}px;`}
               type="button"
               onClick={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
-              }}>
+              }}
+              >
               Search
             </button>
           </div>
         </div>
-        <div class="absolute border-t border-slate-100"
+        <div class="absolute border-t border-slate-300"
           style={`left: 0px; top: ${lowerTopPx}px; width: ${boundsPx().w}px; height: ${Math.max(0, boundsPx().h - lowerTopPx)}px;`} />
         <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
           <div class="absolute pointer-events-none rounded-xs"
