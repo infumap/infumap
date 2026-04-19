@@ -18,7 +18,7 @@
 
 import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { navigateBack, navigateUp, switchToPage } from '../../layout/navigation';
+import { navigateBack, navigateToSearches, navigateUp, switchToPage } from '../../layout/navigation';
 import { ROOT_USERNAME } from '../../constants';
 import { InfuIconButton } from "../library/InfuIconButton";
 
@@ -44,7 +44,10 @@ export const Toolbar_Navigation: Component = () => {
 
   const handleUp = async () => { await navigateUp(store); };
 
-  const handleSearchClick = () => { store.overlay.searchOverlayVisible.set(!store.overlay.searchOverlayVisible.get()); };
+  const handleSearchClick = async () => {
+    store.overlay.searchOverlayVisible.set(false);
+    await navigateToSearches(store);
+  };
 
   return (
     <div class="inline-block p-[4px]" style="height: 30px; overflow-y: hidden;">

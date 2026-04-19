@@ -39,6 +39,11 @@ export function clearLoadState() {
       delete childrenLoadInitiatedOrComplete[key];
     }
   }
+  for (let key in childLoadInFlight) {
+    if (childLoadInFlight.hasOwnProperty(key)) {
+      delete childLoadInFlight[key];
+    }
+  }
   for (let key in itemLoadInitiatedOrComplete) {
     if (itemLoadInitiatedOrComplete.hasOwnProperty(key)) {
       delete itemLoadInitiatedOrComplete[key];
@@ -58,14 +63,15 @@ export function markChildrenLoadAsInitiatedOrComplete(containerId: Uid) {
 
 
 const childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
+const childLoadInFlight: { [id: Uid]: Promise<void> } = {};
 
-export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerVeid: Veid) => {
+export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerVeid: Veid): Promise<void> => {
 
-  if (containerVeid.itemId == SOLO_ITEM_HOLDER_PAGE_UID) { return; }
+  if (containerVeid.itemId == SOLO_ITEM_HOLDER_PAGE_UID) { return Promise.resolve(); }
 
   if (childrenLoadInitiatedOrComplete[containerVeid.itemId]) {
     PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
-    return;
+    return childLoadInFlight[containerVeid.itemId] ?? Promise.resolve();
   }
   childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
 
@@ -76,7 +82,7 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
     ? server.fetchItems(`${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus)
     : remote.fetchItems(origin, `${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus);
 
-  fetchPromise
+  const loadPromise = fetchPromise
     .then(result => {
       if (!childrenLoadInitiatedOrComplete[containerVeid.itemId]) { return; };
 
@@ -96,7 +102,13 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
     })
     .catch((e: any) => {
       console.error(`Error occurred fetching items for '${containerVeid.itemId}': ${e.message}.`);
+    })
+    .finally(() => {
+      delete childLoadInFlight[containerVeid.itemId];
     });
+
+  childLoadInFlight[containerVeid.itemId] = loadPromise;
+  return loadPromise;
 }
 
 

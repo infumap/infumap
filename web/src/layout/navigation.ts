@@ -17,14 +17,15 @@
 */
 
 import { ROOT_USERNAME } from "../constants";
+import { requestContainerSyncSoon, server } from "../server";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { requestContainerSyncSoon } from "../server";
+import { isSearch, SearchFns } from "../items/search-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { arrangeNow } from "./arrange";
-import { initiateLoadItemMaybe, InitiateLoadResult } from "./load";
+import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { VeFns, Veid, VisualElementPath } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
 
@@ -105,6 +106,72 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     window.history.pushState(null, "", url);
   }
   store.currentUrlPath.set(url);
+}
+
+async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesPageId: Uid): Promise<Uid | null> {
+  const searchesPageMaybe = itemState.get(searchesPageId);
+  if (!searchesPageMaybe || !isPage(searchesPageMaybe)) {
+    return null;
+  }
+
+  await initiateLoadChildItemsMaybe(store, { itemId: searchesPageId, linkIdMaybe: null });
+
+  const searchesPage = asPageItem(itemState.get(searchesPageId)!);
+  for (const childId of searchesPage.computed_children) {
+    const child = itemState.get(childId);
+    if (isSearch(child)) {
+      return childId;
+    }
+  }
+
+  const searchItem = SearchFns.create(
+    searchesPage.ownerId,
+    searchesPageId,
+    RelationshipToParent.Child,
+    itemState.newOrderingAtBeginningOfChildren(searchesPageId),
+  );
+  itemState.add(searchItem);
+
+  try {
+    await server.addItem(searchItem, null, store.general.networkStatus);
+    return searchItem.id;
+  } catch (e) {
+    console.error("Failed to create default Search item under Searches page:", e);
+    itemState.delete(searchItem.id);
+    return null;
+  }
+}
+
+export async function navigateToSearches(store: StoreContextModel): Promise<void> {
+  const userMaybe = store.user.getUserMaybe();
+  if (!userMaybe) { return; }
+
+  const searchesPageId = userMaybe.searchesPageId;
+  let searchesPage = itemState.get(searchesPageId);
+  if (!searchesPage) {
+    const loadResult = await initiateLoadItemMaybe(store, searchesPageId);
+    if (loadResult == InitiateLoadResult.Failed || !itemState.get(searchesPageId)) {
+      return;
+    }
+    searchesPage = itemState.get(searchesPageId);
+  }
+
+  if (!searchesPage || !isPage(searchesPage)) {
+    return;
+  }
+
+  const searchItemId = await ensureSearchItemUnderSearches(store, searchesPageId);
+  if (searchItemId != null) {
+    store.perItem.setSelectedListPageItem({ itemId: searchesPageId, linkIdMaybe: null }, { itemId: searchItemId, linkIdMaybe: null });
+  }
+
+  const currentPageVeid = store.history.currentPageVeid();
+  if (currentPageVeid?.itemId == searchesPageId && currentPageVeid.linkIdMaybe == null) {
+    arrangeNow(store, "navigate-to-searches");
+    return;
+  }
+
+  switchToPage(store, { itemId: searchesPageId, linkIdMaybe: null }, false, false, false);
 }
 
 
