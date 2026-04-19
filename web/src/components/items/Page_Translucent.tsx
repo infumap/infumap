@@ -38,6 +38,7 @@ import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
+import { isSearch } from "../../items/search-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -368,7 +369,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     </Show>;
 
   const renderPopupSelectedOverlayMaybe = () =>
-    <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || pageFns().isPoppedUp()}>
+    <Show when={!useFlatWorkspaceChrome() && ((props.visualElement.flags & VisualElementFlags.Selected) || pageFns().isPoppedUp())}>
       <div class="absolute pointer-events-none"
         style={`left: ${pageFns().innerBoundsPx().x}px; top: ${pageFns().innerBoundsPx().y}px; width: ${pageFns().innerBoundsPx().w}px; height: ${pageFns().innerBoundsPx().h}px; ` +
           `background-color: #dddddd88;`} />
@@ -380,13 +381,16 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       <InfuLinkTriangle />
     </Show>;
 
-  const backgroundStyle = () => pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List
-    ? ''
-    : `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.636)};`;
+  const isInsideSearchWorkspace = () => {
+    if (props.visualElement.parentPath == null) {
+      return false;
+    }
+    const parentVe = VesCache.current.readNode(props.visualElement.parentPath!);
+    return parentVe != null && isSearch(parentVe.displayItem);
+  };
 
-  const borderClass = () => pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List
-    ? ''
-    : 'border border-[#777] hover:shadow-md';
+  const useFlatWorkspaceChrome = () =>
+    pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List || isInsideSearchWorkspace();
 
   // Check if this page is currently focused (via focusPath or textEditInfo)
   const isFocused = () => {
@@ -396,11 +400,19 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   };
 
   const shadowClass = () => {
-    if (pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List) {
+    if (useFlatWorkspaceChrome()) {
       return '';
     }
     return 'shadow-xl';
   };
+
+  const backgroundStyle = () => useFlatWorkspaceChrome()
+    ? ''
+    : `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.636)};`;
+
+  const borderClass = () => useFlatWorkspaceChrome()
+    ? ''
+    : 'border border-[#777] hover:shadow-md';
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>

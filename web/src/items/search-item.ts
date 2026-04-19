@@ -34,6 +34,48 @@ import { XSizableMixin } from "./base/x-sizeable-item";
 
 
 const DEFAULT_WIDTH_GR = GRID_SIZE * 4;
+export const TEMP_SEARCH_RESULTS_ORIGIN = "__search_results__";
+export const SEARCH_WORKSPACE_TOP_INSET_PX = 25;
+export const SEARCH_WORKSPACE_SIDE_INSET_PX = 26;
+export const SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX = 50;
+export const SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX = 25;
+export const SEARCH_WORKSPACE_BUTTON_WIDTH_PX = 92;
+export const SEARCH_WORKSPACE_CONTROLS_GAP_PX = 10;
+
+export function tempSearchResultsPageUid(searchItemId: Uid): Uid {
+  return `fff0${searchItemId.slice(4)}`;
+}
+
+export function tempSearchResultLinkUid(searchItemId: Uid, index: number): Uid {
+  const indexHex = (index & 0xffff).toString(16).padStart(4, "0");
+  return `fff1${indexHex}${searchItemId.slice(8)}`;
+}
+
+export function calcSearchWorkspaceControlsWidthPx(boundsWidthPx: number): number {
+  return Math.min(
+    760,
+    Math.max(320, boundsWidthPx - SEARCH_WORKSPACE_SIDE_INSET_PX * 2),
+  );
+}
+
+export function calcSearchWorkspaceInputWidthPx(boundsWidthPx: number): number {
+  const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsWidthPx);
+  return Math.max(120, controlsWidthPx - SEARCH_WORKSPACE_BUTTON_WIDTH_PX - SEARCH_WORKSPACE_CONTROLS_GAP_PX);
+}
+
+export function calcSearchWorkspaceResultsTopPx(): number {
+  return SEARCH_WORKSPACE_TOP_INSET_PX + SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX + SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX;
+}
+
+export function calcSearchWorkspaceResultsBoundsPx(boundsPx: BoundingBox): BoundingBox {
+  const topPx = calcSearchWorkspaceResultsTopPx();
+  return {
+    x: 0,
+    y: topPx,
+    w: boundsPx.w,
+    h: Math.max(0, boundsPx.h - topPx),
+  };
+}
 
 export interface SearchItem extends SearchMeasurable, Item { }
 export interface SearchMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin { }

@@ -138,7 +138,8 @@ export function arrange_catalog_page(
   const childrenPaths: Array<VisualElementPath> = [];
   for (const child of childGeometries) {
     const childItemIsEmbeddedInteractive = isPage(child.childItem) && !!(asPageItem(child.childItem).flags & PageFlags.EmbeddedInteractive);
-    const renderChildrenAsFull = !!(flags & ArrangeItemFlags.IsTopRoot |
+    const renderChildrenAsFull = !!(flags & ArrangeItemFlags.RenderChildrenAsFull |
+      flags & ArrangeItemFlags.IsTopRoot |
       flags & ArrangeItemFlags.IsPopupRoot |
       flags & ArrangeItemFlags.IsListPageMainRoot |
       flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |

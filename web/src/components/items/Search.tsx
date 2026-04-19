@@ -16,19 +16,38 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show } from "solid-js";
-import { arrangeNow } from "../../layout/arrange";
+import { Component, For, Show } from "solid-js";
+import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../../util/caret";
 import { ItemType } from "../../items/base/item";
+import { server } from "../../server";
+import { VisualElement_Desktop } from "../VisualElement";
+import { VesCache } from "../../layout/ves-cache";
+import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../layout/load";
+import { itemState } from "../../store/ItemState";
+import { asContainerItem, isContainer } from "../../items/base/container-item";
+import { asLinkItem, isLink, LinkFns } from "../../items/link-item";
+import {
+  SEARCH_WORKSPACE_BUTTON_WIDTH_PX,
+  SEARCH_WORKSPACE_CONTROLS_GAP_PX,
+  SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX,
+  SEARCH_WORKSPACE_TOP_INSET_PX,
+  calcSearchWorkspaceControlsWidthPx,
+  calcSearchWorkspaceInputWidthPx,
+  calcSearchWorkspaceResultsBoundsPx,
+  calcSearchWorkspaceResultsTopPx,
+} from "../../items/search-item";
 
 
 const EMPTY_SEARCH_EDIT_TEXT = "\u200B";
+const normalizeSearchText = (text: string): string =>
+  text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
 
 
 export const Search_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -44,6 +63,63 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const isEditing = () => store.overlay.textEditInfo()?.itemPath == vePath();
   const editingDomId = () => vePath() + ":title";
   const editableQueryText = () => queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText();
+  const readQueryTextFromDom = () => {
+    const el = document.getElementById(editingDomId());
+    if (!(el instanceof HTMLElement)) {
+      return queryText();
+    }
+    return normalizeSearchText(el.innerText);
+  };
+  const commitEditingQuery = (): string => {
+    const nextQuery = isEditing() ? readQueryTextFromDom() : queryText();
+    store.perItem.setSearchQuery(searchItem().id, nextQuery);
+    if (isEditing()) {
+      store.overlay.setTextEditInfo(store.history, null);
+    }
+    return nextQuery;
+  };
+  const warmResultItemDetails = async (resultItemId: string) => {
+    await initiateLoadItemMaybe(store, resultItemId);
+
+    let targetItem = itemState.get(resultItemId);
+    if (!targetItem) {
+      return;
+    }
+
+    if (isLink(targetItem)) {
+      const linkItem = asLinkItem(targetItem);
+      const linkedToId = LinkFns.getLinkToId(linkItem);
+      if (linkedToId && !linkItem.linkTo.startsWith("http")) {
+        await initiateLoadItemMaybe(store, linkedToId, targetItem.parentId);
+        targetItem = itemState.get(linkedToId) ?? targetItem;
+      }
+    }
+
+    if (isContainer(targetItem) && !asContainerItem(targetItem).childrenLoaded) {
+      await initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(targetItem, null));
+    }
+  };
+
+  const warmSearchResults = async (result: Array<{ path: Array<{ id: string }> }>) => {
+    const resultIds = [...new Set(result
+      .map(r => r.path[r.path.length - 1]?.id)
+      .filter((id): id is string => !!id))];
+    await Promise.all(resultIds.map(id => warmResultItemDetails(id)));
+  };
+
+  const runSearch = async () => {
+    const text = commitEditingQuery();
+    if (text == "") {
+      store.perItem.setSearchResults(searchItem().id, null);
+      requestArrange(store, "search-clear-results");
+      return;
+    }
+
+    const result = await server.search(null, text, store.general.networkStatus);
+    store.perItem.setSearchResults(searchItem().id, result);
+    requestArrange(store, "search-results");
+    void warmSearchResults(result);
+  };
 
   const queryInputMouseDown = (ev: MouseEvent) => {
     if (isEditing()) {
@@ -80,6 +156,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       case "Enter":
         ev.preventDefault();
         ev.stopPropagation();
+        void runSearch();
         return;
       case "Escape":
         ev.preventDefault();
@@ -90,33 +167,25 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   };
 
   const renderSearchWorkspace = () => {
-    const topInsetPx = 25;
-    const sideInsetPx = 26;
-    const controlsHeightPx = 50;
-    const resultsTopGapPx = 25;
-    const buttonWidthPx = 92;
-    const controlsGapPx = 10;
-    const controlsWidthPx = Math.min(
-      760,
-      Math.max(320, boundsPx().w - sideInsetPx * 2),
-    );
-    const inputWidthPx = Math.max(120, controlsWidthPx - buttonWidthPx - controlsGapPx);
-    const lowerTopPx = topInsetPx + controlsHeightPx + resultsTopGapPx;
+    const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsPx().w);
+    const inputWidthPx = calcSearchWorkspaceInputWidthPx(boundsPx().w);
+    const lowerTopPx = calcSearchWorkspaceResultsTopPx();
+    const resultsBoundsPx = () => calcSearchWorkspaceResultsBoundsPx(boundsPx());
     return (
       <div class="absolute bg-white"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `${desktopStackRootStyle(props.visualElement)}`}>
-        <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+        <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
           <div class="absolute pointer-events-none"
             style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-              `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
+              `background-color: ${FIND_HIGHLIGHT_COLOR};`} />
         </Show>
         <div class="absolute"
-          style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; top: ${topInsetPx}px; width: ${controlsWidthPx}px;`}>
+          style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; top: ${SEARCH_WORKSPACE_TOP_INSET_PX}px; width: ${controlsWidthPx}px;`}>
           <div class="flex items-center gap-[10px]">
             <div
               class="border border-[#999] rounded-xs bg-white overflow-hidden"
-              style={`width: ${inputWidthPx}px; height: ${controlsHeightPx}px;`}
+              style={`width: ${inputWidthPx}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               onMouseDown={queryInputMouseDown}>
               <div class="flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
                 style="font-size: 16px;">
@@ -138,10 +207,15 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
               </div>
             </div>
             <button
-              class="border border-[#999] rounded-xs bg-white text-black"
-              style={`width: ${buttonWidthPx}px; height: ${controlsHeightPx}px;`}
+              class="border border-[#999] rounded-xs bg-white text-black cursor-pointer"
+              style={`width: ${SEARCH_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              onClick={(ev) => {
+              onMouseDown={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                void runSearch();
+              }}
+              onMouseUp={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
               }}
@@ -152,6 +226,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         </div>
         <div class="absolute border-t border-slate-300"
           style={`left: 0px; top: ${lowerTopPx}px; width: ${boundsPx().w}px; height: ${Math.max(0, boundsPx().h - lowerTopPx)}px;`} />
+        <div class="absolute"
+          style={`left: ${resultsBoundsPx().x}px; top: ${resultsBoundsPx().y}px; width: ${resultsBoundsPx().w}px; height: ${resultsBoundsPx().h}px;`}>
+          <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
+            <VisualElement_Desktop visualElement={childVe.get()} />
+          }</For>
+        </div>
         <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
           <div class="absolute pointer-events-none rounded-xs"
             style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />

@@ -49,6 +49,11 @@ export function clearLoadState() {
       delete itemLoadInitiatedOrComplete[key];
     }
   }
+  for (let key in itemLoadInFlight) {
+    if (itemLoadInFlight.hasOwnProperty(key)) {
+      delete itemLoadInFlight[key];
+    }
+  }
   itemLoadFromRemoteStatus = {};
   for (let key in itemLoadLastSessionId) {
     if (itemLoadLastSessionId.hasOwnProperty(key)) {
@@ -119,13 +124,14 @@ export enum InitiateLoadResult {
 };
 
 const itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
+const itemLoadInFlight: { [id: Uid]: Promise<InitiateLoadResult> } = {};
 
 export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, containerToSortId?: Uid): Promise<InitiateLoadResult> => {
-  if (itemLoadInitiatedOrComplete[id]) { return Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
+  if (itemLoadInitiatedOrComplete[id]) { return itemLoadInFlight[id] ?? Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
   if (itemState.get(id) != null) { return Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
   itemLoadInitiatedOrComplete[id] = true;
 
-  return server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
+  const loadPromise = server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
     .then(result => {
       if (!itemLoadInitiatedOrComplete[id]) { return InitiateLoadResult.Failed; };
 
@@ -150,7 +156,13 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
     .catch((e: any) => {
       console.error(`Error occurred fetching item '${id}': ${e.message}.`);
       return InitiateLoadResult.Failed;
+    })
+    .finally(() => {
+      delete itemLoadInFlight[id];
     });
+
+  itemLoadInFlight[id] = loadPromise;
+  return loadPromise;
 }
 
 

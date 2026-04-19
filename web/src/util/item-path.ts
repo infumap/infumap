@@ -98,6 +98,12 @@ export function itemPathSegmentsFromId(itemId: Uid): Array<ItemPathSegment> {
 }
 
 export function itemPathSegmentsFromItem(item: Item): Array<ItemPathSegment> {
+  if (isLink(item)) {
+    const catalogPathOverride = asLinkItem(item).catalogPathOverride;
+    if (catalogPathOverride && catalogPathOverride.length > 0) {
+      return catalogPathOverride;
+    }
+  }
   return itemPathSegmentsFromId(resolvedPathTargetIdForItem(item));
 }
 

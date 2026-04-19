@@ -21,6 +21,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Item } from "../../items/base/item";
 import { asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
+import { asSearchItem, isSearch } from "../../items/search-item";
 import { VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, VeFns } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { LinkItem, isLink } from "../../items/link-item";
@@ -37,6 +38,7 @@ import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
+import { arrangeSearchResultsPathMaybe } from "./search";
 
 
 export enum ArrangeItemFlags {
@@ -208,6 +210,10 @@ export const arrangeItemNoChildren = (
     itemRelationships.attachmentsPaths = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath);
   } else {
     itemRelationships.attachmentsPaths = [];
+  }
+  if (isSearch(displayItem) && (flags & ArrangeItemFlags.RenderChildrenAsFull)) {
+    const searchResultsPath = arrangeSearchResultsPathMaybe(store, asSearchItem(displayItem), currentVePath, itemGeometry);
+    itemRelationships.childrenPaths = searchResultsPath == null ? [] : [searchResultsPath];
   }
 
   const itemVisualElementSignal = VesCache.arrange.writeVisualElementSignal(itemVisualElementSpec, itemRelationships, currentVePath);

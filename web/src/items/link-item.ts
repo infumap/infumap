@@ -44,6 +44,7 @@ export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
   overrideTitle?: string | null,
   linkRequiresRemoteLogin?: string | null,
   aspectOverride?: number | null,
+  catalogPathOverride?: Array<{ id: Uid, itemType: string, title: string }> | null,
 }
 
 export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
@@ -98,6 +99,7 @@ export const LinkFns = {
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
+      catalogPathOverride: null,
     };
   },
 
@@ -128,6 +130,7 @@ export const LinkFns = {
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
+      catalogPathOverride: null,
     });
   },
 
