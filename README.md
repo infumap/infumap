@@ -1,5 +1,8 @@
 # Infumap
 
+> [!IMPORTANT]
+> The `master` branch is the active development branch and often includes work in progress between releases. For regular use, please prefer the latest tagged release.
+
 Infumap is the platform I built to run my life off.
 
 It’s a giant workspace that provides a powerful set of building blocks that can be pieced together to match a wide variety of needs.
