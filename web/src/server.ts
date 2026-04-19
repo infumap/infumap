@@ -851,6 +851,12 @@ async function sendCommand(host: string | null, command: string, payload: object
   const d: any = { command, jsonData: JSON.stringify(payload) };
   if (base64Data) { d.base64Data = base64Data; }
   const r = await post(host, '/command', d);
+  if (r == null || typeof r !== "object") {
+    throw new Error(`'${command}' command returned an empty or invalid response.`);
+  }
+  if (typeof r.success !== "boolean") {
+    throw new Error(`'${command}' command returned a malformed response.`);
+  }
   if (!r.success) {
     if (logout != null && command != COMMAND_GET_ITEMS) {
       if (panicLogoutOnError) {
@@ -860,6 +866,9 @@ async function sendCommand(host: string | null, command: string, payload: object
     } else {
       throw new Error(`'${command}' command failed. Reason: ${r.failReason}`);
     }
+  }
+  if (typeof r.jsonData !== "string") {
+    throw new Error(`'${command}' command returned malformed jsonData.`);
   }
   return JSON.parse(r.jsonData);
 }
