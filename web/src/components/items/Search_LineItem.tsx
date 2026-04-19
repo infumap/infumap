@@ -74,7 +74,7 @@ export const Search_LineItem: Component<VisualElementProps> = (props: VisualElem
       <div class="absolute flex items-center gap-2 text-slate-500 pointer-events-none"
         style={`left: ${boundsPx().x + 8}px; top: ${boundsPx().y}px; width: ${Math.max(0, boundsPx().w - 16)}px; height: ${boundsPx().h}px;`}>
         <i class="fa fa-search text-slate-400" />
-        <span class="truncate italic">[search]</span>
+        <span class="truncate">Search</span>
       </div>
     </>
   );

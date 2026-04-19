@@ -241,6 +241,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           editingDomEl.parentElement!.scrollLeft = 0;
           asPasswordItem(item).text = trimNewline(newText);
         }
+        else if (store.overlay.textEditInfo()!.itemType == ItemType.Search) {
+          store.perItem.setSearchQuery(item.id, trimNewline(newText).replace(/\u200B/g, ""));
+        }
 
         if (item.relationshipToParent == RelationshipToParent.Child) {
           const parentItem = itemState.get(item.parentId);
@@ -249,9 +252,10 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           }
         }
 
-        serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
-
         const editingItemType = store.overlay.textEditInfo()!.itemType;
+        if (editingItemType != ItemType.Search) {
+          serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+        }
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
 
@@ -259,6 +263,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           editingItemType == ItemType.Note ||
           editingItemType == ItemType.File ||
           editingItemType == ItemType.Password ||
+          editingItemType == ItemType.Search ||
           editingItemType == ItemType.Table ||
           (editingItemType == ItemType.Page && isPage(item) && !!(asPageItem(item).flags & PageFlags.EmbeddedInteractive));
 

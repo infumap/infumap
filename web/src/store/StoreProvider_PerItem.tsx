@@ -37,6 +37,9 @@ export interface PerItemStoreContextModel {
   getPageScrollYProp: (veid: Veid) => number,
   setPageScrollYProp: (veid: Veid, prop: number) => void,
 
+  getSearchQuery: (itemId: string) => string,
+  setSearchQuery: (itemId: string, query: string) => void,
+
   clear: () => void,
 }
 
@@ -48,6 +51,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const pageScrollYPxs = new Map<string, NumberSignal>();
   const selectedItems = new Map<string, InfuSignal<Veid>>();
   const focusedItems = new Map<string, InfuSignal<Veid>>();
+  const searchQueries = new Map<string, InfuSignal<string>>();
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
@@ -100,6 +104,21 @@ export function makePerItemStore(): PerItemStoreContextModel {
     pageScrollYPxs.get(key)!.set(prop);
   };
 
+  const getSearchQuery = (itemId: string): string => {
+    if (!searchQueries.get(itemId)) {
+      searchQueries.set(itemId, createInfuSignal<string>(""));
+    }
+    return searchQueries.get(itemId)!.get();
+  };
+
+  const setSearchQuery = (itemId: string, query: string): void => {
+    if (!searchQueries.get(itemId)) {
+      searchQueries.set(itemId, createInfuSignal<string>(query));
+      return;
+    }
+    searchQueries.get(itemId)!.set(query);
+  };
+
   const getSelectedListPageItem = (listPageVeid: Veid): Veid => {
     const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
@@ -147,6 +166,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     pageScrollYPxs.clear();
     selectedItems.clear();
     focusedItems.clear();
+    searchQueries.clear();
   }
 
   return ({
@@ -155,6 +175,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getTableScrollYPos, setTableScrollYPos,
     getPageScrollXProp, setPageScrollXProp,
     getPageScrollYProp, setPageScrollYProp,
+    getSearchQuery, setSearchQuery,
     clear
   });
 }
