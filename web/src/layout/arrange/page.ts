@@ -28,6 +28,7 @@ import { VeFns, VisualElementPath, VisualElementRelationships, VisualElementSpec
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags, arrangeFlagIsRoot } from "./item";
 import { arrange_calendar_page } from "./page_calendar";
+import { arrange_catalog_page } from "./page_catalog";
 import { arrange_document_page } from "./page_document";
 import { arrange_grid_page } from "./page_grid";
 import { arrange_justified_page } from "./page_justified";
@@ -53,6 +54,9 @@ export const arrangePageWithChildren = (
   switch (effectiveArrange) {
     case ArrangeAlgorithm.Grid:
       ({ spec: pageSpec, relationships: pageRelationships } = arrange_grid_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
+      break;
+    case ArrangeAlgorithm.Catalog:
+      ({ spec: pageSpec, relationships: pageRelationships } = arrange_catalog_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.Justified:
       ({ spec: pageSpec, relationships: pageRelationships } = arrange_justified_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));

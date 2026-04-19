@@ -502,6 +502,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
+        {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
       {renderSelectedRootMaybe()}

@@ -40,6 +40,8 @@ import { Page_Popup } from "./Page_Popup";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { calculateCalendarDimensions, decodeCalendarCombinedIndex, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
+import { calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx, CATALOG_DETAIL_COLUMN_PADDING_PX } from "../../layout/catalog";
+import { itemPathTextFromItem } from "../../util/item-path";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -244,17 +246,52 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     },
 
     renderGridLinesMaybe: () =>
-      <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
-        <For each={[...Array(pageFns.pageItem().gridNumberOfColumns).keys()]}>{i =>
-          <Show when={i != 0}>
+      <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid || pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
+        <Switch>
+          <Match when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
+            <For each={[...Array(pageFns.pageItem().gridNumberOfColumns).keys()]}>{i =>
+              <Show when={i != 0}>
+                <div class="absolute bg-slate-100"
+                  style={`left: ${props.visualElement.cellSizePx!.w * i}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
+              </Show>
+            }</For>
+          </Match>
+          <Match when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
             <div class="absolute bg-slate-100"
-              style={`left: ${props.visualElement.cellSizePx!.w * i}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
-          </Show>
-        }</For>
+              style={`left: ${pageFns.catalogPreviewColumnWidthPx()}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
+          </Match>
+        </Switch>
         <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
           <div class="absolute bg-slate-100"
             style={`left: 0px; height: 1px; width: ${pageFns.childAreaBoundsPx().w}px; top: ${props.visualElement.cellSizePx!.h * (i + 1)}px;`} />
         }</For>
+      </Show>,
+
+    catalogPreviewColumnWidthPx: () =>
+      props.visualElement.cellSizePx?.w ??
+      calcCatalogPreviewColumnWidthPx(pageFns.childAreaBoundsPx().w),
+
+    catalogRowHeightPx: () =>
+      props.visualElement.cellSizePx?.h ??
+      calcCatalogRowHeightPx(pageFns.catalogPreviewColumnWidthPx(), pageFns.pageItem().gridCellAspect),
+
+    renderCatalogMetadataMaybe: () =>
+      <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
+        <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVeSignal => {
+          const childVe = () => childVeSignal.get();
+          const rowIndex = () => childVe().row ?? Math.max(0, Math.round(childVe().boundsPx.y / pageFns.catalogRowHeightPx()));
+          const topPx = () => rowIndex() * pageFns.catalogRowHeightPx();
+          const leftPx = () => pageFns.catalogPreviewColumnWidthPx() + CATALOG_DETAIL_COLUMN_PADDING_PX;
+          const widthPx = () => Math.max(0, pageFns.childAreaBoundsPx().w - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
+          return (
+            <div class="absolute flex items-center text-sm text-slate-600 pointer-events-none"
+              style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px;`}>
+              <div class="min-w-0 truncate whitespace-nowrap">
+                {itemPathTextFromItem(childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem)}
+              </div>
+            </div>
+          );
+        }}</For>
       </Show>,
 
     renderMoveOverAnnotationMaybe: () => {
@@ -285,7 +322,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               `${VeFns.zIndexStyle(props.visualElement)}`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-        pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+        pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified ||
+        pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
         const heightPx = Math.max(pageFns.childAreaBoundsPx().h, pageFns.boundsPx().h);
         return (
           <div class="absolute pointer-events-none"
@@ -305,6 +343,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const heightPx = props.visualElement.cellSizePx!.h;
         return (
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />
+        );
+      } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+        const lineBoundsPx = stackedInsertionLineBoundsPx(pageFns.nonMovingChildren().map(childVe => childVe.get()), pageFns.childAreaBoundsPx().w, store.perVe.getMoveOverIndex(pageFns.vePath()));
+        if (!lineBoundsPx) {
+          return <></>;
+        }
+        return (
+          <div class="absolute pointer-events-none bg-black"
+            style={`left: ${lineBoundsPx.x}px; top: ${lineBoundsPx.y - 1}px; width: ${lineBoundsPx.w}px; height: 2px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
         const topPx = store.perVe.getMoveOverIndex(pageFns.vePath()) * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX;

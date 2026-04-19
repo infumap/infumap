@@ -176,6 +176,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
+          {pageFns().renderGridLinesMaybe()}
+          {pageFns().renderCatalogMetadataMaybe()}
           {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>

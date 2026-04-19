@@ -58,6 +58,7 @@ export const ArrangeAlgorithm = {
   None: "none",
   SpatialStretch: "spatial-stretch",
   Grid: "grid",
+  Catalog: "catalog",
   Justified: "justified",
   List: "list",
   Document: "document",

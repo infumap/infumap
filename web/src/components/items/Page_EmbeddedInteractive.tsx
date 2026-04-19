@@ -241,6 +241,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
+        {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
     </div>;

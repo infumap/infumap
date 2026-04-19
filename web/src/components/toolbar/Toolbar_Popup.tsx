@@ -130,7 +130,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96,
-      h: documentArrangeEnabled(store) ? 164 : 138
+      h: documentArrangeEnabled(store) ? 190 : 164
     }
   } else if (popupType == ToolbarPopupType.RatingType) {
     return {
@@ -395,6 +395,7 @@ export const Toolbar_Popup: Component = () => {
 
   const aaSpatialClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.SpatialStretch; finalizeAAChange(); }
   const aaGridClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Grid; finalizeAAChange(); }
+  const aaCatalogClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Catalog; finalizeAAChange(); }
   const aaJustifiedClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Justified; finalizeAAChange(); }
   const aaListClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.List; finalizeAAChange(); }
   const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
@@ -475,6 +476,9 @@ export const Toolbar_Popup: Component = () => {
             </div>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaGridClick}>
               Grid
+            </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCatalogClick}>
+              Catalog
             </div>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaJustifiedClick}>
               Justified

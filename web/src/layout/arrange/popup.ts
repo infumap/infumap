@@ -145,6 +145,7 @@ function calcCellPopupGeometry(
   const geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, hasChildChanges, hasDefaultChanges, true, false, store.smallScreenMode());
 
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+    currentPage.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
 

@@ -112,6 +112,7 @@ impl Clone for RelationshipToParent {
 pub enum ArrangeAlgorithm {
   SpatialStretch,
   Grid,
+  Catalog,
   Justified,
   List,
   Document,
@@ -125,6 +126,7 @@ impl ArrangeAlgorithm {
     match self {
       ArrangeAlgorithm::SpatialStretch => "spatial-stretch",
       ArrangeAlgorithm::Grid => "grid",
+      ArrangeAlgorithm::Catalog => "catalog",
       ArrangeAlgorithm::Justified => "justified",
       ArrangeAlgorithm::List => "list",
       ArrangeAlgorithm::Document => "document",
@@ -138,6 +140,7 @@ impl ArrangeAlgorithm {
     match s {
       "spatial-stretch" => Ok(ArrangeAlgorithm::SpatialStretch),
       "grid" => Ok(ArrangeAlgorithm::Grid),
+      "catalog" => Ok(ArrangeAlgorithm::Catalog),
       "justified" => Ok(ArrangeAlgorithm::Justified),
       "list" => Ok(ArrangeAlgorithm::List),
       "document" => Ok(ArrangeAlgorithm::Document),

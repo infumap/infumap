@@ -466,6 +466,13 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 
+  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+    const catalogChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))()
+      .map(childVe => childVe.get());
+    const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, catalogChildren, desktopPosPx);
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
+  }
+
   else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified) {
     const moveOverIndex = calculateJustifiedMoveOverIndex(store, inElementVe, activeItem, desktopPosPx);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);

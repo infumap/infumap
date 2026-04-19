@@ -480,7 +480,8 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         MouseActionState.set(null);
         arrangeNow(store, "mouse-up-move-to-calendar-page");
         return;
-      } else if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Document) {
+      } else if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Document ||
+        targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
         mouseUpHandler_moving_toOrderedPage(store, activeItem, overContainerVe);
         return;
       } else {
@@ -504,6 +505,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       persistMovedItems(store, [activeItem.id]);
     }
     else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+      pageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
       pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
       pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
       pageItem.arrangeAlgorithm == ArrangeAlgorithm.Document) {

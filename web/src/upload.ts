@@ -160,6 +160,7 @@ function getTableCellAttachmentTarget(tableVe: VisualElement, insertRow: number)
 
 function supportsOrderedPageExternalUpload(page: PageItem): boolean {
   return page.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+    page.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
     page.arrangeAlgorithm == ArrangeAlgorithm.List ||
     page.arrangeAlgorithm == ArrangeAlgorithm.Document ||
     (page.arrangeAlgorithm == ArrangeAlgorithm.Justified && page.orderChildrenBy != "");
@@ -199,6 +200,7 @@ function orderedPageInsertIndexFromDesktopPx(
     }
 
     case ArrangeAlgorithm.List:
+    case ArrangeAlgorithm.Catalog:
     case ArrangeAlgorithm.Document: {
       const pagePath = VeFns.veToPath(pageVe);
       const childVes = VesCache.render.getNonMovingChildren(pagePath)().map((childVe) => childVe.get());

@@ -76,6 +76,7 @@ export const Toolbar_Page: Component = () => {
     if (aa == ArrangeAlgorithm.SpatialStretch) { return "spatial"; }
     if (aa == ArrangeAlgorithm.Document) { return "document"; }
     if (aa == ArrangeAlgorithm.Grid) { return "grid"; }
+    if (aa == ArrangeAlgorithm.Catalog) { return "catalog"; }
     if (aa == ArrangeAlgorithm.List) { return "list"; }
     if (aa == ArrangeAlgorithm.Justified) { return "justified"; }
     if (aa == ArrangeAlgorithm.SingleCell) { return "single-cell"; }
@@ -102,7 +103,14 @@ export const Toolbar_Page: Component = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List ||
       pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+      pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
       pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
+  }
+
+  const showCellAspectButton = () => {
+    store.touchToolbarDependency();
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+      pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog;
   }
 
   const showGridButtons = () => {
@@ -399,7 +407,7 @@ export const Toolbar_Page: Component = () => {
           {aspectText()}
         </div>
       </div>
-      <Show when={showGridButtons()}>
+      <Show when={showCellAspectButton()}>
         <div ref={cellAspectDiv}
           class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
           style={`font-size: 13px;`}
@@ -410,6 +418,8 @@ export const Toolbar_Page: Component = () => {
             {cellAspectText()}
           </div>
         </div>
+      </Show>
+      <Show when={showGridButtons()}>
         <div ref={numColsDiv}
           class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
           style={`font-size: 13px;`}
