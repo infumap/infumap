@@ -19,26 +19,19 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
-import { cloneBoundingBox } from "../../util/geometry";
 import { VisualElementProps } from "../VisualElement";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
-import { Z_INDEX_LOCAL_OVERLAY } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 
 
 export const Search_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
   const vePath = () => VeFns.veToPath(props.visualElement);
-
-  const boundsPx = () => {
-    const result = cloneBoundingBox(props.visualElement.boundsPx)!;
-    result.y = result.y + 2;
-    result.h = result.h - 4;
-    result.x = result.x + 3;
-    result.w = result.w - 6;
-    return result;
-  };
+  const boundsPx = () => props.visualElement.boundsPx;
+  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
 
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
@@ -66,10 +59,17 @@ export const Search_LineItem: Component<VisualElementProps> = (props: VisualElem
   return (
     <>
       {renderHighlightsMaybe()}
-      <div class="absolute flex items-center gap-2 text-slate-500 pointer-events-none"
-        style={`left: ${boundsPx().x + 8}px; top: ${boundsPx().y}px; width: ${Math.max(0, boundsPx().w - 16)}px; height: ${boundsPx().h}px;`}>
-        <i class="fa fa-search text-slate-400" />
-        <span class="truncate">Search</span>
+      <div class="absolute text-center pointer-events-none"
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
+        <i class="fas fa-search" />
+      </div>
+      <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis pointer-events-none"
+        style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+          `width: ${Math.max(0, boundsPx().w - oneBlockWidthPx()) / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
+        Search
       </div>
     </>
   );
