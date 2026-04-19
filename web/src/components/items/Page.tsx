@@ -47,6 +47,8 @@ import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
+import { SELECTED_LIGHT } from "../../style";
+import { TEMP_SEARCH_RESULTS_ORIGIN } from "../../items/search-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -323,13 +325,22 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       props.visualElement.cellSizePx?.h ??
       calcCatalogRowHeightPx(pageFns.catalogPreviewColumnWidthPx(), pageFns.pageItem().gridCellAspect),
 
+    isSearchResultsPage: () => pageFns.pageItem().origin == TEMP_SEARCH_RESULTS_ORIGIN,
+
+    searchResultsSourceItemId: () =>
+      pageFns.isSearchResultsPage() ? pageFns.pageItem().parentId : null,
+
     renderCatalogMetadataMaybe: () =>
       <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVeSignal => {
           const childVe = () => childVeSignal.get();
+          const searchSourceItemId = () => pageFns.searchResultsSourceItemId();
+          const selectedSearchRow = () =>
+            searchSourceItemId() ? store.perItem.getSearchSelectedResultIndex(searchSourceItemId()!) : -1;
           const isMouseOverRow = () =>
             store.perVe.getMoveOverRowNumber(pageFns.vePath()) == rowIndex() &&
             !store.anItemIsMoving.get();
+          const isSelectedSearchRow = () => selectedSearchRow() == rowIndex();
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
           const metadataLines = () => catalogMetadataLines(catalogItem());
           const rowIndex = () => childVe().row ?? Math.max(0, Math.round(childVe().boundsPx.y / pageFns.catalogRowHeightPx()));
@@ -338,6 +349,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const widthPx = () => Math.max(0, pageFns.childAreaBoundsPx().w - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
           return (
             <>
+              <Show when={isSelectedSearchRow()}>
+                <div class="absolute pointer-events-none"
+                  style={`left: 0px; top: ${topPx()}px; width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
+                    `background-color: ${SELECTED_LIGHT};`} />
+              </Show>
               <Show when={isMouseOverRow()}>
                 <div class="absolute pointer-events-none"
                   style={`left: 0px; top: ${topPx()}px; width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.catalogRowHeightPx()}px; ` +

@@ -61,16 +61,13 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     !!(props.visualElement.flags & VisualElementFlags.ListPageRoot) ||
     props.visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   const searchItem = () => props.visualElement.displayItem;
-  const workspaceDomId = () => vePath() + ":workspace";
   const queryText = () => store.perItem.getSearchQuery(searchItem().id);
   const isEditing = () => store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
   const editableQueryText = () => queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText();
-  const exitEditMode = (focusWorkspaceAfterExit: boolean, editingElMaybe?: HTMLElement | null) => {
+  const clearSelectedResultRow = () => store.perItem.setSearchSelectedResultIndex(searchItem().id, -1);
+  const exitEditMode = (editingElMaybe?: HTMLElement | null) => {
     if (!isEditing()) {
-      if (focusWorkspaceAfterExit) {
-        requestAnimationFrame(() => focusWorkspaceMaybe());
-      }
       return;
     }
 
@@ -84,9 +81,6 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     blurEditingDomMaybe(editingEl instanceof HTMLElement ? editingEl : null);
     store.overlay.setTextEditInfo(store.history, null);
     arrangeNow(store, "search-exit-edit");
-    if (focusWorkspaceAfterExit) {
-      requestAnimationFrame(() => focusWorkspaceMaybe());
-    }
   };
   const readQueryTextFromDom = (elMaybe?: HTMLElement | null) => {
     const el = elMaybe ?? document.getElementById(editingDomId());
@@ -109,22 +103,17 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       document.activeElement.blur();
     }
   };
-  const focusWorkspaceMaybe = () => {
-    const workspaceEl = document.getElementById(workspaceDomId());
-    if (workspaceEl instanceof HTMLElement) {
-      workspaceEl.focus();
-    }
-  };
-  const commitEditingQuery = (editingElMaybe?: HTMLElement | null, focusWorkspaceAfterCommit?: boolean): string => {
+  const commitEditingQuery = (editingElMaybe?: HTMLElement | null): string => {
     const editingEl = editingElMaybe ?? document.getElementById(editingDomId());
     const nextQuery = isEditing() ? readQueryTextFromDom(editingEl instanceof HTMLElement ? editingEl : null) : queryText();
     store.perItem.setSearchQuery(searchItem().id, nextQuery);
-    exitEditMode(!!focusWorkspaceAfterCommit, editingEl instanceof HTMLElement ? editingEl : null);
+    exitEditMode(editingEl instanceof HTMLElement ? editingEl : null);
     return nextQuery;
   };
   const requestEditMode = (caretIdx: number) => {
     setForceNonEditing(false);
     setPendingCaretIdx(caretIdx);
+    clearSelectedResultRow();
     if (!isEditing()) {
       store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
     }
@@ -158,16 +147,18 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     await Promise.all(resultIds.map(id => warmResultItemDetails(id)));
   };
 
-  const runSearch = async (editingElMaybe?: HTMLElement | null, focusWorkspaceAfterCommit?: boolean) => {
-    const text = commitEditingQuery(editingElMaybe, focusWorkspaceAfterCommit);
+  const runSearch = async (selectFirstResultRow: boolean, editingElMaybe?: HTMLElement | null) => {
+    const text = commitEditingQuery(editingElMaybe);
     if (text == "") {
       store.perItem.setSearchResults(searchItem().id, null);
+      clearSelectedResultRow();
       requestArrange(store, "search-clear-results");
       return;
     }
 
     const result = await server.search(null, text, store.general.networkStatus);
     store.perItem.setSearchResults(searchItem().id, result);
+    store.perItem.setSearchSelectedResultIndex(searchItem().id, selectFirstResultRow && result.length > 0 ? 0 : -1);
     requestArrange(store, "search-results");
     void warmSearchResults(result);
   };
@@ -198,12 +189,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       case "Enter":
         ev.preventDefault();
         ev.stopPropagation();
-        void runSearch(ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null, true);
+        void runSearch(true, ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null);
         return;
       case "Escape":
         ev.preventDefault();
         ev.stopPropagation();
-        exitEditMode(true, ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null);
+        exitEditMode(ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null);
         return;
     }
   };
@@ -249,8 +240,6 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const lowerTopPx = calcSearchWorkspaceResultsTopPx();
     return (
       <div class="absolute bg-white"
-        id={workspaceDomId()}
-        tabIndex={-1}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `${desktopStackRootStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
@@ -292,7 +281,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                 onMouseDown={(ev) => {
                   ev.preventDefault();
                   ev.stopPropagation();
-                  void runSearch();
+                  void runSearch(false);
                 }}
                 onMouseUp={(ev) => {
                   ev.preventDefault();

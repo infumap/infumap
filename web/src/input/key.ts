@@ -49,6 +49,7 @@ import { NoteFns, isNote } from "../items/note-item";
 import { PasswordFns, isPassword } from "../items/password-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { getVePropertiesForItem } from "../layout/arrange/util";
+import { isSearch } from "../items/search-item";
 
 
 /**
@@ -91,6 +92,105 @@ function consumeShiftNavigationGesture(): boolean {
 export function cancelShiftNavigationGesture(): void {
   if (!shiftNavigationGesture.pending) { return; }
   shiftNavigationGesture.cancelled = true;
+}
+
+interface ActiveSearchWorkspace {
+  searchItemId: string,
+  resultsCount: number,
+  resultsPageVe: VisualElement | null,
+}
+
+function getActiveSearchWorkspace(store: StoreContextModel): ActiveSearchWorkspace | null {
+  if (store.overlay.anOverlayIsVisible()) { return null; }
+  if (store.history.currentPopupSpec()) { return null; }
+
+  const listPagePath = store.history.currentPagePath();
+  if (!listPagePath) { return null; }
+
+  const listPageVe = VesCache.current.readNode(listPagePath);
+  if (!listPageVe || !isPage(listPageVe.displayItem) || asPageItem(listPageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
+    return null;
+  }
+
+  const selectedVeSignal = VesCache.render.getSelected(listPagePath)();
+  const selectedVe = selectedVeSignal?.get() ?? null;
+  if (!selectedVe || !isSearch(selectedVe.displayItem)) {
+    return null;
+  }
+
+  const searchItemId = selectedVe.displayItem.id;
+  const results = store.perItem.getSearchResults(searchItemId) ?? [];
+  const resultsPageVeSignal = VesCache.render.getChildren(VeFns.veToPath(selectedVe))()[0];
+  const resultsPageVe = resultsPageVeSignal?.get() ?? null;
+
+  return {
+    searchItemId,
+    resultsCount: results.length,
+    resultsPageVe,
+  };
+}
+
+function clampSearchResultIndex(index: number, numResults: number): number {
+  if (numResults <= 0) { return -1; }
+  return Math.max(0, Math.min(index, numResults - 1));
+}
+
+function scrollSearchResultRowIntoView(store: StoreContextModel, workspace: ActiveSearchWorkspace, rowIndex: number): void {
+  const resultsPageVe = workspace.resultsPageVe;
+  if (!resultsPageVe || !resultsPageVe.viewportBoundsPx || !resultsPageVe.childAreaBoundsPx || !resultsPageVe.cellSizePx || rowIndex < 0) {
+    return;
+  }
+
+  const veid = VeFns.actualVeidFromVe(resultsPageVe);
+  const maxScrollPx = Math.max(0, resultsPageVe.childAreaBoundsPx.h - resultsPageVe.viewportBoundsPx.h);
+  if (maxScrollPx <= 0) {
+    store.perItem.setPageScrollYProp(veid, 0);
+    return;
+  }
+
+  const currentProp = store.perItem.getPageScrollYProp(veid);
+  const currentScrollPx = currentProp * maxScrollPx;
+  const rowTopPx = rowIndex * resultsPageVe.cellSizePx.h;
+  const rowBottomPx = rowTopPx + resultsPageVe.cellSizePx.h;
+  const viewportTopPx = currentScrollPx;
+  const viewportBottomPx = currentScrollPx + resultsPageVe.viewportBoundsPx.h;
+
+  let nextScrollPx = currentScrollPx;
+  if (rowTopPx < viewportTopPx) {
+    nextScrollPx = rowTopPx;
+  } else if (rowBottomPx > viewportBottomPx) {
+    nextScrollPx = rowBottomPx - resultsPageVe.viewportBoundsPx.h;
+  }
+
+  const nextProp = Math.max(0, Math.min(1, nextScrollPx / maxScrollPx));
+  if (Math.abs(nextProp - currentProp) > 0.0001) {
+    store.perItem.setPageScrollYProp(veid, nextProp);
+  }
+}
+
+function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (ev.code != "ArrowUp" && ev.code != "ArrowDown") {
+    return false;
+  }
+
+  const workspace = getActiveSearchWorkspace(store);
+  if (!workspace) { return false; }
+
+  const selectedRow = clampSearchResultIndex(
+    store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
+    workspace.resultsCount,
+  );
+  if (selectedRow < 0) { return false; }
+
+  const nextRow = clampSearchResultIndex(selectedRow + (ev.code == "ArrowUp" ? -1 : 1), workspace.resultsCount);
+  if (nextRow == selectedRow) {
+    return true;
+  }
+
+  store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, nextRow);
+  scrollSearchResultRowIntoView(store, workspace, nextRow);
+  arrangeNow(store, "key-search-row-nav");
+  return true;
 }
 
 
@@ -144,6 +244,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
     // TODO (HIGH)
     // event is fired before content is updated.
+    return;
+  }
+
+  if (isArrowKey(ev.code) && handleSearchWorkspaceArrowMaybe(store, ev)) {
+    ev.preventDefault();
     return;
   }
 

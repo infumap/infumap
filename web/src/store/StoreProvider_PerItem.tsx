@@ -44,6 +44,9 @@ export interface PerItemStoreContextModel {
   getSearchResults: (itemId: string) => Array<SearchResult> | null,
   setSearchResults: (itemId: string, results: Array<SearchResult> | null) => void,
 
+  getSearchSelectedResultIndex: (itemId: string) => number,
+  setSearchSelectedResultIndex: (itemId: string, index: number) => void,
+
   clear: () => void,
 }
 
@@ -57,6 +60,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const focusedItems = new Map<string, InfuSignal<Veid>>();
   const searchQueries = new Map<string, InfuSignal<string>>();
   const searchResults = new Map<string, InfuSignal<Array<SearchResult> | null>>();
+  const searchSelectedResultIndexes = new Map<string, NumberSignal>();
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
@@ -139,6 +143,21 @@ export function makePerItemStore(): PerItemStoreContextModel {
     searchResults.get(itemId)!.set(results);
   };
 
+  const getSearchSelectedResultIndex = (itemId: string): number => {
+    if (!searchSelectedResultIndexes.get(itemId)) {
+      searchSelectedResultIndexes.set(itemId, createNumberSignal(-1));
+    }
+    return searchSelectedResultIndexes.get(itemId)!.get();
+  };
+
+  const setSearchSelectedResultIndex = (itemId: string, index: number): void => {
+    if (!searchSelectedResultIndexes.get(itemId)) {
+      searchSelectedResultIndexes.set(itemId, createNumberSignal(index));
+      return;
+    }
+    searchSelectedResultIndexes.get(itemId)!.set(index);
+  };
+
   const getSelectedListPageItem = (listPageVeid: Veid): Veid => {
     const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
@@ -188,6 +207,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     focusedItems.clear();
     searchQueries.clear();
     searchResults.clear();
+    searchSelectedResultIndexes.clear();
   }
 
   return ({
@@ -198,6 +218,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getPageScrollYProp, setPageScrollYProp,
     getSearchQuery, setSearchQuery,
     getSearchResults, setSearchResults,
+    getSearchSelectedResultIndex, setSearchSelectedResultIndex,
     clear
   });
 }

@@ -22,7 +22,7 @@ import { useStore } from "../../store/StoreProvider";
 import { cloneBoundingBox } from "../../util/geometry";
 import { VisualElementProps } from "../VisualElement";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 
 
@@ -66,11 +66,6 @@ export const Search_LineItem: Component<VisualElementProps> = (props: VisualElem
   return (
     <>
       {renderHighlightsMaybe()}
-      <Show when={store.history.getFocusPathMaybe() === vePath()}>
-        <div class="absolute pointer-events-none"
-          style={`left: ${props.visualElement.boundsPx.x}px; top: ${props.visualElement.boundsPx.y}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
-            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
-      </Show>
       <div class="absolute flex items-center gap-2 text-slate-500 pointer-events-none"
         style={`left: ${boundsPx().x + 8}px; top: ${boundsPx().y}px; width: ${Math.max(0, boundsPx().w - 16)}px; height: ${boundsPx().h}px;`}>
         <i class="fa fa-search text-slate-400" />
