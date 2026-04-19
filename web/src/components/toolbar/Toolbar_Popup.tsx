@@ -24,6 +24,7 @@ import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
+import { itemState } from "../../store/ItemState";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
