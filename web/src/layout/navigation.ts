@@ -145,6 +145,7 @@ async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesP
 export async function navigateToSearches(store: StoreContextModel): Promise<void> {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) { return; }
+  store.overlay.autoFocusSearchInput.set(true);
 
   const searchesPageId = userMaybe.searchesPageId;
   let searchesPage = itemState.get(searchesPageId);

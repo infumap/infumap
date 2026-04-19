@@ -16,8 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
-import { arrangeNow, requestArrange } from "../../layout/arrange";
+import { Component, For, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { FIND_HIGHLIGHT_COLOR } from "../../style";
@@ -52,6 +52,7 @@ const normalizeSearchText = (text: string): string =>
 
 export const Search_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
+  const [pendingCaretIdx, setPendingCaretIdx] = createSignal<number | null>(null);
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
 
@@ -77,6 +78,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       store.overlay.setTextEditInfo(store.history, null);
     }
     return nextQuery;
+  };
+  const requestEditMode = (caretIdx: number) => {
+    setPendingCaretIdx(caretIdx);
+    if (!isEditing()) {
+      store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
+    }
   };
   const warmResultItemDetails = async (resultItemId: string) => {
     await initiateLoadItemMaybe(store, resultItemId);
@@ -129,20 +136,11 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
 
     ev.preventDefault();
     ev.stopPropagation();
-    store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
     const el = document.getElementById(editingDomId());
     const closestIdx = el instanceof HTMLElement
       ? closestCaretPositionToClientPx(el, { x: ev.clientX, y: ev.clientY })
       : queryText().length;
-    arrangeNow(store, "search-enter-edit-mode");
-    const freshEl = document.getElementById(editingDomId());
-    if (freshEl instanceof HTMLElement) {
-      freshEl.focus();
-      setCaretPosition(freshEl, closestIdx);
-    } else {
-      console.warn("Could not enter search edit mode because the text element no longer exists", { itemPath: vePath() });
-      store.overlay.setTextEditInfo(store.history, null);
-    }
+    requestEditMode(closestIdx);
   };
 
   const inputListener = (_ev: InputEvent) => {
@@ -165,6 +163,38 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         return;
     }
   };
+
+  createEffect(() => {
+    if (!isListPageMainRoot() || pendingCaretIdx() == null || !isEditing()) {
+      return;
+    }
+    const caretIdx = pendingCaretIdx()!;
+    const raf = requestAnimationFrame(() => {
+      const freshEl = document.getElementById(editingDomId());
+      if (freshEl instanceof HTMLElement) {
+        freshEl.focus();
+        setCaretPosition(freshEl, caretIdx);
+      } else {
+        console.warn("Could not enter search edit mode because the text element no longer exists", { itemPath: vePath() });
+      }
+      setPendingCaretIdx(null);
+      store.overlay.autoFocusSearchInput.set(false);
+    });
+    onCleanup(() => cancelAnimationFrame(raf));
+  });
+
+  createEffect(() => {
+    if (!isListPageMainRoot()) {
+      return;
+    }
+    if (!store.overlay.autoFocusSearchInput.get()) {
+      return;
+    }
+    if (pendingCaretIdx() != null) {
+      return;
+    }
+    requestEditMode(queryText().length);
+  });
 
   const renderSearchWorkspace = () => {
     const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsPx().w);

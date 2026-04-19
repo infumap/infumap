@@ -104,6 +104,7 @@ export interface OverlayStoreContextModel {
   toolbarTransientMessage: InfuSignal<TransientMessage | null>,
   networkOverlayVisible: InfuSignal<boolean>,
   searchOverlayVisible: InfuSignal<boolean>,
+  autoFocusSearchInput: InfuSignal<boolean>,
   findOverlayVisible: InfuSignal<boolean>,
   uploadOverlayInfo: InfuSignal<UploadOverlayInfo | null>,
   remoteLoginInfo: InfuSignal<RemoteLoginInfo | null>,
@@ -132,6 +133,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
   const toolbarTransientMessage = createInfuSignal<TransientMessage | null>(null);
   const searchOverlayVisible = createInfuSignal<boolean>(false);
+  const autoFocusSearchInput = createInfuSignal<boolean>(false);
   const networkOverlayVisible = createInfuSignal<boolean>(false);
   const findOverlayVisible = createInfuSignal<boolean>(false);
   const uploadOverlayInfo = createInfuSignal<UploadOverlayInfo | null>(null);
@@ -148,6 +150,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     selectionMarqueePx.set(null);
     selectedVeids.set([]);
     searchOverlayVisible.set(false);
+    autoFocusSearchInput.set(false);
     findOverlayVisible.set(false);
     uploadOverlayInfo.set(null);
     remoteLoginInfo.set(null);
@@ -204,6 +207,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     toolbarPopupInfoMaybe,
     toolbarTransientMessage,
     searchOverlayVisible,
+    autoFocusSearchInput,
     networkOverlayVisible,
     findOverlayVisible,
     uploadOverlayInfo,
