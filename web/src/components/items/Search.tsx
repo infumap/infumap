@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Show, createEffect, createSignal, onCleanup } from "solid-js";
-import { requestArrange } from "../../layout/arrange";
+import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { FIND_HIGHLIGHT_COLOR } from "../../style";
@@ -53,6 +53,7 @@ const normalizeSearchText = (text: string): string =>
 export const Search_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
   const [pendingCaretIdx, setPendingCaretIdx] = createSignal<number | null>(null);
+  const [forceNonEditing, setForceNonEditing] = createSignal(false);
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
 
@@ -60,26 +61,69 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     !!(props.visualElement.flags & VisualElementFlags.ListPageRoot) ||
     props.visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   const searchItem = () => props.visualElement.displayItem;
+  const workspaceDomId = () => vePath() + ":workspace";
   const queryText = () => store.perItem.getSearchQuery(searchItem().id);
-  const isEditing = () => store.overlay.textEditInfo()?.itemPath == vePath();
+  const isEditing = () => store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
   const editableQueryText = () => queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText();
-  const readQueryTextFromDom = () => {
-    const el = document.getElementById(editingDomId());
+  const exitEditMode = (focusWorkspaceAfterExit: boolean, editingElMaybe?: HTMLElement | null) => {
+    if (!isEditing()) {
+      if (focusWorkspaceAfterExit) {
+        requestAnimationFrame(() => focusWorkspaceMaybe());
+      }
+      return;
+    }
+
+    const editingEl = editingElMaybe ?? document.getElementById(editingDomId());
+    setForceNonEditing(true);
+    setPendingCaretIdx(null);
+    store.overlay.autoFocusSearchInput.set(false);
+    if (editingEl instanceof HTMLElement) {
+      editingEl.contentEditable = "false";
+    }
+    blurEditingDomMaybe(editingEl instanceof HTMLElement ? editingEl : null);
+    store.overlay.setTextEditInfo(store.history, null);
+    arrangeNow(store, "search-exit-edit");
+    if (focusWorkspaceAfterExit) {
+      requestAnimationFrame(() => focusWorkspaceMaybe());
+    }
+  };
+  const readQueryTextFromDom = (elMaybe?: HTMLElement | null) => {
+    const el = elMaybe ?? document.getElementById(editingDomId());
     if (!(el instanceof HTMLElement)) {
       return queryText();
     }
     return normalizeSearchText(el.innerText);
   };
-  const commitEditingQuery = (): string => {
-    const nextQuery = isEditing() ? readQueryTextFromDom() : queryText();
-    store.perItem.setSearchQuery(searchItem().id, nextQuery);
-    if (isEditing()) {
-      store.overlay.setTextEditInfo(store.history, null);
+  const blurEditingDomMaybe = (editingElMaybe?: HTMLElement | null) => {
+    const selection = window.getSelection();
+    if (selection != null) {
+      selection.removeAllRanges();
     }
+    const editingEl = editingElMaybe ?? document.getElementById(editingDomId());
+    if (editingEl instanceof HTMLElement) {
+      editingEl.blur();
+      return;
+    }
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
+  const focusWorkspaceMaybe = () => {
+    const workspaceEl = document.getElementById(workspaceDomId());
+    if (workspaceEl instanceof HTMLElement) {
+      workspaceEl.focus();
+    }
+  };
+  const commitEditingQuery = (editingElMaybe?: HTMLElement | null, focusWorkspaceAfterCommit?: boolean): string => {
+    const editingEl = editingElMaybe ?? document.getElementById(editingDomId());
+    const nextQuery = isEditing() ? readQueryTextFromDom(editingEl instanceof HTMLElement ? editingEl : null) : queryText();
+    store.perItem.setSearchQuery(searchItem().id, nextQuery);
+    exitEditMode(!!focusWorkspaceAfterCommit, editingEl instanceof HTMLElement ? editingEl : null);
     return nextQuery;
   };
   const requestEditMode = (caretIdx: number) => {
+    setForceNonEditing(false);
     setPendingCaretIdx(caretIdx);
     if (!isEditing()) {
       store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
@@ -114,8 +158,8 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     await Promise.all(resultIds.map(id => warmResultItemDetails(id)));
   };
 
-  const runSearch = async () => {
-    const text = commitEditingQuery();
+  const runSearch = async (editingElMaybe?: HTMLElement | null, focusWorkspaceAfterCommit?: boolean) => {
+    const text = commitEditingQuery(editingElMaybe, focusWorkspaceAfterCommit);
     if (text == "") {
       store.perItem.setSearchResults(searchItem().id, null);
       requestArrange(store, "search-clear-results");
@@ -154,12 +198,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       case "Enter":
         ev.preventDefault();
         ev.stopPropagation();
-        void runSearch();
+        void runSearch(ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null, true);
         return;
       case "Escape":
         ev.preventDefault();
         ev.stopPropagation();
-        store.overlay.setTextEditInfo(store.history, null, true);
+        exitEditMode(true, ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null);
         return;
     }
   };
@@ -190,6 +234,9 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     if (!store.overlay.autoFocusSearchInput.get()) {
       return;
     }
+    if (forceNonEditing()) {
+      return;
+    }
     if (pendingCaretIdx() != null) {
       return;
     }
@@ -202,6 +249,8 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const lowerTopPx = calcSearchWorkspaceResultsTopPx();
     return (
       <div class="absolute bg-white"
+        id={workspaceDomId()}
+        tabIndex={-1}
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `${desktopStackRootStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
@@ -218,23 +267,22 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                 class="border border-[#999] rounded-xs bg-white overflow-hidden"
                 style={`width: ${inputWidthPx}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
                 onMouseDown={queryInputMouseDown}>
-                <div class="flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
+                <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
                   style="font-size: 16px;">
-                  <Show when={isEditing()} fallback={
-                    <span class={`outline-hidden ${queryText() == "" ? "text-slate-500" : "text-black"}`}>
-                      {queryText() == "" ? "Search..." : queryText()}
-                    </span>
-                  }>
-                    <span id={editingDomId()}
-                      class="outline-hidden text-black"
-                      style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px;"
-                      contentEditable={isEditing() ? true : undefined}
-                      spellcheck={isEditing()}
-                      onKeyDown={keyDownHandler}
-                      onInput={inputListener}>
-                      {editableQueryText()}<span></span>
-                    </span>
+                  <Show when={!isEditing() && queryText() == ""}>
+                    <div class="absolute inset-y-0 left-[10px] flex items-center text-slate-500 pointer-events-none">
+                      Search...
+                    </div>
                   </Show>
+                  <span id={editingDomId()}
+                    class={`outline-hidden ${!isEditing() && queryText() == "" ? "text-transparent" : "text-black"}`}
+                    style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px;"
+                    contentEditable={isEditing() ? true : undefined}
+                    spellcheck={isEditing()}
+                    onKeyDown={keyDownHandler}
+                    onInput={inputListener}>
+                    {isEditing() ? editableQueryText() : (queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText())}<span></span>
+                  </span>
                 </div>
               </div>
               <button
