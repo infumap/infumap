@@ -63,6 +63,11 @@ export function resolvedPathTargetIdForItem(item: Item): Uid {
   return linkToId;
 }
 
+export function resolvedPathTargetItemForItem(item: Item): Item | null {
+  const resolvedId = resolvedPathTargetIdForItem(item);
+  return itemState.get(resolvedId) ?? item;
+}
+
 export function itemPathSegmentsFromId(itemId: Uid): Array<ItemPathSegment> {
   if (itemId == "" || itemId == EMPTY_UID) {
     return [];

@@ -29,17 +29,15 @@ import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
 import { panic } from "../../util/lang";
-import { itemState } from "../../store/ItemState";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asFormatItem } from "../../items/base/format-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import QRCode from "qrcode";
-import { isImage, asImageItem } from "../../items/image-item";
-import { isFile, asFileItem } from "../../items/file-item";
 import {
   openRemoteItemFragmentsInNewTab,
   openRemoteItemTextInNewTab
 } from "../../util/remoteFile";
+import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -60,36 +58,6 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
     return 450;
   }
   return 30;
-}
-
-function calculateChildrenStats(containerItem: any): { totalChildren: number, imageFileChildren: number, totalBytes: number } {
-  const children = containerItem.computed_children || [];
-  let totalChildren = children.length;
-  let imageFileChildren = 0;
-  let totalBytes = 0;
-
-  children.forEach((childId: string) => {
-    const child = itemState.get(childId);
-    if (child) {
-      if (isImage(child)) {
-        imageFileChildren++;
-        totalBytes += asImageItem(child).fileSizeBytes || 0;
-      } else if (isFile(child)) {
-        imageFileChildren++;
-        totalBytes += asFileItem(child).fileSizeBytes || 0;
-      }
-    }
-  });
-
-  return { totalChildren, imageFileChildren, totalBytes };
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 function documentArrangeEnabled(store: StoreContextModel): boolean {

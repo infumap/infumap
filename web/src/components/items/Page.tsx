@@ -41,8 +41,12 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { calculateCalendarDimensions, decodeCalendarCombinedIndex, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx, CATALOG_DETAIL_COLUMN_PADDING_PX } from "../../layout/catalog";
-import { itemPathSegmentsFromItem } from "../../util/item-path";
-import { ItemType } from "../../items/base/item";
+import { itemPathSegmentsFromItem, resolvedPathTargetItemForItem } from "../../util/item-path";
+import { Item, ItemType } from "../../items/base/item";
+import { asContainerItem, isContainer } from "../../items/base/container-item";
+import { asFileItem, isFile } from "../../items/file-item";
+import { asImageItem, isImage } from "../../items/image-item";
+import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -54,6 +58,33 @@ export interface PageVisualElementProps {
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
+
+  const catalogSourceItem = (item: Item): Item =>
+    resolvedPathTargetItemForItem(item) ?? item;
+
+  const catalogMetadataLines = (item: Item): Array<string> => {
+    const targetItem = catalogSourceItem(item);
+    if (isImage(targetItem)) {
+      const imageItem = asImageItem(targetItem);
+      const result = [`Size: ${formatBytes(imageItem.fileSizeBytes || 0)}`];
+      if (imageItem.imageSizePx.w > 0 && imageItem.imageSizePx.h > 0) {
+        result.push(`Image Size: ${imageItem.imageSizePx.w} × ${imageItem.imageSizePx.h}`);
+      }
+      return result;
+    }
+    if (isFile(targetItem)) {
+      return [`Size: ${formatBytes(asFileItem(targetItem).fileSizeBytes || 0)}`];
+    }
+    if (isContainer(targetItem)) {
+      const stats = calculateChildrenStats(asContainerItem(targetItem));
+      return [
+        `Children: ${stats.totalChildren}`,
+        `Images & Files: ${stats.imageFileChildren}`,
+        `Total Size: ${formatBytes(stats.totalBytes)}`,
+      ];
+    }
+    return [];
+  };
 
   const itemTypeIcon = (itemType: string) => {
     return (
@@ -296,6 +327,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVeSignal => {
           const childVe = () => childVeSignal.get();
+          const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
+          const metadataLines = () => catalogMetadataLines(catalogItem());
           const rowIndex = () => childVe().row ?? Math.max(0, Math.round(childVe().boundsPx.y / pageFns.catalogRowHeightPx()));
           const topPx = () => rowIndex() * pageFns.catalogRowHeightPx();
           const leftPx = () => pageFns.catalogPreviewColumnWidthPx() + CATALOG_DETAIL_COLUMN_PADDING_PX;
@@ -304,17 +337,25 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             <div class="absolute flex items-start pointer-events-none"
               style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                 `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: 8px;`}>
-              <div class="min-w-0 truncate whitespace-nowrap">
-                <For each={itemPathSegmentsFromItem(childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem)}>{(segment, idx) =>
-                  <Show when={segment.itemType != ItemType.Composite}>
-                    <span class="inline-flex items-center">
-                      <Show when={idx() != 0}>
-                        <span class="mx-2">/</span>
-                      </Show>
-                      <span>{itemTypeIcon(segment.itemType)}</span>
-                      <span class="ml-1">{segment.title}</span>
-                    </span>
-                  </Show>
+              <div class="min-w-0 flex flex-col gap-[2px]">
+                <div class="min-w-0 truncate whitespace-nowrap">
+                  <For each={itemPathSegmentsFromItem(catalogItem())}>{(segment, idx) =>
+                    <Show when={segment.itemType != ItemType.Composite}>
+                      <span class="inline-flex items-center">
+                        <Show when={idx() != 0}>
+                          <span class="mx-2">/</span>
+                        </Show>
+                        <span>{itemTypeIcon(segment.itemType)}</span>
+                        <span class="ml-1">{segment.title}</span>
+                      </span>
+                    </Show>
+                  }</For>
+                </div>
+                <For each={metadataLines()}>{line =>
+                  <div class="min-w-0 truncate whitespace-nowrap text-slate-700"
+                    style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px;`}>
+                    {line}
+                  </div>
                 }</For>
               </div>
             </div>
