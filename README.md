@@ -29,7 +29,7 @@ The first two goals mean that I've often been more inclined to add features than
 
 Going forward, I will continue to add features and polish existing ones as this aligns with my own needs. If I start to see other people finding value here (the simplest way you can demonstrate your interest is give the project a github star!), I'll be motivated to give the project a lot more time and prioritize more general purpose goals in addition to my own.
 
-*If you choose to use Infumap, please review [LICENSE.txt](/home/debian/git/infumap/LICENSE.txt).*
+*If you choose to use Infumap, please review [LICENSE.txt](LICENSE.txt).*
 
 
 ## Running
