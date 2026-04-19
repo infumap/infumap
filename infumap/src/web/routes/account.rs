@@ -40,7 +40,7 @@ use crate::storage::db::user::{ROOT_USER_NAME, User};
 use crate::storage::db::users_extra::UserExtra;
 use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
-use crate::web::routes::{default_current_search_page, default_dock_page, default_home_page, default_searches_page, default_trash_page};
+use crate::web::routes::{default_dock_page, default_home_page, default_search_item, default_searches_page, default_trash_page};
 use crate::web::serve::{cors_response, forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 
@@ -397,7 +397,7 @@ pub async fn register(
   let trash_page_id = new_uid();
   let dock_page_id = new_uid();
   let searches_page_id = new_uid();
-  let current_search_page_id = new_uid();
+  let search_item_id = new_uid();
   let password_salt = new_uid();
   let password_hash = match User::hash_password(&payload.password) {
     Ok(hash) => hash,
@@ -459,15 +459,14 @@ pub async fn register(
       error!("Error adding default searches page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let current_search_page = default_current_search_page(
+    let search_item = default_search_item(
       user_id.as_str(),
       &searches_page_id,
-      current_search_page_id,
+      search_item_id,
       page_width_bl,
-      natural_aspect,
     );
-    if let Err(e) = db.item.add(current_search_page).await {
-      error!("Error adding default current search page: {}", e);
+    if let Err(e) = db.item.add(search_item).await {
+      error!("Error adding default search item: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     info!("Created root user.");

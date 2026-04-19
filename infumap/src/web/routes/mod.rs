@@ -160,38 +160,22 @@ pub fn default_searches_page(owner_id: &str, searches_page_id: Uid, natural_aspe
   item
 }
 
-pub fn default_current_search_page(
+pub fn default_search_item(
   owner_id: &str,
   searches_page_id: &Uid,
-  current_search_page_id: Uid,
+  search_item_id: Uid,
   page_width_bl: i64,
-  natural_aspect: f64,
 ) -> Item {
-  let mut item = Item::new_page(
-    Some(searches_page_id),
+  let mut item = Item::new_search(
+    searches_page_id,
     vec![128],
     Vector { x: 0, y: 0 },
     page_width_bl * GRID_SIZE,
     RelationshipToParent::Child,
-    "Current Search",
-    "",
-    0,
-    0,
-    0,
-    natural_aspect,
-    page_width_bl * GRID_SIZE,
-    ArrangeAlgorithm::SpatialStretch,
-    4,
-    1.5,
-    36,
-    7.0,
-    1.0,
-    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
-    1,
   );
 
   item.owner_id = String::from(owner_id);
-  item.id = current_search_page_id;
+  item.id = search_item_id;
 
   item
 }
