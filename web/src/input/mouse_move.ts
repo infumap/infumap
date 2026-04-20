@@ -174,9 +174,55 @@ function nearestCatalogPageVe(ve: VisualElement | null): VisualElement | null {
   return null;
 }
 
+function nearestSearchResultsCatalogPageVe(ve: VisualElement | null): VisualElement | null {
+  let current = ve;
+  while (current) {
+    if (isPage(current.displayItem)) {
+      const pageItem = asPageItem(current.displayItem);
+      if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog && pageItem.origin == TEMP_SEARCH_RESULTS_ORIGIN) {
+        return current;
+      }
+    }
+    if (!current.parentPath) {
+      return null;
+    }
+    current = VesCache.current.readNode(current.parentPath) ?? null;
+  }
+  return null;
+}
+
+function resolveCatalogRowOwner(ve: VisualElement | null): { pageVe: VisualElement, rowNumber: number } | null {
+  let current = ve;
+  let result: { pageVe: VisualElement, rowNumber: number } | null = null;
+  while (current) {
+    if (current.row != null && current.parentPath) {
+      const parentVe = VesCache.current.readNode(current.parentPath) ?? null;
+      if (parentVe && isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+        result = {
+          pageVe: parentVe,
+          rowNumber: current.row,
+        };
+      }
+    }
+    if (!current.parentPath) {
+      return result;
+    }
+    current = VesCache.current.readNode(current.parentPath) ?? null;
+  }
+  return result;
+}
+
 function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, hitInfo: ReturnType<typeof HitInfoFns.hit>): { pagePath: string | null, rowNumber: number } {
   const overVe = hitInfo.overVes?.get() ?? null;
+  const rowOwner = resolveCatalogRowOwner(overVe);
+  const searchResultsCatalogPageVe =
+    nearestSearchResultsCatalogPageVe(overVe) ??
+    nearestSearchResultsCatalogPageVe(hitInfo.subSubRootVe ?? null) ??
+    nearestSearchResultsCatalogPageVe(hitInfo.subRootVe ?? null) ??
+    nearestSearchResultsCatalogPageVe(hitInfo.rootVes.get());
   const catalogPageVe =
+    rowOwner?.pageVe ??
+    searchResultsCatalogPageVe ??
     nearestCatalogPageVe(overVe) ??
     nearestCatalogPageVe(hitInfo.subSubRootVe ?? null) ??
     nearestCatalogPageVe(hitInfo.subRootVe ?? null) ??
@@ -186,7 +232,7 @@ function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, 
     return { pagePath: null, rowNumber: -1 };
   }
 
-  let rowNumber = -1;
+  let rowNumber = rowOwner?.rowNumber ?? -1;
   if (catalogPageVe.childAreaBoundsPx) {
     const catalogViewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, catalogPageVe);
     const scrollVeid = VeFns.actualVeidFromVe(catalogPageVe);
@@ -208,7 +254,7 @@ function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, 
     let current: VisualElement | null = overVe;
     const catalogPagePath = VeFns.veToPath(catalogPageVe);
     while (current && VeFns.veToPath(current) != catalogPagePath) {
-      if (typeof current.row != "undefined") {
+      if (current.row != null) {
         rowNumber = current.row;
         break;
       }
@@ -218,7 +264,6 @@ function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, 
       current = VesCache.current.readNode(current.parentPath) ?? null;
     }
   }
-
   return {
     pagePath: VeFns.veToPath(catalogPageVe),
     rowNumber,
@@ -288,11 +333,10 @@ function currentSearchGridCellHover(store: StoreContextModel, desktopPosPx: Vect
       }
       current = VesCache.current.readNode(current.parentPath) ?? null;
     }
-    if (directChildOfGridPage && typeof directChildOfGridPage.row != "undefined" && typeof directChildOfGridPage.col != "undefined") {
+    if (directChildOfGridPage && directChildOfGridPage.row != null && directChildOfGridPage.col != null) {
       resultIndex = directChildOfGridPage.row * Math.max(1, pageItem.gridNumberOfColumns) + directChildOfGridPage.col;
     }
   }
-
   return {
     pagePath: VeFns.veToPath(gridPageVe),
     resultIndex,

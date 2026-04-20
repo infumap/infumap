@@ -204,9 +204,28 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     }
   };
 
+  const placeQueryCaretFromMouse = (ev: MouseEvent) => {
+    const el = document.getElementById(editingDomId());
+    if (!(el instanceof HTMLElement)) {
+      return false;
+    }
+    const closestIdx = closestCaretPositionToClientPx(el, { x: ev.clientX, y: ev.clientY });
+    el.focus();
+    setCaretPosition(el, closestIdx);
+    return true;
+  };
+
   const queryInputMouseDown = (ev: MouseEvent) => {
     if (isEditing()) {
+      const editingEl = document.getElementById(editingDomId());
+      const target = ev.target;
+      if (editingEl instanceof HTMLElement && target instanceof Node && editingEl.contains(target)) {
+        ev.stopPropagation();
+        return;
+      }
+      ev.preventDefault();
       ev.stopPropagation();
+      placeQueryCaretFromMouse(ev);
       return;
     }
 
