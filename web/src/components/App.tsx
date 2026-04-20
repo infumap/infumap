@@ -60,7 +60,7 @@ const App: Component = () => {
     }
 
     const selectedItem = itemState.get(selectedVeid.itemId);
-    if (!selectedItem || !isPage(selectedItem)) {
+    if (!selectedItem) {
       return currentPagePath;
     }
 

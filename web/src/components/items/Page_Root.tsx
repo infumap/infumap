@@ -23,7 +23,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { LINE_HEIGHT_PX } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
-import { ArrangeAlgorithm, PageFns, asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
@@ -194,6 +194,16 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     </Show>;
 
   const renderListPage = () => {
+    const focusedChild = () => VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))();
+    const focusedChildBorderWidthPx = () => focusedChild() == null ? 1 : 2;
+    const focusedChildBorderColor = () => {
+      const childItem = focusedChild();
+      if (childItem == null || !isPage(childItem)) {
+        return "";
+      }
+      return `border-right-color: ${borderColorForColorIdx(asPageItem(childItem).backgroundColorIndex, BorderType.MainPage)};`;
+    };
+
     return (
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
         style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
@@ -210,8 +220,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           onscroll={listRootScrollHandler}>
           <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
             style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
-              `border-right-width: ${VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))() == null ? 1 : 2}px;` +
-              `${VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))() == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))()!).backgroundColorIndex, BorderType.MainPage) + ';'}`}>
+              `border-right-width: ${focusedChildBorderWidthPx()}px;` +
+              `${focusedChildBorderColor()}`}>
             <For each={pageFns().lineChildren()}>{childVe =>
               <VisualElement_LineItem visualElement={childVe.get()} />
             }</For>

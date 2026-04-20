@@ -81,8 +81,9 @@ export function arrange_list_page(
   let focusedChildItemMaybe = null;
   if (store.history.currentPopupSpec() == null &&
     selectedVeid != EMPTY_VEID && selectedVeid.itemId !== "") {
-    if (VeFns.itemIdFromPath(focusPath) === selectedVeid.itemId) {
-      focusedChildItemMaybe = itemState.get(selectedVeid.itemId);
+    const selectedItem = itemState.get(selectedVeid.itemId);
+    if (selectedItem && isPage(selectedItem) && VeFns.itemIdFromPath(focusPath) === selectedVeid.itemId) {
+      focusedChildItemMaybe = selectedItem;
     }
   }
 
@@ -188,26 +189,6 @@ export function arrange_list_page(
   const pageRelationships: VisualElementRelationships = {
     focusedChildItemMaybe,
   };
-
-  if (!focusedChildItemMaybe &&
-    selectedVeid != EMPTY_VEID &&
-    selectedVeid.itemId !== "") {
-    const selectedItem = itemState.get(selectedVeid.itemId);
-    if (selectedItem && isSearch(selectedItem)) {
-      const selectedChildPath = VeFns.addVeidToPath(selectedVeid, pageWithChildrenVePath);
-      let currentPath: VisualElementPath | null = focusPath;
-      while (currentPath) {
-        if (currentPath == selectedChildPath) {
-          focusedChildItemMaybe = selectedItem;
-          break;
-        }
-        currentPath = VeFns.parentPath(currentPath);
-        if (currentPath == "") {
-          break;
-        }
-      }
-    }
-  }
 
   let skippedCount = 0;
   let listChildPaths: Array<VisualElementPath> = [];
