@@ -1550,6 +1550,46 @@ function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualEle
 }
 
 /**
+ * Rebuild popup anchor data so keyboard table-popup navigation matches mouse-open behavior.
+ */
+function buildTablePopupReplacementSpec(
+  store: StoreContextModel,
+  targetPath: string
+): { vePath: string, actualVeid: { itemId: string, linkIdMaybe: string | null }, isFromAttachment?: boolean, sourceTopLeftGr?: { x: number, y: number } } | null {
+  const targetVe = VesCache.current.readNode(targetPath);
+  if (!targetVe) { return null; }
+
+  const actualVeid = VeFns.veidFromPath(targetPath);
+  const targetItem = targetVe.displayItem;
+  if (isPage(targetItem) || isImage(targetItem)) {
+    return { vePath: targetPath, actualVeid };
+  }
+
+  const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, targetVe);
+  const itemTopLeftPx = { x: boundsPx.x, y: boundsPx.y };
+  let sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftPx) ?? undefined;
+
+  if (!sourceTopLeftGr && targetVe.parentPath) {
+    // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
+    let pageVe = VesCache.current.readNode(targetVe.parentPath);
+    while (pageVe && !isPage(pageVe.displayItem)) {
+      if (!pageVe.parentPath) { break; }
+      pageVe = VesCache.current.readNode(pageVe.parentPath);
+    }
+    if (pageVe && isPage(pageVe.displayItem)) {
+      sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftPx, pageVe) ?? undefined;
+    }
+  }
+
+  return {
+    vePath: targetPath,
+    actualVeid,
+    isFromAttachment: sourceTopLeftGr ? true : undefined,
+    sourceTopLeftGr,
+  };
+}
+
+/**
  * Handle up/down navigation between attachments in different table rows.
  */
 function replacePopupOrFocusPlaceholder(store: StoreContextModel, targetPath: string, reason: string): boolean {
@@ -1560,8 +1600,9 @@ function replacePopupOrFocusPlaceholder(store: StoreContextModel, targetPath: st
     store.history.popPopup();
     store.history.setFocus(targetPath);
   } else {
-    const targetVeid = VeFns.veidFromPath(targetPath);
-    store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+    const popupSpec = buildTablePopupReplacementSpec(store, targetPath);
+    if (!popupSpec) { return false; }
+    store.history.replacePopup(popupSpec);
   }
 
   arrangeNow(store, reason);
