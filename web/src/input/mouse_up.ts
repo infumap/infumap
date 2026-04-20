@@ -29,6 +29,7 @@ import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-ite
 import { asNoteItem, isNote } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
+import { TEMP_SEARCH_RESULTS_ORIGIN, isSearch } from "../items/search-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { isFile } from "../items/file-item";
 import { arrangeNow } from "../layout/arrange";
@@ -108,6 +109,34 @@ function maybeEditDocumentPageRowFromBackgroundClick(
   }
 
   return false;
+}
+
+function focusSearchItemFromResultsBackgroundClickMaybe(
+  store: StoreContextModel,
+  activeVisualElement: VisualElement,
+): boolean {
+  if (!isPage(activeVisualElement.displayItem)) {
+    return false;
+  }
+  if (activeVisualElement.displayItem.origin != TEMP_SEARCH_RESULTS_ORIGIN) {
+    return false;
+  }
+  if (MouseActionState.getHitboxTypeOnMouseDown() != HitboxFlags.None) {
+    return false;
+  }
+  if (!activeVisualElement.parentPath) {
+    return false;
+  }
+
+  const searchVe = VesCache.current.readNode(activeVisualElement.parentPath);
+  if (!searchVe || !isSearch(searchVe.displayItem)) {
+    return false;
+  }
+
+  store.perItem.setSearchFocusedResultIndex(searchVe.displayItem.id, -1);
+  store.history.setFocus(activeVisualElement.parentPath);
+  arrangeNow(store, "mouse-up-focus-search-from-results-background");
+  return true;
 }
 
 
@@ -363,7 +392,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else {
         const activeRootVe = MouseActionState.readActiveRoot()!;
 
-        if (veFlagIsRoot(activeRootVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
+        if (focusSearchItemFromResultsBackgroundClickMaybe(store, activeVisualElement)) {
+          DoubleClickState.preventDoubleClick();
+
+        } else if (veFlagIsRoot(activeRootVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
         !MouseActionState.hitboxTypeIncludes(HitboxFlags.Move)) {
           DoubleClickState.preventDoubleClick();
           ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
