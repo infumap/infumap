@@ -87,10 +87,12 @@ const App: Component = () => {
         if (currentUrlPageIdMaybe != null && prevHistoryVeid.itemId == currentUrlPageIdMaybe) {
           if (debug) { console.debug("window popstate handler: prevHistoryVeid and currentUrlUid match, moving back in history."); }
           store.history.popPageVeid();
-          if (store.history.currentPopupSpec() != null) {
-            store.history.setFocus(store.history.currentPopupSpec()?.vePath!);
-          } else {
-            store.history.setFocus(store.history.currentPagePath()!);
+          const restoredFocusPath =
+            store.history.getFocusPathMaybe() ??
+            store.history.currentPopupSpec()?.vePath ??
+            store.history.currentPagePath();
+          if (restoredFocusPath != null) {
+            store.history.setFocus(restoredFocusPath);
           }
           arrangeNow(store, "popstate-back-in-history");
           requestContainerSyncSoon(store);
