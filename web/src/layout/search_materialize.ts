@@ -71,6 +71,7 @@ function makeMaterializedLink(
     resultItemId,
     newOrderingAtEnd(childOrderings),
   );
+  LinkFns.syncSizeFromLinkedItem(link);
   link.catalogPathOverride = result.path.map(segment => ({
     id: segment.id,
     itemType: segment.itemType,

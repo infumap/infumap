@@ -103,6 +103,20 @@ export const LinkFns = {
     };
   },
 
+  syncSizeFromLinkedItem: (link: LinkItem): void => {
+    const linkedToItemMaybe = itemState.get(LinkFns.getLinkToId(link));
+    if (linkedToItemMaybe == null) { return; }
+
+    if (isXSizableItem(linkedToItemMaybe)) {
+      link.spatialWidthGr = asXSizableItem(linkedToItemMaybe).spatialWidthGr;
+    }
+    if (isNote(linkedToItemMaybe) && (asNoteItem(linkedToItemMaybe).flags & NoteFlags.ExplicitHeight)) {
+      link.spatialHeightGr = asNoteItem(linkedToItemMaybe).spatialHeightGr;
+    } else if (isYSizableItem(linkedToItemMaybe)) {
+      link.spatialHeightGr = asYSizableItem(linkedToItemMaybe).spatialHeightGr;
+    }
+  },
+
   fromObject: (o: any, origin: string | null): LinkItem => {
     // TODO: dynamic type check of o.
     return ({

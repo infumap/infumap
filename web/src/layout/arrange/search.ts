@@ -91,6 +91,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
       resultItemId,
       newOrderingAtEnd(childOrderings),
     );
+    LinkFns.syncSizeFromLinkedItem(tempLink);
     tempLink.id = tempSearchResultLinkUid(searchItem.id, idx);
     tempLink.origin = TEMP_SEARCH_RESULTS_ORIGIN;
     tempLink.catalogPathOverride = result.path.map(segment => ({
@@ -104,6 +105,8 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
     linkItem.parentId = page.id;
     linkItem.relationshipToParent = RelationshipToParent.Child;
     linkItem.ordering = tempLink.ordering;
+    linkItem.spatialWidthGr = tempLink.spatialWidthGr;
+    linkItem.spatialHeightGr = tempLink.spatialHeightGr;
     linkItem.linkToResolvedId = resultItemId;
     linkItem.catalogPathOverride = tempLink.catalogPathOverride;
     childIds.push(linkItem.id);
