@@ -160,10 +160,13 @@ export function clearMouseOverState(store: StoreContextModel) {
   }
 }
 
-function nearestCatalogPageVe(ve: VisualElement | null): VisualElement | null {
+function findAncestorVe(
+  ve: VisualElement | null,
+  matches: (candidate: VisualElement) => boolean,
+): VisualElement | null {
   let current = ve;
   while (current) {
-    if (isPage(current.displayItem) && asPageItem(current.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+    if (matches(current)) {
       return current;
     }
     if (!current.parentPath) {
@@ -174,21 +177,42 @@ function nearestCatalogPageVe(ve: VisualElement | null): VisualElement | null {
   return null;
 }
 
-function nearestSearchResultsCatalogPageVe(ve: VisualElement | null): VisualElement | null {
-  let current = ve;
-  while (current) {
-    if (isPage(current.displayItem)) {
-      const pageItem = asPageItem(current.displayItem);
-      if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog && pageItem.origin == TEMP_SEARCH_RESULTS_ORIGIN) {
-        return current;
-      }
+function hoveredVeCandidates(hitInfo: ReturnType<typeof HitInfoFns.hit>): Array<VisualElement | null> {
+  return [
+    hitInfo.overVes?.get() ?? null,
+    hitInfo.subSubRootVe ?? null,
+    hitInfo.subRootVe ?? null,
+    hitInfo.rootVes.get(),
+  ];
+}
+
+function findAncestorVeAcrossCandidates(
+  hitInfo: ReturnType<typeof HitInfoFns.hit>,
+  matches: (candidate: VisualElement) => boolean,
+): VisualElement | null {
+  for (const candidate of hoveredVeCandidates(hitInfo)) {
+    const match = findAncestorVe(candidate, matches);
+    if (match) {
+      return match;
     }
-    if (!current.parentPath) {
-      return null;
-    }
-    current = VesCache.current.readNode(current.parentPath) ?? null;
   }
   return null;
+}
+
+function isCatalogPageVe(ve: VisualElement): boolean {
+  return isPage(ve.displayItem) && asPageItem(ve.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Catalog;
+}
+
+function isSearchResultsCatalogPageVe(ve: VisualElement): boolean {
+  return isCatalogPageVe(ve) && asPageItem(ve.displayItem).origin == TEMP_SEARCH_RESULTS_ORIGIN;
+}
+
+function isSearchResultsGridPageVe(ve: VisualElement): boolean {
+  if (!isPage(ve.displayItem)) {
+    return false;
+  }
+  const pageItem = asPageItem(ve.displayItem);
+  return pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid && pageItem.origin == TEMP_SEARCH_RESULTS_ORIGIN;
 }
 
 function resolveCatalogRowOwner(ve: VisualElement | null): { pageVe: VisualElement, rowNumber: number } | null {
@@ -197,7 +221,7 @@ function resolveCatalogRowOwner(ve: VisualElement | null): { pageVe: VisualEleme
   while (current) {
     if (current.row != null && current.parentPath) {
       const parentVe = VesCache.current.readNode(current.parentPath) ?? null;
-      if (parentVe && isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+      if (parentVe && isCatalogPageVe(parentVe)) {
         result = {
           pageVe: parentVe,
           rowNumber: current.row,
@@ -212,57 +236,69 @@ function resolveCatalogRowOwner(ve: VisualElement | null): { pageVe: VisualEleme
   return result;
 }
 
+function resolveCatalogPageVe(
+  hitInfo: ReturnType<typeof HitInfoFns.hit>,
+  rowOwner: { pageVe: VisualElement, rowNumber: number } | null,
+): VisualElement | null {
+  return rowOwner?.pageVe ??
+    findAncestorVeAcrossCandidates(hitInfo, isSearchResultsCatalogPageVe) ??
+    findAncestorVeAcrossCandidates(hitInfo, isCatalogPageVe);
+}
+
+function catalogRowNumberFromBounds(
+  store: StoreContextModel,
+  desktopPosPx: Vector,
+  catalogPageVe: VisualElement,
+): number {
+  if (!catalogPageVe.childAreaBoundsPx || !catalogPageVe.viewportBoundsPx) {
+    return -1;
+  }
+
+  const catalogViewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, catalogPageVe);
+  const scrollVeid = VeFns.actualVeidFromVe(catalogPageVe);
+  const scrollYPx = Math.max(0, catalogPageVe.childAreaBoundsPx.h - catalogPageVe.viewportBoundsPx.h) *
+    store.perItem.getPageScrollYProp(scrollVeid);
+  const localY = desktopPosPx.y - catalogViewportBoundsPx.y + scrollYPx;
+  const rowHeightPx = catalogPageVe.cellSizePx?.h ?? 0;
+  const numRows = catalogPageVe.numRows ?? 0;
+  if (rowHeightPx <= 0 || localY < 0 || localY >= catalogPageVe.childAreaBoundsPx.h) {
+    return -1;
+  }
+  return Math.min(Math.floor(localY / rowHeightPx), Math.max(numRows - 1, 0));
+}
+
+function rowNumberFromAncestorUntilPage(overVe: VisualElement | null, pageVe: VisualElement): number {
+  let current = overVe;
+  const pagePath = VeFns.veToPath(pageVe);
+  while (current && VeFns.veToPath(current) != pagePath) {
+    if (current.row != null) {
+      return current.row;
+    }
+    if (!current.parentPath) {
+      return -1;
+    }
+    current = VesCache.current.readNode(current.parentPath) ?? null;
+  }
+  return -1;
+}
+
 function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, hitInfo: ReturnType<typeof HitInfoFns.hit>): { pagePath: string | null, rowNumber: number } {
   const overVe = hitInfo.overVes?.get() ?? null;
   const rowOwner = resolveCatalogRowOwner(overVe);
-  const searchResultsCatalogPageVe =
-    nearestSearchResultsCatalogPageVe(overVe) ??
-    nearestSearchResultsCatalogPageVe(hitInfo.subSubRootVe ?? null) ??
-    nearestSearchResultsCatalogPageVe(hitInfo.subRootVe ?? null) ??
-    nearestSearchResultsCatalogPageVe(hitInfo.rootVes.get());
-  const catalogPageVe =
-    rowOwner?.pageVe ??
-    searchResultsCatalogPageVe ??
-    nearestCatalogPageVe(overVe) ??
-    nearestCatalogPageVe(hitInfo.subSubRootVe ?? null) ??
-    nearestCatalogPageVe(hitInfo.subRootVe ?? null) ??
-    nearestCatalogPageVe(hitInfo.rootVes.get());
+  const catalogPageVe = resolveCatalogPageVe(hitInfo, rowOwner);
 
   if (!catalogPageVe) {
     return { pagePath: null, rowNumber: -1 };
   }
 
-  let rowNumber = rowOwner?.rowNumber ?? -1;
-  if (catalogPageVe.childAreaBoundsPx) {
-    const catalogViewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, catalogPageVe);
-    const scrollVeid = VeFns.actualVeidFromVe(catalogPageVe);
-    const scrollYPx = Math.max(0, catalogPageVe.childAreaBoundsPx.h - catalogPageVe.viewportBoundsPx!.h) *
-      store.perItem.getPageScrollYProp(scrollVeid);
-    const localY = desktopPosPx.y - catalogViewportBoundsPx.y + scrollYPx;
-    const rowHeightPx = catalogPageVe.cellSizePx?.h ?? 0;
-    const numRows = catalogPageVe.numRows ?? 0;
-    if (rowHeightPx > 0 && localY >= 0 && localY < catalogPageVe.childAreaBoundsPx.h) {
-      rowNumber = Math.min(Math.floor(localY / rowHeightPx), Math.max(numRows - 1, 0));
-    }
-  }
+  let rowNumber = rowOwner?.rowNumber ?? catalogRowNumberFromBounds(store, desktopPosPx, catalogPageVe);
 
   if (rowNumber < 0 && typeof hitInfo.overElementMeta?.catalogRowNumber != "undefined") {
     rowNumber = hitInfo.overElementMeta.catalogRowNumber;
   }
 
-  if (rowNumber < 0 && overVe) {
-    let current: VisualElement | null = overVe;
-    const catalogPagePath = VeFns.veToPath(catalogPageVe);
-    while (current && VeFns.veToPath(current) != catalogPagePath) {
-      if (current.row != null) {
-        rowNumber = current.row;
-        break;
-      }
-      if (!current.parentPath) {
-        break;
-      }
-      current = VesCache.current.readNode(current.parentPath) ?? null;
-    }
+  if (rowNumber < 0) {
+    rowNumber = rowNumberFromAncestorUntilPage(overVe, catalogPageVe);
   }
   return {
     pagePath: VeFns.veToPath(catalogPageVe),
@@ -270,30 +306,54 @@ function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, 
   };
 }
 
-function nearestSearchGridPageVe(ve: VisualElement | null): VisualElement | null {
-  let current = ve;
-  while (current) {
-    if (isPage(current.displayItem)) {
-      const pageItem = asPageItem(current.displayItem);
-      if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid && pageItem.origin == TEMP_SEARCH_RESULTS_ORIGIN) {
-        return current;
-      }
-    }
+function searchGridCellIndexFromBounds(
+  store: StoreContextModel,
+  desktopPosPx: Vector,
+  gridPageVe: VisualElement,
+  pageItem: ReturnType<typeof asPageItem>,
+): number {
+  if (!gridPageVe.childAreaBoundsPx || !gridPageVe.viewportBoundsPx || !gridPageVe.cellSizePx) {
+    return -1;
+  }
+
+  const gridViewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, gridPageVe);
+  const scrollVeid = VeFns.actualVeidFromVe(gridPageVe);
+  const scrollYPx = Math.max(0, gridPageVe.childAreaBoundsPx.h - gridPageVe.viewportBoundsPx.h) *
+    store.perItem.getPageScrollYProp(scrollVeid);
+  const localX = desktopPosPx.x - gridViewportBoundsPx.x;
+  const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx;
+  const cellW = gridPageVe.cellSizePx.w;
+  const cellH = gridPageVe.cellSizePx.h;
+  if (cellW <= 0 || cellH <= 0 || localX < 0 || localX >= gridPageVe.childAreaBoundsPx.w || localY < 0 || localY >= gridPageVe.childAreaBoundsPx.h) {
+    return -1;
+  }
+
+  const col = Math.floor(localX / cellW);
+  const row = Math.floor(localY / cellH);
+  const rawIndex = row * Math.max(1, pageItem.gridNumberOfColumns) + col;
+  if (rawIndex < 0 || rawIndex >= pageItem.computed_children.length) {
+    return -1;
+  }
+  return rawIndex;
+}
+
+function directChildOfPage(overVe: VisualElement | null, pageVe: VisualElement): VisualElement | null {
+  let current = overVe;
+  let directChild: VisualElement | null = null;
+  const pagePath = VeFns.veToPath(pageVe);
+  while (current && VeFns.veToPath(current) != pagePath) {
+    directChild = current;
     if (!current.parentPath) {
       return null;
     }
     current = VesCache.current.readNode(current.parentPath) ?? null;
   }
-  return null;
+  return directChild;
 }
 
 function currentSearchGridCellHover(store: StoreContextModel, desktopPosPx: Vector, hitInfo: ReturnType<typeof HitInfoFns.hit>): { pagePath: string | null, resultIndex: number } {
   const overVe = hitInfo.overVes?.get() ?? null;
-  const gridPageVe =
-    nearestSearchGridPageVe(overVe) ??
-    nearestSearchGridPageVe(hitInfo.subSubRootVe ?? null) ??
-    nearestSearchGridPageVe(hitInfo.subRootVe ?? null) ??
-    nearestSearchGridPageVe(hitInfo.rootVes.get());
+  const gridPageVe = findAncestorVeAcrossCandidates(hitInfo, isSearchResultsGridPageVe);
 
   if (!gridPageVe) {
     return { pagePath: null, resultIndex: -1 };
@@ -302,37 +362,10 @@ function currentSearchGridCellHover(store: StoreContextModel, desktopPosPx: Vect
   const pageItem = asPageItem(gridPageVe.displayItem);
   let resultIndex = typeof hitInfo.overElementMeta?.searchGridCellIndex != "undefined"
     ? hitInfo.overElementMeta.searchGridCellIndex
-    : -1;
-  if (gridPageVe.childAreaBoundsPx && gridPageVe.viewportBoundsPx && gridPageVe.cellSizePx) {
-    const gridViewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, gridPageVe);
-    const scrollVeid = VeFns.actualVeidFromVe(gridPageVe);
-    const scrollYPx = Math.max(0, gridPageVe.childAreaBoundsPx.h - gridPageVe.viewportBoundsPx.h) *
-      store.perItem.getPageScrollYProp(scrollVeid);
-    const localX = desktopPosPx.x - gridViewportBoundsPx.x;
-    const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx;
-    const cellW = gridPageVe.cellSizePx.w;
-    const cellH = gridPageVe.cellSizePx.h;
-    if (cellW > 0 && cellH > 0 && localX >= 0 && localX < gridPageVe.childAreaBoundsPx.w && localY >= 0 && localY < gridPageVe.childAreaBoundsPx.h) {
-      const col = Math.floor(localX / cellW);
-      const row = Math.floor(localY / cellH);
-      const rawIndex = row * Math.max(1, pageItem.gridNumberOfColumns) + col;
-      if (rawIndex >= 0 && rawIndex < pageItem.computed_children.length) {
-        resultIndex = rawIndex;
-      }
-    }
-  }
+    : searchGridCellIndexFromBounds(store, desktopPosPx, gridPageVe, pageItem);
 
   if (resultIndex < 0 && overVe) {
-    let current: VisualElement | null = overVe;
-    let directChildOfGridPage: VisualElement | null = null;
-    const gridPagePath = VeFns.veToPath(gridPageVe);
-    while (current && VeFns.veToPath(current) != gridPagePath) {
-      directChildOfGridPage = current;
-      if (!current.parentPath) {
-        break;
-      }
-      current = VesCache.current.readNode(current.parentPath) ?? null;
-    }
+    const directChildOfGridPage = directChildOfPage(overVe, gridPageVe);
     if (directChildOfGridPage && directChildOfGridPage.row != null && directChildOfGridPage.col != null) {
       resultIndex = directChildOfGridPage.row * Math.max(1, pageItem.gridNumberOfColumns) + directChildOfGridPage.col;
     }
