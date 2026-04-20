@@ -22,9 +22,9 @@ import { PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { ItemGeometry } from "../item-geometry";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
+import { arrangeItem, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { VesCache } from "../ves-cache";
-import { arrangeCellPopupPath } from "./popup";
+import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
 import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
 import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
@@ -43,6 +43,7 @@ import {
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
 } from "../../util/calendar-layout";
+import { ItemType } from "../../items/base/item";
 
 
 export function arrange_calendar_page(
@@ -543,7 +544,22 @@ export function arrange_calendar_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupPath = arrangeCellPopupPath(store);
+      const popupItemType = itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType;
+      const isFromAttachment = currentPopupSpec.isFromAttachment ?? false;
+      if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment) {
+        const { geometry, linkItem, actualLinkItemMaybe } = calcSpatialPopupGeometry(
+          store,
+          displayItem_pageWithChildren,
+          currentPopupSpec.actualVeid,
+          pageSpec.childAreaBoundsPx!
+        );
+
+        pageRelationships.popupPath = VeFns.veToPath(arrangeItem(
+          store, pageWithChildrenVePath, displayItem_pageWithChildren.arrangeAlgorithm, linkItem, actualLinkItemMaybe, geometry,
+          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot).get());
+      } else {
+        pageRelationships.popupPath = arrangeCellPopupPath(store);
+      }
     }
   }
 
