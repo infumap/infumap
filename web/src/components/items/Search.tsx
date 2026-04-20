@@ -39,9 +39,12 @@ import {
   SEARCH_WORKSPACE_CONTROLS_GAP_PX,
   SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX,
   SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX,
+  SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX,
+  SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX,
   SEARCH_WORKSPACE_TOP_INSET_PX,
   calcSearchWorkspaceControlsWidthPx,
   calcSearchWorkspaceInputWidthPx,
+  calcSearchWorkspaceMoreButtonTopPx,
   calcSearchWorkspaceResultsBoundsPx,
   calcSearchWorkspaceResultsTopPx,
 } from "../../items/search-item";
@@ -58,6 +61,8 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const store = useStore();
   const [pendingCaretIdx, setPendingCaretIdx] = createSignal<number | null>(null);
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
+  const [isLoadingMore, setIsLoadingMore] = createSignal(false);
+  let activeSearchRequestSerial = 0;
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
 
@@ -66,6 +71,8 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     props.visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   const searchItem = () => asSearchItem(props.visualElement.displayItem);
   const queryText = () => store.perItem.getSearchQuery(searchItem().id);
+  const searchHasMoreResults = () => store.perItem.getSearchHasMoreResults(searchItem().id);
+  const searchLoadedPageCount = () => store.perItem.getSearchLoadedPageCount(searchItem().id);
   const isEditing = () => store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
   const editableQueryText = () => queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText();
@@ -164,28 +171,71 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     }, 1500);
   };
 
+  const clearSearchResults = () => {
+    store.perItem.setSearchResults(searchItem().id, null);
+    store.perItem.setSearchHasMoreResults(searchItem().id, false);
+    store.perItem.setSearchLoadedPageCount(searchItem().id, 0);
+    clearSearchResultSelection();
+    requestArrange(store, "search-clear-results");
+  };
+
   const runSearch = async (
     selectFirstResultRow: boolean,
     editingElMaybe?: HTMLElement | null,
     keepSearchWorkspaceFocus: boolean = false,
   ) => {
     const text = commitEditingQuery(editingElMaybe);
+    const requestSerial = ++activeSearchRequestSerial;
+    setIsLoadingMore(false);
     if (keepSearchWorkspaceFocus) {
       store.history.setFocus(vePath());
     }
     if (text == "") {
-      store.perItem.setSearchResults(searchItem().id, null);
-      clearSearchResultSelection();
-      requestArrange(store, "search-clear-results");
+      clearSearchResults();
       return;
     }
 
-    const result = await server.search(null, text, store.general.networkStatus);
-    store.perItem.setSearchResults(searchItem().id, result);
-    store.perItem.setSearchSelectedResultIndex(searchItem().id, selectFirstResultRow && result.length > 0 ? 0 : -1);
+    const response = await server.search(null, text, store.general.networkStatus, 1);
+    if (requestSerial != activeSearchRequestSerial) {
+      return;
+    }
+    store.perItem.setSearchResults(searchItem().id, response.results);
+    store.perItem.setSearchHasMoreResults(searchItem().id, response.hasMore);
+    store.perItem.setSearchLoadedPageCount(searchItem().id, 1);
+    store.perItem.setSearchSelectedResultIndex(searchItem().id, selectFirstResultRow && response.results.length > 0 ? 0 : -1);
     store.perItem.setSearchFocusedResultIndex(searchItem().id, -1);
     requestArrange(store, "search-results");
-    void warmSearchResults(result);
+    void warmSearchResults(response.results);
+  };
+
+  const loadMoreSearchResults = async () => {
+    if (isEditing() || isLoadingMore() || !searchHasMoreResults()) {
+      return;
+    }
+
+    const existingResults = store.perItem.getSearchResults(searchItem().id);
+    const requestedQuery = queryText();
+    if (!existingResults || requestedQuery == "") {
+      return;
+    }
+
+    const loadedPageCount = searchLoadedPageCount();
+    const nextPage = Math.max(1, loadedPageCount + 1);
+    const requestSerial = ++activeSearchRequestSerial;
+    setIsLoadingMore(true);
+    try {
+      const response = await server.search(null, requestedQuery, store.general.networkStatus, nextPage);
+      if (requestSerial != activeSearchRequestSerial) {
+        return;
+      }
+      store.perItem.setSearchResults(searchItem().id, [...existingResults, ...response.results]);
+      store.perItem.setSearchHasMoreResults(searchItem().id, response.hasMore);
+      store.perItem.setSearchLoadedPageCount(searchItem().id, nextPage);
+      requestArrange(store, "search-more-results");
+      void warmSearchResults(response.results);
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   const materializeCurrentResults = async (editingElMaybe?: HTMLElement | null) => {
@@ -298,6 +348,8 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsPx().w);
     const inputWidthPx = calcSearchWorkspaceInputWidthPx(boundsPx().w);
     const lowerTopPx = calcSearchWorkspaceResultsTopPx();
+    const showMoreButton = () => searchHasMoreResults();
+    const moreButtonTopPx = () => calcSearchWorkspaceMoreButtonTopPx(boundsPx().h);
     return (
       <div class="absolute bg-white"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
@@ -372,6 +424,26 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
+        <Show when={showMoreButton()}>
+          <button
+            class="absolute border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-60"
+            style={`left: ${Math.max(0, Math.round((boundsPx().w - SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX) / 2))}px; ` +
+              `top: ${moreButtonTopPx()}px; width: ${SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX}px;`}
+            type="button"
+            disabled={isEditing() || isLoadingMore()}
+            onMouseDown={(ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              void loadMoreSearchResults();
+            }}
+            onMouseUp={(ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }}
+            >
+            {isLoadingMore() ? "Loading..." : "More"}
+          </button>
+        </Show>
         <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
           <div class="absolute pointer-events-none rounded-xs"
             style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />

@@ -98,23 +98,25 @@ export const SearchOverlay: Component = () => {
 
   let searchedFor = null;
 
-  const handleSearchClick = async () => {
+  const handleSearchClick = async (pageNum: number = currentPage()) => {
     const pageIdMaybe = isGlobalSearchSignal.get() ? null : store.history.currentPageVeid()!.itemId;
-    const result = await server.search(pageIdMaybe, textElement!.value, store.general.networkStatus, currentPage());
+    const response = await server.search(pageIdMaybe, textElement!.value, store.general.networkStatus, pageNum);
     searchedFor = textElement!.value;
-    resultsSignal.set(result);
-    setHasMorePages(result.length === 10);
+    resultsSignal.set(response.results);
+    setHasMorePages(response.hasMore);
   };
 
   const handleNextPage = async () => {
-    setCurrentPage(p => p + 1);
-    await handleSearchClick();
+    const nextPage = currentPage() + 1;
+    setCurrentPage(nextPage);
+    await handleSearchClick(nextPage);
   };
 
   const handlePrevPage = async () => {
     if (currentPage() > 1) {
-      setCurrentPage(p => p - 1);
-      await handleSearchClick();
+      const prevPage = currentPage() - 1;
+      setCurrentPage(prevPage);
+      await handleSearchClick(prevPage);
     }
   };
 

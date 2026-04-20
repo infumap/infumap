@@ -1584,6 +1584,13 @@ pub struct SearchResult {
   pub path: Vec<SearchPathElement>,
 }
 
+#[derive(Serialize)]
+pub struct SearchResponse {
+  pub results: Vec<SearchResult>,
+  #[serde(rename = "hasMore")]
+  pub has_more: bool,
+}
+
 async fn handle_search(
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
@@ -1610,7 +1617,7 @@ async fn handle_search(
   let mut current_path: Vec<SearchPathElement> = vec![];
 
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
-  let end_result = start_result + request.num_results;
+  let end_result = start_result + request.num_results + 1;
 
   let mut current_result = 0;
   search_recursive(
@@ -1625,7 +1632,11 @@ async fn handle_search(
     &mut current_result,
   )?;
 
-  let serialized_results = serde_json::to_string(&results)?;
+  let has_more = results.len() > request.num_results as usize;
+  if has_more {
+    results.truncate(request.num_results as usize);
+  }
+  let serialized_results = serde_json::to_string(&SearchResponse { results, has_more })?;
 
   debug!("Executed 'search' command for user '{}'.", session.user_id);
 

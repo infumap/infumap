@@ -67,6 +67,27 @@ export interface SearchPathElement {
   id: Uid,
 }
 
+export interface SearchResponse {
+  results: Array<SearchResult>,
+  hasMore: boolean,
+}
+
+function normalizeSearchResponse(response: any): SearchResponse {
+  if (Array.isArray(response)) {
+    return {
+      results: response as Array<SearchResult>,
+      // Backward-compatible fallback for older servers that returned a bare array.
+      hasMore: response.length === 10,
+    };
+  }
+
+  const results = Array.isArray(response?.results) ? response.results as Array<SearchResult> : [];
+  return {
+    results,
+    hasMore: response?.hasMore === true,
+  };
+}
+
 export interface EmptyTrashResult {
   itemCount: number,
   imageCacheCount: number,
@@ -579,8 +600,9 @@ export const server = {
       });
   },
 
-  search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal, pageNumMaybe?: number): Promise<Array<SearchResult>> => {
-    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: 10, pageNum: pageNumMaybe }, null, true, networkStatus);
+  search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal, pageNumMaybe?: number): Promise<SearchResponse> => {
+    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: 10, pageNum: pageNumMaybe }, null, true, networkStatus)
+      .then((response: any) => normalizeSearchResponse(response));
   },
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {

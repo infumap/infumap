@@ -45,6 +45,12 @@ export interface PerItemStoreContextModel {
   getSearchResults: (itemId: string) => Array<SearchResult> | null,
   setSearchResults: (itemId: string, results: Array<SearchResult> | null) => void,
 
+  getSearchHasMoreResults: (itemId: string) => boolean,
+  setSearchHasMoreResults: (itemId: string, hasMore: boolean) => void,
+
+  getSearchLoadedPageCount: (itemId: string) => number,
+  setSearchLoadedPageCount: (itemId: string, pageCount: number) => void,
+
   getSearchSelectedResultIndex: (itemId: string) => number,
   setSearchSelectedResultIndex: (itemId: string, index: number) => void,
 
@@ -67,6 +73,8 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const focusedItems = new Map<string, InfuSignal<Veid>>();
   const searchQueries = new Map<string, InfuSignal<string>>();
   const searchResults = new Map<string, InfuSignal<Array<SearchResult> | null>>();
+  const searchHasMoreResults = new Map<string, InfuSignal<boolean>>();
+  const searchLoadedPageCounts = new Map<string, NumberSignal>();
   const searchSelectedResultIndexes = new Map<string, NumberSignal>();
   const searchFocusedResultIndexes = new Map<string, NumberSignal>();
   const searchArrangeAlgorithms = new Map<string, InfuSignal<ArrangeAlgorithm>>();
@@ -150,6 +158,36 @@ export function makePerItemStore(): PerItemStoreContextModel {
       return;
     }
     searchResults.get(itemId)!.set(results);
+  };
+
+  const getSearchHasMoreResults = (itemId: string): boolean => {
+    if (!searchHasMoreResults.get(itemId)) {
+      searchHasMoreResults.set(itemId, createInfuSignal<boolean>(false));
+    }
+    return searchHasMoreResults.get(itemId)!.get();
+  };
+
+  const setSearchHasMoreResults = (itemId: string, hasMore: boolean): void => {
+    if (!searchHasMoreResults.get(itemId)) {
+      searchHasMoreResults.set(itemId, createInfuSignal<boolean>(hasMore));
+      return;
+    }
+    searchHasMoreResults.get(itemId)!.set(hasMore);
+  };
+
+  const getSearchLoadedPageCount = (itemId: string): number => {
+    if (!searchLoadedPageCounts.get(itemId)) {
+      searchLoadedPageCounts.set(itemId, createNumberSignal(0));
+    }
+    return searchLoadedPageCounts.get(itemId)!.get();
+  };
+
+  const setSearchLoadedPageCount = (itemId: string, pageCount: number): void => {
+    if (!searchLoadedPageCounts.get(itemId)) {
+      searchLoadedPageCounts.set(itemId, createNumberSignal(pageCount));
+      return;
+    }
+    searchLoadedPageCounts.get(itemId)!.set(pageCount);
   };
 
   const getSearchSelectedResultIndex = (itemId: string): number => {
@@ -246,6 +284,8 @@ export function makePerItemStore(): PerItemStoreContextModel {
     focusedItems.clear();
     searchQueries.clear();
     searchResults.clear();
+    searchHasMoreResults.clear();
+    searchLoadedPageCounts.clear();
     searchSelectedResultIndexes.clear();
     searchFocusedResultIndexes.clear();
     searchArrangeAlgorithms.clear();
@@ -259,6 +299,8 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getPageScrollYProp, setPageScrollYProp,
     getSearchQuery, setSearchQuery,
     getSearchResults, setSearchResults,
+    getSearchHasMoreResults, setSearchHasMoreResults,
+    getSearchLoadedPageCount, setSearchLoadedPageCount,
     getSearchSelectedResultIndex, setSearchSelectedResultIndex,
     getSearchFocusedResultIndex, setSearchFocusedResultIndex,
     getSearchArrangeAlgorithm, setSearchArrangeAlgorithm,

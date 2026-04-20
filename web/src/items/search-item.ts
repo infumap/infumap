@@ -42,6 +42,10 @@ export const SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX = 25;
 export const SEARCH_WORKSPACE_BUTTON_WIDTH_PX = 92;
 export const SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX = 108;
 export const SEARCH_WORKSPACE_CONTROLS_GAP_PX = 10;
+export const SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX = 92;
+export const SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX = 38;
+export const SEARCH_WORKSPACE_MORE_SECTION_GAP_PX = 14;
+export const SEARCH_WORKSPACE_MORE_SECTION_BOTTOM_INSET_PX = 18;
 
 export function tempSearchResultsPageUid(searchItemId: Uid): Uid {
   return `fff0${searchItemId.slice(4)}`;
@@ -74,13 +78,28 @@ export function calcSearchWorkspaceResultsTopPx(): number {
   return SEARCH_WORKSPACE_TOP_INSET_PX + SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX + SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX;
 }
 
-export function calcSearchWorkspaceResultsBoundsPx(boundsPx: BoundingBox): BoundingBox {
+export function calcSearchWorkspaceResultsFooterHeightPx(showMoreButton: boolean): number {
+  if (!showMoreButton) {
+    return 0;
+  }
+  return SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX + SEARCH_WORKSPACE_MORE_SECTION_GAP_PX + SEARCH_WORKSPACE_MORE_SECTION_BOTTOM_INSET_PX;
+}
+
+export function calcSearchWorkspaceMoreButtonTopPx(boundsHeightPx: number): number {
+  return Math.max(
+    calcSearchWorkspaceResultsTopPx(),
+    boundsHeightPx - SEARCH_WORKSPACE_MORE_SECTION_BOTTOM_INSET_PX - SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX,
+  );
+}
+
+export function calcSearchWorkspaceResultsBoundsPx(boundsPx: BoundingBox, showMoreButton: boolean = false): BoundingBox {
   const topPx = calcSearchWorkspaceResultsTopPx();
+  const footerHeightPx = calcSearchWorkspaceResultsFooterHeightPx(showMoreButton);
   return {
     x: 0,
     y: topPx,
     w: boundsPx.w,
-    h: Math.max(0, boundsPx.h - topPx),
+    h: Math.max(0, boundsPx.h - topPx - footerHeightPx),
   };
 }
 

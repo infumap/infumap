@@ -130,7 +130,10 @@ export function arrangeSearchResultsPathMaybe(
 
   const resultsPage = ensureTemporaryResultsPage(store, searchItem, results);
   const resultsArrangeAlgorithm = store.perItem.getSearchArrangeAlgorithm(searchItem.id);
-  const resultsBoundsPx = calcSearchWorkspaceResultsBoundsPx(searchItemGeometry.boundsPx);
+  const resultsBoundsPx = calcSearchWorkspaceResultsBoundsPx(
+    searchItemGeometry.boundsPx,
+    store.perItem.getSearchHasMoreResults(searchItem.id),
+  );
   const pageGeometry: ItemGeometry = {
     boundsPx: resultsBoundsPx,
     viewportBoundsPx: resultsBoundsPx,
