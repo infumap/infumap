@@ -21,6 +21,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
+import { TEMP_SEARCH_RESULTS_ORIGIN } from "../items/search-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
@@ -54,6 +55,7 @@ let lastMouseOverVes: VisualElementSignal | null = null;
 let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 let lastMouseOverCompositeMoveOutVes: VisualElementSignal | null = null;
 let lastMouseOverCatalogPagePath: string | null = null;
+let lastMouseOverSearchGridPagePath: string | null = null;
 let lastSelectionArrangeTimeMs = 0;
 let lastSelectionSignature = "";
 const SELECTION_ARRANGE_THROTTLE_MS = 33;
@@ -152,6 +154,10 @@ export function clearMouseOverState(store: StoreContextModel) {
     store.perVe.setMoveOverRowNumber(lastMouseOverCatalogPagePath, -1);
     lastMouseOverCatalogPagePath = null;
   }
+  if (lastMouseOverSearchGridPagePath) {
+    store.perVe.setMoveOverIndex(lastMouseOverSearchGridPagePath, -1);
+    lastMouseOverSearchGridPagePath = null;
+  }
 }
 
 function nearestCatalogPageVe(ve: VisualElement | null): VisualElement | null {
@@ -216,6 +222,80 @@ function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, 
   return {
     pagePath: VeFns.veToPath(catalogPageVe),
     rowNumber,
+  };
+}
+
+function nearestSearchGridPageVe(ve: VisualElement | null): VisualElement | null {
+  let current = ve;
+  while (current) {
+    if (isPage(current.displayItem)) {
+      const pageItem = asPageItem(current.displayItem);
+      if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid && pageItem.origin == TEMP_SEARCH_RESULTS_ORIGIN) {
+        return current;
+      }
+    }
+    if (!current.parentPath) {
+      return null;
+    }
+    current = VesCache.current.readNode(current.parentPath) ?? null;
+  }
+  return null;
+}
+
+function currentSearchGridCellHover(store: StoreContextModel, desktopPosPx: Vector, hitInfo: ReturnType<typeof HitInfoFns.hit>): { pagePath: string | null, resultIndex: number } {
+  const overVe = hitInfo.overVes?.get() ?? null;
+  const gridPageVe =
+    nearestSearchGridPageVe(overVe) ??
+    nearestSearchGridPageVe(hitInfo.subSubRootVe ?? null) ??
+    nearestSearchGridPageVe(hitInfo.subRootVe ?? null) ??
+    nearestSearchGridPageVe(hitInfo.rootVes.get());
+
+  if (!gridPageVe) {
+    return { pagePath: null, resultIndex: -1 };
+  }
+
+  const pageItem = asPageItem(gridPageVe.displayItem);
+  let resultIndex = typeof hitInfo.overElementMeta?.searchGridCellIndex != "undefined"
+    ? hitInfo.overElementMeta.searchGridCellIndex
+    : -1;
+  if (gridPageVe.childAreaBoundsPx && gridPageVe.viewportBoundsPx && gridPageVe.cellSizePx) {
+    const gridViewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, gridPageVe);
+    const scrollVeid = VeFns.actualVeidFromVe(gridPageVe);
+    const scrollYPx = Math.max(0, gridPageVe.childAreaBoundsPx.h - gridPageVe.viewportBoundsPx.h) *
+      store.perItem.getPageScrollYProp(scrollVeid);
+    const localX = desktopPosPx.x - gridViewportBoundsPx.x;
+    const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx;
+    const cellW = gridPageVe.cellSizePx.w;
+    const cellH = gridPageVe.cellSizePx.h;
+    if (cellW > 0 && cellH > 0 && localX >= 0 && localX < gridPageVe.childAreaBoundsPx.w && localY >= 0 && localY < gridPageVe.childAreaBoundsPx.h) {
+      const col = Math.floor(localX / cellW);
+      const row = Math.floor(localY / cellH);
+      const rawIndex = row * Math.max(1, pageItem.gridNumberOfColumns) + col;
+      if (rawIndex >= 0 && rawIndex < pageItem.computed_children.length) {
+        resultIndex = rawIndex;
+      }
+    }
+  }
+
+  if (resultIndex < 0 && overVe) {
+    let current: VisualElement | null = overVe;
+    let directChildOfGridPage: VisualElement | null = null;
+    const gridPagePath = VeFns.veToPath(gridPageVe);
+    while (current && VeFns.veToPath(current) != gridPagePath) {
+      directChildOfGridPage = current;
+      if (!current.parentPath) {
+        break;
+      }
+      current = VesCache.current.readNode(current.parentPath) ?? null;
+    }
+    if (directChildOfGridPage && typeof directChildOfGridPage.row != "undefined" && typeof directChildOfGridPage.col != "undefined") {
+      resultIndex = directChildOfGridPage.row * Math.max(1, pageItem.gridNumberOfColumns) + directChildOfGridPage.col;
+    }
+  }
+
+  return {
+    pagePath: VeFns.veToPath(gridPageVe),
+    resultIndex,
   };
 }
 
@@ -1007,6 +1087,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       ? overElementVes
       : null;
   const catalogRowHover = currentCatalogRowHover(store, CursorEventState.getLatestDesktopPx(store), hitInfo);
+  const searchGridCellHover = currentSearchGridCellHover(store, CursorEventState.getLatestDesktopPx(store), hitInfo);
 
   if (lastMouseOverCatalogPagePath != catalogRowHover.pagePath || (catalogRowHover.pagePath && store.perVe.getMoveOverRowNumber(catalogRowHover.pagePath) != catalogRowHover.rowNumber) || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverCatalogPagePath) {
@@ -1019,6 +1100,19 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     store.perVe.getMoveOverRowNumber(catalogRowHover.pagePath);
     store.perVe.setMoveOverRowNumber(catalogRowHover.pagePath, catalogRowHover.rowNumber);
     lastMouseOverCatalogPagePath = catalogRowHover.pagePath;
+  }
+
+  if (lastMouseOverSearchGridPagePath != searchGridCellHover.pagePath || (searchGridCellHover.pagePath && store.perVe.getMoveOverIndex(searchGridCellHover.pagePath) != searchGridCellHover.resultIndex) || hasModal || isInsideToolbarPopup) {
+    if (lastMouseOverSearchGridPagePath) {
+      store.perVe.setMoveOverIndex(lastMouseOverSearchGridPagePath, -1);
+      lastMouseOverSearchGridPagePath = null;
+    }
+  }
+
+  if (searchGridCellHover.pagePath && searchGridCellHover.resultIndex > -1 && !hasModal && !isInsideToolbarPopup && !store.anItemIsMoving.get()) {
+    store.perVe.getMoveOverIndex(searchGridCellHover.pagePath);
+    store.perVe.setMoveOverIndex(searchGridCellHover.pagePath, searchGridCellHover.resultIndex);
+    lastMouseOverSearchGridPagePath = searchGridCellHover.pagePath;
   }
 
   if (overElementVes != lastMouseOverVes || hasModal || isInsideToolbarPopup) {

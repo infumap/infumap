@@ -237,10 +237,12 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
+        {pageFns().renderSearchSelectionMaybe()}
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
+        {pageFns().renderSearchHoverMaybe()}
         {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>

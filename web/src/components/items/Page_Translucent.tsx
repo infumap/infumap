@@ -173,11 +173,13 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         <div class="absolute"
           style={`left: ${0}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+          {pageFns().renderSearchSelectionMaybe()}
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
 
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
           {pageFns().renderGridLinesMaybe()}
+          {pageFns().renderSearchHoverMaybe()}
           {pageFns().renderCatalogMetadataMaybe()}
           {pageFns().renderMoveOverAnnotationMaybe()}
         </div>

@@ -21,13 +21,15 @@ import { CursorEventState, MouseAction, MouseActionState } from "../../input/sta
 import { PageFlags } from "../../items/base/flags-item";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
+import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
+import { TEMP_SEARCH_RESULTS_ORIGIN } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
@@ -67,6 +69,7 @@ export function arrange_grid_page(
 
   const pageItem = asPageItem(displayItem_pageWithChildren);
   const numCols = pageItem.gridNumberOfColumns;
+  const isSearchResultsGridPage = displayItem_pageWithChildren.origin == TEMP_SEARCH_RESULTS_ORIGIN;
 
   // if an item is moving out of or into a grid page, then ensure the height of the page doesn't
   // change until after the move is complete to avoid a very disruptive jump in y scroll px.
@@ -152,6 +155,66 @@ export function arrange_grid_page(
       flags & ArrangeItemFlags.IsDockRoot);
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
+    cellGeometry.row = row;
+    cellGeometry.col = col;
+    if (isSearchResultsGridPage) {
+      const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
+      const cellIndex = row * numCols + col;
+      const hitboxMeta = {
+        focusOnly: true,
+        allowOutsideBounds: true,
+        searchGridCellIndex: cellIndex,
+        ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
+      };
+      const cellLocalLeftPx = col * cellWPx - cellGeometry.boundsPx.x;
+      const cellLocalTopPx = row * cellHPx - cellGeometry.boundsPx.y;
+      const itemLocalLeftPx = 0;
+      const itemLocalTopPx = 0;
+      const itemLocalRightPx = cellGeometry.boundsPx.w;
+      const itemLocalBottomPx = cellGeometry.boundsPx.h;
+
+      const topHeightPx = itemLocalTopPx - cellLocalTopPx;
+      if (topHeightPx > 0) {
+        cellGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
+          x: cellLocalLeftPx,
+          y: cellLocalTopPx,
+          w: cellWPx,
+          h: topHeightPx,
+        }, hitboxMeta));
+      }
+
+      const bottomTopPx = itemLocalBottomPx;
+      const bottomHeightPx = cellLocalTopPx + cellHPx - bottomTopPx;
+      if (bottomHeightPx > 0) {
+        cellGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
+          x: cellLocalLeftPx,
+          y: bottomTopPx,
+          w: cellWPx,
+          h: bottomHeightPx,
+        }, hitboxMeta));
+      }
+
+      const leftWidthPx = itemLocalLeftPx - cellLocalLeftPx;
+      if (leftWidthPx > 0) {
+        cellGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
+          x: cellLocalLeftPx,
+          y: Math.max(cellLocalTopPx, itemLocalTopPx),
+          w: leftWidthPx,
+          h: Math.min(cellLocalTopPx + cellHPx, itemLocalBottomPx) - Math.max(cellLocalTopPx, itemLocalTopPx),
+        }, hitboxMeta));
+      }
+
+      const rightLeftPx = itemLocalRightPx;
+      const rightWidthPx = cellLocalLeftPx + cellWPx - rightLeftPx;
+      if (rightWidthPx > 0) {
+        cellGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
+          x: rightLeftPx,
+          y: Math.max(cellLocalTopPx, itemLocalTopPx),
+          w: rightWidthPx,
+          h: Math.min(cellLocalTopPx + cellHPx, itemLocalBottomPx) - Math.max(cellLocalTopPx, itemLocalTopPx),
+        }, hitboxMeta));
+      }
+    }
 
     childrenPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, childItem, actualLinkItemMaybe, cellGeometry,

@@ -330,6 +330,66 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     searchResultsSourceItemId: () =>
       pageFns.isSearchResultsPage() ? pageFns.pageItem().parentId : null,
 
+    renderSearchSelectionMaybe: () => {
+      if (!pageFns.isSearchResultsPage()) {
+        return <></>;
+      }
+
+      const searchSourceItemId = pageFns.searchResultsSourceItemId();
+      if (!searchSourceItemId) {
+        return <></>;
+      }
+
+      const selectedSearchResultIndex = () => store.perItem.getSearchSelectedResultIndex(searchSourceItemId);
+      const searchSelectionStyle = () => {
+        const numCols = Math.max(1, pageFns.pageItem().gridNumberOfColumns);
+        const selectedIndex = selectedSearchResultIndex();
+        const row = Math.floor(selectedIndex / numCols);
+        const col = selectedIndex % numCols;
+        return `left: ${col * props.visualElement.cellSizePx!.w}px; ` +
+          `top: ${row * props.visualElement.cellSizePx!.h}px; ` +
+          `width: ${props.visualElement.cellSizePx!.w}px; ` +
+          `height: ${props.visualElement.cellSizePx!.h}px; ` +
+          `background-color: ${SELECTED_LIGHT}; z-index: 1;`;
+      };
+      return (
+        <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid &&
+          props.visualElement.cellSizePx &&
+          selectedSearchResultIndex() >= 0}>
+          <div class="absolute pointer-events-none"
+            style={searchSelectionStyle()} />
+        </Show>
+      );
+    },
+
+    renderSearchHoverMaybe: () => {
+      if (!pageFns.isSearchResultsPage()) {
+        return <></>;
+      }
+
+      const hoveredIndex = () => store.perVe.getMoveOverIndex(pageFns.vePath());
+      const searchHoverStyle = () => {
+        const numCols = Math.max(1, pageFns.pageItem().gridNumberOfColumns);
+        const index = hoveredIndex();
+        const row = Math.floor(index / numCols);
+        const col = index % numCols;
+        return `left: ${col * props.visualElement.cellSizePx!.w}px; ` +
+          `top: ${row * props.visualElement.cellSizePx!.h}px; ` +
+          `width: ${props.visualElement.cellSizePx!.w}px; ` +
+          `height: ${props.visualElement.cellSizePx!.h}px; ` +
+          `background-color: #00000007; z-index: 3;`;
+      };
+      return (
+        <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid &&
+          props.visualElement.cellSizePx &&
+          hoveredIndex() >= 0 &&
+          !store.anItemIsMoving.get()}>
+          <div class="absolute pointer-events-none"
+            style={searchHoverStyle()} />
+        </Show>
+      );
+    },
+
     renderCatalogMetadataMaybe: () =>
       <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVeSignal => {

@@ -176,7 +176,22 @@ function clampSearchResultIndex(index: number, numResults: number): number {
   return Math.max(0, Math.min(index, numResults - 1));
 }
 
-function getEffectiveFocusedSearchRow(store: StoreContextModel, workspace: ActiveSearchWorkspace): number {
+function getSearchWorkspaceColumnCount(workspace: ActiveSearchWorkspace): number {
+  if (!workspace.resultsPageVe || !isPage(workspace.resultsPageVe.displayItem)) {
+    return 1;
+  }
+  const resultsPage = asPageItem(workspace.resultsPageVe.displayItem);
+  if (resultsPage.arrangeAlgorithm != ArrangeAlgorithm.Grid) {
+    return 1;
+  }
+  return Math.max(1, resultsPage.gridNumberOfColumns);
+}
+
+function searchWorkspaceUsesGridLayout(workspace: ActiveSearchWorkspace): boolean {
+  return getSearchWorkspaceColumnCount(workspace) > 1;
+}
+
+function getEffectiveFocusedSearchResultIndex(store: StoreContextModel, workspace: ActiveSearchWorkspace): number {
   const storedFocusedRow = clampSearchResultIndex(
     store.perItem.getSearchFocusedResultIndex(workspace.searchItemId),
     workspace.resultsCount,
@@ -200,9 +215,9 @@ function getEffectiveFocusedSearchRow(store: StoreContextModel, workspace: Activ
   return -1;
 }
 
-function scrollSearchResultRowIntoView(store: StoreContextModel, workspace: ActiveSearchWorkspace, rowIndex: number): void {
+function scrollSearchResultIndexIntoView(store: StoreContextModel, workspace: ActiveSearchWorkspace, resultIndex: number): void {
   const resultsPageVe = workspace.resultsPageVe;
-  if (!resultsPageVe || !resultsPageVe.viewportBoundsPx || !resultsPageVe.childAreaBoundsPx || !resultsPageVe.cellSizePx || rowIndex < 0) {
+  if (!resultsPageVe || !resultsPageVe.viewportBoundsPx || !resultsPageVe.childAreaBoundsPx || !resultsPageVe.cellSizePx || resultIndex < 0) {
     return;
   }
 
@@ -215,6 +230,7 @@ function scrollSearchResultRowIntoView(store: StoreContextModel, workspace: Acti
 
   const currentProp = store.perItem.getPageScrollYProp(veid);
   const currentScrollPx = currentProp * maxScrollPx;
+  const rowIndex = Math.floor(resultIndex / getSearchWorkspaceColumnCount(workspace));
   const rowTopPx = rowIndex * resultsPageVe.cellSizePx.h;
   const rowBottomPx = rowTopPx + resultsPageVe.cellSizePx.h;
   const viewportTopPx = currentScrollPx;
@@ -233,6 +249,46 @@ function scrollSearchResultRowIntoView(store: StoreContextModel, workspace: Acti
   }
 }
 
+function nextSearchGridResultIndex(
+  workspace: ActiveSearchWorkspace,
+  baseIndex: number,
+  keyCode: "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown",
+): number | null {
+  if (baseIndex < 0 || baseIndex >= workspace.resultsCount) {
+    return null;
+  }
+
+  const numCols = getSearchWorkspaceColumnCount(workspace);
+  const currentRow = Math.floor(baseIndex / numCols);
+  const currentCol = baseIndex % numCols;
+  const numRows = Math.ceil(workspace.resultsCount / numCols);
+
+  const resultIndexForRowAndCol = (row: number, col: number): number => {
+    const rowStart = row * numCols;
+    const rowEnd = Math.min(rowStart + numCols - 1, workspace.resultsCount - 1);
+    return Math.min(rowStart + col, rowEnd);
+  };
+
+  if (keyCode == "ArrowLeft") {
+    if (currentCol == 0) { return null; }
+    return baseIndex - 1;
+  }
+  if (keyCode == "ArrowRight") {
+    const rowEnd = Math.min((currentRow + 1) * numCols - 1, workspace.resultsCount - 1);
+    if (baseIndex >= rowEnd) { return null; }
+    return baseIndex + 1;
+  }
+  if (keyCode == "ArrowUp") {
+    if (currentRow == 0) { return null; }
+    return resultIndexForRowAndCol(currentRow - 1, currentCol);
+  }
+  if (keyCode == "ArrowDown") {
+    if (currentRow >= numRows - 1) { return null; }
+    return resultIndexForRowAndCol(currentRow + 1, currentCol);
+  }
+  return null;
+}
+
 function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
@@ -242,7 +298,45 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
     store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
     workspace.resultsCount,
   );
-  const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
+  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
+
+  if (searchWorkspaceUsesGridLayout(workspace)) {
+    const baseIndex = focusedRow >= 0 ? focusedRow : selectedRow;
+    const currentPagePath = store.history.currentPagePath();
+
+    if (ev.code == "ArrowLeft") {
+      const atLeftEdge = baseIndex < 0 || baseIndex % getSearchWorkspaceColumnCount(workspace) == 0;
+      if (atLeftEdge) {
+        if (!currentPagePath) { return false; }
+        store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+        store.history.setFocus(currentPagePath);
+        arrangeNow(store, "key-search-grid-to-list");
+        return true;
+      }
+    }
+
+    if (ev.code != "ArrowLeft" && ev.code != "ArrowRight" && ev.code != "ArrowUp" && ev.code != "ArrowDown") {
+      return false;
+    }
+    if (baseIndex < 0) { return false; }
+
+    const nextIndex = nextSearchGridResultIndex(workspace, baseIndex, ev.code);
+    if (nextIndex == null) {
+      return true;
+    }
+
+    store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, nextIndex);
+    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, focusedRow >= 0 ? nextIndex : -1);
+    if (focusedRow >= 0) {
+      const targetVe = workspace.resultChildVes[nextIndex];
+      if (targetVe) {
+        store.history.setFocus(VeFns.veToPath(targetVe));
+      }
+    }
+    scrollSearchResultIndexIntoView(store, workspace, nextIndex);
+    arrangeNow(store, "key-search-grid-nav");
+    return true;
+  }
 
   if (ev.code == "ArrowLeft") {
     if (focusPath != workspace.searchVePath) { return false; }
@@ -282,7 +376,7 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
       store.history.setFocus(VeFns.veToPath(targetVe));
     }
   }
-  scrollSearchResultRowIntoView(store, workspace, nextRow);
+  scrollSearchResultIndexIntoView(store, workspace, nextRow);
   arrangeNow(store, "key-search-row-nav");
   return true;
 }
@@ -295,7 +389,7 @@ function handleSearchWorkspaceTabMaybe(store: StoreContextModel, ev: KeyboardEve
     store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
     workspace.resultsCount,
   );
-  const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
+  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
 
   if (!ev.shiftKey) {
     if (selectedRow < 0 || focusedRow >= 0) { return false; }
@@ -319,7 +413,7 @@ function handleSearchWorkspaceEnterMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
 
-  const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
+  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
   if (focusedRow >= 0) {
     const focusedVe = workspace.resultChildVes[focusedRow];
     if (!focusedVe) { return true; }
@@ -353,7 +447,7 @@ function handleSearchWorkspaceEscapeMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
 
-  const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
+  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
   if (focusedRow < 0) { return false; }
 
   store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);

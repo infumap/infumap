@@ -356,11 +356,13 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} />
         </Show>
+        {pageFns().renderSearchSelectionMaybe()}
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
 
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
+        {pageFns().renderSearchHoverMaybe()}
         {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
