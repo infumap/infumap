@@ -60,10 +60,12 @@ export function arrange_list_page(
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
+  const listPageActualVeid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
 
   const focusVeid = VeFns.veidFromPath(store.history.getFocusPath());
   const focusPath = store.history.getFocusPath();
   const pages = store.topTitledPages.get();
+  const selectedVeid = store.perItem.getSelectedListPageItem(listPageActualVeid);
   let isFocusPage = false;
   let pageIdx = -1;
   for (let i = 0; i < pages.length; ++i) {
@@ -77,7 +79,22 @@ export function arrange_list_page(
   }
 
   let focusedChildItemMaybe = null;
-  if (pageIdx >= 0) {
+  if (store.history.currentPopupSpec() == null &&
+    selectedVeid != EMPTY_VEID && selectedVeid.itemId !== "") {
+    let currentPath: VisualElementPath | null = focusPath;
+    while (currentPath) {
+      if (VeFns.itemIdFromPath(currentPath) === selectedVeid.itemId) {
+        focusedChildItemMaybe = itemState.get(selectedVeid.itemId);
+        break;
+      }
+      currentPath = VeFns.parentPath(currentPath);
+      if (currentPath === "") {
+        break;
+      }
+    }
+  }
+
+  if (!focusedChildItemMaybe && store.history.currentPopupSpec() == null && pageIdx >= 0) {
     for (let i = 0; i < pages.length; ++i) {
       const veid = VeFns.veidFromPath(pages[i]);
       if (veid.itemId == focusVeid.itemId && veid.linkIdMaybe == focusVeid.linkIdMaybe) {
@@ -179,10 +196,6 @@ export function arrange_list_page(
   const pageRelationships: VisualElementRelationships = {
     focusedChildItemMaybe,
   };
-
-  const selectedVeid = store.perItem.getSelectedListPageItem(
-    VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren)
-  );
 
   if (!focusedChildItemMaybe &&
     selectedVeid != EMPTY_VEID &&

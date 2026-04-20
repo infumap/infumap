@@ -22,6 +22,8 @@ import { Login } from './Login';
 import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
 import { switchToNonPage, switchToPage } from '../layout/navigation';
+import { VeFns } from '../layout/visual-element';
+import { ArrangeAlgorithm, asPageItem, isPage } from '../items/page-item';
 import { isUid } from '../util/uid';
 import { arrangeNow } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
@@ -30,6 +32,51 @@ import { requestContainerSyncSoon } from '../server';
 
 const App: Component = () => {
   const store = useStore();
+
+  const resolveFocusAfterPageBack = (focusPath: string | null): string | null => {
+    const currentPageVeid = store.history.currentPageVeid();
+    const currentPagePath = store.history.currentPagePath();
+    if (!focusPath || !currentPageVeid || !currentPagePath) {
+      return currentPagePath;
+    }
+
+    if (focusPath === currentPagePath) {
+      return currentPagePath;
+    }
+
+    const currentPageItem = itemState.get(currentPageVeid.itemId);
+    if (!currentPageItem || !isPage(currentPageItem)) {
+      return currentPagePath;
+    }
+
+    const currentPage = asPageItem(currentPageItem);
+    if (currentPage.arrangeAlgorithm !== ArrangeAlgorithm.List) {
+      return currentPagePath;
+    }
+
+    const selectedVeid = store.perItem.getSelectedListPageItem(currentPageVeid);
+    if (!selectedVeid.itemId) {
+      return currentPagePath;
+    }
+
+    const selectedItem = itemState.get(selectedVeid.itemId);
+    if (!selectedItem || !isPage(selectedItem)) {
+      return currentPagePath;
+    }
+
+    let currentPath: string | null = focusPath;
+    while (currentPath) {
+      if (VeFns.itemIdFromPath(currentPath) === selectedVeid.itemId) {
+        return currentPath;
+      }
+      currentPath = VeFns.parentPath(currentPath);
+      if (currentPath === "") {
+        break;
+      }
+    }
+
+    return currentPagePath;
+  };
 
   onMount(async () => {
     store.currentUrlPath.set(window.location.pathname);
@@ -87,10 +134,11 @@ const App: Component = () => {
         if (currentUrlPageIdMaybe != null && prevHistoryVeid.itemId == currentUrlPageIdMaybe) {
           if (debug) { console.debug("window popstate handler: prevHistoryVeid and currentUrlUid match, moving back in history."); }
           store.history.popPageVeid();
-          const restoredFocusPath =
+          const focusCandidate =
             store.history.getFocusPathMaybe() ??
             store.history.currentPopupSpec()?.vePath ??
             store.history.currentPagePath();
+          const restoredFocusPath = resolveFocusAfterPageBack(focusCandidate);
           if (restoredFocusPath != null) {
             store.history.setFocus(restoredFocusPath);
           }

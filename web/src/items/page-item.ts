@@ -192,7 +192,12 @@ export const PageFns = {
     return targetVe;
   },
 
-  switchToOutermostListPageMaybe: (visualElement: VisualElement, store: StoreContextModel): void => {
+  switchToOutermostListPageMaybe: (
+    visualElement: VisualElement,
+    store: StoreContextModel,
+    previousFocusPath?: VisualElementPath | null,
+    previousCurrentVeid?: Veid | null,
+  ): void => {
     const targetVe = PageFns.findOutermostListPage(visualElement);
     // If the target is currently rendered as a popup and doesn't already have focus,
     // don't switch pages - just let focus be set on the popup.
@@ -209,6 +214,14 @@ export const PageFns = {
       const clickedVeid = VeFns.actualVeidFromVe(visualElement);
       if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
         switchToPage(store, clickedVeid, true, false, false);
+        const switchedToVeid = store.history.currentPageVeid();
+        const switchedRoot = previousCurrentVeid != null &&
+          switchedToVeid != null &&
+          (previousCurrentVeid.itemId !== switchedToVeid.itemId ||
+            previousCurrentVeid.linkIdMaybe !== switchedToVeid.linkIdMaybe);
+        if (previousFocusPath && switchedRoot) {
+          store.history.changeParentPageFocusPath(previousFocusPath);
+        }
         return;
       }
     }
@@ -261,6 +274,14 @@ export const PageFns = {
         }
       } else {
         switchToPage(store, targetVeid, true, false, false, focusPath);
+        const switchedToVeid = store.history.currentPageVeid();
+        const switchedRoot = previousCurrentVeid != null &&
+          switchedToVeid != null &&
+          (previousCurrentVeid.itemId !== switchedToVeid.itemId ||
+            previousCurrentVeid.linkIdMaybe !== switchedToVeid.linkIdMaybe);
+        if (previousFocusPath && switchedRoot) {
+          store.history.changeParentPageFocusPath(previousFocusPath);
+        }
       }
     } else if (isPage(targetVe.displayItem) && isPage(visualElement.displayItem) &&
       !(visualElement.flags & VisualElementFlags.ListPageRoot)) {
@@ -272,6 +293,14 @@ export const PageFns = {
       const clickedVeid = VeFns.actualVeidFromVe(visualElement);
       if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
         switchToPage(store, clickedVeid, true, false, false);
+        const switchedToVeid = store.history.currentPageVeid();
+        const switchedRoot = previousCurrentVeid != null &&
+          switchedToVeid != null &&
+          (previousCurrentVeid.itemId !== switchedToVeid.itemId ||
+            previousCurrentVeid.linkIdMaybe !== switchedToVeid.linkIdMaybe);
+        if (previousFocusPath && switchedRoot) {
+          store.history.changeParentPageFocusPath(previousFocusPath);
+        }
       }
     }
   },
@@ -900,6 +929,8 @@ export const PageFns = {
         return;
       }
 
+      const previousFocusPath = store.history.getFocusPathMaybe();
+      const previousCurrentVeid = store.history.currentPageVeid();
       const focusPath = VeFns.veToPath(visualElement);
       store.history.setFocus(focusPath);
 
@@ -935,7 +966,7 @@ export const PageFns = {
 
       // Find the outermost list page in the current hierarchy (e.g. if in a popup).
       // If it's different from the current page, switch to it.
-      PageFns.switchToOutermostListPageMaybe(visualElement, store);
+      PageFns.switchToOutermostListPageMaybe(visualElement, store, previousFocusPath, previousCurrentVeid);
     }
   },
 
@@ -952,9 +983,11 @@ export const PageFns = {
     }
 
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    const previousFocusPath = store.history.getFocusPathMaybe();
+    const previousCurrentVeid = store.history.currentPageVeid();
     const focusPath = VeFns.veToPath(visualElement);
     store.history.setFocus(focusPath);
-    PageFns.switchToOutermostListPageMaybe(visualElement, store);
+    PageFns.switchToOutermostListPageMaybe(visualElement, store, previousFocusPath, previousCurrentVeid);
   },
 
   handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel, clientPxMaybe?: { x: number, y: number }): void => {
