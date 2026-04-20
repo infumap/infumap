@@ -105,7 +105,7 @@ export function arrange_document_page(
     };
     displayIdx += 1;
 
-    const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+    const childItemIsEmbeddedInteractive = !!(isPage(childItem) && (asPageItem(childItem).flags & PageFlags.EmbeddedInteractive));
     childArrangeData.push({
       childItem,
       actualLinkItemMaybe,

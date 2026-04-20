@@ -22,3 +22,5 @@ export const RelationshipToParent = {
   Attachment: "attachment",
   Unknown: "unknown"
 }
+
+export type RelationshipToParent = typeof RelationshipToParent[keyof typeof RelationshipToParent];

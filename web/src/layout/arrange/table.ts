@@ -458,7 +458,7 @@ function applyTableWindowPlansAfterScroll(
         const newPath = slot.rowPlan.path;
 
         try {
-          const nextRowVe = materializeTableRowPlan(slot.rowPlan, vesToOverwrite);
+          const nextRowVe = materializeTableRowPlan(slot.rowPlan, vesToOverwrite ?? null);
           setTableRenderWindowSlot(windowState, outIdx, rowIdx, nextRowVe);
 
           debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: slot.rowPlan.spec.displayItem.id, outIdx: outIdx });

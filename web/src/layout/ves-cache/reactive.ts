@@ -77,7 +77,7 @@ export function createReactiveOps(state: VesCacheState) {
     const [read, write] = signal;
     const current = read();
     if (shouldUpdate ? shouldUpdate(current, value) : current !== value) {
-      write(value);
+      write(() => value);
       return true;
     }
     return false;

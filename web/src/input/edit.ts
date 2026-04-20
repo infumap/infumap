@@ -41,7 +41,7 @@ import { asImageItem } from "../items/image-item";
 import { PageFlags } from "../items/base/flags-item";
 
 
-let arrowKeyDown_caretPosition = null;
+let arrowKeyDown_caretPosition: number | null = null;
 let arrowKeyDown_element: HTMLElement | null = null;
 type PendingBoundaryNavigation = { targetPath: string, targetCaretPosition: number };
 type LinearEditContext = {

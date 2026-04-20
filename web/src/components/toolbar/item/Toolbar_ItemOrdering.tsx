@@ -57,7 +57,7 @@ export const Toolbar_ItemOrdering: Component = () => {
     }
 
     return asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch &&
-      parentItem.computed_children.length > 1;
+      asPageItem(parentItem).computed_children.length > 1;
   };
 
   const moveFocusedItemToTop = () => {

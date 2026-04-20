@@ -365,7 +365,7 @@ export const NoteFns = {
     );
   },
 
-  showsDesktopPopupIcon: (flagsItem: FlagsItem): boolean => {
+  showsDesktopPopupIcon: (flagsItem: FlagsMixin): boolean => {
     return !!(flagsItem.flags & NoteFlags.ShowDesktopPopupIcon);
   },
 

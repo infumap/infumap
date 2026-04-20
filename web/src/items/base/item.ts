@@ -35,6 +35,8 @@ export const ItemType = {
   Placeholder: "placeholder",
 };
 
+export type ItemType = typeof ItemType[keyof typeof ItemType];
+
 
 export interface ItemTypeMixin {
   itemType: string,

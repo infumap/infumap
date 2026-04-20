@@ -40,6 +40,9 @@ import {
 } from "../../util/remoteFile";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 import { isSearch } from "../../items/search-item";
+import { isFile } from "../../items/file-item";
+import { isImage } from "../../items/image-item";
+import { asContainerItem } from "../../items/base/container-item";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -555,7 +558,7 @@ export const Toolbar_Popup: Component = () => {
               <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
                 {(() => {
                   const currentItem = store.history.getFocusItem();
-                  const stats = calculateChildrenStats(currentItem);
+                  const stats = calculateChildrenStats(asContainerItem(currentItem));
                   return (
                     <>
                       <span class="font-mono text-slate-400">Children: {stats.totalChildren}</span><br />

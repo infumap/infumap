@@ -29,7 +29,7 @@ import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { GRID_SIZE, Z_INDEX_GLOBAL_ITEMS, Z_INDEX_GLOBAL_MOVING, Z_INDEX_GLOBAL_POPUP } from "../constants";
-import { isPage } from "../items/page-item";
+import { asPageItem, isPage } from "../items/page-item";
 import { ArrangeItemFlags } from "./arrange/item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 
@@ -721,7 +721,7 @@ export const VeFns = {
     const scrollVeid = VeFns.actualVeidFromVe(pageVe);
     const scrollXPx = Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(scrollVeid);
     const scrollYPx = Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(scrollVeid);
-    const pageItem = pageVe.displayItem as { innerSpatialWidthGr: number, naturalAspect: number };
+    const pageItem = asPageItem(pageVe.displayItem);
     const innerSizeBl = {
       w: pageItem.innerSpatialWidthGr / GRID_SIZE,
       h: Math.floor(pageItem.innerSpatialWidthGr / GRID_SIZE / pageItem.naturalAspect)

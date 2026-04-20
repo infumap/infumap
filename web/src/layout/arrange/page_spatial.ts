@@ -104,12 +104,13 @@ export function arrange_spatial_page(
   };
 
   const pageRelationships: VisualElementRelationships = {};
+  const pageChildAreaBoundsPx = pageSpec.childAreaBoundsPx!;
 
   const scrollableChildAreaBoundsPx: BoundingBox = {
     x: 0,
     y: 0,
-    w: pageSpec.childAreaBoundsPx.w,
-    h: pageSpec.childAreaBoundsPx.h,
+    w: pageChildAreaBoundsPx.w,
+    h: pageChildAreaBoundsPx.h,
   };
 
   const keepGeometryInsideScrollableArea = (itemGeometry: ItemGeometry): { geometry: ItemGeometry, wasAutoMoved: boolean } => {
