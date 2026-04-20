@@ -19,6 +19,7 @@
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { InfuSignal, NumberSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import type { SearchResult } from "../server";
+import { ArrangeAlgorithm } from "../items/page-item";
 
 
 export interface PerItemStoreContextModel {
@@ -50,6 +51,9 @@ export interface PerItemStoreContextModel {
   getSearchFocusedResultIndex: (itemId: string) => number,
   setSearchFocusedResultIndex: (itemId: string, index: number) => void,
 
+  getSearchArrangeAlgorithm: (itemId: string) => ArrangeAlgorithm,
+  setSearchArrangeAlgorithm: (itemId: string, arrangeAlgorithm: ArrangeAlgorithm) => void,
+
   clear: () => void,
 }
 
@@ -65,6 +69,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const searchResults = new Map<string, InfuSignal<Array<SearchResult> | null>>();
   const searchSelectedResultIndexes = new Map<string, NumberSignal>();
   const searchFocusedResultIndexes = new Map<string, NumberSignal>();
+  const searchArrangeAlgorithms = new Map<string, InfuSignal<ArrangeAlgorithm>>();
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
@@ -177,6 +182,21 @@ export function makePerItemStore(): PerItemStoreContextModel {
     searchFocusedResultIndexes.get(itemId)!.set(index);
   };
 
+  const getSearchArrangeAlgorithm = (itemId: string): ArrangeAlgorithm => {
+    if (!searchArrangeAlgorithms.get(itemId)) {
+      searchArrangeAlgorithms.set(itemId, createInfuSignal<ArrangeAlgorithm>(ArrangeAlgorithm.Catalog));
+    }
+    return searchArrangeAlgorithms.get(itemId)!.get();
+  };
+
+  const setSearchArrangeAlgorithm = (itemId: string, arrangeAlgorithm: ArrangeAlgorithm): void => {
+    if (!searchArrangeAlgorithms.get(itemId)) {
+      searchArrangeAlgorithms.set(itemId, createInfuSignal<ArrangeAlgorithm>(arrangeAlgorithm));
+      return;
+    }
+    searchArrangeAlgorithms.get(itemId)!.set(arrangeAlgorithm);
+  };
+
   const getSelectedListPageItem = (listPageVeid: Veid): Veid => {
     const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
@@ -228,6 +248,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     searchResults.clear();
     searchSelectedResultIndexes.clear();
     searchFocusedResultIndexes.clear();
+    searchArrangeAlgorithms.clear();
   }
 
   return ({
@@ -240,6 +261,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getSearchResults, setSearchResults,
     getSearchSelectedResultIndex, setSearchSelectedResultIndex,
     getSearchFocusedResultIndex, setSearchFocusedResultIndex,
+    getSearchArrangeAlgorithm, setSearchArrangeAlgorithm,
     clear
   });
 }

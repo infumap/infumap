@@ -48,6 +48,8 @@ import { isLink } from '../../items/link-item';
 import { Toolbar_Link } from './item/Toolbar_Link';
 import { isComposite } from '../../items/composite-item';
 import { Toolbar_Composite } from './item/Toolbar_Composite';
+import { isSearch } from '../../items/search-item';
+import { Toolbar_Search } from './item/Toolbar_Search';
 import { VesCache } from '../../layout/ves-cache';
 import { logout } from '../Main';
 
@@ -283,6 +285,9 @@ export const Toolbar: Component = () => {
           </Match>
           <Match when={isComposite(store.history.getFocusItem())}>
             <Toolbar_Composite />
+          </Match>
+          <Match when={isSearch(store.history.getFocusItem())}>
+            <Toolbar_Search />
           </Match>
         </Switch>
       </Show>

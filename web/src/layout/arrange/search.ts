@@ -46,15 +46,19 @@ function fallbackPathTitle(itemType: string): string {
   return `[${itemType}]`;
 }
 
-function ensureTemporaryResultsPage(searchItem: SearchItem, results: Array<SearchResult>): PageItem {
+function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: SearchItem, results: Array<SearchResult>): PageItem {
   const pageId = tempSearchResultsPageUid(searchItem.id);
+  const searchArrangeAlgorithm = (() => {
+    const aa = store.perItem.getSearchArrangeAlgorithm(searchItem.id);
+    return aa == ArrangeAlgorithm.Grid ? ArrangeAlgorithm.Grid : ArrangeAlgorithm.Catalog;
+  })();
 
   let pageItem = itemState.get(pageId);
   if (!pageItem || !isPage(pageItem)) {
     const tempPage = PageFns.create(searchItem.ownerId, searchItem.id, RelationshipToParent.Child, "", newOrdering());
     tempPage.id = pageId;
     tempPage.origin = TEMP_SEARCH_RESULTS_ORIGIN;
-    tempPage.arrangeAlgorithm = ArrangeAlgorithm.Catalog;
+    tempPage.arrangeAlgorithm = searchArrangeAlgorithm;
     tempPage.orderChildrenBy = "";
     tempPage.title = "";
     pageItem = itemState.upsertItemFromServerObject(PageFns.toObject(tempPage), TEMP_SEARCH_RESULTS_ORIGIN);
@@ -64,7 +68,7 @@ function ensureTemporaryResultsPage(searchItem: SearchItem, results: Array<Searc
   page.origin = TEMP_SEARCH_RESULTS_ORIGIN;
   page.parentId = searchItem.id;
   page.relationshipToParent = RelationshipToParent.Child;
-  page.arrangeAlgorithm = ArrangeAlgorithm.Catalog;
+  page.arrangeAlgorithm = searchArrangeAlgorithm;
   page.orderChildrenBy = "";
   page.title = "";
   page.childrenLoaded = true;
@@ -121,7 +125,7 @@ export function arrangeSearchResultsPathMaybe(
     return null;
   }
 
-  const resultsPage = ensureTemporaryResultsPage(searchItem, results);
+  const resultsPage = ensureTemporaryResultsPage(store, searchItem, results);
   const resultsBoundsPx = calcSearchWorkspaceResultsBoundsPx(searchItemGeometry.boundsPx);
   const pageGeometry: ItemGeometry = {
     boundsPx: resultsBoundsPx,
