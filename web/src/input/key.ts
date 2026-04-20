@@ -455,6 +455,13 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       return;
     }
 
+    const focusPath = store.history.getFocusPathMaybe();
+    const focusVe = focusPath ? VesCache.current.readNode(focusPath) : null;
+    if (focusVe && veFlagIsRoot(focusVe.flags)) {
+      void mouseDownHandler(store, MOUSE_RIGHT);
+      return;
+    }
+
     focusParentMaybe(store);
   }
 
