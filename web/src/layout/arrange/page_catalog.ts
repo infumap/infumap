@@ -132,15 +132,17 @@ export function arrange_catalog_page(
     const childGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     childGeometry.row = idx - 1;
     childGeometry.col = 0;
-    childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
-      x: -childGeometry.boundsPx.x,
-      y: childGeometry.row * rowHeightPx - childGeometry.boundsPx.y,
-      w: childAreaBoundsPx.w,
-      h: rowHeightPx,
-    }, {
-      focusOnly: true,
-      allowOutsideBounds: true,
-    }));
+    if (isSearchResultsCatalogPage) {
+      childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
+        x: -childGeometry.boundsPx.x,
+        y: childGeometry.row * rowHeightPx - childGeometry.boundsPx.y,
+        w: childAreaBoundsPx.w,
+        h: rowHeightPx,
+      }, {
+        focusOnly: true,
+        allowOutsideBounds: true,
+      }));
+    }
     childGeometries.push({
       childItem,
       actualLinkItemMaybe,
@@ -148,8 +150,10 @@ export function arrange_catalog_page(
     });
   }
 
-  addContiguousStackedGapHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
-  addContiguousStackedRowMarginHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
+  if (isSearchResultsCatalogPage) {
+    addContiguousStackedGapHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
+    addContiguousStackedRowMarginHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
+  }
 
   for (const child of childGeometries) {
     const targetItemId = child.actualLinkItemMaybe ? LinkFns.getLinkToId(child.actualLinkItemMaybe) : undefined;

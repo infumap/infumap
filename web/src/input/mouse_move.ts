@@ -215,6 +215,16 @@ function isSearchResultsGridPageVe(ve: VisualElement): boolean {
   return pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid && pageItem.origin == TEMP_SEARCH_RESULTS_ORIGIN;
 }
 
+function isCatalogChildPageVe(ve: VisualElement | null): boolean {
+  if (!ve || !isPage(ve.displayItem) || !ve.parentPath) {
+    return false;
+  }
+  const parentVe = VesCache.current.readNode(ve.parentPath) ?? null;
+  return parentVe != null &&
+    isPage(parentVe.displayItem) &&
+    asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Catalog;
+}
+
 function resolveCatalogRowOwner(ve: VisualElement | null): { pageVe: VisualElement, rowNumber: number } | null {
   let current = ve;
   let result: { pageVe: VisualElement, rowNumber: number } | null = null;
@@ -288,6 +298,10 @@ function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, 
   const catalogPageVe = resolveCatalogPageVe(hitInfo, rowOwner);
 
   if (!catalogPageVe) {
+    return { pagePath: null, rowNumber: -1 };
+  }
+
+  if (!isSearchResultsCatalogPageVe(catalogPageVe)) {
     return { pagePath: null, rowNumber: -1 };
   }
 
@@ -1159,6 +1173,10 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   const overElementVes = HitInfoFns.getHitVes(hitInfo);
+  const suppressGenericMouseOver =
+    isCatalogChildPageVe(overElementVes.get()) &&
+    !!hitInfo.overElementMeta?.focusOnly &&
+    !!hitInfo.overElementMeta?.allowOutsideBounds;
   const overCompositeMoveOutVes =
     (hitInfo.hitboxType & HitboxFlags.Move) && hitInfo.overElementMeta?.compositeMoveOut
       ? overElementVes
@@ -1192,7 +1210,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     lastMouseOverSearchGridPagePath = searchGridCellHover.pagePath;
   }
 
-  if (overElementVes != lastMouseOverVes || hasModal || isInsideToolbarPopup) {
+  if (overElementVes != lastMouseOverVes || suppressGenericMouseOver || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverVes != null) {
       store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);
       lastMouseOverVes = null;
@@ -1208,6 +1226,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
     !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOver(VeFns.veToPath(overElementVes.get())) &&
+    !suppressGenericMouseOver &&
     !hasModal && !isInsideToolbarPopup) {
     store.perVe.setMouseIsOver(VeFns.veToPath(overElementVes.get()), true);
     lastMouseOverVes = overElementVes;
