@@ -261,9 +261,9 @@ async function navigateToLocalRoot(store: StoreContextModel): Promise<void> {
   }
 }
 
-export async function navigateBack(store: StoreContextModel): Promise<boolean> {
+export async function navigateBack(store: StoreContextModel, focusRootPageOnPopupClose: boolean = false): Promise<boolean> {
   if (store.history.currentPopupSpec() != null) {
-    store.history.popPopup();
+    store.history.popPopup(focusRootPageOnPopupClose);
     const currentPageVeid = store.history.currentPageVeid();
     if (currentPageVeid) {
       const pageItem = itemState.get(currentPageVeid.itemId);
@@ -273,8 +273,7 @@ export async function navigateBack(store: StoreContextModel): Promise<boolean> {
         page.pendingPopupWidthGr = null;
         page.pendingCellPopupPositionNorm = null;
         page.pendingCellPopupWidthNorm = null;
-        // Focus is already set by popPopup() to the page that was popped up
-        // Don't override it here - let the page retain focus
+        // Focus is already set by popPopup() according to the caller's policy.
       }
     }
     arrangeNow(store, "navigate-back-pop-popup");

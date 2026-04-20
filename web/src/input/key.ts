@@ -468,6 +468,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   cancelShiftNavigationGesture();
 
+  // Item-local editors may already have handled this key (for example Escape to
+  // exit edit mode while preserving item focus). In that case, don't let the
+  // document-level handler reinterpret the same key as navigation.
+  if (ev.defaultPrevented) { return; }
+
   // IMPORTANT: keep these in sync with the code below.
 
   const recognizedKeys = [

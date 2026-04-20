@@ -196,13 +196,27 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         }
       }
 
+      const editingItemType = store.overlay.textEditInfo()!.itemType;
+      const editingItem = itemState.get(VeFns.veidFromPath(editingItemPath).itemId);
+      const focusRootPageOnRightClick =
+        buttonNumber != MOUSE_LEFT &&
+        (editingItemType == ItemType.Note ||
+          editingItemType == ItemType.File ||
+          editingItemType == ItemType.Password ||
+          editingItemType == ItemType.Table ||
+          (editingItemType == ItemType.Page &&
+            !!editingItem &&
+            isPage(editingItem) &&
+            !!(asPageItem(editingItem).flags & PageFlags.EmbeddedInteractive)));
+
       if (!editingDomEl) {
         // Element was removed during rearrangement, clear text edit state
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);
 
-        // For right-click, keep focus on the item (it will show enhanced shadow via focusPath check)
-        if (buttonNumber != MOUSE_LEFT) {
+        // For most items, a right-click exits edit mode but leaves the item focused.
+        // Notes, files, and passwords now skip that intermediate focus-only state.
+        if (buttonNumber != MOUSE_LEFT && !focusRootPageOnRightClick) {
           store.history.setFocus(editingItemPath);
         }
 
@@ -252,7 +266,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           }
         }
 
-        const editingItemType = store.overlay.textEditInfo()!.itemType;
         if (editingItemType != ItemType.Search) {
           serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
         }
@@ -260,18 +273,15 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         store.overlay.setTextEditInfo(store.history, null);
 
         const keepFocusedOnRightClick =
-          editingItemType == ItemType.Note ||
-          editingItemType == ItemType.File ||
-          editingItemType == ItemType.Password ||
           editingItemType == ItemType.Search ||
           editingItemType == ItemType.Table ||
           (editingItemType == ItemType.Page && isPage(item) && !!(asPageItem(item).flags & PageFlags.EmbeddedInteractive));
 
         // Right click should leave these items in focus-only mode after exiting edit.
-        if (buttonNumber != MOUSE_LEFT && keepFocusedOnRightClick) {
+        if (buttonNumber != MOUSE_LEFT && keepFocusedOnRightClick && !focusRootPageOnRightClick) {
           store.history.setFocus(editingItemPath);
         }
-        else if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Page) {
+        else if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Page && !focusRootPageOnRightClick) {
           store.history.setFocus(editingItemPath);
         }
 
@@ -654,7 +664,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     store.history.currentPopupSpec() == null &&
     store.history.peekPrevPageVeid() != null) {
     if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
-    await navigateBack(store);
+    await navigateBack(store, true);
     return;
   }
 
@@ -737,7 +747,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
 
     if (store.history.currentPopupSpec() != null) {
-      await navigateBack(store);
+      await navigateBack(store, true);
       return;
     }
     await navigateUp(store);
@@ -751,7 +761,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
       // Once an embedded interactive page has been promoted to root,
       // right click should follow the normal page-history back path.
-      const changedPages = await navigateBack(store);
+      const changedPages = await navigateBack(store, true);
       if (changedPages) { return; }
 
       store.history.setFocus(focusVe.parentPath!);
@@ -776,7 +786,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
 
-  const changedPages = await navigateBack(store);
+  const changedPages = await navigateBack(store, true);
   if (!changedPages) {
     await navigateUp(store);
   }

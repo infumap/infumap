@@ -56,7 +56,7 @@ export interface HistoryStoreContextModel {
 
   pushPopup: (popupSpec: PopupSpec) => void,
   replacePopup: (popupSpec: PopupSpec) => void,
-  popPopup: () => void,
+  popPopup: (focusRootPage?: boolean) => void,
   popAllPopups: () => void,
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVeid: () => Veid | null,
@@ -179,7 +179,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     setBreadcrumbs(breadcrumbs());
   };
 
-  const popPopup = (): void => {
+  const popPopup = (focusRootPage?: boolean): void => {
     if (breadcrumbs().length == 0) { panic("popPopup: no breadcrumbs."); }
     const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
     if (breadcrumb.popupBreadcrumbs.length == 0) { return; }
@@ -203,7 +203,9 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       }
     }
 
-    if (breadcrumb.popupBreadcrumbs.length == 0) {
+    if (focusRootPage) {
+      breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
+    } else if (breadcrumb.popupBreadcrumbs.length == 0) {
       if (!popupSpec!.vePath) {
         console.error("MALFORMED PATH DETECTION: popPopup vePath is null/undefined");
         console.error("  popupSpec:", popupSpec);
