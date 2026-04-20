@@ -81,16 +81,8 @@ export function arrange_list_page(
   let focusedChildItemMaybe = null;
   if (store.history.currentPopupSpec() == null &&
     selectedVeid != EMPTY_VEID && selectedVeid.itemId !== "") {
-    let currentPath: VisualElementPath | null = focusPath;
-    while (currentPath) {
-      if (VeFns.itemIdFromPath(currentPath) === selectedVeid.itemId) {
-        focusedChildItemMaybe = itemState.get(selectedVeid.itemId);
-        break;
-      }
-      currentPath = VeFns.parentPath(currentPath);
-      if (currentPath === "") {
-        break;
-      }
+    if (VeFns.itemIdFromPath(focusPath) === selectedVeid.itemId) {
+      focusedChildItemMaybe = itemState.get(selectedVeid.itemId);
     }
   }
 

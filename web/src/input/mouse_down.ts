@@ -655,6 +655,27 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     return true;
   };
 
+  const closePopupAndMaybeFocusParent = async (): Promise<boolean> => {
+    const changedPages = await navigateBack(store);
+    if (!changedPages) {
+      return false;
+    }
+
+    const restoredFocusPath = store.history.getFocusPathMaybe();
+    const restoredFocusVe = restoredFocusPath ? VesCache.current.readNode(restoredFocusPath) : null;
+    if (restoredFocusVe && !veFlagIsRoot(restoredFocusVe.flags)) {
+      const parentPath = VeFns.parentPath(restoredFocusPath!);
+      if (parentPath && parentPath !== UMBRELLA_PAGE_UID && parentPath !== "") {
+        const parentVe = VesCache.current.readNode(parentPath);
+        if (parentVe) {
+          store.history.setFocus(parentPath);
+          arrangeNow(store, "mouse-right-close-popup-focus-parent");
+        }
+      }
+    }
+    return true;
+  };
+
   const currentRootPageVeid = store.history.currentPageVeid();
   const currentRootPageItem = currentRootPageVeid ? itemState.get(currentRootPageVeid.itemId) : null;
 
@@ -664,7 +685,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     store.history.currentPopupSpec() == null &&
     store.history.peekPrevPageVeid() != null) {
     if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
-    await navigateBack(store, true);
+    await navigateBack(store);
     return;
   }
 
@@ -747,7 +768,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
 
     if (store.history.currentPopupSpec() != null) {
-      await navigateBack(store, true);
+      await closePopupAndMaybeFocusParent();
       return;
     }
     await navigateUp(store);
@@ -761,7 +782,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
       // Once an embedded interactive page has been promoted to root,
       // right click should follow the normal page-history back path.
-      const changedPages = await navigateBack(store, true);
+      const changedPages = await navigateBack(store);
       if (changedPages) { return; }
 
       store.history.setFocus(focusVe.parentPath!);
@@ -786,7 +807,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
 
-  const changedPages = await navigateBack(store, true);
+  const changedPages = await navigateBack(store);
   if (!changedPages) {
     await navigateUp(store);
   }

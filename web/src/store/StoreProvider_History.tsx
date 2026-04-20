@@ -29,6 +29,7 @@ import { isPage, asPageItem } from "../items/page-item";
 export interface PopupSpec {
   actualVeid: Veid,
   vePath: VisualElementPath | null,
+  restoreFocusPath?: VisualElementPath | null,
   // For attachment popups: flag indicating this popup was opened from an attachment
   isFromAttachment?: boolean,
   // For page/image attachment popups: source attachment center in parent page coordinates (Gr units)
@@ -157,8 +158,12 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     }
 
     const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
-    breadcrumb.popupBreadcrumbs.push(popupSpec);
-    breadcrumb.focusPath = popupSpec.vePath;
+    const popupSpecWithRestoreFocusPath: PopupSpec = {
+      ...popupSpec,
+      restoreFocusPath: popupSpec.restoreFocusPath ?? breadcrumb.focusPath,
+    };
+    breadcrumb.popupBreadcrumbs.push(popupSpecWithRestoreFocusPath);
+    breadcrumb.focusPath = popupSpecWithRestoreFocusPath.vePath;
     setBreadcrumbs(breadcrumbs());
   };
 
@@ -174,8 +179,15 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     }
 
     const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
-    breadcrumb.popupBreadcrumbs = [popupSpec];
-    breadcrumb.focusPath = popupSpec.vePath;
+    const popupSpecWithRestoreFocusPath: PopupSpec = {
+      ...popupSpec,
+      restoreFocusPath:
+        popupSpec.restoreFocusPath ??
+        breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length - 1]?.restoreFocusPath ??
+        breadcrumb.focusPath,
+    };
+    breadcrumb.popupBreadcrumbs = [popupSpecWithRestoreFocusPath];
+    breadcrumb.focusPath = popupSpecWithRestoreFocusPath.vePath;
     setBreadcrumbs(breadcrumbs());
   };
 
@@ -206,17 +218,16 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (focusRootPage) {
       breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
     } else if (breadcrumb.popupBreadcrumbs.length == 0) {
-      if (!popupSpec!.vePath) {
-        console.error("MALFORMED PATH DETECTION: popPopup vePath is null/undefined");
+      if (!popupSpec!.restoreFocusPath && !popupSpec!.vePath) {
+        console.error("MALFORMED PATH DETECTION: popPopup restoreFocusPath and vePath are null/undefined");
         console.error("  popupSpec:", popupSpec);
         console.error("  Stack trace:");
         console.trace();
-        panic("popPopup: vePath is null");
+        panic("popPopup: restoreFocusPath and vePath are null");
       }
 
-      // Keep focus on the item that was popped up so closing a popup preserves
-      // the user's place, including for items opened from within tables.
-      breadcrumb.focusPath = popupSpec!.vePath;
+      // Restore the focus that was active before this popup opened.
+      breadcrumb.focusPath = popupSpec!.restoreFocusPath ?? popupSpec!.vePath;
     } else {
       const nextVePath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length - 1].vePath;
 
