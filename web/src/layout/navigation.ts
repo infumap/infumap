@@ -98,11 +98,6 @@ export async function navigateToContainingPageOfItem(store: StoreContextModel, i
     currentItem = itemState.get(itemId)!;
   }
 
-  if (isPage(currentItem)) {
-    switchToPage(store, { itemId: currentItem.id, linkIdMaybe: null }, true, false, false);
-    return true;
-  }
-
   const isRemote = currentItem.origin != null;
   const MAX_LEVELS = 8;
   let cnt = 0;

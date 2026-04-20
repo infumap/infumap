@@ -22,6 +22,7 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
+import { TEMP_SEARCH_RESULTS_ORIGIN } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -68,6 +69,7 @@ export function arrange_catalog_page(
   const previewColumnWidthPx = calcCatalogPreviewColumnWidthPx(geometry.boundsPx.w);
   const rowHeightPx = calcCatalogRowHeightPx(previewColumnWidthPx, displayItem_pageWithChildren.gridCellAspect);
   const marginPx = Math.max(1, Math.round(previewColumnWidthPx * 0.01));
+  const isSearchResultsCatalogPage = displayItem_pageWithChildren.origin == TEMP_SEARCH_RESULTS_ORIGIN;
   const movingAdj = movingItemInThisPage ? 1 : 0;
   const numRows = Math.max(displayItem_pageWithChildren.computed_children.length - movingAdj, 0);
   const pageHeightPx = numRows * rowHeightPx;
@@ -153,10 +155,12 @@ export function arrange_catalog_page(
     const targetItemId = child.actualLinkItemMaybe ? LinkFns.getLinkToId(child.actualLinkItemMaybe) : undefined;
     for (const hitbox of child.geometry.hitboxes) {
       if (!(hitbox.type & HitboxFlags.Click)) { continue; }
+      const isRowHitbox = !!hitbox.meta?.focusOnly && !!hitbox.meta?.allowOutsideBounds;
       hitbox.meta = {
         ...(hitbox.meta ?? {}),
         catalogRowNumber: child.geometry.row,
-        ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
+        ...(isSearchResultsCatalogPage && targetItemId && isRowHitbox ? { openContainingPageOfItemId: targetItemId } : {}),
+        ...(isSearchResultsCatalogPage && targetItemId && !isRowHitbox ? { openActualItem: true } : {}),
       };
     }
   }

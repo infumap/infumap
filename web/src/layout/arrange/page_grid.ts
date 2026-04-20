@@ -217,10 +217,12 @@ export function arrange_grid_page(
 
       for (const hitbox of cellGeometry.hitboxes) {
         if (!(hitbox.type & HitboxFlags.Click)) { continue; }
+        const isCellPaddingHitbox = !!hitbox.meta?.focusOnly && !!hitbox.meta?.allowOutsideBounds;
         hitbox.meta = {
           ...(hitbox.meta ?? {}),
           searchGridCellIndex: cellIndex,
-          ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
+          ...(targetItemId && isCellPaddingHitbox ? { openContainingPageOfItemId: targetItemId } : {}),
+          ...(targetItemId && !isCellPaddingHitbox ? { openActualItem: true } : {}),
         };
       }
     }
