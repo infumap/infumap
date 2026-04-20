@@ -508,6 +508,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
         return;
       }
 
+      if (handleFocusedListPageArrowRightMaybe(store)) {
+        ev.preventDefault();
+        return;
+      }
+
       if (openPopupForFocusedItemMaybe(store, focusVe, false)) {
         ev.preventDefault();
         return;
@@ -696,6 +701,68 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
   }
 
   return false;
+}
+
+function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean {
+  const focusPagePath = store.history.getFocusPath();
+  const focusPageVe = VesCache.current.readNode(focusPagePath);
+  if (!focusPageVe || !isPage(focusPageVe.displayItem) || !veFlagIsRoot(focusPageVe.flags)) {
+    return false;
+  }
+
+  const focusPage = asPageItem(focusPageVe.displayItem);
+  if (focusPage.arrangeAlgorithm != ArrangeAlgorithm.List) {
+    return false;
+  }
+
+  const focusPageVeid = VeFns.veidFromVe(focusPageVe);
+  const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+  const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+  const selectedItem = itemState.get(selectedVeid.itemId);
+  if (selectedItem && isSearch(selectedItem)) {
+    const selectedVeSignal = VesCache.render.getSelected(focusPagePath)();
+    const selectedVe = selectedVeSignal?.get() ?? null;
+    if (selectedVe) {
+      store.perItem.setSearchFocusedResultIndex(selectedItem.id, -1);
+      store.overlay.autoFocusSearchInput.set(false);
+      store.history.setFocus(VeFns.veToPath(selectedVe));
+      arrangeNow(store, "key-list-page-focus-search");
+    }
+    return true;
+  }
+  if (!isPage(selectedItem)) {
+    return true;
+  }
+
+  const ttpVePaths = store.topTitledPages.get();
+  const ttpVeids = [];
+  for (let i = 0; i < ttpVePaths.length; ++i) { ttpVeids.push(VeFns.veidFromPath(ttpVePaths[i])); }
+  for (let i = 0; i < ttpVeids.length; ++i) {
+    const veid = ttpVeids[i];
+    if (veid.itemId == focusPageVeid.itemId &&
+      veid.linkIdMaybe == focusPageVeid.linkIdMaybe) {
+      const nextIdx = i + 1;
+      if (nextIdx < ttpVeids.length) {
+        const nextFocusVeid = ttpVeids[nextIdx];
+        const nextFocusPath = VeFns.addVeidToPath(nextFocusVeid, focusPagePath);
+        store.history.setFocus(nextFocusPath);
+
+        {
+          const nextFocusPagePath = store.history.getFocusPath();
+          const nextFocusPageVe = VesCache.current.readNode(nextFocusPagePath)!;
+          const nextFocusPageActualVeid = VeFns.veidFromItems(nextFocusPageVe.displayItem, nextFocusPageVe.actualLinkItemMaybe);
+          const nextSelectedVeid = store.perItem.getSelectedListPageItem(nextFocusPageActualVeid);
+          if (nextSelectedVeid == EMPTY_VEID) {
+            PageFns.setDefaultListPageSelectedItemMaybe(store, nextFocusPageActualVeid);
+          }
+        }
+
+        arrangeNow(store, "key-list-page-focus-child-page");
+      }
+    }
+  }
+
+  return true;
 }
 
 function openPopupForFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement, includeTables: boolean): boolean {
@@ -1266,57 +1333,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     store.history.setFocus(newFocusPagePath);
     arrangeNow(store, "key-list-page-focus-parent");
   } else if (ev.code == "ArrowRight") {
-    const focusPagePath = store.history.getFocusPath();
-    const focusPageVe = VesCache.current.readNode(focusPagePath)!;
-    const focusPageVeid = VeFns.veidFromVe(focusPageVe);
-    const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
-    const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-    const selectedItem = itemState.get(selectedVeid.itemId);
-    if (selectedItem && isSearch(selectedItem)) {
-      const selectedVeSignal = VesCache.render.getSelected(focusPagePath)();
-      const selectedVe = selectedVeSignal?.get() ?? null;
-      if (selectedVe) {
-        store.perItem.setSearchFocusedResultIndex(selectedItem.id, -1);
-        store.overlay.autoFocusSearchInput.set(false);
-        store.history.setFocus(VeFns.veToPath(selectedVe));
-        arrangeNow(store, "key-list-page-focus-search");
-      }
-      return true;
-    }
-    if (!isPage(selectedItem)) {
-      return true;
-    }
-    const selectedPage = asPageItem(selectedItem);
-    if (selectedPage.arrangeAlgorithm != ArrangeAlgorithm.List) {
-      // return;
-    }
-    const ttpVePaths = store.topTitledPages.get();
-    const ttpVeids = [];
-    for (let i = 0; i < ttpVePaths.length; ++i) { ttpVeids.push(VeFns.veidFromPath(ttpVePaths[i])); }
-    for (let i = 0; i < ttpVeids.length; ++i) {
-      const veid = ttpVeids[i];
-      if (veid.itemId == focusPageVeid.itemId &&
-        veid.linkIdMaybe == focusPageVeid.linkIdMaybe) {
-        const nextIdx = i + 1;
-        if (nextIdx < ttpVeids.length) {
-          const nextFocusVeid = ttpVeids[nextIdx];
-          const nextFocusPath = VeFns.addVeidToPath(nextFocusVeid, focusPagePath);
-          store.history.setFocus(nextFocusPath);
-
-          {
-            const focusPagePath = store.history.getFocusPath();
-            const focusPageVe = VesCache.current.readNode(focusPagePath)!;
-            const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
-            const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-            if (selectedVeid == EMPTY_VEID) {
-              PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
-            }
-          }
-
-          arrangeNow(store, "key-list-page-focus-child-page");
-        }
-      }
-    }
+    return handleFocusedListPageArrowRightMaybe(store);
   }
 
   return true;

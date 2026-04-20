@@ -144,7 +144,12 @@ export function arrange_grid_page(
     };
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
-    const renderChildrenAsFull = arrangeFlagIsRoot(flags);
+    const renderChildrenAsFull = !!(flags & ArrangeItemFlags.RenderChildrenAsFull |
+      flags & ArrangeItemFlags.IsTopRoot |
+      flags & ArrangeItemFlags.IsPopupRoot |
+      flags & ArrangeItemFlags.IsListPageMainRoot |
+      flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
+      flags & ArrangeItemFlags.IsDockRoot);
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
 

@@ -80,6 +80,7 @@ export const Toolbar_Search: Component = () => {
       <div class="inline-block">
         <div ref={arrangeAlgoDiv}
           class="inline-block w-[88px] border border-slate-400 rounded-md ml-[10px] cursor-pointer text-center align-middle"
+          style={`font-size: 13px;`}
           onMouseDown={handleArrangeAlgoDown}
           onClick={handleArrangeAlgoClick}>
           {arrangeAlgoText()}
