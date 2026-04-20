@@ -95,8 +95,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
               const renderedVe = VesCache.current.findNodes(e.veid)[0];
               const renderedPosBl = renderedVe ? spatialStartPosBlFromRenderedVe(renderedVe) : null;
               return renderedPosBl
-                ? { x: renderedPosBl.x * GRID_SIZE, y: renderedPosBl.y * GRID_SIZE }
-                : (e.item as PositionalItem).spatialPositionGr;
+                // Rendered bounds can drift off the persisted half-block grid due to scaling.
+                // Snap them back before using them as the basis for a persisted group move.
+                ? quantizeSpatialPosGr({ x: renderedPosBl.x * GRID_SIZE, y: renderedPosBl.y * GRID_SIZE })
+                : quantizeSpatialPosGr((e.item as PositionalItem).spatialPositionGr);
             })(),
             parentId: (e.item as PositionalItem).parentId,
           }));
@@ -270,6 +272,13 @@ function spatialStartPosBlFromRenderedVe(visualElement: VisualElement): Vector |
   return {
     x: visualElement.boundsPx.x / parentVe.childAreaBoundsPx.w * parentInnerSizeBl.w,
     y: visualElement.boundsPx.y / parentVe.childAreaBoundsPx.h * parentInnerSizeBl.h,
+  };
+}
+
+function quantizeSpatialPosGr(posGr: Vector): Vector {
+  return {
+    x: Math.round(posGr.x / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
+    y: Math.round(posGr.y / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
   };
 }
 
