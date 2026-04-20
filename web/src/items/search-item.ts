@@ -40,6 +40,7 @@ export const SEARCH_WORKSPACE_SIDE_INSET_PX = 26;
 export const SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX = 44;
 export const SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX = 25;
 export const SEARCH_WORKSPACE_BUTTON_WIDTH_PX = 92;
+export const SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX = 108;
 export const SEARCH_WORKSPACE_CONTROLS_GAP_PX = 10;
 
 export function tempSearchResultsPageUid(searchItemId: Uid): Uid {
@@ -60,7 +61,13 @@ export function calcSearchWorkspaceControlsWidthPx(boundsWidthPx: number): numbe
 
 export function calcSearchWorkspaceInputWidthPx(boundsWidthPx: number): number {
   const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsWidthPx);
-  return Math.max(120, controlsWidthPx - SEARCH_WORKSPACE_BUTTON_WIDTH_PX - SEARCH_WORKSPACE_CONTROLS_GAP_PX);
+  return Math.max(
+    100,
+    controlsWidthPx
+      - SEARCH_WORKSPACE_BUTTON_WIDTH_PX
+      - SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX
+      - SEARCH_WORKSPACE_CONTROLS_GAP_PX * 2,
+  );
 }
 
 export function calcSearchWorkspaceResultsTopPx(): number {

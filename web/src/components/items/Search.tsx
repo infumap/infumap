@@ -34,15 +34,19 @@ import { itemState } from "../../store/ItemState";
 import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asLinkItem, isLink, LinkFns } from "../../items/link-item";
 import {
+  asSearchItem,
   SEARCH_WORKSPACE_BUTTON_WIDTH_PX,
   SEARCH_WORKSPACE_CONTROLS_GAP_PX,
   SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX,
+  SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX,
   SEARCH_WORKSPACE_TOP_INSET_PX,
   calcSearchWorkspaceControlsWidthPx,
   calcSearchWorkspaceInputWidthPx,
   calcSearchWorkspaceResultsBoundsPx,
   calcSearchWorkspaceResultsTopPx,
 } from "../../items/search-item";
+import { materializeSearchResults } from "../../layout/search_materialize";
+import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 
 
 const EMPTY_SEARCH_EDIT_TEXT = "\u200B";
@@ -60,7 +64,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const isListPageMainRoot = () =>
     !!(props.visualElement.flags & VisualElementFlags.ListPageRoot) ||
     props.visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM;
-  const searchItem = () => props.visualElement.displayItem;
+  const searchItem = () => asSearchItem(props.visualElement.displayItem);
   const queryText = () => store.perItem.getSearchQuery(searchItem().id);
   const isEditing = () => store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
@@ -150,6 +154,16 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     await Promise.all(resultIds.map(id => warmResultItemDetails(id)));
   };
 
+  const showTransientMessage = (text: string, type: TransientMessageType) => {
+    store.overlay.toolbarTransientMessage.set({ text, type });
+    window.setTimeout(() => {
+      const current = store.overlay.toolbarTransientMessage.get();
+      if (current?.text == text) {
+        store.overlay.toolbarTransientMessage.set(null);
+      }
+    }, 1500);
+  };
+
   const runSearch = async (
     selectFirstResultRow: boolean,
     editingElMaybe?: HTMLElement | null,
@@ -172,6 +186,22 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     store.perItem.setSearchFocusedResultIndex(searchItem().id, -1);
     requestArrange(store, "search-results");
     void warmSearchResults(result);
+  };
+
+  const materializeCurrentResults = async (editingElMaybe?: HTMLElement | null) => {
+    const title = commitEditingQuery(editingElMaybe);
+    const results = store.perItem.getSearchResults(searchItem().id);
+    if (!results || results.length == 0) {
+      showTransientMessage("no search results to materialize", TransientMessageType.Error);
+      return;
+    }
+
+    try {
+      await materializeSearchResults(store, searchItem(), title);
+      showTransientMessage("search results materialized", TransientMessageType.Info);
+    } catch (_e) {
+      showTransientMessage("failed to materialize search results", TransientMessageType.Error);
+    }
   };
 
   const queryInputMouseDown = (ev: MouseEvent) => {
@@ -300,6 +330,22 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                 }}
                 >
                 Search
+              </button>
+              <button
+                class="border border-[#999] rounded-xs bg-white text-black cursor-pointer"
+                style={`width: ${SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+                type="button"
+                onMouseDown={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  void materializeCurrentResults();
+                }}
+                onMouseUp={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                }}
+                >
+                Materialize
               </button>
             </div>
           </div>
