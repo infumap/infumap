@@ -308,6 +308,13 @@ export async function navigateUp(store: StoreContextModel) {
   if (navigateUpInProgress) { return; }
   navigateUpInProgress = true;
 
+  const userMaybe = store.user.getUserMaybe();
+  if (userMaybe && currentPageVeid.itemId == userMaybe.searchesPageId && currentPageVeid.linkIdMaybe == null) {
+    await navigateToLocalRoot(store);
+    navigateUpInProgress = false;
+    return;
+  }
+
   const currentPage = asPageItem(itemState.get(currentPageVeid.itemId)!);
   const currentItem = itemState.get(currentPageVeid.itemId)!;
   const isRemote = currentItem.origin != null;
@@ -335,7 +342,6 @@ export async function navigateUp(store: StoreContextModel) {
       navigateUpInProgress = false;
       return;
     }
-    const userMaybe = store.user.getUserMaybe();
     if (userMaybe) {
       if (parentId == userMaybe!.dockPageId) {
         if (isRemote) {
