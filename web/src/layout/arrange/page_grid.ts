@@ -157,9 +157,9 @@ export function arrange_grid_page(
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     cellGeometry.row = row;
     cellGeometry.col = col;
+    const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
+    const cellIndex = row * numCols + col;
     if (isSearchResultsGridPage) {
-      const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
-      const cellIndex = row * numCols + col;
       const hitboxMeta = {
         focusOnly: true,
         allowOutsideBounds: true,
@@ -213,6 +213,15 @@ export function arrange_grid_page(
           w: rightWidthPx,
           h: Math.min(cellLocalTopPx + cellHPx, itemLocalBottomPx) - Math.max(cellLocalTopPx, itemLocalTopPx),
         }, hitboxMeta));
+      }
+
+      for (const hitbox of cellGeometry.hitboxes) {
+        if (!(hitbox.type & HitboxFlags.Click)) { continue; }
+        hitbox.meta = {
+          ...(hitbox.meta ?? {}),
+          searchGridCellIndex: cellIndex,
+          ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
+        };
       }
     }
 

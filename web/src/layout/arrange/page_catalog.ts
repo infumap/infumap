@@ -110,7 +110,7 @@ export function arrange_catalog_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  const childGeometries: Array<{ childItem: Item, actualLinkItemMaybe: LinkItem | null, geometry: ItemGeometry, baseHitboxCount: number }> = [];
+  const childGeometries: Array<{ childItem: Item, actualLinkItemMaybe: LinkItem | null, geometry: ItemGeometry }> = [];
   let idx = 0;
   for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
     const childItem = itemState.get(displayItem_pageWithChildren.computed_children[i])!;
@@ -128,7 +128,6 @@ export function arrange_catalog_page(
     idx += 1;
 
     const childGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
-    const baseHitboxCount = childGeometry.hitboxes.length;
     childGeometry.row = idx - 1;
     childGeometry.col = 0;
     childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
@@ -144,7 +143,6 @@ export function arrange_catalog_page(
       childItem,
       actualLinkItemMaybe,
       geometry: childGeometry,
-      baseHitboxCount,
     });
   }
 
@@ -152,13 +150,11 @@ export function arrange_catalog_page(
   addContiguousStackedRowMarginHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
 
   for (const child of childGeometries) {
-    const addedHitboxCount = child.geometry.hitboxes.length - child.baseHitboxCount;
-    for (let i = 0; i < addedHitboxCount; ++i) {
-      const hitbox = child.geometry.hitboxes[i];
-      if (hitbox.type != HitboxFlags.Click || !hitbox.meta?.focusOnly) { continue; }
-      const targetItemId = child.actualLinkItemMaybe ? LinkFns.getLinkToId(child.actualLinkItemMaybe) : undefined;
+    const targetItemId = child.actualLinkItemMaybe ? LinkFns.getLinkToId(child.actualLinkItemMaybe) : undefined;
+    for (const hitbox of child.geometry.hitboxes) {
+      if (!(hitbox.type & HitboxFlags.Click)) { continue; }
       hitbox.meta = {
-        ...hitbox.meta,
+        ...(hitbox.meta ?? {}),
         catalogRowNumber: child.geometry.row,
         ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
       };
