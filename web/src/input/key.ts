@@ -335,6 +335,11 @@ function handleSearchWorkspaceEnterMaybe(store: StoreContextModel): boolean {
     store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
     workspace.resultsCount,
   );
+  if (selectedRow < 0 && store.history.getFocusPathMaybe() == workspace.searchVePath) {
+    store.overlay.autoFocusSearchInput.set(true);
+    arrangeNow(store, "key-search-enter-edit");
+    return true;
+  }
   if (selectedRow < 0) { return false; }
 
   const resultItemId = workspace.results[selectedRow]?.path[workspace.results[selectedRow].path.length - 1]?.id;
@@ -1271,11 +1276,10 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
       const selectedVeSignal = VesCache.render.getSelected(focusPagePath)();
       const selectedVe = selectedVeSignal?.get() ?? null;
       if (selectedVe) {
-        store.perItem.setSearchSelectedResultIndex(selectedItem.id, -1);
         store.perItem.setSearchFocusedResultIndex(selectedItem.id, -1);
+        store.overlay.autoFocusSearchInput.set(false);
         store.history.setFocus(VeFns.veToPath(selectedVe));
-        store.overlay.autoFocusSearchInput.set(true);
-        arrangeNow(store, "key-list-page-focus-search-input");
+        arrangeNow(store, "key-list-page-focus-search");
       }
       return true;
     }
