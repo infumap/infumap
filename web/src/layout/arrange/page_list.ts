@@ -62,6 +62,7 @@ export function arrange_list_page(
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   const focusVeid = VeFns.veidFromPath(store.history.getFocusPath());
+  const focusPath = store.history.getFocusPath();
   const pages = store.topTitledPages.get();
   let isFocusPage = false;
   let pageIdx = -1;
@@ -182,6 +183,26 @@ export function arrange_list_page(
   const selectedVeid = store.perItem.getSelectedListPageItem(
     VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren)
   );
+
+  if (!focusedChildItemMaybe &&
+    selectedVeid != EMPTY_VEID &&
+    selectedVeid.itemId !== "") {
+    const selectedItem = itemState.get(selectedVeid.itemId);
+    if (selectedItem && isSearch(selectedItem)) {
+      const selectedChildPath = VeFns.addVeidToPath(selectedVeid, pageWithChildrenVePath);
+      let currentPath: VisualElementPath | null = focusPath;
+      while (currentPath) {
+        if (currentPath == selectedChildPath) {
+          focusedChildItemMaybe = selectedItem;
+          break;
+        }
+        currentPath = VeFns.parentPath(currentPath);
+        if (currentPath == "") {
+          break;
+        }
+      }
+    }
+  }
 
   let skippedCount = 0;
   let listChildPaths: Array<VisualElementPath> = [];

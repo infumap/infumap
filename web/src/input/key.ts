@@ -236,12 +236,22 @@ function scrollSearchResultRowIntoView(store: StoreContextModel, workspace: Acti
 function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
+  const focusPath = store.history.getFocusPathMaybe();
 
   const selectedRow = clampSearchResultIndex(
     store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
     workspace.resultsCount,
   );
   const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
+
+  if (ev.code == "ArrowLeft") {
+    if (focusPath != workspace.searchVePath) { return false; }
+    const currentPagePath = store.history.currentPagePath();
+    if (!currentPagePath) { return false; }
+    store.history.setFocus(currentPagePath);
+    arrangeNow(store, "key-search-to-list");
+    return true;
+  }
 
   if (ev.code == "ArrowRight") {
     if (focusedRow < 0) { return false; }
