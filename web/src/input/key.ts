@@ -49,6 +49,7 @@ import { NoteFns, isNote } from "../items/note-item";
 import { PasswordFns, isPassword } from "../items/password-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { getVePropertiesForItem } from "../layout/arrange/util";
+import { isPlaceholder } from "../items/placeholder-item";
 import { isSearch } from "../items/search-item";
 import type { SearchResult } from "../server";
 
@@ -1551,6 +1552,22 @@ function scrollGridOrJustifiedPageVe(store: StoreContextModel, pageVe: VisualEle
 /**
  * Handle up/down navigation between attachments in different table rows.
  */
+function replacePopupOrFocusPlaceholder(store: StoreContextModel, targetPath: string, reason: string): boolean {
+  const targetVe = VesCache.current.readNode(targetPath);
+  if (!targetVe) { return false; }
+
+  if (isPlaceholder(targetVe.displayItem)) {
+    store.history.popPopup();
+    store.history.setFocus(targetPath);
+  } else {
+    const targetVeid = VeFns.veidFromPath(targetPath);
+    store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
+  }
+
+  arrangeNow(store, reason);
+  return true;
+}
+
 function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentPath: string, direction: FindDirection): boolean {
   if (direction != FindDirection.Up && direction != FindDirection.Down) { return false; }
 
@@ -1607,10 +1624,7 @@ function handleTableAttachmentPopupNavigation(store: StoreContextModel, currentP
 
   if (!targetPath) { return false; }
 
-  const targetVeid = VeFns.veidFromPath(targetPath);
-  store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-  arrangeNow(store, "key-table-attachment-popup-nav");
-  return true;
+  return replacePopupOrFocusPlaceholder(store, targetPath, "key-table-attachment-popup-nav");
 }
 
 /**
@@ -1623,8 +1637,5 @@ function handleTableItemPopupHorizontalNavigation(store: StoreContextModel, curr
   const targetPath = getTableHorizontalNavigationTarget(currentPath, direction);
   if (!targetPath) { return false; }
 
-  const targetVeid = VeFns.veidFromPath(targetPath);
-  store.history.replacePopup({ vePath: targetPath, actualVeid: targetVeid });
-  arrangeNow(store, "key-table-popup-horizontal-nav");
-  return true;
+  return replacePopupOrFocusPlaceholder(store, targetPath, "key-table-popup-horizontal-nav");
 }
