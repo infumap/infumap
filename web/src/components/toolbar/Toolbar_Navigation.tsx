@@ -45,7 +45,6 @@ export const Toolbar_Navigation: Component = () => {
   const handleUp = async () => { await navigateUp(store); };
 
   const handleSearchClick = async () => {
-    store.overlay.searchOverlayVisible.set(false);
     await navigateToSearches(store);
   };
 

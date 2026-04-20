@@ -25,7 +25,7 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
-import { navigateToContainingPageOfItem, switchToPage } from "../layout/navigation";
+import { navigateToContainingPageOfItem, navigateToSearches, switchToPage } from "../layout/navigation";
 import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
 
 
@@ -708,7 +708,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   else if (ev.code == "KeyF") {
     if (ev.ctrlKey || ev.metaKey) {
       ev.preventDefault();
-      store.overlay.findOverlayVisible.set(true);
+      if (ev.shiftKey) {
+        void navigateToSearches(store);
+      } else {
+        store.overlay.findOverlayVisible.set(true);
+      }
     }
     return;
   }

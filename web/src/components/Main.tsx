@@ -35,7 +35,6 @@ import { switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
-import { SearchOverlay } from "./overlay/SearchOverlay";
 import { FindOverlay } from "./overlay/FindOverlay";
 import { UploadOverlay } from "./overlay/UploadOverlay";
 import { EmptyTrashOverlay } from "./overlay/EmptyTrashOverlay";
@@ -312,9 +311,6 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.toolbarTransientMessage.get() != null}>
         <Toolbar_TransientMessage />
-      </Show>
-      <Show when={store.overlay.searchOverlayVisible.get()}>
-        <SearchOverlay />
       </Show>
       <Show when={store.overlay.findOverlayVisible.get()}>
         <FindOverlay />

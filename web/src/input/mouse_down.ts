@@ -616,12 +616,6 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     return;
   }
 
-  if (store.overlay.searchOverlayVisible.get()) {
-    store.overlay.searchOverlayVisible.set(false);
-    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
-    return;
-  }
-
   if (store.currentVisiblePassword.get() != null) {
     store.currentVisiblePassword.set(null);
     return;
