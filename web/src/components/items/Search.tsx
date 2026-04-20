@@ -150,8 +150,15 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     await Promise.all(resultIds.map(id => warmResultItemDetails(id)));
   };
 
-  const runSearch = async (selectFirstResultRow: boolean, editingElMaybe?: HTMLElement | null) => {
+  const runSearch = async (
+    selectFirstResultRow: boolean,
+    editingElMaybe?: HTMLElement | null,
+    keepSearchWorkspaceFocus: boolean = false,
+  ) => {
     const text = commitEditingQuery(editingElMaybe);
+    if (keepSearchWorkspaceFocus) {
+      store.history.setFocus(vePath());
+    }
     if (text == "") {
       store.perItem.setSearchResults(searchItem().id, null);
       clearSearchResultSelection();
@@ -193,7 +200,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       case "Enter":
         ev.preventDefault();
         ev.stopPropagation();
-        void runSearch(true, ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null);
+        void runSearch(true, ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null, true);
         return;
       case "Escape":
         ev.preventDefault();

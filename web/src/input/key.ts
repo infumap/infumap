@@ -176,6 +176,30 @@ function clampSearchResultIndex(index: number, numResults: number): number {
   return Math.max(0, Math.min(index, numResults - 1));
 }
 
+function getEffectiveFocusedSearchRow(store: StoreContextModel, workspace: ActiveSearchWorkspace): number {
+  const storedFocusedRow = clampSearchResultIndex(
+    store.perItem.getSearchFocusedResultIndex(workspace.searchItemId),
+    workspace.resultsCount,
+  );
+  if (storedFocusedRow >= 0) {
+    return storedFocusedRow;
+  }
+
+  const focusPath = store.history.getFocusPathMaybe();
+  if (!focusPath) {
+    return -1;
+  }
+
+  for (let i = 0; i < workspace.resultChildVes.length; i++) {
+    const childVe = workspace.resultChildVes[i];
+    if (pathIsSameOrDescendant(focusPath, VeFns.veToPath(childVe))) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 function scrollSearchResultRowIntoView(store: StoreContextModel, workspace: ActiveSearchWorkspace, rowIndex: number): void {
   const resultsPageVe = workspace.resultsPageVe;
   if (!resultsPageVe || !resultsPageVe.viewportBoundsPx || !resultsPageVe.childAreaBoundsPx || !resultsPageVe.cellSizePx || rowIndex < 0) {
@@ -217,21 +241,7 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
     store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
     workspace.resultsCount,
   );
-  const focusedRow = clampSearchResultIndex(
-    store.perItem.getSearchFocusedResultIndex(workspace.searchItemId),
-    workspace.resultsCount,
-  );
-
-  if (ev.code == "ArrowLeft") {
-    if (selectedRow < 0 || focusedRow >= 0) { return false; }
-    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, selectedRow);
-    const targetVe = workspace.resultChildVes[selectedRow];
-    if (targetVe) {
-      store.history.setFocus(VeFns.veToPath(targetVe));
-    }
-    arrangeNow(store, "key-search-row-to-item");
-    return true;
-  }
+  const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
 
   if (ev.code == "ArrowRight") {
     if (focusedRow < 0) { return false; }
@@ -267,14 +277,39 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   return true;
 }
 
+function handleSearchWorkspaceTabMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  const workspace = getActiveSearchWorkspace(store);
+  if (!workspace) { return false; }
+
+  const selectedRow = clampSearchResultIndex(
+    store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
+    workspace.resultsCount,
+  );
+  const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
+
+  if (!ev.shiftKey) {
+    if (selectedRow < 0 || focusedRow >= 0) { return false; }
+    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, selectedRow);
+    const targetVe = workspace.resultChildVes[selectedRow];
+    if (targetVe) {
+      store.history.setFocus(VeFns.veToPath(targetVe));
+    }
+    arrangeNow(store, "key-search-row-to-item");
+    return true;
+  }
+
+  if (focusedRow < 0) { return false; }
+  store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+  store.history.setFocus(workspace.searchVePath);
+  arrangeNow(store, "key-search-item-to-row");
+  return true;
+}
+
 function handleSearchWorkspaceEnterMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
 
-  const focusedRow = clampSearchResultIndex(
-    store.perItem.getSearchFocusedResultIndex(workspace.searchItemId),
-    workspace.resultsCount,
-  );
+  const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
   if (focusedRow >= 0) {
     const focusedVe = workspace.resultChildVes[focusedRow];
     if (!focusedVe) { return true; }
@@ -296,6 +331,19 @@ function handleSearchWorkspaceEnterMaybe(store: StoreContextModel): boolean {
   if (resultItemId) {
     void navigateToContainingPageOfItem(store, resultItemId);
   }
+  return true;
+}
+
+function handleSearchWorkspaceEscapeMaybe(store: StoreContextModel): boolean {
+  const workspace = getActiveSearchWorkspace(store);
+  if (!workspace) { return false; }
+
+  const focusedRow = getEffectiveFocusedSearchRow(store, workspace);
+  if (focusedRow < 0) { return false; }
+
+  store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+  store.history.setFocus(workspace.searchVePath);
+  arrangeNow(store, "key-search-item-to-row");
   return true;
 }
 
@@ -353,6 +401,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     return;
   }
 
+  if (ev.code == "Tab" && handleSearchWorkspaceTabMaybe(store, ev)) {
+    ev.preventDefault();
+    return;
+  }
+
   if (isArrowKey(ev.code) && handleSearchWorkspaceArrowMaybe(store, ev)) {
     ev.preventDefault();
     return;
@@ -388,6 +441,9 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     if (store.overlay.textEditInfo()) {
       store.overlay.setTextEditInfo(store.history, null, true);
       arrangeNow(store, "key-escape-exit-edit");
+      return;
+    }
+    if (handleSearchWorkspaceEscapeMaybe(store)) {
       return;
     }
     if (store.history.currentPopupSpec()) {
@@ -1198,13 +1254,11 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
       const selectedVeSignal = VesCache.render.getSelected(focusPagePath)();
       const selectedVe = selectedVeSignal?.get() ?? null;
       if (selectedVe) {
-        const results = store.perItem.getSearchResults(selectedItem.id) ?? [];
-        if (results.length > 0 && store.perItem.getSearchSelectedResultIndex(selectedItem.id) < 0) {
-          store.perItem.setSearchSelectedResultIndex(selectedItem.id, 0);
-          store.perItem.setSearchFocusedResultIndex(selectedItem.id, -1);
-        }
+        store.perItem.setSearchSelectedResultIndex(selectedItem.id, -1);
+        store.perItem.setSearchFocusedResultIndex(selectedItem.id, -1);
         store.history.setFocus(VeFns.veToPath(selectedVe));
-        arrangeNow(store, "key-list-page-focus-search-results");
+        store.overlay.autoFocusSearchInput.set(true);
+        arrangeNow(store, "key-list-page-focus-search-input");
       }
       return true;
     }
