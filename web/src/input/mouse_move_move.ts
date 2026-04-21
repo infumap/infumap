@@ -47,6 +47,7 @@ import { isDataItem } from "../items/base/data-item";
 import createJustifiedLayout from "justified-layout";
 import { createJustifyOptions } from "../layout/arrange/page_justified";
 import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
+import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets } from "./move_group";
 
 
 
@@ -599,28 +600,18 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   const treeActiveItem = asPositionalItem(VeFns.treeItem(activeElement));
   moveToVe = resolveMoveTargetPageVe(moveToVe);
 
-  const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
-
   const moveToPage = asPageItem(moveToVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, moveToVe);
-
-  const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
-
-  const mousePointBl = {
-    x: Math.round((pagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
-    y: Math.round((pagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
-  };
-
-  const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(treeActiveItem);
-  const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
-  const clickOffsetInActiveItemBl = relationshipToParent == RelationshipToParent.Child
-    ? {
-      x: Math.round(activeItemDimensionsBl.w * clickOffsetProp.x * 2.0) / 2.0,
-      y: Math.round(activeItemDimensionsBl.h * clickOffsetProp.y * 2.0) / 2.0
-    }
-    : { x: 0, y: 0 };
-  const startPosBl = vectorSubtract(mousePointBl, clickOffsetInActiveItemBl);
-  const newItemPosGr = { x: startPosBl.x * GRID_SIZE, y: startPosBl.y * GRID_SIZE };
+  const clickOffsetProp = MouseActionState.getClickOffsetProp();
+  const { activePosGr: newItemPosGr, startPosBl, moveToPageInnerSizeBl } = calculateMoveToPagePositionGr(
+    store,
+    moveToVe,
+    desktopPx,
+    treeActiveItem,
+    relationshipToParent,
+    clickOffsetProp,
+  );
+  const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
+  const sourceParentId = treeActiveItem.parentId;
   if (moveToVe.parentPath == null) {
     MouseActionState.setStartPx(desktopPx);
   } else {
@@ -673,8 +664,20 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
       MouseActionState.setStartAttachmentsItem(parent);
     }
 
-    treeActiveItem.spatialPositionGr = newItemPosGr;
-    itemState.moveToNewParent(treeActiveItem, moveToPage.id, RelationshipToParent.Child);
+    const movedGroupIds = relationshipToParent == RelationshipToParent.Child
+      ? moveGroupToChildParentPreservingOffsets(
+        MouseActionState.getGroupMoveItems(),
+        VeFns.veidFromVe(activeElement),
+        sourceParentId,
+        moveToPage.id,
+        newItemPosGr,
+      )
+      : [];
+
+    if (movedGroupIds.length == 0) {
+      treeActiveItem.spatialPositionGr = newItemPosGr;
+      itemState.moveToNewParent(treeActiveItem, moveToPage.id, RelationshipToParent.Child);
+    }
 
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath));
   }

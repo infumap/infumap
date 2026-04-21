@@ -48,6 +48,7 @@ import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
+import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets } from "./move_group";
 
 
 function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, shouldSwitchRoot: boolean): void {
@@ -600,6 +601,68 @@ function persistMovedItems(store: StoreContextModel, defaultIds: string[]) {
   }
 }
 
+function moveSelectedGroupToOpaquePageMaybe(
+  store: StoreContextModel,
+  activeItem: PositionalItem,
+  overContainerVe: VisualElement,
+): boolean {
+  if (!isPage(overContainerVe.displayItem)) { return false; }
+
+  const activeVe = MouseActionState.getActiveVisualElement();
+  if (!activeVe) { return false; }
+
+  const sourceParentId = activeItem.parentId;
+  const { activePosGr } = calculateMoveToPagePositionGr(
+    store,
+    overContainerVe,
+    CursorEventState.getLatestDesktopPx(store),
+    activeItem,
+    RelationshipToParent.Child,
+    MouseActionState.getClickOffsetProp(),
+  );
+
+  return moveGroupToChildParentPreservingOffsets(
+    MouseActionState.getGroupMoveItems(),
+    VeFns.veidFromVe(activeVe),
+    sourceParentId,
+    overContainerVe.displayItem.id,
+    activePosGr,
+  ).length > 0;
+}
+
+function moveSelectedGroupToTableMaybe(
+  store: StoreContextModel,
+  activeItem: PositionalItem,
+  tableVe: VisualElement,
+): boolean {
+  const activeVe = MouseActionState.getActiveVisualElement();
+  if (!activeVe) { return false; }
+
+  const groupEntries = getGroupMoveEntriesInParent(MouseActionState.getGroupMoveItems(), activeItem.parentId);
+  if (groupEntries.length == 0) { return false; }
+
+  const activeVeid = VeFns.veidFromVe(activeVe);
+  const sortedEntries = groupEntries.slice().sort((a, b) => {
+    const dy = a.entry.startPosGr.y - b.entry.startPosGr.y;
+    if (dy != 0) { return dy; }
+    return a.entry.startPosGr.x - b.entry.startPosGr.x;
+  });
+  const activeSortedIndex = sortedEntries.findIndex(({ entry }) =>
+    entry.veid.itemId == activeVeid.itemId && entry.veid.linkIdMaybe == activeVeid.linkIdMaybe);
+  if (activeSortedIndex < 0) { return false; }
+
+  const tableId = tableVe.displayItem.id;
+  const anchorIndex = Math.max(0, store.perVe.getMoveOverRowNumber(VeFns.veToPath(tableVe)));
+  const startIndex = Math.max(0, anchorIndex - activeSortedIndex);
+
+  for (let i = 0; i < sortedEntries.length; ++i) {
+    const { item } = sortedEntries[i];
+    const ordering = itemState.newOrderingAtChildrenPosition(tableId, startIndex + i, item.id);
+    itemState.moveToNewParent(item, tableId, RelationshipToParent.Child, ordering);
+  }
+  return true;
+}
+
 function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   if (!isPage(overContainerVe.displayItem)) {
     panic("mouseUpHandler_moving_toOrderedPage: over container is not a page.");
@@ -815,9 +878,14 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
     panic("mouseUpHandler_moving_toOpaquePage: Attempt was made to move an item into itself.");
   }
 
-  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
-  serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+  const movedGroup = moveSelectedGroupToOpaquePageMaybe(store, activeItem, overContainerVe);
+  if (movedGroup) {
+    persistMovedItems(store, [activeItem.id]);
+  } else {
+    activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+    itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
+    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+  }
 
   finalizeMouseUp(store);
   arrangeNow(store, "mouse-up-move-to-opaque-page");
@@ -881,9 +949,14 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
     return;
   }
 
-  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(tablePath), activeItem.id);
-  itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
-  serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+  const movedGroup = moveSelectedGroupToTableMaybe(store, activeItem, overContainerVe);
+  if (movedGroup) {
+    persistMovedItems(store, [activeItem.id]);
+  } else {
+    const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(tablePath), activeItem.id);
+    itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
+    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+  }
 
   finalizeMouseUp(store);
   arrangeNow(store, "mouse-up-move-to-table");
