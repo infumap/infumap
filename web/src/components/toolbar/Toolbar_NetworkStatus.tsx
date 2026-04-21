@@ -97,7 +97,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     <Show when={store.overlay.networkOverlayVisible.get()}>
       <div class={`absolute rounded border-slate-500 border bg-white shadow-lg`}
         style={`top: 45px; right: 5px; min-width: 300px; max-width: 400px; ` +
-          `padding: 12px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+          `padding: 12px 12px 9px 12px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
         onMouseDown={(e: MouseEvent) => { e.stopPropagation(); }}
         onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>
         <div class="flex justify-between items-start mb-2">
@@ -133,17 +133,17 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
         <Show when={hasActivityRequests()}>
           <div class="mb-3">
             <div class="text-xs text-slate-600 mb-1">{activityHeading()}</div>
-            <div class="min-h-[73px] max-h-[73px] overflow-y-auto pr-1">
+            <div class="min-h-[132px] max-h-[132px] overflow-y-auto pr-1 flex flex-col gap-1">
               <For each={inProgressRequests()}>
                 {(request) => (
-                  <div class="text-sm px-2 py-1 bg-slate-100 rounded mb-1 border border-slate-200">
+                  <div class="text-sm px-2 py-1 bg-slate-100 rounded border border-slate-200">
                     {formatRequest(request)}
                   </div>
                 )}
               </For>
               <For each={recentRequests()}>
                 {(request) => (
-                  <div class="text-sm px-2 py-1 bg-slate-50 text-slate-500 rounded mb-1 border border-slate-200">
+                  <div class="text-sm px-2 py-1 bg-slate-50 text-slate-500 rounded border border-slate-200">
                     <div class="flex justify-between items-center gap-3">
                       <span>{formatRequest(request)}</span>
                       <span class="text-[10px] uppercase tracking-[0.08em] text-slate-400 shrink-0">Recent</span>
