@@ -133,23 +133,25 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
         <Show when={hasActivityRequests()}>
           <div class="mb-3">
             <div class="text-xs text-slate-600 mb-1">{activityHeading()}</div>
-            <For each={inProgressRequests()}>
-              {(request) => (
-                <div class="text-sm px-2 py-1 bg-slate-100 rounded mb-1 border border-slate-200">
-                  {formatRequest(request)}
-                </div>
-              )}
-            </For>
-            <For each={recentRequests()}>
-              {(request) => (
-                <div class="text-sm px-2 py-1 bg-slate-50 text-slate-500 rounded mb-1 border border-slate-200">
-                  <div class="flex justify-between items-center gap-3">
-                    <span>{formatRequest(request)}</span>
-                    <span class="text-[10px] uppercase tracking-[0.08em] text-slate-400 shrink-0">Recent</span>
+            <div class="min-h-[73px] max-h-[73px] overflow-y-auto pr-1">
+              <For each={inProgressRequests()}>
+                {(request) => (
+                  <div class="text-sm px-2 py-1 bg-slate-100 rounded mb-1 border border-slate-200">
+                    {formatRequest(request)}
                   </div>
-                </div>
-              )}
-            </For>
+                )}
+              </For>
+              <For each={recentRequests()}>
+                {(request) => (
+                  <div class="text-sm px-2 py-1 bg-slate-50 text-slate-500 rounded mb-1 border border-slate-200">
+                    <div class="flex justify-between items-center gap-3">
+                      <span>{formatRequest(request)}</span>
+                      <span class="text-[10px] uppercase tracking-[0.08em] text-slate-400 shrink-0">Recent</span>
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
           </div>
         </Show>
 
