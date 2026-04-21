@@ -61,6 +61,7 @@ export interface HistoryStoreContextModel {
   popAllPopups: () => void,
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVeid: () => Veid | null,
+  hasPopupParent: () => boolean,
 
   setFocus: (focusPath: VisualElementPath) => void,
   getFocusItem: () => Item,
@@ -291,6 +292,11 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     return currentSpec.actualVeid;
   };
 
+  const hasPopupParent = (): boolean => {
+    if (breadcrumbs().length == 0) { return false; }
+    return breadcrumbs()[breadcrumbs().length - 1].popupBreadcrumbs.length > 1;
+  };
+
 
   const setFocus = (focusPath: VisualElementPath): void => {
     if (breadcrumbs().length < 1) { panic("cannot set focus item when there is no current page."); }
@@ -380,6 +386,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     popAllPopups,
     currentPopupSpec,
     currentPopupSpecVeid,
+    hasPopupParent,
 
     setFocus,
     getFocusItem,

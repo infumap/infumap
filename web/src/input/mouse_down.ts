@@ -801,7 +801,10 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
 
-  const changedPages = await navigateBack(store, store.history.currentPopupSpec() != null);
+  const changedPages = await navigateBack(
+    store,
+    store.history.currentPopupSpec() != null && !store.history.hasPopupParent(),
+  );
   if (!changedPages) {
     await navigateUp(store);
   }
