@@ -60,6 +60,7 @@ export interface MouseActionStateType {
   activeCompositeElementMaybe: VisualElementPath | null,
 
   activeRoot: VisualElementPath,
+  selectionRoot: VisualElementPath,
 
   moveOver_containerElement: VisualElementPath | null,
   moveOver_attachHitboxElement: VisualElementPath | null,
@@ -103,7 +104,7 @@ type MouseActionStateInit = Omit<
 
 type MouseActionStateFromHitInit = Omit<
   MouseActionStateInit,
-  "activeRoot" | "activeCompositeElementMaybe" | "hitEmbeddedInteractive" | "startActiveElementParent"
+  "activeRoot" | "selectionRoot" | "activeCompositeElementMaybe" | "hitEmbeddedInteractive" | "startActiveElementParent"
 > & {
   hitInfo: HitInfo,
   hitVe: VisualElement,
@@ -192,6 +193,10 @@ function deriveActiveRootPath(rootVes: VisualElementSignal): VisualElementPath {
     return VeFns.veToPath(VesCache.current.readNode(rootVe.parentPath!)!);
   }
   return VeFns.veToPath(rootVe);
+}
+
+function deriveSelectionRootPath(rootVes: VisualElementSignal): VisualElementPath {
+  return VeFns.veToPath(rootVes.get());
 }
 
 function deriveActiveCompositeElementPath(hitInfo: HitInfo): VisualElementPath | null {
@@ -321,6 +326,7 @@ export let MouseActionState = {
       ...init,
       startActiveElementParent: init.hitVe.parentPath!,
       activeRoot: deriveActiveRootPath(init.hitInfo.rootVes),
+      selectionRoot: deriveSelectionRootPath(init.hitInfo.rootVes),
       activeCompositeElementMaybe: deriveActiveCompositeElementPath(init.hitInfo),
       hitEmbeddedInteractive: !!(init.hitVe.flags & VisualElementFlags.EmbeddedInteractiveRoot),
     });
@@ -383,6 +389,14 @@ export let MouseActionState = {
 
   readActiveRoot: (): VisualElement | null => {
     return readCurrentVisualElement(mouseActionState?.activeRoot ?? null);
+  },
+
+  getSelectionRootPath: (): VisualElementPath | null => {
+    return mouseActionState?.selectionRoot ?? mouseActionState?.activeRoot ?? null;
+  },
+
+  readSelectionRoot: (): VisualElement | null => {
+    return readCurrentVisualElement(mouseActionState?.selectionRoot ?? mouseActionState?.activeRoot ?? null);
   },
 
   getActiveCompositeElementPath: (): VisualElementPath | null => {

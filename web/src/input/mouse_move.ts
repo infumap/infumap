@@ -604,8 +604,8 @@ function mouseAction_selecting(store: StoreContextModel) {
     return;
   }
 
-  const activeRootVe = MouseActionState.readActiveRoot()!;
-  const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, activeRootVe);
+  const selectionRootVe = MouseActionState.readSelectionRoot()!;
+  const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, selectionRootVe);
   const selectionRect = {
     x: Math.max(rect.x, activeRootBounds.x),
     y: Math.max(rect.y, activeRootBounds.y),
@@ -619,7 +619,7 @@ function mouseAction_selecting(store: StoreContextModel) {
 
   const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
   const selectedSet = new Set<string>();
-  const rootPath = MouseActionState.getActiveRootPath()!;
+  const rootPath = MouseActionState.getSelectionRootPath()!;
   const stack: string[] = [rootPath];
   while (stack.length > 0) {
     const path = stack.pop()!;
@@ -658,8 +658,6 @@ function mouseAction_selecting(store: StoreContextModel) {
     }
     for (const child of VesCache.render.getChildren(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
     for (const att of VesCache.render.getAttachments(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
-    const popupVes = VesCache.render.getPopup(VeFns.veToPath(ve))();
-    if (popupVes) { stack.push(VeFns.veToPath(popupVes.get())); }
   }
   store.overlay.selectedVeids.set(selected);
 
