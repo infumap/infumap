@@ -33,7 +33,7 @@ import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
 import { requestArrange } from '../../layout/arrange';
-import { GRID_SIZE, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, Z_INDEX_GLOBAL_TOOLBAR_TRIGGER } from '../../constants';
+import { GRID_SIZE, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY, Z_INDEX_GLOBAL_TOOLBAR_TRIGGER } from '../../constants';
 import { isNote } from '../../items/note-item';
 import { isTable } from '../../items/table-item';
 import { isRating } from '../../items/rating-item';
@@ -52,6 +52,7 @@ import { isSearch } from '../../items/search-item';
 import { Toolbar_Search } from './item/Toolbar_Search';
 import { VesCache } from '../../layout/ves-cache';
 import { logout } from '../Main';
+import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chrome';
 
 
 export const Toolbar: Component = () => {
@@ -194,6 +195,8 @@ export const Toolbar: Component = () => {
 
   const rightMostTitleSpec = () =>
     titleSpecs()[titleSpecs().length - 1];
+
+  const focusedSearchChrome = () => getFocusedSearchWorkspaceChromeSpec(store);
 
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
@@ -357,6 +360,15 @@ export const Toolbar: Component = () => {
     <>
       {dockToolbarAreaMaybe()}
       {mainToolbarArea()}
+      <Show when={focusedSearchChrome()}>
+        <div class="fixed pointer-events-none"
+          style={`left: ${Math.max(0, focusedSearchChrome()!.desktopBoundsPx.x - focusedSearchChrome()!.borderWidthPx)}px; ` +
+            `right: 0px; ` +
+            `top: ${Math.max(0, store.topToolbarHeightPx() + focusedSearchChrome()!.desktopBoundsPx.y - focusedSearchChrome()!.borderWidthPx)}px; ` +
+            `height: ${focusedSearchChrome()!.borderWidthPx}px; ` +
+            `background-color: ${focusedSearchChrome()!.borderColor}; ` +
+            `z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY};`} />
+      </Show>
     </>;
 
   const showToolbarButton = () =>

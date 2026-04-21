@@ -40,6 +40,7 @@ import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
 import { DocumentPageTitle } from "./DocumentPageTitle";
+import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -195,8 +196,20 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const renderListPage = () => {
     const focusedChild = () => VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))();
-    const focusedChildBorderWidthPx = () => focusedChild() == null ? 1 : 2;
+    const focusedSearchChrome = () => {
+      const spec = getFocusedSearchWorkspaceChromeSpec(store);
+      if (!spec || spec.currentPagePath != VeFns.veToPath(props.visualElement)) {
+        return null;
+      }
+      return spec;
+    };
+    const focusedChildBorderWidthPx = () =>
+      focusedSearchChrome()?.borderWidthPx ?? (focusedChild() == null ? 1 : 2);
     const focusedChildBorderColor = () => {
+      const searchChrome = focusedSearchChrome();
+      if (searchChrome) {
+        return `border-right-color: ${searchChrome.borderColor};`;
+      }
       const childItem = focusedChild();
       if (childItem == null || !isPage(childItem)) {
         return "";

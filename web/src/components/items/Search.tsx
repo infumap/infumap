@@ -337,11 +337,11 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     if (!store.overlay.autoFocusSearchInput.get()) {
       return;
     }
-    if (forceNonEditing()) {
-      return;
-    }
     if (pendingCaretIdx() != null) {
       return;
+    }
+    if (forceNonEditing()) {
+      setForceNonEditing(false);
     }
     requestEditMode(queryText().length);
   });

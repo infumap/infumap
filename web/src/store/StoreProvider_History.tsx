@@ -347,11 +347,17 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const getFocusPathMaybe = (): VisualElementPath | null => {
     const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
+    if (!breadcrumb) {
+      return null;
+    }
     return breadcrumb.focusPath;
   };
 
   const getFocusIsCurrentPage = (): boolean => {
     const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
+    if (!breadcrumb) {
+      return true;
+    }
     if (breadcrumb.focusPath != null) {
       return currentPagePath() == getFocusPath();
     }
