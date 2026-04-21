@@ -18,7 +18,7 @@
 
 import { Component, Match, Show, Switch, createSignal, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
@@ -368,21 +368,32 @@ export const Toolbar_Popup: Component = () => {
     requestArrange(store, "toolbar-popup-page-aspect-auto");
   }
 
-  const finalizeAAChange = () => {
-    itemState.sortChildren(pageItem().id);
+  const finalizeAAChange = (targetPage: PageItem) => {
+    itemState.sortChildren(targetPage.id);
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     arrangeNow(store, "toolbar-popup-arrange-algorithm");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(targetPage, store.general.networkStatus);
   }
 
-  const aaSpatialClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.SpatialStretch; finalizeAAChange(); }
-  const aaGridClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Grid; finalizeAAChange(); }
-  const aaCatalogClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Catalog; finalizeAAChange(); }
-  const aaJustifiedClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Justified; finalizeAAChange(); }
-  const aaListClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.List; finalizeAAChange(); }
-  const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
-  const aaCalendarClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Calendar; finalizeAAChange(); }
+  const handlePageArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {
+    const focusItem = store.history.getFocusItem();
+    if (!isPage(focusItem)) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    const targetPage = asPageItem(focusItem);
+    targetPage.arrangeAlgorithm = arrangeAlgorithm;
+    finalizeAAChange(targetPage);
+  };
+
+  const aaSpatialClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.SpatialStretch); }
+  const aaGridClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Grid); }
+  const aaCatalogClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Catalog); }
+  const aaJustifiedClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Justified); }
+  const aaListClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.List); }
+  const aaDocumentClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Document); }
+  const aaCalendarClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Calendar); }
   const handleSearchArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {
     const focusItem = store.history.getFocusItem();
     if (!isSearch(focusItem)) { return; }
