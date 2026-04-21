@@ -61,10 +61,13 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     if (inProgressRequests().length > 0 && recentRequests().length > 0) {
       return `In Progress (${inProgressRequests().length} active, ${recentRequests().length} recent):`;
     }
+    if (recentRequests().length > 0) {
+      return `In Progress (${recentRequests().length} recent):`;
+    }
     if (inProgressRequests().length > 0) {
       return `In Progress (${inProgressRequests().length}):`;
     }
-    return `Recent Activity (${recentRequests().length}):`;
+    return "In Progress:";
   };
 
   const formatRequest = (req: { description: string, itemId?: string, host?: string | null }) => {
