@@ -95,7 +95,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       editingEl.contentEditable = "false";
     }
     blurEditingDomMaybe(editingEl instanceof HTMLElement ? editingEl : null);
-    store.overlay.setTextEditInfo(store.history, null);
+    store.overlay.setTextEditInfo(store.history, null, true);
     arrangeNow(store, "search-exit-edit");
   };
   const readQueryTextFromDom = (elMaybe?: HTMLElement | null) => {
