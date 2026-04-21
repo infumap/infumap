@@ -294,12 +294,25 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
   const focusPath = store.history.getFocusPathMaybe();
+  const clearSearchWorkspaceSelection = () => {
+    store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, -1);
+    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+    store.history.setFocus(workspace.searchVePath);
+    arrangeNow(store, "key-search-clear-selection");
+  };
 
   const selectedRow = clampSearchResultIndex(
     store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
     workspace.resultsCount,
   );
   const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
+  const selectSearchWorkspaceResult = (resultIndex: number) => {
+    store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, resultIndex);
+    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+    store.history.setFocus(workspace.searchVePath);
+    scrollSearchResultIndexIntoView(store, workspace, resultIndex);
+    arrangeNow(store, "key-search-select-result");
+  };
 
   if (searchWorkspaceUsesGridLayout(workspace)) {
     const baseIndex = focusedRow >= 0 ? focusedRow : selectedRow;
@@ -319,10 +332,19 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
     if (ev.code != "ArrowLeft" && ev.code != "ArrowRight" && ev.code != "ArrowUp" && ev.code != "ArrowDown") {
       return false;
     }
-    if (baseIndex < 0) { return false; }
+    if (baseIndex < 0) {
+      if (ev.code == "ArrowDown" && focusPath == workspace.searchVePath && workspace.resultsCount > 0) {
+        selectSearchWorkspaceResult(0);
+        return true;
+      }
+      return false;
+    }
 
     const nextIndex = nextSearchGridResultIndex(workspace, baseIndex, ev.code);
     if (nextIndex == null) {
+      if (ev.code == "ArrowUp" && baseIndex == 0) {
+        clearSearchWorkspaceSelection();
+      }
       return true;
     }
 
@@ -361,10 +383,19 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   }
 
   const baseRow = focusedRow >= 0 ? focusedRow : selectedRow;
-  if (baseRow < 0) { return false; }
+  if (baseRow < 0) {
+    if (ev.code == "ArrowDown" && focusPath == workspace.searchVePath && workspace.resultsCount > 0) {
+      selectSearchWorkspaceResult(0);
+      return true;
+    }
+    return false;
+  }
 
   const nextRowCandidate = baseRow + (ev.code == "ArrowUp" ? -1 : 1);
   if (nextRowCandidate < 0 || nextRowCandidate >= workspace.resultsCount) {
+    if (ev.code == "ArrowUp" && baseRow == 0) {
+      clearSearchWorkspaceSelection();
+    }
     return true;
   }
   const nextRow = nextRowCandidate;
