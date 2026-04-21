@@ -123,7 +123,7 @@ export const arrangeComposite = (
     });
   }
 
-  addContiguousStackedGapHitboxes(compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w);
+  addContiguousStackedGapHitboxes(compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w, false);
 
   for (const child of compositeChildArrangeData) {
     const compositeChildPath = arrangeCompositeChildItemPath(
