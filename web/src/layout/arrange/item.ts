@@ -94,6 +94,12 @@ export const arrangeItem = (
     const activeElementPath = MouseActionState.getActiveElementPath()!;
     if (activeElementPath == VeFns.addVeidToPath(itemVeid, parentPath)) {
       isMoving = true;
+    } else {
+      const activeParentPath = VeFns.parentPath(activeElementPath);
+      const group = MouseActionState.getGroupMoveItems();
+      if (group && activeParentPath == parentPath) {
+        isMoving = group.some(g => g.veid.itemId == itemVeid.itemId && g.veid.linkIdMaybe == itemVeid.linkIdMaybe);
+      }
     }
   }
 
