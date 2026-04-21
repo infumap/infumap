@@ -75,7 +75,14 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   const [erroredNetworkRequests, setErroredNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
 
   const addErroredNetworkRequest = (request: NetworkRequestInfo) => {
-    setErroredNetworkRequests([...erroredNetworkRequests(), request]);
+    setErroredNetworkRequests((current) => {
+      const deduped = current.filter(existing =>
+        existing.command !== request.command ||
+        existing.itemId !== request.itemId ||
+        existing.description !== request.description
+      );
+      return [...deduped, request];
+    });
   };
 
   const clearErroredNetworkRequests = () => {

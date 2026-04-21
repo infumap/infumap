@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
-import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS } from "../../store/StoreProvider_General";
+import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK } from "../../store/StoreProvider_General";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 
 
@@ -79,6 +79,8 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
 
   const handleClearErrors = () => {
     store.general.clearErroredNetworkRequests();
+    const hasPendingRequests = currentRequest() != null || queuedRequests().length > 0;
+    store.general.networkStatus.set(hasPendingRequests ? NETWORK_STATUS_IN_PROGRESS : NETWORK_STATUS_OK);
   };
 
   const handleClose = () => {
