@@ -448,12 +448,17 @@ function handleSearchWorkspaceEscapeMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
 
+  const selectedRow = clampSearchResultIndex(
+    store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
+    workspace.resultsCount,
+  );
   const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
-  if (focusedRow < 0) { return false; }
+  if (focusedRow < 0 && selectedRow < 0) { return false; }
 
+  store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, -1);
   store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
   store.history.setFocus(workspace.searchVePath);
-  arrangeNow(store, "key-search-item-to-row");
+  arrangeNow(store, "key-search-clear-selection");
   return true;
 }
 
