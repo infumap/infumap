@@ -24,17 +24,21 @@ import { useStore } from "../../store/StoreProvider";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
+import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../../util/caret";
 import { ItemType } from "../../items/base/item";
 import { server } from "../../server";
 import { VisualElement_Desktop } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../layout/load";
 import { itemState } from "../../store/ItemState";
 import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asLinkItem, isLink, LinkFns } from "../../items/link-item";
 import {
+  SearchFns,
   asSearchItem,
   SEARCH_WORKSPACE_BUTTON_WIDTH_PX,
   SEARCH_WORKSPACE_CONTROLS_GAP_PX,
@@ -359,6 +363,28 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     onCleanup(() => cancelAnimationFrame(raf));
   });
 
+  const desktopTextStyle = () => getTextStyleForNote(0);
+  const desktopSizeBl = () => SearchFns.calcSpatialDimensionsBl(searchItem());
+  const desktopNaturalWidthPx = () => Math.max(desktopSizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2, 0);
+  const desktopNaturalHeightPx = () => Math.max(desktopSizeBl().h * LINE_HEIGHT_PX, 1);
+  const desktopBlockSizePx = () => ({
+    w: boundsPx().w / Math.max(desktopSizeBl().w, 1),
+    h: boundsPx().h / Math.max(desktopSizeBl().h, 1),
+  });
+  const desktopTextBlockScale = () =>
+    desktopNaturalWidthPx() <= 0 ? 1 : Math.max((boundsPx().w - NOTE_PADDING_PX * 2) / desktopNaturalWidthPx(), 0);
+  const desktopLineHeightScale = () => {
+    const textScale = desktopTextBlockScale();
+    if (textScale <= 0) {
+      return 1;
+    }
+    const heightScale = (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / desktopNaturalHeightPx();
+    return heightScale / textScale;
+  };
+  const desktopIconScale = () => Math.max((desktopBlockSizePx().h / LINE_HEIGHT_PX) * 0.94, 0.01);
+  const desktopIconTopPx = () => -Math.max(desktopBlockSizePx().h * 0.03, 0.5);
+  const desktopTextIndentPx = () => desktopPopupIconTextIndentPx(desktopSizeBl().w);
+
   const renderSearchWorkspace = () => {
     const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsPx().w);
     const inputWidthPx = calcSearchWorkspaceInputWidthPx(boundsPx().w);
@@ -472,7 +498,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   }
 
   return (
-    <div class="absolute rounded-xs border border-slate-300 bg-white text-slate-500 overflow-hidden"
+    <div class="absolute rounded-xs border border-[#999] bg-white text-black overflow-hidden"
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
         `pointer-events: none; ${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
@@ -480,11 +506,26 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
           style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
       </Show>
-      <div class="absolute flex items-center gap-2 px-3"
-        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        <i class="fa fa-search text-slate-400" />
-        <span class="truncate italic">[search]</span>
+      <div class="absolute text-center pointer-events-none"
+        style={`left: 0px; top: ${desktopIconTopPx()}px; ` +
+          `width: ${desktopBlockSizePx().w / desktopIconScale()}px; height: ${desktopBlockSizePx().h / desktopIconScale()}px; ` +
+          `transform: scale(${desktopIconScale()}); transform-origin: top left;`}>
+        <i class="fas fa-search" />
       </div>
+      <span
+        class={`absolute block pointer-events-none ${desktopTextStyle().alignClass}`}
+        style={`left: ${NOTE_PADDING_PX * desktopTextBlockScale()}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * desktopTextBlockScale()}px; ` +
+          `width: ${desktopNaturalWidthPx()}px; ` +
+          `line-height: ${LINE_HEIGHT_PX * desktopLineHeightScale() * desktopTextStyle().lineHeightMultiplier}px; ` +
+          `transform: scale(${desktopTextBlockScale()}); transform-origin: top left; ` +
+          `font-size: ${desktopTextStyle().fontSize}px; ` +
+          `overflow-wrap: break-word; white-space: pre-wrap; text-indent: ${desktopTextIndentPx()}px; ` +
+          `${desktopTextStyle().isBold ? "font-weight: bold; " : ""}` +
+          `outline: 0px solid transparent; ` +
+          `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; text-overflow: ellipsis;`}>
+        Search
+      </span>
+      <InfuResizeTriangle />
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
         <div class="absolute pointer-events-none rounded-xs"
           style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
