@@ -17,6 +17,7 @@
 */
 
 import { Component, For, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { Portal } from "solid-js/web";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
@@ -44,9 +45,9 @@ import {
   SEARCH_WORKSPACE_TOP_INSET_PX,
   calcSearchWorkspaceControlsWidthPx,
   calcSearchWorkspaceInputWidthPx,
-  calcSearchWorkspaceMoreButtonTopPx,
   calcSearchWorkspaceResultsBoundsPx,
   calcSearchWorkspaceResultsTopPx,
+  searchResultsFooterHostId,
 } from "../../items/search-item";
 import { materializeSearchResults } from "../../layout/search_materialize";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
@@ -62,6 +63,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const [pendingCaretIdx, setPendingCaretIdx] = createSignal<number | null>(null);
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
+  const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
   let activeSearchRequestSerial = 0;
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
@@ -344,12 +346,24 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     requestEditMode(queryText().length);
   });
 
+  createEffect(() => {
+    if (!isListPageMainRoot() || !searchHasMoreResults()) {
+      setMoreButtonHost(null);
+      return;
+    }
+    store.perItem.getSearchResults(searchItem().id);
+    const raf = requestAnimationFrame(() => {
+      const host = document.getElementById(searchResultsFooterHostId(searchItem().id));
+      setMoreButtonHost(host instanceof HTMLElement ? host : null);
+    });
+    onCleanup(() => cancelAnimationFrame(raf));
+  });
+
   const renderSearchWorkspace = () => {
     const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsPx().w);
     const inputWidthPx = calcSearchWorkspaceInputWidthPx(boundsPx().w);
     const lowerTopPx = calcSearchWorkspaceResultsTopPx();
     const showMoreButton = () => searchHasMoreResults();
-    const moreButtonTopPx = () => calcSearchWorkspaceMoreButtonTopPx(boundsPx().h);
     return (
       <div class="absolute bg-white"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
@@ -424,25 +438,26 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={showMoreButton()}>
-          <button
-            class="absolute border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-60"
-            style={`left: ${Math.max(0, Math.round((boundsPx().w - SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX) / 2))}px; ` +
-              `top: ${moreButtonTopPx()}px; width: ${SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX}px;`}
-            type="button"
-            disabled={isEditing() || isLoadingMore()}
-            onMouseDown={(ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
-              void loadMoreSearchResults();
-            }}
-            onMouseUp={(ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
-            }}
-            >
-            {isLoadingMore() ? "Loading..." : "More"}
-          </button>
+        <Show when={showMoreButton() && moreButtonHost()}>
+          <Portal mount={moreButtonHost()!}>
+            <button
+              class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-60"
+              style={`width: ${SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX}px;`}
+              type="button"
+              disabled={isEditing() || isLoadingMore()}
+              onMouseDown={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                void loadMoreSearchResults();
+              }}
+              onMouseUp={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+              }}
+              >
+              {isLoadingMore() ? "Loading..." : "More"}
+            </button>
+          </Portal>
         </Show>
         <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
           <div class="absolute pointer-events-none rounded-xs"

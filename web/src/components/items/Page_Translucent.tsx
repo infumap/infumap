@@ -47,6 +47,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const store = useStore();
 
   let updatingTranslucentScrollTop = false;
+  let previousChildAreaHeightPx: number | null = null;
+  let latestTranslucentScrollTopPx = 0;
   let translucentDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
@@ -63,6 +65,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
     translucentDiv.scrollTop = scrollYPx;
     translucentDiv.scrollLeft = scrollXPx;
+    latestTranslucentScrollTopPx = scrollYPx;
   });
 
   createEffect(() => {
@@ -71,13 +74,30 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
     updatingTranslucentScrollTop = true;
     if (translucentDiv) {
-      translucentDiv.scrollTop =
-        store.perItem.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
-        (pageFns().childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+      const pageVeid = VeFns.veidFromVe(props.visualElement);
+      const maxScrollYPx = Math.max(0, pageFns().childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+      const shouldPreserveAbsoluteScrollTop =
+        pageFns().isSearchResultsPage() &&
+        previousChildAreaHeightPx != null &&
+        pageFns().childAreaBoundsPx().h > previousChildAreaHeightPx;
+
+      if (shouldPreserveAbsoluteScrollTop) {
+        const preservedScrollTopPx = Math.min(latestTranslucentScrollTopPx, maxScrollYPx);
+        translucentDiv.scrollTop = preservedScrollTopPx;
+        latestTranslucentScrollTopPx = preservedScrollTopPx;
+        store.perItem.setPageScrollYProp(pageVeid, maxScrollYPx > 0 ? preservedScrollTopPx / maxScrollYPx : 0);
+      } else {
+        const nextScrollTopPx =
+          store.perItem.getPageScrollYProp(pageVeid) *
+          maxScrollYPx;
+        translucentDiv.scrollTop = nextScrollTopPx;
+        latestTranslucentScrollTopPx = nextScrollTopPx;
+      }
       translucentDiv.scrollLeft =
-        store.perItem.getPageScrollXProp(VeFns.veidFromVe(props.visualElement)) *
+        store.perItem.getPageScrollXProp(pageVeid) *
         (pageFns().childAreaBoundsPx().w - props.visualElement.boundsPx.w);
     }
+    previousChildAreaHeightPx = pageFns().childAreaBoundsPx().h;
 
     setTimeout(() => {
       updatingTranslucentScrollTop = false;
@@ -122,7 +142,10 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
     if (childAreaBounds.h > pageBoundsPx.h) {
       const scrollYProp = translucentDiv!.scrollTop / (childAreaBounds.h - pageBoundsPx.h);
+      latestTranslucentScrollTopPx = translucentDiv!.scrollTop;
       store.perItem.setPageScrollYProp(pageVeid, scrollYProp);
+    } else {
+      latestTranslucentScrollTopPx = 0;
     }
   };
 
@@ -178,6 +201,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
+          {pageFns().renderSearchResultsFooterHostMaybe()}
           {pageFns().renderGridLinesMaybe()}
           {pageFns().renderSearchHoverMaybe()}
           {pageFns().renderCatalogMetadataMaybe()}

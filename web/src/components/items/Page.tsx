@@ -48,7 +48,12 @@ import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 import { SELECTED_LIGHT } from "../../style";
-import { TEMP_SEARCH_RESULTS_ORIGIN } from "../../items/search-item";
+import {
+  TEMP_SEARCH_RESULTS_ORIGIN,
+  SEARCH_WORKSPACE_MORE_SECTION_GAP_PX,
+  calcSearchWorkspaceResultsFooterHeightPx,
+  searchResultsFooterHostId,
+} from "../../items/search-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -329,6 +334,32 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     searchResultsSourceItemId: () =>
       pageFns.isSearchResultsPage() ? pageFns.pageItem().parentId : null,
+
+    searchResultsFooterHeightPx: () => {
+      const searchSourceItemId = pageFns.searchResultsSourceItemId();
+      if (!searchSourceItemId) {
+        return 0;
+      }
+      return calcSearchWorkspaceResultsFooterHeightPx(store.perItem.getSearchHasMoreResults(searchSourceItemId));
+    },
+
+    searchResultsFooterTopPx: () =>
+      Math.max(0, pageFns.childAreaBoundsPx().h - pageFns.searchResultsFooterHeightPx()),
+
+    searchResultsFooterHostId: () => {
+      const searchSourceItemId = pageFns.searchResultsSourceItemId();
+      return searchSourceItemId ? searchResultsFooterHostId(searchSourceItemId) : "";
+    },
+
+    renderSearchResultsFooterHostMaybe: () =>
+      <Show when={pageFns.isSearchResultsPage() && pageFns.searchResultsFooterHeightPx() > 0}>
+        <div
+          id={pageFns.searchResultsFooterHostId()}
+          class="absolute flex justify-center"
+          style={`left: 0px; top: ${pageFns.searchResultsFooterTopPx()}px; ` +
+            `width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.searchResultsFooterHeightPx()}px; ` +
+            `padding-top: ${SEARCH_WORKSPACE_MORE_SECTION_GAP_PX}px;`} />
+      </Show>,
 
     renderSearchSelectionMaybe: () => {
       if (!pageFns.isSearchResultsPage()) {

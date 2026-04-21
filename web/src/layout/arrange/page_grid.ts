@@ -23,7 +23,7 @@ import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
-import { TEMP_SEARCH_RESULTS_ORIGIN } from "../../items/search-item";
+import { TEMP_SEARCH_RESULTS_ORIGIN, calcSearchWorkspaceResultsFooterHeightPx } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -70,6 +70,9 @@ export function arrange_grid_page(
   const pageItem = asPageItem(displayItem_pageWithChildren);
   const numCols = pageItem.gridNumberOfColumns;
   const isSearchResultsGridPage = displayItem_pageWithChildren.origin == TEMP_SEARCH_RESULTS_ORIGIN;
+  const searchResultsFooterHeightPx = isSearchResultsGridPage
+    ? calcSearchWorkspaceResultsFooterHeightPx(store.perItem.getSearchHasMoreResults(displayItem_pageWithChildren.parentId))
+    : 0;
 
   // if an item is moving out of or into a grid page, then ensure the height of the page doesn't
   // change until after the move is complete to avoid a very disruptive jump in y scroll px.
@@ -86,7 +89,7 @@ export function arrange_grid_page(
   const cellWPx = geometry.boundsPx.w / numCols;
   const cellHPx = cellWPx * (1.0 / pageItem.gridCellAspect);
   const marginPx = cellWPx * 0.01;
-  const pageHeightPx = numRows * cellHPx;
+  const pageHeightPx = numRows * cellHPx + searchResultsFooterHeightPx;
   const childAreaBoundsPx = (() => {
     const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
     result.h = pageHeightPx;

@@ -56,6 +56,10 @@ export function tempSearchResultLinkUid(searchItemId: Uid, index: number): Uid {
   return `fff1${indexHex}${searchItemId.slice(8)}`;
 }
 
+export function searchResultsFooterHostId(searchItemId: Uid): string {
+  return `search-results-footer-${searchItemId}`;
+}
+
 export function calcSearchWorkspaceControlsWidthPx(boundsWidthPx: number): number {
   return Math.min(
     760,
@@ -92,14 +96,13 @@ export function calcSearchWorkspaceMoreButtonTopPx(boundsHeightPx: number): numb
   );
 }
 
-export function calcSearchWorkspaceResultsBoundsPx(boundsPx: BoundingBox, showMoreButton: boolean = false): BoundingBox {
+export function calcSearchWorkspaceResultsBoundsPx(boundsPx: BoundingBox): BoundingBox {
   const topPx = calcSearchWorkspaceResultsTopPx();
-  const footerHeightPx = calcSearchWorkspaceResultsFooterHeightPx(showMoreButton);
   return {
     x: 0,
     y: topPx,
     w: boundsPx.w,
-    h: Math.max(0, boundsPx.h - topPx - footerHeightPx),
+    h: Math.max(0, boundsPx.h - topPx),
   };
 }
 
