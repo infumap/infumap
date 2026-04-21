@@ -26,7 +26,7 @@ const LOCALSTORAGE_KEY_NAME = "infudata";
 export const NETWORK_STATUS_OK = 0;
 export const NETWORK_STATUS_IN_PROGRESS = 1;
 export const NETWORK_STATUS_ERROR = 2;
-const RECENT_NETWORK_REQUEST_TTL_MS = 2500;
+const RECENT_NETWORK_REQUEST_TTL_MS = 9000;
 
 interface InstallationState {
   hasRootUser: boolean,
