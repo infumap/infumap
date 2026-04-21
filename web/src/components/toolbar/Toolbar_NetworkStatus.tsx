@@ -18,16 +18,17 @@
 
 import { Component, For, Show } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
-import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK } from "../../store/StoreProvider_General";
+import { NETWORK_STATUS_IN_PROGRESS } from "../../store/StoreProvider_General";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 
 
 export const Toolbar_NetworkStatus: Component = () => {
   const store = useStore();
+  const hasUnacknowledgedErrors = () => store.general.hasUnacknowledgedNetworkErrors();
 
   const col = () => {
+    if (hasUnacknowledgedErrors()) { return "#bb7373"; }
     const status = store.general.networkStatus.get();
-    if (status == NETWORK_STATUS_ERROR) { return "#bb7373"; }
     if (status == NETWORK_STATUS_IN_PROGRESS) { return "#babb73"; }
     return "#7bbb73";
   };
@@ -50,37 +51,28 @@ export const Toolbar_NetworkStatus: Component = () => {
 export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const store = useStore();
 
-  const currentRequest = () => store.general.currentNetworkRequest();
-  const queuedRequests = () => {
-    const current = currentRequest();
-    const allQueued = store.general.queuedNetworkRequests();
-    // Filter out the current request from the queue to avoid duplication
-    // Compare by both command and itemId to ensure we filter the right one
-    if (!current) {
-      return allQueued;
-    }
-    return allQueued.filter(req => {
-      // If both have itemId, compare by itemId and command
-      if (req.itemId && current.itemId) {
-        return !(req.itemId === current.itemId && req.command === current.command);
-      }
-      // Otherwise compare by command and description
-      return !(req.command === current.command && req.description === current.description);
-    });
-  };
+  const inProgressRequests = () => store.general.inProgressNetworkRequests();
+  const queuedRequests = () => store.general.queuedNetworkRequests();
   const erroredRequests = () => store.general.erroredNetworkRequests();
+  const hasUnacknowledgedErrors = () => store.general.hasUnacknowledgedNetworkErrors();
 
-  const formatRequest = (req: { description: string, itemId?: string }) => {
+  const formatRequest = (req: { description: string, itemId?: string, host?: string | null }) => {
+    let suffix = "";
     if (req.itemId) {
-      return `${req.description} (${req.itemId.substring(0, 8)}...)`;
+      suffix = ` (${req.itemId.substring(0, 8)}...)`;
     }
-    return req.description;
+    if (req.host) {
+      try {
+        suffix += ` @ ${new URL(req.host).host}`;
+      } catch (_error) {
+        suffix += ` @ ${req.host}`;
+      }
+    }
+    return `${req.description}${suffix}`;
   };
 
-  const handleClearErrors = () => {
-    store.general.clearErroredNetworkRequests();
-    const hasPendingRequests = currentRequest() != null || queuedRequests().length > 0;
-    store.general.networkStatus.set(hasPendingRequests ? NETWORK_STATUS_IN_PROGRESS : NETWORK_STATUS_OK);
+  const handleAcknowledgeErrors = () => {
+    store.general.acknowledgeNetworkErrors();
   };
 
   const handleClose = () => {
@@ -99,10 +91,20 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <button onClick={handleClose} class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
         </div>
 
-        <Show when={currentRequest()}>
+        <Show when={hasUnacknowledgedErrors() && erroredRequests().length > 0}>
+          <div class="mb-3 text-xs text-red-700 bg-red-50 rounded px-2 py-2">
+            Errors stay red until you acknowledge them here.
+          </div>
+        </Show>
+
+        <Show when={inProgressRequests().length > 0}>
           <div class="mb-3">
-            <div class="text-xs text-slate-600 mb-1">Current:</div>
-            <div class="text-sm px-2 py-1 bg-slate-100 rounded">{formatRequest(currentRequest()!)}</div>
+            <div class="text-xs text-slate-600 mb-1">In Progress ({inProgressRequests().length}):</div>
+            <For each={inProgressRequests()}>
+              {(request) => (
+                <div class="text-sm px-2 py-1 bg-slate-100 rounded mb-1">{formatRequest(request)}</div>
+              )}
+            </For>
           </div>
         </Show>
 
@@ -121,7 +123,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <div class="mb-2">
             <div class="text-xs text-slate-600 mb-1 flex justify-between items-center">
               <span>Errors ({erroredRequests().length}):</span>
-              <button onClick={handleClearErrors} class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Clear</button>
+              <button onClick={handleAcknowledgeErrors} class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Acknowledge</button>
             </div>
             <For each={erroredRequests()}>
               {(request) => (
@@ -136,7 +138,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           </div>
         </Show>
 
-        <Show when={!currentRequest() && queuedRequests().length === 0 && erroredRequests().length === 0}>
+        <Show when={inProgressRequests().length === 0 && queuedRequests().length === 0 && erroredRequests().length === 0}>
           <div class="text-sm text-slate-500 text-center py-2">All Operations Complete</div>
         </Show>
       </div>

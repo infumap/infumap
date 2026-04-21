@@ -37,9 +37,11 @@ interface LocalStorageData {
 }
 
 export interface NetworkRequestInfo {
+  requestId: number,
   command: string,
   description: string,
   itemId?: string,
+  host?: string | null,
   errorMessage?: string,
 }
 
@@ -52,14 +54,14 @@ export interface GeneralStoreContextModel {
   setPrefer2fa: (prefer2fa: boolean) => void,
 
   networkStatus: NumberSignal,
-  currentNetworkRequest: Accessor<NetworkRequestInfo | null>,
-  setCurrentNetworkRequest: (request: NetworkRequestInfo | null) => void,
+  inProgressNetworkRequests: Accessor<NetworkRequestInfo[]>,
+  setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   queuedNetworkRequests: Accessor<NetworkRequestInfo[]>,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   erroredNetworkRequests: Accessor<NetworkRequestInfo[]>,
+  hasUnacknowledgedNetworkErrors: Accessor<boolean>,
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
-  clearErroredNetworkRequests: () => void,
-  clearErrorsByCommand: (command: string) => void,
+  acknowledgeNetworkErrors: () => void,
 }
 
 
@@ -70,13 +72,16 @@ export function makeGeneralStore(): GeneralStoreContextModel {
 
   const networkStatus = createNumberSignal(NETWORK_STATUS_OK);
 
-  const [currentNetworkRequest, setCurrentNetworkRequest] = createSignal<NetworkRequestInfo | null>(null, { equals: false });
+  const [inProgressNetworkRequests, setInProgressNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [queuedNetworkRequests, setQueuedNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [erroredNetworkRequests, setErroredNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
+  const [hasUnacknowledgedNetworkErrors, setHasUnacknowledgedNetworkErrors] = createSignal<boolean>(false, { equals: false });
 
   const addErroredNetworkRequest = (request: NetworkRequestInfo) => {
+    setHasUnacknowledgedNetworkErrors(true);
     setErroredNetworkRequests((current) => {
       const deduped = current.filter(existing =>
+        existing.host !== request.host ||
         existing.command !== request.command ||
         existing.itemId !== request.itemId ||
         existing.description !== request.description
@@ -85,13 +90,9 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     });
   };
 
-  const clearErroredNetworkRequests = () => {
+  const acknowledgeNetworkErrors = () => {
+    setHasUnacknowledgedNetworkErrors(false);
     setErroredNetworkRequests([]);
-  };
-
-  const clearErrorsByCommand = (command: string) => {
-    const filtered = erroredNetworkRequests().filter(req => req.command !== command);
-    setErroredNetworkRequests(filtered);
   };
 
   const retrieveInstallationState = async () => {
@@ -126,8 +127,8 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     installationState, retrieveInstallationState, clearInstallationState,
     prefer2fa, setPrefer2fa,
     networkStatus,
-    currentNetworkRequest, setCurrentNetworkRequest,
+    inProgressNetworkRequests, setInProgressNetworkRequests,
     queuedNetworkRequests, setQueuedNetworkRequests,
-    erroredNetworkRequests, addErroredNetworkRequest, clearErroredNetworkRequests, clearErrorsByCommand,
+    erroredNetworkRequests, hasUnacknowledgedNetworkErrors, addErroredNetworkRequest, acknowledgeNetworkErrors,
   };
 }

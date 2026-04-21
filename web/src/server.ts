@@ -19,7 +19,7 @@
 import { logout } from "./components/Main";
 import { Item } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
+import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "./util/uid";
 import { StoreContextModel } from "./store/StoreProvider";
@@ -33,19 +33,15 @@ import { RelationshipToParent } from "./layout/relationship-to-parent";
 
 // Global request tracking - will be set by store initialization
 let globalRequestTracker: {
-  setCurrentNetworkRequest: (request: NetworkRequestInfo | null) => void,
+  setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
-  clearErrorsByCommand: (command: string) => void,
-  hasErroredNetworkRequests: () => boolean,
 } | null = null;
 
 export function setGlobalRequestTracker(tracker: {
-  setCurrentNetworkRequest: (request: NetworkRequestInfo | null) => void,
+  setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
-  clearErrorsByCommand: (command: string) => void,
-  hasErroredNetworkRequests: () => boolean,
 }) {
   globalRequestTracker = tracker;
 }
@@ -143,6 +139,7 @@ export const GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS = "
 export const GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY = "item-and-attachments-only";
 
 interface ServerCommand {
+  requestId: number,
   host: string | null,
   command: string,
   payload: object,
@@ -205,35 +202,62 @@ function getCommandDescription(command: string, payload: any): { description: st
 
 const commandQueue: Array<ServerCommand> = [];
 let inProgressNonGet: ServerCommand | null = null; // any non-read command currently running
-let inProgressReadCommands = 0; // number of read commands currently running
+const inProgressReadCommands: Array<ServerCommand> = [];
 const MUTATION_COMMANDS = new Set<string>([COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH]);
 let pendingMutationCommands = 0;
+let nextNetworkRequestId = 1;
 
 const isMutationCommand = (command: string): boolean => MUTATION_COMMANDS.has(command);
 const isParallelReadCommand = (command: string): boolean => PARALLEL_READ_COMMANDS.has(command);
-const hasTrackedNetworkErrors = (): boolean => globalRequestTracker?.hasErroredNetworkRequests() ?? false;
 
-function clearNetworkErrorsByCommand(command: string): void {
-  if (globalRequestTracker) {
-    globalRequestTracker.clearErrorsByCommand(command);
-  }
+function toNetworkRequestInfo(command: ServerCommand): NetworkRequestInfo {
+  const { description, itemId } = getCommandDescription(command.command, command.payload);
+  return {
+    requestId: command.requestId,
+    host: command.host,
+    command: command.command,
+    description,
+    itemId,
+  };
 }
 
-function markNetworkCommandSuccess(command: string, networkStatus: NumberSignal): void {
-  clearNetworkErrorsByCommand(command);
-  if (!hasTrackedNetworkErrors()) {
-    networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+function getInProgressCommands(): Array<ServerCommand> {
+  const active: Array<ServerCommand> = [];
+  if (inProgressNonGet != null) {
+    active.push(inProgressNonGet);
   }
+  active.push(...inProgressReadCommands);
+  if (inProgressNonGet_remote != null) {
+    active.push(inProgressNonGet_remote);
+  }
+  active.push(...inProgressGetItems_remote);
+  return active;
 }
 
-function trackNetworkCommandError(command: ServerCommand, error: any, networkStatus: NumberSignal): void {
-  networkStatus.set(NETWORK_STATUS_ERROR);
+function getQueuedCommands(): Array<ServerCommand> {
+  return [...commandQueue, ...commandQueue_remote];
+}
+
+function hasAnyNetworkActivity(): boolean {
+  return getInProgressCommands().length > 0 || getQueuedCommands().length > 0;
+}
+
+function syncBaseNetworkStatus(networkStatus: NumberSignal): void {
+  networkStatus.set(hasAnyNetworkActivity() ? NETWORK_STATUS_IN_PROGRESS : NETWORK_STATUS_OK);
+}
+
+function syncGlobalRequestTracker(): void {
+  if (!globalRequestTracker) {
+    return;
+  }
+  globalRequestTracker.setInProgressNetworkRequests(getInProgressCommands().map(toNetworkRequestInfo));
+  globalRequestTracker.setQueuedNetworkRequests(getQueuedCommands().map(toNetworkRequestInfo));
+}
+
+function trackNetworkCommandError(command: ServerCommand, error: any): void {
   if (globalRequestTracker) {
-    const { description, itemId } = getCommandDescription(command.command, command.payload);
     globalRequestTracker.addErroredNetworkRequest({
-      command: command.command,
-      description,
-      itemId,
+      ...toNetworkRequestInfo(command),
       errorMessage: error?.message || String(error)
     });
   }
@@ -252,34 +276,12 @@ const decrementPendingMutations = (command: string): void => {
 const mutationsInFlight = (): boolean => pendingMutationCommands > 0;
 
 function serveWaiting(networkStatus: NumberSignal) {
-  // If nothing is queued and nothing is running, mark idle.
-  if (commandQueue.length == 0 && inProgressNonGet == null && inProgressReadCommands == 0) {
-    if (!hasTrackedNetworkErrors()) {
-      networkStatus.set(NETWORK_STATUS_OK);
-    }
-    if (globalRequestTracker) {
-      globalRequestTracker.setCurrentNetworkRequest(null);
-      globalRequestTracker.setQueuedNetworkRequests([]);
-    }
+  syncBaseNetworkStatus(networkStatus);
+  syncGlobalRequestTracker();
+
+  // If nothing local is queued and nothing local is running, we're done here.
+  if (commandQueue.length == 0 && inProgressNonGet == null && inProgressReadCommands.length == 0) {
     return;
-  }
-
-  // Ensure UI shows activity when work is queued or running.
-  if (!hasTrackedNetworkErrors() && (commandQueue.length > 0 || inProgressNonGet != null || inProgressReadCommands > 0)) {
-    networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
-  }
-
-  // Update queued requests tracking
-  if (globalRequestTracker) {
-    const queued = commandQueue.map(cmd => {
-      const { description, itemId } = getCommandDescription(cmd.command, cmd.payload);
-      return {
-        command: cmd.command,
-        description,
-        itemId
-      };
-    });
-    globalRequestTracker.setQueuedNetworkRequests(queued);
   }
 
   // Start as many leading read commands as possible; keep ordering otherwise.
@@ -288,31 +290,19 @@ function serveWaiting(networkStatus: NumberSignal) {
 
     // Non-read commands (mutations, searches, etc.) run strictly one at a time.
     if (!isParallelReadCommand(next.command)) {
-      if (inProgressNonGet != null || inProgressReadCommands > 0) {
+      if (inProgressNonGet != null || inProgressReadCommands.length > 0) {
         return; // wait for running commands to finish before starting the next non-read
       }
 
       const command = commandQueue.shift() as ServerCommand;
       inProgressNonGet = command;
-
-      // Track current request
-      if (globalRequestTracker) {
-        const { description, itemId } = getCommandDescription(command.command, command.payload);
-        globalRequestTracker.setCurrentNetworkRequest({
-          command: command.command,
-          description,
-          itemId
-        });
-      }
+      syncBaseNetworkStatus(networkStatus);
+      syncGlobalRequestTracker();
 
       const DEBUG = false;
       if (DEBUG) { console.debug(command.command, command.payload); }
 
       const finalizeCommand = () => {
-        // Clear current request tracker when this command completes
-        if (globalRequestTracker) {
-          globalRequestTracker.setCurrentNetworkRequest(null);
-        }
         inProgressNonGet = null;
         decrementPendingMutations(command.command);
         serveWaiting(networkStatus);
@@ -321,11 +311,10 @@ function serveWaiting(networkStatus: NumberSignal) {
       sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
         .then((resp: any) => {
           command.resolve(resp);
-          markNetworkCommandSuccess(command.command, networkStatus);
         })
         .catch((error) => {
           command.reject(error);
-          trackNetworkCommandError(command, error, networkStatus);
+          trackNetworkCommandError(command, error);
         })
         .finally(finalizeCommand);
 
@@ -338,25 +327,17 @@ function serveWaiting(networkStatus: NumberSignal) {
     }
 
     const command = commandQueue.shift() as ServerCommand;
-    inProgressReadCommands++;
-
-    // Track current request if it's the first read command.
-    if (globalRequestTracker && inProgressReadCommands === 1 && !inProgressNonGet) {
-      const { description, itemId } = getCommandDescription(command.command, command.payload);
-      globalRequestTracker.setCurrentNetworkRequest({
-        command: command.command,
-        description,
-        itemId
-      });
-    }
+    inProgressReadCommands.push(command);
+    syncBaseNetworkStatus(networkStatus);
+    syncGlobalRequestTracker();
 
     const DEBUG = false;
     if (DEBUG) { console.debug(command.command, command.payload); }
 
     const finalizeCommand = () => {
-      inProgressReadCommands--;
-      if (globalRequestTracker && inProgressReadCommands === 0 && !inProgressNonGet) {
-        globalRequestTracker.setCurrentNetworkRequest(null);
+      const index = inProgressReadCommands.findIndex(active => active.requestId === command.requestId);
+      if (index !== -1) {
+        inProgressReadCommands.splice(index, 1);
       }
       decrementPendingMutations(command.command);
       serveWaiting(networkStatus);
@@ -365,11 +346,10 @@ function serveWaiting(networkStatus: NumberSignal) {
     sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
       .then((resp: any) => {
         command.resolve(resp);
-        markNetworkCommandSuccess(command.command, networkStatus);
       })
       .catch((error) => {
         command.reject(error);
-        trackNetworkCommandError(command, error, networkStatus);
+        trackNetworkCommandError(command, error);
       })
       .finally(finalizeCommand);
 
@@ -386,14 +366,12 @@ function constructCommandPromise(
   networkStatus: NumberSignal): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
+      requestId: nextNetworkRequestId++,
       host, command, payload, base64data, panicLogoutOnError,
       resolve, reject
     };
     incrementPendingMutations(command);
     commandQueue.push(commandObj);
-    if (!hasTrackedNetworkErrors()) {
-      networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
-    }
     serveWaiting(networkStatus);
   })
 }
@@ -640,30 +618,28 @@ export const server = {
 
 const commandQueue_remote: Array<ServerCommand> = [];
 let inProgressNonGet_remote: ServerCommand | null = null; // any non-get-items command currently running remotely
-let inProgressGetItems_remote = 0;
+const inProgressGetItems_remote: Array<ServerCommand> = [];
 
 function serveWaiting_remote(networkStatus: NumberSignal) {
-  if (commandQueue_remote.length == 0 && inProgressNonGet_remote == null && inProgressGetItems_remote == 0) {
-    if (!hasTrackedNetworkErrors()) {
-      networkStatus.set(NETWORK_STATUS_OK);
-    }
-    return;
-  }
+  syncBaseNetworkStatus(networkStatus);
+  syncGlobalRequestTracker();
 
-  if (!hasTrackedNetworkErrors() && (commandQueue_remote.length > 0 || inProgressNonGet_remote != null || inProgressGetItems_remote > 0)) {
-    networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+  if (commandQueue_remote.length == 0 && inProgressNonGet_remote == null && inProgressGetItems_remote.length == 0) {
+    return;
   }
 
   while (commandQueue_remote.length > 0) {
     const next = commandQueue_remote[0];
 
     if (next.command !== COMMAND_GET_ITEMS) {
-      if (inProgressNonGet_remote != null || inProgressGetItems_remote > 0) {
+      if (inProgressNonGet_remote != null || inProgressGetItems_remote.length > 0) {
         return;
       }
 
       const command = commandQueue_remote.shift() as ServerCommand;
       inProgressNonGet_remote = command;
+      syncBaseNetworkStatus(networkStatus);
+      syncGlobalRequestTracker();
 
       const DEBUG = false;
       if (DEBUG) { console.debug(command.command, command.payload); }
@@ -677,11 +653,10 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
       sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
         .then((resp: any) => {
           command.resolve(resp);
-          markNetworkCommandSuccess(command.command, networkStatus);
         })
         .catch((error) => {
           command.reject(error);
-          trackNetworkCommandError(command, error, networkStatus);
+          trackNetworkCommandError(command, error);
         })
         .finally(finalizeCommand);
 
@@ -693,13 +668,18 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
     }
 
     const command = commandQueue_remote.shift() as ServerCommand;
-    inProgressGetItems_remote++;
+    inProgressGetItems_remote.push(command);
+    syncBaseNetworkStatus(networkStatus);
+    syncGlobalRequestTracker();
 
     const DEBUG = false;
     if (DEBUG) { console.debug(command.command, command.payload); }
 
     const finalizeCommand = () => {
-      inProgressGetItems_remote--;
+      const index = inProgressGetItems_remote.findIndex(active => active.requestId === command.requestId);
+      if (index !== -1) {
+        inProgressGetItems_remote.splice(index, 1);
+      }
       decrementPendingMutations(command.command);
       serveWaiting_remote(networkStatus);
     };
@@ -707,11 +687,10 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
     sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
       .then((resp: any) => {
         command.resolve(resp);
-        markNetworkCommandSuccess(command.command, networkStatus);
       })
       .catch((error) => {
         command.reject(error);
-        trackNetworkCommandError(command, error, networkStatus);
+        trackNetworkCommandError(command, error);
       })
       .finally(finalizeCommand);
   }
@@ -726,14 +705,12 @@ function constructCommandPromise_remote(
   networkStatus: NumberSignal): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
+      requestId: nextNetworkRequestId++,
       host, command, payload, base64data, panicLogoutOnError,
       resolve, reject
     };
     incrementPendingMutations(command);
     commandQueue_remote.push(commandObj);
-    if (!hasTrackedNetworkErrors()) {
-      networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
-    }
     serveWaiting_remote(networkStatus);
   })
 }

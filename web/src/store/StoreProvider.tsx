@@ -214,11 +214,9 @@ export function StoreProvider(props: StoreContextProps) {
 
   // Initialize global request tracker for server.ts
   setGlobalRequestTracker({
-    setCurrentNetworkRequest: value.general.setCurrentNetworkRequest,
+    setInProgressNetworkRequests: value.general.setInProgressNetworkRequests,
     setQueuedNetworkRequests: value.general.setQueuedNetworkRequests,
     addErroredNetworkRequest: value.general.addErroredNetworkRequest,
-    clearErrorsByCommand: value.general.clearErrorsByCommand,
-    hasErroredNetworkRequests: () => value.general.erroredNetworkRequests().length > 0,
   });
 
   return (
