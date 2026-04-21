@@ -52,9 +52,20 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const store = useStore();
 
   const inProgressRequests = () => store.general.inProgressNetworkRequests();
+  const recentRequests = () => store.general.recentNetworkRequests();
   const queuedRequests = () => store.general.queuedNetworkRequests();
   const erroredRequests = () => store.general.erroredNetworkRequests();
   const hasUnacknowledgedErrors = () => store.general.hasUnacknowledgedNetworkErrors();
+  const hasActivityRequests = () => inProgressRequests().length > 0 || recentRequests().length > 0;
+  const activityHeading = () => {
+    if (inProgressRequests().length > 0 && recentRequests().length > 0) {
+      return `In Progress (${inProgressRequests().length} active, ${recentRequests().length} recent):`;
+    }
+    if (inProgressRequests().length > 0) {
+      return `In Progress (${inProgressRequests().length}):`;
+    }
+    return `Recent Activity (${recentRequests().length}):`;
+  };
 
   const formatRequest = (req: { description: string, itemId?: string, host?: string | null }) => {
     let suffix = "";
@@ -97,30 +108,8 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           </div>
         </Show>
 
-        <Show when={inProgressRequests().length > 0}>
-          <div class="mb-3">
-            <div class="text-xs text-slate-600 mb-1">In Progress ({inProgressRequests().length}):</div>
-            <For each={inProgressRequests()}>
-              {(request) => (
-                <div class="text-sm px-2 py-1 bg-slate-100 rounded mb-1">{formatRequest(request)}</div>
-              )}
-            </For>
-          </div>
-        </Show>
-
-        <Show when={queuedRequests().length > 0}>
-          <div class="mb-3">
-            <div class="text-xs text-slate-600 mb-1">Queue ({queuedRequests().length}):</div>
-            <For each={queuedRequests()}>
-              {(request) => (
-                <div class="text-sm px-2 py-1 bg-yellow-100 rounded mb-1">{formatRequest(request)}</div>
-              )}
-            </For>
-          </div>
-        </Show>
-
         <Show when={erroredRequests().length > 0}>
-          <div class="mb-2">
+          <div class="mb-3">
             <div class="text-xs text-slate-600 mb-1 flex justify-between items-center">
               <span>Errors ({erroredRequests().length}):</span>
               <button onClick={handleAcknowledgeErrors} class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Acknowledge</button>
@@ -138,7 +127,41 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           </div>
         </Show>
 
-        <Show when={inProgressRequests().length === 0 && queuedRequests().length === 0 && erroredRequests().length === 0}>
+        <Show when={hasActivityRequests()}>
+          <div class="mb-3">
+            <div class="text-xs text-slate-600 mb-1">{activityHeading()}</div>
+            <For each={inProgressRequests()}>
+              {(request) => (
+                <div class="text-sm px-2 py-1 bg-slate-100 rounded mb-1 border border-slate-200">
+                  {formatRequest(request)}
+                </div>
+              )}
+            </For>
+            <For each={recentRequests()}>
+              {(request) => (
+                <div class="text-sm px-2 py-1 bg-slate-50 text-slate-500 rounded mb-1 border border-slate-200">
+                  <div class="flex justify-between items-center gap-3">
+                    <span>{formatRequest(request)}</span>
+                    <span class="text-[10px] uppercase tracking-[0.08em] text-slate-400 shrink-0">Recent</span>
+                  </div>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+
+        <Show when={queuedRequests().length > 0}>
+          <div class="mb-3">
+            <div class="text-xs text-slate-600 mb-1">Queue ({queuedRequests().length}):</div>
+            <For each={queuedRequests()}>
+              {(request) => (
+                <div class="text-sm px-2 py-1 bg-yellow-100 rounded mb-1">{formatRequest(request)}</div>
+              )}
+            </For>
+          </div>
+        </Show>
+
+        <Show when={inProgressRequests().length === 0 && recentRequests().length === 0 && queuedRequests().length === 0 && erroredRequests().length === 0}>
           <div class="text-sm text-slate-500 text-center py-2">All Operations Complete</div>
         </Show>
       </div>

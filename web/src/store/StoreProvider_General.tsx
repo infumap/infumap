@@ -26,6 +26,7 @@ const LOCALSTORAGE_KEY_NAME = "infudata";
 export const NETWORK_STATUS_OK = 0;
 export const NETWORK_STATUS_IN_PROGRESS = 1;
 export const NETWORK_STATUS_ERROR = 2;
+const RECENT_NETWORK_REQUEST_TTL_MS = 2500;
 
 interface InstallationState {
   hasRootUser: boolean,
@@ -56,6 +57,7 @@ export interface GeneralStoreContextModel {
   networkStatus: NumberSignal,
   inProgressNetworkRequests: Accessor<NetworkRequestInfo[]>,
   setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
+  recentNetworkRequests: Accessor<NetworkRequestInfo[]>,
   queuedNetworkRequests: Accessor<NetworkRequestInfo[]>,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   erroredNetworkRequests: Accessor<NetworkRequestInfo[]>,
@@ -72,13 +74,58 @@ export function makeGeneralStore(): GeneralStoreContextModel {
 
   const networkStatus = createNumberSignal(NETWORK_STATUS_OK);
 
-  const [inProgressNetworkRequests, setInProgressNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
+  const [inProgressNetworkRequests, setInProgressNetworkRequestsSignal] = createSignal<NetworkRequestInfo[]>([], { equals: false });
+  const [recentNetworkRequests, setRecentNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [queuedNetworkRequests, setQueuedNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [erroredNetworkRequests, setErroredNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [hasUnacknowledgedNetworkErrors, setHasUnacknowledgedNetworkErrors] = createSignal<boolean>(false, { equals: false });
+  const recentNetworkRequestTimeouts = new Map<number, number>();
+
+  const clearRecentNetworkRequestTimeout = (requestId: number): void => {
+    const timeoutId = recentNetworkRequestTimeouts.get(requestId);
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+      recentNetworkRequestTimeouts.delete(requestId);
+    }
+  };
+
+  const removeRecentNetworkRequest = (requestId: number): void => {
+    clearRecentNetworkRequestTimeout(requestId);
+    setRecentNetworkRequests((current) => current.filter((request) => request.requestId !== requestId));
+  };
+
+  const scheduleRecentNetworkRequestExpiry = (request: NetworkRequestInfo): void => {
+    clearRecentNetworkRequestTimeout(request.requestId);
+    const timeoutId = window.setTimeout(() => {
+      recentNetworkRequestTimeouts.delete(request.requestId);
+      setRecentNetworkRequests((current) => current.filter((existing) => existing.requestId !== request.requestId));
+    }, RECENT_NETWORK_REQUEST_TTL_MS);
+    recentNetworkRequestTimeouts.set(request.requestId, timeoutId);
+  };
+
+  const setInProgressNetworkRequests = (requests: NetworkRequestInfo[]) => {
+    const previousRequests = inProgressNetworkRequests();
+    const nextRequestIds = new Set(requests.map((request) => request.requestId));
+    const erroredRequestIds = new Set(erroredNetworkRequests().map((request) => request.requestId));
+    const completedRequests = previousRequests.filter((request) =>
+      !nextRequestIds.has(request.requestId) && !erroredRequestIds.has(request.requestId)
+    );
+
+    requests.forEach((request) => removeRecentNetworkRequest(request.requestId));
+    completedRequests.forEach((request) => {
+      setRecentNetworkRequests((current) => {
+        const deduped = current.filter((existing) => existing.requestId !== request.requestId);
+        return [request, ...deduped];
+      });
+      scheduleRecentNetworkRequestExpiry(request);
+    });
+
+    setInProgressNetworkRequestsSignal(requests);
+  };
 
   const addErroredNetworkRequest = (request: NetworkRequestInfo) => {
     setHasUnacknowledgedNetworkErrors(true);
+    removeRecentNetworkRequest(request.requestId);
     setErroredNetworkRequests((current) => {
       const deduped = current.filter(existing =>
         existing.host !== request.host ||
@@ -128,6 +175,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     prefer2fa, setPrefer2fa,
     networkStatus,
     inProgressNetworkRequests, setInProgressNetworkRequests,
+    recentNetworkRequests,
     queuedNetworkRequests, setQueuedNetworkRequests,
     erroredNetworkRequests, hasUnacknowledgedNetworkErrors, addErroredNetworkRequest, acknowledgeNetworkErrors,
   };
