@@ -561,8 +561,14 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     if (handleSearchWorkspaceEscapeMaybe(store)) {
       return;
     }
-    if (store.history.currentPopupSpec()) {
+    const popupSpec = store.history.currentPopupSpec();
+    if (popupSpec) {
       store.history.popPopup();
+      // Escape should keep focus on the item whose popup was closed. Right click
+      // uses its own back/up path and can still move focus elsewhere.
+      if (popupSpec.vePath) {
+        store.history.setFocus(popupSpec.vePath);
+      }
       const topRootVes = VesCache.render.getChildren(VeFns.veToPath(store.umbrellaVisualElement.get()))()[0];
       VesCache.mutate.clearPopup(VeFns.veToPath(topRootVes.get()));
       topRootVes.set(topRootVes.get());
