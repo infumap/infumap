@@ -1,21 +1,19 @@
 # Infumap
 
-> [!IMPORTANT]
-> The `master` branch is the active development branch and often includes work in progress between releases. For regular use, please prefer the latest tagged release.
-
-Infumap is the platform I built to run my life off.
-
-It’s a giant workspace that provides a powerful set of building blocks that can be pieced together to match a wide variety of needs.
-
-It has an API which allows data to be pulled in from various sources.
-
-It's built to handle a large amount of information (an entire life's worth) securely, and durably.
+- A secure, durable home for all of your information.
+- Innovative UI:
+  - Progressively add structure as your needs evolve.
+  - Optimized for rapid navigation.
+- In development: Powerful search and structure API that enables AI to work with your data.
 
 <kbd>
   <img src="screenshot.png" />
 </kbd>
 
 ## Development Status
+
+> [!IMPORTANT]
+> The `master` branch is the active development branch and often includes work in progress between releases. For regular use, please prefer the latest tagged release.
 
 I use Infumap to manage all of my personal information and spend a significant part of almost every day using it. Time I spend developing it is generally directed towards features or bug fixes that I will personally benefit from.
 
