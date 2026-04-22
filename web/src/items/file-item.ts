@@ -22,7 +22,7 @@ import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { normalizeItemCapabilities } from './base/capabilities-item';
+import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ItemType, ItemTypeMixin } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
@@ -270,6 +270,13 @@ export const FileFns = {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
+    if (!itemCanEdit(visualElement.displayItem)) {
+      if (!handledByList) {
+        store.history.setFocus(itemPath);
+        arrangeNow(store, "file-focus-only");
+      }
+      return;
+    }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.File });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;

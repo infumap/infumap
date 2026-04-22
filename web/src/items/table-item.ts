@@ -23,7 +23,7 @@ import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vect
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, asAttachmentsItem, calcGeometryOfAttachmentItemImpl, isAttachmentsItem } from "./base/attachments-item";
-import { normalizeItemCapabilities } from "./base/capabilities-item";
+import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
 import { ContainerItem } from "./base/container-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
 import { TitledItem } from "./base/titled-item";
@@ -272,6 +272,13 @@ export const TableFns = {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
+    if (!itemCanEdit(visualElement.displayItem)) {
+      if (!handledByList) {
+        store.history.setFocus(itemPath);
+        arrangeNow(store, "table-focus-only");
+      }
+      return;
+    }
     store.overlay.setTextEditInfo(store.history, {
       itemPath,
       itemType: ItemType.Table,

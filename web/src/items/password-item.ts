@@ -23,7 +23,7 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { normalizeItemCapabilities } from './base/capabilities-item';
+import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ItemType, ItemTypeMixin } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -285,8 +285,16 @@ export const PasswordFns = {
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
-    if (!forceEdit && handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
+    if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
+    if (!itemCanEdit(visualElement.displayItem)) {
+      if (!handledByList) {
+        store.history.setFocus(itemPath);
+        arrangeNow(store, "password-focus-only");
+      }
+      return;
+    }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Password });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;

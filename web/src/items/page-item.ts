@@ -23,7 +23,7 @@ import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zer
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { normalizeItemCapabilities } from './base/capabilities-item';
+import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
 import { TitledItem } from './base/titled-item';
@@ -996,7 +996,14 @@ export const PageFns = {
 
   handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel, clientPxMaybe?: { x: number, y: number }): void => {
     let itemPath = VeFns.veToPath(visualElement);
-    handleListPageLineItemClickMaybe(visualElement, store);
+    const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
+    if (!itemCanEdit(visualElement.displayItem)) {
+      if (!handledByList) {
+        store.history.setFocus(itemPath);
+        arrangeNow(store, "page-title-focus-only");
+      }
+      return;
+    }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page });
     const editingPath = itemPath + ":title";
     const el = document.getElementById(editingPath)!;
