@@ -637,14 +637,8 @@ function hitPageSelectedRootMaybe(
   if (selectedVes != null) {
     const newRootVesMaybe = selectedVes!;
     const newRootVeMaybe = newRootVesMaybe.get();
-    const reserveEmbeddedListSidebarForParent =
-      !!(parentRootInfo.rootVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
-      isPage(parentRootInfo.rootVe.displayItem) &&
-      asPageItem(parentRootInfo.rootVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List &&
-      !!parentRootInfo.rootVe.listViewportBoundsPx &&
-      posRelativeToRootVeViewportPx.x < parentRootInfo.rootVe.listViewportBoundsPx.w;
     if (isPage(newRootVeMaybe.displayItem)) {
-      if (!reserveEmbeddedListSidebarForParent && isInside(posRelativeToRootVeViewportPx, newRootVeMaybe.boundsPx)) {
+      if (isInside(posRelativeToRootVeViewportPx, newRootVeMaybe.boundsPx)) {
         rootVes = newRootVesMaybe;
         rootVe = newRootVeMaybe;
         let veid = VeFns.actualVeidFromVe(newRootVeMaybe);

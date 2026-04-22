@@ -294,11 +294,9 @@ export function arrange_list_page(
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
-      x: isEmbeddedInteractive ? 0 : listWidthPx,
+      x: listWidthPx,
       y: 0,
-      w: isEmbeddedInteractive
-        ? geometry.viewportBoundsPx!.w
-        : Math.max(0, geometry.viewportBoundsPx!.w - listWidthPx),
+      w: Math.max(0, geometry.viewportBoundsPx!.w - listWidthPx),
       h: geometry.viewportBoundsPx!.h
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);

@@ -193,14 +193,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `left: 0px; ` +
         `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
         `background-color: #ffffff; z-index: 2;`}>
-      <div class="absolute"
-        style={`left: 0px; top: 0px; width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; z-index: 2;`}>
-        <For each={pageFns().desktopChildren()}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} />
-        }</For>
-        {renderSelectedRootMaybe()}
-        {renderPopupRootMaybe()}
-      </div>
       <div ref={rootDiv}
         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
           `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
@@ -208,7 +200,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           `overflow-y: auto; overflow-x: hidden; ` +
           `width: ${pageFns().listViewportWidthPx()}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `background-color: #ffffff; z-index: 3;`}
+          `background-color: #ffffff;`}
         ondblclick={backgroundDoubleClickHandler}>
         <div class="absolute"
           style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
@@ -219,6 +211,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           }</For>
         </div>
       </div>
+      <For each={pageFns().desktopChildren()}>{childVe =>
+        <VisualElement_Desktop visualElement={childVe.get()} />
+      }</For>
+      {renderSelectedRootMaybe()}
+      {renderPopupRootMaybe()}
     </div>;
 
   const renderPage = () =>
