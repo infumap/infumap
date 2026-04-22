@@ -59,10 +59,36 @@ import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 
 export let logout: (() => Promise<void>) | null = null;
 
+const TWO_FINGER_TAP_MAX_DURATION_MS = 300;
+const TWO_FINGER_TAP_MAX_CENTROID_MOVEMENT_PX = 24;
+const TWO_FINGER_TAP_MAX_SPREAD_CHANGE_PX = 18;
+const COMPATIBILITY_MOUSE_SUPPRESSION_MS = 400;
+
+type ClientPoint = {
+  x: number,
+  y: number,
+};
+
+type TouchCentroidInfo = {
+  centroidPx: ClientPoint,
+  spreadPx: number,
+};
+
+type TwoFingerTapState = {
+  startedAtMs: number,
+  startCentroidPx: ClientPoint,
+  lastCentroidPx: ClientPoint,
+  startSpreadPx: number,
+  maxCentroidMovementPx: number,
+  maxSpreadDeltaPx: number,
+  eligible: boolean,
+};
+
 export const Main: Component = () => {
   const store = useStore();
 
   let mainDiv: HTMLDivElement | undefined;
+  const touchListenerOptions: AddEventListenerOptions = { passive: false };
 
   onMount(async () => {
     if (!store.general.installationState()!.hasRootUser) {
@@ -165,6 +191,10 @@ export const Main: Component = () => {
     startContainerSyncLoop(store);
 
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
+    mainDiv!.addEventListener('touchstart', touchStartListener, touchListenerOptions);
+    mainDiv!.addEventListener('touchmove', touchMoveListener, touchListenerOptions);
+    mainDiv!.addEventListener('touchend', touchEndListener, touchListenerOptions);
+    mainDiv!.addEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.addEventListener('keydown', keyDownListener);
     document.addEventListener('keyup', keyUpListener);
     window.addEventListener('resize', windowResizeListener);
@@ -175,6 +205,10 @@ export const Main: Component = () => {
     stopContainerSyncLoop();
 
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
+    mainDiv!.removeEventListener('touchstart', touchStartListener, touchListenerOptions);
+    mainDiv!.removeEventListener('touchmove', touchMoveListener, touchListenerOptions);
+    mainDiv!.removeEventListener('touchend', touchEndListener, touchListenerOptions);
+    mainDiv!.removeEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.removeEventListener('keydown', keyDownListener);
     document.removeEventListener('keyup', keyUpListener);
     window.removeEventListener('resize', windowResizeListener);
@@ -245,28 +279,185 @@ export const Main: Component = () => {
     // More trouble than value.
   };
 
-  let ignoreMouseDown = false;
+  let compatibilityMouseDownSuppressedUntilMs = 0;
+  let twoFingerTapState: TwoFingerTapState | null = null;
+
+  const preventDefaultIfCancelable = (ev: Event) => {
+    if (ev.cancelable) {
+      ev.preventDefault();
+    }
+  };
+
+  const suppressCompatibilityMouseDown = () => {
+    compatibilityMouseDownSuppressedUntilMs = window.performance.now() + COMPATIBILITY_MOUSE_SUPPRESSION_MS;
+  };
+
+  const shouldIgnoreCompatibilityMouseDown = () =>
+    window.performance.now() < compatibilityMouseDownSuppressedUntilMs;
+
+  const distancePx = (a: ClientPoint, b: ClientPoint) => {
+    const deltaX = a.x - b.x;
+    const deltaY = a.y - b.y;
+    return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+  };
+
+  const touchCentroidInfo = (touches: TouchList): TouchCentroidInfo | null => {
+    if (touches.length == 0) {
+      return null;
+    }
+
+    let sumX = 0;
+    let sumY = 0;
+    for (let i = 0; i < touches.length; ++i) {
+      sumX += touches[i].clientX;
+      sumY += touches[i].clientY;
+    }
+
+    const centroidPx = {
+      x: sumX / touches.length,
+      y: sumY / touches.length,
+    };
+
+    let spreadPx = 0;
+    if (touches.length >= 2) {
+      const firstTouch = touches[0];
+      const secondTouch = touches[1];
+      spreadPx = distancePx(
+        { x: firstTouch.clientX, y: firstTouch.clientY },
+        { x: secondTouch.clientX, y: secondTouch.clientY },
+      );
+    }
+
+    return { centroidPx, spreadPx };
+  };
+
+  const setCursorFromClientPoint = (point: ClientPoint) => {
+    CursorEventState.setFromClientPx(point.x, point.y);
+  };
+
+  const setCursorFromTouches = (touches: TouchList): TouchCentroidInfo | null => {
+    const info = touchCentroidInfo(touches);
+    if (info == null) {
+      return null;
+    }
+    setCursorFromClientPoint(info.centroidPx);
+    return info;
+  };
+
   const mouseDownListener = async (ev: MouseEvent) => {
     cancelShiftNavigationGesture();
-    if (ignoreMouseDown) {
-      ignoreMouseDown = false;
+    if (shouldIgnoreCompatibilityMouseDown()) {
+      preventDefaultIfCancelable(ev);
       return;
     }
+    CursorEventState.setFromMouseEvent(ev);
     let flags = await mouseDownHandler(store, ev.button);
     if (flags & MouseEventActionFlags.PreventDefault) {
       ev.preventDefault();
     }
   };
 
-  const touchListener = async (ev: TouchEvent) => {
+  const touchStartListener = (ev: TouchEvent) => {
     cancelShiftNavigationGesture();
-    if (ev.touches.length > 1) {
-      ignoreMouseDown = true;
-      CursorEventState.setFromTouchEvent(ev);
-      ev.preventDefault();
-      await mouseDownHandler(store, MOUSE_RIGHT);
+
+    const touchInfo = setCursorFromTouches(ev.touches);
+    if (touchInfo == null) {
+      return;
     }
-  }
+
+    if (ev.touches.length == 1) {
+      twoFingerTapState = null;
+      return;
+    }
+
+    suppressCompatibilityMouseDown();
+    preventDefaultIfCancelable(ev);
+
+    if (ev.touches.length != 2) {
+      twoFingerTapState = null;
+      return;
+    }
+
+    twoFingerTapState = {
+      startedAtMs: window.performance.now(),
+      startCentroidPx: touchInfo.centroidPx,
+      lastCentroidPx: touchInfo.centroidPx,
+      startSpreadPx: touchInfo.spreadPx,
+      maxCentroidMovementPx: 0,
+      maxSpreadDeltaPx: 0,
+      eligible: true,
+    };
+  };
+
+  const touchMoveListener = (ev: TouchEvent) => {
+    if (twoFingerTapState == null) {
+      return;
+    }
+
+    preventDefaultIfCancelable(ev);
+
+    if (ev.touches.length != 2) {
+      twoFingerTapState.eligible = false;
+      return;
+    }
+
+    const touchInfo = setCursorFromTouches(ev.touches);
+    if (touchInfo == null) {
+      twoFingerTapState.eligible = false;
+      return;
+    }
+
+    twoFingerTapState.lastCentroidPx = touchInfo.centroidPx;
+    twoFingerTapState.maxCentroidMovementPx = Math.max(
+      twoFingerTapState.maxCentroidMovementPx,
+      distancePx(twoFingerTapState.startCentroidPx, touchInfo.centroidPx),
+    );
+    twoFingerTapState.maxSpreadDeltaPx = Math.max(
+      twoFingerTapState.maxSpreadDeltaPx,
+      Math.abs(touchInfo.spreadPx - twoFingerTapState.startSpreadPx),
+    );
+    if (twoFingerTapState.maxCentroidMovementPx > TWO_FINGER_TAP_MAX_CENTROID_MOVEMENT_PX ||
+      twoFingerTapState.maxSpreadDeltaPx > TWO_FINGER_TAP_MAX_SPREAD_CHANGE_PX) {
+      twoFingerTapState.eligible = false;
+    }
+  };
+
+  const touchEndListener = async (ev: TouchEvent) => {
+    if (twoFingerTapState == null) {
+      return;
+    }
+
+    preventDefaultIfCancelable(ev);
+
+    if (ev.touches.length > 0) {
+      return;
+    }
+
+    setCursorFromClientPoint(twoFingerTapState.lastCentroidPx);
+    const shouldTriggerTapOut =
+      twoFingerTapState.eligible &&
+      window.performance.now() - twoFingerTapState.startedAtMs <= TWO_FINGER_TAP_MAX_DURATION_MS &&
+      twoFingerTapState.maxCentroidMovementPx <= TWO_FINGER_TAP_MAX_CENTROID_MOVEMENT_PX &&
+      twoFingerTapState.maxSpreadDeltaPx <= TWO_FINGER_TAP_MAX_SPREAD_CHANGE_PX;
+
+    twoFingerTapState = null;
+    if (!shouldTriggerTapOut) {
+      return;
+    }
+
+    suppressCompatibilityMouseDown();
+    await mouseDownHandler(store, MOUSE_RIGHT);
+  };
+
+  const touchCancelListener = (ev: TouchEvent) => {
+    if (twoFingerTapState == null) {
+      return;
+    }
+
+    preventDefaultIfCancelable(ev);
+    twoFingerTapState = null;
+    suppressCompatibilityMouseDown();
+  };
 
   const mouseMoveListener = (ev: MouseEvent) => {
     CursorEventState.setFromMouseEvent(ev);
@@ -278,6 +469,7 @@ export const Main: Component = () => {
   };
 
   const mouseUpListener = (ev: MouseEvent) => {
+    CursorEventState.setFromMouseEvent(ev);
     let flags = mouseUpHandler(store);
     if (flags & MouseEventActionFlags.PreventDefault) {
       ev.preventDefault();
@@ -291,7 +483,6 @@ export const Main: Component = () => {
   return (
     <div ref={mainDiv}
       class="absolute top-0 left-0 right-0 bottom-0 select-none touch-pan-x touch-pan-y overflow-hidden"
-      ontouchstart={touchListener}
       onmousedown={mouseDownListener}
       onmousemove={mouseMoveListener}
       onmouseleave={mouseLeaveListener}

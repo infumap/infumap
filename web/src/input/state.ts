@@ -690,6 +690,15 @@ let lastMoveEvent: TouchOrMouseEvent = {
 };
 
 export const CursorEventState = {
+  setFromClientPx: (clientX: number, clientY: number, shiftDown: boolean = false, ctrlDown: boolean = false) => {
+    lastMoveEvent = {
+      clientX,
+      clientY,
+      shiftDown,
+      ctrlDown,
+    };
+  },
+
   setFromMouseEvent: (ev: MouseEvent) => {
     lastMoveEvent = {
       clientX: ev.clientX,
