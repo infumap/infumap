@@ -61,12 +61,17 @@ interface MoveRollbackContext {
   snapshot: Array<MoveRollbackSnapshotEntry>,
   activeTreeItemId: string | null,
   newPlaceholderItemId: string | null,
+  rollbackExtras: (() => void) | null,
 }
 
 interface MoveFinalizeContext {
   startAttachmentsItemId: string | null,
   startCompositeItemId: string | null,
   newPlaceholderItemId: string | null,
+}
+
+interface MoveCommitOptions {
+  rollbackExtras?: (() => void) | null,
 }
 
 
@@ -202,6 +207,15 @@ function enqueueUpdateItem(ops: Array<MovePersistOperation>, store: StoreContext
   ops.push(() => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false));
 }
 
+function enqueueAddItem(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): void {
+  const snapshot = cloneItemSnapshot(item);
+  ops.push(() => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined));
+}
+
+function enqueueDeleteItem(ops: Array<MovePersistOperation>, store: StoreContextModel, id: string): void {
+  ops.push(() => server.deleteItem(id, store.general.networkStatus, false));
+}
+
 function enqueuePersistMovedItems(ops: Array<MovePersistOperation>, store: StoreContextModel, defaultIds: string[]): void {
   const group = MouseActionState.getGroupMoveItems();
   const ids = group && group.length > 0
@@ -216,7 +230,7 @@ function enqueuePersistMovedItems(ops: Array<MovePersistOperation>, store: Store
   }
 }
 
-function captureMoveRollbackContext(): MoveRollbackContext {
+function captureMoveRollbackContext(rollbackExtras: (() => void) | null = null): MoveRollbackContext {
   const activeElementPath = MouseActionState.getActiveElementPath();
   return {
     snapshot: (MouseActionState.getMoveRollback() ?? []).map(entry => ({
@@ -231,6 +245,7 @@ function captureMoveRollbackContext(): MoveRollbackContext {
       })()
       : null,
     newPlaceholderItemId: MouseActionState.getNewPlaceholderItem()?.id ?? null,
+    rollbackExtras,
   };
 }
 
@@ -283,6 +298,67 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext): v
       itemState.sortAttachments(parentId);
     }
   }
+}
+
+function restorePositionalItemSnapshot(snapshot: PositionalItem): void {
+  const itemMaybe = itemState.get(snapshot.id);
+  if (itemMaybe == null) {
+    itemState.add(cloneItemSnapshot(snapshot));
+    return;
+  }
+  if (!isPositionalItem(itemMaybe)) {
+    return;
+  }
+
+  const item = asPositionalItem(itemMaybe);
+  const currentParentId = item.parentId;
+  item.spatialPositionGr = { ...snapshot.spatialPositionGr };
+  item.dateTime = snapshot.dateTime;
+
+  if (item.parentId != snapshot.parentId || item.relationshipToParent != snapshot.relationshipToParent) {
+    itemState.moveToNewParent(item, snapshot.parentId, snapshot.relationshipToParent, new Uint8Array(snapshot.ordering));
+  } else {
+    item.ordering = new Uint8Array(snapshot.ordering);
+  }
+
+  if (snapshot.relationshipToParent == RelationshipToParent.Child) {
+    itemState.sortChildren(snapshot.parentId);
+    if (currentParentId != snapshot.parentId) {
+      const prevParent = itemState.get(currentParentId);
+      if (prevParent != null && isContainer(prevParent)) {
+        itemState.sortChildren(currentParentId);
+      }
+    }
+  } else if (snapshot.relationshipToParent == RelationshipToParent.Attachment) {
+    itemState.sortAttachments(snapshot.parentId);
+    if (currentParentId != snapshot.parentId) {
+      const prevParent = itemState.get(currentParentId);
+      if (prevParent != null && "computed_attachments" in prevParent) {
+        itemState.sortAttachments(currentParentId);
+      }
+    }
+  }
+}
+
+function restoreDeletedItemSnapshot(snapshot: Item): void {
+  if (itemState.get(snapshot.id) != null) {
+    return;
+  }
+  itemState.add(cloneItemSnapshot(snapshot));
+}
+
+function deleteCreatedItemIfPresent(id: string): void {
+  if (itemState.get(id) != null) {
+    itemState.delete(id);
+  }
+}
+
+function placeholderRollbackSnapshotMaybe(placeholder: Item): Item | null {
+  const newPlaceholderId = MouseActionState.getNewPlaceholderItem()?.id ?? null;
+  if (placeholder.id == newPlaceholderId) {
+    return null;
+  }
+  return cloneItemSnapshot(placeholder);
 }
 
 function rollbackInvalidMove(store: StoreContextModel): void {
@@ -391,6 +467,7 @@ async function commitMoveOperations(
   } catch (error) {
     console.error("Move commit failed; rolling back local state.", error);
     rollbackMove(store, rollbackContext);
+    rollbackContext.rollbackExtras?.();
     showMoveDropRejectedMessage(store, "Couldn't save move. Restored original location.");
     arrangeNow(store, "mouse-up-rollback-server-failure");
     return;
@@ -412,8 +489,9 @@ function scheduleMoveCommit(
   store: StoreContextModel,
   ops: Array<MovePersistOperation>,
   arrangeReason: string,
+  options?: MoveCommitOptions,
 ): void {
-  const rollbackContext = captureMoveRollbackContext();
+  const rollbackContext = captureMoveRollbackContext(options?.rollbackExtras ?? null);
   const finalizeContext = captureMoveFinalizeContext();
   MouseActionState.set(null);
   arrangeNow(store, arrangeReason);
@@ -1006,6 +1084,7 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
 
 async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContextModel, activeItem: PositionalItem) {
   const prevParentId = activeItem.parentId;
+  const ops: Array<MovePersistOperation> = [];
 
   const attachToVisualElement = MouseActionState.readMoveOverAttachComposite()!;
   const attachToVisualElementPath = VeFns.veToPath(attachToVisualElement);
@@ -1028,23 +1107,43 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(
         activeItem, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id));
-      serverOrRemote.updateItem(activeItem, store.general.networkStatus);
+      enqueueUpdateItem(ops, store, activeItem);
+      scheduleMoveCommit(store, ops, "mouse-up-attach-to-composite");
+      return;
     }
 
     // case #1.2: the moving item is a composite.
     else {
       const activeItem_composite = asCompositeItem(activeItem);
+      const activeCompositeSnapshot = cloneItemSnapshot(activeItem_composite);
+      const childSnapshots = activeItem_composite.computed_children
+        .map((childId) => itemState.get(childId))
+        .filter((child): child is PositionalItem => child != null && isPositionalItem(child))
+        .map((child) => cloneItemSnapshot(child));
       let lastPrevId = attachToItem.id;
       while (activeItem_composite.computed_children.length > 0) {
         const child = itemState.get(activeItem_composite.computed_children[0])!;
         itemState.moveToNewParent(
           child, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId));
         lastPrevId = child.id;
-        serverOrRemote.updateItem(child, store.general.networkStatus);
+        enqueueUpdateItem(ops, store, child);
       }
       itemState.delete(activeItem_composite.id);
-      server.deleteItem(activeItem_composite.id, store.general.networkStatus);
+      enqueueDeleteItem(ops, store, activeItem_composite.id);
       MouseActionState.setStartCompositeItem(null);
+      scheduleMoveCommit(store, ops, "mouse-up-attach-to-composite", {
+        rollbackExtras: () => {
+          if (itemState.get(activeCompositeSnapshot.id) == null) {
+            const compositeRestore = asCompositeItem(cloneItemSnapshot(activeCompositeSnapshot));
+            compositeRestore.computed_children = [];
+            itemState.add(compositeRestore);
+          }
+          for (const childSnapshot of childSnapshots) {
+            restorePositionalItemSnapshot(childSnapshot);
+          }
+        },
+      });
+      return;
     }
 
     // case #2: attaching to an item that is not inside an existing composite.
@@ -1052,36 +1151,47 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 
     // case #2.1: this item is not a composite either.
     if (!isComposite(activeItem)) {
+      const attachToItemSnapshot = cloneItemSnapshot(attachToItem);
       const compositeItem = CompositeFns.create(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
       compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
       if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
       itemState.add(compositeItem);
-      server.addItem(compositeItem, null, store.general.networkStatus);
+      enqueueAddItem(ops, store, compositeItem);
 
       attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
-      serverOrRemote.updateItem(attachToItem, store.general.networkStatus);
+      enqueueUpdateItem(ops, store, attachToItem);
 
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(activeItem, compositeItem.id, RelationshipToParent.Child);
-      serverOrRemote.updateItem(activeItem, store.general.networkStatus);
+      enqueueUpdateItem(ops, store, activeItem);
+      scheduleMoveCommit(store, ops, "mouse-up-attach-to-composite", {
+        rollbackExtras: () => {
+          restorePositionalItemSnapshot(attachToItemSnapshot);
+          deleteCreatedItemIfPresent(compositeItem.id);
+        },
+      });
+      return;
     }
 
     // case #2.2: the moving item being attached is a composite. 
     else {
       const activeItem_composite = asCompositeItem(activeItem);
+      const attachToItemSnapshot = cloneItemSnapshot(attachToItem);
       const attachToPositionGr = attachToItem.spatialPositionGr;
       activeItem_composite.spatialPositionGr = attachToPositionGr;
       itemState.moveToNewParent(attachToItem, activeItem_composite.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(activeItem_composite.id));
-      serverOrRemote.updateItem(attachToItem, store.general.networkStatus);
-      serverOrRemote.updateItem(activeItem_composite, store.general.networkStatus);
+      enqueueUpdateItem(ops, store, attachToItem);
+      enqueueUpdateItem(ops, store, activeItem_composite);
+      scheduleMoveCommit(store, ops, "mouse-up-attach-to-composite", {
+        rollbackExtras: () => {
+          restorePositionalItemSnapshot(attachToItemSnapshot);
+        },
+      });
+      return;
     }
 
   }
-
-  finalizeMouseUp(store);
-  MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
-  arrangeNow(store, "mouse-up-attach-to-composite");
 }
 
 
@@ -1089,6 +1199,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   const attachToVisualElement = MouseActionState.readMoveOverAttachHitbox()!;
   const attachToPath = VeFns.veToPath(attachToVisualElement);
   const displayedParent = asAttachmentsItem(attachToVisualElement.displayItem);
+  const ops: Array<MovePersistOperation> = [];
 
   if (displayedParent.id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
@@ -1110,23 +1221,28 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
       const prevAttachmentId = displayedParent.computed_attachments[insertPosition - 1];
       const prevPlaceholderMaybe = itemState.get(prevAttachmentId)!;
       if (isPlaceholder(prevPlaceholderMaybe)) {
+        const placeholderRollback = placeholderRollbackSnapshotMaybe(prevPlaceholderMaybe);
         const newOrdering = prevPlaceholderMaybe.ordering;
         itemState.delete(prevPlaceholderMaybe.id);
-        server.deleteItem(prevPlaceholderMaybe.id, store.general.networkStatus);
+        if (placeholderRollback != null) {
+          enqueueDeleteItem(ops, store, prevPlaceholderMaybe.id);
+        }
         activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
         itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-        serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-        finalizeMouseUp(store);
-        arrangeNow(store, "mouse-up-attach-end-placeholder");
+        enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+        scheduleMoveCommit(store, ops, "mouse-up-attach-end-placeholder", {
+          rollbackExtras: placeholderRollback == null
+            ? null
+            : () => { restoreDeletedItemSnapshot(placeholderRollback); },
+        });
         return;
       }
     }
     activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
     const newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedParent.id, insertPosition >= 0 ? insertPosition : displayedParent.computed_attachments.length);
     itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-    finalizeMouseUp(store);
-    arrangeNow(store, "mouse-up-attach-end");
+    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+    scheduleMoveCommit(store, ops, "mouse-up-attach-end");
     return;
   }
 
@@ -1135,14 +1251,20 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
   if (isPlaceholder(placeholderToReplaceMaybe)) {
     // Replace the placeholder
+    const placeholderRollback = placeholderRollbackSnapshotMaybe(placeholderToReplaceMaybe);
     const newOrdering = placeholderToReplaceMaybe.ordering;
     itemState.delete(placeholderToReplaceMaybe.id);
-    server.deleteItem(placeholderToReplaceMaybe.id, store.general.networkStatus);
+    if (placeholderRollback != null) {
+      enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id);
+    }
     activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
     itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-    finalizeMouseUp(store);
-    arrangeNow(store, "mouse-up-attach-replace-placeholder");
+    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+    scheduleMoveCommit(store, ops, "mouse-up-attach-replace-placeholder", {
+      rollbackExtras: placeholderRollback == null
+        ? null
+        : () => { restoreDeletedItemSnapshot(placeholderRollback); },
+    });
     return;
   }
 
@@ -1152,14 +1274,20 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
     const prevAttachmentId = displayedParent.computed_attachments[insertPosition - 1];
     const prevPlaceholderMaybe = itemState.get(prevAttachmentId)!;
     if (isPlaceholder(prevPlaceholderMaybe)) {
+      const placeholderRollback = placeholderRollbackSnapshotMaybe(prevPlaceholderMaybe);
       const newOrdering = prevPlaceholderMaybe.ordering;
       itemState.delete(prevPlaceholderMaybe.id);
-      server.deleteItem(prevPlaceholderMaybe.id, store.general.networkStatus);
+      if (placeholderRollback != null) {
+        enqueueDeleteItem(ops, store, prevPlaceholderMaybe.id);
+      }
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-      serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-      finalizeMouseUp(store);
-      arrangeNow(store, "mouse-up-attach-prev-placeholder");
+      enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+      scheduleMoveCommit(store, ops, "mouse-up-attach-prev-placeholder", {
+        rollbackExtras: placeholderRollback == null
+          ? null
+          : () => { restoreDeletedItemSnapshot(placeholderRollback); },
+      });
       return;
     }
   }
@@ -1168,10 +1296,8 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
   const newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedParent.id, insertPosition);
   itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-  serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-
-  finalizeMouseUp(store);
-  arrangeNow(store, "mouse-up-attach-insert");
+  enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+  scheduleMoveCommit(store, ops, "mouse-up-attach-insert");
 }
 
 function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
@@ -1283,6 +1409,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
     ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
     : child);
   const insertPosition = store.perVe.getMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe));
+  const ops: Array<MovePersistOperation> = [];
 
   const startAttachmentsItem = MouseActionState.getStartAttachmentsItem();
   const isDroppingBack = startAttachmentsItem != null && startAttachmentsItem.id == displayedChild.id;
@@ -1292,6 +1419,10 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
     const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
     if (isPlaceholder(placeholderToReplaceMaybe)) {
       const newPlaceholderItem = MouseActionState.getNewPlaceholderItem();
+      const placeholderRollback =
+        newPlaceholderItem != null && newPlaceholderItem.id == placeholderToReplaceMaybe.id
+          ? null
+          : cloneItemSnapshot(placeholderToReplaceMaybe);
       let newOrdering: Uint8Array;
       if (newPlaceholderItem != null && newPlaceholderItem.id == placeholderToReplaceMaybe.id) {
         newOrdering = placeholderToReplaceMaybe.ordering;
@@ -1300,30 +1431,39 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
       } else {
         newOrdering = placeholderToReplaceMaybe.ordering;
         itemState.delete(placeholderToReplaceMaybe.id);
-        server.deleteItem(placeholderToReplaceMaybe.id, store.general.networkStatus);
+        enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id);
       }
       itemState.moveToNewParent(activeItem, displayedChild.id, RelationshipToParent.Attachment, newOrdering);
-      serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-      finalizeMouseUp(store);
-      arrangeNow(store, "mouse-up-move-to-table-attachment-placeholder");
+      enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+      scheduleMoveCommit(store, ops, "mouse-up-move-to-table-attachment-placeholder", {
+        rollbackExtras: placeholderRollback == null
+          ? null
+          : () => { restoreDeletedItemSnapshot(placeholderRollback); },
+      });
       return;
     }
   }
 
+  const createdPlaceholderIds: Array<string> = [];
   const numPlaceholdersToCreate = insertPosition > displayedChild.computed_attachments.length ? insertPosition - displayedChild.computed_attachments.length : 0;
   for (let i = 0; i < numPlaceholdersToCreate; ++i) {
     const placeholderItem = PlaceholderFns.create(activeItem.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
     itemState.add(placeholderItem);
-    server.addItem(placeholderItem, null, store.general.networkStatus);
+    createdPlaceholderIds.push(placeholderItem.id);
+    enqueueAddItem(ops, store, placeholderItem);
   }
   let newOrdering: Uint8Array | undefined;
+  let deletedPlaceholderSnapshot: Item | null = null;
   if (insertPosition < displayedChild.computed_attachments.length) {
     const overAttachmentId = displayedChild.computed_attachments[insertPosition];
     const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
     if (isPlaceholder(placeholderToReplaceMaybe)) {
+      deletedPlaceholderSnapshot = placeholderRollbackSnapshotMaybe(placeholderToReplaceMaybe);
       newOrdering = placeholderToReplaceMaybe.ordering;
       itemState.delete(placeholderToReplaceMaybe.id);
-      server.deleteItem(placeholderToReplaceMaybe.id, store.general.networkStatus);
+      if (deletedPlaceholderSnapshot != null) {
+        enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id);
+      }
     } else {
       // TODO (MEDIUM): probably want to forbid rather than insert in this case.
       newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedChild.id, insertPosition);
@@ -1333,10 +1473,18 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
   }
 
   itemState.moveToNewParent(activeItem, displayedChild.id, RelationshipToParent.Attachment, newOrdering);
-  serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+  enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
 
-  finalizeMouseUp(store);
-  arrangeNow(store, "mouse-up-move-to-table-attachment");
+  scheduleMoveCommit(store, ops, "mouse-up-move-to-table-attachment", {
+    rollbackExtras: () => {
+      for (const placeholderId of createdPlaceholderIds) {
+        deleteCreatedItemIfPresent(placeholderId);
+      }
+      if (deletedPlaceholderSnapshot != null) {
+        restoreDeletedItemSnapshot(deletedPlaceholderSnapshot);
+      }
+    },
+  });
 }
 
 
