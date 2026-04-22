@@ -86,6 +86,7 @@ export const NoteFns = {
     // TODO (LOW): check flags field.
     return ({
       origin,
+      capabilities: o.capabilities ?? null,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

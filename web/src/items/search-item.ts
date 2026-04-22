@@ -132,6 +132,7 @@ export const SearchFns = {
   fromObject: (o: any, origin: string | null): SearchItem => {
     return ({
       origin,
+      capabilities: o.capabilities ?? null,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

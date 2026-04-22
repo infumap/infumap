@@ -75,6 +75,7 @@ export const PasswordFns = {
     // TODO: dynamic type check of o.
     return ({
       origin,
+      capabilities: o.capabilities ?? null,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

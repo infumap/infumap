@@ -37,6 +37,16 @@ export const ItemType = {
 
 export type ItemType = typeof ItemType[keyof typeof ItemType];
 
+export const ITEM_CAPABILITY_KEYS = ["edit", "move"] as const;
+
+export type ItemCapability = typeof ITEM_CAPABILITY_KEYS[number];
+
+/**
+ * Response-only metadata describing what the current caller may do with an item.
+ * This must not be sent back in mutation payloads.
+ */
+export type ItemCapabilities = Partial<Record<ItemCapability, boolean>>;
+
 
 export interface ItemTypeMixin {
   itemType: string,
@@ -46,6 +56,7 @@ export interface Measurable extends ItemTypeMixin { }
 
 export interface Item extends ItemTypeMixin {
   origin: string | null,
+  capabilities?: ItemCapabilities | null,
   ownerId: Uid,
   id: Uid,
   parentId: Uid,
@@ -58,6 +69,7 @@ export interface Item extends ItemTypeMixin {
 
 export const EMPTY_ITEM = () => ({
   origin: null,
+  capabilities: null,
   itemType: ItemType.Empty,
   ownerId: EMPTY_UID,
   id: EMPTY_UID,
@@ -71,6 +83,7 @@ export const EMPTY_ITEM = () => ({
 
 export const uniqueEmptyItem = () => ({
   origin: null,
+  capabilities: null,
   itemType: ItemType.Empty,
   ownerId: EMPTY_UID,
   id: newUid(),

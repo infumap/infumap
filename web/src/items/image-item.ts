@@ -83,6 +83,7 @@ export const ImageFns = {
     // TODO (LOW): dynamic type check of o.
     return ({
       origin,
+      capabilities: o.capabilities ?? null,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,
