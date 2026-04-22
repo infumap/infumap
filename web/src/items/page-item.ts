@@ -590,16 +590,10 @@ export const PageFns = {
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
 
     const hitboxes = [
+      // Dragging should come from the title bar, not invisible strips around the page border.
       HitboxFns.create(HitboxFlags.Move | HitboxFlags.Click | HitboxFlags.ContentEditable, { x: 0, y: 0, h: blockSizePx.h * headerHeightBl, w: innerBoundsPx.w }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: blockSizePx.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-      HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ];
-    // Don't add left side move hitbox for list pages - it interferes with list item interaction.
-    if (page.arrangeAlgorithm != ArrangeAlgorithm.List) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }));
-    }
 
     if (isPopup) {
       const actionLayout = calcPagePopupActionStripLayout(innerBoundsPx.w, Math.round(blockSizePx.h * headerHeightBl), hasChildChanges, hasDefaultChanges);
@@ -725,19 +719,11 @@ export const PageFns = {
       const actionLayout = calcPagePopupActionStripLayout(innerBoundsPx.w, Math.round(NATURAL_BLOCK_SIZE_PX.h * headerHeightBl), hasChildChanges, hasDefaultChanges);
 
       hitboxes.push(
+        // Keep page dragging on the title bar only.
         HitboxFns.create(HitboxFlags.Move | HitboxFlags.ContentEditable | HitboxFlags.Click, { x: 0, y: 0, h: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, w: innerBoundsPx.w })
       );
-      hitboxes.push(
-        HitboxFns.create(HitboxFlags.Move, { x: 0, y: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-        HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX })
-      );
-      // Don't add left side move hitbox for list pages - it interferes with list item interaction.
-      if (page.arrangeAlgorithm != ArrangeAlgorithm.List) {
-        hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }));
-      }
 
       if (!parentIsDock) {
-        hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
         hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
       }
 
@@ -755,16 +741,11 @@ export const PageFns = {
       }
     } else {
       hitboxes.push(
+        // Keep page dragging on the title bar only.
         HitboxFns.create(HitboxFlags.Move | HitboxFlags.ContentEditable | HitboxFlags.Click, { x: 0, y: 0, h: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, w: innerBoundsPx.w })
-      );
-      hitboxes.push(
-        HitboxFns.create(HitboxFlags.Move, { x: 0, y: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-        HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-        HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX })
       );
 
       if (!parentIsDock) {
-        hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
         hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
       }
 
