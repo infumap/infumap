@@ -4,7 +4,7 @@
 - Innovative UI:
   - Progressively add structure as your needs evolve.
   - Optimized for rapid navigation.
-- In development: Powerful search and structure API that enables AI to work with your data.
+- In development: Search and structure API that enables AI to work with your data.
 
 <kbd>
   <img src="screenshot.png" />

@@ -19,6 +19,7 @@
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
 import { asContainerItem, isContainer } from "../items/base/container-item";
+import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -44,7 +45,7 @@ import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
-import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
+import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
@@ -52,6 +53,21 @@ import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets } from "./move_group";
 import { resolveInternalMoveTarget } from "./move_target";
+
+
+type MovePersistOperation = () => Promise<void>;
+
+interface MoveRollbackContext {
+  snapshot: Array<MoveRollbackSnapshotEntry>,
+  activeTreeItemId: string | null,
+  newPlaceholderItemId: string | null,
+}
+
+interface MoveFinalizeContext {
+  startAttachmentsItemId: string | null,
+  startCompositeItemId: string | null,
+  newPlaceholderItemId: string | null,
+}
 
 
 function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, shouldSwitchRoot: boolean): void {
@@ -177,32 +193,70 @@ function clearMoveOverState(store: StoreContextModel): void {
   }
 }
 
-function rollbackInvalidMove(store: StoreContextModel): void {
-  clearMoveOverState(store);
+function cloneItemSnapshot<T extends Item>(item: T): T {
+  return ItemFns.fromObject(ItemFns.toObject(item), item.origin ?? null) as T;
+}
 
-  const rollback = MouseActionState.getMoveRollback() ?? [];
-  const rollbackIds = new Set(rollback.map(entry => entry.id));
+function enqueueUpdateItem(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): void {
+  const snapshot = cloneItemSnapshot(item);
+  ops.push(() => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false));
+}
+
+function enqueuePersistMovedItems(ops: Array<MovePersistOperation>, store: StoreContextModel, defaultIds: string[]): void {
+  const group = MouseActionState.getGroupMoveItems();
+  const ids = group && group.length > 0
+    ? group.map(g => g.veid.linkIdMaybe ? g.veid.linkIdMaybe : g.veid.itemId)
+    : defaultIds;
+
+  for (const id of ids) {
+    const item = itemState.get(id);
+    if (item != null) {
+      enqueueUpdateItem(ops, store, item);
+    }
+  }
+}
+
+function captureMoveRollbackContext(): MoveRollbackContext {
   const activeElementPath = MouseActionState.getActiveElementPath();
-  const activeTreeItemId = activeElementPath != null
-    ? (() => {
-      const veid = VeFns.veidFromPath(activeElementPath);
-      return veid.linkIdMaybe ?? veid.itemId;
-    })()
-    : null;
-  if (activeTreeItemId != null && !rollbackIds.has(activeTreeItemId) && itemState.get(activeTreeItemId) != null) {
-    itemState.delete(activeTreeItemId);
-    server.deleteItem(activeTreeItemId, store.general.networkStatus);
+  return {
+    snapshot: (MouseActionState.getMoveRollback() ?? []).map(entry => ({
+      ...entry,
+      ordering: new Uint8Array(entry.ordering),
+      spatialPositionGr: { ...entry.spatialPositionGr },
+    })),
+    activeTreeItemId: activeElementPath != null
+      ? (() => {
+        const veid = VeFns.veidFromPath(activeElementPath);
+        return veid.linkIdMaybe ?? veid.itemId;
+      })()
+      : null,
+    newPlaceholderItemId: MouseActionState.getNewPlaceholderItem()?.id ?? null,
+  };
+}
+
+function captureMoveFinalizeContext(): MoveFinalizeContext {
+  return {
+    startAttachmentsItemId: MouseActionState.getStartAttachmentsItem()?.id ?? null,
+    startCompositeItemId: MouseActionState.getStartCompositeItem()?.id ?? null,
+    newPlaceholderItemId: MouseActionState.getNewPlaceholderItem()?.id ?? null,
+  };
+}
+
+function rollbackMove(store: StoreContextModel, context: MoveRollbackContext): void {
+  const rollbackIds = new Set(context.snapshot.map(entry => entry.id));
+  if (context.activeTreeItemId != null && !rollbackIds.has(context.activeTreeItemId) && itemState.get(context.activeTreeItemId) != null) {
+    itemState.delete(context.activeTreeItemId);
+    void server.deleteItem(context.activeTreeItemId, store.general.networkStatus, false).catch((error) => {
+      console.error("Rollback cleanup failed while deleting dragged item:", error);
+    });
   }
 
-  const newPlaceholderItem = MouseActionState.getNewPlaceholderItem();
-  if (newPlaceholderItem != null && itemState.get(newPlaceholderItem.id) != null) {
-    itemState.delete(newPlaceholderItem.id);
+  if (context.newPlaceholderItemId != null && itemState.get(context.newPlaceholderItemId) != null) {
+    itemState.delete(context.newPlaceholderItemId);
   }
-  MouseActionState.setNewPlaceholderItem(null);
-  MouseActionState.setStartAttachmentsItem(null);
 
   const parentsToSort = new Set<string>();
-  for (const entry of rollback) {
+  for (const entry of context.snapshot) {
     const itemMaybe = itemState.get(entry.id);
     if (!itemMaybe || !isPositionalItem(itemMaybe)) { continue; }
     const item = asPositionalItem(itemMaybe);
@@ -229,7 +283,141 @@ function rollbackInvalidMove(store: StoreContextModel): void {
       itemState.sortAttachments(parentId);
     }
   }
+}
+
+function rollbackInvalidMove(store: StoreContextModel): void {
+  clearMoveOverState(store);
+  rollbackMove(store, captureMoveRollbackContext());
+  MouseActionState.setNewPlaceholderItem(null);
+  MouseActionState.setStartAttachmentsItem(null);
   MouseActionState.setMoveRollback(null);
+}
+
+async function cleanupPersistedPlaceholdersAfterCommit(
+  store: StoreContextModel,
+  finalizeContext: MoveFinalizeContext,
+): Promise<boolean> {
+  const parentId = finalizeContext.startAttachmentsItemId;
+  if (parentId == null) {
+    return false;
+  }
+
+  const newPlaceholderItem = finalizeContext.newPlaceholderItemId != null
+    ? itemState.get(finalizeContext.newPlaceholderItemId)
+    : null;
+  if (newPlaceholderItem != null) {
+    await server.addItem(cloneItemSnapshot(newPlaceholderItem), null, store.general.networkStatus);
+  }
+
+  const placeholderParent = itemState.getAsAttachmentsItem(parentId);
+  if (placeholderParent == null) {
+    return false;
+  }
+
+  const placeholderIdsToDelete: Array<string> = [];
+  for (let i = placeholderParent.computed_attachments.length - 1; i >= 0; --i) {
+    const attachmentId = placeholderParent.computed_attachments[i];
+    const attachment = itemState.get(attachmentId);
+    if (attachment == null) { panic("cleanupPersistedPlaceholdersAfterCommit: no attachment."); }
+    if (!isPlaceholder(attachment)) {
+      break;
+    }
+    placeholderIdsToDelete.push(attachment.id);
+  }
+
+  for (const placeholderId of placeholderIdsToDelete) {
+    await server.deleteItem(placeholderId, store.general.networkStatus, false);
+    if (itemState.get(placeholderId) != null) {
+      itemState.delete(placeholderId);
+    }
+  }
+
+  return placeholderIdsToDelete.length > 0;
+}
+
+async function cleanupCollapsedCompositeAfterCommit(
+  store: StoreContextModel,
+  finalizeContext: MoveFinalizeContext,
+): Promise<boolean> {
+  const compositeId = finalizeContext.startCompositeItemId;
+  if (compositeId == null) {
+    return false;
+  }
+
+  const compositeItemMaybe = itemState.get(compositeId);
+  if (compositeItemMaybe == null || !isComposite(compositeItemMaybe)) {
+    return false;
+  }
+
+  const compositeItem = asCompositeItem(compositeItemMaybe);
+  if (compositeItem.computed_children.length == 0) {
+    panic("cleanupCollapsedCompositeAfterCommit: composite has no children.");
+  }
+  if (compositeItem.computed_children.length != 1) {
+    return false;
+  }
+
+  const compositeItemParent = itemState.getAsContainerItem(compositeItem.parentId);
+  const child = itemState.get(compositeItem.computed_children[0]);
+  if (compositeItemParent == null || child == null || !isPositionalItem(child)) {
+    return false;
+  }
+
+  const childSnapshot = asPositionalItem(cloneItemSnapshot(child));
+  childSnapshot.parentId = compositeItem.parentId;
+  childSnapshot.spatialPositionGr = { ...compositeItem.spatialPositionGr };
+  await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
+  await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
+
+  child.parentId = compositeItem.parentId;
+  asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
+  compositeItem.computed_children = [];
+  compositeItemParent.computed_children.push(child.id);
+  itemState.delete(compositeItem.id);
+  itemState.sortChildren(compositeItemParent.id);
+  return true;
+}
+
+async function commitMoveOperations(
+  store: StoreContextModel,
+  ops: Array<MovePersistOperation>,
+  rollbackContext: MoveRollbackContext,
+  finalizeContext: MoveFinalizeContext,
+): Promise<void> {
+  try {
+    for (const op of ops) {
+      await op();
+    }
+  } catch (error) {
+    console.error("Move commit failed; rolling back local state.", error);
+    rollbackMove(store, rollbackContext);
+    showMoveDropRejectedMessage(store, "Couldn't save move. Restored original location.");
+    arrangeNow(store, "mouse-up-rollback-server-failure");
+    return;
+  }
+
+  try {
+    const placeholdersChanged = await cleanupPersistedPlaceholdersAfterCommit(store, finalizeContext);
+    const compositeChanged = await cleanupCollapsedCompositeAfterCommit(store, finalizeContext);
+    if (placeholdersChanged || compositeChanged) {
+      arrangeNow(store, "mouse-up-finalize-committed-move");
+    }
+  } catch (error) {
+    console.error("Move cleanup after commit failed.", error);
+    showMoveDropRejectedMessage(store, "Move saved, but follow-up cleanup failed.");
+  }
+}
+
+function scheduleMoveCommit(
+  store: StoreContextModel,
+  ops: Array<MovePersistOperation>,
+  arrangeReason: string,
+): void {
+  const rollbackContext = captureMoveRollbackContext();
+  const finalizeContext = captureMoveFinalizeContext();
+  MouseActionState.set(null);
+  arrangeNow(store, arrangeReason);
+  void commitMoveOperations(store, ops, rollbackContext, finalizeContext);
 }
 
 function movingIgnoreIds(activeVisualElement: VisualElement): Array<string> {
@@ -644,10 +832,9 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         }
         activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
         itemState.moveToNewParent(activeItem, targetPageItem.id, RelationshipToParent.Child);
-        persistMovedItems(store, [activeItem.id]);
-        finalizeMouseUp(store);
-        MouseActionState.set(null);
-        arrangeNow(store, "mouse-up-move-to-calendar-page");
+        const ops: Array<MovePersistOperation> = [];
+        enqueuePersistMovedItems(ops, store, [activeItem.id]);
+        scheduleMoveCommit(store, ops, "mouse-up-move-to-calendar-page");
         return;
       } else if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Document ||
         targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
@@ -665,13 +852,14 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
 
   // root page
 
+  const ops: Array<MovePersistOperation> = [];
   if (isPage(overContainerVe.displayItem)) {
     const pageItem = asPageItem(overContainerVe.displayItem);
     if (overContainerVe.flags & VisualElementFlags.IsDock) {
       const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
       activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index, activeItem.id);
       itemState.sortChildren(pageItem.id);
-      persistMovedItems(store, [activeItem.id]);
+      enqueuePersistMovedItems(ops, store, [activeItem.id]);
     }
     else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
       pageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
@@ -684,7 +872,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       const startPosBl = MouseActionState.getStartPosBl()!;
       if (startPosBl.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
         startPosBl.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
-        persistMovedItems(store, [activeItem.id]);
+        enqueuePersistMovedItems(ops, store, [activeItem.id]);
       }
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
       const path = VeFns.veToPath(overContainerVe);
@@ -706,35 +894,19 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       const newDateTime = Math.floor(newDate.getTime() / 1000);
       if (activeItem.dateTime !== newDateTime) {
         activeItem.dateTime = newDateTime;
-        serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+        enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
       }
     }
     else {
       console.debug("todo: explicitly consider other page types here.");
-      serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+      enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
     }
   } else {
     // Not over a page; persist moved items (including group) if any
-    persistMovedItems(store, [activeItem.id]);
+    enqueuePersistMovedItems(ops, store, [activeItem.id]);
   }
 
-  finalizeMouseUp(store);
-  MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
-  arrangeNow(store, "mouse-up-finish-move");
-}
-
-function persistMovedItems(store: StoreContextModel, defaultIds: string[]) {
-  const group = MouseActionState.getGroupMoveItems();
-  if (group && group.length > 0) {
-    const ids = group.map(g => g.veid.linkIdMaybe ? g.veid.linkIdMaybe : g.veid.itemId);
-    for (const id of ids) {
-      serverOrRemote.updateItem(itemState.get(id)!, store.general.networkStatus);
-    }
-  } else {
-    for (const id of defaultIds) {
-      serverOrRemote.updateItem(itemState.get(id)!, store.general.networkStatus);
-    }
-  }
+  scheduleMoveCommit(store, ops, "mouse-up-finish-move");
 }
 
 function moveSelectedGroupToOpaquePageMaybe(
@@ -820,11 +992,11 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
     itemState.sortChildren(pageItem.id);
   }
 
-  persistMovedItems(store, [activeItem.id]);
-  finalizeMouseUp(store);
-  MouseActionState.set(null);
-  arrangeNow(
+  const ops: Array<MovePersistOperation> = [];
+  enqueuePersistMovedItems(ops, store, [activeItem.id]);
+  scheduleMoveCommit(
     store,
+    ops,
     pageItem.arrangeAlgorithm == ArrangeAlgorithm.Document
       ? "mouse-up-move-to-document-page"
       : "mouse-up-move-to-ordered-page",
@@ -1015,16 +1187,16 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
   }
 
   const movedGroup = moveSelectedGroupToOpaquePageMaybe(store, activeItem, overContainerVe);
+  const ops: Array<MovePersistOperation> = [];
   if (movedGroup) {
-    persistMovedItems(store, [activeItem.id]);
+    enqueuePersistMovedItems(ops, store, [activeItem.id]);
   } else {
     activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
     itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
-    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
   }
 
-  finalizeMouseUp(store);
-  arrangeNow(store, "mouse-up-move-to-opaque-page");
+  scheduleMoveCommit(store, ops, "mouse-up-move-to-opaque-page");
 }
 
 function mouseUpHandler_moving_toComposite(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
@@ -1052,10 +1224,9 @@ function mouseUpHandler_moving_toComposite(store: StoreContextModel, activeItem:
     activeItem.ordering = moveToOrdering;
     itemState.sortChildren(moveOverContainerId);
   }
-  serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
-
-  finalizeMouseUp(store);
-  arrangeNow(store, "mouse-up-move-to-composite");
+  const ops: Array<MovePersistOperation> = [];
+  enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+  scheduleMoveCommit(store, ops, "mouse-up-move-to-composite");
 }
 
 
@@ -1086,16 +1257,16 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
   }
 
   const movedGroup = moveSelectedGroupToTableMaybe(store, activeItem, overContainerVe);
+  const ops: Array<MovePersistOperation> = [];
   if (movedGroup) {
-    persistMovedItems(store, [activeItem.id]);
+    enqueuePersistMovedItems(ops, store, [activeItem.id]);
   } else {
     const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(tablePath), activeItem.id);
     itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
-    serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
   }
 
-  finalizeMouseUp(store);
-  arrangeNow(store, "mouse-up-move-to-table");
+  scheduleMoveCommit(store, ops, "mouse-up-move-to-table");
 }
 
 

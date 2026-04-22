@@ -574,15 +574,15 @@ export const server = {
       });
   },
 
-  updateItem: async (item: Item, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, true, networkStatus)
+  updateItem: async (item: Item, networkStatus: NumberSignal, panicLogoutOnError: boolean = true): Promise<void> => {
+    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, panicLogoutOnError, networkStatus)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
       });
   },
 
-  deleteItem: async (id: Uid, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null, true, networkStatus)
+  deleteItem: async (id: Uid, networkStatus: NumberSignal, panicLogoutOnError: boolean = true): Promise<void> => {
+    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null, panicLogoutOnError, networkStatus)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
       });
@@ -735,9 +735,9 @@ export const remote = {
 
 
 export const serverOrRemote = {
-  updateItem: async (item: Item, networkStatus: NumberSignal) => {
+  updateItem: async (item: Item, networkStatus: NumberSignal, panicLogoutOnError: boolean = true) => {
     if (item.origin == null) {
-      await server.updateItem(item, networkStatus);
+      await server.updateItem(item, networkStatus, panicLogoutOnError);
     } else {
       await remote.updateItem(item.origin, item, networkStatus);
     }
