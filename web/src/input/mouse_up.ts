@@ -40,8 +40,10 @@ import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, EMPTY_VEID, isVeTranslucentPage } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
+import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
+import { HitInfoFns } from "./hit";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
@@ -49,6 +51,7 @@ import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets } from "./move_group";
+import { resolveInternalMoveTarget } from "./move_target";
 
 
 function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, shouldSwitchRoot: boolean): void {
@@ -138,6 +141,72 @@ function focusSearchItemFromResultsBackgroundClickMaybe(
   store.history.setFocus(activeVisualElement.parentPath);
   arrangeNow(store, "mouse-up-focus-search-from-results-background");
   return true;
+}
+
+function showMoveDropRejectedMessage(store: StoreContextModel, text: string): void {
+  store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
+  window.setTimeout(() => {
+    const current = store.overlay.toolbarTransientMessage.get();
+    if (current?.text == text) {
+      store.overlay.toolbarTransientMessage.set(null);
+    }
+  }, 1500);
+}
+
+function clearMoveOverState(store: StoreContextModel): void {
+  const moveOverContainerPath = MouseActionState.getMoveOverContainerPath();
+  if (moveOverContainerPath != null) {
+    store.perVe.setMovingItemIsOver(moveOverContainerPath, false);
+    store.perVe.setMoveOverChildContainerPath(moveOverContainerPath, null);
+    store.perVe.setMoveOverRowNumber(moveOverContainerPath, -1);
+    store.perVe.setMoveOverColAttachmentNumber(moveOverContainerPath, -1);
+    MouseActionState.setMoveOverContainerPath(null);
+  }
+
+  const attachPath = MouseActionState.getMoveOverAttachHitboxPath();
+  if (attachPath != null) {
+    store.perVe.setMovingItemIsOverAttach(attachPath, false);
+    store.perVe.setMoveOverAttachmentIndex(attachPath, -1);
+    MouseActionState.setMoveOverAttachHitboxPath(null);
+  }
+
+  const attachCompositePath = MouseActionState.getMoveOverAttachCompositePath();
+  if (attachCompositePath != null) {
+    store.perVe.setMovingItemIsOverAttachComposite(attachCompositePath, false);
+    MouseActionState.setMoveOverAttachCompositePath(null);
+  }
+}
+
+function movingIgnoreIds(activeVisualElement: VisualElement): Array<string> {
+  const ignoreIds = [activeVisualElement.displayItem.id];
+  if (isComposite(activeVisualElement.displayItem)) {
+    const compositeItem = asCompositeItem(activeVisualElement.displayItem);
+    for (const childId of compositeItem.computed_children) {
+      ignoreIds.push(childId);
+      const item = itemState.get(childId);
+      if (isLink(item)) {
+        ignoreIds.push(LinkFns.getLinkToId(asLinkItem(item!)));
+      }
+    }
+  }
+  return ignoreIds;
+}
+
+function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
+  const activeVisualElement = MouseActionState.getActiveVisualElement();
+  if (!activeVisualElement) {
+    return false;
+  }
+
+  const ignoreIds = movingIgnoreIds(activeVisualElement);
+  const hitInfo = HitInfoFns.hit(
+    store,
+    CursorEventState.getLatestDesktopPx(store),
+    ignoreIds,
+    MouseActionState.usesEmbeddedInteractiveHitTesting(),
+    false,
+  );
+  return resolveInternalMoveTarget(hitInfo, ignoreIds).validity != "valid";
 }
 
 
@@ -456,6 +525,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
 
 function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: PositionalItem) {
+  if (shouldRejectCurrentDropTarget(store)) {
+    clearMoveOverState(store);
+    showMoveDropRejectedMessage(store, "Can't drop here.");
+    finalizeMouseUp(store);
+    MouseActionState.set(null);
+    arrangeNow(store, "mouse-up-reject-invalid-drop-target");
+    return;
+  }
 
   if (MouseActionState.getMoveOverContainerPath() != null) {
     store.perVe.setMovingItemIsOver(MouseActionState.getMoveOverContainerPath()!, false);
