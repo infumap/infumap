@@ -439,7 +439,14 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       clearTableChildContainerDropTarget(store, tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null);
       const moveOverContainerVe = MouseActionState.readMoveOverContainer()!;
       if (!moveTargetIsDocumentPage && isComposite(moveOverContainerVe.displayItem)) {
-        moving_handleOverComposite(store, moveOverContainerVe, desktopPosPx);
+        if (
+          MouseActionState.getMoveOverAttachHitboxPath() != null ||
+          MouseActionState.getMoveOverAttachCompositePath() != null
+        ) {
+          store.perVe.setMoveOverIndex(VeFns.veToPath(moveOverContainerVe), -1);
+        } else {
+          moving_handleOverComposite(store, moveOverContainerVe, desktopPosPx);
+        }
       }
     }
   }

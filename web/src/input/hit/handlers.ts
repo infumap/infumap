@@ -119,7 +119,7 @@ const _compositeHandler: HitHandler = {
       const compositeChildVe = compositeChildVes.get();
       const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVeViewportPx);
       const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
-      if ((hitboxType & HitboxFlags.AttachComposite) && !ignoreItems.has(compositeChildVe.displayItem.id)) {
+      if ((hitboxType & (HitboxFlags.Attach | HitboxFlags.AttachComposite)) && !ignoreItems.has(compositeChildVe.displayItem.id)) {
         return new HitBuilder(parentRootVe, rootVes).over(compositeChildVes).hitboxes(hitboxType, compositeHitboxType).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-attach-child").build();
       }
       if (isTable(compositeChildVe.displayItem) && !(compositeChildVe.flags & VisualElementFlags.LineItem)) {
