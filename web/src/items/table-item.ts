@@ -22,7 +22,15 @@ import { compositeMoveOutHitboxBoundsPx } from "../layout/composite-move-out";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector, isInside } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
-import { AttachmentsItem, asAttachmentsItem, calcGeometryOfAttachmentItemImpl, isAttachmentsItem } from "./base/attachments-item";
+import {
+  AttachmentsItem,
+  AttachmentsMixin,
+  asAttachmentsItem,
+  calcGeometryOfAttachmentItemImpl,
+  calcSpatialAttachmentHitboxBoundsPx,
+  calcSpatialAttachmentStripWidthPx,
+  isAttachmentsItem
+} from "./base/attachments-item";
 import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
 import { ContainerItem } from "./base/container-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
@@ -52,7 +60,7 @@ import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 
 export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
 
-export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin, TabularMixin {
+export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin, TabularMixin, AttachmentsMixin {
 }
 
 
@@ -314,6 +322,7 @@ export const TableFns = {
       spatialHeightGr: table.spatialHeightGr,
       tableColumns: table.tableColumns,
       numberOfVisibleColumns: table.numberOfVisibleColumns,
+      computed_attachments: table.computed_attachments,
       flags: table.flags,
     });
   },
@@ -374,9 +383,13 @@ export const TableFns = {
 
     const tableItem = asTableItem(tableVe.displayItem);
     const attachmentBlockSizePx = tableDesktopBoundsPx.w / (tableItem.spatialWidthGr / GRID_SIZE);
-    const mouseXFromRight = tableDesktopBoundsPx.x + tableDesktopBoundsPx.w - desktopPx.x;
-    const rawSlotIndex = Math.floor((mouseXFromRight + attachmentBlockSizePx * 0.5) / attachmentBlockSizePx);
-    if (rawSlotIndex < 0 || rawSlotIndex > tableItem.computed_attachments.length) { return false; }
+    const attachmentStripWidthPx = calcSpatialAttachmentStripWidthPx(
+      tableDesktopBoundsPx.w,
+      attachmentBlockSizePx,
+      tableItem.computed_attachments.length,
+    );
+    const attachmentStripLeftPx = tableDesktopBoundsPx.x + tableDesktopBoundsPx.w - attachmentStripWidthPx;
+    if (desktopPx.x < attachmentStripLeftPx) { return false; }
 
     return desktopPx.y <= tableDesktopBoundsPx.y + ATTACH_AREA_SIZE_PX;
   },
@@ -569,7 +582,10 @@ function calcTableGeometryImpl(
     viewportBoundsPx,
     hitboxes: !emitHitboxes ? [] : [
       ...moveHbMaybe,
-      HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }),
+      HitboxFns.create(
+        HitboxFlags.Attach,
+        calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, table.computed_attachments.length),
+      ),
       ...colResizeHitboxes,
       ...colClickHitboxes,
       HitboxFns.create(HitboxFlags.Click | HitboxFlags.ContentEditable, titleBoundsPx),

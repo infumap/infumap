@@ -46,6 +46,37 @@ export function asAttachmentsItem(item: ItemTypeMixin): AttachmentsItem {
   panic("not attachments item.");
 }
 
+export function calcSpatialAttachmentStripWidthPx(parentWidthPx: number, blockWidthPx: number, attachmentCount: number): number {
+  return Math.min(parentWidthPx, blockWidthPx * (attachmentCount + 1));
+}
+
+export function calcSpatialAttachmentHitboxBoundsPx(
+  innerBoundsPx: BoundingBox,
+  blockWidthPx: number,
+  blockHeightPx: number,
+  attachmentCount: number,
+): BoundingBox {
+  const stripWidthPx = calcSpatialAttachmentStripWidthPx(innerBoundsPx.w, blockWidthPx, attachmentCount);
+  return {
+    x: innerBoundsPx.w - stripWidthPx,
+    y: -blockHeightPx / 2,
+    w: stripWidthPx,
+    h: blockHeightPx,
+  };
+}
+
+export function calcSpatialAttachmentInsertIndex(
+  veBoundsPx: BoundingBox,
+  innerWidthBl: number,
+  desktopX: number,
+  attachmentCount: number,
+): number {
+  const blockSizePx = veBoundsPx.w / innerWidthBl;
+  const mouseXFromRight = veBoundsPx.x + veBoundsPx.w - desktopX;
+  const slotIndex = Math.floor(mouseXFromRight / blockSizePx);
+  return Math.max(0, Math.min(slotIndex, attachmentCount));
+}
+
 
 export function calcGeometryOfAttachmentItemImpl(
   item: Measurable,

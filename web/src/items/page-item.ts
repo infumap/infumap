@@ -22,7 +22,7 @@ import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
-import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
+import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
 import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
@@ -95,7 +95,7 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   pendingCellPopupWidthNorm: number | null;
 }
 
-export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin, AspectMixin {
+export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin, AspectMixin, AttachmentsMixin {
   innerSpatialWidthGr: number;
   arrangeAlgorithm: string;
   id: Uid;
@@ -574,7 +574,10 @@ export const PageFns = {
         result.hitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, popupClickBoundsPx));
         result.hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx));
       }
-      result.hitboxes.push(HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }));
+      result.hitboxes.push(HitboxFns.create(
+        HitboxFlags.Attach,
+        calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, page.computed_attachments.length),
+      ));
       result.hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
       return result;
     }
@@ -1269,6 +1272,7 @@ export const PageFns = {
       calendarDayRowHeightBl: page.calendarDayRowHeightBl,
       childrenLoaded: page.childrenLoaded,
       computed_children: page.computed_children,
+      computed_attachments: page.computed_attachments,
       flags: page.flags,
       tableColumns: page.tableColumns,
       numberOfVisibleColumns: page.numberOfVisibleColumns,

@@ -21,7 +21,7 @@ import { Hitbox, HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
-import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
+import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
 import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ItemType, ItemTypeMixin } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
@@ -44,7 +44,7 @@ import { downloadRemoteFile } from '../util/remoteFile';
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
 
-export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin { }
+export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin { }
 
 
 export const FileFns = {
@@ -130,7 +130,10 @@ export const FileFns = {
       hitboxes.push(
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }),
+        HitboxFns.create(
+          HitboxFlags.Attach,
+          calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, file.computed_attachments.length),
+        ),
         HitboxFns.create(HitboxFlags.AttachComposite, {
           x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
@@ -306,6 +309,7 @@ export const FileFns = {
       spatialPositionGr: file.spatialPositionGr,
       spatialWidthGr: file.spatialWidthGr,
       title: file.title,
+      computed_attachments: file.computed_attachments,
       flags: file.flags,
     });
   },

@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
-import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
+import { asAttachmentsItem, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanMove } from "../items/base/capabilities-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
@@ -402,16 +402,12 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       const attachItem = asAttachmentsItem(attachVe.displayItem);
       const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
       const innerSizeBl = ItemFns.calcSpatialDimensionsBl(attachVe.displayItem);
-      const blockSizePx = veBoundsPx.w / innerSizeBl.w;
-
-      // Mouse position relative to right edge of item
-      const mouseXFromRight = veBoundsPx.x + veBoundsPx.w - desktopPosPx.x;
-      // Calculate which slot (0 = rightmost, 1 = next, etc.)
-      // Add 0.5 blocks so the transition happens at the midpoint of each attachment slot
-      const slotIndex = Math.floor((mouseXFromRight + blockSizePx * 0.5) / blockSizePx);
-      // Clamp to reasonable range (0 to existing attachments count)
-      const maxIndex = attachItem.computed_attachments.length;
-      const clampedIndex = Math.max(0, Math.min(slotIndex, maxIndex));
+      const clampedIndex = calcSpatialAttachmentInsertIndex(
+        veBoundsPx,
+        innerSizeBl.w,
+        desktopPosPx.x,
+        attachItem.computed_attachments.length,
+      );
 
       store.perVe.setMoveOverAttachmentIndex(attachVePath, clampedIndex);
     }

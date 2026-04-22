@@ -21,7 +21,7 @@ import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { compositeMoveOutHitboxBoundsPx } from "../layout/composite-move-out";
 import { BoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft, cloneBoundingBox } from "../util/geometry";
 import { panic } from "../util/lang";
-import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from "./base/attachments-item";
 import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
 import { DataItem } from "./base/data-item";
 import { ItemType, ItemTypeMixin } from "./base/item";
@@ -58,7 +58,7 @@ export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsIte
   pendingCellPopupWidthNorm: number | null;
 }
 
-export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
+export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, AttachmentsMixin {
   imageSizePx: Dimensions,
 }
 
@@ -186,7 +186,10 @@ export const ImageFns = {
     const hitboxes = !emitHitboxes ? [] : [
       HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-      HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }),
+      HitboxFns.create(
+        HitboxFlags.Attach,
+        calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, image.computed_attachments.length),
+      ),
       HitboxFns.create(HitboxFlags.Resize, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: boundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
     ];
 
@@ -404,6 +407,7 @@ export const ImageFns = {
       flags: image.flags,
       spatialPositionGr: image.spatialPositionGr,
       spatialWidthGr: image.spatialWidthGr,
+      computed_attachments: image.computed_attachments,
       imageSizePx: image.imageSizePx
     });
   },

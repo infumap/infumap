@@ -22,7 +22,7 @@ import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
-import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
+import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
 import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ItemType, ItemTypeMixin } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
@@ -48,7 +48,7 @@ export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, At
   url: string,
 }
 
-export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin {
+export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin, AttachmentsMixin {
 }
 
 
@@ -174,7 +174,10 @@ export const NoteFns = {
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.ContentEditable, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Attach, { x: 0, y: -blockSizePx.h / 2, w: innerBoundsPx.w, h: blockSizePx.h }),
+        HitboxFns.create(
+          HitboxFlags.Attach,
+          calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, note.computed_attachments.length),
+        ),
         HitboxFns.create(HitboxFlags.AttachComposite, {
           x: 0,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
@@ -342,6 +345,7 @@ export const NoteFns = {
       spatialWidthGr: note.spatialWidthGr,
       spatialHeightGr: note.spatialHeightGr,
       title: note.title,
+      computed_attachments: note.computed_attachments,
       flags: note.flags,
       format: note.format,
     });

@@ -24,7 +24,7 @@ import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
-import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
+import { asAttachmentsItem, AttachmentsItem, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "./items/base/attachments-item";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { asLinkItem, isLink, LinkFns } from "./items/link-item";
@@ -130,11 +130,12 @@ function attachmentInsertIndexFromDesktopPx(store: StoreContextModel, attachVe: 
   const attachItem = asAttachmentsItem(attachVe.displayItem);
   const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
   const innerSizeBl = ItemFns.calcSpatialDimensionsBl(attachVe.displayItem);
-  const blockSizePx = veBoundsPx.w / innerSizeBl.w;
-  const mouseXFromRight = veBoundsPx.x + veBoundsPx.w - desktopPx.x;
-  const slotIndex = Math.floor((mouseXFromRight + blockSizePx * 0.5) / blockSizePx);
-  const maxIndex = attachItem.computed_attachments.length;
-  const clampedIndex = Math.max(0, Math.min(slotIndex, maxIndex));
+  const clampedIndex = calcSpatialAttachmentInsertIndex(
+    veBoundsPx,
+    innerSizeBl.w,
+    desktopPx.x,
+    attachItem.computed_attachments.length,
+  );
   store.perVe.setMoveOverAttachmentIndex(attachVePath, clampedIndex);
   return clampedIndex;
 }
