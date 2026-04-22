@@ -17,6 +17,7 @@
 */
 
 import { isPlaceholder } from "../../items/placeholder-item";
+import { itemCanMove } from "../../items/base/capabilities-item";
 import { HitboxFlags, HitboxMeta } from "../../layout/hitbox";
 import { VisualElement, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -38,12 +39,13 @@ export function scanHitboxes(
   let flags = HitboxFlags.None;
   let meta: HitboxMeta | null = null;
   for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
+    const type = filteredHitboxType(ve, ve.hitboxes[i].type);
+    if (type == HitboxFlags.None) { continue; }
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
       : offsetBoundingBoxTopLeftBy(ve.hitboxes[i].boundsPx, offsetTopLeft);
     let inside = isInside(localPos, hbBounds);
     if (inside) {
-      const type = ve.hitboxes[i].type;
       if (type & HitboxFlags.TriangleLinkSettings) {
         inside = isInsideTopLeftTriangle(localPos, hbBounds);
       } else if (type & HitboxFlags.Resize) {
@@ -51,7 +53,7 @@ export function scanHitboxes(
       }
     }
     if (inside) {
-      flags |= ve.hitboxes[i].type;
+      flags |= type;
       if (ve.hitboxes[i].meta != null) { meta = ve.hitboxes[i].meta; }
     }
   }
@@ -72,12 +74,13 @@ export function isInsideBoundsOrAllowedHitbox(
   }
   for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
     if (!ve.hitboxes[i].meta?.allowOutsideBounds) { continue; }
+    const type = filteredHitboxType(ve, ve.hitboxes[i].type);
+    if (type == HitboxFlags.None) { continue; }
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
       : offsetBoundingBoxTopLeftBy(ve.hitboxes[i].boundsPx, offsetTopLeft);
     let inside = isInside(localPos, hbBounds);
     if (inside) {
-      const type = ve.hitboxes[i].type;
       if (type & HitboxFlags.TriangleLinkSettings) {
         inside = isInsideTopLeftTriangle(localPos, hbBounds);
       } else if (type & HitboxFlags.Resize) {
@@ -114,6 +117,17 @@ export function findAttachmentHit(
     return { attachmentVes, flags, meta };
   }
   return null;
+}
+
+function filteredHitboxType(ve: VisualElement, type: HitboxFlags): HitboxFlags {
+  let result = type;
+
+  // Capabilities apply to the draggable tree item, not the rendered display target.
+  if ((result & HitboxFlags.Move) && !itemCanMove(VeFns.treeItem(ve))) {
+    result = (result & ~HitboxFlags.Move) as HitboxFlags;
+  }
+
+  return result;
 }
 
 export function toChildBoundsLocalFromViewport(parentViewportLocalPos: Vector, childVe: VisualElement): Vector {

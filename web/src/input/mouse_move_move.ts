@@ -18,6 +18,7 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
+import { itemCanMove } from "../items/base/capabilities-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -87,6 +88,9 @@ function captureMoveRollbackSnapshot(store: StoreContextModel, activeVisualEleme
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
+  if (!itemCanMove(activeItem)) {
+    return;
+  }
   captureMoveRollbackSnapshot(store, activeVisualElement, activeItem);
   const isActiveLinkItem = isLink(activeItem);
   const shiftWantsClone = CursorEventState.get().shiftDown && !isDataItem(activeVisualElement.displayItem);

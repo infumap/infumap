@@ -20,6 +20,7 @@ import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../co
 import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
+import { itemCanMove } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import { TEMP_SEARCH_RESULTS_ORIGIN } from "../items/search-item";
 import { asTableItem, isTable } from "../items/table-item";
@@ -526,6 +527,10 @@ function changeMouseActionStateMaybe(
       }
       activeVisualElement = newActiveSignal.get();
       activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
+    }
+    if (!itemCanMove(VeFns.treeItem(activeVisualElement))) {
+      store.anItemIsMoving.set(false);
+      return;
     }
     MouseActionState.setStartWidthBl(null);
     MouseActionState.setStartHeightBl(null);
