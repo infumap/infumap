@@ -34,6 +34,7 @@ import { PageVisualElementProps } from "./Page";
 import { CALENDAR_LAYOUT_CONSTANTS, getCurrentDayInfo } from "../../util/calendar-layout";
 import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
@@ -52,6 +53,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   let translucentDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
+  const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   onMount(() => {
@@ -215,8 +217,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       <div id={VeFns.veToPath(props.visualElement) + ":title"}
         class={translucentTitleClass()}
         style={calendarTitleStyle()}
-        spellcheck={titleEditHandlers.isEditingTitle()}
-        contentEditable={titleEditHandlers.isEditingTitle()}
+        spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
+        contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
         onKeyDown={titleEditHandlers.titleKeyDownHandler}
         onKeyUp={titleEditHandlers.titleKeyUpHandler}
         onInput={titleEditHandlers.titleInputListener}>

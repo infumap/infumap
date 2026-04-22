@@ -24,6 +24,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { LINE_HEIGHT_PX } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
@@ -55,6 +56,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   let rootDiv: any = undefined;
 
   const pageFns = () => props.pageFns;
+  const canEditPage = () => itemCanEdit(pageFns().pageItem());
 
   const getScrollVeid = (): Veid | null => {
     let veid = store.history.currentPageVeid();
@@ -340,7 +342,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             `width: ${pageFns().childAreaBoundsPx().w}px; ` +
             `height: ${pageFns().childAreaBoundsPx().h}px;` +
             `outline: 0px solid transparent; `}
-          contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+          contentEditable={canEditPage() && store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
           onKeyUp={keyUpHandler}
           onKeyDown={keyDownHandler}
           onInput={inputListener}>
@@ -531,7 +533,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;` +
           `outline: 0px solid transparent; `}
-        contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+        contentEditable={canEditPage() && store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>

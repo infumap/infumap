@@ -18,6 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -61,6 +62,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const vePath = () => VeFns.veToPath(props.visualElement);
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(noteItem());
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const boundsPx = () => props.visualElement.boundsPx;
   const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
@@ -414,8 +416,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `text-indent: ${popupTextIndentPx()}px; ` +
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent;`}
-              contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
-              spellcheck={store.overlay.textEditInfo() != null}
+              contentEditable={canEdit() && !isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
+              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
               onKeyDown={keyDownHandler}
               onInput={inputListener}>
               {appendNewlineIfEmpty(noteItem().title)}<span></span>
@@ -437,8 +439,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent; ` +
                 `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}
-              contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
-              spellcheck={store.overlay.textEditInfo() != null}
+              contentEditable={canEdit() && !isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
+              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
               onKeyDown={keyDownHandler}
               onInput={inputListener}>
               {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>

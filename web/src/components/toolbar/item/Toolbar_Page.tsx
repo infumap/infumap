@@ -17,6 +17,7 @@
 */
 
 import { Component, Show, createEffect } from "solid-js";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
 import { itemState } from "../../../store/ItemState";
@@ -51,6 +52,7 @@ export const Toolbar_Page: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
+  const canEdit = () => itemCanEdit(pageItem());
 
   // Arrange Algorithm
   const handleArrangeAlgoClick = () => {
@@ -385,122 +387,124 @@ export const Toolbar_Page: Component = () => {
           empty trash
         </div>
       </Show>
-      <Show when={showInnerBlockWidthButton()}>
-        <div ref={widthDiv}
-          class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-          style={`font-size: 13px;`}
-          onClick={handleWidthClick}
-          onMouseDown={handleWidthDown}>
-          <i class="bi-arrows ml-[4px]" />
-          <div class="inline-block w-[30px] pl-[6px] text-right">
-            {widthText()}
+      <Show when={canEdit()}>
+        <Show when={showInnerBlockWidthButton()}>
+          <div ref={widthDiv}
+            class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style={`font-size: 13px;`}
+            onClick={handleWidthClick}
+            onMouseDown={handleWidthDown}>
+            <i class="bi-arrows ml-[4px]" />
+            <div class="inline-block w-[30px] pl-[6px] text-right">
+              {widthText()}
+            </div>
           </div>
-        </div>
-      </Show>
-      <div ref={aspectDiv}
-        class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-        style={`font-size: 13px;`}
-        onClick={handleAspectClick}
-        onMouseDown={handleAspectDown}>
-        <i class="bi-aspect-ratio ml-[4px]" />
-        <div class="inline-block w-[40px] pl-[6px] text-right">
-          {aspectText()}
-        </div>
-      </div>
-      <Show when={showCellAspectButton()}>
-        <div ref={cellAspectDiv}
+        </Show>
+        <div ref={aspectDiv}
           class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
           style={`font-size: 13px;`}
-          onClick={handleCellAspectClick}
-          onMouseDown={handleCellAspectDown}>
+          onClick={handleAspectClick}
+          onMouseDown={handleAspectDown}>
           <i class="bi-aspect-ratio ml-[4px]" />
           <div class="inline-block w-[40px] pl-[6px] text-right">
-            {cellAspectText()}
+            {aspectText()}
           </div>
         </div>
-      </Show>
-      <Show when={showGridButtons()}>
-        <div ref={numColsDiv}
-          class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-          style={`font-size: 13px;`}
-          onClick={handleNumColsClick}
-          onMouseDown={handleNumColsDown}>
-          <i class="bi-layout-three-columns ml-[4px]" />
-          <div class="inline-block w-[20px] pl-[6px] text-right">
-            {numColsText()}
+        <Show when={showCellAspectButton()}>
+          <div ref={cellAspectDiv}
+            class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style={`font-size: 13px;`}
+            onClick={handleCellAspectClick}
+            onMouseDown={handleCellAspectDown}>
+            <i class="bi-aspect-ratio ml-[4px]" />
+            <div class="inline-block w-[40px] pl-[6px] text-right">
+              {cellAspectText()}
+            </div>
+          </div>
+        </Show>
+        <Show when={showGridButtons()}>
+          <div ref={numColsDiv}
+            class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style={`font-size: 13px;`}
+            onClick={handleNumColsClick}
+            onMouseDown={handleNumColsDown}>
+            <i class="bi-layout-three-columns ml-[4px]" />
+            <div class="inline-block w-[20px] pl-[6px] text-right">
+              {numColsText()}
+            </div>
+          </div>
+        </Show>
+        <Show when={showJustifiedButtons()}>
+          <div ref={justifiedRowAspectDiv}
+            class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style={`font-size: 13px;`}
+            onClick={handleJustifiedRowAspectClick}
+            onMouseDown={handleJustifiedRowAspectDown}>
+            <i class="bi-aspect-ratio ml-[4px]" />
+            <div class="inline-block w-[25px] pl-[6px] text-right">
+              {justifiedAspectText()}
+            </div>
+          </div>
+        </Show>
+        <Show when={showCalendarButtons()}>
+          <div ref={calendarDayRowHeightDiv}
+            class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style={`font-size: 13px;`}
+            onClick={() => {
+              if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCalendarDayRowHeight) {
+                store.overlay.toolbarPopupInfoMaybe.set(null);
+                return;
+              }
+              store.overlay.toolbarPopupInfoMaybe.set(
+                { topLeftPx: { x: calendarDayRowHeightDiv!.getBoundingClientRect().x, y: calendarDayRowHeightDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCalendarDayRowHeight });
+            }}
+            onMouseDown={() => {
+              ClickState.setButtonClickBoundsPx(calendarDayRowHeightDiv!.getBoundingClientRect());
+            }}>
+            <i class="bi-calendar-week ml-[4px]" />
+            <div class="inline-block w-[25px] pl-[6px] text-right">
+              {calendarDayRowHeightText()}
+            </div>
+          </div>
+        </Show>
+        <Show when={showDocumentButtons()}>
+          <div class="inline-block ml-[10px]">
+            <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} />
+          </div>
+          <div ref={docWidthDiv}
+            class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style={`font-size: 13px;`}
+            onClick={handleDocWidthBlClick}
+            onMouseDown={handlePageDocWidthDown}>
+            <i class="bi-arrows ml-[4px]" />
+            <div class="inline-block w-[30px] pl-[6px] text-right">
+              {docWidthBlText()}
+            </div>
+          </div>
+        </Show>
+        <Show when={showOrderByButton()}>
+          <div class="inline-block ml-[10px]">
+            <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
+          </div>
+        </Show>
+        <div ref={arrangeAlgoDiv}
+          class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
+          style={`font-size: 13px;`}>
+          <div class="inline-block w-[74px] pl-[6px] hover:bg-slate-300"
+            onClick={handleArrangeAlgoClick}
+            onMouseDown={handleArrangeAlgoDown}>
+            {arrangeAlgoText()}
           </div>
         </div>
-      </Show>
-      <Show when={showJustifiedButtons()}>
-        <div ref={justifiedRowAspectDiv}
-          class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-          style={`font-size: 13px;`}
-          onClick={handleJustifiedRowAspectClick}
-          onMouseDown={handleJustifiedRowAspectDown}>
-          <i class="bi-aspect-ratio ml-[4px]" />
-          <div class="inline-block w-[25px] pl-[6px] text-right">
-            {justifiedAspectText()}
-          </div>
+        <div ref={divBeforeColorSelect} class="inline-block ml-0" />
+        <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle" onMouseDown={handleColorDown}>
+          <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
         </div>
+        <Show when={showMakePublicButton()}>
+          <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
+        </Show>
+        <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
       </Show>
-      <Show when={showCalendarButtons()}>
-        <div ref={calendarDayRowHeightDiv}
-          class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-          style={`font-size: 13px;`}
-          onClick={() => {
-            if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCalendarDayRowHeight) {
-              store.overlay.toolbarPopupInfoMaybe.set(null);
-              return;
-            }
-            store.overlay.toolbarPopupInfoMaybe.set(
-              { topLeftPx: { x: calendarDayRowHeightDiv!.getBoundingClientRect().x, y: calendarDayRowHeightDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCalendarDayRowHeight });
-          }}
-          onMouseDown={() => {
-            ClickState.setButtonClickBoundsPx(calendarDayRowHeightDiv!.getBoundingClientRect());
-          }}>
-          <i class="bi-calendar-week ml-[4px]" />
-          <div class="inline-block w-[25px] pl-[6px] text-right">
-            {calendarDayRowHeightText()}
-          </div>
-        </div>
-      </Show>
-      <Show when={showDocumentButtons()}>
-        <div class="inline-block ml-[10px]">
-          <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} />
-        </div>
-        <div ref={docWidthDiv}
-          class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-          style={`font-size: 13px;`}
-          onClick={handleDocWidthBlClick}
-          onMouseDown={handlePageDocWidthDown}>
-          <i class="bi-arrows ml-[4px]" />
-          <div class="inline-block w-[30px] pl-[6px] text-right">
-            {docWidthBlText()}
-          </div>
-        </div>
-      </Show>
-      <Show when={showOrderByButton()}>
-        <div class="inline-block ml-[10px]">
-          <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
-        </div>
-      </Show>
-      <div ref={arrangeAlgoDiv}
-        class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
-        style={`font-size: 13px;`}>
-        <div class="inline-block w-[74px] pl-[6px] hover:bg-slate-300"
-          onClick={handleArrangeAlgoClick}
-          onMouseDown={handleArrangeAlgoDown}>
-          {arrangeAlgoText()}
-        </div>
-      </div>
-      <div ref={divBeforeColorSelect} class="inline-block ml-0" />
-      <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle" onMouseDown={handleColorDown}>
-        <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
-      </div>
-      <Show when={showMakePublicButton()}>
-        <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
-      </Show>
-      <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
 
       <Toolbar_ItemOrdering />
 

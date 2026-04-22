@@ -20,6 +20,7 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { asNoteItem, NoteFns } from "../../items/note-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
@@ -40,6 +41,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const store = useStore();
 
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(noteItem());
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
@@ -197,8 +199,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
             style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
               `outline: 0px solid transparent;`}
-            contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(noteItem().title)}<span></span>
@@ -209,8 +211,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
             style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
               `outline: 0px solid transparent;`}
-            contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>

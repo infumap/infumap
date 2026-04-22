@@ -18,6 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -51,6 +52,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const store = useStore();
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(passwordItem());
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -340,8 +342,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
               `text-indent: ${popupTextIndentPx()}px; ` +
               `outline: 0px solid transparent;`}
-            contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && !isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(passwordItem().text)}<span></span>

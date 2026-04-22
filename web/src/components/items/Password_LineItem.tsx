@@ -20,6 +20,7 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { asPasswordItem } from "../../items/password-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
@@ -32,6 +33,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const store = useStore();
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(passwordItem());
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
@@ -122,7 +124,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
             class="text-slate-800"
             style={`margin-left: ${oneBlockWidthPx() * PADDING_PROP}px; outline: 0px solid transparent;`}
-            contentEditable={true}
+            contentEditable={canEdit() ? true : undefined}
             spellcheck={false}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>

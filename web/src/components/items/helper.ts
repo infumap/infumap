@@ -17,6 +17,7 @@
 */
 
 import { ArrangeAlgorithm } from "../../items/page-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { VeFns, VisualElement } from "../../layout/visual-element";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -111,7 +112,7 @@ export const createPageTitleEditHandlers = (
   };
 
   return {
-    isEditingTitle: () => store.overlay.textEditInfo()?.itemPath == vePath(),
+    isEditingTitle: () => itemCanEdit(veFn().displayItem) && store.overlay.textEditInfo()?.itemPath == vePath(),
     titleKeyDownHandler: (ev: KeyboardEvent) => {
       if (ev.key == "Escape") {
         ev.preventDefault();

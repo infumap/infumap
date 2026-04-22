@@ -18,6 +18,7 @@
 
 import { Component } from "solid-js";
 import { LINE_HEIGHT_PX, NOTE_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { PageFns } from "../../items/page-item";
 import { VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
@@ -29,7 +30,7 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
   const store = useStore();
 
   const pageFns = () => props.pageFns;
-  const allowEditing = () => !!props.allowEditing;
+  const allowEditing = () => !!props.allowEditing && itemCanEdit(pageFns().pageItem());
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   const documentScale = () => {

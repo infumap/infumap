@@ -18,6 +18,7 @@
 
 import { Component, Match, Show, Switch } from "solid-js";
 import { InfuIconButton } from "../../library/InfuIconButton";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { NoteFns, asNoteItem } from "../../../items/note-item";
 import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
 import { useStore } from "../../../store/StoreProvider";
@@ -44,6 +45,7 @@ export const Toolbar_Note: Component = () => {
     store.touchToolbarDependency();
     return asNoteItem(store.history.getFocusItem());
   };
+  const canEdit = () => itemCanEdit(noteItem());
   const compositeItemMaybe = () => {
     const parentItem = itemState.get(noteItem().parentId);
     if (!parentItem || !isComposite(parentItem)) { return null; }
@@ -192,7 +194,7 @@ export const Toolbar_Note: Component = () => {
 
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
-      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
+      <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
         <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
         <Show when={!isInTable()}>
           <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
@@ -244,7 +246,7 @@ export const Toolbar_Note: Component = () => {
 
   const renderCompositeToolbox = () =>
     <div class="inline-block">
-      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
+      <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
         <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
         <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
         <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />

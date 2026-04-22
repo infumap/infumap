@@ -20,6 +20,7 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { asImageItem } from "../../items/image-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
@@ -37,6 +38,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const store = useStore();
 
   const imageItem = () => asImageItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(imageItem());
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
@@ -144,8 +146,8 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
             style={"outline: 0px solid transparent;"}
-            contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(imageItem().title)}<span></span>

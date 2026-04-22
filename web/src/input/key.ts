@@ -17,6 +17,7 @@
 */
 
 import { TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
+import { itemCanEdit } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PageFlags, TableFlags } from "../items/base/flags-item";
 import { ImageFns, isImage } from "../items/image-item";
@@ -520,12 +521,18 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   ];
 
   if (document.activeElement!.id.includes('toolbarTitleDiv')) {
+    if (!(document.activeElement instanceof HTMLElement) || !document.activeElement.isContentEditable) {
+      return;
+    }
+    const focusItem = store.history.getFocusItem();
+    if (!itemCanEdit(focusItem)) {
+      return;
+    }
     const titleText = (document.activeElement! as HTMLElement).innerText;
     if (ev.code == "Enter" || ev.code == "Escape") {
       (document.activeElement! as HTMLElement).blur();
       let selection = window.getSelection();
       if (selection != null) { selection.removeAllRanges(); }
-      const focusItem = store.history.getFocusItem();
       asPageItem(focusItem).title = titleText;
       if (focusItem.relationshipToParent == RelationshipToParent.Child) {
         const parentItem = itemState.get(focusItem.parentId);

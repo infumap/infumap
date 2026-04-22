@@ -17,6 +17,7 @@
 */
 
 import { Component, Show } from "solid-js";
+import { itemCanMove } from "../../../items/base/capabilities-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
 import { VisualElementFlags } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
@@ -47,6 +48,9 @@ export const Toolbar_ItemOrdering: Component = () => {
     }
 
     const focusItem = store.history.getFocusItem();
+    if (!itemCanMove(focusItem)) {
+      return false;
+    }
     if (focusItem.parentId == null || focusItem.relationshipToParent != RelationshipToParent.Child) {
       return false;
     }

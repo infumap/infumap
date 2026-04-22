@@ -27,6 +27,7 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../../util/caret";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
 import { server } from "../../server";
 import { VisualElement_Desktop } from "../VisualElement";
@@ -76,10 +77,11 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     !!(props.visualElement.flags & VisualElementFlags.ListPageRoot) ||
     props.visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   const searchItem = () => asSearchItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(searchItem());
   const queryText = () => store.perItem.getSearchQuery(searchItem().id);
   const searchHasMoreResults = () => store.perItem.getSearchHasMoreResults(searchItem().id);
   const searchLoadedPageCount = () => store.perItem.getSearchLoadedPageCount(searchItem().id);
-  const isEditing = () => store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
+  const isEditing = () => canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
   const editableQueryText = () => queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText();
   const clearSearchResultSelection = () => {
@@ -131,6 +133,9 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     return nextQuery;
   };
   const requestEditMode = (caretIdx: number) => {
+    if (!canEdit()) {
+      return;
+    }
     setForceNonEditing(false);
     setPendingCaretIdx(caretIdx);
     clearSearchResultSelection();
@@ -272,6 +277,13 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   };
 
   const queryInputMouseDown = (ev: MouseEvent) => {
+    if (!canEdit()) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      store.history.setFocus(vePath());
+      arrangeNow(store, "search-focus-only");
+      return;
+    }
     if (isEditing()) {
       const editingEl = document.getElementById(editingDomId());
       const target = ev.target;
@@ -415,11 +427,11 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                       Search...
                     </div>
                   </Show>
-                  <span id={editingDomId()}
+                    <span id={editingDomId()}
                     class={`outline-hidden ${!isEditing() && queryText() == "" ? "text-transparent" : "text-black"}`}
                     style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px;"
-                    contentEditable={isEditing() ? true : undefined}
-                    spellcheck={isEditing()}
+                    contentEditable={canEdit() && isEditing() ? true : undefined}
+                    spellcheck={canEdit() && isEditing()}
                     onKeyDown={keyDownHandler}
                     onInput={inputListener}>
                     {isEditing() ? editableQueryText() : (queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText())}<span></span>

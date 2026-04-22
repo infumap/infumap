@@ -17,6 +17,7 @@
 */
 
 import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-item";
+import { itemCanEdit } from "../items/base/capabilities-item";
 import { Item, ItemType } from "../items/base/item";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { asTableItem, isTable, TableFns } from "../items/table-item";
@@ -74,7 +75,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     arrangeNow(store, "mouse-down-close-toolbar-popup");
-    serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+    if (itemCanEdit(store.history.getFocusItem())) {
+      serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+    }
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
@@ -92,10 +95,16 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   })();
   const toolbarTrailingTitleEditArea = document.getElementById("toolbarTrailingTitleEditArea");
   const saveActiveTitleDivState = () => {
+    if (!(document.activeElement instanceof HTMLElement) || !document.activeElement.isContentEditable) {
+      return;
+    }
     const titleText = (document.activeElement! as HTMLElement).innerText;
     let selection = window.getSelection();
     if (selection != null) { selection.removeAllRanges(); }
     const focusItem = store.history.getFocusItem();
+    if (!itemCanEdit(focusItem)) {
+      return;
+    }
     asPageItem(focusItem).title = titleText;
     if (focusItem.relationshipToParent == RelationshipToParent.Child) {
       const parentItem = itemState.get(focusItem.parentId);
@@ -110,12 +119,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     arrangeNow(store, "mouse-down-exit-toolbar-title-edit");
     return MouseEventActionFlags.None;
   }
-  const focusToolbarTitleAt = (idx: number, caretPosition: number) => {
+  const focusToolbarTitleAt = (idx: number, caretPosition: number, shouldPlaceCaret: boolean) => {
     let ttpPath = store.topTitledPages.get()[idx];
     setTimeout(() => {
       store.history.setFocus(ttpPath);
-      arrangeNow(store, "mouse-down-switch-toolbar-title-focus");
-      const newToolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${idx}`);
+      arrangeNow(store, shouldPlaceCaret ? "mouse-down-switch-toolbar-title-focus" : "mouse-down-switch-toolbar-focus");
+      const newToolbarTitleDiv = shouldPlaceCaret ? document.getElementById(`toolbarTitleDiv-${idx}`) : null;
       if (newToolbarTitleDiv) {
         setCaretPosition(newToolbarTitleDiv as HTMLElement, caretPosition);
       }
@@ -123,6 +132,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
   for (let i = 0; i < toolbarTitleDivs.length; ++i) {
     const toolbarTitleDiv = toolbarTitleDivs[i];
+    const canEditToolbarTitle = toolbarTitleDiv.isContentEditable;
     const titleBounds = boundingBoxFromDOMRect(toolbarTitleDiv.getBoundingClientRect())!;
     if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
       if (document.activeElement!.id.includes("toolbarTitleDiv")) {
@@ -136,8 +146,8 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       } else if (buttonNumber != MOUSE_LEFT) {
         return defaultResult;
       }
-      const caretPosition = getCaretPosition(toolbarTitleDiv);
-      focusToolbarTitleAt(i, caretPosition);
+      const caretPosition = canEditToolbarTitle ? getCaretPosition(toolbarTitleDiv) : 0;
+      focusToolbarTitleAt(i, caretPosition, canEditToolbarTitle);
       return MouseEventActionFlags.None;
     }
   }
@@ -146,6 +156,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (isInside(CursorEventState.getLatestClientPx(), trailingBounds)) {
       const lastToolbarTitleIdx = toolbarTitleDivs.length - 1;
       const lastToolbarTitleDiv = toolbarTitleDivs[lastToolbarTitleIdx];
+      const canEditToolbarTitle = lastToolbarTitleDiv.isContentEditable;
       const caretPosition = lastToolbarTitleDiv.innerText.length;
       if (document.activeElement!.id.includes("toolbarTitleDiv")) {
         if (buttonNumber != MOUSE_LEFT) {
@@ -159,7 +170,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       } else if (buttonNumber != MOUSE_LEFT) {
         return defaultResult;
       }
-      focusToolbarTitleAt(lastToolbarTitleIdx, caretPosition);
+      focusToolbarTitleAt(lastToolbarTitleIdx, caretPosition, canEditToolbarTitle);
       return MouseEventActionFlags.None;
     }
   }

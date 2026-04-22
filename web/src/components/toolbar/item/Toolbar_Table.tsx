@@ -16,7 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { asTableItem } from "../../../items/table-item";
@@ -37,6 +38,7 @@ export const Toolbar_Table: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const tableItem = () => asTableItem(store.history.getFocusItem());
+  const canEdit = () => itemCanEdit(tableItem());
 
   const isSortedByTitle = () => {
     store.touchToolbarDependency();
@@ -110,18 +112,20 @@ export const Toolbar_Table: Component = () => {
   return (
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0;">
-      <div ref={numColsDiv}
-        class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] mr-[10px] hover:bg-slate-300 cursor-pointer"
-        style={`font-size: 13px;`}
-        onClick={handleNumColsClick}
-        onMouseDown={handleNumColsDown}>
-        <i class="bi-layout-three-columns ml-[4px]" />
-        <div class="inline-block w-[20px] pl-[6px] text-right">
-          {numColsText()}
+      <Show when={canEdit()}>
+        <div ref={numColsDiv}
+          class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] mr-[10px] hover:bg-slate-300 cursor-pointer"
+          style={`font-size: 13px;`}
+          onClick={handleNumColsClick}
+          onMouseDown={handleNumColsDown}>
+          <i class="bi-layout-three-columns ml-[4px]" />
+          <div class="inline-block w-[20px] pl-[6px] text-right">
+            {numColsText()}
+          </div>
         </div>
-      </div>
-      <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
-      <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
+        <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
+        <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
+      </Show>
 
       <Toolbar_ItemOrdering />
 

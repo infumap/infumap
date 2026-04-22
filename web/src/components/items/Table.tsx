@@ -18,6 +18,7 @@
 
 import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -43,6 +44,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const store = useStore();
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(tableItem());
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const vePath = () => VeFns.veToPath(props.visualElement);
   const showColHeader = () => tableItem().flags & TableFlags.ShowColHeader;
@@ -253,8 +255,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             `transform: scale(${scale()}); transform-origin: top left; ` +
             `overflow-wrap: break-word; ` +
             `outline: 0px solid transparent;`}
-          contentEditable={store.overlay.textEditInfo() != null}
-          spellcheck={store.overlay.textEditInfo() != null}
+          contentEditable={canEdit() && store.overlay.textEditInfo() != null}
+          spellcheck={canEdit() && store.overlay.textEditInfo() != null}
           onKeyDown={keyDownHandler}>
           {tableItem().title}
         </div>
@@ -293,8 +295,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;` +
                 `outline: 0px solid transparent;`}
-              contentEditable={store.overlay.textEditInfo() != null}
-              spellcheck={store.overlay.textEditInfo() != null}
+              contentEditable={canEdit() && store.overlay.textEditInfo() != null}
+              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
               onKeyDown={keyDownHandler}>
               {spec.name}
               <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>

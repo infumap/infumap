@@ -16,7 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
@@ -33,6 +34,7 @@ export const Toolbar_Image: Component = () => {
   const store = useStore();
 
   const imageItem = () => asImageItem(store.history.getFocusItem());
+  const canEdit = () => itemCanEdit(imageItem());
 
   let qrDiv: HTMLDivElement | undefined;
 
@@ -86,12 +88,14 @@ export const Toolbar_Image: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <div class="pl-[4px] inline-block">
-          <InfuIconButton icon="bi-crop" highlighted={shouldCropImage()} clickHandler={cropHandler} />
-        </div>
-        <div class="inline-block">
-          <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-        </div>
+        <Show when={canEdit()}>
+          <div class="pl-[4px] inline-block">
+            <InfuIconButton icon="bi-crop" highlighted={shouldCropImage()} clickHandler={cropHandler} />
+          </div>
+          <div class="inline-block">
+            <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          </div>
+        </Show>
 
         <Toolbar_ItemOrdering />
 

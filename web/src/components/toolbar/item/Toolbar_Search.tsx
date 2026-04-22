@@ -16,7 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ClickState } from "../../../input/state";
@@ -32,6 +33,7 @@ export const Toolbar_Search: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const searchItem = () => asSearchItem(store.history.getFocusItem());
+  const canEdit = () => itemCanEdit(searchItem());
 
   const handleArrangeAlgoClick = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null &&
@@ -78,13 +80,15 @@ export const Toolbar_Search: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <div ref={arrangeAlgoDiv}
-          class="inline-block w-[88px] border border-slate-400 rounded-md ml-[10px] cursor-pointer text-center align-middle"
-          style={`font-size: 13px;`}
-          onMouseDown={handleArrangeAlgoDown}
-          onClick={handleArrangeAlgoClick}>
-          {arrangeAlgoText()}
-        </div>
+        <Show when={canEdit()}>
+          <div ref={arrangeAlgoDiv}
+            class="inline-block w-[88px] border border-slate-400 rounded-md ml-[10px] cursor-pointer text-center align-middle"
+            style={`font-size: 13px;`}
+            onMouseDown={handleArrangeAlgoDown}
+            onClick={handleArrangeAlgoClick}>
+            {arrangeAlgoText()}
+          </div>
+        </Show>
 
         <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 

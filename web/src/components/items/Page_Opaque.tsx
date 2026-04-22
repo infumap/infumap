@@ -18,6 +18,7 @@
 
 import { Component, For, Show, createMemo } from "solid-js";
 import { linearGradient, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_LOCAL_SHADOW, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
@@ -38,6 +39,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const store = useStore();
 
   const pageFns = () => props.pageFns;
+  const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   const opaqueTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("xs"));
@@ -52,8 +54,8 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
         `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
         `justify-content: center; align-items: center; text-align: center;` +
         `outline: 0px solid transparent;`}
-      contentEditable={titleEditHandlers.isEditingTitle()}
-      spellcheck={titleEditHandlers.isEditingTitle()}
+      contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
+      spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
       onKeyDown={titleEditHandlers.titleKeyDownHandler}
       onKeyUp={titleEditHandlers.titleKeyUpHandler}
       onInput={titleEditHandlers.titleInputListener}>

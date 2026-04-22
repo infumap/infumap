@@ -27,6 +27,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
@@ -43,6 +44,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   let rootDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
+  const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const isMinimalDocumentPage = () => pageFns().isDocumentPage();
 
   onMount(() => {
@@ -158,8 +160,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
             `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
             `overflow-wrap: break-word;` +
             `outline: 0px solid transparent;`}
-          spellcheck={titleEditHandlers.isEditingTitle()}
-          contentEditable={titleEditHandlers.isEditingTitle()}
+          spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
+          contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
           onKeyDown={titleEditHandlers.titleKeyDownHandler}
           onKeyUp={titleEditHandlers.titleKeyUpHandler}
           onInput={titleEditHandlers.titleInputListener}>
@@ -229,7 +231,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px; ` +
           `outline: 0px solid transparent; `}
-        contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+        contentEditable={canEditPage() && store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}

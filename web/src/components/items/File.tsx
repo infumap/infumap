@@ -18,6 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { FileFns, asFileItem } from "../../items/file-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -60,6 +61,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const fileItem = () => asFileItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(fileItem());
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
@@ -355,8 +357,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
               `text-indent: ${popupTextIndentPx()}px; ` +
               `outline: 0px solid transparent;`}
-            contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && !isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(fileItem().title)}

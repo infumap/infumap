@@ -16,7 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
@@ -32,6 +33,7 @@ export const Toolbar_Rating: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const ratingItem = () => asRatingItem(store.history.getFocusItem());
+  const canEdit = () => itemCanEdit(ratingItem());
   const ratingTypeText = () => {
     store.touchToolbarDependency();
     return ratingTypeLabel(ratingItem().ratingType);
@@ -59,22 +61,23 @@ export const Toolbar_Rating: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-
-        <div class="inline-block w-[115px] border border-slate-400 rounded-md ml-[10px] mr-[4px] cursor-pointer"
-          style={`font-size: 13px;`}>
-          <div class="inline-block w-[113px] pl-[6px] hover:bg-slate-300"
-            onClick={(e) => {
-              if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.RatingType) {
-                store.overlay.toolbarPopupInfoMaybe.set(null);
-                return;
-              }
-              store.overlay.toolbarPopupInfoMaybe.set(
-                { topLeftPx: { x: (e.currentTarget as HTMLDivElement).getBoundingClientRect().x, y: (e.currentTarget as HTMLDivElement).getBoundingClientRect().y + 35 }, type: ToolbarPopupType.RatingType });
-            }}
-            onMouseDown={(e) => { ClickState.setButtonClickBoundsPx((e.currentTarget as HTMLDivElement).getBoundingClientRect()); }}>
-            {ratingTypeText()}
+        <Show when={canEdit()}>
+          <div class="inline-block w-[115px] border border-slate-400 rounded-md ml-[10px] mr-[4px] cursor-pointer"
+            style={`font-size: 13px;`}>
+            <div class="inline-block w-[113px] pl-[6px] hover:bg-slate-300"
+              onClick={(e) => {
+                if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.RatingType) {
+                  store.overlay.toolbarPopupInfoMaybe.set(null);
+                  return;
+                }
+                store.overlay.toolbarPopupInfoMaybe.set(
+                  { topLeftPx: { x: (e.currentTarget as HTMLDivElement).getBoundingClientRect().x, y: (e.currentTarget as HTMLDivElement).getBoundingClientRect().y + 35 }, type: ToolbarPopupType.RatingType });
+              }}
+              onMouseDown={(e) => { ClickState.setButtonClickBoundsPx((e.currentTarget as HTMLDivElement).getBoundingClientRect()); }}>
+              {ratingTypeText()}
+            </div>
           </div>
-        </div>
+        </Show>
 
         <Toolbar_ItemOrdering />
 

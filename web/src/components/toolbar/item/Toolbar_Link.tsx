@@ -16,7 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup, onMount } from "solid-js";
+import { Component, Show, onCleanup, onMount } from "solid-js";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
@@ -36,6 +37,8 @@ export const Toolbar_Link: Component = () => {
 
   const linkItem = () => asLinkItem(store.history.getFocusItem());
   const linkItemOnMount = linkItem();
+  const canEditOnMount = itemCanEdit(linkItemOnMount);
+  const canEdit = () => itemCanEdit(linkItem());
 
   const handleQr = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
@@ -56,11 +59,17 @@ export const Toolbar_Link: Component = () => {
   }
 
   onMount(() => {
+    if (!canEditOnMount || !linkResourceInput) {
+      return;
+    }
     linkResourceInput!.value = linkItem().linkTo;
     linkResourceInput!.focus();
   });
 
   onCleanup(() => {
+    if (!canEditOnMount || !linkResourceInput) {
+      return;
+    }
     linkItemOnMount.linkTo = linkResourceInput!.value;
     requestArrange(store, "toolbar-link-target-change");
     serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus);
@@ -72,16 +81,18 @@ export const Toolbar_Link: Component = () => {
     <div id="toolbarItemOptionsDiv"
          class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <div class="inline-block ml-[8px]">
-          <span class="mr-[6px]">link to:</span>
-          <input ref={linkResourceInput}
-                 class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-slate-800 font-mono text-sm"
-                 type="text"
-                 spellcheck={false}
-                 onKeyDown={keyEventHandler}
-                 onKeyUp={keyEventHandler}
-                 onKeyPress={keyEventHandler} />
-        </div>
+        <Show when={canEdit()}>
+          <div class="inline-block ml-[8px]">
+            <span class="mr-[6px]">link to:</span>
+            <input ref={linkResourceInput}
+                   class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-slate-800 font-mono text-sm"
+                   type="text"
+                   spellcheck={false}
+                   onKeyDown={keyEventHandler}
+                   onKeyUp={keyEventHandler}
+                   onKeyPress={keyEventHandler} />
+          </div>
+        </Show>
 
         <Toolbar_ItemOrdering />
 

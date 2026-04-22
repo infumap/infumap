@@ -20,6 +20,7 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { asTableItem } from "../../items/table-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -35,6 +36,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const store = useStore();
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(tableItem());
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
@@ -129,8 +131,8 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
       <span id={VeFns.veToPath(props.visualElement) + ":title"}
         style={`outline: 0px solid transparent;`}
         class=""
-        contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-        spellcheck={store.overlay.textEditInfo() != null}
+        contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
+        spellcheck={canEdit() && store.overlay.textEditInfo() != null}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
         {appendNewlineIfEmpty(tableItem().title)}<span></span>

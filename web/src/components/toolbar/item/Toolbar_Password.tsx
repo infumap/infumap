@@ -16,7 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
@@ -34,6 +35,7 @@ export const Toolbar_Password: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const passwordItem = () => asPasswordItem(store.history.getFocusItem());
+  const canEdit = () => itemCanEdit(passwordItem());
 
   const desktopPopupIconVisible = (): boolean => {
     return !!(passwordItem().flags & PasswordFlags.ShowDesktopPopupIcon);
@@ -70,9 +72,11 @@ export const Toolbar_Password: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <div class="inline-block pl-[2px]">
-          <InfuIconButton icon="fa fa-eye-slash" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
-        </div>
+        <Show when={canEdit()}>
+          <div class="inline-block pl-[2px]">
+            <InfuIconButton icon="fa fa-eye-slash" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+          </div>
+        </Show>
 
         <Toolbar_ItemOrdering />
 
