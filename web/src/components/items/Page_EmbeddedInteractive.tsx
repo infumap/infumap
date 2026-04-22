@@ -193,16 +193,25 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `left: 0px; ` +
         `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
         `background-color: #ffffff; z-index: 2;`}>
+      <div class="absolute"
+        style={`left: 0px; top: 0px; width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; z-index: 2;`}>
+        <For each={pageFns().desktopChildren()}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
+        {renderSelectedRootMaybe()}
+        {renderPopupRootMaybe()}
+      </div>
       <div ref={rootDiv}
         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
           `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
-        style={`overflow-y: auto; overflow-x: hidden; ` +
-          `width: ${pageFns().viewportBoundsPx().w}px; ` +
+        style={`left: 0px; top: 0px; ` +
+          `overflow-y: auto; overflow-x: hidden; ` +
+          `width: ${pageFns().listViewportWidthPx()}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `background-color: #ffffff;`}
+          `background-color: #ffffff; z-index: 3;`}
         ondblclick={backgroundDoubleClickHandler}>
         <div class="absolute"
-          style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; ` +
+          style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
             `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}
           ondblclick={backgroundDoubleClickHandler}>
           <For each={pageFns().lineChildren()}>{childVe =>
@@ -210,9 +219,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           }</For>
         </div>
       </div>
-      <For each={pageFns().desktopChildren()}>{childVe =>
-        <VisualElement_Desktop visualElement={childVe.get()} />
-      }</For>
     </div>;
 
   const renderPage = () =>
@@ -248,6 +254,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
+      {renderSelectedRootMaybe()}
+      {renderPopupRootMaybe()}
     </div>;
 
   const renderSelectedRootMaybe = () =>
@@ -286,8 +294,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
             style={autoMovedIntoViewWarningStyle(pageFns().boundsPx().w, pageFns().boundsPx().h)} />
         </Show>
       </div>
-      {renderSelectedRootMaybe()}
-      {renderPopupRootMaybe()}
     </div>
   );
 }
