@@ -1,10 +1,11 @@
 # Infumap
 
+Summary:
 - A secure, durable home for all of your information.
 - Innovative UI:
   - Progressively add structure as your needs evolve.
   - Optimized for rapid navigation.
-- In development: Search and structure API that enables AI to work with your data.
+- In development: Search and structure API for AI integration.
 
 <kbd>
   <img src="screenshot.png" />
