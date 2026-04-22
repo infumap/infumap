@@ -177,6 +177,61 @@ function clearMoveOverState(store: StoreContextModel): void {
   }
 }
 
+function rollbackInvalidMove(store: StoreContextModel): void {
+  clearMoveOverState(store);
+
+  const rollback = MouseActionState.getMoveRollback() ?? [];
+  const rollbackIds = new Set(rollback.map(entry => entry.id));
+  const activeElementPath = MouseActionState.getActiveElementPath();
+  const activeTreeItemId = activeElementPath != null
+    ? (() => {
+      const veid = VeFns.veidFromPath(activeElementPath);
+      return veid.linkIdMaybe ?? veid.itemId;
+    })()
+    : null;
+  if (activeTreeItemId != null && !rollbackIds.has(activeTreeItemId) && itemState.get(activeTreeItemId) != null) {
+    itemState.delete(activeTreeItemId);
+    server.deleteItem(activeTreeItemId, store.general.networkStatus);
+  }
+
+  const newPlaceholderItem = MouseActionState.getNewPlaceholderItem();
+  if (newPlaceholderItem != null && itemState.get(newPlaceholderItem.id) != null) {
+    itemState.delete(newPlaceholderItem.id);
+  }
+  MouseActionState.setNewPlaceholderItem(null);
+  MouseActionState.setStartAttachmentsItem(null);
+
+  const parentsToSort = new Set<string>();
+  for (const entry of rollback) {
+    const itemMaybe = itemState.get(entry.id);
+    if (!itemMaybe || !isPositionalItem(itemMaybe)) { continue; }
+    const item = asPositionalItem(itemMaybe);
+    parentsToSort.add(item.parentId);
+    parentsToSort.add(entry.parentId);
+
+    item.spatialPositionGr = { ...entry.spatialPositionGr };
+    item.dateTime = entry.dateTime;
+
+    if (item.parentId != entry.parentId || item.relationshipToParent != entry.relationshipToParent) {
+      itemState.moveToNewParent(item, entry.parentId, entry.relationshipToParent, new Uint8Array(entry.ordering));
+    } else {
+      item.ordering = new Uint8Array(entry.ordering);
+    }
+  }
+
+  for (const parentId of parentsToSort) {
+    const parent = itemState.get(parentId);
+    if (!parent) { continue; }
+    if (isContainer(parent)) {
+      itemState.sortChildren(parentId);
+    }
+    if ("computed_attachments" in parent) {
+      itemState.sortAttachments(parentId);
+    }
+  }
+  MouseActionState.setMoveRollback(null);
+}
+
 function movingIgnoreIds(activeVisualElement: VisualElement): Array<string> {
   const ignoreIds = [activeVisualElement.displayItem.id];
   if (isComposite(activeVisualElement.displayItem)) {
@@ -526,9 +581,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
 function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: PositionalItem) {
   if (shouldRejectCurrentDropTarget(store)) {
-    clearMoveOverState(store);
+    rollbackInvalidMove(store);
     showMoveDropRejectedMessage(store, "Can't drop here.");
-    finalizeMouseUp(store);
     MouseActionState.set(null);
     arrangeNow(store, "mouse-up-reject-invalid-drop-target");
     return;
@@ -550,7 +604,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
 
   const overContainerVe = MouseActionState.readMoveOverContainer();
   if (overContainerVe == null) {
-    finalizeMouseUp(store);
+    rollbackInvalidMove(store);
     MouseActionState.set(null);
     arrangeNow(store, "mouse-up-finish-move-no-target");
     return;

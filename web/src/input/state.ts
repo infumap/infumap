@@ -48,6 +48,15 @@ export enum MouseAction {
   Selecting,
 }
 
+export interface MoveRollbackSnapshotEntry {
+  id: string,
+  parentId: string,
+  relationshipToParent: string,
+  ordering: Uint8Array,
+  spatialPositionGr: Vector,
+  dateTime: number,
+}
+
 
 export interface MouseActionStateType {
   hitboxTypeOnMouseDown: HitboxFlags,
@@ -85,6 +94,7 @@ export interface MouseActionStateType {
 
   onePxSizeBl: Vector,
   newPlaceholderItem: PlaceholderItem | null,
+  moveRollback: Array<MoveRollbackSnapshotEntry> | null,
 
   hitEmbeddedInteractive: boolean,
 
@@ -99,8 +109,9 @@ type MouseActionStateInit = Omit<
   "action" |
   "linkCreatedOnMoveStart" |
   "newPlaceholderItem" |
-  "startCalendarMonthResize"
-> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize">>;
+  "startCalendarMonthResize" |
+  "moveRollback"
+> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize" | "moveRollback">>;
 
 type MouseActionStateFromHitInit = Omit<
   MouseActionStateInit,
@@ -318,6 +329,7 @@ export let MouseActionState = {
       linkCreatedOnMoveStart: init.linkCreatedOnMoveStart ?? false,
       newPlaceholderItem: init.newPlaceholderItem ?? null,
       startCalendarMonthResize: init.startCalendarMonthResize ?? null,
+      moveRollback: init.moveRollback ?? null,
     });
   },
 
@@ -533,6 +545,15 @@ export let MouseActionState = {
   setNewPlaceholderItem: (newPlaceholderItem: PlaceholderItem | null): void => {
     if (mouseActionState == null) { return; }
     mouseActionState.newPlaceholderItem = newPlaceholderItem;
+  },
+
+  getMoveRollback: (): Array<MoveRollbackSnapshotEntry> | null => {
+    return mouseActionState?.moveRollback ?? null;
+  },
+
+  setMoveRollback: (moveRollback: Array<MoveRollbackSnapshotEntry> | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.moveRollback = moveRollback;
   },
 
   usesEmbeddedInteractiveHitTesting: (): boolean => {

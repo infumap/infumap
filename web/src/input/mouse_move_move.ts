@@ -53,7 +53,41 @@ import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets 
 
 
 
+function captureMoveRollbackSnapshot(store: StoreContextModel, activeVisualElement: VisualElement, activeItem: PositionalItem) {
+  const activeVeid = VeFns.veidFromVe(activeVisualElement);
+  const selected = store.overlay.selectedVeids.get();
+  const activeSelected = selected?.some(v => (
+    v.itemId === activeVeid.itemId && v.linkIdMaybe === activeVeid.linkIdMaybe
+  )) ?? false;
+
+  const itemIds = activeSelected && selected != null
+    ? selected.map(v => v.linkIdMaybe ? v.linkIdMaybe : v.itemId)
+    : [activeItem.id];
+
+  const seen = new Set<string>();
+  const snapshot = itemIds
+    .map(id => itemState.get(id))
+    .filter((item): item is PositionalItem => item != null && isPositionalItem(item))
+    .filter(item => {
+      if (seen.has(item.id)) { return false; }
+      seen.add(item.id);
+      return true;
+    })
+    .map(item => ({
+      id: item.id,
+      parentId: item.parentId,
+      relationshipToParent: item.relationshipToParent,
+      ordering: new Uint8Array(item.ordering),
+      spatialPositionGr: { ...item.spatialPositionGr },
+      dateTime: item.dateTime,
+    }));
+
+  MouseActionState.setMoveRollback(snapshot);
+}
+
+
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
+  captureMoveRollbackSnapshot(store, activeVisualElement, activeItem);
   const isActiveLinkItem = isLink(activeItem);
   const shiftWantsClone = CursorEventState.get().shiftDown && !isDataItem(activeVisualElement.displayItem);
   const shouldCreateLink = CursorEventState.get().ctrlDown || (shiftWantsClone && isActiveLinkItem);
