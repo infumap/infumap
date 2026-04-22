@@ -354,6 +354,25 @@ function focusAfterLinearSelectionDelete(
   arrangeNow(store, "linear-delete-selection-exit-edit");
 }
 
+function temporaryFocusPathAfterLinearSelectionDelete(
+  deleteSpec: LinearSelectionDeleteSpec,
+  keepStartPath: boolean,
+): string {
+  if (keepStartPath) {
+    return deleteSpec.start.pathInfo.path;
+  }
+
+  if (deleteSpec.startIndex > 0) {
+    return deleteSpec.orderedPaths[deleteSpec.startIndex - 1];
+  }
+
+  if (deleteSpec.endIndex + 1 < deleteSpec.orderedPaths.length) {
+    return deleteSpec.orderedPaths[deleteSpec.endIndex + 1];
+  }
+
+  return deleteSpec.context.containerPath;
+}
+
 function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: LinearSelectionDeleteSpec): boolean {
   const startPath = deleteSpec.start.pathInfo.path;
   const endPath = deleteSpec.end.pathInfo.path;
@@ -376,6 +395,11 @@ function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: Linear
     }
     persistLinearSelectionDeletePath(store, deleteSpec.context, startPath);
   }
+
+  // Move focus and edit state off any soon-to-be-deleted note before itemState.delete()
+  // triggers reactive reads like the toolbar.
+  store.overlay.setTextEditInfo(store.history, null);
+  store.history.setFocus(temporaryFocusPathAfterLinearSelectionDelete(deleteSpec, keepStartPath));
 
   for (const path of pathsToDelete) {
     if (path == deleteSpec.context.containerPath) { continue; }

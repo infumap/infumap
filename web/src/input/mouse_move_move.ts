@@ -39,6 +39,7 @@ import { itemState } from "../store/ItemState";
 import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
+import { resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "../layout/arrange/dock";
 import { asContainerItem } from "../items/base/container-item";
@@ -283,17 +284,6 @@ function quantizeSpatialPosGr(posGr: Vector): Vector {
   };
 }
 
-function resolveMoveTargetPageVe(moveToVe: VisualElement): VisualElement {
-  let candidate: VisualElement | null = moveToVe;
-  while (candidate) {
-    if (isPage(candidate.displayItem)) { return candidate; }
-    if (!candidate.parentPath) { break; }
-    candidate = VesCache.current.readNode(candidate.parentPath)!;
-  }
-  panic(`unexpected move target type: ${moveToVe.displayItem.itemType}`);
-}
-
-
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
   const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeVisualElementSignal) {
@@ -337,7 +327,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       isPage(hitInfo.overVes.get().displayItem)
       ? VeFns.veToPath(hitInfo.overVes.get())
       : null;
-  const hitMoveTargetVe = resolveMoveTargetPageVe(hitInfo.overPositionableVe!);
+  const resolvedMoveTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
+  const hitMoveTargetVe = resolvedMoveTarget.positioningPageVe;
   const hoveredPageInsideTable =
     tableContainerVeMaybe != null &&
     !!(hitMoveTargetVe.flags & VisualElementFlags.InsideTable);
@@ -347,8 +338,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   // update move over element state.
   const moveOverContainerPath = moveTargetIsDocumentPage
-    ? VeFns.veToPath(hitMoveTargetVe)
-    : VeFns.veToPath(HitInfoFns.getOverContainerVe(hitInfo, ignoreIds));
+    ? resolvedMoveTarget.positioningPagePath
+    : resolvedMoveTarget.hoverContainerPath;
   const previousMoveOverContainerPath = MouseActionState.getMoveOverContainerPath();
   if (MouseActionState.getMoveOverContainerPath() == null ||
     MouseActionState.getMoveOverContainerPath()! != moveOverContainerPath) {
