@@ -55,7 +55,10 @@ import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupTo
 import { resolveInternalMoveTarget } from "./move_target";
 
 
-type MovePersistOperation = () => Promise<void>;
+interface MovePersistOperation {
+  apply: () => Promise<void>,
+  rollback?: () => Promise<void>,
+}
 
 interface MoveRollbackContext {
   snapshot: Array<MoveRollbackSnapshotEntry>,
@@ -202,18 +205,41 @@ function cloneItemSnapshot<T extends Item>(item: T): T {
   return ItemFns.fromObject(ItemFns.toObject(item), item.origin ?? null) as T;
 }
 
-function enqueueUpdateItem(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): void {
+function enqueueUpdateItem(
+  ops: Array<MovePersistOperation>,
+  store: StoreContextModel,
+  item: Item,
+  rollbackSnapshot?: Item | null,
+): void {
   const snapshot = cloneItemSnapshot(item);
-  ops.push(() => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false));
+  ops.push({
+    apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false),
+    rollback: rollbackSnapshot == null
+      ? undefined
+      : () => serverOrRemote.updateItem(cloneItemSnapshot(rollbackSnapshot), store.general.networkStatus, false),
+  });
 }
 
 function enqueueAddItem(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): void {
   const snapshot = cloneItemSnapshot(item);
-  ops.push(() => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined));
+  ops.push({
+    apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
+    rollback: () => server.deleteItem(snapshot.id, store.general.networkStatus, false),
+  });
 }
 
-function enqueueDeleteItem(ops: Array<MovePersistOperation>, store: StoreContextModel, id: string): void {
-  ops.push(() => server.deleteItem(id, store.general.networkStatus, false));
+function enqueueDeleteItem(
+  ops: Array<MovePersistOperation>,
+  store: StoreContextModel,
+  id: string,
+  rollbackSnapshot?: Item | null,
+): void {
+  ops.push({
+    apply: () => server.deleteItem(id, store.general.networkStatus, false),
+    rollback: rollbackSnapshot == null
+      ? undefined
+      : () => server.addItem(cloneItemSnapshot(rollbackSnapshot), null, store.general.networkStatus).then(() => undefined),
+  });
 }
 
 function enqueuePersistMovedItems(ops: Array<MovePersistOperation>, store: StoreContextModel, defaultIds: string[]): void {
@@ -257,13 +283,15 @@ function captureMoveFinalizeContext(): MoveFinalizeContext {
   };
 }
 
-function rollbackMove(store: StoreContextModel, context: MoveRollbackContext): void {
+function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, deleteCreatedTreeItemOnServer: boolean = true): void {
   const rollbackIds = new Set(context.snapshot.map(entry => entry.id));
   if (context.activeTreeItemId != null && !rollbackIds.has(context.activeTreeItemId) && itemState.get(context.activeTreeItemId) != null) {
     itemState.delete(context.activeTreeItemId);
-    void server.deleteItem(context.activeTreeItemId, store.general.networkStatus, false).catch((error) => {
-      console.error("Rollback cleanup failed while deleting dragged item:", error);
-    });
+    if (deleteCreatedTreeItemOnServer) {
+      void server.deleteItem(context.activeTreeItemId, store.general.networkStatus, false).catch((error) => {
+        console.error("Rollback cleanup failed while deleting dragged item:", error);
+      });
+    }
   }
 
   if (context.newPlaceholderItemId != null && itemState.get(context.newPlaceholderItemId) != null) {
@@ -369,119 +397,188 @@ function rollbackInvalidMove(store: StoreContextModel): void {
   MouseActionState.setMoveRollback(null);
 }
 
-async function cleanupPersistedPlaceholdersAfterCommit(
+function buildCleanupPersistedPlaceholderOperations(
+  ops: Array<MovePersistOperation>,
   store: StoreContextModel,
   finalizeContext: MoveFinalizeContext,
-): Promise<boolean> {
+): void {
   const parentId = finalizeContext.startAttachmentsItemId;
   if (parentId == null) {
-    return false;
+    return;
   }
 
   const newPlaceholderItem = finalizeContext.newPlaceholderItemId != null
     ? itemState.get(finalizeContext.newPlaceholderItemId)
     : null;
   if (newPlaceholderItem != null) {
-    await server.addItem(cloneItemSnapshot(newPlaceholderItem), null, store.general.networkStatus);
+    const snapshot = cloneItemSnapshot(newPlaceholderItem);
+    ops.push({
+      apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
+      rollback: async () => {
+        await server.deleteItem(snapshot.id, store.general.networkStatus, false);
+      },
+    });
   }
 
   const placeholderParent = itemState.getAsAttachmentsItem(parentId);
   if (placeholderParent == null) {
-    return false;
+    return;
   }
 
-  const placeholderIdsToDelete: Array<string> = [];
+  const placeholderSnapshotsToDelete: Array<Item> = [];
   for (let i = placeholderParent.computed_attachments.length - 1; i >= 0; --i) {
     const attachmentId = placeholderParent.computed_attachments[i];
     const attachment = itemState.get(attachmentId);
-    if (attachment == null) { panic("cleanupPersistedPlaceholdersAfterCommit: no attachment."); }
+    if (attachment == null) { panic("buildCleanupPersistedPlaceholderOperations: no attachment."); }
     if (!isPlaceholder(attachment)) {
       break;
     }
-    placeholderIdsToDelete.push(attachment.id);
+    placeholderSnapshotsToDelete.push(cloneItemSnapshot(attachment));
   }
 
-  for (const placeholderId of placeholderIdsToDelete) {
-    await server.deleteItem(placeholderId, store.general.networkStatus, false);
-    if (itemState.get(placeholderId) != null) {
-      itemState.delete(placeholderId);
-    }
+  for (const placeholderSnapshot of placeholderSnapshotsToDelete) {
+    ops.push({
+      apply: async () => {
+        await server.deleteItem(placeholderSnapshot.id, store.general.networkStatus, false);
+        if (itemState.get(placeholderSnapshot.id) != null) {
+          itemState.delete(placeholderSnapshot.id);
+        }
+      },
+      rollback: async () => {
+        restoreDeletedItemSnapshot(placeholderSnapshot);
+        await server.addItem(cloneItemSnapshot(placeholderSnapshot), null, store.general.networkStatus).then(() => undefined);
+      },
+    });
   }
-
-  return placeholderIdsToDelete.length > 0;
 }
 
-async function cleanupCollapsedCompositeAfterCommit(
+function buildCleanupCollapsedCompositeOperations(
+  ops: Array<MovePersistOperation>,
   store: StoreContextModel,
   finalizeContext: MoveFinalizeContext,
-): Promise<boolean> {
+): void {
   const compositeId = finalizeContext.startCompositeItemId;
   if (compositeId == null) {
-    return false;
+    return;
   }
 
   const compositeItemMaybe = itemState.get(compositeId);
   if (compositeItemMaybe == null || !isComposite(compositeItemMaybe)) {
-    return false;
+    return;
   }
 
   const compositeItem = asCompositeItem(compositeItemMaybe);
   if (compositeItem.computed_children.length == 0) {
-    panic("cleanupCollapsedCompositeAfterCommit: composite has no children.");
+    panic("buildCleanupCollapsedCompositeOperations: composite has no children.");
   }
   if (compositeItem.computed_children.length != 1) {
-    return false;
+    return;
   }
 
   const compositeItemParent = itemState.getAsContainerItem(compositeItem.parentId);
   const child = itemState.get(compositeItem.computed_children[0]);
   if (compositeItemParent == null || child == null || !isPositionalItem(child)) {
-    return false;
+    return;
   }
 
+  const compositeSnapshot = cloneItemSnapshot(compositeItem);
+  const childOriginalSnapshot = asPositionalItem(cloneItemSnapshot(child));
   const childSnapshot = asPositionalItem(cloneItemSnapshot(child));
   childSnapshot.parentId = compositeItem.parentId;
   childSnapshot.spatialPositionGr = { ...compositeItem.spatialPositionGr };
-  await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
-  await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
+  ops.push({
+    apply: async () => {
+      await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
+      await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
+      child.parentId = compositeItem.parentId;
+      asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
+      compositeItem.computed_children = [];
+      compositeItemParent.computed_children.push(child.id);
+      itemState.delete(compositeItem.id);
+      itemState.sortChildren(compositeItemParent.id);
+    },
+    rollback: async () => {
+      if (itemState.get(compositeSnapshot.id) == null) {
+        const compositeRestore = asCompositeItem(cloneItemSnapshot(compositeSnapshot));
+        compositeRestore.computed_children = [];
+        itemState.add(compositeRestore);
+      }
+      restorePositionalItemSnapshot(childOriginalSnapshot);
+      await server.addItem(cloneItemSnapshot(compositeSnapshot), null, store.general.networkStatus).then(() => undefined);
+      await serverOrRemote.updateItem(cloneItemSnapshot(childOriginalSnapshot), store.general.networkStatus, false);
+    },
+  });
+}
 
-  child.parentId = compositeItem.parentId;
-  asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
-  compositeItem.computed_children = [];
-  compositeItemParent.computed_children.push(child.id);
-  itemState.delete(compositeItem.id);
-  itemState.sortChildren(compositeItemParent.id);
-  return true;
+function buildFinalizeMoveOperations(
+  store: StoreContextModel,
+  finalizeContext: MoveFinalizeContext,
+): Array<MovePersistOperation> {
+  const ops: Array<MovePersistOperation> = [];
+  buildCleanupPersistedPlaceholderOperations(ops, store, finalizeContext);
+  buildCleanupCollapsedCompositeOperations(ops, store, finalizeContext);
+  return ops;
+}
+
+async function rollbackAppliedOperations(appliedOps: Array<MovePersistOperation>): Promise<void> {
+  for (let i = appliedOps.length - 1; i >= 0; --i) {
+    const rollback = appliedOps[i].rollback;
+    if (!rollback) {
+      continue;
+    }
+    try {
+      await rollback();
+    } catch (error) {
+      console.error("Move rollback operation failed.", error);
+    }
+  }
+}
+
+async function rollbackMoveServerState(
+  store: StoreContextModel,
+  rollbackContext: MoveRollbackContext,
+): Promise<void> {
+  if (rollbackContext.activeTreeItemId != null && itemState.get(rollbackContext.activeTreeItemId) == null) {
+    try {
+      await server.deleteItem(rollbackContext.activeTreeItemId, store.general.networkStatus, false);
+    } catch (error) {
+      console.error("Rollback failed while deleting created dragged item on server.", error);
+    }
+  }
+
+  for (const entry of rollbackContext.snapshot) {
+    const item = itemState.get(entry.id);
+    if (item == null) {
+      continue;
+    }
+    try {
+      await serverOrRemote.updateItem(cloneItemSnapshot(item), store.general.networkStatus, false);
+    } catch (error) {
+      console.error(`Rollback failed while restoring item '${entry.id}' on the server.`, error);
+    }
+  }
 }
 
 async function commitMoveOperations(
   store: StoreContextModel,
   ops: Array<MovePersistOperation>,
   rollbackContext: MoveRollbackContext,
-  finalizeContext: MoveFinalizeContext,
 ): Promise<void> {
+  const appliedOps: Array<MovePersistOperation> = [];
   try {
     for (const op of ops) {
-      await op();
+      await op.apply();
+      appliedOps.push(op);
     }
   } catch (error) {
     console.error("Move commit failed; rolling back local state.", error);
-    rollbackMove(store, rollbackContext);
+    await rollbackAppliedOperations(appliedOps);
+    rollbackMove(store, rollbackContext, false);
     rollbackContext.rollbackExtras?.();
+    await rollbackMoveServerState(store, rollbackContext);
     showMoveDropRejectedMessage(store, "Couldn't save move. Restored original location.");
     arrangeNow(store, "mouse-up-rollback-server-failure");
     return;
-  }
-
-  try {
-    const placeholdersChanged = await cleanupPersistedPlaceholdersAfterCommit(store, finalizeContext);
-    const compositeChanged = await cleanupCollapsedCompositeAfterCommit(store, finalizeContext);
-    if (placeholdersChanged || compositeChanged) {
-      arrangeNow(store, "mouse-up-finalize-committed-move");
-    }
-  } catch (error) {
-    console.error("Move cleanup after commit failed.", error);
-    showMoveDropRejectedMessage(store, "Move saved, but follow-up cleanup failed.");
   }
 }
 
@@ -493,9 +590,10 @@ function scheduleMoveCommit(
 ): void {
   const rollbackContext = captureMoveRollbackContext(options?.rollbackExtras ?? null);
   const finalizeContext = captureMoveFinalizeContext();
+  const finalOps = [...ops, ...buildFinalizeMoveOperations(store, finalizeContext)];
   MouseActionState.set(null);
   arrangeNow(store, arrangeReason);
-  void commitMoveOperations(store, ops, rollbackContext, finalizeContext);
+  void commitMoveOperations(store, finalOps, rollbackContext);
 }
 
 function movingIgnoreIds(activeVisualElement: VisualElement): Array<string> {
@@ -1120,16 +1218,17 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
         .map((childId) => itemState.get(childId))
         .filter((child): child is PositionalItem => child != null && isPositionalItem(child))
         .map((child) => cloneItemSnapshot(child));
+      const childSnapshotsById = new Map(childSnapshots.map((snapshot) => [snapshot.id, snapshot]));
       let lastPrevId = attachToItem.id;
       while (activeItem_composite.computed_children.length > 0) {
         const child = itemState.get(activeItem_composite.computed_children[0])!;
         itemState.moveToNewParent(
           child, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId));
         lastPrevId = child.id;
-        enqueueUpdateItem(ops, store, child);
+        enqueueUpdateItem(ops, store, child, childSnapshotsById.get(child.id) ?? null);
       }
       itemState.delete(activeItem_composite.id);
-      enqueueDeleteItem(ops, store, activeItem_composite.id);
+      enqueueDeleteItem(ops, store, activeItem_composite.id, activeCompositeSnapshot);
       MouseActionState.setStartCompositeItem(null);
       scheduleMoveCommit(store, ops, "mouse-up-attach-to-composite", {
         rollbackExtras: () => {
@@ -1160,7 +1259,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 
       attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
-      enqueueUpdateItem(ops, store, attachToItem);
+      enqueueUpdateItem(ops, store, attachToItem, attachToItemSnapshot);
 
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(activeItem, compositeItem.id, RelationshipToParent.Child);
@@ -1181,7 +1280,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
       const attachToPositionGr = attachToItem.spatialPositionGr;
       activeItem_composite.spatialPositionGr = attachToPositionGr;
       itemState.moveToNewParent(attachToItem, activeItem_composite.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(activeItem_composite.id));
-      enqueueUpdateItem(ops, store, attachToItem);
+      enqueueUpdateItem(ops, store, attachToItem, attachToItemSnapshot);
       enqueueUpdateItem(ops, store, activeItem_composite);
       scheduleMoveCommit(store, ops, "mouse-up-attach-to-composite", {
         rollbackExtras: () => {
@@ -1225,7 +1324,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
         const newOrdering = prevPlaceholderMaybe.ordering;
         itemState.delete(prevPlaceholderMaybe.id);
         if (placeholderRollback != null) {
-          enqueueDeleteItem(ops, store, prevPlaceholderMaybe.id);
+          enqueueDeleteItem(ops, store, prevPlaceholderMaybe.id, placeholderRollback);
         }
         activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
         itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
@@ -1255,7 +1354,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
     const newOrdering = placeholderToReplaceMaybe.ordering;
     itemState.delete(placeholderToReplaceMaybe.id);
     if (placeholderRollback != null) {
-      enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id);
+      enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id, placeholderRollback);
     }
     activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
     itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
@@ -1278,7 +1377,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
       const newOrdering = prevPlaceholderMaybe.ordering;
       itemState.delete(prevPlaceholderMaybe.id);
       if (placeholderRollback != null) {
-        enqueueDeleteItem(ops, store, prevPlaceholderMaybe.id);
+        enqueueDeleteItem(ops, store, prevPlaceholderMaybe.id, placeholderRollback);
       }
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
@@ -1431,7 +1530,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
       } else {
         newOrdering = placeholderToReplaceMaybe.ordering;
         itemState.delete(placeholderToReplaceMaybe.id);
-        enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id);
+        enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id, placeholderRollback);
       }
       itemState.moveToNewParent(activeItem, displayedChild.id, RelationshipToParent.Attachment, newOrdering);
       enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
@@ -1462,7 +1561,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
       newOrdering = placeholderToReplaceMaybe.ordering;
       itemState.delete(placeholderToReplaceMaybe.id);
       if (deletedPlaceholderSnapshot != null) {
-        enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id);
+        enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id, deletedPlaceholderSnapshot);
       }
     } else {
       // TODO (MEDIUM): probably want to forbid rather than insert in this case.
