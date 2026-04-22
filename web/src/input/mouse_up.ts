@@ -458,8 +458,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: PositionalItem) {
 
   if (MouseActionState.getMoveOverContainerPath() != null) {
-    const ve = MouseActionState.readMoveOverContainer()!;
-    store.perVe.setMovingItemIsOver(VeFns.veToPath(ve), false);
+    store.perVe.setMovingItemIsOver(MouseActionState.getMoveOverContainerPath()!, false);
   }
 
   if (MouseActionState.getMoveOverAttachHitboxPath() != null) {
@@ -472,7 +471,13 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     return;
   }
 
-  const overContainerVe = MouseActionState.readMoveOverContainer()!;
+  const overContainerVe = MouseActionState.readMoveOverContainer();
+  if (overContainerVe == null) {
+    finalizeMouseUp(store);
+    MouseActionState.set(null);
+    arrangeNow(store, "mouse-up-finish-move-no-target");
+    return;
+  }
   if (isTable(overContainerVe.displayItem)) {
     mouseUpHandler_moving_toTable(store, activeItem, overContainerVe);
     return;

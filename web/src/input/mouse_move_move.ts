@@ -328,6 +328,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       ? VeFns.veToPath(hitInfo.overVes.get())
       : null;
   const resolvedMoveTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
+  const hasValidMoveTarget = resolvedMoveTarget.validity == "valid";
   const hitMoveTargetVe = resolvedMoveTarget.positioningPageVe;
   const hoveredPageInsideTable =
     tableContainerVeMaybe != null &&
@@ -336,92 +337,76 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     isPage(hitMoveTargetVe.displayItem) &&
     asPageItem(hitMoveTargetVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
 
-  // update move over element state.
-  const moveOverContainerPath = moveTargetIsDocumentPage
-    ? resolvedMoveTarget.positioningPagePath
-    : resolvedMoveTarget.hoverContainerPath;
-  const previousMoveOverContainerPath = MouseActionState.getMoveOverContainerPath();
-  if (MouseActionState.getMoveOverContainerPath() == null ||
-    MouseActionState.getMoveOverContainerPath()! != moveOverContainerPath) {
-    if (MouseActionState.getMoveOverContainerPath() != null) {
-      const veMaybe = MouseActionState.readMoveOverContainer();
-      if (veMaybe) {
-        store.perVe.setMovingItemIsOver(VeFns.veToPath(veMaybe), false);
+  if (!hasValidMoveTarget) {
+    clearMoveOverTargetState(store);
+  } else {
+    // update move over element state.
+    const moveOverContainerPath = moveTargetIsDocumentPage
+      ? resolvedMoveTarget.positioningPagePath
+      : resolvedMoveTarget.hoverContainerPath;
+    if (MouseActionState.getMoveOverContainerPath() == null ||
+      MouseActionState.getMoveOverContainerPath()! != moveOverContainerPath) {
+      clearMoveOverContainerState(store);
+
+      store.perVe.setMovingItemIsOver(moveOverContainerPath, true);
+      MouseActionState.setMoveOverContainerPath(moveOverContainerPath);
+    }
+
+    // update move over attach state.
+    clearMoveOverAttachState(store);
+    if ((hitInfo.hitboxType & HitboxFlags.Attach) && !shouldTreatTableHeaderAsFirstRow) {
+      const attachVe = hitInfo.overVes!.get();
+      const attachVePath = VeFns.veToPath(attachVe);
+      store.perVe.setMovingItemIsOverAttach(attachVePath, true);
+      MouseActionState.setMoveOverAttachHitboxPath(attachVePath);
+
+      // Calculate which attachment slot the mouse is over
+      const attachItem = asAttachmentsItem(attachVe.displayItem);
+      const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
+      const innerSizeBl = ItemFns.calcSpatialDimensionsBl(attachVe.displayItem);
+      const blockSizePx = veBoundsPx.w / innerSizeBl.w;
+
+      // Mouse position relative to right edge of item
+      const mouseXFromRight = veBoundsPx.x + veBoundsPx.w - desktopPosPx.x;
+      // Calculate which slot (0 = rightmost, 1 = next, etc.)
+      // Add 0.5 blocks so the transition happens at the midpoint of each attachment slot
+      const slotIndex = Math.floor((mouseXFromRight + blockSizePx * 0.5) / blockSizePx);
+      // Clamp to reasonable range (0 to existing attachments count)
+      const maxIndex = attachItem.computed_attachments.length;
+      const clampedIndex = Math.max(0, Math.min(slotIndex, maxIndex));
+
+      store.perVe.setMoveOverAttachmentIndex(attachVePath, clampedIndex);
+    }
+
+    // update move over attach composite state.
+    clearMoveOverAttachCompositeState(store);
+    if (!moveTargetIsDocumentPage && (hitInfo.hitboxType & HitboxFlags.AttachComposite)) {
+      const attachCompositeVe = hitInfo.overVes!.get();
+      const attachCompositeTargetIsAlreadyInComposite =
+        attachCompositeVe.displayItem.parentId != null &&
+        isComposite(itemState.get(attachCompositeVe.displayItem.parentId)!);
+
+      if (!attachCompositeTargetIsAlreadyInComposite) {
+        store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(attachCompositeVe), true);
+        MouseActionState.setMoveOverAttachCompositePath(VeFns.veToPath(attachCompositeVe));
       }
     }
-    clearTableChildContainerDropTarget(store, previousMoveOverContainerPath);
 
-    store.perVe.setMovingItemIsOver(moveOverContainerPath, true);
-    MouseActionState.setMoveOverContainerPath(moveOverContainerPath);
-  }
-
-  // update move over attach state.
-  if (MouseActionState.getMoveOverAttachHitboxPath() != null) {
-    const ve = MouseActionState.readMoveOverAttachHitbox()!;
-    store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(ve), false);
-    store.perVe.setMoveOverAttachmentIndex(VeFns.veToPath(ve), -1);
-  }
-  if ((hitInfo.hitboxType & HitboxFlags.Attach) && !shouldTreatTableHeaderAsFirstRow) {
-    const attachVe = hitInfo.overVes!.get();
-    const attachVePath = VeFns.veToPath(attachVe);
-    store.perVe.setMovingItemIsOverAttach(attachVePath, true);
-    MouseActionState.setMoveOverAttachHitboxPath(attachVePath);
-
-    // Calculate which attachment slot the mouse is over
-    const attachItem = asAttachmentsItem(attachVe.displayItem);
-    const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
-    const innerSizeBl = ItemFns.calcSpatialDimensionsBl(attachVe.displayItem);
-    const blockSizePx = veBoundsPx.w / innerSizeBl.w;
-
-    // Mouse position relative to right edge of item
-    const mouseXFromRight = veBoundsPx.x + veBoundsPx.w - desktopPosPx.x;
-    // Calculate which slot (0 = rightmost, 1 = next, etc.)
-    // Add 0.5 blocks so the transition happens at the midpoint of each attachment slot
-    const slotIndex = Math.floor((mouseXFromRight + blockSizePx * 0.5) / blockSizePx);
-    // Clamp to reasonable range (0 to existing attachments count)
-    const maxIndex = attachItem.computed_attachments.length;
-    const clampedIndex = Math.max(0, Math.min(slotIndex, maxIndex));
-
-    store.perVe.setMoveOverAttachmentIndex(attachVePath, clampedIndex);
-  } else {
-    MouseActionState.setMoveOverAttachHitboxPath(null);
-  }
-
-  // update move over attach composite state.
-  if (MouseActionState.getMoveOverAttachCompositePath() != null) {
-    const ve = MouseActionState.readMoveOverAttachComposite()!;
-    store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(ve), false);
-  }
-  if (!moveTargetIsDocumentPage && (hitInfo.hitboxType & HitboxFlags.AttachComposite)) {
-    const attachCompositeVe = hitInfo.overVes!.get();
-    const attachCompositeTargetIsAlreadyInComposite =
-      attachCompositeVe.displayItem.parentId != null &&
-      isComposite(itemState.get(attachCompositeVe.displayItem.parentId)!);
-
-    if (!attachCompositeTargetIsAlreadyInComposite) {
-      store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(attachCompositeVe), true);
-      MouseActionState.setMoveOverAttachCompositePath(VeFns.veToPath(attachCompositeVe));
-    } else {
-      MouseActionState.setMoveOverAttachCompositePath(null);
+    if (!hoveredPageInsideTable && MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
+      clearTableChildContainerDropTarget(store, moveOverContainerPath);
+      moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false);
+      arrangeNow(store, "moving-enter-new-container");
+      return;
     }
-  } else {
-    MouseActionState.setMoveOverAttachCompositePath(null);
-  }
 
-  if (!hoveredPageInsideTable && MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
-    clearTableChildContainerDropTarget(store, moveOverContainerPath);
-    moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false);
-    arrangeNow(store, "moving-enter-new-container");
-    return;
-  }
-
-  if (!moveTargetIsDocumentPage && tableContainerVeMaybe && (!isOverTableRootAttach || shouldTreatTableHeaderAsFirstRow)) {
-    moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx, tableChildContainerDropTargetPath);
-  } else {
-    clearTableChildContainerDropTarget(store, tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null);
-    const moveOverContainerVe = MouseActionState.readMoveOverContainer()!;
-    if (!moveTargetIsDocumentPage && isComposite(moveOverContainerVe.displayItem)) {
-      moving_handleOverComposite(store, moveOverContainerVe, desktopPosPx);
+    if (!moveTargetIsDocumentPage && tableContainerVeMaybe && (!isOverTableRootAttach || shouldTreatTableHeaderAsFirstRow)) {
+      moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx, tableChildContainerDropTargetPath);
+    } else {
+      clearTableChildContainerDropTarget(store, tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null);
+      const moveOverContainerVe = MouseActionState.readMoveOverContainer()!;
+      if (!moveTargetIsDocumentPage && isComposite(moveOverContainerVe.displayItem)) {
+        moving_handleOverComposite(store, moveOverContainerVe, desktopPosPx);
+      }
     }
   }
 
@@ -443,11 +428,11 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
   const newPosGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
 
-  if (asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.Calendar) {
+  if (!hasValidMoveTarget || asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.Calendar) {
     store.movingItemTargetCalendarInfo.set(null);
   }
 
-  if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+  if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
     const xAdj = (inElementVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) ||
       (inElementVe.flags & VisualElementFlags.Popup)
       ? store.getCurrentDockWidthPx()
@@ -467,19 +452,19 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 
-  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
     const catalogChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))()
       .map(childVe => childVe.get());
     const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, catalogChildren, desktopPosPx);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
   }
 
-  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified) {
     const moveOverIndex = calculateJustifiedMoveOverIndex(store, inElementVe, activeItem, desktopPosPx);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
   }
 
-  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
     // TODO (HIGH): consider list scroll position.
     const numChildren = asContainerItem(inElement).computed_children.length;
     const yOffsetPx = desktopPosPx.y - inElementVe.viewportBoundsPx!.y - LIST_PAGE_TOP_PADDING_PX;
@@ -489,14 +474,14 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 
-  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Document) {
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Document) {
     const documentChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))()
       .map(childVe => childVe.get());
     const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, documentChildren, desktopPosPx);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
   }
 
-  else if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
     // Calculate which month and day the mouse is over using scaled childAreaBoundsPx
     const position = calculateCalendarPosition(desktopPosPx, inElementVe, store);
     const combinedIndex = encodeCalendarCombinedIndex(position.month, position.day);
@@ -504,7 +489,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.movingItemTargetCalendarInfo.set({ pageItemId: inElement.id, combinedIndex });
   }
 
-  if (inElementVe.flags & VisualElementFlags.IsDock) {
+  if (hasValidMoveTarget && (inElementVe.flags & VisualElementFlags.IsDock)) {
     const dockScrollYPx = getDockScrollYPx(store, inElementVe);
     const dockChildAreaYPx = desktopPosPx.y - inElementVe.boundsPx.y + dockScrollYPx;
     const indexAndPosition = dockInsertIndexAndPositionFromDockChildAreaY(
@@ -538,6 +523,36 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       arrangeNow(store, "moving-update-position");
     }
   }
+}
+
+
+function clearMoveOverContainerState(store: StoreContextModel): void {
+  const moveOverContainerPath = MouseActionState.getMoveOverContainerPath();
+  if (moveOverContainerPath == null) { return; }
+  store.perVe.setMovingItemIsOver(moveOverContainerPath, false);
+  clearTableChildContainerDropTarget(store, moveOverContainerPath);
+  MouseActionState.setMoveOverContainerPath(null);
+}
+
+function clearMoveOverAttachState(store: StoreContextModel): void {
+  const attachPath = MouseActionState.getMoveOverAttachHitboxPath();
+  if (attachPath == null) { return; }
+  store.perVe.setMovingItemIsOverAttach(attachPath, false);
+  store.perVe.setMoveOverAttachmentIndex(attachPath, -1);
+  MouseActionState.setMoveOverAttachHitboxPath(null);
+}
+
+function clearMoveOverAttachCompositeState(store: StoreContextModel): void {
+  const attachCompositePath = MouseActionState.getMoveOverAttachCompositePath();
+  if (attachCompositePath == null) { return; }
+  store.perVe.setMovingItemIsOverAttachComposite(attachCompositePath, false);
+  MouseActionState.setMoveOverAttachCompositePath(null);
+}
+
+function clearMoveOverTargetState(store: StoreContextModel): void {
+  clearMoveOverAttachState(store);
+  clearMoveOverAttachCompositeState(store);
+  clearMoveOverContainerState(store);
 }
 
 
