@@ -17,8 +17,9 @@
 */
 
 import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../constants";
-import { StoreContextModel } from "../store/StoreProvider";
-import { VeFns, VisualElement } from "../layout/visual-element";
+import type { StoreContextModel } from "../store/StoreProvider";
+import { VeFns } from "../layout/visual-element";
+import type { VisualElement } from "../layout/visual-element";
 import { Vector } from "./geometry";
 
 export const CALENDAR_LAYOUT_CONSTANTS = {
@@ -31,7 +32,11 @@ export const CALENDAR_LAYOUT_CONSTANTS = {
   MONTH_SPACING: 5,
   LEFT_RIGHT_MARGIN: 5,
   TITLE_TO_MONTH_SPACING: 14,
+  SINGLE_MONTH_MAX_WIDTH_PX: 560,
+  QUARTER_MAX_WIDTH_PX: 1200,
 } as const;
+
+export const CALENDAR_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
 export interface CalendarDimensions {
   columnWidth: number;
@@ -41,11 +46,28 @@ export interface CalendarDimensions {
   dayRowHeight: number;
   availableHeightForDays: number;
   dayAreaTopPx: number;
+  visibleMonths: Array<number>;
 }
 
 export interface CalendarMonthResize {
   month: number;
   widthPx: number;
+}
+
+export interface CalendarVisibleMonth {
+  monthIndex: number;
+  month: number;
+  year: number;
+}
+
+export interface CalendarWindow {
+  anchorMonthIndex: number;
+  startMonthIndex: number;
+  monthsPerPage: 1 | 3 | 12;
+  year: number;
+  startMonth: number;
+  endMonth: number;
+  months: Array<CalendarVisibleMonth>;
 }
 
 function calculateCalendarMinimumColumnWidth(defaultColumnWidth: number): number {
@@ -58,36 +80,117 @@ function calculateCalendarMinimumColumnWidth(defaultColumnWidth: number): number
   );
 }
 
+export function encodeCalendarMonthIndex(year: number, month: number): number {
+  return year * 12 + (month - 1);
+}
+
+export function decodeCalendarMonthIndex(monthIndex: number): { year: number; month: number } {
+  const zeroBasedMonth = ((monthIndex % 12) + 12) % 12;
+  const year = (monthIndex - zeroBasedMonth) / 12;
+  return {
+    year,
+    month: zeroBasedMonth + 1,
+  };
+}
+
+export function getCalendarMonthsPerPage(pageWidthPx: number): 1 | 3 | 12 {
+  if (pageWidthPx < CALENDAR_LAYOUT_CONSTANTS.SINGLE_MONTH_MAX_WIDTH_PX) {
+    return 1;
+  }
+  if (pageWidthPx < CALENDAR_LAYOUT_CONSTANTS.QUARTER_MAX_WIDTH_PX) {
+    return 3;
+  }
+  return 12;
+}
+
+export function alignCalendarWindowStartMonthIndex(monthIndex: number, monthsPerPage: 1 | 3 | 12): number {
+  const { year, month } = decodeCalendarMonthIndex(monthIndex);
+  if (monthsPerPage == 12) {
+    return encodeCalendarMonthIndex(year, 1);
+  }
+  if (monthsPerPage == 3) {
+    return encodeCalendarMonthIndex(year, Math.floor((month - 1) / 3) * 3 + 1);
+  }
+  return monthIndex;
+}
+
+export function calculateCalendarWindow(pageWidthPx: number, monthIndex: number): CalendarWindow {
+  const monthsPerPage = getCalendarMonthsPerPage(pageWidthPx);
+  const startMonthIndex = alignCalendarWindowStartMonthIndex(monthIndex, monthsPerPage);
+  const start = decodeCalendarMonthIndex(startMonthIndex);
+  const months: Array<CalendarVisibleMonth> = [];
+  for (let i = 0; i < monthsPerPage; ++i) {
+    const currentMonthIndex = startMonthIndex + i;
+    const current = decodeCalendarMonthIndex(currentMonthIndex);
+    months.push({
+      monthIndex: currentMonthIndex,
+      month: current.month,
+      year: current.year,
+    });
+  }
+
+  return {
+    anchorMonthIndex: monthIndex,
+    startMonthIndex,
+    monthsPerPage,
+    year: start.year,
+    startMonth: start.month,
+    endMonth: months[months.length - 1].month,
+    months,
+  };
+}
+
+export function formatCalendarWindowTitle(calendarWindow: CalendarWindow): string {
+  if (calendarWindow.monthsPerPage == 12) {
+    return `${calendarWindow.year}`;
+  }
+  if (calendarWindow.monthsPerPage == 3) {
+    return `${CALENDAR_MONTH_NAMES[calendarWindow.startMonth - 1]} - ${CALENDAR_MONTH_NAMES[calendarWindow.endMonth - 1]} ${calendarWindow.year}`;
+  }
+  return `${CALENDAR_MONTH_NAMES[calendarWindow.startMonth - 1]} ${calendarWindow.year}`;
+}
+
+export function isCalendarMonthVisible(calendarWindow: CalendarWindow, year: number, month: number): boolean {
+  return calendarWindow.year === year && calendarWindow.months.some((visibleMonth) => visibleMonth.month === month);
+}
+
 export function calculateCalendarDimensions(
   childAreaBoundsPx: { w: number; h: number },
   monthResizeMaybe: CalendarMonthResize | null = null,
+  calendarWindowMaybe: CalendarWindow | null = null,
 ): CalendarDimensions {
+  const visibleMonths = calendarWindowMaybe?.months.map((month) => month.month) ??
+    Array.from({ length: CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT }, (_, i) => i + 1);
+  const visibleColumnCount = visibleMonths.length;
   const totalColumnWidth =
     childAreaBoundsPx.w -
-    (CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT - 1) * CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING -
+    (visibleColumnCount - 1) * CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING -
     2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN;
-  const columnWidth = totalColumnWidth / CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT;
+  const columnWidth = totalColumnWidth / visibleColumnCount;
 
-  const columnWidths = new Array<number>(CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT).fill(columnWidth);
-  if (monthResizeMaybe && monthResizeMaybe.month >= 1 && monthResizeMaybe.month <= CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT) {
+  const columnWidths = new Array<number>(visibleColumnCount).fill(columnWidth);
+  if (visibleColumnCount == CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT &&
+    monthResizeMaybe &&
+    monthResizeMaybe.month >= 1 &&
+    monthResizeMaybe.month <= CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT) {
     const minColumnWidth = Math.min(columnWidth, calculateCalendarMinimumColumnWidth(columnWidth));
-    const maxActiveWidth = totalColumnWidth - (CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT - 1) * minColumnWidth;
+    const maxActiveWidth = totalColumnWidth - (visibleColumnCount - 1) * minColumnWidth;
 
     if (maxActiveWidth > minColumnWidth) {
       const activeWidth = Math.max(minColumnWidth, Math.min(maxActiveWidth, monthResizeMaybe.widthPx));
-      const otherWidth = (totalColumnWidth - activeWidth) / (CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT - 1);
-      for (let month = 1; month <= CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT; ++month) {
-        columnWidths[month - 1] = month === monthResizeMaybe.month ? activeWidth : otherWidth;
+      const otherWidth = (totalColumnWidth - activeWidth) / (visibleColumnCount - 1);
+      for (let index = 0; index < visibleColumnCount; ++index) {
+        columnWidths[index] = visibleMonths[index] === monthResizeMaybe.month ? activeWidth : otherWidth;
       }
     }
   }
 
   const columnLefts: Array<number> = [];
   let leftPx = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN;
-  for (let i = 0; i < CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT; ++i) {
+  for (let i = 0; i < visibleColumnCount; ++i) {
     columnLefts.push(leftPx);
     leftPx += columnWidths[i];
-    if (i < CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT - 1) {
+    if (i < visibleColumnCount - 1) {
       leftPx += CALENDAR_LAYOUT_CONSTANTS.MONTH_SPACING;
     }
   }
@@ -113,15 +216,18 @@ export function calculateCalendarDimensions(
     dayRowHeight,
     availableHeightForDays,
     dayAreaTopPx,
+    visibleMonths,
   };
 }
 
 export function getCalendarMonthLeftPx(dimensions: CalendarDimensions, month: number): number {
-  return dimensions.columnLefts[month - 1];
+  const index = dimensions.visibleMonths.indexOf(month);
+  return index >= 0 ? dimensions.columnLefts[index] : CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN;
 }
 
 export function getCalendarMonthWidthPx(dimensions: CalendarDimensions, month: number): number {
-  return dimensions.columnWidths[month - 1];
+  const index = dimensions.visibleMonths.indexOf(month);
+  return index >= 0 ? dimensions.columnWidths[index] : 0;
 }
 
 export function getCalendarDividerCenterPx(dimensions: CalendarDimensions, dividerAfterMonth: number): number {
@@ -131,12 +237,13 @@ export function getCalendarDividerCenterPx(dimensions: CalendarDimensions, divid
 }
 
 export function getCalendarMonthForXOffset(dimensions: CalendarDimensions, xOffsetPx: number): number {
-  for (let month = 1; month < CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT; ++month) {
+  for (let i = 0; i < dimensions.visibleMonths.length - 1; ++i) {
+    const month = dimensions.visibleMonths[i];
     if (xOffsetPx < getCalendarDividerCenterPx(dimensions, month)) {
       return month;
     }
   }
-  return CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT;
+  return dimensions.visibleMonths[dimensions.visibleMonths.length - 1] ?? 1;
 }
 
 export function solveCalendarMonthWidthForDividerOffset(
@@ -207,8 +314,12 @@ export function calculateCalendarPosition(
 ): CalendarPosition {
   const childAreaBounds = pageVe.childAreaBoundsPx!;
   const viewportBounds = pageVe.viewportBoundsPx!;
-  const monthResizeMaybe = store.perVe.getCalendarMonthResize(VeFns.veToPath(pageVe));
-  const dimensions = calculateCalendarDimensions(childAreaBounds, monthResizeMaybe);
+  const pagePath = VeFns.veToPath(pageVe);
+  const calendarWindow = calculateCalendarWindow(childAreaBounds.w, store.perVe.getCalendarMonthIndex(pagePath));
+  const monthResizeMaybe = calendarWindow.monthsPerPage == 12
+    ? store.perVe.getCalendarMonthResize(pagePath)
+    : null;
+  const dimensions = calculateCalendarDimensions(childAreaBounds, monthResizeMaybe, calendarWindow);
 
   const veid = VeFns.veidFromVe(pageVe);
   const scrollYPx = store.perItem.getPageScrollYProp(veid) * (childAreaBounds.h - viewportBounds.h);
@@ -235,11 +346,10 @@ export function calculateCalendarDateTime(
   store: StoreContextModel
 ): number {
   const position = calculateCalendarPosition(desktopPosPx, pageVe, store);
-
-  const selectedYear = store.perVe.getCalendarYear(VeFns.veToPath(pageVe));
+  const calendarWindow = calculateCalendarWindow(pageVe.childAreaBoundsPx!.w, store.perVe.getCalendarMonthIndex(VeFns.veToPath(pageVe)));
   const currentTime = new Date();
   const targetDate = new Date(
-    selectedYear,
+    calendarWindow.year,
     position.month - 1, 
     position.day, 
     currentTime.getHours(), 

@@ -36,12 +36,14 @@ import { MouseActionState, MouseAction } from "../../input/state";
 import { CursorEventState } from "../../input/state";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import {
+  calculateCalendarWindow,
   calculateCalendarDimensions,
   CALENDAR_LAYOUT_CONSTANTS,
   getCalendarDividerCenterPx,
   getCalendarMonthForXOffset,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
+  isCalendarMonthVisible,
 } from "../../util/calendar-layout";
 import { ItemType } from "../../items/base/item";
 
@@ -155,28 +157,27 @@ export function arrange_calendar_page(
 
   // Arrange child items in calendar grid layout (6 blocks wide)
   let calendarChildPaths: Array<VisualElementPath> = [];
-
-  // Get the currently selected calendar year for this page
-  const selectedCalendarYear = store.perVe.getCalendarYear(pageWithChildrenVePath);
+  const calendarWindow = calculateCalendarWindow(childAreaBoundsPx.w, store.perVe.getCalendarMonthIndex(pageWithChildrenVePath));
 
   // Sort children by dateTime, but exclude moving item if it's in this page
-  // Also filter to only show items from the selected calendar year
+  // Also filter to only show items from the visible calendar window
   const childrenWithDateTime = displayItem_pageWithChildren.computed_children
     .map(childId => itemState.get(childId)!)
     .filter(child => {
       if (child == null) return false;
       if (movingItemInThisPage && child.id === movingItemInThisPage.id) return false;
 
-      // Filter by selected calendar year
       const itemDate = new Date(child.dateTime * 1000);
-      return itemDate.getFullYear() === selectedCalendarYear;
+      return isCalendarMonthVisible(calendarWindow, itemDate.getFullYear(), itemDate.getMonth() + 1);
     })
     .sort((a, b) => a.dateTime - b.dateTime);
 
   // Calendar layout dimensions (using arranged childAreaBoundsPx)
   const childAreaBounds = childAreaBoundsPx;
-  const calendarMonthResize = store.perVe.getCalendarMonthResize(pageWithChildrenVePath);
-  const calendarDimensions = calculateCalendarDimensions(childAreaBounds, calendarMonthResize);
+  const calendarMonthResize = calendarWindow.monthsPerPage == 12
+    ? store.perVe.getCalendarMonthResize(pageWithChildrenVePath)
+    : null;
+  const calendarDimensions = calculateCalendarDimensions(childAreaBounds, calendarMonthResize, calendarWindow);
 
   const popupTopPadding = 5;
   const popupTitleToMonthSpacing = 8;
@@ -216,7 +217,8 @@ export function arrange_calendar_page(
     return CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING;
   })();
   const dividerHitboxes: Array<ReturnType<typeof HitboxFns.create>> = [];
-  if (flags & ArrangeItemFlags.IsTopRoot || flags & ArrangeItemFlags.IsListPageMainRoot) {
+  if ((flags & ArrangeItemFlags.IsTopRoot || flags & ArrangeItemFlags.IsListPageMainRoot) &&
+    calendarWindow.monthsPerPage == 12) {
     for (let dividerMonth = 1; dividerMonth < CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT; ++dividerMonth) {
       const dividerCenterPx = getCalendarDividerCenterPx(calendarDimensions, dividerMonth);
       dividerHitboxes.push(HitboxFns.create(

@@ -29,9 +29,12 @@ import { PageVisualElementProps } from "./Page";
 import { BorderType, borderColorForColorIdx } from "../../style";
 import { getMonthInfo } from "../../util/time";
 import {
+  CALENDAR_MONTH_NAMES,
+  calculateCalendarWindow,
   calculateCalendarDimensions,
   CALENDAR_LAYOUT_CONSTANTS,
   decodeCalendarCombinedIndex,
+  formatCalendarWindowTitle,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCurrentDay,
@@ -285,12 +288,16 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const renderCalendarPage = () => {
     const pagePath = VeFns.veToPath(props.visualElement);
-    const currentYear = store.perVe.getCalendarYear(pagePath);
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    const calendarResizeMaybe = store.perVe.getCalendarMonthResize(pagePath);
-    const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx(), calendarResizeMaybe);
+    const calendarMonthIndex = store.perVe.getCalendarMonthIndex(pagePath);
+    const calendarWindow = calculateCalendarWindow(pageFns().childAreaBoundsPx().w, calendarMonthIndex);
+    const calendarResizeMaybe = calendarWindow.monthsPerPage == 12
+      ? store.perVe.getCalendarMonthResize(pagePath)
+      : null;
+    const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx(), calendarResizeMaybe, calendarWindow);
     const toggleMonthHeadingWidth = (month: number) => {
+      if (calendarWindow.monthsPerPage != 12) {
+        return;
+      }
       const currentResize = store.perVe.getCalendarMonthResize(pagePath);
       if (currentResize != null && currentResize.month == month) {
         store.perVe.setCalendarMonthResize(pagePath, null);
@@ -299,17 +306,22 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       }
 
       const childAreaBounds = pageFns().childAreaBoundsPx();
-      const defaultWidthPx = calculateCalendarDimensions(childAreaBounds).columnWidth;
+      const defaultWidthPx = calculateCalendarDimensions(childAreaBounds, null, calendarWindow).columnWidth;
       const requestedWidthPx = currentResize?.widthPx ?? defaultWidthPx * 2.0;
       const normalizedWidthPx = calculateCalendarDimensions(childAreaBounds, {
         month,
         widthPx: requestedWidthPx,
-      }).columnWidths[month - 1];
+      }, calendarWindow).columnWidths[month - 1];
       store.perVe.setCalendarMonthResize(pagePath, { month, widthPx: normalizedWidthPx });
       requestArrange(store, currentResize == null
         ? "page-calendar-month-heading-wide"
         : "page-calendar-month-heading-switch-wide");
     };
+    const navigateCalendarWindow = (delta: -1 | 1) => {
+      store.perVe.setCalendarMonthIndex(pagePath, calendarMonthIndex + delta * calendarWindow.monthsPerPage);
+      requestArrange(store, "page-calendar-window-change");
+    };
+    const visibleMonthSet = new Set(calendarWindow.months.map(({ month }) => month));
 
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 
@@ -337,27 +349,25 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <div class="absolute flex items-center justify-center font-bold text-2xl"
             style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
-              onClick={() => {
-                store.perVe.setCalendarYear(pagePath, currentYear - 1);
-                requestArrange(store, "page-calendar-year-change");
-              }}>
+              onClick={() => navigateCalendarWindow(-1)}>
               <i class="fas fa-angle-left" />
             </div>
-            <span class="mx-2">{currentYear}</span>
+            <span class="mx-2">{formatCalendarWindowTitle(calendarWindow)}</span>
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
-              onClick={() => {
-                store.perVe.setCalendarYear(pagePath, currentYear + 1);
-                requestArrange(store, "page-calendar-year-change");
-              }}>
+              onClick={() => navigateCalendarWindow(1)}>
               <i class="fas fa-angle-right" />
             </div>
           </div>
 
           {/* Calendar months */}
-          <For each={Array.from({ length: 12 }, (_, i) => i + 1)}>{month => {
-            const monthInfo = getMonthInfo(month, currentYear);
+          <For each={calendarWindow.months}>{visibleMonth => {
+            const month = visibleMonth.month;
+            const monthInfo = getMonthInfo(month, visibleMonth.year);
             const leftPos = getCalendarMonthLeftPx(calendarDimensions, month);
             const monthWidth = getCalendarMonthWidthPx(calendarDimensions, month);
+            const monthTitleClasses = calendarWindow.monthsPerPage == 12
+              ? "text-center font-semibold text-base rounded-sm cursor-pointer transition-colors hover:bg-gray-100"
+              : "text-center font-semibold text-base rounded-sm";
 
             return (
               <div class="absolute"
@@ -365,26 +375,28 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
                 {/* Month title */}
                 <div
-                  class="text-center font-semibold text-base rounded-sm cursor-pointer transition-colors hover:bg-gray-100"
+                  class={monthTitleClasses}
                   style={`height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px;`}
                   onMouseDown={(ev) => {
+                    if (calendarWindow.monthsPerPage != 12) { return; }
                     if (ev.button !== 0) { return; }
                     ev.preventDefault();
                     ev.stopPropagation();
                   }}
                   onClick={(ev) => {
+                    if (calendarWindow.monthsPerPage != 12) { return; }
                     ev.preventDefault();
                     ev.stopPropagation();
                     toggleMonthHeadingWidth(month);
                   }}>
-                  {monthNames[month - 1]}
+                  {CALENDAR_MONTH_NAMES[month - 1]}
                 </div>
 
                 {/* Days in month */}
                 <For each={Array.from({ length: monthInfo.daysInMonth }, (_, i) => i + 1)}>{day => {
                   const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
                   const topPos = CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT + (day - 1) * calendarDimensions.dayRowHeight;
-                  const isToday = isCurrentDay(month, day, currentYear);
+                  const isToday = isCurrentDay(month, day, visibleMonth.year);
 
                   let backgroundColor = '#ffffff';
                   if (isToday) {
@@ -415,7 +427,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           {/* Render overflow count overlays per day */}
           {(() => {
             const childArea = pageFns().childAreaBoundsPx();
-            const dims = calculateCalendarDimensions(childArea, store.perVe.getCalendarMonthResize(pagePath));
+            const dims = calculateCalendarDimensions(childArea, calendarResizeMaybe, calendarWindow);
             const block = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
             const rowsPerDay = Math.max(1, Math.floor(dims.dayRowHeight / block.h));
 
@@ -423,12 +435,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
             // Count all items per day present in the page item state for the current year
             const pageItem = asPageItem(props.visualElement.displayItem);
-            const year = store.perVe.getCalendarYear(VeFns.veToPath(props.visualElement));
+            const year = calendarWindow.year;
             for (const childId of pageItem.computed_children) {
               const it = itemState.get(childId);
               if (!it) continue;
               const d = new Date(it.dateTime * 1000);
-              if (d.getFullYear() !== year) continue;
+              if (d.getFullYear() !== year || !visibleMonthSet.has(d.getMonth() + 1)) continue;
               const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
               itemCounts.set(key, (itemCounts.get(key) || 0) + 1);
             }
@@ -463,6 +475,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             {(() => {
               const info = store.movingItemSourceCalendarInfo.get()!;
               const { month, day } = decodeCalendarCombinedIndex(info.combinedIndex);
+              if (!visibleMonthSet.has(month)) {
+                return null;
+              }
               const leftPx = getCalendarMonthLeftPx(calendarDimensions, month);
               const widthPx = getCalendarMonthWidthPx(calendarDimensions, month);
               const topPx = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
@@ -479,6 +494,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             {(() => {
               const info = store.movingItemTargetCalendarInfo.get()!;
               const { month, day } = decodeCalendarCombinedIndex(info.combinedIndex);
+              if (!visibleMonthSet.has(month)) {
+                return null;
+              }
               const leftPx = getCalendarMonthLeftPx(calendarDimensions, month);
               const widthPx = getCalendarMonthWidthPx(calendarDimensions, month);
               const topPx = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;

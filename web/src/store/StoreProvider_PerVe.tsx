@@ -18,7 +18,11 @@
 
 import { VisualElementPath } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
-import type { CalendarMonthResize } from "../util/calendar-layout";
+import {
+  decodeCalendarMonthIndex,
+  encodeCalendarMonthIndex,
+  type CalendarMonthResize,
+} from "../util/calendar-layout";
 
 
 export interface IndexAndPosition {
@@ -67,6 +71,9 @@ export interface PerVeStoreContextModel {
   getIsExpanded: (vePath: VisualElementPath) => boolean,
   setIsExpanded: (vePath: VisualElementPath, isExpanded: boolean) => void,
 
+  getCalendarMonthIndex: (vePath: VisualElementPath) => number,
+  setCalendarMonthIndex: (vePath: VisualElementPath, monthIndex: number) => void,
+
   getCalendarYear: (vePath: VisualElementPath) => number,
   setCalendarYear: (vePath: VisualElementPath, year: number) => void,
 
@@ -96,6 +103,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const moveOverIndex = new Map<string, NumberSignal>();
   const moveOverIndexAndPosition = new Map<string, InfuSignal<IndexAndPosition>>();
   const isExpanded = new Map<string, BooleanSignal>();
+  const calendarMonthIndex = new Map<string, NumberSignal>();
   const calendarYear = new Map<string, NumberSignal>();
   const calendarMonthResize = new Map<string, InfuSignal<CalendarMonthResize | null>>();
   const autoMovedIntoView = new Map<string, BooleanSignal>();
@@ -295,26 +303,49 @@ export function makePerVeStore(): PerVeStoreContextModel {
     isExpanded.get(vePath)!.set(isExp);
   };
 
-  const getCalendarYear = (vePath: VisualElementPath): number => {
-    if (!calendarYear.get(vePath)) {
-      calendarYear.set(vePath, createNumberSignal(new Date().getFullYear()));
-    }
-    return calendarYear.get(vePath)!.get();
+  const getDefaultCalendarMonthIndex = (): number => {
+    const now = new Date();
+    return encodeCalendarMonthIndex(now.getFullYear(), now.getMonth() + 1);
   };
 
-  const setCalendarYear = (vePath: VisualElementPath, year: number): void => {
+  const getCalendarMonthIndex = (vePath: VisualElementPath): number => {
+    if (!calendarMonthIndex.get(vePath)) {
+      calendarMonthIndex.set(vePath, createNumberSignal(getDefaultCalendarMonthIndex()));
+    }
+    return calendarMonthIndex.get(vePath)!.get();
+  };
+
+  const setCalendarMonthIndex = (vePath: VisualElementPath, monthIndex: number): void => {
+    const previousMonthIndex = calendarMonthIndex.get(vePath)?.get();
     const previousYear = calendarYear.get(vePath)?.get();
-    if (!calendarYear.get(vePath)) {
-      calendarYear.set(vePath, createNumberSignal(year));
+
+    if (!calendarMonthIndex.get(vePath)) {
+      calendarMonthIndex.set(vePath, createNumberSignal(monthIndex));
     } else {
-      calendarYear.get(vePath)!.set(year);
+      calendarMonthIndex.get(vePath)!.set(monthIndex);
     }
 
-    if (previousYear == null || previousYear !== year) {
+    const nextYear = decodeCalendarMonthIndex(monthIndex).year;
+    if (!calendarYear.get(vePath)) {
+      calendarYear.set(vePath, createNumberSignal(nextYear));
+    } else if (previousYear == null || previousYear !== nextYear) {
+      calendarYear.get(vePath)!.set(nextYear);
+    }
+
+    if (previousMonthIndex == null || previousMonthIndex !== monthIndex) {
       if (calendarMonthResize.get(vePath)) {
         calendarMonthResize.get(vePath)!.set(null);
       }
     }
+  };
+
+  const getCalendarYear = (vePath: VisualElementPath): number => {
+    return decodeCalendarMonthIndex(getCalendarMonthIndex(vePath)).year;
+  };
+
+  const setCalendarYear = (vePath: VisualElementPath, year: number): void => {
+    const { month } = decodeCalendarMonthIndex(getCalendarMonthIndex(vePath));
+    setCalendarMonthIndex(vePath, encodeCalendarMonthIndex(year, month));
   };
 
   const getCalendarMonthResize = (vePath: VisualElementPath): CalendarMonthResize | null => {
@@ -386,6 +417,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getIsExpanded,
     setIsExpanded,
+
+    getCalendarMonthIndex,
+    setCalendarMonthIndex,
 
     getCalendarYear,
     setCalendarYear,

@@ -32,6 +32,7 @@ import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, veFlagIsRoot } fr
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
+import { calculateCalendarWindow } from "../util/calendar-layout";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState, MouseActionState } from "./state";
 import { newItemInContext } from "./create";
@@ -1402,17 +1403,20 @@ function handleArrowKeyCalendarPageMaybe(store: StoreContextModel, ev: KeyboardE
   }
 
   const focusPath = store.history.getFocusPath();
-  const currentYear = store.perVe.getCalendarYear(focusPath);
+  const pageVe = VesCache.render.getNode(focusPath)?.get();
+  const pageWidthPx = pageVe?.childAreaBoundsPx?.w ?? store.desktopMainAreaBoundsPx().w;
+  const currentMonthIndex = store.perVe.getCalendarMonthIndex(focusPath);
+  const calendarWindow = calculateCalendarWindow(pageWidthPx, currentMonthIndex);
 
   if (ev.code == "ArrowLeft") {
-    store.perVe.setCalendarYear(focusPath, currentYear - 1);
-    arrangeNow(store, "key-calendar-prev-year");
+    store.perVe.setCalendarMonthIndex(focusPath, currentMonthIndex - calendarWindow.monthsPerPage);
+    arrangeNow(store, "key-calendar-prev-window");
     return true;
   }
 
   if (ev.code == "ArrowRight") {
-    store.perVe.setCalendarYear(focusPath, currentYear + 1);
-    arrangeNow(store, "key-calendar-next-year");
+    store.perVe.setCalendarMonthIndex(focusPath, currentMonthIndex + calendarWindow.monthsPerPage);
+    arrangeNow(store, "key-calendar-next-window");
     return true;
   }
 
