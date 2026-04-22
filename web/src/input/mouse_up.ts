@@ -520,7 +520,35 @@ function buildFinalizeMoveOperations(
   return ops;
 }
 
-async function rollbackAppliedOperations(appliedOps: Array<MovePersistOperation>): Promise<void> {
+function describeRollbackError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error == "string") {
+    return error;
+  }
+  return String(error);
+}
+
+function panicCatastrophicMoveRollback(
+  store: StoreContextModel,
+  originalError: unknown,
+  rollbackFailures: Array<string>,
+): never {
+  const firstFailure = rollbackFailures[0] ?? "unknown rollback failure";
+  const extraFailureCount = Math.max(rollbackFailures.length - 1, 0);
+  const failureSummary = extraFailureCount > 0
+    ? `${firstFailure} (+${extraFailureCount} more)`
+    : firstFailure;
+  const panicMessage = `Move rollback failed after a server mutation partially succeeded. Restart required. ${failureSummary}`;
+  console.error("Catastrophic move rollback failure.", { originalError, rollbackFailures });
+  store.overlay.toolbarTransientMessage.set(null);
+  store.overlay.isPanicked.set(true);
+  panic(panicMessage);
+}
+
+async function rollbackAppliedOperations(appliedOps: Array<MovePersistOperation>): Promise<Array<string>> {
+  const failures: Array<string> = [];
   for (let i = appliedOps.length - 1; i >= 0; --i) {
     const rollback = appliedOps[i].rollback;
     if (!rollback) {
@@ -530,19 +558,23 @@ async function rollbackAppliedOperations(appliedOps: Array<MovePersistOperation>
       await rollback();
     } catch (error) {
       console.error("Move rollback operation failed.", error);
+      failures.push(`rollback operation ${i + 1}: ${describeRollbackError(error)}`);
     }
   }
+  return failures;
 }
 
 async function rollbackMoveServerState(
   store: StoreContextModel,
   rollbackContext: MoveRollbackContext,
-): Promise<void> {
+): Promise<Array<string>> {
+  const failures: Array<string> = [];
   if (rollbackContext.activeTreeItemId != null && itemState.get(rollbackContext.activeTreeItemId) == null) {
     try {
       await server.deleteItem(rollbackContext.activeTreeItemId, store.general.networkStatus, false);
     } catch (error) {
       console.error("Rollback failed while deleting created dragged item on server.", error);
+      failures.push(`delete created dragged item '${rollbackContext.activeTreeItemId}': ${describeRollbackError(error)}`);
     }
   }
 
@@ -555,8 +587,10 @@ async function rollbackMoveServerState(
       await serverOrRemote.updateItem(cloneItemSnapshot(item), store.general.networkStatus, false);
     } catch (error) {
       console.error(`Rollback failed while restoring item '${entry.id}' on the server.`, error);
+      failures.push(`restore item '${entry.id}' on server: ${describeRollbackError(error)}`);
     }
   }
+  return failures;
 }
 
 async function commitMoveOperations(
@@ -572,10 +606,23 @@ async function commitMoveOperations(
     }
   } catch (error) {
     console.error("Move commit failed; rolling back local state.", error);
-    await rollbackAppliedOperations(appliedOps);
-    rollbackMove(store, rollbackContext, false);
-    rollbackContext.rollbackExtras?.();
-    await rollbackMoveServerState(store, rollbackContext);
+    const rollbackFailures = await rollbackAppliedOperations(appliedOps);
+    try {
+      rollbackMove(store, rollbackContext, false);
+    } catch (rollbackError) {
+      console.error("Local move rollback failed.", rollbackError);
+      rollbackFailures.push(`restore local move state: ${describeRollbackError(rollbackError)}`);
+    }
+    try {
+      rollbackContext.rollbackExtras?.();
+    } catch (rollbackError) {
+      console.error("Local rollback extras failed.", rollbackError);
+      rollbackFailures.push(`restore local move side effects: ${describeRollbackError(rollbackError)}`);
+    }
+    rollbackFailures.push(...await rollbackMoveServerState(store, rollbackContext));
+    if (rollbackFailures.length > 0) {
+      panicCatastrophicMoveRollback(store, error, rollbackFailures);
+    }
     showMoveDropRejectedMessage(store, "Couldn't save move. Restored original location.");
     arrangeNow(store, "mouse-up-rollback-server-failure");
     return;
