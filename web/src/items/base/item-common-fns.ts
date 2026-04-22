@@ -26,7 +26,6 @@ import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-el
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../page-item";
-import { PageFlags } from "./flags-item";
 import { Measurable } from "./item";
 
 
@@ -34,13 +33,12 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
   const parentVe = VesCache.current.readNode(visualElement.parentPath!)!;
   const parentItem = parentVe.displayItem;
 
-  // For dock items with embedded interactive list pages containing page items,
-  // switch to the clicked child page as the new root.
+  // Docked list pages should always behave like embedded interactive pages:
+  // clicking a child page promotes it to the root view.
   if (parentVe.flags & VisualElementFlags.DockItem) {
     if ((visualElement.flags & VisualElementFlags.LineItem) &&
       isPage(parentItem) &&
       asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List &&
-      (asPageItem(parentItem).flags & PageFlags.EmbeddedInteractive) &&
       isPage(visualElement.displayItem)) {
       const clickedVeid = VeFns.actualVeidFromVe(visualElement);
       const currentVeid = store.history.currentPageVeid();

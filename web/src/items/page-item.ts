@@ -630,7 +630,11 @@ export const PageFns = {
     hasChildChanges: boolean, hasDefaultChanges: boolean,
     ignoreCellHeight: boolean, smallScreenMode: boolean): ItemGeometry => {
 
-    if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
+    const treatAsEmbeddedInteractive =
+      !!(page.flags & PageFlags.EmbeddedInteractive) ||
+      (parentIsDock && page.arrangeAlgorithm == ArrangeAlgorithm.List);
+
+    if (!isPopup && !treatAsEmbeddedInteractive) {
       const sizeBl = PageFns.calcSpatialDimensionsBl(page);
       let boundsPx;
       if (ignoreCellHeight) {

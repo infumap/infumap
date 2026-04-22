@@ -34,6 +34,7 @@ import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { VeFns } from "../../../layout/visual-element";
 
 
 export const Toolbar_Page: Component = () => {
@@ -99,6 +100,22 @@ export const Toolbar_Page: Component = () => {
   const isInteractive = () => {
     store.touchToolbarDependency();
     return !(!(pageItem().flags & PageFlags.EmbeddedInteractive));
+  }
+
+  const focusIsInDock = () => {
+    store.touchToolbarDependency();
+    const userMaybe = store.user.getUserMaybe();
+    let path = store.history.getFocusPathMaybe();
+    if (!userMaybe || path == null) {
+      return false;
+    }
+    while (path != "") {
+      if (VeFns.itemIdFromPath(path) == userMaybe.dockPageId) {
+        return true;
+      }
+      path = VeFns.parentPath(path);
+    }
+    return false;
   }
 
   const showOrderByButton = () => {
@@ -503,7 +520,9 @@ export const Toolbar_Page: Component = () => {
         <Show when={showMakePublicButton()}>
           <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
         </Show>
-        <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
+        <Show when={!focusIsInDock()}>
+          <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
+        </Show>
       </Show>
 
       <Toolbar_ItemOrdering />
