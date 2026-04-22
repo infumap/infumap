@@ -32,7 +32,7 @@ import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElementFlags } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -62,11 +62,127 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
   return newItem;
 }
 
+function findContainingPageVe(candidate: VisualElement | null): VisualElement | null {
+  let current = candidate;
+  while (current) {
+    if (isPage(current.displayItem)) {
+      return current;
+    }
+    if (!current.parentPath) {
+      return null;
+    }
+    current = VesCache.current.readNode(current.parentPath) ?? null;
+  }
+  return null;
+}
+
+function resolvePageCreateContext(store: StoreContextModel, hitInfo: HitInfo): VisualElement | null {
+  const currentPagePath = store.history.currentPagePath();
+  return findContainingPageVe(hitInfo.overPositionableVe) ??
+    findContainingPageVe(HitInfoFns.getHitVe(hitInfo)) ??
+    (currentPagePath ? VesCache.current.readNode(currentPagePath) ?? null : null);
+}
+
+function calculatePagePositionGr(pageVe: VisualElement, desktopPosPx: Vector): Vector {
+  const page = asPageItem(pageVe.displayItem);
+  const viewportBoundsPx = pageVe.viewportBoundsPx ?? pageVe.boundsPx;
+  const childAreaBoundsPx = pageVe.childAreaBoundsPx ?? viewportBoundsPx;
+
+  if (childAreaBoundsPx.w <= 0 || childAreaBoundsPx.h <= 0) {
+    return { x: 0.0, y: 0.0 };
+  }
+
+  const propX = (desktopPosPx.x - viewportBoundsPx.x) / childAreaBoundsPx.w;
+  const propY = (desktopPosPx.y - viewportBoundsPx.y) / childAreaBoundsPx.h;
+
+  return {
+    x: Math.round(propX * page.innerSpatialWidthGr / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
+    y: Math.round(propY * page.innerSpatialWidthGr / page.naturalAspect / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
+  };
+}
+
+function positionNewItemInPage(
+  store: StoreContextModel,
+  newItem: PositionalItem,
+  pageVe: VisualElement,
+  desktopPosPx: Vector,
+  positionGrMaybe: Vector | null = null,
+): void {
+  const pageItem = asPageItem(pageVe.displayItem);
+  const isCalendarView = pageItem.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+
+  if (isCalendarView) {
+    newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+    newItem.dateTime = calculateCalendarDateTime(desktopPosPx, pageVe, store);
+    return;
+  }
+
+  const positionGr = positionGrMaybe ?? calculatePagePositionGr(pageVe, desktopPosPx);
+  newItem.spatialPositionGr = positionGr;
+
+  if (isXSizableItem(newItem)) {
+    let maxWidthBl = Math.floor((pageItem.innerSpatialWidthGr - newItem.spatialPositionGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
+    if (maxWidthBl < 2) { maxWidthBl = 2; }
+    if (maxWidthBl * GRID_SIZE < asXSizableItem(newItem).spatialWidthGr) {
+      asXSizableItem(newItem).spatialWidthGr = maxWidthBl * GRID_SIZE;
+    }
+  }
+}
+
+function applyNewPageDefaults(store: StoreContextModel, newItem: PositionalItem): void {
+  const naturalAspect = (store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h);
+
+  if (!isPage(newItem)) {
+    return;
+  }
+
+  const page = asPageItem(newItem);
+  page.naturalAspect = Math.round(naturalAspect * 1000) / 1000;
+  page.defaultPopupPositionGr = {
+    x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
+    y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.4 / GRID_SIZE) * GRID_SIZE
+  };
+  const widthCandidate1Gr = Math.floor((page.innerSpatialWidthGr / 2.0) / GRID_SIZE) * GRID_SIZE;
+  const parentInnerHeightGr = page.innerSpatialWidthGr / naturalAspect;
+  const heightCandidate = Math.floor((parentInnerHeightGr / 2.0) / GRID_SIZE) * GRID_SIZE;
+  const widthCandidate2Gr = Math.floor(heightCandidate * page.naturalAspect / GRID_SIZE) * GRID_SIZE;
+  page.defaultPopupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
+}
+
+function createItemInPage(
+  store: StoreContextModel,
+  type: string,
+  pageVe: VisualElement,
+  desktopPosPx: Vector,
+  arrangeReason: string,
+  positionGrMaybe: Vector | null = null,
+): { newItem: PositionalItem, newItemPath: string } {
+  const newItem = createNewItem(
+    store,
+    type,
+    pageVe.displayItem.id,
+    itemState.newOrderingAtEndOfChildren(pageVe.displayItem.id),
+    RelationshipToParent.Child);
+
+  positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
+  applyNewPageDefaults(store, newItem);
+
+  itemState.add(newItem);
+  server.addItem(newItem, null, store.general.networkStatus);
+
+  store.overlay.contextMenuInfo.set(null);
+  arrangeNow(store, arrangeReason);
+
+  return {
+    newItem,
+    newItemPath: VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null }, VeFns.veToPath(pageVe)),
+  };
+}
+
 
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
   const overElementVe = HitInfoFns.getHitVe(hitInfo);
-  const overPositionableVe = hitInfo.overPositionableVe;
 
   let newItem;
   let newItemPath;
@@ -91,56 +207,14 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   else if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
-    newItem = createNewItem(
+    ({ newItem, newItemPath } = createItemInPage(
       store,
       type,
-      overElementVe.displayItem.id,
-      itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
-      RelationshipToParent.Child);
-
-    const pageItem = asPageItem(overElementVe.displayItem);
-    const isCalendarView = pageItem.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
-
-    if (isCalendarView) {
-      newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      newItem.dateTime = calculateCalendarDateTime(desktopPosPx, overElementVe, store);
-    } else {
-      if (hitInfo.overPositionGr != null) {
-        newItem.spatialPositionGr = hitInfo.overPositionGr!;
-        if (isXSizableItem(newItem)) {
-          let maxWidthBl = Math.floor((asPageItem(overElementVe.displayItem).innerSpatialWidthGr - newItem.spatialPositionGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
-          if (maxWidthBl < 2) { maxWidthBl = 2; }
-          if (maxWidthBl * GRID_SIZE < asXSizableItem(newItem).spatialWidthGr) {
-            asXSizableItem(newItem).spatialWidthGr = maxWidthBl * GRID_SIZE;
-          }
-        }
-      } else {
-        console.warn("hitInfo.overPositionGr is not set");
-      }
-    }
-
-    const naturalAspect = (store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h);
-    if (isPage(newItem)) {
-      const page = asPageItem(newItem);
-      asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
-      page.defaultPopupPositionGr = {
-        x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
-        y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.4 / GRID_SIZE) * GRID_SIZE
-      };
-      const widthCandidate1Gr = Math.floor((page.innerSpatialWidthGr / 2.0) / GRID_SIZE) * GRID_SIZE;
-      const parentInnerHeightGr = page.innerSpatialWidthGr / naturalAspect;
-      const heightCandidate = Math.floor((parentInnerHeightGr / 2.0) / GRID_SIZE) * GRID_SIZE;
-      const widthCandidate2Gr = Math.floor(heightCandidate * page.naturalAspect / GRID_SIZE) * GRID_SIZE;
-      asPageItem(newItem).defaultPopupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
-    }
-
-    itemState.add(newItem);
-    server.addItem(newItem, null, store.general.networkStatus);
-
-    store.overlay.contextMenuInfo.set(null);
-    arrangeNow(store, "create-in-page");
-
-    newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
+      overElementVe,
+      desktopPosPx,
+      "create-in-page",
+      hitInfo.overPositionGr,
+    ));
   }
 
   else if (isTable(overElementVe.displayItem)) {
@@ -202,35 +276,13 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     else {
       // not inside child area: create item in the page containing the table.
       const parentVe = VesCache.current.readNode(overElementVe.parentPath!)!;
-      newItem = createNewItem(
+      ({ newItem, newItemPath } = createItemInPage(
         store,
         type,
-        parentVe.displayItem.id,
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId),
-        RelationshipToParent.Child);
-
-      const page = asPageItem(overPositionableVe!.displayItem);
-      const isCalendarView = page.arrangeAlgorithm === ArrangeAlgorithm.Calendar;
-
-      if (isCalendarView) {
-        newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-        newItem.dateTime = calculateCalendarDateTime(desktopPosPx, overPositionableVe!, store);
-      } else {
-        const propX = (desktopPosPx.x - overPositionableVe!.boundsPx.x) / overPositionableVe!.boundsPx.w;
-        const propY = (desktopPosPx.y - overPositionableVe!.boundsPx.y) / overPositionableVe!.boundsPx.h;
-        newItem.spatialPositionGr = {
-          x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-          y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-        };
-      }
-
-      itemState.add(newItem);
-      server.addItem(newItem, null, store.general.networkStatus);
-
-      store.overlay.contextMenuInfo.set(null);
-      arrangeNow(store, "create-in-page-from-table");
-
-      newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
+        parentVe,
+        desktopPosPx,
+        "create-in-page-from-table",
+      ));
     }
   }
 
@@ -277,7 +329,19 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   else {
-    panic("cannot create item in context here.");
+    const containingPageVe = resolvePageCreateContext(store, hitInfo);
+    if (!containingPageVe) {
+      console.warn("cannot create item in context here", { type, hitInfo: HitInfoFns.toDebugString(hitInfo) });
+      return;
+    }
+
+    ({ newItem, newItemPath } = createItemInPage(
+      store,
+      type,
+      containingPageVe,
+      desktopPosPx,
+      "create-in-containing-page",
+    ));
   }
 
   if (type == ItemType.Page ||
