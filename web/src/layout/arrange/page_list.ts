@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemType } from "../../items/base/item";
@@ -106,7 +106,8 @@ export function arrange_list_page(
   const isNestedListPage = !!(flags & ArrangeItemFlags.IsListPageMainRoot);
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
-  const listScale = (isFull || insidePopup) ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
+  const proportionalListScale = geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
+  const listScale = (isFull || insidePopup) ? 1.0 : Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalListScale);
 
   if (isFull) {
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);

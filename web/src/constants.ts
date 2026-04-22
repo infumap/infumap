@@ -31,6 +31,7 @@ export const LINK_TRIANGLE_SIZE_PX = 10;
 export const FONT_SIZE_PX = 16;
 
 export const LINE_HEIGHT_PX = 24;
+export const MIN_NON_ROOT_LIST_PAGE_SCALE = 0.67;
 
 export const NATURAL_BLOCK_SIZE_PX = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
