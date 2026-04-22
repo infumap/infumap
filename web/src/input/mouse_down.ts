@@ -209,16 +209,18 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
       const editingItemType = store.overlay.textEditInfo()!.itemType;
       const editingItem = itemState.get(VeFns.veidFromPath(editingItemPath).itemId);
+      const editingPageVe = editingItemType == ItemType.Page ? VesCache.current.readNode(editingItemPath) : null;
+      const editingPageIsEmbeddedInteractive =
+        editingItemType == ItemType.Page &&
+        ((!!editingPageVe && !!(editingPageVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) ||
+          (!!editingItem && isPage(editingItem) && !!(asPageItem(editingItem).flags & PageFlags.EmbeddedInteractive)));
       const focusRootPageOnRightClick =
         buttonNumber != MOUSE_LEFT &&
         (editingItemType == ItemType.Note ||
           editingItemType == ItemType.File ||
           editingItemType == ItemType.Password ||
           editingItemType == ItemType.Table ||
-          (editingItemType == ItemType.Page &&
-            !!editingItem &&
-            isPage(editingItem) &&
-            !!(asPageItem(editingItem).flags & PageFlags.EmbeddedInteractive)));
+          editingPageIsEmbeddedInteractive);
 
       if (!editingDomEl) {
         // Element was removed during rearrangement, clear text edit state
@@ -286,7 +288,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         const keepFocusedOnRightClick =
           editingItemType == ItemType.Search ||
           editingItemType == ItemType.Table ||
-          (editingItemType == ItemType.Page && isPage(item) && !!(asPageItem(item).flags & PageFlags.EmbeddedInteractive));
+          (editingItemType == ItemType.Page && editingPageIsEmbeddedInteractive);
 
         // Right click should leave these items in focus-only mode after exiting edit.
         if (buttonNumber != MOUSE_LEFT && keepFocusedOnRightClick && !focusRootPageOnRightClick) {
@@ -327,9 +329,11 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     const focusItem = store.history.getFocusItem();
     const focusPath = store.history.getFocusPath();
     const currentPagePath = store.history.currentPagePath();
+    const focusVe = VesCache.current.readNode(focusPath);
     const shouldClearEmbeddedInteractiveFocus =
       isPage(focusItem) &&
-      !!(asPageItem(focusItem).flags & PageFlags.EmbeddedInteractive) &&
+      ((!!focusVe && !!(focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) ||
+        !!(asPageItem(focusItem).flags & PageFlags.EmbeddedInteractive)) &&
       currentPagePath != null &&
       focusPath !== currentPagePath;
 

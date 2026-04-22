@@ -938,10 +938,11 @@ export const PageFns = {
   },
 
   handleClick: (visualElement: VisualElement, hitboxFlags: HitboxFlags, store: StoreContextModel, hitboxMeta: HitboxMeta | null = null): void => {
+    const isRenderedEmbeddedInteractive = !!(visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot);
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    if ((asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) && (hitboxFlags & HitboxFlags.ContentEditable)) {
+    if (isRenderedEmbeddedInteractive && (hitboxFlags & HitboxFlags.ContentEditable)) {
       PageFns.handleEditTitleClick(visualElement, store);
-    } else if (asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) {
+    } else if (isRenderedEmbeddedInteractive) {
       return;
     } else {
       if (maybeEditDocumentPageRowFromClick(visualElement, store)) {
