@@ -23,6 +23,7 @@ import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zer
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
+import { normalizeItemCapabilities } from './base/capabilities-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
 import { TitledItem } from './base/titled-item';
@@ -388,7 +389,7 @@ export const PageFns = {
     // TODO: dynamic type check of o.
     return ({
       origin,
-      capabilities: o.capabilities ?? null,
+      capabilities: normalizeItemCapabilities(o.capabilities),
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

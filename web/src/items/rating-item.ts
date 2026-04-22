@@ -21,6 +21,7 @@ import { HitboxFlags, HitboxFns, HitboxMeta } from '../layout/hitbox';
 import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
+import { normalizeItemCapabilities } from './base/capabilities-item';
 import { Item, ItemType, ItemTypeMixin } from './base/item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
@@ -75,7 +76,7 @@ export const RatingFns = {
     // TODO: dynamic type check of o.
     return ({
       origin,
-      capabilities: o.capabilities ?? null,
+      capabilities: normalizeItemCapabilities(o.capabilities),
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

@@ -22,6 +22,7 @@ import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, isUid, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { normalizeItemCapabilities } from "./base/capabilities-item";
 import { NoteFlags } from "./base/flags-item";
 import { Measurable, ItemTypeMixin, Item, ItemType } from "./base/item";
 import { asNoteItem, isNote } from "./note-item";
@@ -121,7 +122,7 @@ export const LinkFns = {
     // TODO: dynamic type check of o.
     return ({
       origin,
-      capabilities: o.capabilities ?? null,
+      capabilities: normalizeItemCapabilities(o.capabilities),
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

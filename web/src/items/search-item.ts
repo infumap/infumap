@@ -27,6 +27,7 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { normalizeItemCapabilities } from "./base/capabilities-item";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { Item, ItemType, ItemTypeMixin } from "./base/item";
 import { PositionalMixin } from "./base/positional-item";
@@ -132,7 +133,7 @@ export const SearchFns = {
   fromObject: (o: any, origin: string | null): SearchItem => {
     return ({
       origin,
-      capabilities: o.capabilities ?? null,
+      capabilities: normalizeItemCapabilities(o.capabilities),
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

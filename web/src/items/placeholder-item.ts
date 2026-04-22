@@ -23,6 +23,7 @@ import { BoundingBox, Dimensions } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { normalizeItemCapabilities } from "./base/capabilities-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
 
 export interface PlaceholderItem extends PlaceholderMeasurable, Item { }
@@ -51,7 +52,7 @@ export const PlaceholderFns = {
     // TODO: dynamic type check of o.
     return ({
       origin,
-      capabilities: o.capabilities ?? null,
+      capabilities: normalizeItemCapabilities(o.capabilities),
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

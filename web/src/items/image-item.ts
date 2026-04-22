@@ -22,6 +22,7 @@ import { compositeMoveOutHitboxBoundsPx } from "../layout/composite-move-out";
 import { BoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft, cloneBoundingBox } from "../util/geometry";
 import { panic } from "../util/lang";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { normalizeItemCapabilities } from "./base/capabilities-item";
 import { DataItem } from "./base/data-item";
 import { ItemType, ItemTypeMixin } from "./base/item";
 import { TitledItem } from "./base/titled-item";
@@ -83,7 +84,7 @@ export const ImageFns = {
     // TODO (LOW): dynamic type check of o.
     return ({
       origin,
-      capabilities: o.capabilities ?? null,
+      capabilities: normalizeItemCapabilities(o.capabilities),
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

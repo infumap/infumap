@@ -23,6 +23,7 @@ import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vect
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, asAttachmentsItem, calcGeometryOfAttachmentItemImpl, isAttachmentsItem } from "./base/attachments-item";
+import { normalizeItemCapabilities } from "./base/capabilities-item";
 import { ContainerItem } from "./base/container-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
 import { TitledItem } from "./base/titled-item";
@@ -99,7 +100,7 @@ export const TableFns = {
     // TODO (LOW): check flags field.
     return ({
       origin,
-      capabilities: o.capabilities ?? null,
+      capabilities: normalizeItemCapabilities(o.capabilities),
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,
