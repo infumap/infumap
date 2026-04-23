@@ -90,13 +90,29 @@ export function stackedInsertionIndexFromDesktopPx(
   childVes: Array<VisualElement>,
   desktopPx: Vector,
 ): number {
+  return stackedInsertionIndexFromChildBoundsPx(childVes, (childVe) =>
+    VeFns.veBoundsRelativeToDesktopPx(store, childVe), desktopPx.y);
+}
+
+export function stackedInsertionIndexFromChildAreaPx(
+  childVes: Array<VisualElement>,
+  childAreaYPx: number,
+): number {
+  return stackedInsertionIndexFromChildBoundsPx(childVes, (childVe) => childVe.boundsPx, childAreaYPx);
+}
+
+function stackedInsertionIndexFromChildBoundsPx(
+  childVes: Array<VisualElement>,
+  childBoundsPxFn: (childVe: VisualElement) => BoundingBox,
+  pointerYPx: number,
+): number {
   let insertIndex = childVes.length;
 
   for (let i = 0; i < childVes.length; ++i) {
     const childVe = childVes[i];
-    const childBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, childVe);
+    const childBoundsPx = childBoundsPxFn(childVe);
     const childVisibleBoundsPx = stackedChildVisibleVerticalBoundsPx(childVe, childBoundsPx);
-    if (desktopPx.y < (childVisibleBoundsPx.top + childVisibleBoundsPx.bottom) / 2) {
+    if (pointerYPx < (childVisibleBoundsPx.top + childVisibleBoundsPx.bottom) / 2) {
       insertIndex = i;
       break;
     }

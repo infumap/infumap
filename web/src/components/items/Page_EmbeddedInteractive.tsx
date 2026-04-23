@@ -305,6 +305,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
+          {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>
       <For each={pageFns().desktopChildren()}>{childVe =>

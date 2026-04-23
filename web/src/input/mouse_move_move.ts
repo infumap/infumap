@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
 import { asAttachmentsItem, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanMove } from "../items/base/capabilities-item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -48,7 +48,7 @@ import { newUid } from "../util/uid";
 import { isDataItem } from "../items/base/data-item";
 import createJustifiedLayout from "justified-layout";
 import { createJustifyOptions } from "../layout/arrange/page_justified";
-import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
+import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
 import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets } from "./move_group";
 
 
@@ -506,13 +506,18 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    // TODO (HIGH): consider list scroll position.
-    const numChildren = asContainerItem(inElement).computed_children.length;
-    const yOffsetPx = desktopPosPx.y - inElementVe.viewportBoundsPx!.y - LIST_PAGE_TOP_PADDING_PX;
-    let index = Math.round(yOffsetPx / LINE_HEIGHT_PX);
-    if (index < 0) { index = 0; }
-    if (index >= numChildren) { index = numChildren - 1; } // numChildren is inclusive of the moving item, so -1.
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
+    const lineChildren = VesCache.render.getLineChildren(VeFns.veToPath(inElementVe))()
+      .map(childVe => childVe.get());
+    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
+    const scrollVeid = VeFns.actualVeidFromVe(inElementVe);
+    const scrollYPx = Math.max(
+      0,
+      (inElementVe.listChildAreaBoundsPx?.h ?? inElementVe.childAreaBoundsPx!.h) -
+      (inElementVe.listViewportBoundsPx?.h ?? inElementVe.viewportBoundsPx!.h),
+    ) * store.perItem.getPageScrollYProp(scrollVeid);
+    const childAreaYPx = desktopPosPx.y - viewportBoundsPx.y + scrollYPx;
+    const moveOverIndex = stackedInsertionIndexFromChildAreaPx(lineChildren, childAreaYPx);
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Document) {

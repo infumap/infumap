@@ -256,6 +256,26 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return stackedInsertionLineBoundsPx(childVes, pageFns.childAreaBoundsPx().w, moveOverIndex);
     },
 
+    listMoveOverInsertLineBoundsPx: (): BoundingBox | null => {
+      const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
+      if (moveOverIndex < 0) {
+        return null;
+      }
+
+      const childVes = pageFns.lineChildren().map(childVe => childVe.get());
+      const widthPx = props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx();
+      if (childVes.length === 0) {
+        return {
+          x: 0,
+          y: LIST_PAGE_TOP_PADDING_PX,
+          w: widthPx,
+          h: 1,
+        };
+      }
+
+      return stackedInsertionLineBoundsPx(childVes, widthPx, moveOverIndex);
+    },
+
     showMoveOutOfCompositeArea: () =>
       store.user.getUserMaybe() != null &&
       store.perVe.getMouseIsOver(pageFns.vePath()) &&
@@ -498,7 +518,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
         const topPx = 0;
         const leftPx = 0;
-        const widthPx = LINE_HEIGHT_PX * pageFns.listColumnWidthBl();
+        const widthPx = props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx();
         const heightPx = props.visualElement.viewportBoundsPx!.h;
         return (
           <div class="absolute pointer-events-none"
@@ -540,11 +560,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             style={`left: ${lineBoundsPx.x}px; top: ${lineBoundsPx.y - 1}px; width: ${lineBoundsPx.w}px; height: 2px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
-        const topPx = store.perVe.getMoveOverIndex(pageFns.vePath()) * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX;
-        const leftPx = 0;
-        const widthPx = LINE_HEIGHT_PX * pageFns.listColumnWidthBl();
+        const lineBoundsPx = pageFns.listMoveOverInsertLineBoundsPx();
+        if (!lineBoundsPx) {
+          return <></>;
+        }
         return (
-          <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: 1px; width: ${widthPx}px;`} />
+          <div class="absolute pointer-events-none bg-black"
+            style={`left: ${lineBoundsPx.x}px; top: ${lineBoundsPx.y}px; width: ${lineBoundsPx.w}px; height: 1px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document) {
         const lineBoundsPx = pageFns.documentMoveOverInsertLineBoundsPx();
