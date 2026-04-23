@@ -804,12 +804,9 @@ function focusParentMaybe(store: StoreContextModel): boolean {
     return true;
   }
 
-  const parentVe = VesCache.current.readNode(parentPath);
-  if ((focusVe.flags & VisualElementFlags.ListPageRoot) &&
-    parentVe &&
-    (parentVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) {
+  if (focusVe.flags & VisualElementFlags.ListPageRoot) {
     store.history.setFocus(parentPath);
-    arrangeNow(store, "key-focus-parent-list-page-root-in-embedded-interactive");
+    arrangeNow(store, "key-focus-parent-list-page-root");
     return true;
   }
 
@@ -1093,7 +1090,24 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   // Arrow keys should apply to the parent context (navigating to sibling items) instead.
   const focusPath = store.history.getFocusPath();
   const focusVe = VesCache.current.readNode(focusPath);
+  const focusIsEmbeddedListPageRoot =
+    !!focusVe &&
+    (focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
+    isPage(focusVe.displayItem) &&
+    asPageItem(focusVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List;
+  const focusIsSelectedPageRoot =
+    !!focusVe &&
+    (focusVe.flags & VisualElementFlags.ListPageRoot) &&
+    isPage(focusVe.displayItem);
   const focusedPageIsRoot = !!focusVe && isPage(focusVe.displayItem) && veFlagIsRoot(focusVe.flags);
+
+  if (ev.code == "ArrowRight" && focusIsEmbeddedListPageRoot && focusFirstChildMaybe(store, focusPath, focusVe!)) {
+    return;
+  }
+
+  if (ev.code == "ArrowLeft" && focusIsSelectedPageRoot && focusParentMaybe(store)) {
+    return;
+  }
 
   if (focusedPageIsRoot && handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
