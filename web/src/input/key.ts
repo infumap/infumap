@@ -1105,10 +1105,12 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   // Arrow keys should apply to the parent context (navigating to sibling items) instead.
   const focusPath = store.history.getFocusPath();
   const focusVe = VesCache.current.readNode(focusPath);
-  const focusIsEmbeddedListPageRoot =
+  const focusIsEmbeddedInteractivePageRoot =
     !!focusVe &&
     (focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
-    isPage(focusVe.displayItem) &&
+    isPage(focusVe.displayItem);
+  const focusIsEmbeddedListPageRoot =
+    focusIsEmbeddedInteractivePageRoot &&
     asPageItem(focusVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List;
   const focusIsSelectedPageRoot =
     !!focusVe &&
@@ -1123,7 +1125,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         return false;
       }
       const selectedVe = VesCache.current.readSelected(focusVe.parentPath!);
-      return selectedVe != null && VeFns.veToPath(selectedVe) == focusPath;
+      return !focusIsEmbeddedInteractivePageRoot && selectedVe != null && VeFns.veToPath(selectedVe) == focusPath;
     })();
   const focusedPageIsRoot = !!focusVe && isPage(focusVe.displayItem) && veFlagIsRoot(focusVe.flags);
 
@@ -1510,6 +1512,12 @@ function handleArrowKeyCalendarPageMaybe(store: StoreContextModel, ev: KeyboardE
  */
 function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
   const focusItem = store.history.getFocusItem();
+  const focusPath = store.history.getFocusPath();
+  const focusVe = VesCache.current.readNode(focusPath)!;
+  const focusIsEmbeddedInteractiveListPage =
+    !!(focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
+    isPage(focusVe.displayItem) &&
+    asPageItem(focusVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List;
 
   // If the focus item is a grid or justified page, don't handle up/down arrows here.
   // Let the grid/justified scroll handler process them instead.
@@ -1521,9 +1529,13 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     }
   }
 
+  // Embedded interactive list pages should navigate like other child items on Left,
+  // rather than immediately bubbling focus back to their parent.
+  if (ev.code == "ArrowLeft" && focusIsEmbeddedInteractiveListPage) {
+    return false;
+  }
+
   let handleListPageChange = isPage(focusItem) && asPageItem(focusItem).arrangeAlgorithm == ArrangeAlgorithm.List;
-  const focusPath = store.history.getFocusPath();
-  const focusVe = VesCache.current.readNode(focusPath)!;
   const focusVeid = VeFns.veidFromVe(focusVe);
   for (let i = 1; i < store.topTitledPages.get().length; ++i) {
     const ttp = VeFns.veidFromPath(store.topTitledPages.get()[i]);
