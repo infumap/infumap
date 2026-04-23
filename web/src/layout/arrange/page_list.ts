@@ -190,7 +190,16 @@ export function arrange_list_page(
   let skippedCount = 0;
   let listChildPaths: Array<VisualElementPath> = [];
   for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
-    const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
+    const childId = displayItem_pageWithChildren.computed_children[idx];
+    const childItem = itemState.get(childId);
+    if (!childItem) {
+      console.warn("Skipping missing child item while arranging list page.", {
+        pageId: displayItem_pageWithChildren.id,
+        childId,
+      });
+      skippedCount += 1;
+      continue;
+    }
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
     if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
@@ -423,8 +432,18 @@ export function arrange_dock_list_page(
   const pageRelationships: VisualElementRelationships = {};
 
   let listChildPaths: Array<VisualElementPath> = [];
+  let skippedCount = 0;
   for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
-    const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
+    const childId = displayItem_pageWithChildren.computed_children[idx];
+    const childItem = itemState.get(childId);
+    if (!childItem) {
+      console.warn("Skipping missing child item while arranging dock list page.", {
+        pageId: displayItem_pageWithChildren.id,
+        childId,
+      });
+      skippedCount += 1;
+      continue;
+    }
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
     if (isComposite(displayItem)) {
@@ -433,7 +452,7 @@ export function arrange_dock_list_page(
 
     const blockSizePx = NATURAL_BLOCK_SIZE_PX;
     const widthBl = geometry.boundsPx.w / blockSizePx.w;
-    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, false, false, false, false);
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, widthBl, false, false, false, false);
 
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
 
@@ -451,7 +470,7 @@ export function arrange_dock_list_page(
       hitboxes: listItemGeometry.hitboxes,
       parentPath: pageWithChildrenVePath,
       col: 0,
-      row: idx,
+      row: idx - skippedCount,
       blockSizePx,
     };
     const listItemRelationships: VisualElementRelationships = {};

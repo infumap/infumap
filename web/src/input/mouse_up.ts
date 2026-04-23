@@ -33,7 +33,7 @@ import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { TEMP_SEARCH_RESULTS_ORIGIN, isSearch } from "../items/search-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { isFile } from "../items/file-item";
-import { arrangeNow } from "../layout/arrange";
+import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -475,9 +475,8 @@ function buildCleanupCollapsedCompositeOperations(
     return;
   }
 
-  const compositeItemParent = itemState.getAsContainerItem(compositeItem.parentId);
   const child = itemState.get(compositeItem.computed_children[0]);
-  if (compositeItemParent == null || child == null || !isPositionalItem(child)) {
+  if (itemState.getAsContainerItem(compositeItem.parentId) == null || child == null || !isPositionalItem(child)) {
     return;
   }
 
@@ -486,16 +485,14 @@ function buildCleanupCollapsedCompositeOperations(
   const childSnapshot = asPositionalItem(cloneItemSnapshot(child));
   childSnapshot.parentId = compositeItem.parentId;
   childSnapshot.spatialPositionGr = { ...compositeItem.spatialPositionGr };
+  childSnapshot.ordering = new Uint8Array(compositeItem.ordering);
   ops.push({
     apply: async () => {
       await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
       await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
-      child.parentId = compositeItem.parentId;
       asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
-      compositeItem.computed_children = [];
-      compositeItemParent.computed_children.push(child.id);
+      itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
       itemState.delete(compositeItem.id);
-      itemState.sortChildren(compositeItemParent.id);
     },
     rollback: async () => {
       if (itemState.get(compositeSnapshot.id) == null) {
@@ -597,6 +594,7 @@ async function commitMoveOperations(
   store: StoreContextModel,
   ops: Array<MovePersistOperation>,
   rollbackContext: MoveRollbackContext,
+  postCommitArrangeReason: string,
 ): Promise<void> {
   const appliedOps: Array<MovePersistOperation> = [];
   try {
@@ -604,6 +602,9 @@ async function commitMoveOperations(
       await op.apply();
       appliedOps.push(op);
     }
+    // Finalize operations can mutate local state asynchronously after the
+    // immediate mouse-up arrange has already completed.
+    requestArrange(store, postCommitArrangeReason);
   } catch (error) {
     console.error("Move commit failed; rolling back local state.", error);
     const rollbackFailures = await rollbackAppliedOperations(appliedOps);
@@ -640,7 +641,7 @@ function scheduleMoveCommit(
   const finalOps = [...ops, ...buildFinalizeMoveOperations(store, finalizeContext)];
   MouseActionState.set(null);
   arrangeNow(store, arrangeReason);
-  void commitMoveOperations(store, finalOps, rollbackContext);
+  void commitMoveOperations(store, finalOps, rollbackContext, `${arrangeReason}-post-commit`);
 }
 
 function movingIgnoreIds(activeVisualElement: VisualElement): Array<string> {
