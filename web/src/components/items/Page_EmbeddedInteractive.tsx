@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
 import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
@@ -93,6 +93,14 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   };
 
   const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot);
+  const isInsideTranslucentPage = () => {
+    const parentPath = props.visualElement.parentPath;
+    if (!parentPath) {
+      return false;
+    }
+    const parentVe = VesCache.current.readNode(parentPath) ?? VesCache.render.getNode(parentPath)?.get() ?? null;
+    return parentVe != null && isVeTranslucentPage(parentVe);
+  };
 
   const isDockItem = () => !!(props.visualElement.flags & VisualElementFlags.DockItem);
   const isListPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
@@ -100,6 +108,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     const selectedVeSignal = VesCache.render.getSelected(vePath())();
     return selectedVeSignal?.get() ?? null;
   };
+  const popupRootVeMaybe = () => VesCache.render.getPopup(vePath())()?.get() ?? null;
   const isSelectedRootPageFocused = () => {
     const selectedVe = selectedRootVe();
     const focusPath = store.history.getFocusPathMaybe();
@@ -113,7 +122,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     if (isDockItem()) {
       return `${isListPage() ? 'border-bottom-width' : 'border-width'}: 1px; border-color: ${borderColorForColorIdx(pageFns().pageItem().backgroundColorIndex, BorderType.Dock)}; `;
     }
-    return `border-width: 1px; border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
+    return `border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; ` +
+      `border-left-width: ${isInsideTranslucentPage() ? 0 : 1}px; ` +
+      `border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
   }
 
   const renderShadowMaybe = () =>
@@ -278,13 +289,13 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </div>;
 
   const renderSelectedRootMaybe = () =>
-    <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
-      <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
+    <Show when={selectedRootVe()}>
+      {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
     </Show>;
 
   const renderPopupRootMaybe = () =>
-    <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
-      <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
+    <Show when={popupRootVeMaybe()}>
+      {popupVe => <VisualElement_Desktop visualElement={popupVe()} />}
     </Show>;
 
   return (

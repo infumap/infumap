@@ -23,7 +23,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { BORDER_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -156,12 +156,13 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 1;`}>
       <div class={`absolute rounded-xs`}
         style={`width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; left: 0px; top: 0px; background-color: #ffffff;`} />
-      <div class={`absolute ${borderClass()}`}
+      <div class="absolute"
         style={`overflow-y: auto; overflow-x: hidden; ` +
           `width: ${pageFns().listViewportWidthPx()}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
           `left: 0px; ` +
-          `top: 0px; `}>
+          `top: 0px; ` +
+          `border-right: 1px solid ${BORDER_COLOR};`}>
         <div class="absolute"
           style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
             `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
@@ -464,14 +465,17 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       </div>
     </Show>;
 
+  const selectedRootVeMaybe = () => VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
+  const popupRootVeMaybe = () => VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()?.get() ?? null;
+
   const renderSelectedRootMaybe = () =>
-    <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
-      <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
+    <Show when={selectedRootVeMaybe()}>
+      {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
     </Show>;
 
   const renderPopupRootMaybe = () =>
-    <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
-      <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
+    <Show when={popupRootVeMaybe()}>
+      {popupVe => <VisualElement_Desktop visualElement={popupVe()} />}
     </Show>;
 
   return (

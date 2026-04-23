@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch, onMount, createEffect } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { Veid, VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { Veid, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -189,14 +189,17 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     );
   };
 
+  const selectedRootVeMaybe = () => VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
+  const popupRootVeMaybe = () => VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()?.get() ?? null;
+
   const renderSelectedRootMaybe = () =>
-    <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
-      <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
+    <Show when={selectedRootVeMaybe()}>
+      {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
     </Show>;
 
   const renderPopupRootMaybe = () =>
-    <Show when={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get() != null}>
-      <VisualElement_Desktop visualElement={VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()!.get()!} />
+    <Show when={popupRootVeMaybe()}>
+      {popupVe => <VisualElement_Desktop visualElement={popupVe()} />}
     </Show>;
 
   const renderListPage = () => {
@@ -215,10 +218,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       return false;
     };
     const focusedChild = () => VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))();
-    const selectedRootVe = () => {
-      const selectedVeSignal = VesCache.render.getSelected(VeFns.veToPath(props.visualElement))();
-      return selectedVeSignal?.get() ?? null;
-    };
+    const selectedRootVe = selectedRootVeMaybe;
     const isSelectedRootPageFocused = () => {
       const selectedVe = selectedRootVe();
       const focusPath = store.history.getFocusPathMaybe();
@@ -235,15 +235,28 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       }
       return spec;
     };
+    const isInsideTranslucentPage = () => {
+      const parentPath = props.visualElement.parentPath;
+      if (!parentPath || parentPath === UMBRELLA_PAGE_UID) {
+        return false;
+      }
+      const parentVe = VesCache.current.readNode(parentPath) ?? VesCache.render.getNode(parentPath)?.get() ?? null;
+      return parentVe != null && isVeTranslucentPage(parentVe);
+    };
+    const shouldAccentFocusedChildDivider = () =>
+      !isInsideEmbeddedInteractiveHierarchy() &&
+      !isInsideTranslucentPage();
     const focusedChildBorderWidthPx = () =>
-      focusedSearchChrome()?.borderWidthPx ?? (isInsideEmbeddedInteractiveHierarchy() ? 1 : (focusedChild() == null ? 1 : 2));
+      shouldAccentFocusedChildDivider()
+        ? (focusedSearchChrome()?.borderWidthPx ?? (focusedChild() == null ? 1 : 2))
+        : 1;
     const focusedChildBorderColor = () => {
+      if (!shouldAccentFocusedChildDivider()) {
+        return "";
+      }
       const searchChrome = focusedSearchChrome();
       if (searchChrome) {
         return `border-right-color: ${searchChrome.borderColor};`;
-      }
-      if (isInsideEmbeddedInteractiveHierarchy()) {
-        return "";
       }
       const childItem = focusedChild();
       if (childItem == null || !isPage(childItem)) {

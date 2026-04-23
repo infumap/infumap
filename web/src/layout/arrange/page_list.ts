@@ -126,8 +126,11 @@ export function arrange_list_page(
     return false;
   })();
 
+  // Snap the scaled list width so translucent/nested separators land on whole pixels.
+  const listWidthPx = Math.round(LINE_HEIGHT_PX * listWidthBl * listScale);
+
   let resizeBoundsPx = {
-    x: listWidthBl * LINE_HEIGHT_PX * listScale - RESIZE_BOX_SIZE_PX,
+    x: listWidthPx - RESIZE_BOX_SIZE_PX,
     y: 0,
     w: RESIZE_BOX_SIZE_PX,
     h: geometry.viewportBoundsPx!.h
@@ -154,7 +157,6 @@ export function arrange_list_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
-  const listWidthPx = LINE_HEIGHT_PX * listWidthBl * listScale;
   const listChildAreaHeightPx1 = (displayItem_pageWithChildren.computed_children.length * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX) * listScale;
   const listChildAreaHeightPx2 = geometry.viewportBoundsPx!.h;
   const listChildAreaHeightPx = Math.max(listChildAreaHeightPx1, listChildAreaHeightPx2);

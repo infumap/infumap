@@ -58,6 +58,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   let popupDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
+  const selectedRootVeMaybe = () => VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
 
   onMount(() => {
     const veid = store.history.currentPopupSpec()!.actualVeid;
@@ -334,8 +335,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       <For each={pageFns().desktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
-      <Show when={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))() != null && VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get() != null}>
-        <VisualElement_Desktop visualElement={VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()!.get()!} />
+      <Show when={selectedRootVeMaybe()}>
+        {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
       </Show>
     </div>;
 
