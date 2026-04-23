@@ -155,13 +155,10 @@ export function arrange_list_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
-  const listChildAreaHeightPx1 = (displayItem_pageWithChildren.computed_children.length * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX) * listScale;
-  const listChildAreaHeightPx2 = geometry.viewportBoundsPx!.h;
-  const listChildAreaHeightPx = Math.max(listChildAreaHeightPx1, listChildAreaHeightPx2);
   const listViewportBoundsPx = cloneBoundingBox(geometry.viewportBoundsPx!)!;
   listViewportBoundsPx.w = listWidthPx;
   const listChildAreaBoundsPx = cloneBoundingBox(listViewportBoundsPx)!;
-  listChildAreaBoundsPx.h = listChildAreaHeightPx;
+  listChildAreaBoundsPx.h = geometry.viewportBoundsPx!.h;
   const blockSizePx = {
     w: listViewportBoundsPx.w / (displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE),
     h: 0  // TODO (LOW): better to calculate this, but it's not needed for anything.
@@ -256,6 +253,11 @@ export function arrange_list_page(
     listChildPaths.push(childPath);
   }
 
+  listChildAreaBoundsPx.h = Math.max(
+    (listChildPaths.length * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX) * listScale,
+    geometry.viewportBoundsPx!.h,
+  );
+
   if (movingItemInThisPage) {
     const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
 
@@ -297,7 +299,9 @@ export function arrange_list_page(
     const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, insidePopup, false, false, false, false, false, false, store.smallScreenMode());
     listChildPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
-      ArrangeItemFlags.RenderChildrenAsFull | (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
+      ArrangeItemFlags.RenderChildrenAsFull |
+      ArrangeItemFlags.IsMoving |
+      (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
 
   pageRelationships.childrenPaths = listChildPaths;
