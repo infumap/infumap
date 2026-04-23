@@ -52,7 +52,10 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
 
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.actualVeidFromVe(parentVe);
-    store.history.setFocus(VeFns.veToPath(parentVe));
+    if (!(parentVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) {
+      // Mouse selection inside embedded list pages should not steal keyboard focus.
+      store.history.setFocus(VeFns.veToPath(parentVe));
+    }
     store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
     requestArrange(store, "list-page-line-item-click");
     return true;
