@@ -623,6 +623,13 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
     const focusPath = store.history.getFocusPathMaybe();
     const focusVe = focusPath ? VesCache.current.readNode(focusPath) : null;
+    if (focusVe && (focusVe.flags & VisualElementFlags.ListPageRoot)) {
+      const parentVe = focusVe.parentPath ? VesCache.current.readNode(focusVe.parentPath) : null;
+      if (parentVe && (parentVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) {
+        focusParentMaybe(store);
+        return;
+      }
+    }
     if (focusVe && veFlagIsRoot(focusVe.flags)) {
       void mouseDownHandler(store, MOUSE_RIGHT);
       return;
@@ -651,11 +658,21 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     const focusPath = store.history.getFocusPath();
     const focusVe = VesCache.current.readNode(focusPath);
     if (focusVe && !store.overlay.textEditInfo()) {
+      const focusIsEmbeddedListPage =
+        isPage(focusVe.displayItem) &&
+        !!(asPageItem(focusVe.displayItem).flags & PageFlags.EmbeddedInteractive) &&
+        asPageItem(focusVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List;
+
       if (isPage(focusVe.displayItem) &&
         !!(asPageItem(focusVe.displayItem).flags & PageFlags.EmbeddedInteractive) &&
         ev.shiftKey) {
         ev.preventDefault();
         switchToPage(store, VeFns.actualVeidFromVe(focusVe), true, false, false);
+        return;
+      }
+
+      if (focusIsEmbeddedListPage && focusFirstChildMaybe(store, focusPath, focusVe)) {
+        ev.preventDefault();
         return;
       }
 
@@ -787,6 +804,15 @@ function focusParentMaybe(store: StoreContextModel): boolean {
     return true;
   }
 
+  const parentVe = VesCache.current.readNode(parentPath);
+  if ((focusVe.flags & VisualElementFlags.ListPageRoot) &&
+    parentVe &&
+    (parentVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) {
+    store.history.setFocus(parentPath);
+    arrangeNow(store, "key-focus-parent-list-page-root-in-embedded-interactive");
+    return true;
+  }
+
   if (veFlagIsRoot(focusVe.flags)) { return false; }
 
   store.history.setFocus(parentPath);
@@ -802,6 +828,14 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
     if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
       const pageVeid = VeFns.actualVeidFromVe(focusVe);
       PageFns.setDefaultListPageSelectedItemMaybe(store, pageVeid);
+      if (focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
+        const selectedVe = VesCache.current.readSelected(focusPath);
+        if (selectedVe) {
+          store.history.setFocus(VeFns.veToPath(selectedVe));
+          arrangeNow(store, "key-enter-focus-embedded-list-selected-item");
+          return true;
+        }
+      }
       let selectedVeid = store.perItem.getSelectedListPageItem(pageVeid);
       if (selectedVeid == EMPTY_VEID && pageItem.computed_children.length > 0) {
         selectedVeid = VeFns.veidFromId(pageItem.computed_children[0]);

@@ -26,7 +26,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
-import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -96,6 +96,18 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const isDockItem = () => !!(props.visualElement.flags & VisualElementFlags.DockItem);
   const isListPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
+  const selectedRootVe = () => {
+    const selectedVeSignal = VesCache.render.getSelected(vePath())();
+    return selectedVeSignal?.get() ?? null;
+  };
+  const isSelectedRootPageFocused = () => {
+    const selectedVe = selectedRootVe();
+    const focusPath = store.history.getFocusPathMaybe();
+    return selectedVe != null &&
+      isPage(selectedVe.displayItem) &&
+      focusPath === VeFns.veToPath(selectedVe) &&
+      shouldShowFocusRingForVisualElement(store, () => selectedVe);
+  };
 
   const borderStyle = () => {
     if (isDockItem()) {
@@ -117,6 +129,15 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+    </Show>;
+
+  const renderSelectedPageFocusRingMaybe = () =>
+    <Show when={isSelectedRootPageFocused()}>
+      <div class="absolute pointer-events-none rounded-xs"
+        style={`left: ${pageFns().listViewportWidthPx()}px; top: 0px; ` +
+          `width: ${Math.max(0, pageFns().viewportBoundsPx().w - pageFns().listViewportWidthPx())}px; ` +
+          `height: ${pageFns().viewportBoundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
@@ -216,6 +237,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       }</For>
       {renderSelectedRootMaybe()}
       {renderPopupRootMaybe()}
+      {renderSelectedPageFocusRingMaybe()}
     </div>;
 
   const renderPage = () =>
