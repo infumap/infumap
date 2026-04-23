@@ -240,49 +240,15 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
   // if it is a selected list page that is moving, change the selected item.
   if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    const activeVe = MouseActionState.getActiveVisualElement();
     const parentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
-    const selected = store.perItem.getSelectedListPageItem(VeFns.veidFromPath(parentPath));
+    const parentVeid = VeFns.veidFromPath(parentPath);
+    const selected = store.perItem.getSelectedListPageItem(parentVeid);
 
-    if (selected && VeFns.compareVeids(selected, VeFns.veidFromPath(MouseActionState.getActiveElementPath()!)) === 0) {
-      const children = asPageItem(parentItem).computed_children;
-      let foundIdx = -1;
-      for (let i = 0; i < children.length; i++) {
-        const child = itemState.get(children[i])!;
-        if (isLink(child)) {
-          const link = asLinkItem(child);
-          const linkToId = LinkFns.getLinkToId(link);
-          const linkVeid = VeFns.veidFromItems(itemState.get(linkToId)!, link);
-          if (VeFns.compareVeids(linkVeid, selected) === 0) {
-            foundIdx = i;
-            break;
-          }
-        } else {
-          const veid = { itemId: children[i], linkIdMaybe: null };
-          if (VeFns.compareVeids(veid, selected) === 0) {
-            foundIdx = i;
-            break;
-          }
-        }
-      }
-
-      if (foundIdx != -1) {
-        let newSelectedIdx = foundIdx;
-        if (foundIdx > 0) {
-          newSelectedIdx = foundIdx - 1;
-        }
-        if (newSelectedIdx >= children.length - 1) {
-          newSelectedIdx = -1;
-        }
-
-        const child = itemState.get(children[newSelectedIdx])!;
-        let veid: Veid = { itemId: children[newSelectedIdx]!, linkIdMaybe: null };
-        if (isLink(child)) {
-          const link = asLinkItem(child);
-          const linkToId = LinkFns.getLinkToId(link);
-          veid = VeFns.veidFromItems(itemState.get(linkToId)!, link);
-        }
-        store.perItem.setSelectedListPageItem(VeFns.veidFromPath(parentPath), veid);
-      }
+    if (activeVe && VeFns.compareVeids(selected, VeFns.actualVeidFromVe(activeVe)) === 0) {
+      const excludedChildId = activeVe.actualLinkItemMaybe?.id ?? activeVe.displayItem.id;
+      const nextSelectedVeid = PageFns.resolveListPageSelectedItem(asPageItem(parentItem), selected, excludedChildId);
+      store.perItem.setSelectedListPageItem(parentVeid, nextSelectedVeid);
     }
   }
 

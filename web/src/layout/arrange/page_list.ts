@@ -25,7 +25,7 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { isComposite } from "../../items/composite-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, isPage } from "../../items/page-item";
 import { isSearch } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -65,7 +65,12 @@ export function arrange_list_page(
   const focusVeid = VeFns.veidFromPath(store.history.getFocusPath());
   const focusPath = store.history.getFocusPath();
   const pages = store.topTitledPages.get();
-  const selectedVeid = store.perItem.getSelectedListPageItem(listPageActualVeid);
+  const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
+  const selectedVeid = PageFns.resolveListPageSelectedItem(
+    displayItem_pageWithChildren,
+    store.perItem.getSelectedListPageItem(listPageActualVeid),
+    movingItemInThisPage?.id ?? null,
+  );
   let isFocusPage = false;
   let pageIdx = -1;
   for (let i = 0; i < pages.length; ++i) {
@@ -141,7 +146,6 @@ export function arrange_list_page(
   }
 
   let movingItem = null;
-  const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
   movingItem = movingItemInThisPage;
 
   const isEmbeddedInteractive =
@@ -298,7 +302,7 @@ export function arrange_list_page(
 
   pageRelationships.childrenPaths = listChildPaths;
 
-  if (selectedVeid != EMPTY_VEID) {
+  if (selectedVeid.itemId != "") {
     const boundsPx = {
       x: listWidthPx,
       y: 0,
@@ -332,9 +336,18 @@ export function arrangeSelectedListItem(
   isRoot: boolean,
   insidePopup: boolean): VisualElementSignal | null {
 
-  const item = itemState.get(veid.itemId)!;
-  const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : asLinkItem(itemState.get(veid.linkIdMaybe)!);
-  const treeItem = VeFns.treeItemFromVeid(veid)!;
+  const item = itemState.get(veid.itemId);
+  if (!item) {
+    return null;
+  }
+  const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : itemState.get(veid.linkIdMaybe);
+  if (veid.linkIdMaybe != null && (!actualLinkItemMaybe || !isLink(actualLinkItemMaybe))) {
+    return null;
+  }
+  const treeItem = VeFns.treeItemFromVeid(veid);
+  if (!treeItem) {
+    return null;
+  }
 
   const paddedBoundsPx = {
     x: boundsPx.x + LINE_HEIGHT_PX,
@@ -377,7 +390,7 @@ export function arrangeSelectedListItem(
   }
 
   const result = arrangeItem(
-    store, currentPath, ArrangeAlgorithm.List, li, actualLinkItemMaybe, cellGeometry,
+    store, currentPath, ArrangeAlgorithm.List, li, actualLinkItemMaybe as LinkItem | null, cellGeometry,
     ArrangeItemFlags.RenderChildrenAsFull |
     (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
     (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
