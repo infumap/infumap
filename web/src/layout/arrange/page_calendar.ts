@@ -543,16 +543,18 @@ export function arrange_calendar_page(
       const popupItemType = itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType;
       const isFromAttachment = currentPopupSpec.isFromAttachment ?? false;
       if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment) {
-        const { geometry, linkItem, actualLinkItemMaybe } = calcSpatialPopupGeometry(
+        const { geometry, linkItem, actualLinkItemMaybe, wasAutoAdjusted } = calcSpatialPopupGeometry(
           store,
           displayItem_pageWithChildren,
           currentPopupSpec.actualVeid,
           pageSpec.childAreaBoundsPx!
         );
 
-        pageRelationships.popupPath = VeFns.veToPath(arrangeItem(
+        const popupVes = arrangeItem(
           store, pageWithChildrenVePath, displayItem_pageWithChildren.arrangeAlgorithm, linkItem, actualLinkItemMaybe, geometry,
-          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot).get());
+          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot);
+        pageRelationships.popupPath = VeFns.veToPath(popupVes.get());
+        store.perVe.setAutoMovedIntoView(pageRelationships.popupPath, wasAutoAdjusted);
       } else {
         pageRelationships.popupPath = arrangeCellPopupPath(store);
       }

@@ -42,7 +42,7 @@ import {
 } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
-import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { autoMovedIntoViewBackgroundImage, scrollGestureStyleForArrangeAlgorithm } from "./helper";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
@@ -133,6 +133,13 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const headerHeightPx = () => pageFns().boundsPx().h - pageFns().viewportBoundsPx().h;
 
   const titleColor = () => hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], 1.0);
+  const popupWasAutoAdjusted = () => store.perVe.getAutoMovedIntoView(VeFns.veToPath(props.visualElement));
+  const titleBackgroundImage = () => popupWasAutoAdjusted()
+    ? `${autoMovedIntoViewBackgroundImage()}, ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.9)}`
+    : linearGradient(pageFns().pageItem().backgroundColorIndex, 0.9);
+  const titleWarningChromeStyle = () => popupWasAutoAdjusted()
+    ? `box-shadow: inset 0 -2px 0 rgba(245, 158, 11, 0.95), inset 0 0 0 1px rgba(255, 251, 235, 0.75); `
+    : "";
 
   const popupScrollHandler = (_ev: Event) => {
     if (!popupDiv) { return; }
@@ -253,7 +260,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; width: ${pageFns().boundsPx().w}px; height: ${headerHeightPx()}px; ` +
             `background-color: #fff; ` +
             `${VeFns.zIndexStyle(props.visualElement)}` +
-            `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.9)};`}>
+            `background-image: ${titleBackgroundImage()};` +
+            `${titleWarningChromeStyle()}`}>
           <div class="absolute font-bold"
             style={`left: 0px; top: ${headerHeightPx() / titleScale() * 0.05}px; ` +
               `width: ${pageFns().boundsPx().w / titleScale() * 0.92}px; ` +
@@ -279,7 +287,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; width: ${pageFns().boundsPx().w}px; height: ${titleBarHeight}px; ` +
           `background-color: #fff; ` +
           `${VeFns.zIndexStyle(props.visualElement)}` +
-          `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.9)};`}>
+          `background-image: ${titleBackgroundImage()};` +
+          `${titleWarningChromeStyle()}`}>
         <For each={titledPages}>{(titledPage, idx) => {
           const isLast = idx() === titledPages.length - 1;
           const titleWidth = isLast ? pageFns().boundsPx().w - titledPage.leftPx : titledPage.widthPx;

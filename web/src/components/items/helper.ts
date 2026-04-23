@@ -29,6 +29,7 @@ import { isPage, asPageItem } from "../../items/page-item";
 import { isSearch } from "../../items/search-item";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
+const AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE = "repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px)";
 
 
 export const createHighlightBoundsPxFn = (veFn: () => VisualElement) => {
@@ -95,9 +96,11 @@ export const desktopStackRootStyle = (visualElement: VisualElement): string => {
 export const autoMovedIntoViewWarningStyle = (widthPx: number, heightPx: number): string => {
   return `left: 0px; top: 0px; width: ${widthPx}px; height: ${heightPx}px; ` +
     `border: 2px solid rgba(245, 158, 11, 0.95); ` +
-    `background: repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px); ` +
+    `background-image: ${AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE}; ` +
     `box-shadow: inset 0 0 0 1px rgba(255, 251, 235, 0.8); z-index: ${LOCAL_AUTO_MOVED_WARNING_Z_INDEX};`;
 }
+
+export const autoMovedIntoViewBackgroundImage = (): string => AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE;
 
 export const createPageTitleEditHandlers = (
   store: StoreContextModel,

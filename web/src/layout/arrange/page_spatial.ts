@@ -198,16 +198,18 @@ export function arrange_spatial_page(
       if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment) {
         // Position of page/image popup in spatial pages is user defined.
         // Use the shared geometry calculation from popup.ts
-        const { geometry, linkItem, actualLinkItemMaybe } = calcSpatialPopupGeometry(
+        const { geometry, linkItem, actualLinkItemMaybe, wasAutoAdjusted } = calcSpatialPopupGeometry(
           store,
           displayItem_pageWithChildren,
           currentPopupSpec.actualVeid,
           pageSpec.childAreaBoundsPx!
         );
 
-        pageRelationships.popupPath = VeFns.veToPath(arrangeItem(
+        const popupVes = arrangeItem(
           store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, linkItem, actualLinkItemMaybe, geometry,
-          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot).get());
+          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot);
+        pageRelationships.popupPath = VeFns.veToPath(popupVes.get());
+        store.perVe.setAutoMovedIntoView(pageRelationships.popupPath, wasAutoAdjusted);
 
       } else {
         pageRelationships.popupPath = arrangeCellPopupPath(store);

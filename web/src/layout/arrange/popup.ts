@@ -45,6 +45,7 @@ export interface PopupGeometryResult {
   renderAsFixed: boolean;
   linkItem: LinkItem;
   actualLinkItemMaybe: LinkItem | null;
+  wasAutoAdjusted: boolean;
   widthGr?: number;
   heightGr?: number;
 }
@@ -78,6 +79,102 @@ function createPopupLinkItem(currentPage: PageItem, popupVeid: { itemId: string,
   return li;
 }
 
+interface GeometryInsets {
+  leftPx: number;
+  topPx: number;
+  rightPx: number;
+  bottomPx: number;
+}
+
+function geometryInsetsFromVisibleContent(geometry: ItemGeometry): GeometryInsets {
+  let leftPx = 0;
+  let topPx = 0;
+  let rightPx = 0;
+  let bottomPx = 0;
+
+  for (const hitbox of geometry.hitboxes) {
+    leftPx = Math.max(leftPx, Math.max(0, -hitbox.boundsPx.x));
+    topPx = Math.max(topPx, Math.max(0, -hitbox.boundsPx.y));
+    rightPx = Math.max(rightPx, Math.max(0, hitbox.boundsPx.x + hitbox.boundsPx.w - geometry.boundsPx.w));
+    bottomPx = Math.max(bottomPx, Math.max(0, hitbox.boundsPx.y + hitbox.boundsPx.h - geometry.boundsPx.h));
+  }
+
+  return { leftPx, topPx, rightPx, bottomPx };
+}
+
+function geometryCanFitVisibleBounds(geometry: ItemGeometry, visibleBoundsPx: BoundingBox): boolean {
+  const insets = geometryInsetsFromVisibleContent(geometry);
+  return geometry.boundsPx.w + insets.leftPx + insets.rightPx <= visibleBoundsPx.w &&
+    geometry.boundsPx.h + insets.topPx + insets.bottomPx <= visibleBoundsPx.h;
+}
+
+function geometryTranslationIntoVisibleBounds(geometry: ItemGeometry, visibleBoundsPx: BoundingBox): { dxPx: number, dyPx: number } {
+  const insets = geometryInsetsFromVisibleContent(geometry);
+  const minX = visibleBoundsPx.x + insets.leftPx;
+  const maxX = visibleBoundsPx.x + visibleBoundsPx.w - geometry.boundsPx.w - insets.rightPx;
+  const minY = visibleBoundsPx.y + insets.topPx;
+  const maxY = visibleBoundsPx.y + visibleBoundsPx.h - geometry.boundsPx.h - insets.bottomPx;
+  const clampedX = Math.min(Math.max(geometry.boundsPx.x, minX), Math.max(minX, maxX));
+  const clampedY = Math.min(Math.max(geometry.boundsPx.y, minY), Math.max(minY, maxY));
+  return {
+    dxPx: clampedX - geometry.boundsPx.x,
+    dyPx: clampedY - geometry.boundsPx.y,
+  };
+}
+
+function offsetGeometry(geometry: ItemGeometry, dxPx: number, dyPx: number): ItemGeometry {
+  if (dxPx === 0 && dyPx === 0) {
+    return geometry;
+  }
+
+  return {
+    ...geometry,
+    boundsPx: {
+      ...geometry.boundsPx,
+      x: geometry.boundsPx.x + dxPx,
+      y: geometry.boundsPx.y + dyPx,
+    },
+    viewportBoundsPx: geometry.viewportBoundsPx == null
+      ? null
+      : {
+        ...geometry.viewportBoundsPx,
+        x: geometry.viewportBoundsPx.x + dxPx,
+        y: geometry.viewportBoundsPx.y + dyPx,
+      },
+  };
+}
+
+function shrinkPopupSizeUntilItFits(
+  buildGeometry: (sizeValue: number) => ItemGeometry,
+  currentSizeValue: number,
+  visibleBoundsPx: BoundingBox
+): { sizeValue: number, geometry: ItemGeometry, wasShrunk: boolean } {
+  const currentGeometry = buildGeometry(currentSizeValue);
+  if (geometryCanFitVisibleBounds(currentGeometry, visibleBoundsPx)) {
+    return { sizeValue: currentSizeValue, geometry: currentGeometry, wasShrunk: false };
+  }
+
+  let low = Math.max(currentSizeValue / 4096.0, 0.0001);
+  let lowGeometry = buildGeometry(low);
+  if (!geometryCanFitVisibleBounds(lowGeometry, visibleBoundsPx)) {
+    return { sizeValue: low, geometry: lowGeometry, wasShrunk: low !== currentSizeValue };
+  }
+
+  let high = currentSizeValue;
+  for (let i = 0; i < 24; ++i) {
+    const mid = (low + high) / 2.0;
+    const midGeometry = buildGeometry(mid);
+    if (geometryCanFitVisibleBounds(midGeometry, visibleBoundsPx)) {
+      low = mid;
+      lowGeometry = midGeometry;
+    } else {
+      high = mid;
+    }
+  }
+
+  return { sizeValue: low, geometry: lowGeometry, wasShrunk: true };
+}
+
 
 /**
  * Calculates the geometry for a cell-based popup (Grid, Justified, Calendar pages).
@@ -92,6 +189,7 @@ function calcCellPopupGeometry(
   const li = createPopupLinkItem(currentPage, popupVeid);
   const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
   const desktopBoundsPx = store.desktopMainAreaBoundsPx();
+  const desktopLocalBoundsPx = zeroBoundingBoxTopLeft(desktopBoundsPx);
 
   const popupItem = itemState.get(popupVeid.itemId);
   const popupPage = popupItem && isPage(popupItem) ? asPageItem(popupItem) : null;
@@ -124,7 +222,6 @@ function calcCellPopupGeometry(
     hasDefaultChanges = false;
   }
 
-  const popupWidthPx = desktopBoundsPx.w * widthNorm;
   let popupAspect: number;
   if (popupPage) {
     popupAspect = popupPage.naturalAspect;
@@ -133,30 +230,69 @@ function calcCellPopupGeometry(
   } else {
     popupAspect = li.aspectOverride ?? 2.0;
   }
-  const popupHeightPx = popupWidthPx / popupAspect;
-
-  const cellBoundsPx = {
-    x: desktopBoundsPx.w * positionNorm.x - popupWidthPx / 2.0,
-    y: desktopBoundsPx.h * positionNorm.y - popupHeightPx / 2.0,
-    w: popupWidthPx,
-    h: popupHeightPx,
-  };
-
-  const geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, false, true, hasChildChanges, hasDefaultChanges, true, false, store.smallScreenMode());
 
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
 
-  if (renderAsFixed) {
-    geometry.boundsPx.x += store.getCurrentDockWidthPx();
-    if (geometry.viewportBoundsPx != null) {
-      geometry.viewportBoundsPx!.x += store.getCurrentDockWidthPx();
+  const visibleBoundsPx = renderAsFixed ? desktopBoundsPx : desktopLocalBoundsPx;
+  const buildGeometry = (nextPositionNorm: typeof positionNorm, nextWidthNorm: number): ItemGeometry => {
+    const popupWidthPx = desktopLocalBoundsPx.w * nextWidthNorm;
+    const popupHeightPx = popupWidthPx / popupAspect;
+    const cellBoundsPx = {
+      x: desktopLocalBoundsPx.w * nextPositionNorm.x - popupWidthPx / 2.0,
+      y: desktopLocalBoundsPx.h * nextPositionNorm.y - popupHeightPx / 2.0,
+      w: popupWidthPx,
+      h: popupHeightPx,
+    };
+    let geometry = ItemFns.calcGeometry_InCell(
+      li,
+      cellBoundsPx,
+      false,
+      false,
+      false,
+      true,
+      hasChildChanges,
+      hasDefaultChanges,
+      true,
+      false,
+      store.smallScreenMode()
+    );
+    if (renderAsFixed) {
+      geometry = offsetGeometry(geometry, store.getCurrentDockWidthPx(), 0);
     }
+    return geometry;
+  };
+
+  let wasAutoAdjusted = false;
+  let adjustedPositionNorm = positionNorm;
+  const sizeFit = shrinkPopupSizeUntilItFits(
+    (nextWidthNorm) => buildGeometry(adjustedPositionNorm, nextWidthNorm),
+    widthNorm,
+    visibleBoundsPx
+  );
+  const adjustedWidthNorm = sizeFit.sizeValue;
+  let geometry = sizeFit.geometry;
+  wasAutoAdjusted = sizeFit.wasShrunk;
+
+  const translateIntoView = geometryTranslationIntoVisibleBounds(geometry, visibleBoundsPx);
+  if (translateIntoView.dxPx !== 0 || translateIntoView.dyPx !== 0) {
+    adjustedPositionNorm = {
+      x: adjustedPositionNorm.x + (translateIntoView.dxPx / desktopLocalBoundsPx.w),
+      y: adjustedPositionNorm.y + (translateIntoView.dyPx / desktopLocalBoundsPx.h),
+    };
+    geometry = buildGeometry(adjustedPositionNorm, adjustedWidthNorm);
+    wasAutoAdjusted = true;
   }
 
-  return { geometry, renderAsFixed, linkItem: li, actualLinkItemMaybe };
+  const residualTranslate = geometryTranslationIntoVisibleBounds(geometry, visibleBoundsPx);
+  geometry = offsetGeometry(geometry, residualTranslate.dxPx, residualTranslate.dyPx);
+  if (residualTranslate.dxPx !== 0 || residualTranslate.dyPx !== 0) {
+    wasAutoAdjusted = true;
+  }
+
+  return { geometry, renderAsFixed, linkItem: li, actualLinkItemMaybe, wasAutoAdjusted };
 }
 
 
@@ -173,6 +309,7 @@ export function calcSpatialPopupGeometry(
 ): PopupGeometryResult {
   const li = createPopupLinkItem(currentPage, popupVeid);
   const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
+  const desktopLocalBoundsPx = zeroBoundingBoxTopLeft(store.desktopMainAreaBoundsPx());
 
   const popupItem = itemState.get(popupVeid.itemId)!;
   const popupPage = isPage(popupItem) ? asPageItem(popupItem) : null;
@@ -259,32 +396,62 @@ export function calcSpatialPopupGeometry(
     hasDefaultChanges = false;
   }
 
-  let heightGr: number;
-  if (popupImage) {
-    heightGr = ((widthGr / GRID_SIZE) * popupImage.imageSizePx.h / popupImage.imageSizePx.w) * GRID_SIZE;
-  } else {
-    heightGr = widthGr / targetAspect;
-  }
-  li.spatialWidthGr = widthGr;
+  const buildGeometry = (nextCenterGr: typeof popupCenter, nextWidthGr: number): { geometry: ItemGeometry, heightGr: number } => {
+    const heightGr = popupImage
+      ? ((nextWidthGr / GRID_SIZE) * popupImage.imageSizePx.h / popupImage.imageSizePx.w) * GRID_SIZE
+      : nextWidthGr / targetAspect;
+    li.spatialWidthGr = nextWidthGr;
+    li.spatialPositionGr = {
+      x: Math.round((nextCenterGr.x - nextWidthGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
+      y: Math.round((nextCenterGr.y - heightGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0)
+    };
 
-  // Center positioning, snapped to half-blocks
-  li.spatialPositionGr = {
-    x: Math.round((popupCenter.x - widthGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
-    y: Math.round((popupCenter.y - heightGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0)
+    return {
+      geometry: ItemFns.calcGeometry_Spatial(
+        li,
+        zeroBoundingBoxTopLeft(childAreaBoundsPx),
+        PageFns.calcInnerSpatialDimensionsBl(currentPage),
+        false, true, true,
+        hasChildChanges,
+        hasDefaultChanges,
+        false,
+        store.smallScreenMode()
+      ),
+      heightGr,
+    };
   };
 
-  const geometry = ItemFns.calcGeometry_Spatial(
-    li,
-    zeroBoundingBoxTopLeft(childAreaBoundsPx),
-    PageFns.calcInnerSpatialDimensionsBl(currentPage),
-    false, true, true,
-    hasChildChanges,
-    hasDefaultChanges,
-    false,
-    store.smallScreenMode()
+  let wasAutoAdjusted = false;
+  let adjustedPopupCenter = popupCenter;
+  const sizeFit = shrinkPopupSizeUntilItFits(
+    (nextWidthGr) => buildGeometry(adjustedPopupCenter, nextWidthGr).geometry,
+    widthGr,
+    desktopLocalBoundsPx
   );
+  widthGr = sizeFit.sizeValue;
+  let geometry = sizeFit.geometry;
+  wasAutoAdjusted = sizeFit.wasShrunk;
+  let heightGr = buildGeometry(adjustedPopupCenter, widthGr).heightGr;
 
-  return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe, widthGr, heightGr };
+  const translateIntoView = geometryTranslationIntoVisibleBounds(geometry, desktopLocalBoundsPx);
+  if (translateIntoView.dxPx !== 0 || translateIntoView.dyPx !== 0) {
+    adjustedPopupCenter = {
+      x: adjustedPopupCenter.x + (translateIntoView.dxPx * GRID_SIZE / geometry.blockSizePx.w),
+      y: adjustedPopupCenter.y + (translateIntoView.dyPx * GRID_SIZE / geometry.blockSizePx.h),
+    };
+    const rebuilt = buildGeometry(adjustedPopupCenter, widthGr);
+    geometry = rebuilt.geometry;
+    heightGr = rebuilt.heightGr;
+    wasAutoAdjusted = true;
+  }
+
+  const residualTranslate = geometryTranslationIntoVisibleBounds(geometry, desktopLocalBoundsPx);
+  geometry = offsetGeometry(geometry, residualTranslate.dxPx, residualTranslate.dyPx);
+  if (residualTranslate.dxPx !== 0 || residualTranslate.dyPx !== 0) {
+    wasAutoAdjusted = true;
+  }
+
+  return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe, wasAutoAdjusted, widthGr, heightGr };
 }
 
 
@@ -340,11 +507,10 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   const currentPath = VeFns.addVeidToPath(currentPageVeid, UMBRELLA_PAGE_UID);
   const currentPopupSpec = store.history.currentPopupSpec()!;
 
-  const { geometry, renderAsFixed, linkItem, actualLinkItemMaybe } = calcCellPopupGeometry(
+  const { geometry, renderAsFixed, linkItem, actualLinkItemMaybe, wasAutoAdjusted } = calcCellPopupGeometry(
     store, currentPage, currentPopupSpec.actualVeid
   );
-
-  return arrangeItem(
+  const popupVes = arrangeItem(
     store,
     currentPath,
     currentPage.arrangeAlgorithm,
@@ -355,6 +521,8 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     ArrangeItemFlags.RenderChildrenAsFull |
     (renderAsFixed ? ArrangeItemFlags.IsFixed : ArrangeItemFlags.None)
   );
+  store.perVe.setAutoMovedIntoView(VeFns.veToPath(popupVes.get()), wasAutoAdjusted);
+  return popupVes;
 }
 
 export function arrangeCellPopupPath(store: StoreContextModel): VisualElementPath {
