@@ -21,13 +21,13 @@ import { useStore } from "../../store/StoreProvider";
 import { Veid, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { LINE_HEIGHT_PX } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { PageVisualElementProps } from "./Page";
-import { BorderType, borderColorForColorIdx } from "../../style";
+import { BorderType, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx } from "../../style";
 import { getMonthInfo } from "../../util/time";
 import {
   CALENDAR_MONTH_NAMES,
@@ -42,7 +42,7 @@ import {
 } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
-import { scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
 
@@ -200,7 +200,34 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     </Show>;
 
   const renderListPage = () => {
+    const isInsideEmbeddedInteractiveHierarchy = () => {
+      let currentPath = props.visualElement.parentPath;
+      while (currentPath && currentPath !== UMBRELLA_PAGE_UID) {
+        const currentVe = VesCache.current.readNode(currentPath);
+        if (!currentVe) {
+          return false;
+        }
+        if (currentVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
+          return true;
+        }
+        currentPath = currentVe.parentPath;
+      }
+      return false;
+    };
     const focusedChild = () => VesCache.render.getFocusedChild(VeFns.veToPath(props.visualElement))();
+    const selectedRootVe = () => {
+      const selectedVeSignal = VesCache.render.getSelected(VeFns.veToPath(props.visualElement))();
+      return selectedVeSignal?.get() ?? null;
+    };
+    const isSelectedRootPageFocused = () => {
+      const selectedVe = selectedRootVe();
+      const focusPath = store.history.getFocusPathMaybe();
+      return isInsideEmbeddedInteractiveHierarchy() &&
+        selectedVe != null &&
+        isPage(selectedVe.displayItem) &&
+        focusPath === VeFns.veToPath(selectedVe) &&
+        shouldShowFocusRingForVisualElement(store, () => selectedVe);
+    };
     const focusedSearchChrome = () => {
       const spec = getFocusedSearchWorkspaceChromeSpec(store);
       if (!spec || spec.currentPagePath != VeFns.veToPath(props.visualElement)) {
@@ -209,11 +236,14 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       return spec;
     };
     const focusedChildBorderWidthPx = () =>
-      focusedSearchChrome()?.borderWidthPx ?? (focusedChild() == null ? 1 : 2);
+      focusedSearchChrome()?.borderWidthPx ?? (isInsideEmbeddedInteractiveHierarchy() ? 1 : (focusedChild() == null ? 1 : 2));
     const focusedChildBorderColor = () => {
       const searchChrome = focusedSearchChrome();
       if (searchChrome) {
         return `border-right-color: ${searchChrome.borderColor};`;
+      }
+      if (isInsideEmbeddedInteractiveHierarchy()) {
+        return "";
       }
       const childItem = focusedChild();
       if (childItem == null || !isPage(childItem)) {
@@ -221,6 +251,14 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       }
       return `border-right-color: ${borderColorForColorIdx(asPageItem(childItem).backgroundColorIndex, BorderType.MainPage)};`;
     };
+    const renderSelectedPageFocusRingMaybe = () =>
+      <Show when={isSelectedRootPageFocused()}>
+        <div class="absolute pointer-events-none rounded-xs"
+          style={`left: ${pageFns().listViewportWidthPx()}px; top: 0px; ` +
+            `width: ${Math.max(0, pageFns().viewportBoundsPx().w - pageFns().listViewportWidthPx())}px; ` +
+            `height: ${pageFns().viewportBoundsPx().h}px; ` +
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+      </Show>;
 
     return (
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
@@ -250,6 +288,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         {renderSelectedRootMaybe()}
+        {renderSelectedPageFocusRingMaybe()}
         {renderPopupRootMaybe()}
         {renderBorderOverlay()}
       </div>

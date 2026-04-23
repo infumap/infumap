@@ -624,11 +624,8 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     const focusPath = store.history.getFocusPathMaybe();
     const focusVe = focusPath ? VesCache.current.readNode(focusPath) : null;
     if (focusVe && (focusVe.flags & VisualElementFlags.ListPageRoot)) {
-      const parentVe = focusVe.parentPath ? VesCache.current.readNode(focusVe.parentPath) : null;
-      if (parentVe && (parentVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) {
-        focusParentMaybe(store);
-        return;
-      }
+      focusParentMaybe(store);
+      return;
     }
     if (focusVe && veFlagIsRoot(focusVe.flags)) {
       void mouseDownHandler(store, MOUSE_RIGHT);
@@ -660,7 +657,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     if (focusVe && !store.overlay.textEditInfo()) {
       const focusIsEmbeddedListPage =
         isPage(focusVe.displayItem) &&
-        !!(asPageItem(focusVe.displayItem).flags & PageFlags.EmbeddedInteractive) &&
+        !!(focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
         asPageItem(focusVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List;
 
       if (isPage(focusVe.displayItem) &&
@@ -905,9 +902,9 @@ function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean
   const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
   const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
   const selectedItem = itemState.get(selectedVeid.itemId);
+  const selectedVeSignal = VesCache.render.getSelected(focusPagePath)();
+  const selectedVe = selectedVeSignal?.get() ?? null;
   if (selectedItem && isSearch(selectedItem)) {
-    const selectedVeSignal = VesCache.render.getSelected(focusPagePath)();
-    const selectedVe = selectedVeSignal?.get() ?? null;
     if (selectedVe) {
       store.perItem.setSearchFocusedResultIndex(selectedItem.id, -1);
       store.overlay.autoFocusSearchInput.set(false);
@@ -916,6 +913,24 @@ function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean
     }
     return true;
   }
+
+  if (selectedVe) {
+    store.history.setFocus(VeFns.veToPath(selectedVe));
+
+    if (isPage(selectedVe.displayItem)) {
+      const selectedPageActualVeid = VeFns.veidFromItems(selectedVe.displayItem, selectedVe.actualLinkItemMaybe);
+      const nextSelectedVeid = store.perItem.getSelectedListPageItem(selectedPageActualVeid);
+      if (nextSelectedVeid == EMPTY_VEID) {
+        PageFns.setDefaultListPageSelectedItemMaybe(store, selectedPageActualVeid);
+      }
+    }
+
+    arrangeNow(store, isPage(selectedVe.displayItem)
+      ? "key-list-page-focus-selected-page"
+      : "key-list-page-focus-selected-item");
+    return true;
+  }
+
   if (!isPage(selectedItem)) {
     return true;
   }
