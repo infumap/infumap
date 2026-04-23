@@ -18,15 +18,16 @@
 
 import { Item } from "../../items/base/item";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
+import { MouseAction, MouseActionState } from "../../input/state";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
-import { MouseActionState } from "../../input/state";
 import { EMPTY_UID } from "../../util/uid";
 import { initiateLoadItemMaybe, initiateLoadItemFromRemoteMaybe, retryLinkIfVisible, RemoteLoadStatus, itemLoadFromRemoteStatus, linkIdToRemoteInfo, itemLoadLastSessionId } from "../load";
 import { RemoteSessions } from "../../store/RemoteSessions";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
+import { VeFns } from "../visual-element";
 
 
 export interface VePropertiesForItem {
@@ -111,6 +112,25 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
   }
 
   return { displayItem, linkItemMaybe, spatialWidthGr };
+}
+
+export function getMovingTreeItemInParentMaybe(parentId: string): Item | null {
+  if (MouseActionState.empty() || !MouseActionState.isAction(MouseAction.Moving)) {
+    return null;
+  }
+
+  const activeVisualElement = MouseActionState.getActiveVisualElement();
+  const movingItem = activeVisualElement
+    ? VeFns.treeItem(activeVisualElement)
+    : (MouseActionState.getActiveElementPath() != null
+      ? VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!)
+      : null);
+
+  if (movingItem == null || movingItem.parentId != parentId) {
+    return null;
+  }
+
+  return movingItem;
 }
 
 export function addContiguousStackedGapHitboxes(

@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
-import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { CursorEventState, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -42,7 +42,7 @@ import { VesCache } from "../ves-cache";
 import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath } from "./popup";
-import { getVePropertiesForItem } from "./util";
+import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
 
 export function arrange_list_page(
@@ -141,14 +141,8 @@ export function arrange_list_page(
   }
 
   let movingItem = null;
-  let movingItemInThisPage = null;
-  if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!);
-    movingItem = movingItemInThisPage;
-    if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
-      movingItemInThisPage = null;
-    }
-  }
+  const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
+  movingItem = movingItemInThisPage;
 
   const isEmbeddedInteractive =
     !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { CursorEventState, MouseActionState } from "../../input/state";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
@@ -29,7 +29,7 @@ import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../uti
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
-import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes } from "./util";
+import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe } from "./util";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
@@ -57,14 +57,8 @@ export function arrange_catalog_page(
   }
 
   let movingItem: Item | null = null;
-  let movingItemInThisPage: Item | null = null;
-  if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!);
-    movingItem = movingItemInThisPage;
-    if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
-      movingItemInThisPage = null;
-    }
-  }
+  const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
+  movingItem = movingItemInThisPage;
 
   const previewColumnWidthPx = calcCatalogPreviewColumnWidthPx(geometry.boundsPx.w);
   const rowHeightPx = calcCatalogRowHeightPx(previewColumnWidthPx, displayItem_pageWithChildren.gridCellAspect);

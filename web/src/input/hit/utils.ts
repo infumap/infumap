@@ -18,6 +18,7 @@
 
 import { isPlaceholder } from "../../items/placeholder-item";
 import { itemCanMove } from "../../items/base/capabilities-item";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { HitboxFlags, HitboxMeta } from "../../layout/hitbox";
 import { VisualElement, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -121,6 +122,10 @@ export function findAttachmentHit(
 
 function filteredHitboxType(ve: VisualElement, type: HitboxFlags): HitboxFlags {
   let result = type;
+
+  if ((result & HitboxFlags.Move) && ve.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM) {
+    result = (result & ~HitboxFlags.Move) as HitboxFlags;
+  }
 
   // Capabilities apply to the draggable tree item, not the rendered display target.
   if ((result & HitboxFlags.Move) && !itemCanMove(VeFns.treeItem(ve))) {

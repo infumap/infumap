@@ -17,7 +17,7 @@
 */
 
 import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
-import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { CursorEventState, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -30,7 +30,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
-import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getVePropertiesForItem } from "./util";
+import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
 
 export function arrange_document_page(
@@ -52,13 +52,7 @@ export function arrange_document_page(
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
-  let movingItemInThisPage = null;
-  if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!);
-    if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
-      movingItemInThisPage = null;
-    }
-  }
+  const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
 
   const totalMarginBl = PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
   const totalWidthBl = displayItem_pageWithChildren.docWidthBl + totalMarginBl;

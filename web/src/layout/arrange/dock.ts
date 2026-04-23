@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, DOCK_GAP_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
-import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { CursorEventState } from "../../input/state";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -32,7 +32,7 @@ import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
-import { getVePropertiesForItem } from "./util";
+import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
 
 export function getDockScrollYPx(store: StoreContextModel, dockVe: VisualElement): number {
@@ -66,13 +66,7 @@ export const renderDockMaybe = (
   const dockPage = asPageItem(itemState.get(store.user.getUser().dockPageId)!);
   const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
 
-  let movingItemInThisPage = null;
-  if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!);
-    if (movingItemInThisPage!.parentId != dockPage.id) {
-      movingItemInThisPage = null;
-    }
-  }
+  const movingItemInThisPage = getMovingTreeItemInParentMaybe(dockPage.id);
 
   const dockWidthPx = store.getCurrentDockWidthPx();
   const dockSideMarginPx = DOCK_GAP_PX * 1.25;

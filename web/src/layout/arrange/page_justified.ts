@@ -17,7 +17,7 @@
 */
 
 import { LINE_HEIGHT_PX } from "../../constants";
-import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { CursorEventState, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -32,6 +32,7 @@ import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath } from "./popup";
+import { getMovingTreeItemInParentMaybe } from "./util";
 import createJustifiedLayout from "justified-layout";
 
 
@@ -57,14 +58,8 @@ export function arrange_justified_page(
   }
 
   let movingItem = null;
-  let movingItemInThisPage = null;
-  if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!);
-    movingItem = movingItemInThisPage;
-    if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
-      movingItemInThisPage = null;
-    }
-  }
+  const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
+  movingItem = movingItemInThisPage;
 
 
 

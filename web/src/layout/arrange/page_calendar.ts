@@ -32,8 +32,7 @@ import { isComposite } from "../../items/composite-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { HitboxFns, HitboxFlags } from "../hitbox";
 import { compareOrderings } from "../../util/ordering";
-import { MouseActionState, MouseAction } from "../../input/state";
-import { CursorEventState } from "../../input/state";
+import { CursorEventState, MouseActionState } from "../../input/state";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import {
   calculateCalendarWindow,
@@ -46,6 +45,7 @@ import {
   isCalendarMonthVisible,
 } from "../../util/calendar-layout";
 import { ItemType } from "../../items/base/item";
+import { getMovingTreeItemInParentMaybe } from "./util";
 
 
 export function arrange_calendar_page(
@@ -62,14 +62,8 @@ export function arrange_calendar_page(
 
   // Check if an item is being moved
   let movingItem = null;
-  let movingItemInThisPage = null;
-  if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
-    movingItemInThisPage = VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!);
-    movingItem = movingItemInThisPage;
-    if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
-      movingItemInThisPage = null;
-    }
-  }
+  const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
+  movingItem = movingItemInThisPage;
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   if (isFull) {
