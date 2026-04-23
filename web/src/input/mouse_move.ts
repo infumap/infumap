@@ -585,8 +585,6 @@ function changeMouseActionStateMaybe(
     const startPx = MouseActionState.getStartPx()!;
     store.overlay.selectionMarqueePx.set({ x: startPx.x, y: startPx.y, w: 0, h: 0 });
     store.overlay.selectedVeids.set([]);
-  } else {
-    console.debug(activeVisualElement.flags);
   }
 }
 
