@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
@@ -42,26 +42,64 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const store = useStore();
 
   let rootDiv: any = undefined; // HTMLDivElement | undefined
+  let updatingRootScrollTop = false;
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const isMinimalDocumentPage = () => pageFns().isDocumentPage();
-
-  onMount(() => {
+  const getScrollVeid = () => {
     let veid = VeFns.veidFromVe(props.visualElement);
-    if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
-      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+    if ((props.visualElement.flags & VisualElementFlags.ListPageRoot) && props.visualElement.parentPath) {
+      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath);
       veid = store.perItem.getSelectedListPageItem(parentVeid);
     }
+    return veid;
+  };
+  const syncRootScrollPosition = () => {
+    if (!rootDiv) {
+      return;
+    }
 
-    const scrollXProp = store.perItem.getPageScrollXProp(veid);
-    const scrollXPx = scrollXProp * Math.max(0, pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+    const veid = getScrollVeid();
+    updatingRootScrollTop = true;
 
-    const scrollYProp = store.perItem.getPageScrollYProp(veid);
-    const scrollYPx = scrollYProp * Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+    if (isListPage() && props.visualElement.listChildAreaBoundsPx) {
+      const viewportH = pageFns().viewportBoundsPx().h;
+      const scrollableHeightPx = Math.max(0, props.visualElement.listChildAreaBoundsPx.h - viewportH);
+      rootDiv.scrollTop = store.perItem.getPageScrollYProp(veid) * scrollableHeightPx;
+      rootDiv.scrollLeft = 0;
+    } else {
+      const scrollableWidthPx = Math.max(0, pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+      const scrollableHeightPx = Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+      rootDiv.scrollLeft = store.perItem.getPageScrollXProp(veid) * scrollableWidthPx;
+      rootDiv.scrollTop = store.perItem.getPageScrollYProp(veid) * scrollableHeightPx;
+    }
 
-    rootDiv.scrollTop = scrollYPx;
-    rootDiv.scrollLeft = scrollXPx;
+    setTimeout(() => {
+      updatingRootScrollTop = false;
+    }, 0);
+  };
+
+  onMount(() => {
+    syncRootScrollPosition();
+  });
+
+  createEffect(() => {
+    if (!rootDiv) {
+      return;
+    }
+
+    if (isListPage()) {
+      props.visualElement.listChildAreaBoundsPx?.h;
+      store.perItem.getPageScrollYProp(getScrollVeid());
+    } else {
+      pageFns().childAreaBoundsPx();
+      pageFns().viewportBoundsPx();
+      store.perItem.getPageScrollXProp(getScrollVeid());
+      store.perItem.getPageScrollYProp(getScrollVeid());
+    }
+
+    syncRootScrollPosition();
   });
 
   const keyUpHandler = (ev: KeyboardEvent) => {
@@ -218,6 +256,31 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     switchToPage(store, VeFns.actualVeidFromVe(props.visualElement), true, false, false);
   };
 
+  const listScrollHandler = (_ev: Event) => {
+    if (!rootDiv || updatingRootScrollTop || !props.visualElement.listChildAreaBoundsPx) {
+      return;
+    }
+
+    const veid = getScrollVeid();
+    const viewportH = pageFns().viewportBoundsPx().h;
+    const scrollableHeightPx = Math.max(0, props.visualElement.listChildAreaBoundsPx.h - viewportH);
+
+    store.perItem.setPageScrollYProp(veid, scrollableHeightPx > 0 ? rootDiv.scrollTop / scrollableHeightPx : 0);
+  };
+
+  const rootScrollHandler = (_ev: Event) => {
+    if (!rootDiv || updatingRootScrollTop) {
+      return;
+    }
+
+    const veid = getScrollVeid();
+    const scrollableWidthPx = Math.max(0, pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+    const scrollableHeightPx = Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+
+    store.perItem.setPageScrollXProp(veid, scrollableWidthPx > 0 ? rootDiv.scrollLeft / scrollableWidthPx : 0);
+    store.perItem.setPageScrollYProp(veid, scrollableHeightPx > 0 ? rootDiv.scrollTop / scrollableHeightPx : 0);
+  };
+
   const renderListPage = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
       style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
@@ -233,6 +296,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           `width: ${pageFns().listViewportWidthPx()}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
           `background-color: #ffffff;`}
+        onscroll={listScrollHandler}
         ondblclick={backgroundDoubleClickHandler}>
         <div class="absolute"
           style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
@@ -261,6 +325,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
         `${scrollGestureStyleForArrangeAlgorithm(pageFns().pageItem().arrangeAlgorithm)}` +
         `background-color: #ffffff; z-index: 2;`}
+      onscroll={rootScrollHandler}
       ondblclick={backgroundDoubleClickHandler}>
       <div class="absolute"
         style={`left: ${pageFns().documentContentLeftPx()}px; top: 0px; ` +
