@@ -1114,13 +1114,24 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     !!focusVe &&
     (focusVe.flags & VisualElementFlags.ListPageRoot) &&
     isPage(focusVe.displayItem);
+  const focusIsSelectedListDetail =
+    !!focusVe &&
+    !!focusVe.parentPath &&
+    (() => {
+      const parentVe = VesCache.current.readNode(focusVe.parentPath!);
+      if (!parentVe || !isPage(parentVe.displayItem) || asPageItem(parentVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
+        return false;
+      }
+      const selectedVe = VesCache.current.readSelected(focusVe.parentPath!);
+      return selectedVe != null && VeFns.veToPath(selectedVe) == focusPath;
+    })();
   const focusedPageIsRoot = !!focusVe && isPage(focusVe.displayItem) && veFlagIsRoot(focusVe.flags);
 
   if (ev.code == "ArrowRight" && focusIsEmbeddedListPageRoot && focusFirstChildMaybe(store, focusPath, focusVe!)) {
     return;
   }
 
-  if (ev.code == "ArrowLeft" && focusIsSelectedPageRoot && focusParentMaybe(store)) {
+  if (ev.code == "ArrowLeft" && (focusIsSelectedPageRoot || focusIsSelectedListDetail) && focusParentMaybe(store)) {
     return;
   }
 
