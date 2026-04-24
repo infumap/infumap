@@ -30,7 +30,6 @@ import { isSearch } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { assert } from "../../util/lang";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { newUid } from "../../util/uid";
@@ -306,10 +305,6 @@ export function arrange_list_page(
         };
       }
 
-      const scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-      const scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-      const yOffsetPx = scrollPropY * Math.max(0, listChildAreaBoundsPx.h - geometry.viewportBoundsPx!.h);
-      const xOffsetPx = scrollPropX * Math.max(0, listChildAreaBoundsPx.w - geometry.viewportBoundsPx!.w);
       const umbrellaVisualElement = store.umbrellaVisualElement.get();
       const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
       const desktopSizePx = store.desktopBoundsPx();
@@ -319,8 +314,8 @@ export function arrange_list_page(
       // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
       const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
       return {
-        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
-        y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
+        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX,
+        y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + pageYScrollPx,
         w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
         h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
       };

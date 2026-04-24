@@ -29,7 +29,7 @@ import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { GRID_SIZE, Z_INDEX_GLOBAL_ITEMS, Z_INDEX_GLOBAL_MOVING, Z_INDEX_GLOBAL_POPUP } from "../constants";
-import { asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { ArrangeItemFlags } from "./arrange/item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 
@@ -129,6 +129,30 @@ export function isVeTranslucentPage(ve: VisualElement): boolean {
 
   // If none of the above specific types and not opaque, it's considered translucent by default in Page.tsx
   return true;
+}
+
+function listPageScrollOffsetPxForDescendant(
+  store: StoreContextModel,
+  pageVe: VisualElement,
+  descendantVe: VisualElement,
+): { x: number, y: number } | null {
+  if (!(descendantVe.flags & VisualElementFlags.LineItem)) {
+    return null;
+  }
+  if (!isPage(pageVe.displayItem) || asPageItem(pageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
+    return null;
+  }
+  if (!pageVe.listChildAreaBoundsPx || !pageVe.listViewportBoundsPx) {
+    return null;
+  }
+
+  const pageVeid = pageVe.flags & VisualElementFlags.Popup
+    ? store.history.currentPopupSpec()?.actualVeid ?? VeFns.actualVeidFromVe(pageVe)
+    : VeFns.actualVeidFromVe(pageVe);
+  return {
+    x: Math.max(0, pageVe.listChildAreaBoundsPx.w - pageVe.listViewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid),
+    y: Math.max(0, pageVe.listChildAreaBoundsPx.h - pageVe.listViewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid),
+  };
 }
 
 /**
@@ -662,18 +686,22 @@ export const VeFns = {
       } else if (isPage(ve.displayItem)) {
         let adjY = 0.0;
         let adjX = 0.0;
-        const scrollHeightPx = ve.flags & VisualElementFlags.IsDock
-          ? (ve.childAreaBoundsPx!.h - ve.viewportBoundsPx!.h)
-          : (ve.childAreaBoundsPx!.h - ve.boundsPx.h);
-        const scrollWidthPx = ve.flags & VisualElementFlags.IsDock
-          ? (ve.childAreaBoundsPx!.w - ve.viewportBoundsPx!.w)
-          : (ve.childAreaBoundsPx!.w - ve.boundsPx.w);
-        if (ve.flags & VisualElementFlags.Popup) {
+        const listScrollOffsetPx = listPageScrollOffsetPxForDescendant(store, ve, visualElement);
+        if (listScrollOffsetPx != null) {
+          adjY = listScrollOffsetPx.y;
+          adjX = listScrollOffsetPx.x;
+        } else if (ve.flags & VisualElementFlags.Popup) {
           const popupSpec = store.history.currentPopupSpec()!;
           assert(itemState.get(popupSpec.actualVeid.itemId)!.itemType == ItemType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
           adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid);
           adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid);
         } else {
+          const scrollHeightPx = ve.flags & VisualElementFlags.IsDock
+            ? (ve.childAreaBoundsPx!.h - ve.viewportBoundsPx!.h)
+            : (ve.childAreaBoundsPx!.h - ve.boundsPx.h);
+          const scrollWidthPx = ve.flags & VisualElementFlags.IsDock
+            ? (ve.childAreaBoundsPx!.w - ve.viewportBoundsPx!.w)
+            : (ve.childAreaBoundsPx!.w - ve.boundsPx.w);
           if ((ve.flags & VisualElementFlags.ShowChildren) &&
             !((visualElement.flags & VisualElementFlags.IsTrash) && (ve.flags & VisualElementFlags.IsDock))) {
             adjY = scrollHeightPx * store.perItem.getPageScrollYProp(VeFns.actualVeidFromVe(ve));
@@ -868,18 +896,22 @@ export const VeFns = {
       } else if (isPage(ve.displayItem)) {
         let adjY = 0.0;
         let adjX = 0.0;
-        const scrollHeightPx = ve.flags & VisualElementFlags.IsDock
-          ? (ve.childAreaBoundsPx!.h - ve.viewportBoundsPx!.h)
-          : (ve.childAreaBoundsPx!.h - ve.boundsPx.h);
-        const scrollWidthPx = ve.flags & VisualElementFlags.IsDock
-          ? (ve.childAreaBoundsPx!.w - ve.viewportBoundsPx!.w)
-          : (ve.childAreaBoundsPx!.w - ve.boundsPx.w);
-        if (ve.flags & VisualElementFlags.Popup) {
+        const listScrollOffsetPx = listPageScrollOffsetPxForDescendant(store, ve, visualElement);
+        if (listScrollOffsetPx != null) {
+          adjY = listScrollOffsetPx.y;
+          adjX = listScrollOffsetPx.x;
+        } else if (ve.flags & VisualElementFlags.Popup) {
           const popupSpec = store.history.currentPopupSpec()!;
           assert(itemState.get(popupSpec.actualVeid.itemId)!.itemType == ItemType.Page, "veViewportBoundsRelativeToDesktopPx: popup spec type not page.");
           adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid);
           adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid);
         } else {
+          const scrollHeightPx = ve.flags & VisualElementFlags.IsDock
+            ? (ve.childAreaBoundsPx!.h - ve.viewportBoundsPx!.h)
+            : (ve.childAreaBoundsPx!.h - ve.boundsPx.h);
+          const scrollWidthPx = ve.flags & VisualElementFlags.IsDock
+            ? (ve.childAreaBoundsPx!.w - ve.viewportBoundsPx!.w)
+            : (ve.childAreaBoundsPx!.w - ve.boundsPx.w);
           if ((ve.flags & VisualElementFlags.ShowChildren) &&
             !((visualElement.flags & VisualElementFlags.IsTrash) && (ve.flags & VisualElementFlags.IsDock))) {
             adjY = scrollHeightPx * store.perItem.getPageScrollYProp(VeFns.actualVeidFromVe(ve));
