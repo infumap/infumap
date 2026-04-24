@@ -180,6 +180,43 @@ function findSelectableListPageChildVeidFromIndex(
   return EMPTY_VEID;
 }
 
+function findSelectableListPageChildVeidFromOrdering(
+  page: PageItem,
+  ordering: Uint8Array,
+  excludedChildIdMaybe: Uid | null = null,
+): Veid {
+  let prevVeid = EMPTY_VEID;
+  let nextVeid = EMPTY_VEID;
+
+  for (const childId of page.computed_children) {
+    if (excludedChildIdMaybe != null && childId == excludedChildIdMaybe) {
+      continue;
+    }
+    const veid = getListPageChildVeidMaybe(childId);
+    if (!veid || !isRenderableListPageSelectedVeid(veid)) {
+      continue;
+    }
+
+    const child = itemState.get(childId);
+    if (!child) { continue; }
+    const cmp = compareOrderings(child.ordering, ordering);
+    if (cmp < 0) {
+      prevVeid = veid;
+    } else if (cmp > 0 && nextVeid.itemId == "") {
+      nextVeid = veid;
+    }
+  }
+
+  if (prevVeid.itemId != "") { return prevVeid; }
+  return nextVeid;
+}
+
+function addUniqueVeid(candidates: Veid[], candidate: Veid | null) {
+  if (!candidate || candidate.itemId == "") { return; }
+  if (candidates.some(existing => VeFns.compareVeids(existing, candidate) === 0)) { return; }
+  candidates.push(candidate);
+}
+
 type PopupPageActionKey = "child" | "default";
 
 function calcPagePopupActionStripLayout(innerWidthPx: number, seamYPx: number, hasChildChanges: boolean, hasDefaultChanges: boolean) {
@@ -1477,6 +1514,7 @@ export const PageFns = {
     page: PageItem,
     selectedVeid: Veid,
     excludedChildIdMaybe: Uid | null = null,
+    excludedChildOriginalOrderingMaybe: Uint8Array | null = null,
   ): Veid => {
     if (page.arrangeAlgorithm != ArrangeAlgorithm.List || selectedVeid.itemId == "") {
       return selectedVeid;
@@ -1504,12 +1542,50 @@ export const PageFns = {
       return findFirstSelectableListPageChildVeid(page, excludedChildIdMaybe);
     }
 
+    if (excludedChildOriginalOrderingMaybe != null) {
+      const orderedVeid = findSelectableListPageChildVeidFromOrdering(page, excludedChildOriginalOrderingMaybe, excludedChildIdMaybe);
+      if (orderedVeid.itemId != "") {
+        return orderedVeid;
+      }
+    }
+
     const prevVeid = findSelectableListPageChildVeidFromIndex(page, selectedIdx - 1, -1, excludedChildIdMaybe);
     if (prevVeid.itemId != "") {
       return prevVeid;
     }
 
     return findSelectableListPageChildVeidFromIndex(page, selectedIdx + 1, 1, excludedChildIdMaybe);
+  },
+
+  moveListPageSelectionOffChild: (
+    store: StoreContextModel,
+    page: PageItem,
+    pageVeids: Veid[],
+    childVeid: Veid,
+    childId: Uid,
+    childOriginalOrderingMaybe: Uint8Array | null = null,
+    includeFirstPageVeid: boolean = false,
+    selectChildWhenOnlyChild: boolean = false,
+  ): void => {
+    if (page.arrangeAlgorithm != ArrangeAlgorithm.List) { return; }
+    const targetPageVeids: Veid[] = [];
+    for (const pageVeid of pageVeids) {
+      const selectedVeid = store.perItem.getSelectedListPageItem(pageVeid);
+      if (selectChildWhenOnlyChild && selectedVeid.itemId == "" && page.computed_children.length == 1 && page.computed_children[0] == childId) {
+        store.perItem.setSelectedListPageItem(pageVeid, childVeid);
+      } else if (VeFns.compareVeids(selectedVeid, childVeid) == 0) {
+        addUniqueVeid(targetPageVeids, pageVeid);
+      }
+    }
+    if (includeFirstPageVeid && pageVeids.length > 0) {
+      addUniqueVeid(targetPageVeids, pageVeids[0]);
+    }
+    if (targetPageVeids.length == 0) { return; }
+
+    const nextSelectedVeid = PageFns.resolveListPageSelectedItem(page, childVeid, childId, childOriginalOrderingMaybe);
+    for (const pageVeid of targetPageVeids) {
+      store.perItem.setSelectedListPageItem(pageVeid, nextSelectedVeid);
+    }
   },
 
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {

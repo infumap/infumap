@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
-import { CursorEventState, MouseActionState } from "../../input/state";
+import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -66,11 +66,31 @@ export function arrange_list_page(
   const focusPath = store.history.getFocusPath();
   const pages = store.topTitledPages.get();
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
-  const selectedVeid = PageFns.resolveListPageSelectedItem(
+  const activeMovingVe = MouseActionState.isAction(MouseAction.Moving)
+    ? MouseActionState.getActiveVisualElement()
+    : null;
+  const activeMovingChildId = activeMovingVe
+    ? activeMovingVe.actualLinkItemMaybe?.id ?? activeMovingVe.displayItem.id
+    : null;
+  const activeMovingOriginalOrdering = activeMovingChildId
+    ? MouseActionState.getMoveRollback()?.find(entry => entry.id == activeMovingChildId)?.ordering ?? null
+    : null;
+  let selectedVeid = PageFns.resolveListPageSelectedItem(
     displayItem_pageWithChildren,
     store.perItem.getSelectedListPageItem(listPageActualVeid),
     movingItemInThisPage?.id ?? null,
+    movingItemInThisPage && activeMovingOriginalOrdering
+      ? new Uint8Array(activeMovingOriginalOrdering)
+      : null,
   );
+  if (activeMovingVe && VeFns.compareVeids(selectedVeid, VeFns.actualVeidFromVe(activeMovingVe)) == 0) {
+    selectedVeid = PageFns.resolveListPageSelectedItem(
+      displayItem_pageWithChildren,
+      selectedVeid,
+      activeMovingChildId,
+      activeMovingOriginalOrdering ? new Uint8Array(activeMovingOriginalOrdering) : null,
+    );
+  }
   let isFocusPage = false;
   let pageIdx = -1;
   for (let i = 0; i < pages.length; ++i) {

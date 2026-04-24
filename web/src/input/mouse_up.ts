@@ -1216,6 +1216,25 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
     itemState.sortChildren(pageItem.id);
   }
 
+  if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
+    const activeVe = MouseActionState.getActiveVisualElement();
+    if (activeVe) {
+      const movingVeid = VeFns.actualVeidFromVe(activeVe);
+      const movingChildId = activeVe.actualLinkItemMaybe?.id ?? activeVe.displayItem.id;
+      const rollback = MouseActionState.getMoveRollback()?.find(entry => entry.id == movingChildId);
+      PageFns.moveListPageSelectionOffChild(
+        store,
+        pageItem,
+        [VeFns.actualVeidFromVe(overContainerVe), VeFns.veidFromVe(overContainerVe), { itemId: pageItem.id, linkIdMaybe: null }],
+        movingVeid,
+        movingChildId,
+        rollback ? new Uint8Array(rollback.ordering) : null,
+        false,
+        true,
+      );
+    }
+  }
+
   const ops: Array<MovePersistOperation> = [];
   enqueuePersistMovedItems(ops, store, [activeItem.id]);
   scheduleMoveCommit(

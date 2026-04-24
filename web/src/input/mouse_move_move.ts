@@ -33,7 +33,7 @@ import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -86,6 +86,39 @@ function captureMoveRollbackSnapshot(store: StoreContextModel, activeVisualEleme
   MouseActionState.setMoveRollback(snapshot);
 }
 
+function movingChildIdFromVe(visualElement: VisualElement): string {
+  return visualElement.actualLinkItemMaybe?.id ?? visualElement.displayItem.id;
+}
+
+function moveRollbackOrderingForChild(childId: string): Uint8Array | null {
+  const rollback = MouseActionState.getMoveRollback()?.find(entry => entry.id == childId);
+  return rollback ? new Uint8Array(rollback.ordering) : null;
+}
+
+function preserveListSelectionWhenMovingSelectedChild(
+  store: StoreContextModel,
+  listPageVe: VisualElement | null,
+  movingVe: VisualElement,
+  originalOrderingMaybe: Uint8Array | null,
+) {
+  if (!listPageVe || !isPage(listPageVe.displayItem)) { return; }
+  const listPage = asPageItem(listPageVe.displayItem);
+  if (listPage.arrangeAlgorithm != ArrangeAlgorithm.List) { return; }
+
+  const movingVeid = VeFns.actualVeidFromVe(movingVe);
+  const movingChildId = movingChildIdFromVe(movingVe);
+  const renderedSelectedVe = VesCache.current.readSelected(VeFns.veToPath(listPageVe));
+  PageFns.moveListPageSelectionOffChild(
+    store,
+    listPage,
+    [VeFns.actualVeidFromVe(listPageVe), VeFns.veidFromVe(listPageVe), { itemId: listPage.id, linkIdMaybe: null }],
+    movingVeid,
+    movingChildId,
+    originalOrderingMaybe,
+    renderedSelectedVe != null && VeFns.compareVeids(VeFns.actualVeidFromVe(renderedSelectedVe), movingVeid) == 0,
+  );
+}
+
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
   if (!itemCanMove(activeItem)) {
@@ -97,6 +130,15 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   const shouldCreateLink = CursorEventState.get().ctrlDown || (shiftWantsClone && isActiveLinkItem);
   const shouldClone = shiftWantsClone && !isActiveLinkItem; // For link items, shift behaves like ctrl (create link)
   const parentItem = itemState.get(activeItem.parentId)!;
+  if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    const movingChild = itemState.get(movingChildIdFromVe(activeVisualElement));
+    preserveListSelectionWhenMovingSelectedChild(
+      store,
+      MouseActionState.readVisualElement(activeVisualElement.parentPath),
+      activeVisualElement,
+      movingChild?.ordering ? new Uint8Array(movingChild.ordering) : null,
+    );
+  }
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
     moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
     arrangeNow(store, "moving-init-out-of-table");
@@ -235,20 +277,6 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       let selection = window.getSelection();
       if (selection != null) { selection.removeAllRanges(); }
       (document.activeElement! as HTMLElement).blur();
-    }
-  }
-
-  // if it is a selected list page that is moving, change the selected item.
-  if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    const activeVe = MouseActionState.getActiveVisualElement();
-    const parentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
-    const parentVeid = VeFns.veidFromPath(parentPath);
-    const selected = store.perItem.getSelectedListPageItem(parentVeid);
-
-    if (activeVe && VeFns.compareVeids(selected, VeFns.actualVeidFromVe(activeVe)) === 0) {
-      const excludedChildId = activeVe.actualLinkItemMaybe?.id ?? activeVe.displayItem.id;
-      const nextSelectedVeid = PageFns.resolveListPageSelectedItem(asPageItem(parentItem), selected, excludedChildId);
-      store.perItem.setSelectedListPageItem(parentVeid, nextSelectedVeid);
     }
   }
 
@@ -670,6 +698,13 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     MouseActionState.setLinkCreatedOnMoveStart(true);
 
   } else {
+    preserveListSelectionWhenMovingSelectedChild(
+      store,
+      moveToVe,
+      activeElement,
+      moveRollbackOrderingForChild(movingChildIdFromVe(activeElement)),
+    );
+
     if (relationshipToParent == RelationshipToParent.Attachment) {
       const oldActiveItemOrdering = treeActiveItem.ordering;
       const parent = asAttachmentsItem(itemState.get(treeActiveItem.parentId)!);
