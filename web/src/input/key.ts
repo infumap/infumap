@@ -71,6 +71,19 @@ function isShiftKey(code: string): boolean {
   return code == "ShiftLeft" || code == "ShiftRight";
 }
 
+function isReservedTabKey(ev: KeyboardEvent): boolean {
+  return ev.code == "Tab" && !ev.ctrlKey && !ev.metaKey && !ev.altKey;
+}
+
+function targetShouldKeepNativeTabBehavior(ev: KeyboardEvent): boolean {
+  const target = ev.target;
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLButtonElement ||
+    target instanceof HTMLAnchorElement;
+}
+
 let shiftNavigationGesture = {
   pending: false,
   cancelled: false,
@@ -544,6 +557,9 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       serverOrRemote.updateItem(focusItem, store.general.networkStatus);
       ev.preventDefault();
     }
+    if (isReservedTabKey(ev)) {
+      ev.preventDefault();
+    }
     return;
   }
 
@@ -555,12 +571,17 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       return;
     }
 
+    if (isReservedTabKey(ev)) {
+      ev.preventDefault();
+      return;
+    }
+
     // TODO (HIGH)
     // event is fired before content is updated.
     return;
   }
 
-  if (ev.code == "Tab" && handleSearchWorkspaceTabMaybe(store, ev)) {
+  if (isReservedTabKey(ev) && !targetShouldKeepNativeTabBehavior(ev) && handleSearchWorkspaceTabMaybe(store, ev)) {
     ev.preventDefault();
     return;
   }
@@ -579,6 +600,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   if (isLink(store.history.getFocusItem())) { return; }
 
   if (store.overlay.anOverlayIsVisible()) { return; }
+
+  if (isReservedTabKey(ev) && !targetShouldKeepNativeTabBehavior(ev)) {
+    ev.preventDefault();
+    return;
+  }
 
   if (!recognizedKeys.find(a => a == ev.code)) { return; }
 
