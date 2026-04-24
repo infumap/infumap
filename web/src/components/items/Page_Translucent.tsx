@@ -40,6 +40,7 @@ import { Uid } from "../../util/uid";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isSearch } from "../../items/search-item";
+import { MouseAction, MouseActionState } from "../../input/state";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -467,13 +468,16 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const selectedRootVeMaybe = () => {
     const selectedVe = VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
-    if (!selectedVe) {
+    if (!selectedVe || !MouseActionState.isAction(MouseAction.Moving)) {
       return selectedVe;
     }
-    if (store.history.currentPopupSpecVeid() != null && store.anItemIsMoving.get()) {
-      return null;
+    const activeMovingVe = MouseActionState.getActiveVisualElement();
+    if (!activeMovingVe) {
+      return selectedVe;
     }
-    return selectedVe;
+    return VeFns.compareVeids(VeFns.actualVeidFromVe(selectedVe), VeFns.actualVeidFromVe(activeMovingVe)) == 0
+      ? null
+      : selectedVe;
   };
   const popupRootVeMaybe = () => VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()?.get() ?? null;
 

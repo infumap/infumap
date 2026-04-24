@@ -45,6 +45,7 @@ import { itemState } from "../../store/ItemState";
 import { desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
+import { MouseAction, MouseActionState } from "../../input/state";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -191,13 +192,16 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const selectedRootVeMaybe = () => {
     const selectedVe = VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
-    if (!selectedVe) {
+    if (!selectedVe || !MouseActionState.isAction(MouseAction.Moving)) {
       return selectedVe;
     }
-    if (store.history.currentPopupSpecVeid() != null && store.anItemIsMoving.get()) {
-      return null;
+    const activeMovingVe = MouseActionState.getActiveVisualElement();
+    if (!activeMovingVe) {
+      return selectedVe;
     }
-    return selectedVe;
+    return VeFns.compareVeids(VeFns.actualVeidFromVe(selectedVe), VeFns.actualVeidFromVe(activeMovingVe)) == 0
+      ? null
+      : selectedVe;
   };
   const popupRootVeMaybe = () => VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()?.get() ?? null;
 
