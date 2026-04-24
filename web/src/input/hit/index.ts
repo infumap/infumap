@@ -150,11 +150,27 @@ export function getHitInfo(
     (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
     (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive),
   ];
-  for (const resolve of resolvers) {
-    rootInfo = resolve(rootInfo);
-    const hit = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-    if (hit) { return hit; }
+
+  const visitedRootPaths = new Set<string>();
+  while (true) {
+    const passStartRootPath = VeFns.veToPath(rootInfo.rootVe);
+    if (visitedRootPaths.has(passStartRootPath)) { break; }
+    visitedRootPaths.add(passStartRootPath);
+
+    let rootChanged = false;
+    for (const resolve of resolvers) {
+      const previousRootPath = VeFns.veToPath(rootInfo.rootVe);
+      rootInfo = resolve(rootInfo);
+      const hit = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
+      if (hit) { return hit; }
+      if (VeFns.veToPath(rootInfo.rootVe) != previousRootPath) {
+        rootChanged = true;
+      }
+    }
+
+    if (!rootChanged) { break; }
   }
+
   return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo, allowOutsideBoundsHitboxes);
 }
 
