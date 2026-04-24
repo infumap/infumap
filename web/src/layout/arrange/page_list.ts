@@ -44,6 +44,19 @@ import { arrangeCellPopupPath } from "./popup";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
 
+function listPageScrollOffsetPx(
+  store: StoreContextModel,
+  pageVeid: Veid,
+  listChildAreaBoundsPx: BoundingBox,
+  listViewportBoundsPx: BoundingBox,
+): { x: number, y: number } {
+  return {
+    x: Math.max(0, listChildAreaBoundsPx.w - listViewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid),
+    y: Math.max(0, listChildAreaBoundsPx.h - listViewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid),
+  };
+}
+
+
 export function arrange_list_page(
   store: StoreContextModel,
   parentPath: VisualElementPath,
@@ -294,28 +307,38 @@ export function arrange_list_page(
     const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const scrollVeid = flags & ArrangeItemFlags.IsPopupRoot
+      ? currentPopupSpec!.actualVeid
+      : listPageActualVeid;
+    const scrollOffsetPx = listPageScrollOffsetPx(store, scrollVeid, listChildAreaBoundsPx, listViewportBoundsPx);
+    const currentPageVe = VesCache.current.readNode(pageWithChildrenVePath);
     const cellBoundsPx = (() => {
-      if (flags & ArrangeItemFlags.IsPopupRoot) {
-        const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+      if (currentPageVe != null) {
+        const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, currentPageVe);
         return {
-          x: mouseDesktopPosPx.x - geometry.viewportBoundsPx!.x - adjX,
-          y: mouseDesktopPosPx.y - geometry.viewportBoundsPx!.y,
+          x: mouseDesktopPosPx.x - viewportBoundsPx.x + scrollOffsetPx.x,
+          y: mouseDesktopPosPx.y - viewportBoundsPx.y + scrollOffsetPx.y,
           w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
           h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
         };
       }
 
-      const umbrellaVisualElement = store.umbrellaVisualElement.get();
-      const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
-      const desktopSizePx = store.desktopBoundsPx();
-      const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
-      const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
+      if (flags & ArrangeItemFlags.IsPopupRoot) {
+        const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+        return {
+          x: mouseDesktopPosPx.x - geometry.viewportBoundsPx!.x - adjX + scrollOffsetPx.x,
+          y: mouseDesktopPosPx.y - geometry.viewportBoundsPx!.y + scrollOffsetPx.y,
+          w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
+          h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
+        };
+      }
+
       const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
       // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
       const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
       return {
-        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX,
-        y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + pageYScrollPx,
+        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + scrollOffsetPx.x,
+        y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + scrollOffsetPx.y,
         w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
         h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
       };
