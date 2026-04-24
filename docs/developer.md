@@ -76,12 +76,7 @@ nvm install
 nvm use
 ```
 
-Install web project dependencies:
-
-```
-cd ~/git/infumap/web
-npm ci --no-audit --no-fund
-```
+The root build script will bootstrap the repo-pinned npm version automatically, so no separate global `npm install` step is required on a clean machine.
 
 Check current npm advisories explicitly:
 

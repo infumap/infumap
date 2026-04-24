@@ -69,6 +69,7 @@ fi
 
 EXPECTED_NPM_VERSION="$(node -p "const pkg = require('./package.json'); pkg.engines && pkg.engines.npm ? pkg.engines.npm : ''")"
 ACTIVE_NPM_VERSION="$(npm --version)"
+NPM_CMD=(npm)
 
 if [[ -z "$EXPECTED_NPM_VERSION" ]]; then
   echo "Error: web/package.json is missing engines.npm."
@@ -76,14 +77,19 @@ if [[ -z "$EXPECTED_NPM_VERSION" ]]; then
 fi
 
 if [[ "$ACTIVE_NPM_VERSION" != "$EXPECTED_NPM_VERSION" ]]; then
-  echo "Error: expected npm $EXPECTED_NPM_VERSION (from web/package.json engines.npm), but found $ACTIVE_NPM_VERSION."
-  echo "Update npm with: npm install -g npm@$EXPECTED_NPM_VERSION"
-  echo "Or enable corepack (once per machine): corepack enable"
-  exit 1
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "Error: expected npm $EXPECTED_NPM_VERSION (from web/package.json engines.npm), but found $ACTIVE_NPM_VERSION."
+    echo "npx is required to bootstrap the pinned npm version automatically."
+    echo "Update npm with: npm install -g npm@$EXPECTED_NPM_VERSION"
+    exit 1
+  fi
+
+  echo "Using npm $EXPECTED_NPM_VERSION via npx (found global npm $ACTIVE_NPM_VERSION)."
+  NPM_CMD=(npx --yes "npm@$EXPECTED_NPM_VERSION")
 fi
 
 rm -rf ./dist
-npm ci --no-fund
+"${NPM_CMD[@]}" ci --no-fund
 
 # Build with appropriate settings
 if [ "$NO_MINIFY" = true ]; then
@@ -91,13 +97,13 @@ if [ "$NO_MINIFY" = true ]; then
   echo "  - Minification: DISABLED"
   echo "  - Source maps: ENABLED"
   echo "  - Better stack traces and debugging"
-  NO_MINIFY=true NODE_ENV=development npm run build
+  NO_MINIFY=true NODE_ENV=development "${NPM_CMD[@]}" run build
 else
   echo "Building web assets in production mode:"
   echo "  - Minification: ENABLED"
   echo "  - Source maps: DISABLED"
   echo "  - Optimized for deployment"
-  npm run build
+  "${NPM_CMD[@]}" run build
 fi
 
 python3 generate_dist_handlers.py
