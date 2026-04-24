@@ -34,6 +34,7 @@ import { PageVisualElementProps } from "./Page";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { switchToPage } from "../../layout/navigation";
 import { DocumentPageTitle } from "./DocumentPageTitle";
+import { VisualElementSignal } from "../../util/signals";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -141,6 +142,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   };
 
   const isDockItem = () => !!(props.visualElement.flags & VisualElementFlags.DockItem);
+  const visibleDesktopChildren = () =>
+    pageFns().desktopChildren().filter((childVe: VisualElementSignal) =>
+      !(isDockItem() && (childVe.get().flags & VisualElementFlags.Moving)));
   const isListPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
   const selectedRootVe = () => {
     const selectedVeSignal = VesCache.render.getSelected(vePath())();
@@ -308,7 +312,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>
-      <For each={pageFns().desktopChildren()}>{childVe =>
+      <For each={visibleDesktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
       {renderSelectedRootMaybe()}

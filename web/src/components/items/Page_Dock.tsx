@@ -27,6 +27,7 @@ import { PageVisualElementProps } from "./Page";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { getDockScrollYPx } from "../../layout/arrange/dock";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 
 
 
@@ -109,6 +110,33 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
         : { ...visualElement.listViewportBoundsPx, y: visualElement.listViewportBoundsPx.y - scrollYPx },
     };
   };
+  const offsetBoundsPx = <T extends { x: number, y: number } | null>(boundsPx: T, offsetPx: { x: number, y: number }): T =>
+    boundsPx == null
+      ? boundsPx
+      : { ...boundsPx, x: boundsPx.x + offsetPx.x, y: boundsPx.y + offsetPx.y };
+  const dockNestedMovingOverlayVe = (parentVe: VisualElement, movingVe: VisualElement): VisualElement => {
+    const parentTopInsetPx = parentVe.viewportBoundsPx == null
+      ? 0
+      : parentVe.boundsPx.h - parentVe.viewportBoundsPx.h;
+    const offsetPx = {
+      x: parentVe.boundsPx.x,
+      y: parentVe.boundsPx.y + parentTopInsetPx,
+    };
+    return {
+      ...movingVe,
+      resizingFromBoundsPx: offsetBoundsPx(movingVe.resizingFromBoundsPx, offsetPx),
+      boundsPx: offsetBoundsPx(movingVe.boundsPx, offsetPx),
+      viewportBoundsPx: offsetBoundsPx(movingVe.viewportBoundsPx, offsetPx),
+      listViewportBoundsPx: offsetBoundsPx(movingVe.listViewportBoundsPx, offsetPx),
+    };
+  };
+  const dockNestedMovingOverlayVes = (visualElement: VisualElement): Array<VisualElement> =>
+    isPage(visualElement.displayItem) && asPageItem(visualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List
+      ? VesCache.render.getDesktopChildren(VeFns.veToPath(visualElement))()
+        .map(childVe => childVe.get())
+        .filter(childVe => !!(childVe.flags & VisualElementFlags.Moving))
+        .map(childVe => dockNestedMovingOverlayVe(visualElement, childVe))
+      : [];
 
   return (
     <>
@@ -152,6 +180,11 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
             <Show when={childVe.get().flags & VisualElementFlags.Moving}>
               <VisualElement_Desktop visualElement={dockMovingOverlayVe(childVe.get())} />
             </Show>
+          }</For>
+          <For each={dockChildren()}>{childVe =>
+            <For each={dockNestedMovingOverlayVes(childVe.get())}>{movingVe =>
+              <VisualElement_Desktop visualElement={movingVe} />
+            }</For>
           }</For>
         </div>
       </Show>

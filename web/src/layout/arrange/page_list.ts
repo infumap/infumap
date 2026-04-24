@@ -475,6 +475,21 @@ export function arrange_dock_list_page(
   };
 
   const pageRelationships: VisualElementRelationships = {};
+  const activeMovingVe = MouseActionState.isAction(MouseAction.Moving)
+    ? MouseActionState.getActiveVisualElement()
+    : null;
+  const activeMovingChildId = activeMovingVe
+    ? activeMovingVe.actualLinkItemMaybe?.id ?? activeMovingVe.displayItem.id
+    : null;
+  const movingItemInThisPage = (() => {
+    const activeMovingChildItem = activeMovingChildId
+      ? itemState.get(activeMovingChildId)
+      : null;
+    if (activeMovingChildItem && activeMovingChildItem.parentId == displayItem_pageWithChildren.id) {
+      return activeMovingChildItem;
+    }
+    return getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
+  })();
 
   let listChildPaths: Array<VisualElementPath> = [];
   let skippedCount = 0;
@@ -490,6 +505,11 @@ export function arrange_dock_list_page(
       continue;
     }
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+
+    if (movingItemInThisPage && childItem.id == movingItemInThisPage.id) {
+      skippedCount += 1;
+      continue;
+    }
 
     if (isComposite(displayItem)) {
       initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
@@ -522,6 +542,29 @@ export function arrange_dock_list_page(
     VesCache.arrange.createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
     listChildPaths.push(childPath);
   }
+
+  if (movingItemInThisPage) {
+    const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
+    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
+    const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const titleHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+    const cellBoundsPx = {
+      x: mouseDesktopPosPx.x - geometry.boundsPx.x,
+      y: mouseDesktopPosPx.y - geometry.boundsPx.y - titleHeightPx,
+      w: dimensionsBl.w * LINE_HEIGHT_PX,
+      h: dimensionsBl.h * LINE_HEIGHT_PX,
+    };
+
+    const clickOffsetProp = MouseActionState.getClickOffsetProp() ?? { x: 0, y: 0 };
+    cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
+    cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
+    const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, false, false, false, false, false, false, false, store.smallScreenMode());
+    listChildPaths.push(arrangeItemPath(
+      store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
+      ArrangeItemFlags.RenderChildrenAsFull |
+      ArrangeItemFlags.IsMoving));
+  }
+
   pageRelationships.childrenPaths = listChildPaths;
 
   return { spec: pageSpec, relationships: pageRelationships };
