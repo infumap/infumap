@@ -465,7 +465,16 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       </div>
     </Show>;
 
-  const selectedRootVeMaybe = () => VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
+  const selectedRootVeMaybe = () => {
+    const selectedVe = VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
+    if (!selectedVe) {
+      return selectedVe;
+    }
+    if (store.history.currentPopupSpecVeid() != null && store.anItemIsMoving.get()) {
+      return null;
+    }
+    return selectedVe;
+  };
   const popupRootVeMaybe = () => VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()?.get() ?? null;
 
   const renderSelectedRootMaybe = () =>

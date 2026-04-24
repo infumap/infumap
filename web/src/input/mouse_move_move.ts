@@ -50,6 +50,7 @@ import createJustifiedLayout from "justified-layout";
 import { createJustifyOptions } from "../layout/arrange/page_justified";
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
 import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets } from "./move_group";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 
 
 
@@ -95,6 +96,38 @@ function moveRollbackOrderingForChild(childId: string): Uint8Array | null {
   return rollback ? new Uint8Array(rollback.ordering) : null;
 }
 
+function normalizeMovingListPageSelectedMainVe(
+  store: StoreContextModel,
+  activeVisualElement: VisualElement,
+  desktopPosPx: Vector,
+): VisualElement {
+  if (activeVisualElement.linkItemMaybe?.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM || activeVisualElement.parentPath == null) {
+    return activeVisualElement;
+  }
+
+  const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath);
+  const parentViewportBoundsPx = parentVe != null
+    ? VeFns.veViewportBoundsRelativeToDesktopPx(store, parentVe)
+    : null;
+  const proxyBoundsPx = parentViewportBoundsPx != null
+    ? {
+      x: parentViewportBoundsPx.x + activeVisualElement.boundsPx.x,
+      y: parentViewportBoundsPx.y + activeVisualElement.boundsPx.y,
+      w: activeVisualElement.boundsPx.w,
+      h: activeVisualElement.boundsPx.h,
+    }
+    : VeFns.veBoundsRelativeToDesktopPx(store, activeVisualElement);
+  const movingDimensionsBl = ItemFns.calcSpatialDimensionsBl(VeFns.treeItem(activeVisualElement));
+  MouseActionState.setClickOffsetProp({
+    x: Math.max(0, Math.min(1, (desktopPosPx.x - proxyBoundsPx.x) / Math.max(1, movingDimensionsBl.w * LINE_HEIGHT_PX))),
+    y: Math.max(0, Math.min(1, (desktopPosPx.y - proxyBoundsPx.y) / Math.max(1, movingDimensionsBl.h * LINE_HEIGHT_PX))),
+  });
+
+  const actualChildPath = VeFns.addVeidToPath(VeFns.actualVeidFromVe(activeVisualElement), activeVisualElement.parentPath);
+  MouseActionState.setActiveElementPath(actualChildPath);
+  return MouseActionState.readVisualElement(actualChildPath) ?? activeVisualElement;
+}
+
 function preserveListSelectionWhenMovingSelectedChild(
   store: StoreContextModel,
   listPageVe: VisualElement | null,
@@ -121,6 +154,8 @@ function preserveListSelectionWhenMovingSelectedChild(
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
+  activeVisualElement = normalizeMovingListPageSelectedMainVe(store, activeVisualElement, desktopPosPx);
+  activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
   if (!itemCanMove(activeItem)) {
     return;
   }

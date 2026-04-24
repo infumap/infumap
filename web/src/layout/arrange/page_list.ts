@@ -61,17 +61,30 @@ export function arrange_list_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
   const listPageActualVeid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
+  const currentPopupSpec = store.history.currentPopupSpec();
+  const isBackgroundRenderOfPopupPage =
+    currentPopupSpec != null &&
+    !(flags & ArrangeItemFlags.IsPopupRoot) &&
+    VeFns.compareVeids(currentPopupSpec.actualVeid, listPageActualVeid) == 0;
 
   const focusVeid = VeFns.veidFromPath(store.history.getFocusPath());
   const focusPath = store.history.getFocusPath();
   const pages = store.topTitledPages.get();
-  const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
   const activeMovingVe = MouseActionState.isAction(MouseAction.Moving)
     ? MouseActionState.getActiveVisualElement()
     : null;
   const activeMovingChildId = activeMovingVe
     ? activeMovingVe.actualLinkItemMaybe?.id ?? activeMovingVe.displayItem.id
     : null;
+  const movingItemInThisPage = (() => {
+    const activeMovingChildItem = activeMovingChildId
+      ? itemState.get(activeMovingChildId)
+      : null;
+    if (activeMovingChildItem && activeMovingChildItem.parentId == displayItem_pageWithChildren.id) {
+      return activeMovingChildItem;
+    }
+    return getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
+  })();
   const activeMovingOriginalOrdering = activeMovingChildId
     ? MouseActionState.getMoveRollback()?.find(entry => entry.id == activeMovingChildId)?.ordering ?? null
     : null;
@@ -278,40 +291,40 @@ export function arrange_list_page(
     geometry.viewportBoundsPx!.h,
   );
 
-  if (movingItemInThisPage) {
+  if (movingItemInThisPage && !isBackgroundRenderOfPopupPage) {
     const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
-
-    let scrollPropY;
-    let scrollPropX;
-    if (flags & ArrangeItemFlags.IsPopupRoot) {
-      const popupSpec = store.history.currentPopupSpec();
-      assert(itemState.get(popupSpec!.actualVeid.itemId)!.itemType == ItemType.Page, "popup spec does not have type page.");
-      scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
-      scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
-    } else {
-      scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-      scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-    }
-
-    const umbrellaVisualElement = store.umbrellaVisualElement.get();
-    const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
-    const desktopSizePx = store.desktopBoundsPx();
-    const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
-    const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
-
-    const yOffsetPx = scrollPropY * (listChildAreaBoundsPx.h - geometry.boundsPx.h);
-    const xOffsetPx = scrollPropX * (listChildAreaBoundsPx.w - geometry.boundsPx.w);
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-    const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
-    // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
-    const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
-    const cellBoundsPx = {
-      x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
-      y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
-      w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
-      h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
-    };
+    const cellBoundsPx = (() => {
+      if (flags & ArrangeItemFlags.IsPopupRoot) {
+        const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+        return {
+          x: mouseDesktopPosPx.x - geometry.viewportBoundsPx!.x - adjX,
+          y: mouseDesktopPosPx.y - geometry.viewportBoundsPx!.y,
+          w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
+          h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
+        };
+      }
+
+      const scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+      const scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+      const yOffsetPx = scrollPropY * Math.max(0, listChildAreaBoundsPx.h - geometry.viewportBoundsPx!.h);
+      const xOffsetPx = scrollPropX * Math.max(0, listChildAreaBoundsPx.w - geometry.viewportBoundsPx!.w);
+      const umbrellaVisualElement = store.umbrellaVisualElement.get();
+      const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
+      const desktopSizePx = store.desktopBoundsPx();
+      const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
+      const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
+      const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+      // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
+      const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+      return {
+        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
+        y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
+        w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
+        h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
+      };
+    })();
 
     const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
     cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;

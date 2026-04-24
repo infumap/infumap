@@ -46,6 +46,7 @@ import { autoMovedIntoViewBackgroundImage, scrollGestureStyleForArrangeAlgorithm
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
+import { MouseAction, MouseActionState } from "../../input/state";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -58,7 +59,19 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   let popupDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
-  const selectedRootVeMaybe = () => VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
+  const selectedRootVeMaybe = () => {
+    const selectedVe = VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
+    if (selectedVe == null || !MouseActionState.isAction(MouseAction.Moving)) {
+      return selectedVe;
+    }
+    const activeMovingVe = MouseActionState.getActiveVisualElement();
+    if (!activeMovingVe) {
+      return selectedVe;
+    }
+    return VeFns.compareVeids(VeFns.actualVeidFromVe(selectedVe), VeFns.actualVeidFromVe(activeMovingVe)) == 0
+      ? null
+      : selectedVe;
+  };
 
   onMount(() => {
     const veid = store.history.currentPopupSpec()!.actualVeid;
@@ -339,6 +352,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
+          {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>
       <For each={pageFns().desktopChildren()}>{childVe =>
