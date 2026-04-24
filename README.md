@@ -7,10 +7,6 @@ Summary:
   - Optimized for rapid navigation.
 - In development: Search and structure API for AI integration.
 
-Infumap development is driven by two things:
-- I want to be control of my personal information - I want to avoid 3rd parties having access wherever possible.
-- The UI is a bit novel, and it's working. The idea space is exciting to explore.
-
 <kbd>
   <img src="screenshot.png" />
 </kbd>
