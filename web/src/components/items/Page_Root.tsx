@@ -64,6 +64,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     if (veid == null) return null;
     if (props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
       veid = VeFns.actualVeidFromVe(props.visualElement);
+    } else if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
+      veid = VeFns.actualVeidFromVe(props.visualElement);
     } else if (props.visualElement.parentPath && props.visualElement.parentPath != UMBRELLA_PAGE_UID) {
       // Use veidFromPath as a fallback if the parent isn't in VesCache yet (e.g. during initial mount)
       const parentVeid = VesCache.render.getNode(props.visualElement.parentPath)

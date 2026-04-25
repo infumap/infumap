@@ -716,8 +716,9 @@ export const VeFns = {
     }
 
     if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx) {
-      const adjY = (visualElement.childAreaBoundsPx!.h - visualElement.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromVe(visualElement));
-      const adjX = (visualElement.childAreaBoundsPx!.w - visualElement.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(VeFns.veidFromVe(visualElement));
+      const pageVeid = VeFns.actualVeidFromVe(visualElement);
+      const adjY = (visualElement.childAreaBoundsPx!.h - visualElement.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid);
+      const adjX = (visualElement.childAreaBoundsPx!.w - visualElement.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid);
       const popupTitleHeightMaybePx = visualElement.boundsPx.h - visualElement.viewportBoundsPx!.h;
       return {
         x: r.x + adjX,

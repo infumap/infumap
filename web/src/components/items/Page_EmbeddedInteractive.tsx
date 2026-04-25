@@ -51,8 +51,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const getScrollVeid = () => {
     let veid = VeFns.veidFromVe(props.visualElement);
     if ((props.visualElement.flags & VisualElementFlags.ListPageRoot) && props.visualElement.parentPath) {
-      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath);
-      veid = store.perItem.getSelectedListPageItem(parentVeid);
+      veid = VeFns.actualVeidFromVe(props.visualElement);
     }
     return veid;
   };
