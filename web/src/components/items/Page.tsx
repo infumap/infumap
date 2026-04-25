@@ -60,6 +60,7 @@ import {
   calcSearchWorkspaceResultsFooterHeightPx,
   searchResultsFooterHostId,
 } from "../../items/search-item";
+import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -158,6 +159,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     },
 
     childAreaBoundsPx: () => props.visualElement.childAreaBoundsPx!,
+
+    gridPagePaddingPx: () =>
+      pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid
+        ? calcJustifiedPagePaddingPx(pageFns.childAreaBoundsPx().w, pageFns.pageItem().justifiedRowAspect)
+        : 0,
+
+    gridContentWidthPx: () =>
+      Math.max(0, pageFns.childAreaBoundsPx().w - pageFns.gridPagePaddingPx() * 2.0),
 
     clickBoundsPx: (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.Click || hb.type == HitboxFlags.OpenAttachment)?.boundsPx ?? null,
 
@@ -333,7 +342,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             <For each={[...Array(pageFns.pageItem().gridNumberOfColumns).keys()]}>{i =>
               <Show when={i != 0}>
                 <div class="absolute bg-slate-100"
-                  style={`left: ${props.visualElement.cellSizePx!.w * i}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
+                  style={`left: ${pageFns.gridPagePaddingPx() + props.visualElement.cellSizePx!.w * i}px; ` +
+                    `height: ${props.visualElement.cellSizePx!.h * props.visualElement.numRows!}px; ` +
+                    `width: 1px; top: ${pageFns.gridPagePaddingPx()}px;`} />
               </Show>
             }</For>
           </Match>
@@ -345,9 +356,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
           <div class="absolute bg-slate-100"
             style={`left: ${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogContentLeftPx() : 0}px; ` +
+              `${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ? `left: ${pageFns.gridPagePaddingPx()}px; ` : ""}` +
               `height: 1px; ` +
               `width: ${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogContentWidthPx() : pageFns.childAreaBoundsPx().w}px; ` +
-              `top: ${props.visualElement.cellSizePx!.h * (i + 1)}px;`} />
+              `${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ? `width: ${pageFns.gridContentWidthPx()}px; ` : ""}` +
+              `top: ${props.visualElement.cellSizePx!.h * (i + 1) + pageFns.gridPagePaddingPx()}px;`} />
         }</For>
       </Show>,
 
@@ -413,8 +426,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const selectedIndex = selectedSearchResultIndex();
         const row = Math.floor(selectedIndex / numCols);
         const col = selectedIndex % numCols;
-        return `left: ${col * props.visualElement.cellSizePx!.w}px; ` +
-          `top: ${row * props.visualElement.cellSizePx!.h}px; ` +
+        return `left: ${pageFns.gridPagePaddingPx() + col * props.visualElement.cellSizePx!.w}px; ` +
+          `top: ${pageFns.gridPagePaddingPx() + row * props.visualElement.cellSizePx!.h}px; ` +
           `width: ${props.visualElement.cellSizePx!.w}px; ` +
           `height: ${props.visualElement.cellSizePx!.h}px; ` +
           `background-color: ${SELECTED_LIGHT}; z-index: 1;`;
@@ -440,8 +453,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const index = hoveredIndex();
         const row = Math.floor(index / numCols);
         const col = index % numCols;
-        return `left: ${col * props.visualElement.cellSizePx!.w}px; ` +
-          `top: ${row * props.visualElement.cellSizePx!.h}px; ` +
+        return `left: ${pageFns.gridPagePaddingPx() + col * props.visualElement.cellSizePx!.w}px; ` +
+          `top: ${pageFns.gridPagePaddingPx() + row * props.visualElement.cellSizePx!.h}px; ` +
           `width: ${props.visualElement.cellSizePx!.w}px; ` +
           `height: ${props.visualElement.cellSizePx!.h}px; ` +
           `background-color: #00000007; z-index: 3;`;
@@ -568,8 +581,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     renderMoveOverIndexMaybe: () => {
       if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-        const topPx = props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
-        const leftPx = props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns) + 1;
+        const topPx = pageFns.gridPagePaddingPx() + props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
+        const leftPx = pageFns.gridPagePaddingPx() + props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns) + 1;
         const heightPx = props.visualElement.cellSizePx!.h;
         return (
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />

@@ -31,6 +31,7 @@ import { asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
 import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../constants";
 import { isPositionalItem, asPositionalItem } from "../items/base/positional-item";
 import { isXSizableItem, asXSizableItem } from "../items/base/x-sizeable-item";
+import { calcJustifiedPagePaddingPx } from "./arrange/justified_metrics";
 
 function isVeInsideTranslucentPage(currentVePath: VisualElementPath): boolean {
   let path = currentVePath;
@@ -235,9 +236,12 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
 
           const cellHeight = parentVe.cellSizePx?.h || LINE_HEIGHT_PX;
           const cellWidth = parentVe.cellSizePx?.w || LINE_HEIGHT_PX;
+          const pagePaddingPx = parentVe.childAreaBoundsPx
+            ? calcJustifiedPagePaddingPx(parentVe.childAreaBoundsPx.w, pageItem.justifiedRowAspect)
+            : 0;
 
-          const itemYPx = row * cellHeight;
-          const itemXPx = col * cellWidth;
+          const itemYPx = pagePaddingPx + row * cellHeight;
+          const itemXPx = pagePaddingPx + col * cellWidth;
 
           const viewportHeight = parentVe.viewportBoundsPx?.h || parentVe.boundsPx.h;
           const viewportWidth = parentVe.viewportBoundsPx?.w || parentVe.boundsPx.w;

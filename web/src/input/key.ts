@@ -25,6 +25,7 @@ import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
+import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { navigateToContainingPageOfItem, navigateToSearches, switchToPage } from "../layout/navigation";
 import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
@@ -247,7 +248,9 @@ function scrollSearchResultIndexIntoView(store: StoreContextModel, workspace: Ac
   const currentProp = store.perItem.getPageScrollYProp(veid);
   const currentScrollPx = currentProp * maxScrollPx;
   const rowIndex = Math.floor(resultIndex / getSearchWorkspaceColumnCount(workspace));
-  const rowTopPx = rowIndex * resultsPageVe.cellSizePx.h;
+  const resultsPage = asPageItem(resultsPageVe.displayItem);
+  const pagePaddingPx = calcJustifiedPagePaddingPx(resultsPageVe.childAreaBoundsPx.w, resultsPage.justifiedRowAspect);
+  const rowTopPx = pagePaddingPx + rowIndex * resultsPageVe.cellSizePx.h;
   const rowBottomPx = rowTopPx + resultsPageVe.cellSizePx.h;
   const viewportTopPx = currentScrollPx;
   const viewportBottomPx = currentScrollPx + resultsPageVe.viewportBoundsPx.h;

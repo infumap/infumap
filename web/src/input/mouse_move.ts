@@ -45,6 +45,7 @@ import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { itemState } from "../store/ItemState";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { calcSpatialPopupGeometry } from "../layout/arrange/popup";
+import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import {
   calculateCalendarDimensions,
   getCalendarDividerCenterPx,
@@ -335,11 +336,14 @@ function searchGridCellIndexFromBounds(
   const scrollVeid = VeFns.actualVeidFromVe(gridPageVe);
   const scrollYPx = Math.max(0, gridPageVe.childAreaBoundsPx.h - gridPageVe.viewportBoundsPx.h) *
     store.perItem.getPageScrollYProp(scrollVeid);
-  const localX = desktopPosPx.x - gridViewportBoundsPx.x;
-  const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx;
+  const pagePaddingPx = calcJustifiedPagePaddingPx(gridPageVe.childAreaBoundsPx.w, pageItem.justifiedRowAspect);
+  const localX = desktopPosPx.x - gridViewportBoundsPx.x - pagePaddingPx;
+  const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx - pagePaddingPx;
   const cellW = gridPageVe.cellSizePx.w;
   const cellH = gridPageVe.cellSizePx.h;
-  if (cellW <= 0 || cellH <= 0 || localX < 0 || localX >= gridPageVe.childAreaBoundsPx.w || localY < 0 || localY >= gridPageVe.childAreaBoundsPx.h) {
+  const contentWidthPx = cellW * Math.max(1, pageItem.gridNumberOfColumns);
+  const contentHeightPx = cellH * Math.max(0, gridPageVe.numRows ?? 0);
+  if (cellW <= 0 || cellH <= 0 || localX < 0 || localX >= contentWidthPx || localY < 0 || localY >= contentHeightPx) {
     return -1;
   }
 

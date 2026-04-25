@@ -32,6 +32,7 @@ import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "./items/page-ite
 import { PlaceholderFns, isPlaceholder } from "./items/placeholder-item";
 import { asTableItem, isTable, TableFns } from "./items/table-item";
 import { requestArrange } from "./layout/arrange";
+import { calcJustifiedPagePaddingPx } from "./layout/arrange/justified_metrics";
 import { server } from "./server";
 import { itemState } from "./store/ItemState";
 import { StoreContextModel } from "./store/StoreProvider";
@@ -194,8 +195,11 @@ function orderedPageInsertIndexFromDesktopPx(
         * (pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h);
       const scrollXPx = store.perItem.getPageScrollXProp(veid)
         * (pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w);
-      const cellX = Math.floor((xOffsetPx + scrollXPx) / pageVe.cellSizePx.w);
-      const cellY = Math.floor((yOffsetPx + scrollYPx) / pageVe.cellSizePx.h);
+      const pagePaddingPx = calcJustifiedPagePaddingPx(pageVe.childAreaBoundsPx.w, page.justifiedRowAspect);
+      const rawCellX = Math.floor((xOffsetPx + scrollXPx - pagePaddingPx) / pageVe.cellSizePx.w);
+      const rawCellY = Math.floor((yOffsetPx + scrollYPx - pagePaddingPx) / pageVe.cellSizePx.h);
+      const cellX = Math.max(0, Math.min(page.gridNumberOfColumns, rawCellX));
+      const cellY = Math.max(0, rawCellY);
       const rawIndex = cellY * page.gridNumberOfColumns + cellX;
       return Math.max(0, Math.min(rawIndex, page.computed_children.length));
     }

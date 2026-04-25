@@ -33,6 +33,7 @@ import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { calcJustifiedPagePaddingPx } from "./justified_metrics";
 import { arrangeCellPopupPath } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
 
@@ -81,10 +82,12 @@ export function arrange_grid_page(
 
   const movingAdj = movingItemInThisPage ? 1 : 0;
   const numRows = Math.ceil((pageItem.computed_children.length - movingAdj + nItemAdj) / numCols);
-  const cellWPx = geometry.boundsPx.w / numCols;
+  const pagePaddingPx = calcJustifiedPagePaddingPx(geometry.boundsPx.w, pageItem.justifiedRowAspect);
+  const gridContentWidthPx = Math.max(0, geometry.boundsPx.w - pagePaddingPx * 2.0);
+  const cellWPx = gridContentWidthPx / numCols;
   const cellHPx = cellWPx * (1.0 / pageItem.gridCellAspect);
   const marginPx = cellWPx * 0.01;
-  const pageHeightPx = numRows * cellHPx + searchResultsFooterHeightPx;
+  const pageHeightPx = pagePaddingPx + numRows * cellHPx + pagePaddingPx + searchResultsFooterHeightPx;
   const childAreaBoundsPx = (() => {
     const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
     result.h = pageHeightPx;
@@ -138,8 +141,8 @@ export function arrange_grid_page(
     const row = Math.floor(idx / numCols);
     idx += 1;
     const cellBoundsPx = {
-      x: col * cellWPx + marginPx,
-      y: row * cellHPx + marginPx,
+      x: pagePaddingPx + col * cellWPx + marginPx,
+      y: pagePaddingPx + row * cellHPx + marginPx,
       w: cellWPx - marginPx * 2.0,
       h: cellHPx - marginPx * 2.0
     };
@@ -164,8 +167,8 @@ export function arrange_grid_page(
         searchGridCellIndex: cellIndex,
         ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
       };
-      const cellLocalLeftPx = col * cellWPx - cellGeometry.boundsPx.x;
-      const cellLocalTopPx = row * cellHPx - cellGeometry.boundsPx.y;
+      const cellLocalLeftPx = pagePaddingPx + col * cellWPx - cellGeometry.boundsPx.x;
+      const cellLocalTopPx = pagePaddingPx + row * cellHPx - cellGeometry.boundsPx.y;
       const itemLocalLeftPx = 0;
       const itemLocalTopPx = 0;
       const itemLocalRightPx = cellGeometry.boundsPx.w;

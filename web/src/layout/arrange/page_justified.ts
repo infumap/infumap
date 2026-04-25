@@ -31,6 +31,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTargetRowHeightPx } from "./justified_metrics";
 import { arrangeCellPopupPath } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
 import createJustifiedLayout from "justified-layout";
@@ -226,12 +227,11 @@ function arrangeMovingItemInJustified(
 
 
 export function createJustifyOptions(widthPx: number, rowAspect: number) {
-  const NORMAL_ROW_HEIGHT = 200;
-  const targetRowHeight = widthPx / rowAspect;
+  const targetRowHeight = calcJustifiedTargetRowHeightPx(widthPx, rowAspect);
   const options: JustifiedLayoutOptions = {
     containerWidth: widthPx,
-    containerPadding: 10 * targetRowHeight / NORMAL_ROW_HEIGHT,
-    boxSpacing: 5 * targetRowHeight / NORMAL_ROW_HEIGHT,
+    containerPadding: calcJustifiedPagePaddingPx(widthPx, rowAspect),
+    boxSpacing: calcJustifiedBoxSpacingPx(widthPx, rowAspect),
     targetRowHeight,
   };
   return options;

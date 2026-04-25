@@ -47,6 +47,7 @@ import { asContainerItem } from "../items/base/container-item";
 import { newUid } from "../util/uid";
 import { isDataItem } from "../items/base/data-item";
 import createJustifiedLayout from "justified-layout";
+import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { createJustifyOptions } from "../layout/arrange/page_justified";
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
 import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets } from "./move_group";
@@ -514,10 +515,14 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       * (inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
     const scrollXPx = store.perItem.getPageScrollXProp(veid)
       * (inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
-    const cellX = Math.floor((xOffsetPx + scrollXPx) / inElementVe.cellSizePx!.w);
-    const cellY = Math.floor((yOffsetPx + scrollYPx) / inElementVe.cellSizePx!.h);
+    const pagePaddingPx = calcJustifiedPagePaddingPx(inElementVe.childAreaBoundsPx!.w, asPageItem(inElement).justifiedRowAspect);
+    const rawCellX = Math.floor((xOffsetPx + scrollXPx - pagePaddingPx) / inElementVe.cellSizePx!.w);
+    const rawCellY = Math.floor((yOffsetPx + scrollYPx - pagePaddingPx) / inElementVe.cellSizePx!.h);
+    const cellX = Math.max(0, Math.min(asPageItem(inElement).gridNumberOfColumns, rawCellX));
+    const cellY = Math.max(0, rawCellY);
     let index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
     const numChildren = asContainerItem(inElement).computed_children.length;
+    if (index < 0) { index = 0; }
     if (index >= numChildren) { index = numChildren - 1; } // numChildren is inclusive of the moving item so -1.
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
