@@ -344,7 +344,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Switch>
         <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
           <div class="absolute bg-slate-100"
-            style={`left: ${pageFns.catalogContentLeftPx()}px; height: 1px; width: ${pageFns.catalogContentWidthPx()}px; top: ${props.visualElement.cellSizePx!.h * (i + 1)}px;`} />
+            style={`left: ${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogContentLeftPx() : 0}px; ` +
+              `height: 1px; ` +
+              `width: ${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogContentWidthPx() : pageFns.childAreaBoundsPx().w}px; ` +
+              `top: ${props.visualElement.cellSizePx!.h * (i + 1)}px;`} />
         }</For>
       </Show>,
 
@@ -572,13 +575,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
-        const lineBoundsPx = stackedInsertionLineBoundsPx(pageFns.nonMovingChildren().map(childVe => childVe.get()), pageFns.childAreaBoundsPx().w, store.perVe.getMoveOverIndex(pageFns.vePath()));
+        const lineBoundsPx = stackedInsertionLineBoundsPx(pageFns.nonMovingChildren().map(childVe => childVe.get()), pageFns.catalogContentWidthPx(), store.perVe.getMoveOverIndex(pageFns.vePath()));
         if (!lineBoundsPx) {
           return <></>;
         }
         return (
           <div class="absolute pointer-events-none bg-black"
-            style={`left: ${lineBoundsPx.x + pageFns.catalogContentLeftPx()}px; top: ${lineBoundsPx.y - 1}px; width: ${pageFns.catalogContentWidthPx()}px; height: 2px;`} />
+            style={`left: ${lineBoundsPx.x + pageFns.catalogContentLeftPx()}px; top: ${lineBoundsPx.y - 1}px; width: ${lineBoundsPx.w}px; height: 2px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
         const lineBoundsPx = pageFns.listMoveOverInsertLineBoundsPx();
