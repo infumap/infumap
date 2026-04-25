@@ -17,9 +17,14 @@
 */
 
 export const CATALOG_DETAIL_COLUMN_PADDING_PX = 14;
+export const CATALOG_HORIZONTAL_MARGIN_PX = 12;
+
+export function calcCatalogContentWidthPx(pageWidthPx: number): number {
+  return Math.max(0, pageWidthPx - CATALOG_HORIZONTAL_MARGIN_PX * 2);
+}
 
 export function calcCatalogPreviewColumnWidthPx(pageWidthPx: number): number {
-  const preferredWidthPx = Math.round(pageWidthPx * 0.22);
+  const preferredWidthPx = Math.round(calcCatalogContentWidthPx(pageWidthPx) * 0.22);
   return Math.max(150, Math.min(260, preferredWidthPx));
 }
 
@@ -27,4 +32,3 @@ export function calcCatalogRowHeightPx(previewColumnWidthPx: number, gridCellAsp
   const safeAspect = Math.max(gridCellAspect, 0.25);
   return Math.max(48, Math.round(previewColumnWidthPx / safeAspect));
 }
-

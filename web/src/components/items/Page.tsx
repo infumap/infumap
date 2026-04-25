@@ -40,7 +40,13 @@ import { Page_Popup } from "./Page_Popup";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { calculateCalendarDimensions, calculateCalendarWindow, decodeCalendarCombinedIndex, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
-import { calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx, CATALOG_DETAIL_COLUMN_PADDING_PX } from "../../layout/catalog";
+import {
+  calcCatalogContentWidthPx,
+  calcCatalogPreviewColumnWidthPx,
+  calcCatalogRowHeightPx,
+  CATALOG_DETAIL_COLUMN_PADDING_PX,
+  CATALOG_HORIZONTAL_MARGIN_PX,
+} from "../../layout/catalog";
 import { itemPathSegmentsFromItem, resolvedPathTargetItemForItem } from "../../util/item-path";
 import { Item, ItemType } from "../../items/base/item";
 import { asContainerItem, isContainer } from "../../items/base/container-item";
@@ -333,18 +339,25 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           </Match>
           <Match when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
             <div class="absolute bg-slate-100"
-              style={`left: ${pageFns.catalogPreviewColumnWidthPx()}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
+              style={`left: ${pageFns.catalogDividerLeftPx()}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
           </Match>
         </Switch>
         <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
           <div class="absolute bg-slate-100"
-            style={`left: 0px; height: 1px; width: ${pageFns.childAreaBoundsPx().w}px; top: ${props.visualElement.cellSizePx!.h * (i + 1)}px;`} />
+            style={`left: ${pageFns.catalogContentLeftPx()}px; height: 1px; width: ${pageFns.catalogContentWidthPx()}px; top: ${props.visualElement.cellSizePx!.h * (i + 1)}px;`} />
         }</For>
       </Show>,
+
+    catalogContentLeftPx: () => CATALOG_HORIZONTAL_MARGIN_PX,
+
+    catalogContentWidthPx: () => calcCatalogContentWidthPx(pageFns.childAreaBoundsPx().w),
 
     catalogPreviewColumnWidthPx: () =>
       props.visualElement.cellSizePx?.w ??
       calcCatalogPreviewColumnWidthPx(pageFns.childAreaBoundsPx().w),
+
+    catalogDividerLeftPx: () =>
+      pageFns.catalogContentLeftPx() + pageFns.catalogPreviewColumnWidthPx(),
 
     catalogRowHeightPx: () =>
       props.visualElement.cellSizePx?.h ??
@@ -456,18 +469,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const metadataLines = () => catalogMetadataLines(catalogItem());
           const rowIndex = () => childVe().row ?? Math.max(0, Math.round(childVe().boundsPx.y / pageFns.catalogRowHeightPx()));
           const topPx = () => rowIndex() * pageFns.catalogRowHeightPx();
-          const leftPx = () => pageFns.catalogPreviewColumnWidthPx() + CATALOG_DETAIL_COLUMN_PADDING_PX;
-          const widthPx = () => Math.max(0, pageFns.childAreaBoundsPx().w - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
+          const leftPx = () => pageFns.catalogDividerLeftPx() + CATALOG_DETAIL_COLUMN_PADDING_PX;
+          const widthPx = () => Math.max(0, pageFns.catalogContentLeftPx() + pageFns.catalogContentWidthPx() - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
           return (
             <>
               <Show when={isSelectedSearchRow()}>
                 <div class="absolute pointer-events-none"
-                  style={`left: 0px; top: ${topPx()}px; width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
+                  style={`left: ${pageFns.catalogContentLeftPx()}px; top: ${topPx()}px; width: ${pageFns.catalogContentWidthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                     `background-color: ${SELECTED_LIGHT};`} />
               </Show>
               <Show when={isMouseOverRow()}>
                 <div class="absolute pointer-events-none"
-                  style={`left: 0px; top: ${topPx()}px; width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
+                  style={`left: ${pageFns.catalogContentLeftPx()}px; top: ${topPx()}px; width: ${pageFns.catalogContentWidthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                     `background-color: #00000007;`} />
               </Show>
               <div class="absolute flex items-start pointer-events-none"
@@ -528,14 +541,22 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               `${VeFns.zIndexStyle(props.visualElement)}`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-        pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified ||
-        pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+        pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
         const heightPx = Math.max(pageFns.childAreaBoundsPx().h, pageFns.boundsPx().h);
         return (
           <div class="absolute pointer-events-none"
             style={`background-color: #0044ff0a; ` +
               `left: ${0}px; top: ${0}px; ` +
               `width: ${pageFns.childAreaBoundsPx().w}px; height: ${heightPx}px; ` +
+              `${VeFns.zIndexStyle(props.visualElement)}`} />
+        );
+      } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+        const heightPx = Math.max(pageFns.childAreaBoundsPx().h, pageFns.boundsPx().h);
+        return (
+          <div class="absolute pointer-events-none"
+            style={`background-color: #0044ff0a; ` +
+              `left: ${pageFns.catalogContentLeftPx()}px; top: ${0}px; ` +
+              `width: ${pageFns.catalogContentWidthPx()}px; height: ${heightPx}px; ` +
               `${VeFns.zIndexStyle(props.visualElement)}`} />
         );
       }
@@ -557,7 +578,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         }
         return (
           <div class="absolute pointer-events-none bg-black"
-            style={`left: ${lineBoundsPx.x}px; top: ${lineBoundsPx.y - 1}px; width: ${lineBoundsPx.w}px; height: 2px;`} />
+            style={`left: ${lineBoundsPx.x + pageFns.catalogContentLeftPx()}px; top: ${lineBoundsPx.y - 1}px; width: ${pageFns.catalogContentWidthPx()}px; height: 2px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
         const lineBoundsPx = pageFns.listMoveOverInsertLineBoundsPx();

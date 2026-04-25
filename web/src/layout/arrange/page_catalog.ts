@@ -33,7 +33,7 @@ import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes,
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
-import { calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx } from "../catalog";
+import { CATALOG_HORIZONTAL_MARGIN_PX, calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx } from "../catalog";
 import { arrangeCellPopupPath } from "./popup";
 import { VisualElementSignal } from "../../util/signals";
 
@@ -119,7 +119,7 @@ export function arrange_catalog_page(
     }
 
     const cellBoundsPx = {
-      x: marginPx,
+      x: CATALOG_HORIZONTAL_MARGIN_PX + marginPx,
       y: idx * rowHeightPx + marginPx,
       w: previewColumnWidthPx - marginPx * 2.0,
       h: rowHeightPx - marginPx * 2.0,
