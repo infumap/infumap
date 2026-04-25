@@ -160,7 +160,7 @@ export const renderDockMaybe = (
     const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDockChildAreaPosPx);
     arrangeItem(
       store, dockPath, ArrangeAlgorithm.Dock, movingItemInThisPage, actualLinkItemMaybe, cellGeometry,
-      ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
+      ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsMoving);
     dockChildren.push(movingPath);
   }
 
