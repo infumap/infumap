@@ -478,6 +478,7 @@ export function calcSpatialPopupGeometry(
   const useSourceTopLeftAnchor = currentPopupSpec?.sourceTopLeftGr != null && !popupPage && !popupImage;
   const useCalendarNaturalSourcePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && useSourceTopLeftAnchor;
   const expandCalendarSpatialNotePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar &&
+    !useCalendarNaturalSourcePopup &&
     !popupPage &&
     !popupImage &&
     isNote(popupItem);
