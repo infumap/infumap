@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
@@ -32,9 +32,13 @@ import { ArrangeItemFlags, arrangeItem } from "./item";
 import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
+import { Item } from "../../items/base/item";
 import { ImageFns, asImageItem, isImage } from "../../items/image-item";
 import { asNoteItem, isNote, NoteFns } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
+
+
+const CALENDAR_NOTE_POPUP_EXTRA_HEIGHT_BL = 1.0;
 
 
 /**
@@ -144,6 +148,45 @@ function offsetGeometry(geometry: ItemGeometry, dxPx: number, dyPx: number): Ite
   };
 }
 
+function calcCalendarNaturalPopupSizeBl(li: LinkItem, popupItem: Item | null): { w: number, h: number } {
+  const sizeBl = ItemFns.calcSpatialDimensionsBl(li);
+  if (popupItem && isNote(popupItem)) {
+    return {
+      w: sizeBl.w,
+      h: Math.max(sizeBl.h + CALENDAR_NOTE_POPUP_EXTRA_HEIGHT_BL, 2.0),
+    };
+  }
+  return sizeBl;
+}
+
+function expandGeometryToNaturalPopupBounds(geometry: ItemGeometry, widthPx: number, heightPx: number, sizeBl: { w: number, h: number }): ItemGeometry {
+  const nextBoundsPx = {
+    ...geometry.boundsPx,
+    w: widthPx + ITEM_BORDER_WIDTH_PX,
+    h: heightPx + ITEM_BORDER_WIDTH_PX,
+  };
+  const xScale = geometry.boundsPx.w == 0 ? 1.0 : nextBoundsPx.w / geometry.boundsPx.w;
+  const yScale = geometry.boundsPx.h == 0 ? 1.0 : nextBoundsPx.h / geometry.boundsPx.h;
+
+  return {
+    ...geometry,
+    boundsPx: nextBoundsPx,
+    blockSizePx: {
+      w: nextBoundsPx.w / sizeBl.w,
+      h: nextBoundsPx.h / sizeBl.h,
+    },
+    hitboxes: geometry.hitboxes.map(hitbox => ({
+      ...hitbox,
+      boundsPx: {
+        x: hitbox.boundsPx.x * xScale,
+        y: hitbox.boundsPx.y * yScale,
+        w: hitbox.boundsPx.w * xScale,
+        h: hitbox.boundsPx.h * yScale,
+      },
+    })),
+  };
+}
+
 function shrinkPopupSizeUntilItFits(
   buildGeometry: (sizeValue: number) => ItemGeometry,
   currentSizeValue: number,
@@ -246,7 +289,7 @@ function calcCellPopupGeometry(
   const buildGeometry = (nextPositionNorm: typeof positionNorm, nextWidthNorm: number): ItemGeometry => {
     const popupWidthPx = desktopLocalBoundsPx.w * nextWidthNorm;
     if (useNaturalBlocks) {
-      const sizeBl = ItemFns.calcSpatialDimensionsBl(li);
+      const sizeBl = calcCalendarNaturalPopupSizeBl(li, popupItem);
       const naturalWidthPx = sizeBl.w * NATURAL_BLOCK_SIZE_PX.w;
       const naturalHeightPx = sizeBl.h * NATURAL_BLOCK_SIZE_PX.h;
       const scale = naturalWidthPx > popupWidthPx ? popupWidthPx / naturalWidthPx : 1.0;
@@ -269,6 +312,9 @@ function calcCellPopupGeometry(
         true,
         store.smallScreenMode()
       );
+      if (popupItem && isNote(popupItem)) {
+        geometry = expandGeometryToNaturalPopupBounds(geometry, widthPx, heightPx, sizeBl);
+      }
       if (renderAsFixed) {
         geometry = offsetGeometry(geometry, store.getCurrentDockWidthPx(), 0);
       }
