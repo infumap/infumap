@@ -35,6 +35,7 @@ import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item
 import { ImageFns, asImageItem, isImage } from "../../items/image-item";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
+import { calcBoundsInCellFromSizeBl } from "../../items/base/item-common-fns";
 
 
 /**
@@ -235,6 +236,7 @@ function calcCellPopupGeometry(
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
+  const useNaturalBlocks = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && !popupPage && !popupImage;
 
   const visibleBoundsPx = renderAsFixed ? desktopBoundsPx : desktopLocalBoundsPx;
   const buildGeometry = (nextPositionNorm: typeof positionNorm, nextWidthNorm: number): ItemGeometry => {
@@ -246,9 +248,12 @@ function calcCellPopupGeometry(
       w: popupWidthPx,
       h: popupHeightPx,
     };
+    const geometryCellBoundsPx = useNaturalBlocks
+      ? calcBoundsInCellFromSizeBl(ItemFns.calcSpatialDimensionsBl(li), cellBoundsPx)
+      : cellBoundsPx;
     let geometry = ItemFns.calcGeometry_InCell(
       li,
-      cellBoundsPx,
+      geometryCellBoundsPx,
       false,
       false,
       false,

@@ -36,7 +36,7 @@ import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
-import { GRID_SIZE } from "../constants";
+import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
 import { isUrl, trimNewline } from "../util/string";
@@ -422,7 +422,15 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   if (hitVe.flags & VisualElementFlags.Popup) {
     let parent = VesCache.current.readNode(hitVe.parentPath!)!;
     let parentPage = asPageItem(parent.displayItem);
-    if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+    if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && !isPage(hitVe.displayItem) && !isImage(hitVe.displayItem)) {
+      const blockSizePx = hitVe.blockSizePx != null && hitVe.blockSizePx.w > 0 && hitVe.blockSizePx.h > 0
+        ? hitVe.blockSizePx
+        : NATURAL_BLOCK_SIZE_PX;
+      onePxSizeBl = {
+        x: 1.0 / blockSizePx.w,
+        y: 1.0 / blockSizePx.h
+      };
+    } else if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
       const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
       onePxSizeBl = {
         x: containerInnerDimBl.w / parent.childAreaBoundsPx!.w,

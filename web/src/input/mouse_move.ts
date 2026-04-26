@@ -438,14 +438,35 @@ function changeMouseActionStateMaybe(
         }
       } else {
         // Cell-based popup (grid, justified, calendar)
-        if (isPage(popupItem)) {
+        if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && !isPage(popupItem) && !isImage(popupItem)) {
+          const actualLinkItemMaybe = activeVisualElement.actualLinkItemMaybe;
+          if (actualLinkItemMaybe != null) {
+            MouseActionState.setStartWidthBl(actualLinkItemMaybe.spatialWidthGr / GRID_SIZE);
+          } else if (isXSizableItem(popupItem)) {
+            MouseActionState.setStartWidthBl(asXSizableItem(popupItem).spatialWidthGr / GRID_SIZE);
+          } else if (activeVisualElement.blockSizePx != null && activeVisualElement.blockSizePx.w > 0) {
+            MouseActionState.setStartWidthBl(activeVisualElement.boundsPx.w / activeVisualElement.blockSizePx.w);
+          } else {
+            MouseActionState.setStartWidthBl(activeVisualElement.boundsPx.w / NATURAL_BLOCK_SIZE_PX.w);
+          }
+
+          if (isNote(popupItem) && (asNoteItem(popupItem).flags & NoteFlags.ExplicitHeight)) {
+            MouseActionState.setStartHeightBl((actualLinkItemMaybe?.spatialHeightGr ?? asNoteItem(popupItem).spatialHeightGr) / GRID_SIZE);
+          } else if (isYSizableItem(popupItem)) {
+            MouseActionState.setStartHeightBl((actualLinkItemMaybe?.spatialHeightGr ?? asYSizableItem(popupItem).spatialHeightGr) / GRID_SIZE);
+          } else {
+            MouseActionState.setStartHeightBl(null);
+          }
+        } else if (isPage(popupItem)) {
           MouseActionState.setStartWidthBl(PageFns.getCellPopupWidthNormForParent(parentPage, asPageItem(popupItem)));
+          MouseActionState.setStartHeightBl(null);
         } else if (isImage(popupItem)) {
           MouseActionState.setStartWidthBl(ImageFns.getCellPopupWidthNormForParent(asImageItem(popupItem), store.desktopMainAreaBoundsPx()));
+          MouseActionState.setStartHeightBl(null);
         } else {
           MouseActionState.setStartWidthBl(parentPage.defaultCellPopupWidthNorm);
+          MouseActionState.setStartHeightBl(null);
         }
-        MouseActionState.setStartHeightBl(null);
       }
       MouseActionState.setAction(MouseAction.ResizingPopup);
     } else {
