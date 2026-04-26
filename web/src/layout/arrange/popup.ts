@@ -279,10 +279,12 @@ function calcCellPopupGeometry(
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
   const useNaturalBlocks = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && !popupPage && !popupImage;
+  let debugMeasuredNoteSizeBl: { w: number, h: number } | null = null;
   if (useNaturalBlocks && popupItem && isNote(popupItem)) {
     const popupNoteMeasurable = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(popupItem));
     popupNoteMeasurable.spatialWidthGr = li.spatialWidthGr;
-    li.spatialHeightGr = NoteFns.calcSpatialDimensionsBl(popupNoteMeasurable, true).h * GRID_SIZE;
+    debugMeasuredNoteSizeBl = NoteFns.calcSpatialDimensionsBl(popupNoteMeasurable, true);
+    li.spatialHeightGr = debugMeasuredNoteSizeBl.h * GRID_SIZE;
   }
 
   const visibleBoundsPx = renderAsFixed ? desktopBoundsPx : desktopLocalBoundsPx;
@@ -372,6 +374,33 @@ function calcCellPopupGeometry(
   geometry = offsetGeometry(geometry, residualTranslate.dxPx, residualTranslate.dyPx);
   if (residualTranslate.dxPx !== 0 || residualTranslate.dyPx !== 0) {
     wasAutoAdjusted = true;
+  }
+
+  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+    console.log("[calendar-popup-debug] cell-result", {
+      popupVeid,
+      popupItemType: popupItem?.itemType,
+      isNote: popupItem != null && isNote(popupItem),
+      useNaturalBlocks,
+      renderAsFixed,
+      measuredNoteSizeBl: debugMeasuredNoteSizeBl,
+      popupNaturalSizeBl: useNaturalBlocks ? calcCalendarNaturalPopupSizeBl(li, popupItem) : null,
+      linkSizeGr: {
+        w: li.spatialWidthGr,
+        h: li.spatialHeightGr,
+      },
+      widthNorm,
+      adjustedWidthNorm,
+      positionNorm,
+      adjustedPositionNorm,
+      boundsPx: geometry.boundsPx,
+      blockSizePx: geometry.blockSizePx,
+      hitboxes: geometry.hitboxes.map(hitbox => ({
+        type: hitbox.type,
+        boundsPx: hitbox.boundsPx,
+      })),
+      wasAutoAdjusted,
+    });
   }
 
   return { geometry, renderAsFixed, linkItem: li, actualLinkItemMaybe, wasAutoAdjusted };
@@ -531,6 +560,26 @@ export function calcSpatialPopupGeometry(
   geometry = offsetGeometry(geometry, residualTranslate.dxPx, residualTranslate.dyPx);
   if (residualTranslate.dxPx !== 0 || residualTranslate.dyPx !== 0) {
     wasAutoAdjusted = true;
+  }
+
+  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+    console.log("[calendar-popup-debug] spatial-result", {
+      popupVeid,
+      popupItemType: popupItem.itemType,
+      isFromAttachment,
+      popupPage: popupPage != null,
+      popupImage: popupImage != null,
+      widthGr,
+      heightGr,
+      adjustedPopupCenter,
+      linkSizeGr: {
+        w: li.spatialWidthGr,
+        h: li.spatialHeightGr,
+      },
+      boundsPx: geometry.boundsPx,
+      blockSizePx: geometry.blockSizePx,
+      wasAutoAdjusted,
+    });
   }
 
   return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe, wasAutoAdjusted, widthGr, heightGr };

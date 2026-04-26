@@ -542,6 +542,14 @@ export function arrange_calendar_page(
     if (currentPopupSpec != null) {
       const popupItemType = itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType;
       const isFromAttachment = currentPopupSpec.isFromAttachment ?? false;
+      console.log("[calendar-popup-debug] route", {
+        popupVeid: currentPopupSpec.actualVeid,
+        popupItemType,
+        isFromAttachment,
+        route: popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment ? "spatial" : "cell",
+        hasSourceTopLeftGr: currentPopupSpec.sourceTopLeftGr != null,
+        hasPendingPositionGr: currentPopupSpec.pendingPositionGr != null,
+      });
       if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment) {
         const { geometry, linkItem, actualLinkItemMaybe, wasAutoAdjusted } = calcSpatialPopupGeometry(
           store,
