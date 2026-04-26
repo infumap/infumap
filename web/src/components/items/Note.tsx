@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createEffect, For, Match, Show, Switch } from "solid-js";
+import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -120,42 +120,6 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (!reservePopupIconSpace()) { return 0; }
     return desktopPopupIconTextIndentPx(sizeBl().w);
   };
-
-  createEffect(() => {
-    if (!isPopup()) { return; }
-    console.log("[calendar-popup-debug] note-render", {
-      vePath: vePath(),
-      noteId: noteItem().id,
-      flags: noteItem().flags,
-      titleLength: noteItem().title.length,
-      boundsPx: boundsPx(),
-      blockSizePx: props.visualElement.blockSizePx,
-      sizeBl: sizeBl(),
-      naturalWidthPx: naturalWidthPx(),
-      naturalHeightPx: naturalHeightPx(),
-      widthScale: widthScale(),
-      heightScale: heightScale(),
-      textBlockScale: textBlockScale(),
-      lineHeightScale: lineHeightScale(),
-      lineClamp: lineClamp(),
-      hasPopupHandle: hasPopupHandle(),
-      reservePopupIconSpace: reservePopupIconSpace(),
-      linkItemMaybe: props.visualElement.linkItemMaybe == null
-        ? null
-        : {
-          id: props.visualElement.linkItemMaybe.id,
-          spatialWidthGr: props.visualElement.linkItemMaybe.spatialWidthGr,
-          spatialHeightGr: props.visualElement.linkItemMaybe.spatialHeightGr,
-        },
-      actualLinkItemMaybe: props.visualElement.actualLinkItemMaybe == null
-        ? null
-        : {
-          id: props.visualElement.actualLinkItemMaybe.id,
-          spatialWidthGr: props.visualElement.actualLinkItemMaybe.spatialWidthGr,
-          spatialHeightGr: props.visualElement.actualLinkItemMaybe.spatialHeightGr,
-        },
-    });
-  });
 
   const blockSize = () => {
     return {

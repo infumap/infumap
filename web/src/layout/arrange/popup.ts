@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, NOTE_PADDING_PX } from "../../constants";
+import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
@@ -211,28 +211,6 @@ function expandGeometryToNaturalPopupBounds(geometry: ItemGeometry, widthPx: num
   );
 }
 
-function expandGeometryToRenderedNoteHeight(geometry: ItemGeometry, li: LinkItem): ItemGeometry {
-  const sizeBl = ItemFns.calcSpatialDimensionsBl(li);
-  const naturalWidthPx = sizeBl.w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
-  if (naturalWidthPx <= 0) { return geometry; }
-
-  const widthScale = Math.max((geometry.boundsPx.w - NOTE_PADDING_PX * 2) / naturalWidthPx, 0);
-  const renderedHeightPx = sizeBl.h * LINE_HEIGHT_PX * widthScale;
-  const requiredHeightPx = Math.max(
-    geometry.boundsPx.h,
-    renderedHeightPx + NOTE_PADDING_PX * 2 * widthScale + ITEM_BORDER_WIDTH_PX
-  );
-
-  return resizeGeometryBounds(
-    geometry,
-    {
-      ...geometry.boundsPx,
-      h: requiredHeightPx,
-    },
-    sizeBl
-  );
-}
-
 function shrinkPopupSizeUntilItFits(
   buildGeometry: (sizeValue: number) => ItemGeometry,
   currentSizeValue: number,
@@ -325,12 +303,11 @@ function calcCellPopupGeometry(
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
   const useNaturalBlocks = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && !popupPage && !popupImage;
-  let debugMeasuredNoteSizeBl: { w: number, h: number } | null = null;
   if (useNaturalBlocks && popupItem && isNote(popupItem)) {
     const popupNoteMeasurable = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(popupItem));
     popupNoteMeasurable.spatialWidthGr = li.spatialWidthGr;
-    debugMeasuredNoteSizeBl = NoteFns.calcSpatialDimensionsBl(popupNoteMeasurable, true);
-    li.spatialHeightGr = debugMeasuredNoteSizeBl.h * GRID_SIZE;
+    const measuredNoteSizeBl = NoteFns.calcSpatialDimensionsBl(popupNoteMeasurable, true);
+    li.spatialHeightGr = measuredNoteSizeBl.h * GRID_SIZE;
   }
 
   const visibleBoundsPx = renderAsFixed ? desktopBoundsPx : desktopLocalBoundsPx;
@@ -422,33 +399,6 @@ function calcCellPopupGeometry(
     wasAutoAdjusted = true;
   }
 
-  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-    console.log("[calendar-popup-debug] cell-result", {
-      popupVeid,
-      popupItemType: popupItem?.itemType,
-      isNote: popupItem != null && isNote(popupItem),
-      useNaturalBlocks,
-      renderAsFixed,
-      measuredNoteSizeBl: debugMeasuredNoteSizeBl,
-      popupNaturalSizeBl: useNaturalBlocks ? calcCalendarNaturalPopupSizeBl(li, popupItem) : null,
-      linkSizeGr: {
-        w: li.spatialWidthGr,
-        h: li.spatialHeightGr,
-      },
-      widthNorm,
-      adjustedWidthNorm,
-      positionNorm,
-      adjustedPositionNorm,
-      boundsPx: geometry.boundsPx,
-      blockSizePx: geometry.blockSizePx,
-      hitboxes: geometry.hitboxes.map(hitbox => ({
-        type: hitbox.type,
-        boundsPx: hitbox.boundsPx,
-      })),
-      wasAutoAdjusted,
-    });
-  }
-
   return { geometry, renderAsFixed, linkItem: li, actualLinkItemMaybe, wasAutoAdjusted };
 }
 
@@ -477,11 +427,6 @@ export function calcSpatialPopupGeometry(
   const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
   const useSourceTopLeftAnchor = currentPopupSpec?.sourceTopLeftGr != null && !popupPage && !popupImage;
   const useCalendarNaturalSourcePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && useSourceTopLeftAnchor;
-  const expandCalendarSpatialNotePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar &&
-    !useCalendarNaturalSourcePopup &&
-    !popupPage &&
-    !popupImage &&
-    isNote(popupItem);
   const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(currentPage);
   const parentBlockSizePx = {
     w: childAreaBoundsPx.w / parentInnerSizeBl.w,
@@ -584,7 +529,7 @@ export function calcSpatialPopupGeometry(
       y: Math.round((nextCenterGr.y - heightGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0)
     };
 
-    let geometry = ItemFns.calcGeometry_Spatial(
+    const geometry = ItemFns.calcGeometry_Spatial(
       li,
       zeroBoundingBoxTopLeft(childAreaBoundsPx),
       popupContainerInnerSizeBl,
@@ -594,18 +539,10 @@ export function calcSpatialPopupGeometry(
       false,
       store.smallScreenMode()
     );
-    let renderedHeightGr = heightGr;
-    if (expandCalendarSpatialNotePopup) {
-      geometry = expandGeometryToRenderedNoteHeight(geometry, li);
-      renderedHeightGr = geometry.blockSizePx.h == 0
-        ? heightGr
-        : geometry.boundsPx.h * GRID_SIZE / geometry.blockSizePx.h;
-      li.spatialHeightGr = renderedHeightGr;
-    }
 
     return {
       geometry,
-      heightGr: renderedHeightGr,
+      heightGr,
     };
   };
 
@@ -637,29 +574,6 @@ export function calcSpatialPopupGeometry(
   geometry = offsetGeometry(geometry, residualTranslate.dxPx, residualTranslate.dyPx);
   if (residualTranslate.dxPx !== 0 || residualTranslate.dyPx !== 0) {
     wasAutoAdjusted = true;
-  }
-
-  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-    console.log("[calendar-popup-debug] spatial-result", {
-      popupVeid,
-      popupItemType: popupItem.itemType,
-      isFromAttachment,
-      useSourceTopLeftAnchor,
-      popupPage: popupPage != null,
-      popupImage: popupImage != null,
-      widthGr,
-      heightGr,
-      useCalendarNaturalSourcePopup,
-      adjustedPopupCenter,
-      popupContainerInnerSizeBl,
-      linkSizeGr: {
-        w: li.spatialWidthGr,
-        h: li.spatialHeightGr,
-      },
-      boundsPx: geometry.boundsPx,
-      blockSizePx: geometry.blockSizePx,
-      wasAutoAdjusted,
-    });
   }
 
   return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe, wasAutoAdjusted, widthGr, heightGr };

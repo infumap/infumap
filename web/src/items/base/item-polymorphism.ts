@@ -320,7 +320,7 @@ export const ItemFns = {
     const shouldUseSourceTopLeftAnchor = treatAsAttachment ||
       isInSpatialStretchPage(visualElement) ||
       isInCalendarPage(visualElement);
-    const { sourceTopLeftGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, shouldUseSourceTopLeftAnchor, clickPosPx);
+    const { sourceTopLeftGr, insidePopup } = calcSourceAnchoredPopupContext(visualElement, store, shouldUseSourceTopLeftAnchor, clickPosPx);
 
     const popupSpec = {
       actualVeid: VeFns.actualVeidFromVe(visualElement),
@@ -370,16 +370,16 @@ export const ItemFns = {
   }
 };
 
-function calcAttachmentPopupContext(
+function calcSourceAnchoredPopupContext(
   visualElement: VisualElement,
   store: StoreContextModel,
-  isFromAttachment?: boolean,
+  shouldCalculateSourceTopLeftAnchor?: boolean,
   clickPosPx?: Vector | null
 ): { sourceTopLeftGr: { x: number, y: number } | null, insidePopup: boolean } {
   let sourceTopLeftGr: { x: number, y: number } | null = null;
   const parentVe = visualElement.parentPath ? VesCache.current.readNode(visualElement.parentPath) : null;
 
-  if (isFromAttachment) {
+  if (shouldCalculateSourceTopLeftAnchor) {
     const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, visualElement);
     const itemTopLeftDesktopPx = { x: boundsPx.x, y: boundsPx.y };
     sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftDesktopPx);
