@@ -900,9 +900,12 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   }
 
   const popupResizeOnePxSizeBl = MouseActionState.getOnePxSizeBl()!;
+  const parentVe = MouseActionState.readVisualElement(activeVe.parentPath)!;
+  const parentPage = asPageItem(parentVe.displayItem);
+  const deltaMultiplier = parentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar ? 1.0 : 2.0;
   const deltaBl = {
-    x: deltaPx.x * popupResizeOnePxSizeBl.x * 2.0,
-    y: deltaPx.y * popupResizeOnePxSizeBl.y * 2.0
+    x: deltaPx.x * popupResizeOnePxSizeBl.x * deltaMultiplier,
+    y: deltaPx.y * popupResizeOnePxSizeBl.y * deltaMultiplier
   };
 
   let newWidthBl = MouseActionState.getStartWidthBl()! + deltaBl.x;
