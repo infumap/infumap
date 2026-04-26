@@ -1738,26 +1738,30 @@ function buildTablePopupReplacementSpec(
     return { vePath: targetPath, actualVeid };
   }
 
-  const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, targetVe);
-  const itemTopLeftPx = { x: boundsPx.x, y: boundsPx.y };
-  let sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftPx) ?? undefined;
+  const isActualAttachment = VeFns.treeItem(targetVe).relationshipToParent === RelationshipToParent.Attachment;
+  let sourceTopLeftGr: { x: number, y: number } | undefined = undefined;
+  if (isActualAttachment) {
+    const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, targetVe);
+    const itemTopLeftPx = { x: boundsPx.x, y: boundsPx.y };
+    sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftPx) ?? undefined;
 
-  if (!sourceTopLeftGr && targetVe.parentPath) {
-    // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
-    let pageVe = VesCache.current.readNode(targetVe.parentPath);
-    while (pageVe && !isPage(pageVe.displayItem)) {
-      if (!pageVe.parentPath) { break; }
-      pageVe = VesCache.current.readNode(pageVe.parentPath);
-    }
-    if (pageVe && isPage(pageVe.displayItem)) {
-      sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftPx, pageVe) ?? undefined;
+    if (!sourceTopLeftGr && targetVe.parentPath) {
+      // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
+      let pageVe = VesCache.current.readNode(targetVe.parentPath);
+      while (pageVe && !isPage(pageVe.displayItem)) {
+        if (!pageVe.parentPath) { break; }
+        pageVe = VesCache.current.readNode(pageVe.parentPath);
+      }
+      if (pageVe && isPage(pageVe.displayItem)) {
+        sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftPx, pageVe) ?? undefined;
+      }
     }
   }
 
   return {
     vePath: targetPath,
     actualVeid,
-    isFromAttachment: sourceTopLeftGr ? true : undefined,
+    isFromAttachment: isActualAttachment ? true : undefined,
     sourceTopLeftGr,
   };
 }

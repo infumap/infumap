@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, NOTE_PADDING_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
@@ -159,12 +159,7 @@ function calcCalendarNaturalPopupSizeBl(li: LinkItem, popupItem: Item | null): {
   return sizeBl;
 }
 
-function expandGeometryToNaturalPopupBounds(geometry: ItemGeometry, widthPx: number, heightPx: number, sizeBl: { w: number, h: number }): ItemGeometry {
-  const nextBoundsPx = {
-    ...geometry.boundsPx,
-    w: widthPx + ITEM_BORDER_WIDTH_PX,
-    h: heightPx + ITEM_BORDER_WIDTH_PX,
-  };
+function resizeGeometryBounds(geometry: ItemGeometry, nextBoundsPx: BoundingBox, sizeBl: { w: number, h: number }): ItemGeometry {
   const xScale = geometry.boundsPx.w == 0 ? 1.0 : nextBoundsPx.w / geometry.boundsPx.w;
   const yScale = geometry.boundsPx.h == 0 ? 1.0 : nextBoundsPx.h / geometry.boundsPx.h;
 
@@ -185,6 +180,41 @@ function expandGeometryToNaturalPopupBounds(geometry: ItemGeometry, widthPx: num
       },
     })),
   };
+}
+
+function expandGeometryToNaturalPopupBounds(geometry: ItemGeometry, widthPx: number, heightPx: number, sizeBl: { w: number, h: number }): ItemGeometry {
+  return resizeGeometryBounds(
+    geometry,
+    {
+      ...geometry.boundsPx,
+      w: widthPx + ITEM_BORDER_WIDTH_PX,
+      h: heightPx + ITEM_BORDER_WIDTH_PX,
+    },
+    sizeBl
+  );
+}
+
+function expandGeometryToRenderedNoteHeight(geometry: ItemGeometry, li: LinkItem): ItemGeometry {
+  const sizeBl = ItemFns.calcSpatialDimensionsBl(li);
+  const naturalWidthPx = sizeBl.w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
+  if (naturalWidthPx <= 0) { return geometry; }
+
+  const widthScale = Math.max((geometry.boundsPx.w - NOTE_PADDING_PX * 2) / naturalWidthPx, 0);
+  const renderedHeightPx = sizeBl.h * LINE_HEIGHT_PX * widthScale;
+  const requiredHeightPx = Math.max(
+    geometry.boundsPx.h,
+    renderedHeightPx + NOTE_PADDING_PX * 2 * widthScale + ITEM_BORDER_WIDTH_PX,
+    LINE_HEIGHT_PX * 2 + ITEM_BORDER_WIDTH_PX
+  );
+
+  return resizeGeometryBounds(
+    geometry,
+    {
+      ...geometry.boundsPx,
+      h: requiredHeightPx,
+    },
+    sizeBl
+  );
 }
 
 function shrinkPopupSizeUntilItFits(
@@ -429,6 +459,16 @@ export function calcSpatialPopupGeometry(
   // Check if this popup is from an attachment
   const currentPopupSpec = store.history.currentPopupSpec();
   const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
+  const useSourceTopLeftAnchor = currentPopupSpec?.sourceTopLeftGr != null && !popupPage && !popupImage;
+  const expandCalendarSpatialNotePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar &&
+    !popupPage &&
+    !popupImage &&
+    isNote(popupItem);
+  const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(currentPage);
+  const parentBlockSizePx = {
+    w: childAreaBoundsPx.w / parentInnerSizeBl.w,
+    h: childAreaBoundsPx.h / parentInnerSizeBl.h,
+  };
 
   let widthGr: number;
   let targetAspect: number;
@@ -436,8 +476,8 @@ export function calcSpatialPopupGeometry(
   let hasChildChanges: boolean;
   let hasDefaultChanges: boolean;
 
-  if (isFromAttachment) {
-    // Attachment popup: use PopupSpec position and calculate width to match parent block size
+  if (isFromAttachment || useSourceTopLeftAnchor) {
+    // Source-anchored popup: use PopupSpec position and calculate width to match parent block size
     // Use the popup link dimensions (not the linked item) so link-backed popups resize from the link.
     const popupItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(li);
 
@@ -517,18 +557,28 @@ export function calcSpatialPopupGeometry(
       y: Math.round((nextCenterGr.y - heightGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0)
     };
 
+    let geometry = ItemFns.calcGeometry_Spatial(
+      li,
+      zeroBoundingBoxTopLeft(childAreaBoundsPx),
+      parentInnerSizeBl,
+      false, true, true,
+      hasChildChanges,
+      hasDefaultChanges,
+      false,
+      store.smallScreenMode()
+    );
+    let renderedHeightGr = heightGr;
+    if (expandCalendarSpatialNotePopup) {
+      geometry = expandGeometryToRenderedNoteHeight(geometry, li);
+      renderedHeightGr = parentBlockSizePx.h == 0
+        ? heightGr
+        : geometry.boundsPx.h * GRID_SIZE / parentBlockSizePx.h;
+      li.spatialHeightGr = renderedHeightGr;
+    }
+
     return {
-      geometry: ItemFns.calcGeometry_Spatial(
-        li,
-        zeroBoundingBoxTopLeft(childAreaBoundsPx),
-        PageFns.calcInnerSpatialDimensionsBl(currentPage),
-        false, true, true,
-        hasChildChanges,
-        hasDefaultChanges,
-        false,
-        store.smallScreenMode()
-      ),
-      heightGr,
+      geometry,
+      heightGr: renderedHeightGr,
     };
   };
 
@@ -567,6 +617,7 @@ export function calcSpatialPopupGeometry(
       popupVeid,
       popupItemType: popupItem.itemType,
       isFromAttachment,
+      useSourceTopLeftAnchor,
       popupPage: popupPage != null,
       popupImage: popupImage != null,
       widthGr,

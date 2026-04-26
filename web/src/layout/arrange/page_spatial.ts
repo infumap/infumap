@@ -195,7 +195,10 @@ export function arrange_spatial_page(
     if (currentPopupSpec != null) {
       const popupItemType = itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType;
       const isFromAttachment = currentPopupSpec.isFromAttachment ?? false;
-      if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment) {
+      const isSourceTopLeftAnchored = currentPopupSpec.sourceTopLeftGr != null &&
+        popupItemType != ItemType.Page &&
+        popupItemType != ItemType.Image;
+      if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment || isSourceTopLeftAnchored) {
         // Position of page/image popup in spatial pages is user defined.
         // Use the shared geometry calculation from popup.ts
         const { geometry, linkItem, actualLinkItemMaybe, wasAutoAdjusted } = calcSpatialPopupGeometry(

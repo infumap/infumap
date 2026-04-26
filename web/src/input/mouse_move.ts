@@ -572,8 +572,9 @@ function changeMouseActionStateMaybe(
         // Check for attachment popup
         const currentPopupSpec = store.history.currentPopupSpec();
         const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
+        const isSourceTopLeftAnchored = currentPopupSpec?.sourceTopLeftGr != null && !isPage(popupItem) && !isImage(popupItem);
 
-        if (isFromAttachment) {
+        if (isFromAttachment || isSourceTopLeftAnchored) {
           const { linkItem, widthGr, heightGr } = calcSpatialPopupGeometry(store, parentPage, currentPopupSpec!.actualVeid, parentVe.childAreaBoundsPx!);
           const centerX = linkItem.spatialPositionGr.x + (widthGr ?? 0) / 2.0;
           const centerY = linkItem.spatialPositionGr.y + (heightGr ?? 0) / 2.0;
@@ -1102,6 +1103,7 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   // Check if this is an attachment popup
   const currentPopupSpec = store.history.currentPopupSpec();
   const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
+  const isSourceTopLeftAnchored = currentPopupSpec?.sourceTopLeftGr != null && !isPage(popupItem) && !isImage(popupItem);
 
   if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
@@ -1115,12 +1117,12 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
       y: (startPosBl.y + deltaBl.y) * GRID_SIZE
     };
 
-    if (isFromAttachment) {
-      // For attachment popups, update the PopupSpec's pendingPositionGr
+    if (isFromAttachment || isSourceTopLeftAnchored) {
+      // For source-anchored popups, update the PopupSpec's pendingPositionGr
       if (currentPopupSpec!.pendingPositionGr == null ||
         compareVector(newPositionGr, currentPopupSpec!.pendingPositionGr!) != 0) {
         currentPopupSpec!.pendingPositionGr = newPositionGr;
-        arrangeNow(store, "move-popup-attachment-spatial");
+        arrangeNow(store, isFromAttachment ? "move-popup-attachment-spatial" : "move-popup-source-anchored-spatial");
       }
     } else if (isPage(popupItem)) {
       const pageItem = asPageItem(popupItem);

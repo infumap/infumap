@@ -41,6 +41,7 @@ import { arrangeNow, requestArrange } from '../../layout/arrange';
 import { navigateToContainingPageOfItem, switchToItem, switchToPage } from '../../layout/navigation';
 import { VesCache } from '../../layout/ves-cache';
 import { VisualElementFlags, VeFns } from '../../layout/visual-element';
+import { RelationshipToParent } from '../../layout/relationship-to-parent';
 
 
 // Poor man's polymorphism
@@ -314,18 +315,16 @@ export const ItemFns = {
       return;
     }
 
-    // For all other item types, calculate source position and create popup centrally
-    const { sourceTopLeftGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, isFromAttachment, clickPosPx);
-
-    // Treat as attachment/spatial popup for non-page/non-image items only
-    // Pages and images have their own popup sizing logic and should NOT use isFromAttachment
-    const treatAsAttachment = !isImage(item) && (isFromAttachment || !!sourceTopLeftGr);
+    const isActualAttachment = VeFns.treeItem(visualElement).relationshipToParent == RelationshipToParent.Attachment;
+    const treatAsAttachment = !isImage(item) && (isFromAttachment || isActualAttachment);
+    const shouldUseSourceTopLeftAnchor = treatAsAttachment || isInSpatialStretchPage(visualElement);
+    const { sourceTopLeftGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, shouldUseSourceTopLeftAnchor, clickPosPx);
 
     const popupSpec = {
       actualVeid: VeFns.actualVeidFromVe(visualElement),
       vePath: VeFns.veToPath(visualElement),
-      isFromAttachment: treatAsAttachment,
-      sourceTopLeftGr
+      isFromAttachment: treatAsAttachment ? true : undefined,
+      sourceTopLeftGr: shouldUseSourceTopLeftAnchor ? sourceTopLeftGr : null
     };
 
     if (insidePopup) {
@@ -375,25 +374,42 @@ function calcAttachmentPopupContext(
   isFromAttachment?: boolean,
   clickPosPx?: Vector | null
 ): { sourceTopLeftGr: { x: number, y: number } | null, insidePopup: boolean } {
-  const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, visualElement);
-  const itemTopLeftDesktopPx = { x: boundsPx.x, y: boundsPx.y };
-  let sourceTopLeftGr: { x: number, y: number } | null = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftDesktopPx);
+  let sourceTopLeftGr: { x: number, y: number } | null = null;
   const parentVe = visualElement.parentPath ? VesCache.current.readNode(visualElement.parentPath) : null;
 
-  if (sourceTopLeftGr == null && (isFromAttachment || clickPosPx) && parentVe) {
-    // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
-    let pageVe = parentVe;
-    while (pageVe && !isPage(pageVe.displayItem)) {
-      if (!pageVe.parentPath) { break; }
-      pageVe = VesCache.current.readNode(pageVe.parentPath)!;
-    }
+  if (isFromAttachment) {
+    const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, visualElement);
+    const itemTopLeftDesktopPx = { x: boundsPx.x, y: boundsPx.y };
+    sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftDesktopPx);
 
-    if (pageVe && isPage(pageVe.displayItem)) {
-      sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftDesktopPx, pageVe);
+    if (sourceTopLeftGr == null && (clickPosPx || parentVe)) {
+      // Fallback to the nearest page ancestor if the current-page VE is temporarily unavailable.
+      let pageVe = parentVe;
+      while (pageVe && !isPage(pageVe.displayItem)) {
+        if (!pageVe.parentPath) { break; }
+        pageVe = VesCache.current.readNode(pageVe.parentPath)!;
+      }
+
+      if (pageVe && isPage(pageVe.displayItem)) {
+        sourceTopLeftGr = VeFns.desktopPxToPopupTopLeftAnchorGr(store, itemTopLeftDesktopPx, pageVe);
+      }
     }
   }
 
   const insidePopup = isInsidePopupHierarchy(visualElement);
 
   return { sourceTopLeftGr, insidePopup };
+}
+
+function isInSpatialStretchPage(visualElement: VisualElement): boolean {
+  let parentPath = visualElement.parentPath;
+  while (parentPath) {
+    const parentVe = VesCache.current.readNode(parentPath);
+    if (!parentVe) { return false; }
+    if (isPage(parentVe.displayItem)) {
+      return asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
+    }
+    parentPath = parentVe.parentPath;
+  }
+  return false;
 }
