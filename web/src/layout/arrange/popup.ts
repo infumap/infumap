@@ -149,6 +149,33 @@ function calcCalendarNaturalPopupSizeBl(li: LinkItem, _popupItem: Item | null): 
   return ItemFns.calcSpatialDimensionsBl(li);
 }
 
+function calcNaturalCalendarInnerSizeBl(childAreaBoundsPx: BoundingBox): { w: number, h: number } {
+  return {
+    w: childAreaBoundsPx.w / NATURAL_BLOCK_SIZE_PX.w,
+    h: childAreaBoundsPx.h / NATURAL_BLOCK_SIZE_PX.h,
+  };
+}
+
+function calcCalendarNaturalSourcePopupCenterGr(
+  sourceTopLeftAnchorGr: { x: number, y: number },
+  popupSizeBl: { w: number, h: number },
+  parentBlockSizePx: { w: number, h: number },
+): { x: number, y: number } {
+  const sourceTopLeftPx = {
+    x: ((sourceTopLeftAnchorGr.x + GRID_SIZE / 2.0) / GRID_SIZE) * parentBlockSizePx.w,
+    y: ((sourceTopLeftAnchorGr.y - GRID_SIZE / 2.0) / GRID_SIZE) * parentBlockSizePx.h,
+  };
+  const popupTopLeftPx = {
+    x: sourceTopLeftPx.x - NATURAL_BLOCK_SIZE_PX.w / 2.0,
+    y: sourceTopLeftPx.y + NATURAL_BLOCK_SIZE_PX.h / 2.0,
+  };
+
+  return {
+    x: ((popupTopLeftPx.x + popupSizeBl.w * NATURAL_BLOCK_SIZE_PX.w / 2.0) / NATURAL_BLOCK_SIZE_PX.w) * GRID_SIZE,
+    y: ((popupTopLeftPx.y + popupSizeBl.h * NATURAL_BLOCK_SIZE_PX.h / 2.0) / NATURAL_BLOCK_SIZE_PX.h) * GRID_SIZE,
+  };
+}
+
 function resizeGeometryBounds(geometry: ItemGeometry, nextBoundsPx: BoundingBox, sizeBl: { w: number, h: number }): ItemGeometry {
   const xScale = geometry.boundsPx.w == 0 ? 1.0 : nextBoundsPx.w / geometry.boundsPx.w;
   const yScale = geometry.boundsPx.h == 0 ? 1.0 : nextBoundsPx.h / geometry.boundsPx.h;
@@ -449,6 +476,7 @@ export function calcSpatialPopupGeometry(
   const currentPopupSpec = store.history.currentPopupSpec();
   const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
   const useSourceTopLeftAnchor = currentPopupSpec?.sourceTopLeftGr != null && !popupPage && !popupImage;
+  const useCalendarNaturalSourcePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && useSourceTopLeftAnchor;
   const expandCalendarSpatialNotePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar &&
     !popupPage &&
     !popupImage &&
@@ -458,6 +486,9 @@ export function calcSpatialPopupGeometry(
     w: childAreaBoundsPx.w / parentInnerSizeBl.w,
     h: childAreaBoundsPx.h / parentInnerSizeBl.h,
   };
+  const popupContainerInnerSizeBl = useCalendarNaturalSourcePopup
+    ? calcNaturalCalendarInnerSizeBl(childAreaBoundsPx)
+    : parentInnerSizeBl;
 
   let widthGr: number;
   let targetAspect: number;
@@ -478,6 +509,12 @@ export function calcSpatialPopupGeometry(
     // Use pending position if popup has been moved, otherwise use the initial anchor.
     if (currentPopupSpec?.pendingPositionGr) {
       popupCenter = currentPopupSpec.pendingPositionGr;
+    } else if (useCalendarNaturalSourcePopup && currentPopupSpec?.sourceTopLeftGr) {
+      popupCenter = calcCalendarNaturalSourcePopupCenterGr(
+        currentPopupSpec.sourceTopLeftGr,
+        popupItemDimensionsBl,
+        parentBlockSizePx
+      );
     } else if (currentPopupSpec?.sourceTopLeftGr && !popupPage && !popupImage) {
       // Non-page attachment-style popups anchor from the item's top-left with a fixed offset.
       popupCenter = clampPopupPositionToScreen(
@@ -549,7 +586,7 @@ export function calcSpatialPopupGeometry(
     let geometry = ItemFns.calcGeometry_Spatial(
       li,
       zeroBoundingBoxTopLeft(childAreaBoundsPx),
-      parentInnerSizeBl,
+      popupContainerInnerSizeBl,
       false, true, true,
       hasChildChanges,
       hasDefaultChanges,
@@ -559,9 +596,9 @@ export function calcSpatialPopupGeometry(
     let renderedHeightGr = heightGr;
     if (expandCalendarSpatialNotePopup) {
       geometry = expandGeometryToRenderedNoteHeight(geometry, li);
-      renderedHeightGr = parentBlockSizePx.h == 0
+      renderedHeightGr = geometry.blockSizePx.h == 0
         ? heightGr
-        : geometry.boundsPx.h * GRID_SIZE / parentBlockSizePx.h;
+        : geometry.boundsPx.h * GRID_SIZE / geometry.blockSizePx.h;
       li.spatialHeightGr = renderedHeightGr;
     }
 
@@ -611,7 +648,9 @@ export function calcSpatialPopupGeometry(
       popupImage: popupImage != null,
       widthGr,
       heightGr,
+      useCalendarNaturalSourcePopup,
       adjustedPopupCenter,
+      popupContainerInnerSizeBl,
       linkSizeGr: {
         w: li.spatialWidthGr,
         h: li.spatialHeightGr,
