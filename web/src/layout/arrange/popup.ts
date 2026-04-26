@@ -245,30 +245,43 @@ function calcCellPopupGeometry(
   const visibleBoundsPx = renderAsFixed ? desktopBoundsPx : desktopLocalBoundsPx;
   const buildGeometry = (nextPositionNorm: typeof positionNorm, nextWidthNorm: number): ItemGeometry => {
     const popupWidthPx = desktopLocalBoundsPx.w * nextWidthNorm;
-    const popupHeightPx = popupWidthPx / popupAspect;
-    const cellBoundsPx = (() => {
-      if (useNaturalBlocks) {
-        const sizeBl = ItemFns.calcSpatialDimensionsBl(li);
-        const naturalWidthPx = sizeBl.w * NATURAL_BLOCK_SIZE_PX.w;
-        const naturalHeightPx = sizeBl.h * NATURAL_BLOCK_SIZE_PX.h;
-        const scale = naturalWidthPx > popupWidthPx ? popupWidthPx / naturalWidthPx : 1.0;
-        const widthPx = naturalWidthPx * scale;
-        const heightPx = naturalHeightPx * scale;
-        return {
+    if (useNaturalBlocks) {
+      const sizeBl = ItemFns.calcSpatialDimensionsBl(li);
+      const naturalWidthPx = sizeBl.w * NATURAL_BLOCK_SIZE_PX.w;
+      const naturalHeightPx = sizeBl.h * NATURAL_BLOCK_SIZE_PX.h;
+      const scale = naturalWidthPx > popupWidthPx ? popupWidthPx / naturalWidthPx : 1.0;
+      const widthPx = naturalWidthPx * scale;
+      const heightPx = naturalHeightPx * scale;
+      let geometry = ItemFns.calcGeometry_Spatial(
+        li,
+        {
           x: desktopLocalBoundsPx.w * nextPositionNorm.x - widthPx / 2.0,
           y: desktopLocalBoundsPx.h * nextPositionNorm.y - heightPx / 2.0,
           w: widthPx,
           h: heightPx,
-        };
+        },
+        sizeBl,
+        false,
+        true,
+        true,
+        hasChildChanges,
+        hasDefaultChanges,
+        true,
+        store.smallScreenMode()
+      );
+      if (renderAsFixed) {
+        geometry = offsetGeometry(geometry, store.getCurrentDockWidthPx(), 0);
       }
+      return geometry;
+    }
 
-      return {
-        x: desktopLocalBoundsPx.w * nextPositionNorm.x - popupWidthPx / 2.0,
-        y: desktopLocalBoundsPx.h * nextPositionNorm.y - popupHeightPx / 2.0,
-        w: popupWidthPx,
-        h: popupHeightPx,
-      };
-    })();
+    const popupHeightPx = popupWidthPx / popupAspect;
+    const cellBoundsPx = {
+      x: desktopLocalBoundsPx.w * nextPositionNorm.x - popupWidthPx / 2.0,
+      y: desktopLocalBoundsPx.h * nextPositionNorm.y - popupHeightPx / 2.0,
+      w: popupWidthPx,
+      h: popupHeightPx,
+    };
     let geometry = ItemFns.calcGeometry_InCell(
       li,
       cellBoundsPx,
@@ -278,7 +291,7 @@ function calcCellPopupGeometry(
       true,
       hasChildChanges,
       hasDefaultChanges,
-      !useNaturalBlocks,
+      true,
       false,
       store.smallScreenMode()
     );
