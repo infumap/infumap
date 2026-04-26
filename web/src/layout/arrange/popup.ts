@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../../constants";
+import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
@@ -33,9 +33,8 @@ import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { ImageFns, asImageItem, isImage } from "../../items/image-item";
-import { asNoteItem, isNote } from "../../items/note-item";
+import { asNoteItem, isNote, NoteFns } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
-import { calcBoundsInCellFromSizeBl } from "../../items/base/item-common-fns";
 
 
 /**
@@ -237,30 +236,49 @@ function calcCellPopupGeometry(
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
   const useNaturalBlocks = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && !popupPage && !popupImage;
+  if (useNaturalBlocks && popupItem && isNote(popupItem)) {
+    const popupNoteMeasurable = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(popupItem));
+    popupNoteMeasurable.spatialWidthGr = li.spatialWidthGr;
+    li.spatialHeightGr = NoteFns.calcSpatialDimensionsBl(popupNoteMeasurable, true).h * GRID_SIZE;
+  }
 
   const visibleBoundsPx = renderAsFixed ? desktopBoundsPx : desktopLocalBoundsPx;
   const buildGeometry = (nextPositionNorm: typeof positionNorm, nextWidthNorm: number): ItemGeometry => {
     const popupWidthPx = desktopLocalBoundsPx.w * nextWidthNorm;
     const popupHeightPx = popupWidthPx / popupAspect;
-    const cellBoundsPx = {
-      x: desktopLocalBoundsPx.w * nextPositionNorm.x - popupWidthPx / 2.0,
-      y: desktopLocalBoundsPx.h * nextPositionNorm.y - popupHeightPx / 2.0,
-      w: popupWidthPx,
-      h: popupHeightPx,
-    };
-    const geometryCellBoundsPx = useNaturalBlocks
-      ? calcBoundsInCellFromSizeBl(ItemFns.calcSpatialDimensionsBl(li), cellBoundsPx)
-      : cellBoundsPx;
+    const cellBoundsPx = (() => {
+      if (useNaturalBlocks) {
+        const sizeBl = ItemFns.calcSpatialDimensionsBl(li);
+        const naturalWidthPx = sizeBl.w * NATURAL_BLOCK_SIZE_PX.w;
+        const naturalHeightPx = sizeBl.h * NATURAL_BLOCK_SIZE_PX.h;
+        const scale = naturalWidthPx > popupWidthPx ? popupWidthPx / naturalWidthPx : 1.0;
+        const widthPx = naturalWidthPx * scale;
+        const heightPx = naturalHeightPx * scale;
+        return {
+          x: desktopLocalBoundsPx.w * nextPositionNorm.x - widthPx / 2.0,
+          y: desktopLocalBoundsPx.h * nextPositionNorm.y - heightPx / 2.0,
+          w: widthPx,
+          h: heightPx,
+        };
+      }
+
+      return {
+        x: desktopLocalBoundsPx.w * nextPositionNorm.x - popupWidthPx / 2.0,
+        y: desktopLocalBoundsPx.h * nextPositionNorm.y - popupHeightPx / 2.0,
+        w: popupWidthPx,
+        h: popupHeightPx,
+      };
+    })();
     let geometry = ItemFns.calcGeometry_InCell(
       li,
-      geometryCellBoundsPx,
+      cellBoundsPx,
       false,
       false,
       false,
       true,
       hasChildChanges,
       hasDefaultChanges,
-      true,
+      !useNaturalBlocks,
       false,
       store.smallScreenMode()
     );
