@@ -38,9 +38,6 @@ import { asNoteItem, isNote, NoteFns } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
 
 
-const CALENDAR_NOTE_POPUP_EXTRA_HEIGHT_BL = 1.0;
-
-
 /**
  * Represents the calculated geometry for a popup, including whether it should be rendered as fixed.
  */
@@ -148,15 +145,8 @@ function offsetGeometry(geometry: ItemGeometry, dxPx: number, dyPx: number): Ite
   };
 }
 
-function calcCalendarNaturalPopupSizeBl(li: LinkItem, popupItem: Item | null): { w: number, h: number } {
-  const sizeBl = ItemFns.calcSpatialDimensionsBl(li);
-  if (popupItem && isNote(popupItem)) {
-    return {
-      w: sizeBl.w,
-      h: Math.max(sizeBl.h + CALENDAR_NOTE_POPUP_EXTRA_HEIGHT_BL, 2.0),
-    };
-  }
-  return sizeBl;
+function calcCalendarNaturalPopupSizeBl(li: LinkItem, _popupItem: Item | null): { w: number, h: number } {
+  return ItemFns.calcSpatialDimensionsBl(li);
 }
 
 function resizeGeometryBounds(geometry: ItemGeometry, nextBoundsPx: BoundingBox, sizeBl: { w: number, h: number }): ItemGeometry {
@@ -203,8 +193,7 @@ function expandGeometryToRenderedNoteHeight(geometry: ItemGeometry, li: LinkItem
   const renderedHeightPx = sizeBl.h * LINE_HEIGHT_PX * widthScale;
   const requiredHeightPx = Math.max(
     geometry.boundsPx.h,
-    renderedHeightPx + NOTE_PADDING_PX * 2 * widthScale + ITEM_BORDER_WIDTH_PX,
-    LINE_HEIGHT_PX * 2 + ITEM_BORDER_WIDTH_PX
+    renderedHeightPx + NOTE_PADDING_PX * 2 * widthScale + ITEM_BORDER_WIDTH_PX
   );
 
   return resizeGeometryBounds(

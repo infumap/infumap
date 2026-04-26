@@ -317,7 +317,9 @@ export const ItemFns = {
 
     const isActualAttachment = VeFns.treeItem(visualElement).relationshipToParent == RelationshipToParent.Attachment;
     const treatAsAttachment = !isImage(item) && (isFromAttachment || isActualAttachment);
-    const shouldUseSourceTopLeftAnchor = treatAsAttachment || isInSpatialStretchPage(visualElement);
+    const shouldUseSourceTopLeftAnchor = treatAsAttachment ||
+      isInSpatialStretchPage(visualElement) ||
+      isInCalendarPage(visualElement);
     const { sourceTopLeftGr, insidePopup } = calcAttachmentPopupContext(visualElement, store, shouldUseSourceTopLeftAnchor, clickPosPx);
 
     const popupSpec = {
@@ -402,14 +404,24 @@ function calcAttachmentPopupContext(
 }
 
 function isInSpatialStretchPage(visualElement: VisualElement): boolean {
+  const page = nearestParentPage(visualElement);
+  return page != null && asPageItem(page.displayItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
+}
+
+function isInCalendarPage(visualElement: VisualElement): boolean {
+  const page = nearestParentPage(visualElement);
+  return page != null && asPageItem(page.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Calendar;
+}
+
+function nearestParentPage(visualElement: VisualElement): VisualElement | null {
   let parentPath = visualElement.parentPath;
   while (parentPath) {
     const parentVe = VesCache.current.readNode(parentPath);
-    if (!parentVe) { return false; }
+    if (!parentVe) { return null; }
     if (isPage(parentVe.displayItem)) {
-      return asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
+      return parentVe;
     }
     parentPath = parentVe.parentPath;
   }
-  return false;
+  return null;
 }
