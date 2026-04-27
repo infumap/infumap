@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Set ShowDesktopPopupIcon on existing note items in an Infumap items.json file.
+Set ShowPopupIcon on existing note items in an Infumap items.json file.
 
 For the real database file, items.json is a JSON-lines log. This script replays
 that log, finds live note items whose flags do not include the note popup icon

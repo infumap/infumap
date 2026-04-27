@@ -266,7 +266,7 @@ export const Toolbar_Popup: Component = () => {
   );
   const [noteIconVisible, setNoteIconVisible] = createSignal(
     overlayTypeConst == ToolbarPopupType.NoteIcon && isNote(store.history.getFocusItem())
-      ? NoteFns.showsDesktopPopupIcon(noteItem())
+      ? NoteFns.showsPopupIcon(noteItem())
       : false
   );
   const [selectedEmojiValue, setSelectedEmojiValue] = createSignal<string | null>(
@@ -453,10 +453,10 @@ export const Toolbar_Popup: Component = () => {
       emojiInputElement.value = showIcon ? emoji || "" : "";
     }
     if (showIcon) {
-      noteItem().flags |= NoteFlags.ShowDesktopPopupIcon;
+      noteItem().flags |= NoteFlags.ShowPopupIcon;
       noteItem().emoji = emoji;
     } else {
-      noteItem().flags &= ~NoteFlags.ShowDesktopPopupIcon;
+      noteItem().flags &= ~NoteFlags.ShowPopupIcon;
       noteItem().emoji = null;
     }
     serverOrRemote.updateItem(noteItem(), store.general.networkStatus);

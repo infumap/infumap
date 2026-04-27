@@ -41,7 +41,7 @@ bitflags! {
     const HideBorder =     0x100;
     const Code       =     0x200;
     const ExplicitHeight = 0x400;
-    const ShowDesktopPopupIcon = 0x800;
+    const ShowPopupIcon = 0x800;
     const Heading4 =       0x1000;
   }
 }
@@ -2550,7 +2550,7 @@ impl Item {
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
       ordering,
-      flags: Some((flags | NoteFlags::ShowDesktopPopupIcon).bits()),
+      flags: Some((flags | NoteFlags::ShowPopupIcon).bits()),
       spatial_position_gr: Some(spatial_position_gr),
       spatial_width_gr: Some(spatial_width_gr),
       title: Some(title.to_owned()),

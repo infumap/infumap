@@ -40,7 +40,7 @@ export const Toolbar_Note: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
   let formatDiv: HTMLDivElement | undefined;
   let urlDiv: HTMLDivElement | undefined;
-  let desktopPopupIconDiv: HTMLDivElement | undefined;
+  let popupIconDiv: HTMLDivElement | undefined;
 
   const noteItem = () => {
     store.touchToolbarDependency();
@@ -121,8 +121,8 @@ export const Toolbar_Note: Component = () => {
     return (noteItem().flags & NoteFlags.ExplicitHeight) ? true : false;
   }
 
-  const desktopPopupIconVisible = (): boolean => {
-    return NoteFns.showsDesktopPopupIcon(noteItem());
+  const popupIconVisible = (): boolean => {
+    return NoteFns.showsPopupIcon(noteItem());
   }
 
   const explicitHeightButtonHandler = (): void => {
@@ -138,16 +138,16 @@ export const Toolbar_Note: Component = () => {
     touchToolbar();
   };
 
-  const desktopPopupIconButtonHandler = (): void => {
+  const popupIconButtonHandler = (): void => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteIcon) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: desktopPopupIconDiv!.getBoundingClientRect().x, y: desktopPopupIconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteIcon });
+      { topLeftPx: { x: popupIconDiv!.getBoundingClientRect().x, y: popupIconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteIcon });
   };
-  const handleDesktopPopupIconDown = () => {
-    ClickState.setButtonClickBoundsPx(desktopPopupIconDiv!.getBoundingClientRect());
+  const handlePopupIconDown = () => {
+    ClickState.setButtonClickBoundsPx(popupIconDiv!.getBoundingClientRect());
   };
 
   // QR
@@ -226,9 +226,9 @@ export const Toolbar_Note: Component = () => {
         <Show when={isInTable()}>
           <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
         </Show>
-        <div ref={desktopPopupIconDiv} class="inline-block"
-          onMouseDown={handleDesktopPopupIconDown}>
-          <InfuIconButton icon="fa fa-sticky-note" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+        <div ref={popupIconDiv} class="inline-block"
+          onMouseDown={handlePopupIconDown}>
+          <InfuIconButton icon="fa fa-sticky-note" highlighted={popupIconVisible()} clickHandler={popupIconButtonHandler} />
         </div>
         <Show when={!isInTable()}>
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />

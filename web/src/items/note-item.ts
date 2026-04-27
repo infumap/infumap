@@ -73,7 +73,7 @@ export const NoteFns = {
       spatialWidthGr: 10.0 * GRID_SIZE,
       spatialHeightGr: 0,
 
-      flags: NoteFlags.ShowDesktopPopupIcon,
+      flags: NoteFlags.ShowPopupIcon,
 
       format: "",
 
@@ -146,7 +146,7 @@ export const NoteFns = {
     }
     const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
     const widthBl = note.spatialWidthGr / GRID_SIZE;
-    const textIndentPx = NoteFns.showsDesktopPopupIcon(note) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    const textIndentPx = NoteFns.showsPopupIcon(note) ? desktopPopupIconTextIndentPx(widthBl) : 0;
     let measuredHeightBl = measureLineCount(formattedTitle, widthBl, note.flags, textIndentPx);
     if (measuredHeightBl < 1) { measuredHeightBl = 1; }
 
@@ -170,7 +170,7 @@ export const NoteFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (emitHitboxes && NoteFns.showsDesktopPopupIcon(note)) {
+    if (emitHitboxes && NoteFns.showsPopupIcon(note)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     if (emitHitboxes) {
@@ -254,7 +254,7 @@ export const NoteFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
-    const showsPopupIcon = NoteFns.showsDesktopPopupIcon(note);
+    const showsPopupIcon = NoteFns.showsPopupIcon(note);
     const clickAreaBoundsPx = {
       x: showsPopupIcon ? blockSizePx.w : 0.0,
       y: 0.0,
@@ -287,7 +287,7 @@ export const NoteFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (NoteFns.showsDesktopPopupIcon(note)) {
+    if (NoteFns.showsPopupIcon(note)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     hitboxes.push(
@@ -392,8 +392,8 @@ export const NoteFns = {
     );
   },
 
-  showsDesktopPopupIcon: (flagsItem: FlagsMixin): boolean => {
-    return !!(flagsItem.flags & NoteFlags.ShowDesktopPopupIcon);
+  showsPopupIcon: (flagsItem: FlagsMixin): boolean => {
+    return !!(flagsItem.flags & NoteFlags.ShowPopupIcon);
   },
 
   emoji: (note: NoteMeasurable): string | null => {

@@ -67,7 +67,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return false;
   };
 
-  const shouldShowPopupIcon = () => NoteFns.showsDesktopPopupIcon(noteItem()) && !isInCalendarPage();
+  const shouldShowPopupIcon = () => NoteFns.showsPopupIcon(noteItem()) && !isInCalendarPage();
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
