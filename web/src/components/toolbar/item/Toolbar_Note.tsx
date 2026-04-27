@@ -40,6 +40,7 @@ export const Toolbar_Note: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
   let formatDiv: HTMLDivElement | undefined;
   let urlDiv: HTMLDivElement | undefined;
+  let desktopPopupIconDiv: HTMLDivElement | undefined;
 
   const noteItem = () => {
     store.touchToolbarDependency();
@@ -138,13 +139,15 @@ export const Toolbar_Note: Component = () => {
   };
 
   const desktopPopupIconButtonHandler = (): void => {
-    if (desktopPopupIconVisible()) {
-      noteItem().flags &= ~NoteFlags.ShowDesktopPopupIcon;
-    } else {
-      noteItem().flags |= NoteFlags.ShowDesktopPopupIcon;
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteIcon) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
     }
-    requestArrange(store, "toolbar-note-desktop-popup-icon");
-    touchToolbar();
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: desktopPopupIconDiv!.getBoundingClientRect().x, y: desktopPopupIconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteIcon });
+  };
+  const handleDesktopPopupIconDown = () => {
+    ClickState.setButtonClickBoundsPx(desktopPopupIconDiv!.getBoundingClientRect());
   };
 
   // QR
@@ -224,7 +227,10 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
         </Show>
         <Show when={!isInTable()}>
-          <InfuIconButton icon="fa fa-sticky-note" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+          <div ref={desktopPopupIconDiv} class="inline-block"
+            onMouseDown={handleDesktopPopupIconDown}>
+            <InfuIconButton icon="fa fa-sticky-note" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+          </div>
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
           <InfuIconButton icon="fa fa-arrows-v" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} />
         </Show>

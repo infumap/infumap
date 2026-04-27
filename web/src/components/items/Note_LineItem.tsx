@@ -50,6 +50,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
   const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
+  const emoji = () => NoteFns.emoji(noteItem());
 
   const isInCalendarPage = () => {
     if (props.visualElement.parentPath) {
@@ -150,7 +151,12 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
-        <i class={`fas fa-sticky-note`} />
+        <Show when={emoji()} fallback={<i class={`fas fa-sticky-note`} />}>
+          <span class="inline-block leading-none"
+            style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
+            {emoji()}
+          </span>
+        </Show>
       </div>
     </Show>;
 

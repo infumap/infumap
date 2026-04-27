@@ -342,7 +342,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 47] = [
+const ALL_JSON_FIELDS: [&'static str; 48] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -369,6 +369,7 @@ const ALL_JSON_FIELDS: [&'static str; 47] = [
   "cellPopupWidthNorm",
   "arrangeAlgorithm",
   "url",
+  "emoji",
   "originalCreationDate",
   "spatialHeightGr",
   "imageSizePx",
@@ -472,6 +473,7 @@ pub struct Item {
 
   // note
   pub url: Option<String>,
+  pub emoji: Option<String>,
 
   // file
 
@@ -533,6 +535,7 @@ impl Clone for Item {
       justified_row_aspect: self.justified_row_aspect.clone(),
       calendar_day_row_height_bl: self.calendar_day_row_height_bl.clone(),
       url: self.url.clone(),
+      emoji: self.emoji.clone(),
       format: self.format.clone(),
       table_columns: self.table_columns.clone(),
       number_of_visible_columns: self.number_of_visible_columns.clone(),
@@ -1031,6 +1034,21 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("url"), Value::String(new_url.clone()));
       }
     }
+    match (&old.emoji, &new.emoji) {
+      (Some(_), None) => {
+        if old.item_type != ItemType::Note {
+          cannot_modify_err("emoji", &old.id)?;
+        }
+        result.insert(String::from("emoji"), Value::Null);
+      }
+      (o, n @ Some(_)) if o != n => {
+        if old.item_type != ItemType::Note {
+          cannot_modify_err("emoji", &old.id)?;
+        }
+        result.insert(String::from("emoji"), Value::String(n.as_ref().unwrap().clone()));
+      }
+      _ => {}
+    }
 
     // file
 
@@ -1431,6 +1449,12 @@ impl JsonLogSerializable<Item> for Item {
         not_applicable_err("url", self.item_type, &self.id)?;
       }
     }
+    if map.contains_key("emoji") {
+      if self.item_type != ItemType::Note {
+        not_applicable_err("emoji", self.item_type, &self.id)?;
+      }
+      self.emoji = json::get_string_field(map, "emoji")?;
+    }
 
     // file
 
@@ -1752,6 +1776,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
       unexpected_field_err("url", &item.id, item.item_type)?
     }
     result.insert(String::from("url"), Value::String(url.clone()));
+  }
+  if let Some(emoji) = &item.emoji {
+    if item.item_type != ItemType::Note {
+      unexpected_field_err("emoji", &item.id, item.item_type)?
+    }
+    result.insert(String::from("emoji"), Value::String(emoji.clone()));
   }
 
   // file
@@ -2368,6 +2398,16 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
     }?,
+    emoji: match json::get_string_field(map, "emoji")? {
+      Some(v) => {
+        if item_type == ItemType::Note {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("emoji", item_type, &id))
+        }
+      }
+      None => Ok(None),
+    }?,
 
     // file
 
@@ -2513,6 +2553,7 @@ impl Item {
       spatial_width_gr: Some(spatial_width_gr),
       title: Some(title.to_owned()),
       url,
+      emoji: None,
       format: Some(fmt.to_owned()),
       order_children_by: None,
       spatial_height_gr: None,
@@ -2572,6 +2613,7 @@ impl Item {
       spatial_width_gr: Some(spatial_width_gr),
       title: None,
       url: None,
+      emoji: None,
       format: None,
       order_children_by: None,
       spatial_height_gr: Some(spatial_height_gr),
@@ -2637,6 +2679,7 @@ impl Item {
       spatial_height_gr: Some(spatial_height_gr),
       title: Some(title.to_owned()),
       url: None,
+      emoji: None,
       format: None,
       link_to: None,
       table_columns: Some(table_columns),
@@ -2688,6 +2731,7 @@ impl Item {
       spatial_height_gr: None,
       title: None,
       url: None,
+      emoji: None,
       format: None,
       link_to: None,
       table_columns: None,
@@ -2745,6 +2789,7 @@ impl Item {
       spatial_height_gr: None,
       title: None,
       url: None,
+      emoji: None,
       format: None,
       link_to: None,
       table_columns: None,
@@ -2840,6 +2885,7 @@ impl Item {
       number_of_visible_columns: Some(number_of_visible_columns),
 
       url: None,
+      emoji: None,
       format: None,
       link_to: None,
       original_creation_date: None,
@@ -3041,6 +3087,11 @@ impl Item {
       if let Some(url) = &self.url {
         if !url.is_empty() {
           hashes.push(hash_string_to_uid(url));
+        }
+      }
+      if let Some(emoji) = &self.emoji {
+        if !emoji.is_empty() {
+          hashes.push(hash_string_to_uid(emoji));
         }
       }
     }

@@ -16,16 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Show, onCleanup, onMount } from "solid-js";
+import { Show } from "solid-js";
 
 
 export function InfuIconButton(props: { icon: string; highlighted: boolean; clickHandler: () => void }) {
-  let outerDivElement : HTMLDivElement | undefined;
-
-  onMount(() => { outerDivElement?.addEventListener('click', props.clickHandler); });
-
-  onCleanup(() => { outerDivElement?.removeEventListener('click', props.clickHandler); });
-
   const icon = () => {
     if (props.icon == "fa fa-header-1") { return "fa fa-header"; }
     if (props.icon == "fa fa-header-2") { return "fa fa-header"; }
@@ -54,7 +48,7 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
   }
 
   return (
-    <div ref={outerDivElement} class={divClass()}>
+    <div class={divClass()} onClick={props.clickHandler}>
       <i class={`${icon()}`} />
       <Show when={subscript() != null}>
         <div class="absolute text-[9px] left-[18px] top-[9px]">{subscript()}</div>

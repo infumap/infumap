@@ -49,6 +49,7 @@ export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, At
 }
 
 export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin, AttachmentsMixin {
+  emoji: string | null,
 }
 
 
@@ -77,6 +78,7 @@ export const NoteFns = {
       format: "",
 
       url: "",
+      emoji: null,
 
       computed_attachments: [],
     };
@@ -106,6 +108,7 @@ export const NoteFns = {
       flags: o.flags,
 
       url: o.url,
+      emoji: o.emoji || null,
       format: o.format,
 
       computed_attachments: [],
@@ -132,6 +135,7 @@ export const NoteFns = {
       flags: n.flags,
 
       url: n.url,
+      emoji: n.emoji,
       format: n.format,
     });
   },
@@ -352,6 +356,7 @@ export const NoteFns = {
       computed_attachments: note.computed_attachments,
       flags: note.flags,
       format: note.format,
+      emoji: note.emoji,
     });
   },
 
@@ -360,7 +365,8 @@ export const NoteFns = {
   },
 
   getFingerprint: (noteItem: NoteItem): string => {
-    return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags + "~~~!@#~~~" + noteItem.format;
+    return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags + "~~~!@#~~~" + noteItem.format +
+      "~~~!@#~~~" + (noteItem.emoji || "");
   },
 
   isStyleNormalText: (flagsItem: FlagsItem): boolean => {
@@ -384,6 +390,11 @@ export const NoteFns = {
 
   showsDesktopPopupIcon: (flagsItem: FlagsMixin): boolean => {
     return !!(flagsItem.flags & NoteFlags.ShowDesktopPopupIcon);
+  },
+
+  emoji: (note: NoteMeasurable): string | null => {
+    const emoji = note.emoji?.trim();
+    return emoji && emoji != "" ? emoji : null;
   },
 
   clearTextStyleFlags: (flagsItem: FlagsItem): void => {

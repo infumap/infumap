@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch, createSignal, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, createSignal, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
@@ -25,7 +25,7 @@ import { GRID_SIZE, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { itemState } from "../../store/ItemState";
-import { asNoteItem, isNote } from "../../items/note-item";
+import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
@@ -43,11 +43,106 @@ import { isSearch } from "../../items/search-item";
 import { isFile } from "../../items/file-item";
 import { isImage } from "../../items/image-item";
 import { asContainerItem } from "../../items/base/container-item";
+import { NoteFlags } from "../../items/base/flags-item";
+
+
+const EMOJI_CATEGORIES = [
+  {
+    name: "Smileys & People",
+    emojis: [
+      "😀", "😃", "😄", "😁", "😆", "🙂", "🙃", "😉", "😊",
+      "😍", "😘", "😗", "😙", "😚", "😋", "😛", "😜", "🤪",
+      "🤔", "🫡", "🤨", "😐", "😑", "😶", "🙄", "😏", "😴",
+      "😮", "😲", "😳", "🥺", "😢", "😭", "😤", "😡", "😎",
+      "🤩", "🥳", "😇", "🤠", "🤓", "🫠", "🙋", "👍", "👏",
+      "🙏", "💪", "👀", "🧠", "👑", "🧑‍💻", "👨‍👩‍👧", "🧘", "🏃",
+    ],
+  },
+  {
+    name: "Animals & Nature",
+    emojis: [
+      "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨",
+      "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦",
+      "🐤", "🦆", "🦅", "🦉", "🦇", "🐺", "🐴", "🦄", "🐝",
+      "🐛", "🦋", "🐌", "🐞", "🐜", "🕷️", "🐢", "🐍", "🦎",
+      "🦖", "🐙", "🦑", "🦀", "🐠", "🐬", "🐳", "🦈", "🐘",
+      "🌱", "🌿", "🍀", "🌵", "🌲", "🌳", "🌴", "🌸", "🌻",
+      "🌞", "🌙", "⭐", "🌈", "☁️", "⛈️", "❄️", "🔥", "💧",
+    ],
+  },
+  {
+    name: "Food & Drink",
+    emojis: [
+      "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓",
+      "🫐", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑",
+      "🥦", "🥕", "🌽", "🌶️", "🥐", "🥯", "🍞", "🥨", "🧀",
+      "🥚", "🍳", "🥞", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪",
+      "🌮", "🌯", "🥗", "🍝", "🍜", "🍲", "🍣", "🍱", "🥟",
+      "🍦", "🍩", "🍪", "🎂", "🍰", "🍫", "🍿", "☕", "🍵",
+      "🥤", "🧃", "🍺", "🍷", "🍸", "🍹", "🥂", "🍽️", "🥄",
+    ],
+  },
+  {
+    name: "Travel & Places",
+    emojis: [
+      "🚗", "🚕", "🚌", "🚎", "🏎️", "🚓", "🚑", "🚒", "🚚",
+      "🚲", "🛴", "🏍️", "🚂", "🚆", "🚇", "🚊", "✈️", "🚀",
+      "🛸", "🚁", "⛵", "🚢", "⚓", "⛽", "🚧", "🚦", "🗺️",
+      "🗽", "🗼", "🏰", "🏯", "🏟️", "🎡", "🎢", "🏠", "🏡",
+      "🏢", "🏫", "🏥", "🏦", "🏨", "🏪", "🏛️", "⛪", "🕌",
+      "🏖️", "🏝️", "🏜️", "🏔️", "⛰️", "🌋", "🏕️", "🌃", "🌉",
+    ],
+  },
+  {
+    name: "Activities",
+    emojis: [
+      "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🥏", "🎱",
+      "🏓", "🏸", "🥅", "🏒", "🏑", "🏏", "🥍", "⛳", "🪁",
+      "🏹", "🎣", "🥊", "🥋", "🎽", "🛹", "🛼", "⛸️", "🎿",
+      "⛷️", "🏂", "🏋️", "🤸", "🤾", "🏌️", "🏄", "🚣", "🏊",
+      "🎯", "🎮", "🕹️", "🎲", "🧩", "♟️", "🎭", "🎨", "🎬",
+      "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸", "🎻",
+    ],
+  },
+  {
+    name: "Objects",
+    emojis: [
+      "💡", "🔦", "🕯️", "🧯", "🛠️", "🔧", "🔨", "⚙️", "🧰",
+      "🧲", "🧪", "🧫", "🧬", "🔬", "🔭", "📡", "💉", "🩺",
+      "🚪", "🪑", "🛏️", "🛋️", "🚿", "🧴", "🧷", "🧵", "🪡",
+      "🔑", "🔒", "🔓", "🗝️", "💰", "💳", "💎", "⚖️", "🪪",
+      "📱", "💻", "⌨️", "🖥️", "🖨️", "📷", "🎥", "📞", "☎️",
+      "📚", "📖", "📝", "📌", "📍", "✂️", "📎", "📁", "🗂️",
+    ],
+  },
+  {
+    name: "Symbols",
+    emojis: [
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💔",
+      "✅", "☑️", "✔️", "❌", "❎", "➕", "➖", "➗", "✖️",
+      "❗", "❓", "‼️", "⁉️", "⚠️", "🚫", "🔔", "🔕", "♻️",
+      "⭐", "🌟", "✨", "💫", "🔥", "💥", "💯", "🔴", "🟠",
+      "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "⬆️", "⬇️", "➡️",
+      "⬅️", "↗️", "↘️", "↙️", "↖️", "🔁", "🔄", "🔎", "💬",
+    ],
+  },
+  {
+    name: "Flags",
+    emojis: [
+      "🏁", "🚩", "🎌", "🏴", "🏳️", "🏳️‍🌈", "🇺🇸", "🇬🇧", "🇪🇺",
+      "🇮🇹", "🇫🇷", "🇩🇪", "🇪🇸", "🇵🇹", "🇳🇱", "🇨🇭", "🇸🇪", "🇳🇴",
+      "🇩🇰", "🇫🇮", "🇮🇪", "🇬🇷", "🇹🇷", "🇹🇭", "🇯🇵", "🇰🇷", "🇨🇳",
+      "🇮🇳", "🇦🇺", "🇳🇿", "🇨🇦", "🇲🇽", "🇧🇷", "🇦🇷", "🇿🇦", "🇺🇦",
+    ],
+  },
+];
+const DEFAULT_NOTE_ICON_TEXT = "\uf249";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
   if (overlayType == ToolbarPopupType.NoteFormat) { return 105; }
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
+  if (overlayType == ToolbarPopupType.NoteIcon) { return 292; }
   if (overlayType == ToolbarPopupType.PageWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
   if (overlayType == ToolbarPopupType.PageNumCols) { return 36; }
@@ -84,7 +179,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
     popupType != ToolbarPopupType.SearchArrangeAlgorithm &&
     popupType != ToolbarPopupType.RatingType) {
-    const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : 330;
+    const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : popupType == ToolbarPopupType.NoteIcon ? 334 : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
     if (x > maxX) { x = maxX; }
@@ -131,6 +226,7 @@ export const Toolbar_Popup: Component = () => {
   const store = useStore();
 
   let textElement: HTMLInputElement | undefined;
+  let emojiInputElement: HTMLInputElement | undefined;
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
   const noteItem = () => asNoteItem(store.history.getFocusItem());
@@ -156,6 +252,17 @@ export const Toolbar_Popup: Component = () => {
           : asPageItem(store.history.getFocusItem()).gridNumberOfColumns.toString()
         : "1"
   );
+  const [noteIconVisible, setNoteIconVisible] = createSignal(
+    overlayTypeConst == ToolbarPopupType.NoteIcon && isNote(store.history.getFocusItem())
+      ? NoteFns.showsDesktopPopupIcon(noteItem())
+      : false
+  );
+  const [selectedEmojiValue, setSelectedEmojiValue] = createSignal<string | null>(
+    overlayTypeConst == ToolbarPopupType.NoteIcon && isNote(store.history.getFocusItem())
+      ? NoteFns.emoji(noteItem())
+      : null
+  );
+  const [customEmojiInputFocused, setCustomEmojiInputFocused] = createSignal(false);
 
   const handleKeyDown = (ev: KeyboardEvent) => {
     if (ev.code == "Enter") {
@@ -221,6 +328,7 @@ export const Toolbar_Popup: Component = () => {
     }
 
     if (overlayType() != ToolbarPopupType.PageColor &&
+      overlayType() != ToolbarPopupType.NoteIcon &&
       overlayType() != ToolbarPopupType.QrLink &&
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.SearchArrangeAlgorithm &&
@@ -285,6 +393,96 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const showAutoButton = (): boolean => overlayType() == ToolbarPopupType.PageAspect;
+
+  const selectedEmoji = () => selectedEmojiValue();
+  const noteIconChoiceClass = (selected: boolean): string =>
+    `inline-flex items-center justify-center w-[32px] h-[32px] border rounded-md text-[18px] leading-none cursor-pointer focus:outline-none ` +
+    (selected ? `bg-blue-50 border-blue-500 shadow-inner` : `bg-white border-slate-200 hover:bg-slate-100 hover:border-slate-300`);
+  const emojiChoiceClass = (selected: boolean): string =>
+    `inline-flex items-center justify-center w-[32px] h-[32px] rounded-md text-[18px] leading-none cursor-pointer focus:outline-none ` +
+    (selected ? `bg-blue-50 ring-1 ring-blue-500 shadow-inner` : `bg-transparent hover:bg-slate-100`);
+  const emojiFontStyle = () =>
+    `font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;`;
+  const emojiInputIsDefaultNoteIcon = (): boolean => noteIconVisible() && selectedEmoji() == null && !customEmojiInputFocused();
+  const emojiInputFontStyle = (): string => emojiInputIsDefaultNoteIcon()
+    ? `font-family: "Font Awesome 5 Free"; font-weight: 900;`
+    : emojiFontStyle();
+  const emojiInputValue = (): string => noteIconVisible() && !customEmojiInputFocused()
+    ? selectedEmoji() || DEFAULT_NOTE_ICON_TEXT
+    : "";
+  const emojiInputFontSize = (): number => emojiInputValue() == "" ? 10 : 18;
+  const handleCustomEmojiFocus = (): void => {
+    setCustomEmojiInputFocused(true);
+    if (emojiInputElement != null && noteIconVisible() && selectedEmoji() == null) {
+      emojiInputElement.value = "";
+    }
+  };
+  const firstGrapheme = (value: string): string => {
+    const trimmed = value.trim();
+    if (trimmed == "") { return ""; }
+    if ("Segmenter" in Intl) {
+      const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+      const first = segmenter.segment(trimmed)[Symbol.iterator]().next();
+      if (!first.done) { return first.value.segment; }
+    }
+    return Array.from(trimmed)[0] || "";
+  };
+  const normalizeCustomEmojiInput = (): string => {
+    const emoji = firstGrapheme(emojiInputElement?.value || "");
+    if (emojiInputElement != null && emojiInputElement.value != emoji) {
+      emojiInputElement.value = emoji;
+    }
+    return emoji;
+  };
+  const chooseNoteIcon = (emoji: string | null, showIcon: boolean = true, closePopup: boolean = true): void => {
+    setNoteIconVisible(showIcon);
+    setSelectedEmojiValue(showIcon ? emoji : null);
+    if (emojiInputElement != null) {
+      emojiInputElement.value = showIcon ? emoji || "" : "";
+    }
+    if (showIcon) {
+      noteItem().flags |= NoteFlags.ShowDesktopPopupIcon;
+      noteItem().emoji = emoji;
+    } else {
+      noteItem().flags &= ~NoteFlags.ShowDesktopPopupIcon;
+      noteItem().emoji = null;
+    }
+    serverOrRemote.updateItem(noteItem(), store.general.networkStatus);
+    if (closePopup) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+    } else if (emojiInputElement != null) {
+      emojiInputElement.value = emojiInputValue();
+    }
+    store.touchToolbar();
+    requestArrange(store, "toolbar-popup-note-icon");
+  };
+  const applyCustomEmoji = (): void => {
+    const emoji = normalizeCustomEmojiInput();
+    if (emoji && emoji != "" && emoji != selectedEmoji()) {
+      chooseNoteIcon(emoji, true, false);
+    } else if (emojiInputElement != null) {
+      emojiInputElement.value = emojiInputValue();
+    }
+  };
+  const handleCustomEmojiInput = (): void => {
+    normalizeCustomEmojiInput();
+  };
+  const handleCustomEmojiBlur = (): void => {
+    applyCustomEmoji();
+    setCustomEmojiInputFocused(false);
+    if (emojiInputElement != null) {
+      emojiInputElement.value = emojiInputValue();
+    }
+  };
+  const handleCustomEmojiKeyDown = (ev: KeyboardEvent): void => {
+    if (ev.code == "Enter") {
+      applyCustomEmoji();
+      emojiInputElement?.blur();
+    }
+    ev.stopPropagation();
+  };
+  const handleCustomEmojiKeyUp = (ev: KeyboardEvent): void => { ev.stopPropagation(); };
+  const handleCustomEmojiKeyPress = (ev: KeyboardEvent): void => { ev.stopPropagation(); };
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(store.history.getFocusItem().id); }
   const linkItemIdClickHandler = (): void => {
@@ -421,7 +619,9 @@ export const Toolbar_Popup: Component = () => {
   const handleMouseMove = (e: MouseEvent) => { e.stopPropagation(); }
 
   onMount(() => {
+    if (overlayTypeConst != ToolbarPopupType.QrLink) { return; }
     const canvas = document.getElementById('qrcanvas');
+    if (canvas == null) { return; }
     const url = window.location.origin + "/" + store.history.getFocusItem()!.id;
     QRCode.toCanvas(canvas, url, { scale: 7 });
   });
@@ -580,6 +780,63 @@ export const Toolbar_Popup: Component = () => {
                 })()}
               </div>
             </Show>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.NoteIcon}>
+          <div class="absolute border rounded-md bg-slate-50 mb-1 shadow-lg border-slate-400 overflow-hidden"
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <div class="flex items-center gap-[7px] p-[8px] border-b border-slate-200 bg-white">
+              <button class={noteIconChoiceClass(!noteIconVisible())}
+                title="No popup icon"
+                type="button"
+                onClick={() => chooseNoteIcon(null, false, false)}>
+                <i class="fa fa-ban" />
+              </button>
+              <button class={noteIconChoiceClass(noteIconVisible() && selectedEmoji() == null)}
+                title="Default note icon"
+                type="button"
+                onClick={() => chooseNoteIcon(null, true, false)}>
+                <i class="fas fa-sticky-note" />
+              </button>
+              <div class="grow"></div>
+              <input ref={emojiInputElement}
+                class="border border-slate-300 rounded-md h-[32px] px-[4px] text-center bg-white focus:outline-none focus:border-blue-500 placeholder:text-[10px] placeholder:font-sans"
+                style={`width: 48px; font-size: ${emojiInputFontSize()}px; ${emojiInputFontStyle()}`}
+                autocomplete="off"
+                value={emojiInputValue()}
+                type="text"
+                placeholder="emoji"
+                onFocus={handleCustomEmojiFocus}
+                onInput={handleCustomEmojiInput}
+                onBlur={handleCustomEmojiBlur}
+                onKeyDown={handleCustomEmojiKeyDown}
+                onKeyUp={handleCustomEmojiKeyUp}
+                onKeyPress={handleCustomEmojiKeyPress} />
+            </div>
+            <div class="overflow-y-auto pb-[8px]"
+              style={`height: ${boxBoundsPx().h - 49}px;`}>
+              <For each={EMOJI_CATEGORIES}>{category =>
+                <div class="pt-[8px]">
+                  <div class="px-[12px] pb-[3px] text-[10px] uppercase tracking-wide text-slate-500">
+                    {category.name}
+                  </div>
+                  <div class="grid gap-[3px] px-[8px] justify-center"
+                    style="grid-template-columns: repeat(9, 32px); grid-auto-rows: 32px;">
+                    <For each={category.emojis}>{emoji =>
+                      <button class={emojiChoiceClass(noteIconVisible() && selectedEmoji() == emoji)}
+                        title={emoji}
+                        type="button"
+                        style={emojiFontStyle()}
+                        onClick={() => chooseNoteIcon(emoji, true, false)}>
+                        {emoji}
+                      </button>
+                    }</For>
+                  </div>
+                </div>
+              }</For>
+            </div>
           </div>
         </Match>
         <Match when={true}>
