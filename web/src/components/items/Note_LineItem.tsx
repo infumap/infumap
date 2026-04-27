@@ -67,16 +67,18 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return false;
   };
 
-  const shouldHideIcon = () => {
-    return (props.visualElement.flags & VisualElementFlags.Attachment) || isInCalendarPage();
-  };
+  const shouldShowPopupIcon = () => NoteFns.showsDesktopPopupIcon(noteItem()) && !isInCalendarPage();
+  const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
+    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+    showTriangleDetail();
+  const shouldReserveLeadingBlock = () => shouldShowPopupIcon() || shouldShowLinkMarking();
 
-  const leftPx = () => shouldHideIcon()
-    ? boundsPx().x + oneBlockWidthPx() * PADDING_PROP
-    : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => shouldHideIcon()
-    ? boundsPx().w - oneBlockWidthPx() * PADDING_PROP - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
-    : boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
+  const leftPx = () => shouldReserveLeadingBlock()
+    ? boundsPx().x + oneBlockWidthPx()
+    : boundsPx().x + oneBlockWidthPx() * PADDING_PROP;
+  const widthPx = () => shouldReserveLeadingBlock()
+    ? boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
+    : boundsPx().w - oneBlockWidthPx() * PADDING_PROP - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
     r.w = oneBlockWidthPx();
@@ -146,7 +148,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </Switch>;
 
   const renderIconMaybe = () =>
-    <Show when={!shouldHideIcon()}>
+    <Show when={shouldShowPopupIcon()}>
       <div class="absolute text-center"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
@@ -241,8 +243,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-      showTriangleDetail()}>
+    <Show when={shouldShowLinkMarking()}>
       <div class="absolute text-center text-slate-600"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +

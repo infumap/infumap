@@ -226,11 +226,11 @@ export const Toolbar_Note: Component = () => {
         <Show when={isInTable()}>
           <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
         </Show>
+        <div ref={desktopPopupIconDiv} class="inline-block"
+          onMouseDown={handleDesktopPopupIconDown}>
+          <InfuIconButton icon="fa fa-sticky-note" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+        </div>
         <Show when={!isInTable()}>
-          <div ref={desktopPopupIconDiv} class="inline-block"
-            onMouseDown={handleDesktopPopupIconDown}>
-            <InfuIconButton icon="fa fa-sticky-note" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
-          </div>
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
           <InfuIconButton icon="fa fa-arrows-v" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} />
         </Show>

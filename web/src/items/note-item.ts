@@ -73,7 +73,7 @@ export const NoteFns = {
       spatialWidthGr: 10.0 * GRID_SIZE,
       spatialHeightGr: 0,
 
-      flags: NoteFlags.None,
+      flags: NoteFlags.ShowDesktopPopupIcon,
 
       format: "",
 
@@ -246,7 +246,7 @@ export const NoteFns = {
     return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
     const boundsPx = {
       x: blockSizePx.w * col,
@@ -254,23 +254,27 @@ export const NoteFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
+    const showsPopupIcon = NoteFns.showsDesktopPopupIcon(note);
     const clickAreaBoundsPx = {
-      x: blockSizePx.w,
+      x: showsPopupIcon ? blockSizePx.w : 0.0,
       y: 0.0,
-      w: blockSizePx.w * (widthBl - 1),
+      w: blockSizePx.w * (showsPopupIcon ? widthBl - 1 : widthBl),
       h: blockSizePx.h
     };
     const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
+    ];
+    if (showsPopupIcon) {
+      hitboxes.splice(1, 0, HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx));
+    }
     return {
       boundsPx,
       viewportBoundsPx: null,
       blockSizePx,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
-      ]
+      hitboxes
     };
   },
 
