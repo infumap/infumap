@@ -25,6 +25,7 @@ use infusdk::{
 pub mod account;
 pub mod admin;
 pub mod command;
+pub mod favicons;
 pub mod files;
 pub mod ingest;
 

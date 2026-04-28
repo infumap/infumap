@@ -29,6 +29,7 @@ use tokio::sync::Mutex;
 
 use crate::config::{CONFIG_ALLOW_CROSS_INSTANCE_EMBED, CONFIG_ENABLE_EXPERIMENTAL};
 use crate::storage::cache::ImageCache;
+use crate::storage::cache::favicon::FaviconCache;
 use crate::storage::db::Db;
 use crate::storage::db::session_db::SESSION_ROTATION_INTERVAL_SECS;
 use crate::storage::object::ObjectStore;
@@ -43,6 +44,7 @@ use super::routes::account::{
 };
 use super::routes::admin::serve_admin_route;
 use super::routes::command::serve_command_route;
+use super::routes::favicons::serve_favicons_route;
 use super::routes::files::serve_files_route;
 use super::routes::ingest::serve_ingest_route;
 
@@ -61,6 +63,7 @@ pub async fn http_serve(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   image_cache: Arc<std::sync::Mutex<ImageCache>>,
+  favicon_cache: Arc<std::sync::Mutex<FaviconCache>>,
   config: Arc<Config>,
   req: Request<hyper::body::Incoming>,
 ) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
@@ -81,6 +84,8 @@ pub async fn http_serve(
     (serve_ingest_route(&db, &object_store, req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path().starts_with("/files/") {
     (serve_files_route(config.clone(), &db, object_store, image_cache.clone(), &req).await, CorsPolicy::EmbedAllowed)
+  } else if req.uri().path().starts_with("/favicons/") {
+    (serve_favicons_route(&db, favicon_cache.clone(), &req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path().starts_with("/admin/") {
     (serve_admin_route(&db, enable_experimental, req).await, CorsPolicy::Disabled)
   } else {

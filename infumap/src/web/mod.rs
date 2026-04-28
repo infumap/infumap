@@ -47,6 +47,7 @@ use crate::ai::text_extraction::init_text_extraction_processing_loop;
 use crate::config::*;
 use crate::setup::init_fs_maybe_and_get_config;
 use crate::storage::backup::{self as storage_backup, BackupStore};
+use crate::storage::cache::favicon::FaviconCache;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::db::Db;
 use crate::storage::db::users_extra::BackupStatus;
@@ -184,6 +185,12 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
       return Err(format!("Failed to initialize cache: {}", e).into());
     }
   };
+  let favicon_cache = match storage_cache::favicon::new(&cache_dir, cache_max_mb).await {
+    Ok(favicon_cache) => favicon_cache,
+    Err(e) => {
+      return Err(format!("Failed to initialize favicon cache: {}", e).into());
+    }
+  };
 
   let addr_str = format!(
     "{}:{}",
@@ -249,7 +256,8 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     info!("Backup tracking validation completed successfully.");
   }
 
-  let result = listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone()).await;
+  let result =
+    listen(addr, db.clone(), object_store.clone(), image_cache.clone(), favicon_cache.clone(), config.clone()).await;
   result
 }
 
@@ -618,6 +626,7 @@ async fn listen(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   image_cache: Arc<std::sync::Mutex<ImageCache>>,
+  favicon_cache: Arc<std::sync::Mutex<FaviconCache>>,
   config: Arc<config::Config>,
 ) -> InfuResult<()> {
   let listener = TcpListener::bind(addr).await?;
@@ -626,6 +635,7 @@ async fn listen(
     let db = db.clone();
     let object_store = object_store.clone();
     let image_cache = image_cache.clone();
+    let favicon_cache = favicon_cache.clone();
     let config = config.clone();
 
     let io = TokioIo::new(stream);
@@ -633,7 +643,16 @@ async fn listen(
       if let Err(err) = http1::Builder::new()
         .serve_connection(
           io,
-          service_fn(move |req| http_serve(db.clone(), object_store.clone(), image_cache.clone(), config.clone(), req)),
+          service_fn(move |req| {
+            http_serve(
+              db.clone(),
+              object_store.clone(),
+              image_cache.clone(),
+              favicon_cache.clone(),
+              config.clone(),
+              req,
+            )
+          }),
         )
         .await
       {

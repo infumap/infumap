@@ -31,6 +31,8 @@ use tokio::io::AsyncWriteExt;
 
 use crate::util::fs::{construct_file_subpath, ensure_256_subdirs, expand_tilde};
 
+pub mod favicon;
+
 const ONE_MEGABYTE: u64 = 1024 * 1024;
 
 #[derive(Debug, Clone)]
