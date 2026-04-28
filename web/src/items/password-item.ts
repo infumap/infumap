@@ -43,11 +43,16 @@ export interface PasswordItem extends PasswordMeasurable, XSizableItem, Attachme
 
 export interface PasswordMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, AttachmentsMixin {
   text: string,
+  emoji: string | null,
 }
+
+type PasswordCreateOptions = {
+  showIcon?: boolean,
+};
 
 
 export const PasswordFns = {
-  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, text: string, ordering: Uint8Array): PasswordItem => {
+  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, text: string, ordering: Uint8Array, options?: PasswordCreateOptions): PasswordItem => {
     if (parentId == EMPTY_UID) { panic("PasswordFns.create: parentId is empty."); }
     return {
       origin: null,
@@ -64,9 +69,10 @@ export const PasswordFns = {
 
       spatialWidthGr: 10.0 * GRID_SIZE,
 
-      flags: PasswordFlags.None,
+      flags: options?.showIcon ? PasswordFlags.ShowIcon : PasswordFlags.None,
 
       text,
+      emoji: null,
 
       computed_attachments: [],
     };
@@ -93,6 +99,7 @@ export const PasswordFns = {
       flags: o.flags ?? PasswordFlags.None,
 
       text: o.text,
+      emoji: o.emoji || null,
 
       computed_attachments: [],
     });
@@ -116,6 +123,7 @@ export const PasswordFns = {
       flags: p.flags,
 
       text: p.text,
+      emoji: p.emoji,
     });
   },
 
@@ -137,7 +145,7 @@ export const PasswordFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (emitHitboxes && PasswordFns.showsDesktopPopupIcon(password)) {
+    if (emitHitboxes && PasswordFns.showsIcon(password)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     if (emitHitboxes) {
@@ -206,8 +214,9 @@ export const PasswordFns = {
     return calcGeometryOfAttachmentItemImpl(password, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_password: PasswordMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (password: PasswordMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
+    const showsIcon = PasswordFns.showsIcon(password);
     const boundsPx = {
       x: blockSizePx.w * col,
       y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX * scale : 0),
@@ -221,21 +230,24 @@ export const PasswordFns = {
       h: blockSizePx.h
     };
     const clickAreaBoundsPx = {
-      x: blockSizePx.w,
+      x: showsIcon ? blockSizePx.w : 0.0,
       y: 0.0,
-      w: blockSizePx.w * (widthBl - 1),
+      w: blockSizePx.w * (showsIcon ? widthBl - 1 : widthBl),
       h: blockSizePx.h
     };
     const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+    ];
+    if (showsIcon) {
+      hitboxes.splice(1, 0, HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx));
+    }
     return {
       boundsPx,
       viewportBoundsPx: null,
       blockSizePx,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-      ]
+      hitboxes
     };
   },
 
@@ -248,7 +260,7 @@ export const PasswordFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (PasswordFns.showsDesktopPopupIcon(password)) {
+    if (PasswordFns.showsIcon(password)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     hitboxes.push(
@@ -277,6 +289,7 @@ export const PasswordFns = {
       computed_attachments: password.computed_attachments,
       flags: password.flags,
       text: password.text,
+      emoji: password.emoji,
     });
   },
 
@@ -285,11 +298,16 @@ export const PasswordFns = {
   },
 
   getFingerprint: (passwordItem: PasswordItem): string => {
-    return passwordItem.text + "~~~!@#~~~" + passwordItem.flags;
+    return passwordItem.text + "~~~!@#~~~" + passwordItem.flags + "~~~!@#~~~" + (passwordItem.emoji || "");
   },
 
-  showsDesktopPopupIcon: (password: PasswordMeasurable): boolean => {
-    return !!(password.flags & PasswordFlags.ShowDesktopPopupIcon);
+  showsIcon: (password: PasswordMeasurable): boolean => {
+    return !!(password.flags & PasswordFlags.ShowIcon);
+  },
+
+  emoji: (password: PasswordMeasurable): string | null => {
+    const emoji = password.emoji?.trim();
+    return emoji && emoji != "" ? emoji : null;
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {

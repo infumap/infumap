@@ -19,7 +19,7 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
-import { asPasswordItem } from "../../items/password-item";
+import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
@@ -27,6 +27,8 @@ import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../const
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { itemState } from "../../store/ItemState";
 
 
 export const PasswordLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -42,20 +44,43 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const iconScale = () => scale() * 0.92;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
-  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().x
-    : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().w - 1.9 * oneBlockWidthPx()
-    : boundsPx().w - 2.9 * oneBlockWidthPx();
+
+  const isInCalendarPage = () => {
+    if (props.visualElement.parentPath) {
+      try {
+        const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath);
+        const parentItem = itemState.get(parentVeid.itemId);
+        if (parentItem && isPage(parentItem)) {
+          return asPageItem(parentItem).arrangeAlgorithm === ArrangeAlgorithm.Calendar;
+        }
+      } catch (e) {
+        // If path parsing fails, continue to fallback
+      }
+    }
+    return false;
+  };
+
+  const shouldShowIcon = () => PasswordFns.showsIcon(passwordItem()) && !isInCalendarPage();
+  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
+  const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
+    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+    showTriangleDetail();
+  const shouldReserveLeadingBlock = () => shouldShowIcon() || shouldShowLinkMarking();
+  const emoji = () => PasswordFns.emoji(passwordItem());
+  const trailingControlsWidthPx = () => oneBlockWidthPx() * 1.9;
+
+  const leftPx = () => shouldReserveLeadingBlock()
+    ? boundsPx().x + oneBlockWidthPx()
+    : boundsPx().x + oneBlockWidthPx() * PADDING_PROP;
+  const widthPx = () => shouldReserveLeadingBlock()
+    ? boundsPx().w - oneBlockWidthPx() - trailingControlsWidthPx()
+    : boundsPx().w - oneBlockWidthPx() * PADDING_PROP - trailingControlsWidthPx();
 
   const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(passwordItem().text);
   }
-  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
-
   const isVisible = () => store.currentVisiblePassword.get() == passwordItem().id;
   const VisibleClickHandler = () => {
     if (!isVisible()) {
@@ -87,12 +112,17 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     </Switch>;
 
   const renderIconMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
+    <Show when={shouldShowIcon()}>
       <div class="absolute text-center"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y + Math.max(boundsPx().h * 0.02, 0.5)}px; ` +
           `width: ${oneBlockWidthPx() / iconScale()}px; height: ${boundsPx().h / iconScale()}px; ` +
           `transform: scale(${iconScale()}); transform-origin: top left;`}>
-        <i class={`fas fa-eye-slash`} />
+        <Show when={emoji()} fallback={<i class={`fas fa-eye-slash`} />}>
+          <span class="inline-block leading-none"
+            style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
+            {emoji()}
+          </span>
+        </Show>
       </div>
     </Show>;
 
@@ -168,8 +198,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     </div>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-      showTriangleDetail()}>
+    <Show when={shouldShowLinkMarking()}>
       <div class="absolute text-center text-slate-600"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +

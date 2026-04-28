@@ -40,10 +40,11 @@ import {
 } from "../../util/remoteFile";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 import { isSearch } from "../../items/search-item";
-import { isFile } from "../../items/file-item";
+import { FileFns, asFileItem, isFile } from "../../items/file-item";
+import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-item";
 import { isImage } from "../../items/image-item";
 import { asContainerItem } from "../../items/base/container-item";
-import { NoteFlags } from "../../items/base/flags-item";
+import { FileFlags, NoteFlags, PasswordFlags } from "../../items/base/flags-item";
 
 
 const EMOJI_CATEGORIES = [
@@ -149,12 +150,14 @@ const EMOJI_CATEGORIES = [
   },
 ];
 const DEFAULT_NOTE_ICON_TEXT = "\uf249";
+const DEFAULT_FILE_ICON_TEXT = "\uf15b";
+const DEFAULT_PASSWORD_ICON_TEXT = "\uf070";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
   if (overlayType == ToolbarPopupType.NoteFormat) { return 105; }
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
-  if (overlayType == ToolbarPopupType.NoteIcon) { return 292; }
+  if (overlayType == ToolbarPopupType.ItemIcon) { return 292; }
   if (overlayType == ToolbarPopupType.PageWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
   if (overlayType == ToolbarPopupType.PageNumCols) { return 36; }
@@ -191,7 +194,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
     popupType != ToolbarPopupType.SearchArrangeAlgorithm &&
     popupType != ToolbarPopupType.RatingType) {
-    const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : popupType == ToolbarPopupType.NoteIcon ? 334 : 330;
+    const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
     if (x > maxX) { x = maxX; }
@@ -242,6 +245,8 @@ export const Toolbar_Popup: Component = () => {
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
   const noteItem = () => asNoteItem(store.history.getFocusItem());
+  const fileItem = () => asFileItem(store.history.getFocusItem());
+  const passwordItem = () => asPasswordItem(store.history.getFocusItem());
   const tableItem = () => asTableItem(store.history.getFocusItem());
   const ratingItem = () => asRatingItem(store.history.getFocusItem());
   const formatItem = () => asFormatItem(store.history.getFocusItem());
@@ -264,15 +269,23 @@ export const Toolbar_Popup: Component = () => {
           : asPageItem(store.history.getFocusItem()).gridNumberOfColumns.toString()
         : "1"
   );
-  const [noteIconVisible, setNoteIconVisible] = createSignal(
-    overlayTypeConst == ToolbarPopupType.NoteIcon && isNote(store.history.getFocusItem())
+  const [itemIconVisible, setItemIconVisible] = createSignal(
+    overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(store.history.getFocusItem())
       ? NoteFns.showsIcon(noteItem())
-      : false
+      : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(store.history.getFocusItem())
+        ? FileFns.showsIcon(fileItem())
+        : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(store.history.getFocusItem())
+          ? PasswordFns.showsIcon(passwordItem())
+          : false
   );
   const [selectedEmojiValue, setSelectedEmojiValue] = createSignal<string | null>(
-    overlayTypeConst == ToolbarPopupType.NoteIcon && isNote(store.history.getFocusItem())
+    overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(store.history.getFocusItem())
       ? NoteFns.emoji(noteItem())
-      : null
+      : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(store.history.getFocusItem())
+        ? FileFns.emoji(fileItem())
+        : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(store.history.getFocusItem())
+          ? PasswordFns.emoji(passwordItem())
+          : null
   );
   const [customEmojiInputFocused, setCustomEmojiInputFocused] = createSignal(false);
 
@@ -340,7 +353,7 @@ export const Toolbar_Popup: Component = () => {
     }
 
     if (overlayType() != ToolbarPopupType.PageColor &&
-      overlayType() != ToolbarPopupType.NoteIcon &&
+      overlayType() != ToolbarPopupType.ItemIcon &&
       overlayType() != ToolbarPopupType.QrLink &&
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.SearchArrangeAlgorithm &&
@@ -407,7 +420,7 @@ export const Toolbar_Popup: Component = () => {
   const showAutoButton = (): boolean => overlayType() == ToolbarPopupType.PageAspect;
 
   const selectedEmoji = () => selectedEmojiValue();
-  const noteIconChoiceClass = (selected: boolean): string =>
+  const itemIconChoiceClass = (selected: boolean): string =>
     `inline-flex items-center justify-center w-[32px] h-[32px] border rounded-md text-[18px] leading-none cursor-pointer focus:outline-none ` +
     (selected ? `bg-blue-50 border-blue-500 shadow-inner` : `bg-white border-slate-200 hover:bg-slate-100 hover:border-slate-300`);
   const emojiChoiceClass = (selected: boolean): string =>
@@ -415,17 +428,29 @@ export const Toolbar_Popup: Component = () => {
     (selected ? `bg-blue-50 ring-1 ring-blue-500 shadow-inner` : `bg-transparent hover:bg-slate-100`);
   const emojiFontStyle = () =>
     `font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;`;
-  const emojiInputIsDefaultNoteIcon = (): boolean => noteIconVisible() && selectedEmoji() == null && !customEmojiInputFocused();
-  const emojiInputFontStyle = (): string => emojiInputIsDefaultNoteIcon()
+  const defaultItemIconText = (): string =>
+    isFile(store.history.getFocusItem()) ? DEFAULT_FILE_ICON_TEXT :
+      isPassword(store.history.getFocusItem()) ? DEFAULT_PASSWORD_ICON_TEXT :
+        DEFAULT_NOTE_ICON_TEXT;
+  const defaultItemIconClass = (): string =>
+    isFile(store.history.getFocusItem()) ? "fas fa-file" :
+      isPassword(store.history.getFocusItem()) ? "fas fa-eye-slash" :
+        "fas fa-sticky-note";
+  const itemIconLabel = (): string =>
+    isFile(store.history.getFocusItem()) ? "file" :
+      isPassword(store.history.getFocusItem()) ? "password" :
+        "note";
+  const emojiInputIsDefaultItemIcon = (): boolean => itemIconVisible() && selectedEmoji() == null && !customEmojiInputFocused();
+  const emojiInputFontStyle = (): string => emojiInputIsDefaultItemIcon()
     ? `font-family: "Font Awesome 5 Free"; font-weight: 900;`
     : emojiFontStyle();
-  const emojiInputValue = (): string => noteIconVisible() && !customEmojiInputFocused()
-    ? selectedEmoji() || DEFAULT_NOTE_ICON_TEXT
+  const emojiInputValue = (): string => itemIconVisible() && !customEmojiInputFocused()
+    ? selectedEmoji() || defaultItemIconText()
     : "";
   const emojiInputFontSize = (): number => emojiInputValue() == "" ? 10 : 18;
   const handleCustomEmojiFocus = (): void => {
     setCustomEmojiInputFocused(true);
-    if (emojiInputElement != null && noteIconVisible() && selectedEmoji() == null) {
+    if (emojiInputElement != null && itemIconVisible() && selectedEmoji() == null) {
       emojiInputElement.value = "";
     }
   };
@@ -446,32 +471,49 @@ export const Toolbar_Popup: Component = () => {
     }
     return emoji;
   };
-  const chooseNoteIcon = (emoji: string | null, showIcon: boolean = true, closePopup: boolean = true): void => {
-    setNoteIconVisible(showIcon);
+  const chooseItemIcon = (emoji: string | null, showIcon: boolean = true, closePopup: boolean = true): void => {
+    setItemIconVisible(showIcon);
     setSelectedEmojiValue(showIcon ? emoji : null);
     if (emojiInputElement != null) {
       emojiInputElement.value = showIcon ? emoji || "" : "";
     }
+    const focusItem = store.history.getFocusItem();
     if (showIcon) {
-      noteItem().flags |= NoteFlags.ShowIcon;
-      noteItem().emoji = emoji;
+      if (isNote(focusItem)) {
+        noteItem().flags |= NoteFlags.ShowIcon;
+        noteItem().emoji = emoji;
+      } else if (isFile(focusItem)) {
+        fileItem().flags |= FileFlags.ShowIcon;
+        fileItem().emoji = emoji;
+      } else if (isPassword(focusItem)) {
+        passwordItem().flags |= PasswordFlags.ShowIcon;
+        passwordItem().emoji = emoji;
+      }
     } else {
-      noteItem().flags &= ~NoteFlags.ShowIcon;
-      noteItem().emoji = null;
+      if (isNote(focusItem)) {
+        noteItem().flags &= ~NoteFlags.ShowIcon;
+        noteItem().emoji = null;
+      } else if (isFile(focusItem)) {
+        fileItem().flags &= ~FileFlags.ShowIcon;
+        fileItem().emoji = null;
+      } else if (isPassword(focusItem)) {
+        passwordItem().flags &= ~PasswordFlags.ShowIcon;
+        passwordItem().emoji = null;
+      }
     }
-    serverOrRemote.updateItem(noteItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
     if (closePopup) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
     } else if (emojiInputElement != null) {
       emojiInputElement.value = emojiInputValue();
     }
     store.touchToolbar();
-    requestArrange(store, "toolbar-popup-note-icon");
+    requestArrange(store, "toolbar-popup-item-icon");
   };
   const applyCustomEmoji = (): void => {
     const emoji = normalizeCustomEmojiInput();
     if (emoji && emoji != "" && emoji != selectedEmoji()) {
-      chooseNoteIcon(emoji, true, false);
+      chooseItemIcon(emoji, true, false);
     } else if (emojiInputElement != null) {
       emojiInputElement.value = emojiInputValue();
     }
@@ -794,23 +836,23 @@ export const Toolbar_Popup: Component = () => {
             </Show>
           </div>
         </Match>
-        <Match when={overlayType() == ToolbarPopupType.NoteIcon}>
+        <Match when={overlayType() == ToolbarPopupType.ItemIcon}>
           <div class="absolute border rounded-md bg-slate-50 mb-1 shadow-lg border-slate-400 overflow-hidden"
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <div class="flex items-center gap-[7px] p-[8px] border-b border-slate-200 bg-white">
-              <button class={noteIconChoiceClass(!noteIconVisible())}
-                title="No popup icon"
+              <button class={itemIconChoiceClass(!itemIconVisible())}
+                title="No icon"
                 type="button"
-                onClick={() => chooseNoteIcon(null, false, false)}>
+                onClick={() => chooseItemIcon(null, false, false)}>
                 <i class="fa fa-ban" />
               </button>
-              <button class={noteIconChoiceClass(noteIconVisible() && selectedEmoji() == null)}
-                title="Default note icon"
+              <button class={itemIconChoiceClass(itemIconVisible() && selectedEmoji() == null)}
+                title={`Default ${itemIconLabel()} icon`}
                 type="button"
-                onClick={() => chooseNoteIcon(null, true, false)}>
-                <i class="fas fa-sticky-note" />
+                onClick={() => chooseItemIcon(null, true, false)}>
+                <i class={defaultItemIconClass()} />
               </button>
               <div class="grow"></div>
               <input ref={emojiInputElement}
@@ -837,11 +879,11 @@ export const Toolbar_Popup: Component = () => {
                   <div class="grid gap-[3px] px-[8px] justify-center"
                     style="grid-template-columns: repeat(9, 32px); grid-auto-rows: 32px;">
                     <For each={category.emojis}>{emoji =>
-                      <button class={emojiChoiceClass(noteIconVisible() && selectedEmoji() == emoji)}
+                      <button class={emojiChoiceClass(itemIconVisible() && selectedEmoji() == emoji)}
                         title={emoji}
                         type="button"
                         style={emojiFontStyle()}
-                        onClick={() => chooseNoteIcon(emoji, true, false)}>
+                        onClick={() => chooseItemIcon(emoji, true, false)}>
                         {emoji}
                       </button>
                     }</For>

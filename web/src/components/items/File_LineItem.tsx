@@ -19,7 +19,7 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
-import { asFileItem } from "../../items/file-item";
+import { FileFns, asFileItem } from "../../items/file-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
@@ -63,16 +63,19 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
     return false;
   };
 
-  const shouldHideIcon = () => {
-    return (props.visualElement.flags & VisualElementFlags.Attachment) || isInCalendarPage();
-  };
+  const shouldShowIcon = () => FileFns.showsIcon(fileItem()) && !isInCalendarPage();
+  const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
+    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+    showTriangleDetail();
+  const shouldReserveLeadingBlock = () => shouldShowIcon() || shouldShowLinkMarking();
+  const emoji = () => FileFns.emoji(fileItem());
 
-  const leftPx = () => shouldHideIcon()
-    ? boundsPx().x + oneBlockWidthPx() * PADDING_PROP
-    : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => shouldHideIcon()
-    ? boundsPx().w - oneBlockWidthPx() * PADDING_PROP
-    : boundsPx().w - oneBlockWidthPx();
+  const leftPx = () => shouldReserveLeadingBlock()
+    ? boundsPx().x + oneBlockWidthPx()
+    : boundsPx().x + oneBlockWidthPx() * PADDING_PROP;
+  const widthPx = () => shouldReserveLeadingBlock()
+    ? boundsPx().w - oneBlockWidthPx()
+    : boundsPx().w - oneBlockWidthPx() * PADDING_PROP;
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
     r.w = oneBlockWidthPx();
@@ -129,13 +132,20 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
       </Match>
     </Switch>;
 
-  const renderIcon = () =>
-    <div class="absolute text-center"
-      style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-        `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
-        `transform: scale(${scale()}); transform-origin: top left;`}>
-      <i class={`fas fa-file`} />
-    </div>;
+  const renderIconMaybe = () =>
+    <Show when={shouldShowIcon()}>
+      <div class="absolute text-center"
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
+        <Show when={emoji()} fallback={<i class={`fas fa-file`} />}>
+          <span class="inline-block leading-none"
+            style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
+            {emoji()}
+          </span>
+        </Show>
+      </div>
+    </Show>;
 
   const inputListener = (_ev: InputEvent) => {
     // fullArrange is not required in the line item case, because the ve geometry does not change.
@@ -187,8 +197,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
     </div>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-      showTriangleDetail()}>
+    <Show when={shouldShowLinkMarking()}>
       <div class="absolute text-center text-slate-600"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
@@ -200,9 +209,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   return (
     <>
       {renderHighlightsMaybe()}
-      <Show when={!shouldHideIcon()}>
-        {renderIcon()}
-      </Show>
+      {renderIconMaybe()}
       {renderText()}
       {renderLinkMarkingMaybe()}
       <Show when={store.history.getFocusPathMaybe() === vePath() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>

@@ -143,9 +143,9 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
   const reservePopupIconSpace = () =>
-    FileFns.showsDesktopPopupIcon(fileItem()) &&
+    FileFns.showsIcon(fileItem()) &&
     (hasPopupHandle() || isPopup());
-  const showPopupIcon = () => reservePopupIconSpace();
+  const showIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
     y: 1,
@@ -154,6 +154,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   });
   const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.94;
   const popupIconTopPx = () => -Math.max(blockSize().h * 0.03, 0.5);
+  const emoji = () => FileFns.emoji(fileItem());
   const popupTextIndentPx = () => {
     if (!reservePopupIconSpace()) { return 0; }
     return desktopPopupIconTextIndentPx(sizeBl().w);
@@ -308,7 +309,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
-      <Show when={showPopupIcon()}>
+      <Show when={showIcon()}>
         <div class="absolute rounded-xs pointer-events-none"
           style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
             `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
@@ -320,7 +321,12 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
             `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
             `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
-          <i class="fas fa-file" />
+          <Show when={emoji()} fallback={<i class="fas fa-file" />}>
+            <span class="inline-block leading-none"
+              style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
+              {emoji()}
+            </span>
+          </Show>
         </div>
       </Show>
       <Switch>

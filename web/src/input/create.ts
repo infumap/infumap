@@ -43,7 +43,7 @@ import { HitInfo, HitInfoFns } from "./hit";
 
 
 type CreateNewItemOptions = {
-  showNoteIcon?: boolean,
+  showIcon?: boolean,
 };
 
 function createNewItem(
@@ -61,14 +61,16 @@ function createNewItem(
     newItem = TableFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "note") {
     newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering, {
-      showIcon: options.showNoteIcon,
+      showIcon: options.showIcon,
     });
   } else if (type == "page") {
     newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "link")  {
     newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "password")  {
-    newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
+    newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering, {
+      showIcon: options.showIcon,
+    });
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
   }
@@ -177,7 +179,7 @@ function createItemInPage(
     pageVe.displayItem.id,
     itemState.newOrderingAtEndOfChildren(pageVe.displayItem.id),
     RelationshipToParent.Child,
-    { showNoteIcon: pageArrangeAlgorithm == ArrangeAlgorithm.List });
+    { showIcon: pageArrangeAlgorithm == ArrangeAlgorithm.List });
 
   positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
   applyNewPageDefaults(store, newItem);
@@ -245,7 +247,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           overElementVe.displayItem.id,
           itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId), // must be the case that it is at the end.
           RelationshipToParent.Child,
-          { showNoteIcon: true });
+          { showIcon: true });
         server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);

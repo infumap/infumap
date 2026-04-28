@@ -55,6 +55,7 @@ import { isContainer } from "../items/base/container-item";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
+import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -88,7 +89,9 @@ export const Main: Component = () => {
   const store = useStore();
 
   let mainDiv: HTMLDivElement | undefined;
+  let clearExternalUploadHoverTimeoutId: number | null = null;
   const touchListenerOptions: AddEventListenerOptions = { passive: false };
+  const externalFileDragListenerOptions: AddEventListenerOptions = { capture: true, passive: false };
 
   onMount(async () => {
     if (!store.general.installationState()!.hasRootUser) {
@@ -199,10 +202,16 @@ export const Main: Component = () => {
     document.addEventListener('keyup', keyUpListener);
     window.addEventListener('resize', windowResizeListener);
     document.addEventListener('selectionchange', selectionChangeListener);
+    window.addEventListener('dragenter', externalFileDragGuardListener, externalFileDragListenerOptions);
+    window.addEventListener('dragover', externalFileDragGuardListener, externalFileDragListenerOptions);
+    window.addEventListener('drop', externalFileDragGuardListener, externalFileDragListenerOptions);
+    window.addEventListener('drop', externalFileDropFallbackListener);
+    window.addEventListener('dragleave', externalFileDragLeaveListener, externalFileDragListenerOptions);
   });
 
   onCleanup(() => {
     stopContainerSyncLoop();
+    cancelExternalFileDragLeaveClear();
 
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
     mainDiv!.removeEventListener('touchstart', touchStartListener, touchListenerOptions);
@@ -213,11 +222,64 @@ export const Main: Component = () => {
     document.removeEventListener('keyup', keyUpListener);
     window.removeEventListener('resize', windowResizeListener);
     document.removeEventListener('selectionchange', selectionChangeListener)
+    window.removeEventListener('dragenter', externalFileDragGuardListener, externalFileDragListenerOptions);
+    window.removeEventListener('dragover', externalFileDragGuardListener, externalFileDragListenerOptions);
+    window.removeEventListener('drop', externalFileDragGuardListener, externalFileDragListenerOptions);
+    window.removeEventListener('drop', externalFileDropFallbackListener);
+    window.removeEventListener('dragleave', externalFileDragLeaveListener, externalFileDragListenerOptions);
   });
 
   const selectionChangeListener = () => {
     textEditSelectionChangeListener();
   }
+
+  const cancelExternalFileDragLeaveClear = () => {
+    if (clearExternalUploadHoverTimeoutId == null) {
+      return;
+    }
+
+    clearTimeout(clearExternalUploadHoverTimeoutId);
+    clearExternalUploadHoverTimeoutId = null;
+  };
+
+  const externalFileDragGuardListener = (ev: DragEvent) => {
+    if (!dataTransferContainsFiles(ev.dataTransfer)) {
+      return;
+    }
+
+    ev.preventDefault();
+    if (ev.dataTransfer) {
+      ev.dataTransfer.dropEffect = "copy";
+    }
+
+    if (ev.type == "dragenter" || ev.type == "dragover") {
+      cancelExternalFileDragLeaveClear();
+      CursorEventState.setFromMouseEvent(ev);
+      updateExternalUploadHover(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
+    }
+  };
+
+  const externalFileDropFallbackListener = async (ev: DragEvent) => {
+    if (!dataTransferContainsFiles(ev.dataTransfer)) {
+      return;
+    }
+
+    CursorEventState.setFromMouseEvent(ev);
+    ev.preventDefault();
+    await handleExternalUploadDrop(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
+  };
+
+  const externalFileDragLeaveListener = (ev: DragEvent) => {
+    if (!dataTransferContainsFiles(ev.dataTransfer)) {
+      return;
+    }
+
+    cancelExternalFileDragLeaveClear();
+    clearExternalUploadHoverTimeoutId = window.setTimeout(() => {
+      clearExternalUploadHover(store);
+      clearExternalUploadHoverTimeoutId = null;
+    }, 80);
+  };
 
   const shouldDebugLinearEdit = (): boolean => {
     try {

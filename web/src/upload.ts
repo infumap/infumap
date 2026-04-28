@@ -79,8 +79,14 @@ function showTransientMessage(
   }, durationMs);
 }
 
-function dataTransferContainsFiles(dataTransfer: DataTransfer): boolean {
-  return Array.from(dataTransfer.types).includes("Files");
+export function dataTransferContainsFiles(dataTransfer: DataTransfer | null): dataTransfer is DataTransfer {
+  if (dataTransfer == null) {
+    return false;
+  }
+
+  return Array.from(dataTransfer.types).includes("Files") ||
+    Array.from(dataTransfer.items).some(item => item.kind == "file") ||
+    dataTransfer.files.length > 0;
 }
 
 function isAttachmentTarget(target: UploadTarget): boolean {

@@ -19,7 +19,7 @@
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { useStore } from "../store/StoreProvider";
 import { ContextMenu } from "./overlay/ContextMenu";
-import { clearExternalUploadHover, handleExternalUploadDrop, handleUpload, updateExternalUploadHover } from "../upload";
+import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, handleUpload, updateExternalUploadHover } from "../upload";
 import { HitboxFlags } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
 import { Page_Desktop } from "./items/Page";
@@ -49,7 +49,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         clearTimeout(clearExternalUploadHoverTimeoutId);
         clearExternalUploadHoverTimeoutId = null;
       }
-      if (Array.from(ev.dataTransfer.types).includes("Files")) {
+      if (dataTransferContainsFiles(ev.dataTransfer)) {
         await handleExternalUploadDrop(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
         return;
       }

@@ -139,12 +139,12 @@ export const Toolbar_Note: Component = () => {
   };
 
   const popupIconButtonHandler = (): void => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteIcon) {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.ItemIcon) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: popupIconDiv!.getBoundingClientRect().x, y: popupIconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteIcon });
+      { topLeftPx: { x: popupIconDiv!.getBoundingClientRect().x, y: popupIconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.ItemIcon });
   };
   const handlePopupIconDown = () => {
     ClickState.setButtonClickBoundsPx(popupIconDiv!.getBoundingClientRect());

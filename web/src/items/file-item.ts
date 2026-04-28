@@ -44,7 +44,9 @@ import { downloadRemoteFile } from '../util/remoteFile';
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
 
-export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin { }
+export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin {
+  emoji: string | null,
+}
 
 
 export const FileFns = {
@@ -68,6 +70,7 @@ export const FileFns = {
       spatialWidthGr: o.spatialWidthGr,
 
       flags: o.flags ?? FileFlags.None,
+      emoji: o.emoji || null,
 
       originalCreationDate: o.originalCreationDate,
       mimeType: o.mimeType,
@@ -94,6 +97,7 @@ export const FileFns = {
       spatialWidthGr: f.spatialWidthGr,
 
       flags: f.flags,
+      emoji: f.emoji,
 
       originalCreationDate: f.originalCreationDate,
       mimeType: f.mimeType,
@@ -103,7 +107,7 @@ export const FileFns = {
 
   calcSpatialDimensionsBl: (file: FileMeasurable): Dimensions => {
     const widthBl = file.spatialWidthGr / GRID_SIZE;
-    const textIndentPx = FileFns.showsDesktopPopupIcon(file) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    const textIndentPx = FileFns.showsIcon(file) ? desktopPopupIconTextIndentPx(widthBl) : 0;
     let lineCount = measureLineCount(file.title, widthBl, 0, textIndentPx);
     if (lineCount < 1) { lineCount = 1; }
     return { w: widthBl, h: lineCount };
@@ -123,7 +127,7 @@ export const FileFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (emitHitboxes && FileFns.showsDesktopPopupIcon(file)) {
+    if (emitHitboxes && FileFns.showsIcon(file)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     if (emitHitboxes) {
@@ -198,8 +202,9 @@ export const FileFns = {
     return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
+    const showsIcon = FileFns.showsIcon(file);
     const innerBoundsPx = {
       x: 0.0,
       y: 0.0,
@@ -213,21 +218,24 @@ export const FileFns = {
       h: blockSizePx.h
     };
     const clickAreaBoundsPx = {
-      x: blockSizePx.w,
+      x: showsIcon ? blockSizePx.w : 0.0,
       y: 0.0,
-      w: blockSizePx.w * (widthBl - 1),
+      w: blockSizePx.w * (showsIcon ? widthBl - 1 : widthBl),
       h: blockSizePx.h
     };
     const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
+    ];
+    if (showsIcon) {
+      hitboxes.splice(1, 0, HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx));
+    }
     return {
       boundsPx,
       viewportBoundsPx: null,
       blockSizePx,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
-      ]
+      hitboxes
     };
   },
 
@@ -240,7 +248,7 @@ export const FileFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (FileFns.showsDesktopPopupIcon(file)) {
+    if (FileFns.showsIcon(file)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     hitboxes.push(
@@ -315,6 +323,7 @@ export const FileFns = {
       title: file.title,
       computed_attachments: file.computed_attachments,
       flags: file.flags,
+      emoji: file.emoji,
     });
   },
 
@@ -323,12 +332,17 @@ export const FileFns = {
   },
 
   getFingerprint: (fileItem: FileItem): string => {
-    return fileItem.title + "~~~!@#~~~" + fileItem.flags;
+    return fileItem.title + "~~~!@#~~~" + fileItem.flags + "~~~!@#~~~" + (fileItem.emoji || "");
   },
 
-  showsDesktopPopupIcon: (file: FileMeasurable): boolean => {
-    return !!(file.flags & FileFlags.ShowDesktopPopupIcon);
-  }
+  showsIcon: (file: FileMeasurable): boolean => {
+    return !!(file.flags & FileFlags.ShowIcon);
+  },
+
+  emoji: (file: FileMeasurable): string | null => {
+    const emoji = file.emoji?.trim();
+    return emoji && emoji != "" ? emoji : null;
+  },
 };
 
 

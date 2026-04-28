@@ -22,10 +22,8 @@ import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
-import { asFileItem } from "../../../items/file-item";
-import { FileFlags } from "../../../items/base/flags-item";
+import { FileFns, asFileItem } from "../../../items/file-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
-import { requestArrange } from "../../../layout/arrange";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
@@ -33,21 +31,25 @@ export const Toolbar_File: Component = () => {
   const store = useStore();
 
   let qrDiv: HTMLDivElement | undefined;
+  let iconDiv: HTMLDivElement | undefined;
 
   const fileItem = () => asFileItem(store.history.getFocusItem());
   const canEdit = () => itemCanEdit(fileItem());
 
-  const desktopPopupIconVisible = (): boolean => {
-    return !!(fileItem().flags & FileFlags.ShowDesktopPopupIcon);
+  const iconVisible = (): boolean => {
+    return FileFns.showsIcon(fileItem());
   }
 
-  const desktopPopupIconButtonHandler = (): void => {
-    if (desktopPopupIconVisible()) {
-      fileItem().flags &= ~FileFlags.ShowDesktopPopupIcon;
-    } else {
-      fileItem().flags |= FileFlags.ShowDesktopPopupIcon;
+  const iconButtonHandler = (): void => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.ItemIcon) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
     }
-    requestArrange(store, "toolbar-file-desktop-popup-icon");
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: iconDiv!.getBoundingClientRect().x, y: iconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.ItemIcon });
+  };
+  const handleIconDown = () => {
+    ClickState.setButtonClickBoundsPx(iconDiv!.getBoundingClientRect());
   };
 
   const handleQr = () => {
@@ -73,8 +75,8 @@ export const Toolbar_File: Component = () => {
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
         <Show when={canEdit()}>
-          <div class="inline-block pl-[2px]">
-            <InfuIconButton icon="fa fa-file" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+          <div ref={iconDiv} class="inline-block pl-[2px]" onMouseDown={handleIconDown}>
+            <InfuIconButton icon="fa fa-file" highlighted={iconVisible()} clickHandler={iconButtonHandler} />
           </div>
         </Show>
 

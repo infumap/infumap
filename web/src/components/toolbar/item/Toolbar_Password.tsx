@@ -22,10 +22,8 @@ import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
-import { asPasswordItem } from "../../../items/password-item";
-import { PasswordFlags } from "../../../items/base/flags-item";
+import { PasswordFns, asPasswordItem } from "../../../items/password-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
-import { requestArrange } from "../../../layout/arrange";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
@@ -33,21 +31,25 @@ export const Toolbar_Password: Component = () => {
   const store = useStore();
 
   let qrDiv: HTMLDivElement | undefined;
+  let iconDiv: HTMLDivElement | undefined;
 
   const passwordItem = () => asPasswordItem(store.history.getFocusItem());
   const canEdit = () => itemCanEdit(passwordItem());
 
-  const desktopPopupIconVisible = (): boolean => {
-    return !!(passwordItem().flags & PasswordFlags.ShowDesktopPopupIcon);
+  const iconVisible = (): boolean => {
+    return PasswordFns.showsIcon(passwordItem());
   }
 
-  const desktopPopupIconButtonHandler = (): void => {
-    if (desktopPopupIconVisible()) {
-      passwordItem().flags &= ~PasswordFlags.ShowDesktopPopupIcon;
-    } else {
-      passwordItem().flags |= PasswordFlags.ShowDesktopPopupIcon;
+  const iconButtonHandler = (): void => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.ItemIcon) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
     }
-    requestArrange(store, "toolbar-password-desktop-popup-icon");
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: iconDiv!.getBoundingClientRect().x, y: iconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.ItemIcon });
+  };
+  const handleIconDown = () => {
+    ClickState.setButtonClickBoundsPx(iconDiv!.getBoundingClientRect());
   };
 
   const handleQr = () => {
@@ -73,8 +75,8 @@ export const Toolbar_Password: Component = () => {
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
         <Show when={canEdit()}>
-          <div class="inline-block pl-[2px]">
-            <InfuIconButton icon="fa fa-eye-slash" highlighted={desktopPopupIconVisible()} clickHandler={desktopPopupIconButtonHandler} />
+          <div ref={iconDiv} class="inline-block pl-[2px]" onMouseDown={handleIconDown}>
+            <InfuIconButton icon="fa fa-eye-slash" highlighted={iconVisible()} clickHandler={iconButtonHandler} />
           </div>
         </Show>
 

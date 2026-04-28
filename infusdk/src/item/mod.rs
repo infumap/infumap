@@ -56,14 +56,14 @@ bitflags! {
 bitflags! {
   pub struct FileFlags: i64 {
     const None =                 0x000;
-    const ShowDesktopPopupIcon = 0x001;
+    const ShowIcon =             0x001;
   }
 }
 
 bitflags! {
   pub struct PasswordFlags: i64 {
     const None =                 0x000;
-    const ShowDesktopPopupIcon = 0x001;
+    const ShowIcon =             0x001;
   }
 }
 
@@ -1038,13 +1038,13 @@ impl JsonLogSerializable<Item> for Item {
     }
     match (&old.emoji, &new.emoji) {
       (Some(_), None) => {
-        if old.item_type != ItemType::Note {
+        if old.item_type != ItemType::Note && old.item_type != ItemType::File && old.item_type != ItemType::Password {
           cannot_modify_err("emoji", &old.id)?;
         }
         result.insert(String::from("emoji"), Value::Null);
       }
       (o, n @ Some(_)) if o != n => {
-        if old.item_type != ItemType::Note {
+        if old.item_type != ItemType::Note && old.item_type != ItemType::File && old.item_type != ItemType::Password {
           cannot_modify_err("emoji", &old.id)?;
         }
         result.insert(String::from("emoji"), Value::String(n.as_ref().unwrap().clone()));
@@ -1452,7 +1452,7 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
     if map.contains_key("emoji") {
-      if self.item_type != ItemType::Note {
+      if self.item_type != ItemType::Note && self.item_type != ItemType::File && self.item_type != ItemType::Password {
         not_applicable_err("emoji", self.item_type, &self.id)?;
       }
       self.emoji = json::get_string_field(map, "emoji")?;
@@ -1780,7 +1780,7 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(String::from("url"), Value::String(url.clone()));
   }
   if let Some(emoji) = &item.emoji {
-    if item.item_type != ItemType::Note {
+    if item.item_type != ItemType::Note && item.item_type != ItemType::File && item.item_type != ItemType::Password {
       unexpected_field_err("emoji", &item.id, item.item_type)?
     }
     result.insert(String::from("emoji"), Value::String(emoji.clone()));
@@ -2402,7 +2402,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
     emoji: match json::get_string_field(map, "emoji")? {
       Some(v) => {
-        if item_type == ItemType::Note {
+        if item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Password {
           Ok(Some(v))
         } else {
           Err(not_applicable_err("emoji", item_type, &id))
@@ -3091,6 +3091,10 @@ impl Item {
           hashes.push(hash_string_to_uid(url));
         }
       }
+    }
+
+    // Note/File/Password icon properties
+    if self.item_type == ItemType::Note || self.item_type == ItemType::File || self.item_type == ItemType::Password {
       if let Some(emoji) = &self.emoji {
         if !emoji.is_empty() {
           hashes.push(hash_string_to_uid(emoji));

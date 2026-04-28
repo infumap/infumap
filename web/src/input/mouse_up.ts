@@ -25,14 +25,15 @@ import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/bas
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
+import { FileFns, asFileItem, isFile } from "../items/file-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { NoteFns, asNoteItem, isNote } from "../items/note-item";
-import { NoteFlags } from "../items/base/flags-item";
+import { PasswordFns, asPasswordItem, isPassword } from "../items/password-item";
+import { FileFlags, NoteFlags, PasswordFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { TEMP_SEARCH_RESULTS_ORIGIN, isSearch } from "../items/search-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { isFile } from "../items/file-item";
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
@@ -78,25 +79,25 @@ interface MoveCommitOptions {
 }
 
 
-function pageArrangeAlgorithmForMoveDestination(note: PositionalItem, destinationVe?: VisualElement | null): string | null {
-  const parentItem = itemState.get(note.parentId);
+function pageArrangeAlgorithmForMoveDestination(item: PositionalItem, destinationVe?: VisualElement | null): string | null {
+  const parentItem = itemState.get(item.parentId);
   if (parentItem == null || !isPage(parentItem)) {
     return null;
   }
 
-  if (destinationVe != null && isPage(destinationVe.displayItem) && destinationVe.displayItem.id == note.parentId) {
+  if (destinationVe != null && isPage(destinationVe.displayItem) && destinationVe.displayItem.id == item.parentId) {
     return destinationVe.linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(destinationVe.displayItem).arrangeAlgorithm;
   }
 
   return asPageItem(parentItem).arrangeAlgorithm;
 }
 
-function movedNoteShouldShowIcon(note: PositionalItem, destinationVe?: VisualElement | null): boolean {
-  if (note.relationshipToParent != RelationshipToParent.Child) {
+function movedItemShouldShowIcon(item: PositionalItem, destinationVe?: VisualElement | null): boolean {
+  if (item.relationshipToParent != RelationshipToParent.Child) {
     return false;
   }
 
-  const parentItem = itemState.get(note.parentId);
+  const parentItem = itemState.get(item.parentId);
   if (parentItem == null) {
     return false;
   }
@@ -104,23 +105,47 @@ function movedNoteShouldShowIcon(note: PositionalItem, destinationVe?: VisualEle
     return true;
   }
 
-  return pageArrangeAlgorithmForMoveDestination(note, destinationVe) == ArrangeAlgorithm.List;
+  return pageArrangeAlgorithmForMoveDestination(item, destinationVe) == ArrangeAlgorithm.List;
 }
 
-function applyMovedNoteIconDefaultMaybe(item: Item, destinationVe?: VisualElement | null): void {
-  if (!isNote(item)) {
+function applyMovedIconDefaultMaybe(item: Item, destinationVe?: VisualElement | null): void {
+  if (isNote(item)) {
+    const note = asNoteItem(item);
+    if (NoteFns.emoji(note) != null) {
+      return;
+    }
+    if (movedItemShouldShowIcon(note, destinationVe)) {
+      note.flags |= NoteFlags.ShowIcon;
+    } else {
+      note.flags &= ~NoteFlags.ShowIcon;
+    }
     return;
   }
 
-  const note = asNoteItem(item);
-  if (NoteFns.emoji(note) != null) {
+  if (isFile(item)) {
+    const file = asFileItem(item);
+    if (FileFns.emoji(file) != null) {
+      return;
+    }
+    if (movedItemShouldShowIcon(file, destinationVe)) {
+      file.flags |= FileFlags.ShowIcon;
+    } else {
+      file.flags &= ~FileFlags.ShowIcon;
+    }
     return;
   }
 
-  if (movedNoteShouldShowIcon(note, destinationVe)) {
-    note.flags |= NoteFlags.ShowIcon;
+  if (!isPassword(item)) {
+    return;
+  }
+  const password = asPasswordItem(item);
+  if (PasswordFns.emoji(password) != null) {
+    return;
+  }
+  if (movedItemShouldShowIcon(password, destinationVe)) {
+    password.flags |= PasswordFlags.ShowIcon;
   } else {
-    note.flags &= ~NoteFlags.ShowIcon;
+    password.flags &= ~PasswordFlags.ShowIcon;
   }
 }
 
@@ -256,9 +281,9 @@ function enqueueUpdateItem(
   store: StoreContextModel,
   item: Item,
   rollbackSnapshot?: Item | null,
-  noteMoveDestinationVe?: VisualElement | null,
+  iconMoveDestinationVe?: VisualElement | null,
 ): void {
-  applyMovedNoteIconDefaultMaybe(item, noteMoveDestinationVe);
+  applyMovedIconDefaultMaybe(item, iconMoveDestinationVe);
   const snapshot = cloneItemSnapshot(item);
   ops.push({
     apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false),
@@ -294,7 +319,7 @@ function enqueuePersistMovedItems(
   ops: Array<MovePersistOperation>,
   store: StoreContextModel,
   defaultIds: string[],
-  noteMoveDestinationVe?: VisualElement | null,
+  iconMoveDestinationVe?: VisualElement | null,
 ): void {
   const group = MouseActionState.getGroupMoveItems();
   const ids = group && group.length > 0
@@ -304,7 +329,7 @@ function enqueuePersistMovedItems(
   for (const id of ids) {
     const item = itemState.get(id);
     if (item != null) {
-      enqueueUpdateItem(ops, store, item, null, noteMoveDestinationVe);
+      enqueueUpdateItem(ops, store, item, null, iconMoveDestinationVe);
     }
   }
 }
@@ -361,8 +386,12 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
 
     item.spatialPositionGr = { ...entry.spatialPositionGr };
     item.dateTime = entry.dateTime;
-    if (entry.noteFlags != null && isNote(item)) {
-      asNoteItem(item).flags = entry.noteFlags;
+    if (entry.iconFlags != null && isNote(item)) {
+      asNoteItem(item).flags = entry.iconFlags;
+    } else if (entry.iconFlags != null && isFile(item)) {
+      asFileItem(item).flags = entry.iconFlags;
+    } else if (entry.iconFlags != null && isPassword(item)) {
+      asPasswordItem(item).flags = entry.iconFlags;
     }
 
     if (item.parentId != entry.parentId || item.relationshipToParent != entry.relationshipToParent) {
@@ -542,14 +571,14 @@ function buildCleanupCollapsedCompositeOperations(
   childSnapshot.parentId = compositeItem.parentId;
   childSnapshot.spatialPositionGr = { ...compositeItem.spatialPositionGr };
   childSnapshot.ordering = new Uint8Array(compositeItem.ordering);
-  applyMovedNoteIconDefaultMaybe(childSnapshot);
+  applyMovedIconDefaultMaybe(childSnapshot);
   ops.push({
     apply: async () => {
       await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
       await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
       asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
       itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
-      applyMovedNoteIconDefaultMaybe(child);
+      applyMovedIconDefaultMaybe(child);
       itemState.delete(compositeItem.id);
     },
     rollback: async () => {

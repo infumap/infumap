@@ -27,7 +27,7 @@ import { HistoryStoreContextModel } from "./StoreProvider_History";
 export enum ToolbarPopupType {
   NoteUrl = "url",
   NoteFormat = "format",
-  NoteIcon = "noteicon",
+  ItemIcon = "itemicon",
   PageColor = "color",
   PageAspect = "aspect",
   PageWidth = "width",

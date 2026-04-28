@@ -137,9 +137,9 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
   const reservePopupIconSpace = () =>
-    PasswordFns.showsDesktopPopupIcon(passwordItem()) &&
+    PasswordFns.showsIcon(passwordItem()) &&
     (hasPopupHandle() || isPopup());
-  const showPopupIcon = () => reservePopupIconSpace();
+  const showIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
     y: 1,
@@ -148,6 +148,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   });
   const popupIconScale = () => (boundsPx().h / LINE_HEIGHT_PX) * 0.84;
   const popupIconTopPx = () => Math.max(boundsPx().h * 0.01, 0.25);
+  const emoji = () => PasswordFns.emoji(passwordItem());
   const popupTextIndentPx = () => {
     if (!reservePopupIconSpace()) { return 0; }
     return desktopPopupIconTextIndentPx(sizeBl().w);
@@ -299,7 +300,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
             `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
       </Show>
-      <Show when={showPopupIcon()}>
+      <Show when={showIcon()}>
         <div class="absolute rounded-xs pointer-events-none"
           style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
             `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
@@ -311,7 +312,12 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
             `width: ${oneBlockWidthPx() / popupIconScale()}px; height: ${boundsPx().h / popupIconScale()}px; ` +
             `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
-          <i class="fas fa-eye-slash" />
+          <Show when={emoji()} fallback={<i class="fas fa-eye-slash" />}>
+            <span class="inline-block leading-none"
+              style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
+              {emoji()}
+            </span>
+          </Show>
         </div>
       </Show>
       <Switch>

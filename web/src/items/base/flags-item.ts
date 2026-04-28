@@ -48,12 +48,12 @@ export enum NoteFlags {
 
 export enum FileFlags {
   None = 0x000,
-  ShowDesktopPopupIcon = 0x001,
+  ShowIcon = 0x001,
 }
 
 export enum PasswordFlags {
   None = 0x000,
-  ShowDesktopPopupIcon = 0x001,
+  ShowIcon = 0x001,
 }
 
 export enum CompositeFlags {

@@ -24,8 +24,10 @@ import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/bas
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
+import { asFileItem, isFile } from "../items/file-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { asNoteItem, isNote } from "../items/note-item";
+import { asPasswordItem, isPassword } from "../items/password-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PlaceholderFns } from "../items/placeholder-item";
 import { calculateCalendarPosition, encodeCalendarCombinedIndex } from "../util/calendar-layout";
@@ -84,7 +86,13 @@ function captureMoveRollbackSnapshot(store: StoreContextModel, activeVisualEleme
       ordering: new Uint8Array(item.ordering),
       spatialPositionGr: { ...item.spatialPositionGr },
       dateTime: item.dateTime,
-      noteFlags: isNote(item) ? asNoteItem(item).flags : null,
+      iconFlags: isNote(item)
+        ? asNoteItem(item).flags
+        : isFile(item)
+          ? asFileItem(item).flags
+          : isPassword(item)
+            ? asPasswordItem(item).flags
+            : null,
     }));
 
   MouseActionState.setMoveRollback(snapshot);
