@@ -111,15 +111,13 @@ function movedItemShouldShowIcon(item: PositionalItem, destinationVe?: VisualEle
 function applyMovedIconDefaultMaybe(item: Item, destinationVe?: VisualElement | null): void {
   if (isNote(item)) {
     const note = asNoteItem(item);
-    if (NoteFns.emoji(note) != null) {
+    if (note.iconMode != NoteIconMode.Auto) {
       return;
     }
     if (movedItemShouldShowIcon(note, destinationVe)) {
       note.flags |= NoteFlags.ShowIcon;
-      note.iconMode = NoteIconMode.Symbol;
     } else {
       note.flags &= ~NoteFlags.ShowIcon;
-      note.iconMode = NoteIconMode.None;
     }
     return;
   }

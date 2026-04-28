@@ -1085,7 +1085,7 @@ pub async fn add_item_for_user(
       });
       item.emoji = None;
       if item.item_type == ItemType::Note {
-        item.icon_mode = Some(NoteIconMode::Symbol);
+        item.icon_mode = Some(NoteIconMode::Auto);
       }
     }
 

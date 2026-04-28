@@ -54,6 +54,7 @@ export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 }
 
 export enum NoteIconMode {
+  Auto = "auto",
   None = "none",
   Symbol = "symbol",
   Favicon = "favicon",
@@ -64,7 +65,7 @@ type NoteCreateOptions = {
 };
 
 function isNoteIconMode(value: any): value is NoteIconMode {
-  return value == NoteIconMode.None || value == NoteIconMode.Symbol || value == NoteIconMode.Favicon;
+  return value == NoteIconMode.Auto || value == NoteIconMode.None || value == NoteIconMode.Symbol || value == NoteIconMode.Favicon;
 }
 
 function noteIconModeFromObject(o: any): NoteIconMode {
@@ -72,9 +73,9 @@ function noteIconModeFromObject(o: any): NoteIconMode {
     return o.iconMode;
   }
   const emoji = o.emoji?.trim();
-  return ((o.flags ?? NoteFlags.None) & NoteFlags.ShowIcon) || (emoji && emoji != "")
+  return emoji && emoji != ""
     ? NoteIconMode.Symbol
-    : NoteIconMode.None;
+    : NoteIconMode.Auto;
 }
 
 
@@ -104,7 +105,7 @@ export const NoteFns = {
 
       url: "",
       emoji: null,
-      iconMode: options?.showIcon ? NoteIconMode.Symbol : NoteIconMode.None,
+      iconMode: NoteIconMode.Auto,
 
       computed_attachments: [],
     };
@@ -421,11 +422,14 @@ export const NoteFns = {
     );
   },
 
-  showsIcon: (flagsItem: FlagsMixin): boolean => {
-    return !!(flagsItem.flags & NoteFlags.ShowIcon);
+  showsIcon: (note: NoteMeasurable): boolean => {
+    return note.iconMode == NoteIconMode.Auto
+      ? !!(note.flags & NoteFlags.ShowIcon)
+      : note.iconMode != NoteIconMode.None;
   },
 
   emoji: (note: NoteMeasurable): string | null => {
+    if (note.iconMode != NoteIconMode.Symbol) { return null; }
     const emoji = note.emoji?.trim();
     return emoji && emoji != "" ? emoji : null;
   },

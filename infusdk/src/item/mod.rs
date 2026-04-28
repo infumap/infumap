@@ -156,6 +156,7 @@ impl ArrangeAlgorithm {
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum NoteIconMode {
+  Auto,
   None,
   Symbol,
   Favicon,
@@ -164,6 +165,7 @@ pub enum NoteIconMode {
 impl NoteIconMode {
   pub fn as_str(&self) -> &'static str {
     match self {
+      NoteIconMode::Auto => "auto",
       NoteIconMode::None => "none",
       NoteIconMode::Symbol => "symbol",
       NoteIconMode::Favicon => "favicon",
@@ -172,6 +174,7 @@ impl NoteIconMode {
 
   pub fn from_str(s: &str) -> InfuResult<NoteIconMode> {
     match s {
+      "auto" => Ok(NoteIconMode::Auto),
       "none" => Ok(NoteIconMode::None),
       "symbol" => Ok(NoteIconMode::Symbol),
       "favicon" => Ok(NoteIconMode::Favicon),
@@ -1913,13 +1916,12 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     .into()
   }
   fn default_note_icon_mode(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<NoteIconMode> {
-    let flags = json::get_integer_field(map, "flags")?.unwrap_or(0);
     let emoji = json::get_string_field(map, "emoji")?;
     let has_emoji = emoji.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false);
-    if has_emoji || (flags & NoteFlags::ShowIcon.bits()) != 0 {
+    if has_emoji {
       Ok(NoteIconMode::Symbol)
     } else {
-      Ok(NoteIconMode::None)
+      Ok(NoteIconMode::Auto)
     }
   }
 
@@ -2641,11 +2643,7 @@ impl Item {
       title: Some(title.to_owned()),
       url,
       emoji: None,
-      icon_mode: Some(if (flags.bits() & NoteFlags::ShowIcon.bits()) != 0 {
-        NoteIconMode::Symbol
-      } else {
-        NoteIconMode::None
-      }),
+      icon_mode: Some(NoteIconMode::Auto),
       format: Some(fmt.to_owned()),
       order_children_by: None,
       spatial_height_gr: None,
