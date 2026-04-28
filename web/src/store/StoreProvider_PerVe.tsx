@@ -86,9 +86,6 @@ export interface PerVeStoreContextModel {
   clear: () => void,
 }
 
-function clear() {
-}
-
 export function makePerVeStore(): PerVeStoreContextModel {
   const mouseIsOver = new Map<string, BooleanSignal>();
   const mouseIsOverOpenPopup = new Map<string, BooleanSignal>();
@@ -107,6 +104,26 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const calendarYear = new Map<string, NumberSignal>();
   const calendarMonthResize = new Map<string, InfuSignal<CalendarMonthResize | null>>();
   const autoMovedIntoView = new Map<string, BooleanSignal>();
+
+  const clear = (): void => {
+    mouseIsOver.clear();
+    mouseIsOverOpenPopup.clear();
+    mouseIsOverCompositeMoveOut.clear();
+    movingItemIsOver.clear();
+    movingItemIsOverAttach.clear();
+    movingItemIsOverAttachComposite.clear();
+    moveOverRowNumber.clear();
+    moveOverColAttachmentNumber.clear();
+    moveOverChildContainerPath.clear();
+    moveOverAttachmentIndex.clear();
+    moveOverIndex.clear();
+    moveOverIndexAndPosition.clear();
+    isExpanded.clear();
+    calendarMonthIndex.clear();
+    calendarYear.clear();
+    calendarMonthResize.clear();
+    autoMovedIntoView.clear();
+  };
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
     if (!mouseIsOver.get(vePath)) {

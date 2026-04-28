@@ -29,8 +29,7 @@ import { NoteFlags } from "../items/base/flags-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage } from "../layout/visual-element";
-import { VisualElementSignal } from "../util/signals";
+import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage, type VisualElementPath } from "../layout/visual-element";
 import { HitInfoFns } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
@@ -53,11 +52,11 @@ import {
 } from "../util/calendar-layout";
 
 
-let lastMouseOverVes: VisualElementSignal | null = null;
-let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
-let lastMouseOverCompositeMoveOutVes: VisualElementSignal | null = null;
-let lastMouseOverCatalogPagePath: string | null = null;
-let lastMouseOverSearchGridPagePath: string | null = null;
+let lastMouseOverPath: VisualElementPath | null = null;
+let lastMouseOverOpenPopupPath: VisualElementPath | null = null;
+let lastMouseOverCompositeMoveOutPath: VisualElementPath | null = null;
+let lastMouseOverCatalogPagePath: VisualElementPath | null = null;
+let lastMouseOverSearchGridPagePath: VisualElementPath | null = null;
 let lastSelectionArrangeTimeMs = 0;
 let lastSelectionSignature = "";
 const SELECTION_ARRANGE_THROTTLE_MS = 33;
@@ -140,17 +139,17 @@ export function mouseMoveHandler(store: StoreContextModel) {
 
 
 export function clearMouseOverState(store: StoreContextModel) {
-  if (lastMouseOverVes) {
-    store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);
-    lastMouseOverVes = null;
+  if (lastMouseOverPath) {
+    store.perVe.setMouseIsOver(lastMouseOverPath, false);
+    lastMouseOverPath = null;
   }
-  if (lastMouseOverOpenPopupVes) {
-    store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(lastMouseOverOpenPopupVes.get()), false);
-    lastMouseOverOpenPopupVes = null;
+  if (lastMouseOverOpenPopupPath) {
+    store.perVe.setMouseIsOverOpenPopup(lastMouseOverOpenPopupPath, false);
+    lastMouseOverOpenPopupPath = null;
   }
-  if (lastMouseOverCompositeMoveOutVes) {
-    store.perVe.setMouseIsOverCompositeMoveOut(VeFns.veToPath(lastMouseOverCompositeMoveOutVes.get()), false);
-    lastMouseOverCompositeMoveOutVes = null;
+  if (lastMouseOverCompositeMoveOutPath) {
+    store.perVe.setMouseIsOverCompositeMoveOut(lastMouseOverCompositeMoveOutPath, false);
+    lastMouseOverCompositeMoveOutPath = null;
   }
   if (lastMouseOverCatalogPagePath) {
     store.perVe.setMoveOverRowNumber(lastMouseOverCatalogPagePath, -1);
@@ -1212,6 +1211,11 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     (hitInfo.hitboxType & HitboxFlags.Move) && hitInfo.overElementMeta?.compositeMoveOut
       ? overElementVes
       : null;
+  const overElementVe = overElementVes.get();
+  const overElementPath = VeFns.veToPath(overElementVe);
+  const overCompositeMoveOutPath = overCompositeMoveOutVes
+    ? VeFns.veToPath(overCompositeMoveOutVes.get())
+    : null;
   const catalogRowHover = currentCatalogRowHover(store, CursorEventState.getLatestDesktopPx(store), hitInfo);
   const searchGridCellHover = currentSearchGridCellHover(store, CursorEventState.getLatestDesktopPx(store), hitInfo);
 
@@ -1241,53 +1245,60 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     lastMouseOverSearchGridPagePath = searchGridCellHover.pagePath;
   }
 
-  if (overElementVes != lastMouseOverVes || suppressGenericMouseOver || hasModal || isInsideToolbarPopup) {
-    if (lastMouseOverVes != null) {
-      store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);
-      lastMouseOverVes = null;
+  if (overElementPath != lastMouseOverPath || suppressGenericMouseOver || hasModal || isInsideToolbarPopup) {
+    if (lastMouseOverPath != null) {
+      store.perVe.setMouseIsOver(lastMouseOverPath, false);
+      lastMouseOverPath = null;
     }
   }
 
-  if (overElementVes != lastMouseOverOpenPopupVes || !(hitInfo.hitboxType & HitboxFlags.OpenPopup) || hasModal || isInsideToolbarPopup) {
-    if (lastMouseOverOpenPopupVes != null) {
-      store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(lastMouseOverOpenPopupVes.get()), false);
-      lastMouseOverOpenPopupVes = null;
+  if (overElementPath != lastMouseOverOpenPopupPath || !(hitInfo.hitboxType & HitboxFlags.OpenPopup) || hasModal || isInsideToolbarPopup) {
+    if (lastMouseOverOpenPopupPath != null) {
+      store.perVe.setMouseIsOverOpenPopup(lastMouseOverOpenPopupPath, false);
+      lastMouseOverOpenPopupPath = null;
     }
   }
 
-  if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
-    !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOver(VeFns.veToPath(overElementVes.get())) &&
+  if ((overElementVe.displayItem.id != store.history.currentPageVeid()!.itemId) &&
+    !(overElementVe.flags & VisualElementFlags.Popup) &&
     !suppressGenericMouseOver &&
     !hasModal && !isInsideToolbarPopup) {
-    store.perVe.setMouseIsOver(VeFns.veToPath(overElementVes.get()), true);
-    lastMouseOverVes = overElementVes;
+    if (!store.perVe.getMouseIsOver(overElementPath)) {
+      store.perVe.setMouseIsOver(overElementPath, true);
+    }
+    lastMouseOverPath = overElementPath;
   }
 
-  if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
-    !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get())) &&
+  if ((overElementVe.displayItem.id != store.history.currentPageVeid()!.itemId) &&
+    !(overElementVe.flags & VisualElementFlags.Popup) &&
     !hasModal && !isInsideToolbarPopup) {
     if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {
-      store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get()), true);
-      lastMouseOverOpenPopupVes = overElementVes;
+      if (!store.perVe.getMouseIsOverOpenPopup(overElementPath)) {
+        store.perVe.setMouseIsOverOpenPopup(overElementPath, true);
+      }
+      lastMouseOverOpenPopupPath = overElementPath;
     } else {
-      store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get()), false);
+      if (store.perVe.getMouseIsOverOpenPopup(overElementPath)) {
+        store.perVe.setMouseIsOverOpenPopup(overElementPath, false);
+      }
     }
   }
 
-  if (overCompositeMoveOutVes != lastMouseOverCompositeMoveOutVes || hasModal || isInsideToolbarPopup) {
-    if (lastMouseOverCompositeMoveOutVes != null) {
-      store.perVe.setMouseIsOverCompositeMoveOut(VeFns.veToPath(lastMouseOverCompositeMoveOutVes.get()), false);
-      lastMouseOverCompositeMoveOutVes = null;
+  if (overCompositeMoveOutPath != lastMouseOverCompositeMoveOutPath || hasModal || isInsideToolbarPopup) {
+    if (lastMouseOverCompositeMoveOutPath != null) {
+      store.perVe.setMouseIsOverCompositeMoveOut(lastMouseOverCompositeMoveOutPath, false);
+      lastMouseOverCompositeMoveOutPath = null;
     }
   }
 
-  if (overCompositeMoveOutVes != null &&
+  if (overCompositeMoveOutVes != null && overCompositeMoveOutPath != null &&
     (overCompositeMoveOutVes.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
     !(overCompositeMoveOutVes.get().flags & VisualElementFlags.Popup) &&
-    !store.perVe.getMouseIsOverCompositeMoveOut(VeFns.veToPath(overCompositeMoveOutVes.get())) &&
     !hasModal && !isInsideToolbarPopup) {
-    store.perVe.setMouseIsOverCompositeMoveOut(VeFns.veToPath(overCompositeMoveOutVes.get()), true);
-    lastMouseOverCompositeMoveOutVes = overCompositeMoveOutVes;
+    if (!store.perVe.getMouseIsOverCompositeMoveOut(overCompositeMoveOutPath)) {
+      store.perVe.setMouseIsOverCompositeMoveOut(overCompositeMoveOutPath, true);
+    }
+    lastMouseOverCompositeMoveOutPath = overCompositeMoveOutPath;
   }
 
   if (hasUser && !isInsideToolbarPopup) {
