@@ -434,6 +434,13 @@ export const NoteFns = {
     return emoji && emoji != "" ? emoji : null;
   },
 
+  faviconPath: (note: NoteItem): string | null => {
+    if (note.iconMode != NoteIconMode.Favicon) { return null; }
+    const url = note.url?.trim();
+    if (!url) { return null; }
+    return `/favicons/${note.id}?u=${encodeURIComponent(url)}`;
+  },
+
   clearTextStyleFlags: (flagsItem: FlagsItem): void => {
     flagsItem.flags &= ~NoteFlags.Heading1;
     flagsItem.flags &= ~NoteFlags.Heading2;

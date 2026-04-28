@@ -53,6 +53,7 @@ import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { NoteIconGlyph } from "./NoteIconGlyph";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -116,7 +117,6 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   });
   const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.94;
   const popupIconTopPx = () => -Math.max(blockSize().h * 0.03, 0.5);
-  const emoji = () => NoteFns.emoji(noteItem());
   const popupTextIndentPx = () => {
     if (!reservePopupIconSpace()) { return 0; }
     return desktopPopupIconTextIndentPx(sizeBl().w);
@@ -372,12 +372,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
               `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
-            <Show when={emoji()} fallback={<i class="fas fa-sticky-note" />}>
-              <span class="inline-block leading-none"
-                style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
-                {emoji()}
-              </span>
-            </Show>
+            <NoteIconGlyph note={noteItem} highPriority={isPopup} />
           </div>
         </Show>
         <Switch>
