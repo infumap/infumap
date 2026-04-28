@@ -1073,7 +1073,7 @@ pub async fn add_item_for_user(
       && item.relationship_to_parent == RelationshipToParent::Child
       && parent_renders_children_as_line_items
     {
-      item.flags = Some(NoteFlags::ShowPopupIcon.bits());
+      item.flags = Some(NoteFlags::ShowIcon.bits());
       item.emoji = None;
     }
 

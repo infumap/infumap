@@ -105,9 +105,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
   const reservePopupIconSpace = () =>
-    NoteFns.showsPopupIcon(noteItem()) &&
+    NoteFns.showsIcon(noteItem()) &&
     (hasPopupHandle() || isPopup());
-  const showPopupIcon = () => reservePopupIconSpace();
+  const showIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
     y: 1,
@@ -360,7 +360,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
-        <Show when={showPopupIcon()}>
+        <Show when={showIcon()}>
           <div class="absolute rounded-xs pointer-events-none"
             style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
               `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +

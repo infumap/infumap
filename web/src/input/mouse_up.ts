@@ -91,7 +91,7 @@ function pageArrangeAlgorithmForMoveDestination(note: PositionalItem, destinatio
   return asPageItem(parentItem).arrangeAlgorithm;
 }
 
-function movedNoteShouldShowPopupIcon(note: PositionalItem, destinationVe?: VisualElement | null): boolean {
+function movedNoteShouldShowIcon(note: PositionalItem, destinationVe?: VisualElement | null): boolean {
   if (note.relationshipToParent != RelationshipToParent.Child) {
     return false;
   }
@@ -117,10 +117,10 @@ function applyMovedNoteIconDefaultMaybe(item: Item, destinationVe?: VisualElemen
     return;
   }
 
-  if (movedNoteShouldShowPopupIcon(note, destinationVe)) {
-    note.flags |= NoteFlags.ShowPopupIcon;
+  if (movedNoteShouldShowIcon(note, destinationVe)) {
+    note.flags |= NoteFlags.ShowIcon;
   } else {
-    note.flags &= ~NoteFlags.ShowPopupIcon;
+    note.flags &= ~NoteFlags.ShowIcon;
   }
 }
 

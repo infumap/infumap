@@ -53,7 +53,7 @@ export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 }
 
 type NoteCreateOptions = {
-  showPopupIcon?: boolean,
+  showIcon?: boolean,
 };
 
 
@@ -77,7 +77,7 @@ export const NoteFns = {
       spatialWidthGr: 10.0 * GRID_SIZE,
       spatialHeightGr: 0,
 
-      flags: options?.showPopupIcon ? NoteFlags.ShowPopupIcon : NoteFlags.None,
+      flags: options?.showIcon ? NoteFlags.ShowIcon : NoteFlags.None,
 
       format: "",
 
@@ -150,7 +150,7 @@ export const NoteFns = {
     }
     const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
     const widthBl = note.spatialWidthGr / GRID_SIZE;
-    const textIndentPx = NoteFns.showsPopupIcon(note) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    const textIndentPx = NoteFns.showsIcon(note) ? desktopPopupIconTextIndentPx(widthBl) : 0;
     let measuredHeightBl = measureLineCount(formattedTitle, widthBl, note.flags, textIndentPx);
     if (measuredHeightBl < 1) { measuredHeightBl = 1; }
 
@@ -174,7 +174,7 @@ export const NoteFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (emitHitboxes && NoteFns.showsPopupIcon(note)) {
+    if (emitHitboxes && NoteFns.showsIcon(note)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     if (emitHitboxes) {
@@ -258,11 +258,11 @@ export const NoteFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
-    const showsPopupIcon = NoteFns.showsPopupIcon(note);
+    const showsIcon = NoteFns.showsIcon(note);
     const clickAreaBoundsPx = {
-      x: showsPopupIcon ? blockSizePx.w : 0.0,
+      x: showsIcon ? blockSizePx.w : 0.0,
       y: 0.0,
-      w: blockSizePx.w * (showsPopupIcon ? widthBl - 1 : widthBl),
+      w: blockSizePx.w * (showsIcon ? widthBl - 1 : widthBl),
       h: blockSizePx.h
     };
     const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
@@ -271,7 +271,7 @@ export const NoteFns = {
       HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
     ];
-    if (showsPopupIcon) {
+    if (showsIcon) {
       hitboxes.splice(1, 0, HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx));
     }
     return {
@@ -291,7 +291,7 @@ export const NoteFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (NoteFns.showsPopupIcon(note)) {
+    if (NoteFns.showsIcon(note)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     hitboxes.push(
@@ -396,8 +396,8 @@ export const NoteFns = {
     );
   },
 
-  showsPopupIcon: (flagsItem: FlagsMixin): boolean => {
-    return !!(flagsItem.flags & NoteFlags.ShowPopupIcon);
+  showsIcon: (flagsItem: FlagsMixin): boolean => {
+    return !!(flagsItem.flags & NoteFlags.ShowIcon);
   },
 
   emoji: (note: NoteMeasurable): string | null => {

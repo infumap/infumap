@@ -41,7 +41,7 @@ bitflags! {
     const HideBorder =     0x100;
     const Code       =     0x200;
     const ExplicitHeight = 0x400;
-    const ShowPopupIcon = 0x800;
+    const ShowIcon =      0x800;
     const Heading4 =       0x1000;
   }
 }

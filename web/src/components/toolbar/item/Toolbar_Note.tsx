@@ -122,7 +122,7 @@ export const Toolbar_Note: Component = () => {
   }
 
   const popupIconVisible = (): boolean => {
-    return NoteFns.showsPopupIcon(noteItem());
+    return NoteFns.showsIcon(noteItem());
   }
 
   const explicitHeightButtonHandler = (): void => {

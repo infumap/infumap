@@ -67,11 +67,11 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return false;
   };
 
-  const shouldShowPopupIcon = () => NoteFns.showsPopupIcon(noteItem()) && !isInCalendarPage();
+  const shouldShowIcon = () => NoteFns.showsIcon(noteItem()) && !isInCalendarPage();
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
-  const shouldReserveLeadingBlock = () => shouldShowPopupIcon() || shouldShowLinkMarking();
+  const shouldReserveLeadingBlock = () => shouldShowIcon() || shouldShowLinkMarking();
 
   const leftPx = () => shouldReserveLeadingBlock()
     ? boundsPx().x + oneBlockWidthPx()
@@ -148,7 +148,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </Switch>;
 
   const renderIconMaybe = () =>
-    <Show when={shouldShowPopupIcon()}>
+    <Show when={shouldShowIcon()}>
       <div class="absolute text-center"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +

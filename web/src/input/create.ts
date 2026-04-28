@@ -43,7 +43,7 @@ import { HitInfo, HitInfoFns } from "./hit";
 
 
 type CreateNewItemOptions = {
-  showNotePopupIcon?: boolean,
+  showNoteIcon?: boolean,
 };
 
 function createNewItem(
@@ -61,7 +61,7 @@ function createNewItem(
     newItem = TableFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "note") {
     newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering, {
-      showPopupIcon: options.showNotePopupIcon,
+      showIcon: options.showNoteIcon,
     });
   } else if (type == "page") {
     newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
@@ -177,7 +177,7 @@ function createItemInPage(
     pageVe.displayItem.id,
     itemState.newOrderingAtEndOfChildren(pageVe.displayItem.id),
     RelationshipToParent.Child,
-    { showNotePopupIcon: pageArrangeAlgorithm == ArrangeAlgorithm.List });
+    { showNoteIcon: pageArrangeAlgorithm == ArrangeAlgorithm.List });
 
   positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
   applyNewPageDefaults(store, newItem);
@@ -245,7 +245,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           overElementVe.displayItem.id,
           itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId), // must be the case that it is at the end.
           RelationshipToParent.Child,
-          { showNotePopupIcon: true });
+          { showNoteIcon: true });
         server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);

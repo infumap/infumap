@@ -42,7 +42,7 @@ export enum NoteFlags {
   HideBorder = 0x100,
   Code = 0x200,
   ExplicitHeight = 0x400,
-  ShowPopupIcon = 0x800,
+  ShowIcon = 0x800,
   Heading4 = 0x1000,
 };
 
