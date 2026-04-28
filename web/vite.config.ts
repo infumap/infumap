@@ -44,6 +44,10 @@ export default defineConfig(({ command, mode }) => {
           target: `http://${host}:8000`,
           changeOrigin: false
         },
+        '/favicons': {
+          target: `http://${host}:8000`,
+          changeOrigin: false
+        },
         '/add': {
           target: `http://${host}:8000`,
           changeOrigin: false

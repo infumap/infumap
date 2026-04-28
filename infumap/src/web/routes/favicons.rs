@@ -21,7 +21,7 @@ use hyper::{Request, Response};
 use infusdk::item::{ItemType, NoteIconMode};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::is_uid;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use reqwest::Url;
 use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderValue, LOCATION};
 use std::collections::HashMap;
@@ -113,9 +113,13 @@ async fn get_or_fetch_favicon(
   let data = match favicon_cache::get(favicon_cache.clone(), &owner_id, key.clone()).await? {
     Some(data) => data,
     None => {
+      info!("Favicon cache miss for note '{}' url '{}'. Fetching.", note_id, note_url);
       let data = match fetch_favicon(&note_url).await? {
         Some(data) => data,
-        None => return Ok(not_found_response()),
+        None => {
+          info!("No favicon found for note '{}' url '{}'.", note_id, note_url);
+          return Ok(not_found_response());
+        }
       };
       favicon_cache::put_if_not_exist(favicon_cache, &owner_id, key, data.clone()).await?;
       data
