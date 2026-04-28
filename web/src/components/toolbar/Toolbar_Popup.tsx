@@ -26,6 +26,7 @@ import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { itemState } from "../../store/ItemState";
 import { NoteFns, NoteIconMode, asNoteItem, isNote } from "../../items/note-item";
+import { NoteFaviconLoadStatus, clearNoteFaviconStatus, noteFaviconStatus } from "../../items/note-favicon-state";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
@@ -443,6 +444,30 @@ export const Toolbar_Popup: Component = () => {
         "note";
   const noteIconIsFavicon = (): boolean => isNote(store.history.getFocusItem()) && noteItem().iconMode == NoteIconMode.Favicon;
   const noteHasFaviconUrl = (): boolean => isNote(store.history.getFocusItem()) && noteItem().url.trim() != "";
+  const noteFaviconPath = (): string | null => isNote(store.history.getFocusItem()) ? NoteFns.faviconPath(noteItem()) : null;
+  const noteFaviconLoadStatus = (): NoteFaviconLoadStatus => isNote(store.history.getFocusItem())
+    ? noteFaviconStatus(noteFaviconPath(), noteItem().origin)
+    : NoteFaviconLoadStatus.Idle;
+  const noteFaviconButtonTitle = (): string => {
+    if (!noteHasFaviconUrl()) { return "Add a URL to use site icon"; }
+    if (!noteIconIsFavicon()) { return "Use site icon"; }
+    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Loading) { return "Loading site icon"; }
+    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Loaded) { return "Using site icon"; }
+    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Failed) { return "Site icon unavailable. Click to retry"; }
+    return "Use site icon";
+  };
+  const noteFaviconButtonClass = (): string => {
+    const statusClass = noteIconIsFavicon() && noteFaviconLoadStatus() == NoteFaviconLoadStatus.Failed
+      ? " text-amber-600 hover:text-amber-700"
+      : "";
+    return itemIconChoiceClass(noteIconIsFavicon()) + statusClass;
+  };
+  const noteFaviconButtonIconClass = (): string => {
+    if (!noteIconIsFavicon()) { return "fas fa-globe"; }
+    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Loading) { return "fa fa-spinner fa-spin"; }
+    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Failed) { return "fas fa-exclamation-triangle"; }
+    return "fas fa-globe";
+  };
   const regularIconSelected = (): boolean =>
     itemIconVisible() && selectedEmoji() == null && !noteIconIsFavicon();
   const emojiInputIsDefaultItemIcon = (): boolean => regularIconSelected() && !customEmojiInputFocused();
@@ -528,6 +553,9 @@ export const Toolbar_Popup: Component = () => {
     noteItem().flags |= NoteFlags.ShowIcon;
     noteItem().emoji = null;
     noteItem().iconMode = NoteIconMode.Favicon;
+    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Failed) {
+      clearNoteFaviconStatus(NoteFns.faviconPath(noteItem()), noteItem().origin);
+    }
     serverOrRemote.updateItem(focusItem, store.general.networkStatus);
     if (closePopup) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -880,12 +908,12 @@ export const Toolbar_Popup: Component = () => {
                 <i class={defaultItemIconClass()} />
               </button>
               <Show when={isNote(store.history.getFocusItem())}>
-                <button class={itemIconChoiceClass(noteIconIsFavicon())}
-                  title={noteHasFaviconUrl() ? "Use site icon" : "Add a URL to use site icon"}
+                <button class={noteFaviconButtonClass()}
+                  title={noteFaviconButtonTitle()}
                   type="button"
                   disabled={!noteHasFaviconUrl()}
                   onClick={() => chooseFaviconIcon(false)}>
-                  <i class="fas fa-globe" />
+                  <i class={noteFaviconButtonIconClass()} />
                 </button>
               </Show>
               <div class="grow"></div>

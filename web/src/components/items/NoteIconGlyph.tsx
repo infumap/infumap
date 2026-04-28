@@ -18,24 +18,25 @@
 
 import { Component, Match, Switch, createEffect, createSignal, onCleanup } from "solid-js";
 import { getImage, releaseImage } from "../../imageManager";
-import { NoteFns, NoteItem } from "../../items/note-item";
+import { NoteFaviconLoadStatus, noteFaviconStatus, setNoteFaviconStatus } from "../../items/note-favicon-state";
+import { NoteFns, type NoteItem } from "../../items/note-item";
 
 
 export const NoteIconGlyph: Component<{ note: () => NoteItem, highPriority?: () => boolean }> = (props) => {
   const [faviconObjectUrl, setFaviconObjectUrl] = createSignal<string | null>(null);
-  const [failedFaviconKey, setFailedFaviconKey] = createSignal<string | null>(null);
   let currentFaviconPath = "";
   let currentFaviconOrigin: string | null = null;
 
   const emoji = () => NoteFns.emoji(props.note());
   const faviconPath = () => NoteFns.faviconPath(props.note());
-  const faviconKey = (path: string, origin: string | null): string => `${origin ?? ""}|${path}`;
 
   const markCurrentFaviconFailed = (): void => {
     if (currentFaviconPath == "") { return; }
-    setFailedFaviconKey(faviconKey(currentFaviconPath, currentFaviconOrigin));
+    const path = currentFaviconPath;
+    const origin = currentFaviconOrigin;
     setFaviconObjectUrl(null);
     releaseCurrentFavicon();
+    setNoteFaviconStatus(path, origin, NoteFaviconLoadStatus.Failed);
   };
 
   const releaseCurrentFavicon = (): void => {
@@ -49,14 +50,13 @@ export const NoteIconGlyph: Component<{ note: () => NoteItem, highPriority?: () 
     const path = faviconPath();
     const origin = props.note().origin;
     if (path == null) {
-      setFailedFaviconKey(null);
       setFaviconObjectUrl(null);
       releaseCurrentFavicon();
       return;
     }
 
-    const key = faviconKey(path, origin);
-    if (failedFaviconKey() == key) {
+    const status = noteFaviconStatus(path, origin);
+    if (status == NoteFaviconLoadStatus.Failed) {
       setFaviconObjectUrl(null);
       releaseCurrentFavicon();
       return;
@@ -69,11 +69,13 @@ export const NoteIconGlyph: Component<{ note: () => NoteItem, highPriority?: () 
     currentFaviconPath = path;
     currentFaviconOrigin = origin;
     setFaviconObjectUrl(null);
+    setNoteFaviconStatus(path, origin, NoteFaviconLoadStatus.Loading);
 
     getImage(path, origin, props.highPriority?.() ?? false)
       .then((objectUrl) => {
         if (currentFaviconPath != path || currentFaviconOrigin != origin) { return; }
         setFaviconObjectUrl(objectUrl);
+        setNoteFaviconStatus(path, origin, NoteFaviconLoadStatus.Loaded);
       })
       .catch(() => {
         if (currentFaviconPath != path || currentFaviconOrigin != origin) { return; }
