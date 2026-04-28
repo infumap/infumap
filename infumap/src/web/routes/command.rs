@@ -23,7 +23,7 @@ use image::ImageFormat;
 use image::ImageReader;
 use image::imageops::FilterType;
 use infusdk::item::{
-  ArrangeAlgorithm, FileFlags, Item, ItemType, NoteFlags, PasswordFlags, PermissionFlags, RelationshipToParent,
+  ArrangeAlgorithm, FileFlags, Item, ItemType, NoteFlags, NoteIconMode, PasswordFlags, PermissionFlags, RelationshipToParent,
   is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type,
   is_image_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item,
 };
@@ -1084,6 +1084,9 @@ pub async fn add_item_for_user(
         _ => 0,
       });
       item.emoji = None;
+      if item.item_type == ItemType::Note {
+        item.icon_mode = Some(NoteIconMode::Symbol);
+      }
     }
 
     if is_empty_uid(&item.id) {

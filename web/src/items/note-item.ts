@@ -50,11 +50,32 @@ export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, At
 
 export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin, AttachmentsMixin {
   emoji: string | null,
+  iconMode: NoteIconMode,
+}
+
+export enum NoteIconMode {
+  None = "none",
+  Symbol = "symbol",
+  Favicon = "favicon",
 }
 
 type NoteCreateOptions = {
   showIcon?: boolean,
 };
+
+function isNoteIconMode(value: any): value is NoteIconMode {
+  return value == NoteIconMode.None || value == NoteIconMode.Symbol || value == NoteIconMode.Favicon;
+}
+
+function noteIconModeFromObject(o: any): NoteIconMode {
+  if (isNoteIconMode(o.iconMode)) {
+    return o.iconMode;
+  }
+  const emoji = o.emoji?.trim();
+  return ((o.flags ?? NoteFlags.None) & NoteFlags.ShowIcon) || (emoji && emoji != "")
+    ? NoteIconMode.Symbol
+    : NoteIconMode.None;
+}
 
 
 export const NoteFns = {
@@ -83,6 +104,7 @@ export const NoteFns = {
 
       url: "",
       emoji: null,
+      iconMode: options?.showIcon ? NoteIconMode.Symbol : NoteIconMode.None,
 
       computed_attachments: [],
     };
@@ -113,6 +135,7 @@ export const NoteFns = {
 
       url: o.url,
       emoji: o.emoji || null,
+      iconMode: noteIconModeFromObject(o),
       format: o.format,
 
       computed_attachments: [],
@@ -140,6 +163,7 @@ export const NoteFns = {
 
       url: n.url,
       emoji: n.emoji,
+      iconMode: n.iconMode,
       format: n.format,
     });
   },
@@ -365,6 +389,7 @@ export const NoteFns = {
       flags: note.flags,
       format: note.format,
       emoji: note.emoji,
+      iconMode: note.iconMode,
     });
   },
 
@@ -374,7 +399,7 @@ export const NoteFns = {
 
   getFingerprint: (noteItem: NoteItem): string => {
     return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags + "~~~!@#~~~" + noteItem.format +
-      "~~~!@#~~~" + (noteItem.emoji || "");
+      "~~~!@#~~~" + (noteItem.emoji || "") + "~~~!@#~~~" + noteItem.iconMode;
   },
 
   isStyleNormalText: (flagsItem: FlagsItem): boolean => {

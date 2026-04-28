@@ -28,7 +28,7 @@ import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-i
 import { FileFns, asFileItem, isFile } from "../items/file-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { NoteFns, asNoteItem, isNote } from "../items/note-item";
+import { NoteFns, NoteIconMode, asNoteItem, isNote } from "../items/note-item";
 import { PasswordFns, asPasswordItem, isPassword } from "../items/password-item";
 import { FileFlags, NoteFlags, PasswordFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
@@ -116,8 +116,10 @@ function applyMovedIconDefaultMaybe(item: Item, destinationVe?: VisualElement | 
     }
     if (movedItemShouldShowIcon(note, destinationVe)) {
       note.flags |= NoteFlags.ShowIcon;
+      note.iconMode = NoteIconMode.Symbol;
     } else {
       note.flags &= ~NoteFlags.ShowIcon;
+      note.iconMode = NoteIconMode.None;
     }
     return;
   }

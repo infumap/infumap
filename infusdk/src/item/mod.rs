@@ -154,6 +154,32 @@ impl ArrangeAlgorithm {
   }
 }
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum NoteIconMode {
+  None,
+  Symbol,
+  Favicon,
+}
+
+impl NoteIconMode {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      NoteIconMode::None => "none",
+      NoteIconMode::Symbol => "symbol",
+      NoteIconMode::Favicon => "favicon",
+    }
+  }
+
+  pub fn from_str(s: &str) -> InfuResult<NoteIconMode> {
+    match s {
+      "none" => Ok(NoteIconMode::None),
+      "symbol" => Ok(NoteIconMode::Symbol),
+      "favicon" => Ok(NoteIconMode::Favicon),
+      other => Err(format!("Invalid NoteIconMode value: '{}'.", other).into()),
+    }
+  }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct TableColumn {
   #[serde(rename = "widthGr")]
@@ -344,7 +370,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 48] = [
+const ALL_JSON_FIELDS: [&'static str; 49] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -372,6 +398,7 @@ const ALL_JSON_FIELDS: [&'static str; 48] = [
   "arrangeAlgorithm",
   "url",
   "emoji",
+  "iconMode",
   "originalCreationDate",
   "spatialHeightGr",
   "imageSizePx",
@@ -476,6 +503,7 @@ pub struct Item {
   // note
   pub url: Option<String>,
   pub emoji: Option<String>,
+  pub icon_mode: Option<NoteIconMode>,
 
   // file
 
@@ -538,6 +566,7 @@ impl Clone for Item {
       calendar_day_row_height_bl: self.calendar_day_row_height_bl.clone(),
       url: self.url.clone(),
       emoji: self.emoji.clone(),
+      icon_mode: self.icon_mode.clone(),
       format: self.format.clone(),
       table_columns: self.table_columns.clone(),
       number_of_visible_columns: self.number_of_visible_columns.clone(),
@@ -1051,6 +1080,21 @@ impl JsonLogSerializable<Item> for Item {
       }
       _ => {}
     }
+    match (&old.icon_mode, &new.icon_mode) {
+      (Some(_), None) => {
+        if old.item_type != ItemType::Note {
+          cannot_modify_err("iconMode", &old.id)?;
+        }
+        result.insert(String::from("iconMode"), Value::Null);
+      }
+      (o, n @ Some(_)) if o != n => {
+        if old.item_type != ItemType::Note {
+          cannot_modify_err("iconMode", &old.id)?;
+        }
+        result.insert(String::from("iconMode"), Value::String(n.as_ref().unwrap().as_str().to_owned()));
+      }
+      _ => {}
+    }
 
     // file
 
@@ -1457,6 +1501,15 @@ impl JsonLogSerializable<Item> for Item {
       }
       self.emoji = json::get_string_field(map, "emoji")?;
     }
+    if map.contains_key("iconMode") {
+      if self.item_type != ItemType::Note {
+        not_applicable_err("iconMode", self.item_type, &self.id)?;
+      }
+      self.icon_mode = match json::get_string_field(map, "iconMode")? {
+        Some(v) => Some(NoteIconMode::from_str(&v)?),
+        None => None,
+      };
+    }
 
     // file
 
@@ -1785,6 +1838,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     }
     result.insert(String::from("emoji"), Value::String(emoji.clone()));
   }
+  if let Some(icon_mode) = &item.icon_mode {
+    if item.item_type != ItemType::Note {
+      unexpected_field_err("iconMode", &item.id, item.item_type)?
+    }
+    result.insert(String::from("iconMode"), Value::String(icon_mode.as_str().to_owned()));
+  }
 
   // file
 
@@ -1852,6 +1911,16 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       field_name, item_type, item_id
     )
     .into()
+  }
+  fn default_note_icon_mode(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<NoteIconMode> {
+    let flags = json::get_integer_field(map, "flags")?.unwrap_or(0);
+    let emoji = json::get_string_field(map, "emoji")?;
+    let has_emoji = emoji.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false);
+    if has_emoji || (flags & NoteFlags::ShowIcon.bits()) != 0 {
+      Ok(NoteIconMode::Symbol)
+    } else {
+      Ok(NoteIconMode::None)
+    }
   }
 
   json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
@@ -2410,6 +2479,22 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       }
       None => Ok(None),
     }?,
+    icon_mode: match json::get_string_field(map, "iconMode")? {
+      Some(v) => {
+        if item_type == ItemType::Note {
+          Ok(Some(NoteIconMode::from_str(&v)?))
+        } else {
+          Err(not_applicable_err("iconMode", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Note {
+          Ok(Some(default_note_icon_mode(map)?))
+        } else {
+          Ok(None)
+        }
+      }
+    }?,
 
     // file
 
@@ -2556,6 +2641,11 @@ impl Item {
       title: Some(title.to_owned()),
       url,
       emoji: None,
+      icon_mode: Some(if (flags.bits() & NoteFlags::ShowIcon.bits()) != 0 {
+        NoteIconMode::Symbol
+      } else {
+        NoteIconMode::None
+      }),
       format: Some(fmt.to_owned()),
       order_children_by: None,
       spatial_height_gr: None,
@@ -2616,6 +2706,7 @@ impl Item {
       title: None,
       url: None,
       emoji: None,
+      icon_mode: None,
       format: None,
       order_children_by: None,
       spatial_height_gr: Some(spatial_height_gr),
@@ -2682,6 +2773,7 @@ impl Item {
       title: Some(title.to_owned()),
       url: None,
       emoji: None,
+      icon_mode: None,
       format: None,
       link_to: None,
       table_columns: Some(table_columns),
@@ -2734,6 +2826,7 @@ impl Item {
       title: None,
       url: None,
       emoji: None,
+      icon_mode: None,
       format: None,
       link_to: None,
       table_columns: None,
@@ -2792,6 +2885,7 @@ impl Item {
       title: None,
       url: None,
       emoji: None,
+      icon_mode: None,
       format: None,
       link_to: None,
       table_columns: None,
@@ -2888,6 +2982,7 @@ impl Item {
 
       url: None,
       emoji: None,
+      icon_mode: None,
       format: None,
       link_to: None,
       original_creation_date: None,
@@ -3090,6 +3185,9 @@ impl Item {
         if !url.is_empty() {
           hashes.push(hash_string_to_uid(url));
         }
+      }
+      if let Some(icon_mode) = &self.icon_mode {
+        hashes.push(hash_string_to_uid(icon_mode.as_str()));
       }
     }
 

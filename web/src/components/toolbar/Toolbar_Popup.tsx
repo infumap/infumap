@@ -25,7 +25,7 @@ import { GRID_SIZE, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { itemState } from "../../store/ItemState";
-import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
+import { NoteFns, NoteIconMode, asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
@@ -482,6 +482,7 @@ export const Toolbar_Popup: Component = () => {
       if (isNote(focusItem)) {
         noteItem().flags |= NoteFlags.ShowIcon;
         noteItem().emoji = emoji;
+        noteItem().iconMode = NoteIconMode.Symbol;
       } else if (isFile(focusItem)) {
         fileItem().flags |= FileFlags.ShowIcon;
         fileItem().emoji = emoji;
@@ -493,6 +494,7 @@ export const Toolbar_Popup: Component = () => {
       if (isNote(focusItem)) {
         noteItem().flags &= ~NoteFlags.ShowIcon;
         noteItem().emoji = null;
+        noteItem().iconMode = NoteIconMode.None;
       } else if (isFile(focusItem)) {
         fileItem().flags &= ~FileFlags.ShowIcon;
         fileItem().emoji = null;
