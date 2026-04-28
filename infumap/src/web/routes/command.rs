@@ -23,9 +23,9 @@ use image::ImageFormat;
 use image::ImageReader;
 use image::imageops::FilterType;
 use infusdk::item::{
-  Item, ItemType, PermissionFlags, RelationshipToParent, is_attachments_item_type, is_composite_item,
-  is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item,
-  is_permission_flags_item_type, is_positionable_type, is_table_item,
+  ArrangeAlgorithm, Item, ItemType, NoteFlags, PermissionFlags, RelationshipToParent, is_attachments_item_type,
+  is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type,
+  is_image_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item,
 };
 use infusdk::util::geometry::{Dimensions, Vector};
 use infusdk::util::infu::InfuResult;
@@ -922,6 +922,7 @@ pub async fn add_item_for_user(
       .as_str()
       .ok_or("'itemType' field is not a string.")?,
   );
+  let note_flags_were_omitted = item_type == ItemType::Note.as_str() && !item_map.contains_key("flags");
 
   // The JSON sent to an add-item command is more flexible than the item schema allows for.
   // First step is to prep/transform/add defaults to the received JSON map for deserialization into an item object.
@@ -1021,7 +1022,7 @@ pub async fn add_item_for_user(
 
     // 4. TODO (MEDIUM): triage destinations.
 
-    let item: Item = Item::from_api_json(&item_map)?;
+    let mut item: Item = Item::from_api_json(&item_map)?;
     let parent_id = item_map.get("parentId").unwrap().as_str().unwrap(); // by this point, should never fail.
 
     if parent_id == EMPTY_UID {
@@ -1062,6 +1063,19 @@ pub async fn add_item_for_user(
         return Err(format!("Attempt was made by user '{}' to add a root level page.", &session_user_id).into());
       }
     };
+
+    let parent_renders_children_as_line_items = is_table_item(&parent_item)
+      || (is_page_item(&parent_item)
+        && matches!(parent_item.arrange_algorithm.as_ref(), Some(ArrangeAlgorithm::List)));
+
+    if note_flags_were_omitted
+      && item.item_type == ItemType::Note
+      && item.relationship_to_parent == RelationshipToParent::Child
+      && parent_renders_children_as_line_items
+    {
+      item.flags = Some(NoteFlags::ShowPopupIcon.bits());
+      item.emoji = None;
+    }
 
     if is_empty_uid(&item.id) {
       return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", &session_user_id).into());

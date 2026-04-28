@@ -42,14 +42,27 @@ import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
 
 
-function createNewItem(store: StoreContextModel, type: string, parentId: Uid, ordering: Uint8Array, relationship: string): PositionalItem {
+type CreateNewItemOptions = {
+  showNotePopupIcon?: boolean,
+};
+
+function createNewItem(
+  store: StoreContextModel,
+  type: string,
+  parentId: Uid,
+  ordering: Uint8Array,
+  relationship: string,
+  options: CreateNewItemOptions = {},
+): PositionalItem {
   let newItem = null;
   if (type == "rating") {
     newItem = RatingFns.create(store.user.getUser().userId, parentId, relationship, 3, ordering)
   } else if (type == "table") {
     newItem = TableFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "note") {
-    newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
+    newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering, {
+      showPopupIcon: options.showNotePopupIcon,
+    });
   } else if (type == "page") {
     newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "link")  {
@@ -157,12 +170,14 @@ function createItemInPage(
   arrangeReason: string,
   positionGrMaybe: Vector | null = null,
 ): { newItem: PositionalItem, newItemPath: string } {
+  const pageArrangeAlgorithm = pageVe.linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(pageVe.displayItem).arrangeAlgorithm;
   const newItem = createNewItem(
     store,
     type,
     pageVe.displayItem.id,
     itemState.newOrderingAtEndOfChildren(pageVe.displayItem.id),
-    RelationshipToParent.Child);
+    RelationshipToParent.Child,
+    { showNotePopupIcon: pageArrangeAlgorithm == ArrangeAlgorithm.List });
 
   positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
   applyNewPageDefaults(store, newItem);
@@ -229,7 +244,8 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           type,
           overElementVe.displayItem.id,
           itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId), // must be the case that it is at the end.
-          RelationshipToParent.Child);
+          RelationshipToParent.Child,
+          { showNotePopupIcon: true });
         server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);

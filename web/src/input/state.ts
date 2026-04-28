@@ -55,6 +55,7 @@ export interface MoveRollbackSnapshotEntry {
   ordering: Uint8Array,
   spatialPositionGr: Vector,
   dateTime: number,
+  noteFlags?: number | null,
 }
 
 

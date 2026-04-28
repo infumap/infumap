@@ -2550,7 +2550,7 @@ impl Item {
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
       ordering,
-      flags: Some((flags | NoteFlags::ShowPopupIcon).bits()),
+      flags: Some(flags.bits()),
       spatial_position_gr: Some(spatial_position_gr),
       spatial_width_gr: Some(spatial_width_gr),
       title: Some(title.to_owned()),

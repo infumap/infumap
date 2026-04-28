@@ -52,9 +52,13 @@ export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   emoji: string | null,
 }
 
+type NoteCreateOptions = {
+  showPopupIcon?: boolean,
+};
+
 
 export const NoteFns = {
-  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem => {
+  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array, options?: NoteCreateOptions): NoteItem => {
     if (parentId == EMPTY_UID) { panic("NoteFns.create: parent is empty."); }
     return {
       origin: null,
@@ -73,7 +77,7 @@ export const NoteFns = {
       spatialWidthGr: 10.0 * GRID_SIZE,
       spatialHeightGr: 0,
 
-      flags: NoteFlags.ShowPopupIcon,
+      flags: options?.showPopupIcon ? NoteFlags.ShowPopupIcon : NoteFlags.None,
 
       format: "",
 

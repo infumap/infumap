@@ -27,7 +27,7 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { asNoteItem, isNote } from "../items/note-item";
+import { NoteFns, asNoteItem, isNote } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { TEMP_SEARCH_RESULTS_ORIGIN, isSearch } from "../items/search-item";
@@ -77,6 +77,52 @@ interface MoveCommitOptions {
   rollbackExtras?: (() => void) | null,
 }
 
+
+function pageArrangeAlgorithmForMoveDestination(note: PositionalItem, destinationVe?: VisualElement | null): string | null {
+  const parentItem = itemState.get(note.parentId);
+  if (parentItem == null || !isPage(parentItem)) {
+    return null;
+  }
+
+  if (destinationVe != null && isPage(destinationVe.displayItem) && destinationVe.displayItem.id == note.parentId) {
+    return destinationVe.linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(destinationVe.displayItem).arrangeAlgorithm;
+  }
+
+  return asPageItem(parentItem).arrangeAlgorithm;
+}
+
+function movedNoteShouldShowPopupIcon(note: PositionalItem, destinationVe?: VisualElement | null): boolean {
+  if (note.relationshipToParent != RelationshipToParent.Child) {
+    return false;
+  }
+
+  const parentItem = itemState.get(note.parentId);
+  if (parentItem == null) {
+    return false;
+  }
+  if (isTable(parentItem)) {
+    return true;
+  }
+
+  return pageArrangeAlgorithmForMoveDestination(note, destinationVe) == ArrangeAlgorithm.List;
+}
+
+function applyMovedNoteIconDefaultMaybe(item: Item, destinationVe?: VisualElement | null): void {
+  if (!isNote(item)) {
+    return;
+  }
+
+  const note = asNoteItem(item);
+  if (NoteFns.emoji(note) != null) {
+    return;
+  }
+
+  if (movedNoteShouldShowPopupIcon(note, destinationVe)) {
+    note.flags |= NoteFlags.ShowPopupIcon;
+  } else {
+    note.flags &= ~NoteFlags.ShowPopupIcon;
+  }
+}
 
 function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, shouldSwitchRoot: boolean): void {
   const focusPagePath = store.history.getFocusPath();
@@ -210,7 +256,9 @@ function enqueueUpdateItem(
   store: StoreContextModel,
   item: Item,
   rollbackSnapshot?: Item | null,
+  noteMoveDestinationVe?: VisualElement | null,
 ): void {
+  applyMovedNoteIconDefaultMaybe(item, noteMoveDestinationVe);
   const snapshot = cloneItemSnapshot(item);
   ops.push({
     apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false),
@@ -242,7 +290,12 @@ function enqueueDeleteItem(
   });
 }
 
-function enqueuePersistMovedItems(ops: Array<MovePersistOperation>, store: StoreContextModel, defaultIds: string[]): void {
+function enqueuePersistMovedItems(
+  ops: Array<MovePersistOperation>,
+  store: StoreContextModel,
+  defaultIds: string[],
+  noteMoveDestinationVe?: VisualElement | null,
+): void {
   const group = MouseActionState.getGroupMoveItems();
   const ids = group && group.length > 0
     ? group.map(g => g.veid.linkIdMaybe ? g.veid.linkIdMaybe : g.veid.itemId)
@@ -251,7 +304,7 @@ function enqueuePersistMovedItems(ops: Array<MovePersistOperation>, store: Store
   for (const id of ids) {
     const item = itemState.get(id);
     if (item != null) {
-      enqueueUpdateItem(ops, store, item);
+      enqueueUpdateItem(ops, store, item, null, noteMoveDestinationVe);
     }
   }
 }
@@ -308,6 +361,9 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
 
     item.spatialPositionGr = { ...entry.spatialPositionGr };
     item.dateTime = entry.dateTime;
+    if (entry.noteFlags != null && isNote(item)) {
+      asNoteItem(item).flags = entry.noteFlags;
+    }
 
     if (item.parentId != entry.parentId || item.relationshipToParent != entry.relationshipToParent) {
       itemState.moveToNewParent(item, entry.parentId, entry.relationshipToParent, new Uint8Array(entry.ordering));
@@ -486,12 +542,14 @@ function buildCleanupCollapsedCompositeOperations(
   childSnapshot.parentId = compositeItem.parentId;
   childSnapshot.spatialPositionGr = { ...compositeItem.spatialPositionGr };
   childSnapshot.ordering = new Uint8Array(compositeItem.ordering);
+  applyMovedNoteIconDefaultMaybe(childSnapshot);
   ops.push({
     apply: async () => {
       await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
       await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
       asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
       itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
+      applyMovedNoteIconDefaultMaybe(child);
       itemState.delete(compositeItem.id);
     },
     rollback: async () => {
@@ -1057,7 +1115,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
         itemState.moveToNewParent(activeItem, targetPageItem.id, RelationshipToParent.Child);
         const ops: Array<MovePersistOperation> = [];
-        enqueuePersistMovedItems(ops, store, [activeItem.id]);
+        enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
         scheduleMoveCommit(store, ops, "mouse-up-move-to-calendar-page");
         return;
       } else if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Document ||
@@ -1083,7 +1141,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
       activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index, activeItem.id);
       itemState.sortChildren(pageItem.id);
-      enqueuePersistMovedItems(ops, store, [activeItem.id]);
+      enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
     }
     else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
       pageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
@@ -1096,7 +1154,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       const startPosBl = MouseActionState.getStartPosBl()!;
       if (startPosBl.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
         startPosBl.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
-        enqueuePersistMovedItems(ops, store, [activeItem.id]);
+        enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
       }
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
       const path = VeFns.veToPath(overContainerVe);
@@ -1118,16 +1176,16 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       const newDateTime = Math.floor(newDate.getTime() / 1000);
       if (activeItem.dateTime !== newDateTime) {
         activeItem.dateTime = newDateTime;
-        enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+        enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
       }
     }
     else {
       console.debug("todo: explicitly consider other page types here.");
-      enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+      enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
     }
   } else {
     // Not over a page; persist moved items (including group) if any
-    enqueuePersistMovedItems(ops, store, [activeItem.id]);
+    enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
   }
 
   scheduleMoveCommit(store, ops, "mouse-up-finish-move");
@@ -1236,7 +1294,7 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
   }
 
   const ops: Array<MovePersistOperation> = [];
-  enqueuePersistMovedItems(ops, store, [activeItem.id]);
+  enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
   scheduleMoveCommit(
     store,
     ops,
@@ -1481,11 +1539,11 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
   const movedGroup = moveSelectedGroupToOpaquePageMaybe(store, activeItem, overContainerVe);
   const ops: Array<MovePersistOperation> = [];
   if (movedGroup) {
-    enqueuePersistMovedItems(ops, store, [activeItem.id]);
+    enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
   } else {
     activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
     itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
-    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
   }
 
   scheduleMoveCommit(store, ops, "mouse-up-move-to-opaque-page");
@@ -1517,7 +1575,7 @@ function mouseUpHandler_moving_toComposite(store: StoreContextModel, activeItem:
     itemState.sortChildren(moveOverContainerId);
   }
   const ops: Array<MovePersistOperation> = [];
-  enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+  enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
   scheduleMoveCommit(store, ops, "mouse-up-move-to-composite");
 }
 
@@ -1551,11 +1609,11 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
   const movedGroup = moveSelectedGroupToTableMaybe(store, activeItem, overContainerVe);
   const ops: Array<MovePersistOperation> = [];
   if (movedGroup) {
-    enqueuePersistMovedItems(ops, store, [activeItem.id]);
+    enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
   } else {
     const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(tablePath), activeItem.id);
     itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
-    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
   }
 
   scheduleMoveCommit(store, ops, "mouse-up-move-to-table");
