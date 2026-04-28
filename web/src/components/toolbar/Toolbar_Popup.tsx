@@ -422,6 +422,7 @@ export const Toolbar_Popup: Component = () => {
   const selectedEmoji = () => selectedEmojiValue();
   const itemIconChoiceClass = (selected: boolean): string =>
     `inline-flex items-center justify-center w-[32px] h-[32px] border rounded-md text-[18px] leading-none cursor-pointer focus:outline-none ` +
+    `disabled:cursor-not-allowed disabled:opacity-40 disabled:bg-slate-50 disabled:text-slate-400 disabled:hover:bg-slate-50 disabled:hover:border-slate-200 ` +
     (selected ? `bg-blue-50 border-blue-500 shadow-inner` : `bg-white border-slate-200 hover:bg-slate-100 hover:border-slate-300`);
   const emojiChoiceClass = (selected: boolean): string =>
     `inline-flex items-center justify-center w-[32px] h-[32px] rounded-md text-[18px] leading-none cursor-pointer focus:outline-none ` +
@@ -440,12 +441,16 @@ export const Toolbar_Popup: Component = () => {
     isFile(store.history.getFocusItem()) ? "file" :
       isPassword(store.history.getFocusItem()) ? "password" :
         "note";
-  const emojiInputIsDefaultItemIcon = (): boolean => itemIconVisible() && selectedEmoji() == null && !customEmojiInputFocused();
+  const noteIconIsFavicon = (): boolean => isNote(store.history.getFocusItem()) && noteItem().iconMode == NoteIconMode.Favicon;
+  const noteHasFaviconUrl = (): boolean => isNote(store.history.getFocusItem()) && noteItem().url.trim() != "";
+  const regularIconSelected = (): boolean =>
+    itemIconVisible() && selectedEmoji() == null && !noteIconIsFavicon();
+  const emojiInputIsDefaultItemIcon = (): boolean => regularIconSelected() && !customEmojiInputFocused();
   const emojiInputFontStyle = (): string => emojiInputIsDefaultItemIcon()
     ? `font-family: "Font Awesome 5 Free"; font-weight: 900;`
     : emojiFontStyle();
   const emojiInputValue = (): string => itemIconVisible() && !customEmojiInputFocused()
-    ? selectedEmoji() || defaultItemIconText()
+    ? noteIconIsFavicon() ? "" : selectedEmoji() || defaultItemIconText()
     : "";
   const emojiInputFontSize = (): number => emojiInputValue() == "" ? 10 : 18;
   const handleCustomEmojiFocus = (): void => {
@@ -508,6 +513,24 @@ export const Toolbar_Popup: Component = () => {
       store.overlay.toolbarPopupInfoMaybe.set(null);
     } else if (emojiInputElement != null) {
       emojiInputElement.value = emojiInputValue();
+    }
+    store.touchToolbar();
+    requestArrange(store, "toolbar-popup-item-icon");
+  };
+  const chooseFaviconIcon = (closePopup: boolean = true): void => {
+    const focusItem = store.history.getFocusItem();
+    if (!isNote(focusItem) || !noteHasFaviconUrl()) { return; }
+    setItemIconVisible(true);
+    setSelectedEmojiValue(null);
+    if (emojiInputElement != null) {
+      emojiInputElement.value = "";
+    }
+    noteItem().flags |= NoteFlags.ShowIcon;
+    noteItem().emoji = null;
+    noteItem().iconMode = NoteIconMode.Favicon;
+    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    if (closePopup) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
     }
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-item-icon");
@@ -850,12 +873,21 @@ export const Toolbar_Popup: Component = () => {
                 onClick={() => chooseItemIcon(null, false, false)}>
                 <i class="fa fa-ban" />
               </button>
-              <button class={itemIconChoiceClass(itemIconVisible() && selectedEmoji() == null)}
+              <button class={itemIconChoiceClass(regularIconSelected())}
                 title={`Default ${itemIconLabel()} icon`}
                 type="button"
                 onClick={() => chooseItemIcon(null, true, false)}>
                 <i class={defaultItemIconClass()} />
               </button>
+              <Show when={isNote(store.history.getFocusItem())}>
+                <button class={itemIconChoiceClass(noteIconIsFavicon())}
+                  title={noteHasFaviconUrl() ? "Use site icon" : "Add a URL to use site icon"}
+                  type="button"
+                  disabled={!noteHasFaviconUrl()}
+                  onClick={() => chooseFaviconIcon(false)}>
+                  <i class="fas fa-globe" />
+                </button>
+              </Show>
               <div class="grow"></div>
               <input ref={emojiInputElement}
                 class="border border-slate-300 rounded-md h-[32px] px-[4px] text-center bg-white focus:outline-none focus:border-blue-500 placeholder:text-[10px] placeholder:font-sans"
