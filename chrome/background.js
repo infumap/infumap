@@ -21,6 +21,8 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 const DEFAULT_BASE_URL = "http://localhost:8000/";
+const NOTE_FLAGS_SHOW_ICON = 0x800;
+const NOTE_ICON_MODE_AUTO = "auto";
 
 const AUTH_STORAGE_KEYS = [
   "ingestSessionId",
@@ -104,6 +106,8 @@ const addItem = async (baseUrl, accessToken, tab) => {
     itemType: "note",
     title: tab.title ?? tab.url,
     url: tab.url,
+    flags: NOTE_FLAGS_SHOW_ICON,
+    iconMode: NOTE_ICON_MODE_AUTO,
     spatialWidthGr: 8 * 60
   });
   return await postJson(`${baseUrl}ingest/add-item`, {
