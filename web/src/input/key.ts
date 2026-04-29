@@ -1298,9 +1298,6 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   const direction = findDirectionFromKeyCode(ev.code);
   if (handleTableAttachmentPopupNavigation(store, path, direction)) { return; }
   if (handleTableItemPopupHorizontalNavigation(store, path, direction)) { return; }
-  // Handle scrolling of grid/justified page that contains the popup.
-  // If at max scroll, this returns false and we continue to page switching logic.
-  if (handlePopupGridOrJustifiedPageScrollMaybe(store, path, ev)) { return; }
   const closest = findClosest(VesCache.current, path, direction, true)!;
   if (closest != null) {
     const closestVeid = VeFns.veidFromPath(closest);
@@ -1621,50 +1618,6 @@ function handleArrowKeyGridOrJustifiedPageScrollMaybe(store: StoreContextModel, 
   }
 
   return false;
-}
-
-/**
- * If arrow keydown event is for scrolling a grid/justified page popup, handle it and return true.
- * Handles two cases:
- * 1. The popup item itself is a grid/justified page that needs scrolling
- * 2. The popup item is a child of a grid/justified page that needs scrolling
- * Returns false if scrolling was not handled (not a grid/justified page, or at max scroll bounds).
- */
-function handlePopupGridOrJustifiedPageScrollMaybe(store: StoreContextModel, popupPath: string, ev: KeyboardEvent): boolean {
-  if (ev.code != "ArrowUp" && ev.code != "ArrowDown") { return false; }
-
-  // First, check if the popup item itself is a grid/justified page
-  const popupVe = VesCache.current.readNode(popupPath);
-  if (popupVe) {
-    const popupItem = popupVe.displayItem;
-    if (isPage(popupItem)) {
-      const arrangeAlgorithm = asPageItem(popupItem).arrangeAlgorithm;
-      if (arrangeAlgorithm == ArrangeAlgorithm.Grid || arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-        if (scrollGridOrJustifiedPageVe(store, popupVe, ev.code)) {
-          return true;
-        }
-        // If scrolling returned false (at max bounds), continue to fall through to page switching
-        return false;
-      }
-    }
-  }
-
-  // Otherwise, check if the popup's parent is a grid/justified page
-  const parentPath = VeFns.parentPath(popupPath);
-  if (!parentPath) { return false; }
-
-  const parentVe = VesCache.current.readNode(parentPath);
-  if (!parentVe) { return false; }
-
-  const parentItem = parentVe.displayItem;
-  if (!isPage(parentItem)) { return false; }
-
-  const arrangeAlgorithm = asPageItem(parentItem).arrangeAlgorithm;
-  if (arrangeAlgorithm != ArrangeAlgorithm.Grid && arrangeAlgorithm != ArrangeAlgorithm.Justified) {
-    return false;
-  }
-
-  return scrollGridOrJustifiedPageVe(store, parentVe, ev.code);
 }
 
 /**
