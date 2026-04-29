@@ -126,6 +126,25 @@ function isListPageVe(ve: VisualElement): boolean {
   return (ve.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(ve.displayItem).arrangeAlgorithm) == ArrangeAlgorithm.List;
 }
 
+function hasPopupAncestor(ve: VisualElement): boolean {
+  let parentPath = ve.parentPath;
+  while (parentPath != null) {
+    const parent = VesCache.current.readNode(parentPath);
+    if (!parent) { return false; }
+    if (parent.flags & VisualElementFlags.Popup) { return true; }
+    parentPath = parent.parentPath;
+  }
+  return false;
+}
+
+function selectedPopupListRootHitboxType(rootVe: VisualElement, hitboxType: HitboxFlags): HitboxFlags {
+  if (!(rootVe.flags & VisualElementFlags.ListPageRoot) || !hasPopupAncestor(rootVe)) {
+    return hitboxType;
+  }
+
+  return (hitboxType & ~(HitboxFlags.OpenPopup | HitboxFlags.ShowPointer)) as HitboxFlags;
+}
+
 function popupListTitleTargetPathMaybe(rootVe: VisualElement, titleLocalPos: Vector): string | null {
   if (!isListPageVe(rootVe) || !rootVe.listViewportBoundsPx) { return null; }
   const headerHeightPx = rootVe.boundsPx.h - (rootVe.viewportBoundsPx?.h ?? rootVe.boundsPx.h);
@@ -665,7 +684,8 @@ function hitPagePopupRootMaybe(
       changedRoot = true;
     }
   }
-  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
+  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
+  const hitboxType = selectedPopupListRootHitboxType(rootVe, scannedHitboxType);
   let hitMaybe = null as HitInfo | null;
   if (hitboxType != HitboxFlags.None) {
     hitMaybe = new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe3").build();
@@ -729,7 +749,8 @@ function hitPageSelectedRootMaybe(
   const posForRootHitboxScan = changedRoot
     ? vectorSubtract(posRelativeToRootVeViewportPx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y })
     : posRelativeToRootVeBoundsPx;
-  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan);
+  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan);
+  const hitboxType = selectedPopupListRootHitboxType(rootVe, scannedHitboxType);
   let hitMaybe = null as HitInfo | null;
   if (hitboxType != HitboxFlags.None) {
     hitMaybe = new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe3").build();
