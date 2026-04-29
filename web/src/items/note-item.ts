@@ -54,12 +54,12 @@ export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 export { ItemIconMode, ItemIconRenderContext };
 
 function noteHasFaviconUrl(note: NoteItem): boolean {
-  return note.url?.trim() != "";
+  return !!note.url?.trim();
 }
 
 function noteIconKind(note: NoteMeasurable, context: ItemIconRenderContext): ItemIconMode.None | ItemIconMode.Symbol | ItemIconMode.Favicon {
   const hasFaviconUrl = "url" in note && noteHasFaviconUrl(note as NoteItem);
-  if (note.iconMode == ItemIconMode.Auto && hasFaviconUrl) {
+  if (note.iconMode == ItemIconMode.Auto && hasFaviconUrl && context != ItemIconRenderContext.TableAttachment) {
     return ItemIconMode.Favicon;
   }
   return itemIconKind(note.iconMode, context, hasFaviconUrl);
@@ -121,7 +121,7 @@ export const NoteFns = {
 
       flags: o.flags,
 
-      url: o.url,
+      url: o.url ?? "",
       emoji: o.emoji || null,
       iconMode: itemIconModeFromObject(o, true),
       format: o.format,
