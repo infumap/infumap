@@ -364,9 +364,9 @@ export function arrange_list_page(
       w: Math.max(0, geometry.viewportBoundsPx!.w - listWidthPx),
       h: geometry.viewportBoundsPx!.h
     };
-    const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
-    const canShiftLeft = selectedIsRoot;
-    pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot, insidePopup);
+    const selectedIsPage = isPage(itemState.get(selectedVeid.itemId)!);
+    const canShiftLeft = arrangeFlagIsRoot(flags) && selectedIsPage;
+    pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup);
   }
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
