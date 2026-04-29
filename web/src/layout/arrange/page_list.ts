@@ -434,6 +434,18 @@ export function arrangeSelectedListItem(
         HitboxFns.create(HitboxFlags.ShiftLeft, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       ];
     }
+    if (isPage(item)) {
+      const popupClickBoundsPx = insidePopup
+        ? zeroBoundingBoxTopLeft(boundsPx)
+        : {
+          x: boundsPx.w / 3.0,
+          y: boundsPx.h / 3.0,
+          w: boundsPx.w / 3.0,
+          h: boundsPx.h / 3.0,
+        };
+      hitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, popupClickBoundsPx));
+      hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx));
+    }
     cellGeometry = {
       boundsPx: boundsPx,
       hitboxes,
