@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, createEffect, createMemo, onMount } from "solid-js";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags, type VisualElement } from "../../layout/visual-element";
 
 
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
@@ -152,26 +152,38 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     }
   };
 
+  const selectedVeIntersectsPageBounds = (selectedVe: VisualElement | null): boolean => {
+    if (!selectedVe) {
+      return false;
+    }
+    return selectedVe.boundsPx.x < pageFns().boundsPx().w &&
+      selectedVe.boundsPx.x + selectedVe.boundsPx.w > 0 &&
+      selectedVe.boundsPx.y < pageFns().boundsPx().h &&
+      selectedVe.boundsPx.y + selectedVe.boundsPx.h > 0;
+  };
+
   const renderListPage = () =>
     <div class={`absolute rounded-xs`}
-      style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 1;`}>
+      style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden; z-index: 1;`}>
       <div class={`absolute rounded-xs`}
         style={`width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; left: 0px; top: 0px; background-color: #ffffff;`} />
-      <div class="absolute"
-        style={`overflow-y: auto; overflow-x: hidden; ` +
-          `width: ${pageFns().listViewportWidthPx()}px; ` +
-          `height: ${pageFns().boundsPx().h}px; ` +
-          `left: 0px; ` +
-          `top: 0px; ` +
-          `border-right: 1px solid ${BORDER_COLOR};`}>
+      <Show when={Math.min(pageFns().listViewportWidthPx(), pageFns().boundsPx().w) > 0}>
         <div class="absolute"
-          style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
-            `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
-          <For each={pageFns().lineChildren()}>{childVe =>
-            <VisualElement_LineItem visualElement={childVe.get()} />
-          }</For>
+          style={`overflow-y: auto; overflow-x: hidden; ` +
+            `width: ${pageFns().listViewportWidthPx()}px; ` +
+            `height: ${pageFns().boundsPx().h}px; ` +
+            `left: 0px; ` +
+            `top: 0px; ` +
+            `border-right: 1px solid ${BORDER_COLOR};`}>
+          <div class="absolute"
+            style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
+              `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
+            <For each={pageFns().lineChildren()}>{childVe =>
+              <VisualElement_LineItem visualElement={childVe.get()} />
+            }</For>
+          </div>
         </div>
-      </div>
+      </Show>
       <div ref={translucentDiv}
         class={`absolute`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
@@ -483,7 +495,11 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const renderSelectedRootMaybe = () =>
     <Show when={selectedRootVeMaybe()}>
-      {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
+      {selectedVe =>
+        <Show when={selectedVeIntersectsPageBounds(selectedVe())}>
+          <VisualElement_Desktop visualElement={selectedVe()} />
+        </Show>
+      }
     </Show>;
 
   const renderPopupRootMaybe = () =>
@@ -494,9 +510,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   return (
     <div class="absolute"
       style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
+      {renderShadowMaybe()}
       <div class="absolute"
-        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
-        {renderShadowMaybe()}
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden;`}>
         <Switch>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
             {renderListPage()}
@@ -505,8 +521,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             {renderPage()}
           </Match>
         </Switch>
+        {renderSelectedRootMaybe()}
       </div>
-      {renderSelectedRootMaybe()}
       {renderPopupRootMaybe()}
       <div class="absolute pointer-events-none"
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>

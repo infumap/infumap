@@ -56,6 +56,8 @@ function listPageScrollOffsetPx(
   };
 }
 
+const MIN_RENDERED_NESTED_LIST_WIDTH_PX = 30;
+
 
 export function arrange_list_page(
   store: StoreContextModel,
@@ -192,6 +194,7 @@ export function arrange_list_page(
 
   let movingItem = null;
   movingItem = movingItemInThisPage;
+  const shouldArrangeListContents = geometry.viewportBoundsPx!.w >= MIN_RENDERED_NESTED_LIST_WIDTH_PX;
 
   const isEmbeddedInteractive =
     !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
@@ -235,67 +238,69 @@ export function arrange_list_page(
 
   let skippedCount = 0;
   let listChildPaths: Array<VisualElementPath> = [];
-  for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
-    const childId = displayItem_pageWithChildren.computed_children[idx];
-    const childItem = itemState.get(childId);
-    if (!childItem) {
-      console.warn("Skipping missing child item while arranging list page.", {
-        pageId: displayItem_pageWithChildren.id,
-        childId,
-      });
-      skippedCount += 1;
-      continue;
-    }
-    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
-
-    if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
-      skippedCount += 1;
-      continue;
-    }
-
-    if (isComposite(displayItem)) {
-      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
-    }
-
-    // Optional date filter via link override (client-only)
-    if (linkItemMaybe_pageWithChildren?.filterDate) {
-      const d = new Date(childItem.dateTime * 1000);
-      const f = linkItemMaybe_pageWithChildren.filterDate;
-      if (d.getFullYear() !== f.year || (d.getMonth() + 1) !== f.month || d.getDate() !== f.day) {
+  if (shouldArrangeListContents) {
+    for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
+      const childId = displayItem_pageWithChildren.computed_children[idx];
+      const childItem = itemState.get(childId);
+      if (!childItem) {
+        console.warn("Skipping missing child item while arranging list page.", {
+          pageId: displayItem_pageWithChildren.id,
+          childId,
+        });
         skippedCount += 1;
         continue;
       }
+      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+
+      if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
+        skippedCount += 1;
+        continue;
+      }
+
+      if (isComposite(displayItem)) {
+        initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+      }
+
+      // Optional date filter via link override (client-only)
+      if (linkItemMaybe_pageWithChildren?.filterDate) {
+        const d = new Date(childItem.dateTime * 1000);
+        const f = linkItemMaybe_pageWithChildren.filterDate;
+        if (d.getFullYear() !== f.year || (d.getMonth() + 1) !== f.month || d.getDate() !== f.day) {
+          skippedCount += 1;
+          continue;
+        }
+      }
+
+      const blockSizePx = { w: LINE_HEIGHT_PX * listScale, h: LINE_HEIGHT_PX * listScale };
+
+      const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, insidePopup, true, false, false);
+
+      const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
+
+      const highlightedPath = store.find.highlightedPath.get();
+      const isHighlighted = highlightedPath !== null && highlightedPath === childPath;
+
+      const listItemVeSpec: VisualElementSpec = {
+        displayItem,
+        linkItemMaybe,
+        actualLinkItemMaybe: linkItemMaybe,
+        flags: VisualElementFlags.LineItem |
+          (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
+            ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
+            : VisualElementFlags.None) |
+          (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+        _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
+        boundsPx: listItemGeometry.boundsPx,
+        hitboxes: listItemGeometry.hitboxes,
+        parentPath: pageWithChildrenVePath,
+        col: 0,
+        row: idx - skippedCount,
+        blockSizePx,
+      };
+      const listItemRelationships: VisualElementRelationships = {};
+      VesCache.arrange.createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
+      listChildPaths.push(childPath);
     }
-
-    const blockSizePx = { w: LINE_HEIGHT_PX * listScale, h: LINE_HEIGHT_PX * listScale };
-
-    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, insidePopup, true, false, false);
-
-    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
-
-    const highlightedPath = store.find.highlightedPath.get();
-    const isHighlighted = highlightedPath !== null && highlightedPath === childPath;
-
-    const listItemVeSpec: VisualElementSpec = {
-      displayItem,
-      linkItemMaybe,
-      actualLinkItemMaybe: linkItemMaybe,
-      flags: VisualElementFlags.LineItem |
-        (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
-          ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
-          : VisualElementFlags.None) |
-        (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
-      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
-      boundsPx: listItemGeometry.boundsPx,
-      hitboxes: listItemGeometry.hitboxes,
-      parentPath: pageWithChildrenVePath,
-      col: 0,
-      row: idx - skippedCount,
-      blockSizePx,
-    };
-    const listItemRelationships: VisualElementRelationships = {};
-    VesCache.arrange.createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
-    listChildPaths.push(childPath);
   }
 
   listChildAreaBoundsPx.h = Math.max(
@@ -303,7 +308,7 @@ export function arrange_list_page(
     geometry.viewportBoundsPx!.h,
   );
 
-  if (movingItemInThisPage && !isBackgroundRenderOfPopupPage) {
+  if (movingItemInThisPage && shouldArrangeListContents && !isBackgroundRenderOfPopupPage) {
     const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
@@ -366,7 +371,9 @@ export function arrange_list_page(
     };
     const selectedIsPage = isPage(itemState.get(selectedVeid.itemId)!);
     const canShiftLeft = arrangeFlagIsRoot(flags) && selectedIsPage;
-    pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup);
+    if (boundsPx.w >= MIN_RENDERED_NESTED_LIST_WIDTH_PX) {
+      pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup);
+    }
   }
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
@@ -411,7 +418,9 @@ export function arrangeSelectedListItem(
     h: boundsPx.h - 2 * LINE_HEIGHT_PX,
   };
 
-  if (paddedBoundsPx.w < LINE_HEIGHT_PX / 2 || paddedBoundsPx.h < LINE_HEIGHT_PX / 2) {
+  if (boundsPx.w < MIN_RENDERED_NESTED_LIST_WIDTH_PX ||
+    paddedBoundsPx.w < LINE_HEIGHT_PX / 2 ||
+    paddedBoundsPx.h < LINE_HEIGHT_PX / 2) {
     return null;
   }
 
