@@ -121,6 +121,50 @@ function parentVe(ve: VisualElement): VisualElement {
   return VesCache.current.readNode(ve.parentPath!)!;
 }
 
+function isListPageVe(ve: VisualElement): boolean {
+  if (!isPage(ve.displayItem)) { return false; }
+  return (ve.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(ve.displayItem).arrangeAlgorithm) == ArrangeAlgorithm.List;
+}
+
+function popupListTitleTargetPathMaybe(rootVe: VisualElement, titleLocalPos: Vector): string | null {
+  if (!isListPageVe(rootVe) || !rootVe.listViewportBoundsPx) { return null; }
+  const headerHeightPx = rootVe.boundsPx.h - (rootVe.viewportBoundsPx?.h ?? rootVe.boundsPx.h);
+  if (headerHeightPx <= 0 || titleLocalPos.y < 0 || titleLocalPos.y >= headerHeightPx) { return null; }
+
+  const rootPath = VeFns.veToPath(rootVe);
+  let currentLeftPx = 0;
+  let currentWidthPx = rootVe.listViewportBoundsPx.w;
+  if (titleLocalPos.x >= currentLeftPx && titleLocalPos.x < currentLeftPx + currentWidthPx) {
+    return rootPath;
+  }
+
+  currentLeftPx += currentWidthPx;
+  let currentVes = VesCache.render.getSelected(rootPath)();
+  while (currentVes != null) {
+    const selectedVe = currentVes.get();
+    if (!isPage(selectedVe.displayItem) || !selectedVe.viewportBoundsPx) { return null; }
+
+    const selectedPath = VeFns.veToPath(selectedVe);
+    if (isListPageVe(selectedVe)) {
+      currentWidthPx = selectedVe.listViewportBoundsPx?.w ?? 0;
+      if (currentWidthPx <= 0) { return null; }
+      if (titleLocalPos.x >= currentLeftPx && titleLocalPos.x < currentLeftPx + currentWidthPx) {
+        return selectedPath;
+      }
+      currentLeftPx += currentWidthPx;
+      currentVes = VesCache.render.getSelected(selectedPath)();
+      continue;
+    }
+
+    if (titleLocalPos.x >= currentLeftPx && titleLocalPos.x <= rootVe.boundsPx.w) {
+      return selectedPath;
+    }
+    return null;
+  }
+
+  return null;
+}
+
 function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Set<Uid>): HitInfo | null {
   if (rootInfo.hitMaybe) {
     const overVes = rootInfo.hitMaybe.overVes;
@@ -606,9 +650,16 @@ function hitPagePopupRootMaybe(
     if (isInside(popupPosRelativeToTopLevelVePx, popupRootVeMaybe.boundsPx)) {
       rootVes = popupRootVesMaybe;
       rootVe = popupRootVeMaybe;
-      const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, vectorSubtract(popupPosRelativeToTopLevelVePx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y }));
+      const posRelativeToPopupBoundsPx = vectorSubtract(popupPosRelativeToTopLevelVePx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y });
+      const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToPopupBoundsPx);
       if (hitboxType != HitboxFlags.None) {
-        return ({ parentRootVe: parentRootInfo.rootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx: vectorSubtract(popupPosRelativeToTopLevelVePx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y }), posRelativeToRootVeViewportPx: vectorSubtract(popupPosRelativeToTopLevelVePx, isPage(popupRootVeMaybe.displayItem) ? getBoundingBoxTopLeft(rootVe.viewportBoundsPx!) : getBoundingBoxTopLeft(rootVe.boundsPx)), hitMaybe: new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(vectorSubtract(popupPosRelativeToTopLevelVePx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y })).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe1").build() });
+        const titleTargetPath = (hitboxType & (HitboxFlags.AnchorChild | HitboxFlags.AnchorDefault))
+          ? null
+          : popupListTitleTargetPathMaybe(rootVe, posRelativeToPopupBoundsPx);
+        const effectiveMeta = titleTargetPath
+          ? { ...(hitboxMeta ?? {}), popupTitleTargetPath: titleTargetPath }
+          : hitboxMeta;
+        return ({ parentRootVe: parentRootInfo.rootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx: posRelativeToPopupBoundsPx, posRelativeToRootVeViewportPx: vectorSubtract(popupPosRelativeToTopLevelVePx, isPage(popupRootVeMaybe.displayItem) ? getBoundingBoxTopLeft(rootVe.viewportBoundsPx!) : getBoundingBoxTopLeft(rootVe.boundsPx)), hitMaybe: new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(effectiveMeta).pos(posRelativeToPopupBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe1").build() });
       }
       posRelativeToRootVeBoundsPx = vectorSubtract(popupPosRelativeToTopLevelVePx, { x: rootVe.boundsPx!.x, y: rootVe.boundsPx!.y });
       changedRoot = true;

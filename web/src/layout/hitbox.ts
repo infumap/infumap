@@ -18,6 +18,7 @@
 
 import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geometry";
 import { Uid } from "../util/uid";
+import { VisualElementPath } from "./visual-element";
 
 
 export enum HitboxFlags {
@@ -85,6 +86,7 @@ export interface HitboxMeta {
   openContainingPageOfItemId?: Uid,
   allowOutsideBounds?: boolean,
   compositeMoveOut?: boolean,
+  popupTitleTargetPath?: VisualElementPath,
   calendarYear?: number,
   calendarMonth?: number,
   calendarDay?: number,
@@ -137,6 +139,9 @@ export const HitboxFns = {
     if (typeof (meta.compositeMoveOut) != 'undefined') {
       result.compositeMoveOut = meta.compositeMoveOut;
     }
+    if (typeof (meta.popupTitleTargetPath) != 'undefined') {
+      result.popupTitleTargetPath = meta.popupTitleTargetPath;
+    }
     if (typeof (meta.calendarYear) != 'undefined') {
       result.calendarYear = meta.calendarYear;
     }
@@ -182,7 +187,8 @@ export const HitboxFns = {
       (meta.endBl ? meta.endBl : "undefined") + ", openActualItem: " +
       (meta.openActualItem ? meta.openActualItem : "undefined") + ", allowOutsideBounds: " +
       (meta.allowOutsideBounds ? meta.allowOutsideBounds : "undefined") + ", compositeMoveOut: " +
-      (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", year: " +
+      (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", popupTitleTargetPath: " +
+      (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", year: " +
       (meta.calendarYear ? meta.calendarYear : "undefined") + ", month: " +
       (meta.calendarMonth ? meta.calendarMonth : "undefined") + ", day: " +
       (meta.calendarDay ? meta.calendarDay : "undefined") + ", dividerMonth: " +

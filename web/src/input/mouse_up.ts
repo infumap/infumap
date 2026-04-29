@@ -168,6 +168,12 @@ function focusSearchItemFromResultsBackgroundClickMaybe(
   return true;
 }
 
+function popupTitleTargetSignalMaybe() {
+  const targetPath = MouseActionState.getHitMeta()?.popupTitleTargetPath;
+  if (!targetPath) { return null; }
+  return VesCache.render.getNode(targetPath) ?? null;
+}
+
 function showMoveDropRejectedMessage(store: StoreContextModel, text: string): void {
   store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
   window.setTimeout(() => {
@@ -934,7 +940,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Click)) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
+        const popupTitleTargetSignal = popupTitleTargetSignalMaybe();
+        ItemFns.handleClick(popupTitleTargetSignal ?? activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
+        if (popupTitleTargetSignal != null) {
+          arrangeNow(store, "mouse-up-popup-list-title-click");
+        }
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.ShiftLeft)) {
         DoubleClickState.preventDoubleClick();
