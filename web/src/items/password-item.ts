@@ -37,7 +37,7 @@ import { CursorEventState } from '../input/state';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { VesCache } from '../layout/ves-cache';
 import { FlagsMixin, PasswordFlags } from './base/flags-item';
-import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject } from './base/icon-item';
+import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject, listItemIconRenderContext } from './base/icon-item';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
@@ -215,9 +215,7 @@ export const PasswordFns = {
 
   calcGeometry_ListItem: (password: PasswordMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
-    const iconContext = inTable && !expandable
-      ? ItemIconRenderContext.TableAttachment
-      : ItemIconRenderContext.Line;
+    const iconContext = listItemIconRenderContext(inTable, !expandable);
     const showsIcon = PasswordFns.showsIcon(password, iconContext);
     const boundsPx = {
       x: blockSizePx.w * col,

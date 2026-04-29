@@ -35,7 +35,7 @@ import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemCli
 import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
 import { FileFlags, FlagsMixin } from './base/flags-item';
-import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject } from './base/icon-item';
+import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject, listItemIconRenderContext } from './base/icon-item';
 import { VesCache } from '../layout/ves-cache';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -205,9 +205,7 @@ export const FileFns = {
 
   calcGeometry_ListItem: (file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
-    const iconContext = inTable && !expandable
-      ? ItemIconRenderContext.TableAttachment
-      : ItemIconRenderContext.Line;
+    const iconContext = listItemIconRenderContext(inTable, !expandable);
     const showsIcon = FileFns.showsIcon(file, iconContext);
     const innerBoundsPx = {
       x: 0.0,

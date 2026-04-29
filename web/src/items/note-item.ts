@@ -42,7 +42,7 @@ import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret'
 import { CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
 import { isNumeric } from '../util/math';
-import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject } from './base/icon-item';
+import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject, listItemIconRenderContext } from './base/icon-item';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, AttachmentsItem, TitledItem {
@@ -270,9 +270,7 @@ export const NoteFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
-    const iconContext = inTable && !expandable
-      ? ItemIconRenderContext.TableAttachment
-      : ItemIconRenderContext.Line;
+    const iconContext = listItemIconRenderContext(inTable, !expandable);
     const showsIcon = NoteFns.showsIcon(note, iconContext);
     const clickAreaBoundsPx = {
       x: showsIcon ? blockSizePx.w : 0.0,

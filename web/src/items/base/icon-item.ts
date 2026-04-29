@@ -66,9 +66,17 @@ export function itemIconKind(
   return faviconAvailable ? ItemIconMode.Favicon : ItemIconMode.Symbol;
 }
 
+export function listItemIconRenderContext(inTable: boolean, isTableAttachment: boolean): ItemIconRenderContext {
+  return inTable && isTableAttachment
+    ? ItemIconRenderContext.TableAttachment
+    : ItemIconRenderContext.Line;
+}
+
 export function iconRenderContextFromVisualElement(visualElement: VisualElement): ItemIconRenderContext {
-  if ((visualElement.flags & VisualElementFlags.InsideTable) && (visualElement.flags & VisualElementFlags.Attachment)) {
-    return ItemIconRenderContext.TableAttachment;
+  if (visualElement.flags & VisualElementFlags.InsideTable) {
+    return (visualElement.flags & VisualElementFlags.Attachment) || (visualElement.col != null && visualElement.col > 0)
+      ? ItemIconRenderContext.TableAttachment
+      : ItemIconRenderContext.Line;
   }
   if (visualElement.flags & VisualElementFlags.LineItem) {
     return ItemIconRenderContext.Line;
