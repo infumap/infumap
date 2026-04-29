@@ -1192,7 +1192,7 @@ export const PageFns = {
 
   handleAnchorChildClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const popupPage = asPageItem(visualElement.displayItem);
-    const parentId = popupPage.parentId;
+    const parentId = visualElement.parentPath ? VeFns.itemIdFromPath(visualElement.parentPath) : popupPage.parentId;
     const parentPage = itemState.get(parentId);
     const isCellPopup = parentPage && isPage(parentPage) && asPageItem(parentPage).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch;
 
