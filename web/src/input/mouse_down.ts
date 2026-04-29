@@ -48,6 +48,7 @@ import { asFileItem, FileFns, isFile } from "../items/file-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { asPasswordItem, isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
+import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 
 
 export const MOUSE_LEFT = 0;
@@ -98,21 +99,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (!(document.activeElement instanceof HTMLElement) || !document.activeElement.isContentEditable) {
       return;
     }
-    const titleText = (document.activeElement! as HTMLElement).innerText;
     let selection = window.getSelection();
     if (selection != null) { selection.removeAllRanges(); }
-    const focusItem = store.history.getFocusItem();
-    if (!itemCanEdit(focusItem)) {
-      return;
-    }
-    asPageItem(focusItem).title = titleText;
-    if (focusItem.relationshipToParent == RelationshipToParent.Child) {
-      const parentItem = itemState.get(focusItem.parentId);
-      if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
-        itemState.sortChildren(focusItem.parentId);
-      }
-    }
-    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    commitActiveToolbarTitleEdit(store);
   }
   const exitToolbarTitleEdit = (): MouseEventActionFlags => {
     saveActiveTitleDivState();

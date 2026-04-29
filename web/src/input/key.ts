@@ -55,6 +55,7 @@ import { getVePropertiesForItem } from "../layout/arrange/util";
 import { isPlaceholder } from "../items/placeholder-item";
 import { isSearch } from "../items/search-item";
 import type { SearchResult } from "../server";
+import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 
 
 /**
@@ -540,24 +541,12 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     if (!(document.activeElement instanceof HTMLElement) || !document.activeElement.isContentEditable) {
       return;
     }
-    const focusItem = store.history.getFocusItem();
-    if (!itemCanEdit(focusItem)) {
-      return;
-    }
-    const titleText = (document.activeElement! as HTMLElement).innerText;
     if (ev.code == "Enter" || ev.code == "Escape") {
+      commitActiveToolbarTitleEdit(store);
       (document.activeElement! as HTMLElement).blur();
       let selection = window.getSelection();
       if (selection != null) { selection.removeAllRanges(); }
-      asPageItem(focusItem).title = titleText;
-      if (focusItem.relationshipToParent == RelationshipToParent.Child) {
-        const parentItem = itemState.get(focusItem.parentId);
-        if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
-          itemState.sortChildren(focusItem.parentId);
-        }
-      }
       arrangeNow(store, "key-toolbar-title-commit");
-      serverOrRemote.updateItem(focusItem, store.general.networkStatus);
       ev.preventDefault();
     }
     if (isReservedTabKey(ev)) {
