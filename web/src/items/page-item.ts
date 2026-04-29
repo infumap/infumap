@@ -234,6 +234,36 @@ function calcPagePopupActionStripLayout(innerWidthPx: number, seamYPx: number, h
   });
 }
 
+function pageItemForPopupDefaultReset(item: Item): PageItem | null {
+  if (isPage(item)) {
+    return asPageItem(item);
+  }
+  if (!isLink(item)) {
+    return null;
+  }
+
+  const linkedItem = itemState.get(LinkFns.getLinkToId(asLinkItem(item)));
+  return linkedItem && isPage(linkedItem) ? asPageItem(linkedItem) : null;
+}
+
+function clearCellPopupPositioning(page: PageItem): boolean {
+  const hadStoredPositioning = page.cellPopupPositionNorm != null || page.cellPopupWidthNorm != null;
+  page.pendingCellPopupPositionNorm = null;
+  page.pendingCellPopupWidthNorm = null;
+  page.cellPopupPositionNorm = null;
+  page.cellPopupWidthNorm = null;
+  return hadStoredPositioning;
+}
+
+function clearSpatialPopupPositioning(page: PageItem): boolean {
+  const hadStoredPositioning = page.popupPositionGr != null || page.popupWidthGr != null;
+  page.pendingPopupPositionGr = null;
+  page.pendingPopupWidthGr = null;
+  page.popupPositionGr = null;
+  page.popupWidthGr = null;
+  return hadStoredPositioning;
+}
+
 function maybeEditDocumentPageRowFromClick(
   visualElement: VisualElement,
   store: StoreContextModel,
@@ -1235,27 +1265,23 @@ export const PageFns = {
       parentPageItem.defaultCellPopupPositionNorm = { x: currentPos.x, y: currentPos.y };
       parentPageItem.defaultCellPopupWidthNorm = currentWidth;
 
-      popupPage.pendingCellPopupPositionNorm = null;
-      popupPage.pendingCellPopupWidthNorm = null;
-
-      if (popupPage.cellPopupPositionNorm != null || popupPage.cellPopupWidthNorm != null) {
-        popupPage.cellPopupPositionNorm = null;
-        popupPage.cellPopupWidthNorm = null;
-        serverOrRemote.updateItem(popupPage, store.general.networkStatus);
+      const changedPageIds = new Set<string>();
+      if (clearCellPopupPositioning(popupPage)) {
+        changedPageIds.add(popupPage.id);
       }
 
       for (const childId of parentPageItem.computed_children) {
         const child = itemState.get(childId);
-        if (child && isPage(child)) {
-          const childPage = asPageItem(child);
-          if (childPage.cellPopupPositionNorm != null || childPage.cellPopupWidthNorm != null) {
-            childPage.cellPopupPositionNorm = null;
-            childPage.cellPopupWidthNorm = null;
-            childPage.pendingCellPopupPositionNorm = null;
-            childPage.pendingCellPopupWidthNorm = null;
-            serverOrRemote.updateItem(childPage, store.general.networkStatus);
-          }
+        if (child == null) { continue; }
+        const childPage = pageItemForPopupDefaultReset(child);
+        if (childPage == null) { continue; }
+        if (clearCellPopupPositioning(childPage)) {
+          changedPageIds.add(childPage.id);
         }
+      }
+
+      for (const pageId of changedPageIds) {
+        serverOrRemote.updateItem(itemState.get(pageId)!, store.general.networkStatus);
       }
     } else {
       const currentPos = popupPage.pendingPopupPositionGr ?? popupPage.popupPositionGr ?? parentPageItem.defaultPopupPositionGr;
@@ -1264,21 +1290,23 @@ export const PageFns = {
       parentPageItem.defaultPopupPositionGr = { x: currentPos.x, y: currentPos.y };
       parentPageItem.defaultPopupWidthGr = currentWidth;
 
-      popupPage.pendingPopupPositionGr = null;
-      popupPage.pendingPopupWidthGr = null;
+      const changedPageIds = new Set<string>();
+      if (clearSpatialPopupPositioning(popupPage)) {
+        changedPageIds.add(popupPage.id);
+      }
 
       for (const childId of parentPageItem.computed_children) {
         const child = itemState.get(childId);
-        if (child && isPage(child)) {
-          const childPage = asPageItem(child);
-          if (childPage.popupPositionGr != null || childPage.popupWidthGr != null) {
-            childPage.popupPositionGr = null;
-            childPage.popupWidthGr = null;
-            childPage.pendingPopupPositionGr = null;
-            childPage.pendingPopupWidthGr = null;
-            serverOrRemote.updateItem(childPage, store.general.networkStatus);
-          }
+        if (child == null) { continue; }
+        const childPage = pageItemForPopupDefaultReset(child);
+        if (childPage == null) { continue; }
+        if (clearSpatialPopupPositioning(childPage)) {
+          changedPageIds.add(childPage.id);
         }
+      }
+
+      for (const pageId of changedPageIds) {
+        serverOrRemote.updateItem(itemState.get(pageId)!, store.general.networkStatus);
       }
     }
 
