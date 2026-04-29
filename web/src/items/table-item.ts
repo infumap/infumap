@@ -32,7 +32,7 @@ import {
   isAttachmentsItem
 } from "./base/attachments-item";
 import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
-import { ContainerItem } from "./base/container-item";
+import { ContainerItem, asContainerItem, isContainer } from "./base/container-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
@@ -40,7 +40,7 @@ import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
-import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from "./base/item-common-fns";
 import { itemState } from "../store/ItemState";
@@ -55,12 +55,87 @@ import { CursorEventState } from "../input/state";
 import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
-import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
+import { initiateLoadChildItemsMaybe, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
+import { getVePropertiesForItem } from "../layout/arrange/util";
 
 
 export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin, TabularMixin, AttachmentsMixin {
+}
+
+export interface TableVisibleRowInfo {
+  item: Item,
+  displayItem: Item,
+  parentContainer: ContainerItem,
+  indexInParent: number,
+  rowIdx: number,
+  indentBl: number,
+  path: VisualElementPath,
+}
+
+export interface TableInsertionTarget {
+  parentContainer: ContainerItem,
+  insertIndex: number,
+}
+
+
+function tableVisibleRows(store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> {
+  const tableItem = asTableItem(tableVe.displayItem);
+  const tableVePath = VeFns.veToPath(tableVe);
+  const rows: Array<TableVisibleRowInfo> = [];
+
+  if (tableItem.computed_children.length == 0) {
+    return rows;
+  }
+
+  const iterIndices = [0];
+  const iterContainers: Array<ContainerItem> = [tableItem];
+  let rowIdx = 0;
+
+  while (iterIndices.length > 0) {
+    const parentContainer = iterContainers[iterContainers.length - 1];
+    const indexInParent = iterIndices[iterIndices.length - 1];
+    const itemId = parentContainer.computed_children[indexInParent];
+    const item = itemState.get(itemId);
+    if (item == null) {
+      panic(`tableVisibleRows: row item '${itemId}' not found.`);
+    }
+
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, item);
+    const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
+    const itemPath = VeFns.addVeidToPath(itemVeid, tableVePath);
+
+    rows.push({
+      item,
+      displayItem,
+      parentContainer,
+      indexInParent,
+      rowIdx,
+      indentBl: iterIndices.length - 1,
+      path: itemPath,
+    });
+
+    rowIdx += 1;
+
+    if (isContainer(displayItem) && store.perVe.getIsExpanded(itemPath)) {
+      initiateLoadChildItemsMaybe(store, itemVeid);
+    }
+    if (isContainer(displayItem) && asContainerItem(displayItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
+      iterIndices[iterIndices.length - 1] = indexInParent + 1;
+      iterIndices.push(0);
+      iterContainers.push(asContainerItem(displayItem));
+      continue;
+    }
+
+    iterIndices[iterIndices.length - 1] = indexInParent + 1;
+    while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length - 1].computed_children.length) {
+      iterIndices.pop();
+      iterContainers.pop();
+    }
+  }
+
+  return rows;
 }
 
 
@@ -458,11 +533,60 @@ export const TableFns = {
     const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
     let insertRow = rawTableRowNumber + yScrollPos - TABLE_TITLE_HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? TABLE_COL_HEADER_HEIGHT_BL : 0);
     if (insertRow < yScrollPos) { insertRow = yScrollPos; }
-    insertRow -= insertRow > tableItem.computed_children.length
-      ? insertRow - tableItem.computed_children.length
-      : 0;
+    insertRow = Math.floor(insertRow);
+    const visibleRowCount = TableFns.tableVisibleRowCount(store, tableVe);
+    if (insertRow < 0) { insertRow = 0; }
+    if (insertRow > visibleRowCount) { insertRow = visibleRowCount; }
 
     return { insertRow, attachmentPos };
+  },
+
+  tableVisibleRows: (store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> => {
+    return tableVisibleRows(store, tableVe);
+  },
+
+  tableVisibleRowCount: (store: StoreContextModel, tableVe: VisualElement): number => {
+    return tableVisibleRows(store, tableVe).length;
+  },
+
+  tableVisibleRowAt: (store: StoreContextModel, tableVe: VisualElement, rowNumber: number): TableVisibleRowInfo | null => {
+    const idx = Math.floor(rowNumber);
+    if (idx < 0) { return null; }
+    return tableVisibleRows(store, tableVe)[idx] ?? null;
+  },
+
+  tableInsertionTarget: (store: StoreContextModel, tableVe: VisualElement, insertRow: number): TableInsertionTarget => {
+    const tableItem = asTableItem(tableVe.displayItem);
+    const rows = tableVisibleRows(store, tableVe);
+    const clampedInsertRow = Math.max(0, Math.min(Math.floor(insertRow), rows.length));
+
+    if (clampedInsertRow >= rows.length) {
+      const previousRow = rows[rows.length - 1] ?? null;
+      if (previousRow != null && previousRow.parentContainer.id != tableItem.id) {
+        return {
+          parentContainer: previousRow.parentContainer,
+          insertIndex: previousRow.indexInParent + 1,
+        };
+      }
+      return {
+        parentContainer: tableItem,
+        insertIndex: tableItem.computed_children.length,
+      };
+    }
+
+    const nextRow = rows[clampedInsertRow];
+    return {
+      parentContainer: nextRow.parentContainer,
+      insertIndex: nextRow.indexInParent,
+    };
+  },
+
+  tableAttachmentTargetAtRow: (store: StoreContextModel, tableVe: VisualElement, rowNumber: number): AttachmentsItem | null => {
+    const row = TableFns.tableVisibleRowAt(store, tableVe, rowNumber);
+    if (row == null || !isAttachmentsItem(row.displayItem)) {
+      return null;
+    }
+    return asAttachmentsItem(row.displayItem);
   },
 
   insertEmptyColAt(tableId: Uid, colPos: number, store: StoreContextModel) {

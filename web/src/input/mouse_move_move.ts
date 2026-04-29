@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
-import { asAttachmentsItem, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "../items/base/attachments-item";
+import { asAttachmentsItem, calcSpatialAttachmentInsertIndex } from "../items/base/attachments-item";
 import { itemCanMove } from "../items/base/capabilities-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
@@ -663,9 +663,7 @@ function moving_handleOverTable(
   store.perVe.setMoveOverRowNumber(tablePath, insertRow);
   store.perVe.setMoveOverChildContainerPath(tablePath, childContainerDropTargetPath);
 
-  const tableItem = asTableItem(overContainerVe.displayItem);
-  const childItem = itemState.get(tableItem.computed_children[insertRow]);
-  if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemState.get(LinkFns.getLinkToId(asLinkItem(childItem!))!)))) {
+  if (TableFns.tableAttachmentTargetAtRow(store, overContainerVe, insertRow) != null) {
     store.perVe.setMoveOverColAttachmentNumber(tablePath, attachmentPos);
   } else {
     store.perVe.setMoveOverColAttachmentNumber(tablePath, -1);

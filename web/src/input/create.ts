@@ -17,7 +17,6 @@
 */
 
 import { GRID_SIZE } from "../constants";
-import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -28,7 +27,7 @@ import { PasswordFns } from "../items/password-item";
 import { calculateCalendarDateTime } from "../util/calendar-layout";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
-import { TableFns, asTableItem, isTable } from "../items/table-item";
+import { TableFns, isTable } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -228,14 +227,16 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
     if (TableFns.isInsideViewport(store, overElementVe, desktopPosPx)) {
       const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overElementVe, desktopPosPx);
-      const tableItem = asTableItem(overElementVe.displayItem);
+      const rowInfo = TableFns.tableVisibleRowAt(store, overElementVe, insertRow);
+      const displayedChild = TableFns.tableAttachmentTargetAtRow(store, overElementVe, insertRow);
 
-      if (attachmentPos == -1 || insertRow >= tableItem.computed_children.length) {
+      if (attachmentPos == -1 || displayedChild == null) {
+        const insertionTarget = TableFns.tableInsertionTarget(store, overElementVe, insertRow);
         newItem = createNewItem(
           store,
           type,
-          overElementVe.displayItem.id,
-          itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId), // must be the case that it is at the end.
+          insertionTarget.parentContainer.id,
+          itemState.newOrderingAtChildrenPosition(insertionTarget.parentContainer.id, insertionTarget.insertIndex, null),
           RelationshipToParent.Child);
         server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
@@ -244,18 +245,6 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 
       } else {
-        const childId = tableItem.computed_children[insertRow];
-        const child = itemState.get(childId)!;
-        const targetItem = isLink(child)
-          ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
-          : child;
-
-        if (!isAttachmentsItem(targetItem)) {
-          return;
-        }
-
-        const displayedChild = asAttachmentsItem(targetItem);
-
         const numPlaceholdersToCreate = attachmentPos > displayedChild.computed_attachments.length ? attachmentPos - displayedChild.computed_attachments.length : 0;
         for (let i=0; i<numPlaceholdersToCreate; ++i) {
           const placeholderItem = PlaceholderFns.create(displayedChild.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
@@ -276,7 +265,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         store.overlay.contextMenuInfo.set(null);
         arrangeNow(store, "create-in-table-attachment");
 
-        newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.addVeidToPath(VeFns.veidFromId(childId), VeFns.veToPath(overElementVe)));
+        newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, rowInfo?.path ?? VeFns.veToPath(overElementVe));
       }
     }
 

@@ -33,7 +33,7 @@ import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { TEMP_SEARCH_RESULTS_ORIGIN, isSearch } from "../items/search-item";
-import { asTableItem, isTable } from "../items/table-item";
+import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
@@ -1197,14 +1197,20 @@ function moveSelectedGroupToTableMaybe(
     entry.veid.itemId == activeVeid.itemId && entry.veid.linkIdMaybe == activeVeid.linkIdMaybe);
   if (activeSortedIndex < 0) { return false; }
 
-  const tableId = tableVe.displayItem.id;
   const anchorIndex = Math.max(0, store.perVe.getMoveOverRowNumber(VeFns.veToPath(tableVe)));
-  const startIndex = Math.max(0, anchorIndex - activeSortedIndex);
+  const insertionTarget = TableFns.tableInsertionTarget(store, tableVe, anchorIndex);
+  const targetParentId = insertionTarget.parentContainer.id;
+  const startIndex = Math.max(0, insertionTarget.insertIndex - activeSortedIndex);
 
   for (let i = 0; i < sortedEntries.length; ++i) {
     const { item } = sortedEntries[i];
-    const ordering = itemState.newOrderingAtChildrenPosition(tableId, startIndex + i, item.id);
-    itemState.moveToNewParent(item, tableId, RelationshipToParent.Child, ordering);
+    const ordering = itemState.newOrderingAtChildrenPosition(targetParentId, startIndex + i, item.id);
+    if (item.parentId != targetParentId) {
+      itemState.moveToNewParent(item, targetParentId, RelationshipToParent.Child, ordering);
+    } else {
+      item.ordering = ordering;
+      itemState.sortChildren(targetParentId);
+    }
   }
   return true;
 }
@@ -1567,8 +1573,15 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
   if (movedGroup) {
     enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
   } else {
-    const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(tablePath), activeItem.id);
-    itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
+    const insertionTarget = TableFns.tableInsertionTarget(store, overContainerVe, store.perVe.getMoveOverRowNumber(tablePath));
+    const moveToParentId = insertionTarget.parentContainer.id;
+    const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveToParentId, insertionTarget.insertIndex, activeItem.id);
+    if (activeItem.parentId != moveToParentId) {
+      itemState.moveToNewParent(activeItem, moveToParentId, RelationshipToParent.Child, moveToOrdering);
+    } else {
+      activeItem.ordering = moveToOrdering;
+      itemState.sortChildren(moveToParentId);
+    }
     enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
   }
 
@@ -1577,17 +1590,15 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
 
 
 function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
-  const tableItem = asTableItem(overContainerVe.displayItem);
-  let rowNumber = store.perVe.getMoveOverRowNumber(VeFns.veToPath(overContainerVe));
-  const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
-  if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
-
-  const childId = tableItem.computed_children[rowNumber];
-  const child = itemState.get(childId)!;
-
-  const displayedChild = asAttachmentsItem(isLink(child)
-    ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
-    : child);
+  const rowNumber = store.perVe.getMoveOverRowNumber(VeFns.veToPath(overContainerVe));
+  const displayedChild = TableFns.tableAttachmentTargetAtRow(store, overContainerVe, rowNumber);
+  if (displayedChild == null) {
+    rollbackInvalidMove(store);
+    showMoveDropRejectedMessage(store, "Can't drop here.");
+    MouseActionState.set(null);
+    arrangeNow(store, "mouse-up-table-attachment-target-missing");
+    return;
+  }
   const insertPosition = store.perVe.getMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe));
   const ops: Array<MovePersistOperation> = [];
 

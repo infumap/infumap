@@ -24,13 +24,12 @@ import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
-import { asAttachmentsItem, AttachmentsItem, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "./items/base/attachments-item";
+import { asAttachmentsItem, AttachmentsItem, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { asLinkItem, isLink, LinkFns } from "./items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "./items/page-item";
 import { PlaceholderFns, isPlaceholder } from "./items/placeholder-item";
-import { asTableItem, isTable, TableFns } from "./items/table-item";
+import { isTable, TableFns } from "./items/table-item";
 import { requestArrange } from "./layout/arrange";
 import { calcJustifiedPagePaddingPx } from "./layout/arrange/justified_metrics";
 import { server } from "./server";
@@ -48,7 +47,7 @@ type UploadTarget =
   | { kind: "page-background", parent: PageItem }
   | { kind: "page-ordered", parent: PageItem, insertIndex: number }
   | { kind: "page-child-container", parent: PageItem }
-  | { kind: "table-row", tableId: string, insertRow: number }
+  | { kind: "table-row", parentId: string, insertIndex: number }
   | { kind: "table-cell-attachment", parent: AttachmentsItem, insertPosition: number }
   | { kind: "attach-hitbox", parent: AttachmentsItem, insertPosition: number };
 
@@ -147,23 +146,8 @@ function attachmentInsertIndexFromDesktopPx(store: StoreContextModel, attachVe: 
   return clampedIndex;
 }
 
-function getTableCellAttachmentTarget(tableVe: VisualElement, insertRow: number): AttachmentsItem | null {
-  const tableItem = asTableItem(tableVe.displayItem);
-  if (insertRow < 0 || insertRow >= tableItem.computed_children.length) {
-    return null;
-  }
-
-  const childId = tableItem.computed_children[insertRow];
-  const child = itemState.get(childId);
-  if (child == null) {
-    return null;
-  }
-
-  const targetItem = isLink(child)
-    ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))
-    : child;
-
-  return isAttachmentsItem(targetItem) ? asAttachmentsItem(targetItem!) : null;
+function getTableCellAttachmentTarget(store: StoreContextModel, tableVe: VisualElement, insertRow: number): AttachmentsItem | null {
+  return TableFns.tableAttachmentTargetAtRow(store, tableVe, insertRow);
 }
 
 function supportsOrderedPageExternalUpload(page: PageItem): boolean {
@@ -331,7 +315,7 @@ function resolveExternalUploadTarget(
     }
   } else {
     const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, tableContainerVeMaybe, desktopPx);
-    const tableCellAttachmentTarget = getTableCellAttachmentTarget(tableContainerVeMaybe, insertRow);
+    const tableCellAttachmentTarget = getTableCellAttachmentTarget(store, tableContainerVeMaybe, insertRow);
     if (syncHoverState) {
       store.perVe.setMoveOverRowNumber(tablePath, insertRow);
       store.perVe.setMoveOverChildContainerPath(tablePath, tableChildContainerDropTargetPath);
@@ -350,10 +334,11 @@ function resolveExternalUploadTarget(
         insertPosition: attachmentPos,
       };
     } else {
+      const insertionTarget = TableFns.tableInsertionTarget(store, tableContainerVeMaybe, insertRow);
       target = {
         kind: "table-row",
-        tableId: tableContainerVeMaybe.displayItem.id,
-        insertRow,
+        parentId: insertionTarget.parentContainer.id,
+        insertIndex: insertionTarget.insertIndex,
       };
     }
   }
@@ -513,9 +498,9 @@ function placementForUploadTarget(
 
     case "table-row":
       return {
-        parentId: target.tableId,
+        parentId: target.parentId,
         relationshipToParent: RelationshipToParent.Child,
-        ordering: itemState.newOrderingAtChildrenPosition(target.tableId, target.insertRow + fileIndex, null),
+        ordering: itemState.newOrderingAtChildrenPosition(target.parentId, target.insertIndex + fileIndex, null),
         pageParentMaybe: null,
         useDropPosition: false,
       };
