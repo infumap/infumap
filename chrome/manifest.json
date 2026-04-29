@@ -17,15 +17,15 @@
     "https://*/"
   ],
   "icons": {
-    "16": "images/get_started16.png",
-    "32": "images/get_started32.png",
-    "48": "images/get_started48.png",
-    "128": "images/get_started128.png"
+    "16": "images/infumap-16.png",
+    "32": "images/infumap-32.png",
+    "48": "images/infumap-48.png",
+    "128": "images/infumap-128.png"
   },
   "action": {
     "default_icon": {
-      "16": "images/get_started16.png",
-      "32": "images/get_started32.png"
+      "16": "images/infumap-16.png",
+      "32": "images/infumap-32.png"
     },
     "default_title": "bookmark"
   },

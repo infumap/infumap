@@ -56,6 +56,9 @@ import { logout } from '../Main';
 import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chrome';
 
 
+const TOOLBAR_LOGO_VISIBLE_SIZE_PX = 28 * 419 / 448;
+const TOOLBAR_LOGO_VISIBLE_OFFSET_PX = 28 * 11 / 448;
+
 export const Toolbar: Component = () => {
   const store = useStore();
 
@@ -232,7 +235,14 @@ export const Toolbar: Component = () => {
           <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
             <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
               <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
-                <a href="/" onClick={handleLogoClick}><img src={imgUrl} class="w-[28px] inline-block" /></a>
+                <a href="/" onClick={handleLogoClick}>
+                  <img
+                    src={imgUrl}
+                    class="inline-block"
+                    style={`width: ${TOOLBAR_LOGO_VISIBLE_SIZE_PX}px; height: ${TOOLBAR_LOGO_VISIBLE_SIZE_PX}px; ` +
+                      `margin-left: ${TOOLBAR_LOGO_VISIBLE_OFFSET_PX}px; margin-top: ${TOOLBAR_LOGO_VISIBLE_OFFSET_PX}px;`}
+                  />
+                </a>
               </div>
             </Show>
             <div class="inline-block" style="flex-grow: 1;" />
