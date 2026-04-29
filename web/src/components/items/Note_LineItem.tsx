@@ -36,6 +36,7 @@ import { getTextStyleForNote } from "../../layout/text";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { NoteIconGlyph } from "./NoteIconGlyph";
+import { ItemIconRenderContext } from "../../items/base/icon-item";
 
 
 export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -51,8 +52,6 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
   const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
-  const iconContext = () => NoteFns.iconRenderContextFromVisualElement(props.visualElement);
-
   const isInCalendarPage = () => {
     if (props.visualElement.parentPath) {
       try {
@@ -68,7 +67,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return false;
   };
 
-  const shouldRenderIcon = () => NoteFns.showsIcon(noteItem(), iconContext()) && !isInCalendarPage();
+  const iconContext = () => isInCalendarPage()
+    ? ItemIconRenderContext.TableAttachment
+    : NoteFns.iconRenderContextFromVisualElement(props.visualElement);
+  const shouldRenderIcon = () => NoteFns.showsIcon(noteItem(), iconContext());
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
