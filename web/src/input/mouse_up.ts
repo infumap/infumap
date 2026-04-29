@@ -315,12 +315,12 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
 
     item.spatialPositionGr = { ...entry.spatialPositionGr };
     item.dateTime = entry.dateTime;
-    if (entry.iconFlags != null && isNote(item)) {
-      asNoteItem(item).flags = entry.iconFlags;
-    } else if (entry.iconFlags != null && isFile(item)) {
-      asFileItem(item).flags = entry.iconFlags;
-    } else if (entry.iconFlags != null && isPassword(item)) {
-      asPasswordItem(item).flags = entry.iconFlags;
+    if (entry.rollbackFlags != null && isNote(item)) {
+      asNoteItem(item).flags = entry.rollbackFlags;
+    } else if (entry.rollbackFlags != null && isFile(item)) {
+      asFileItem(item).flags = entry.rollbackFlags;
+    } else if (entry.rollbackFlags != null && isPassword(item)) {
+      asPasswordItem(item).flags = entry.rollbackFlags;
     }
 
     if (item.parentId != entry.parentId || item.relationshipToParent != entry.relationshipToParent) {
