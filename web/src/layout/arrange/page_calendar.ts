@@ -542,10 +542,10 @@ export function arrange_calendar_page(
     if (currentPopupSpec != null) {
       const popupItemType = itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType;
       const isFromAttachment = currentPopupSpec.isFromAttachment ?? false;
-      const isSourceTopLeftAnchored = currentPopupSpec.sourceTopLeftGr != null &&
-        popupItemType != ItemType.Page &&
-        popupItemType != ItemType.Image;
-      if (popupItemType == ItemType.Page || popupItemType == ItemType.Image || isFromAttachment || isSourceTopLeftAnchored) {
+      const isPageOrImagePopup = popupItemType == ItemType.Page || popupItemType == ItemType.Image;
+      const isSourceAnchoredPopup = !isPageOrImagePopup &&
+        (isFromAttachment || currentPopupSpec.sourceTopLeftGr != null);
+      if (isSourceAnchoredPopup) {
         const { geometry, linkItem, actualLinkItemMaybe, wasAutoAdjusted } = calcSpatialPopupGeometry(
           store,
           displayItem_pageWithChildren,
