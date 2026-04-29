@@ -58,7 +58,11 @@ function noteHasFaviconUrl(note: NoteItem): boolean {
 }
 
 function noteIconKind(note: NoteMeasurable, context: ItemIconRenderContext): ItemIconMode.None | ItemIconMode.Symbol | ItemIconMode.Favicon {
-  return itemIconKind(note.iconMode, context, "url" in note && noteHasFaviconUrl(note as NoteItem));
+  const hasFaviconUrl = "url" in note && noteHasFaviconUrl(note as NoteItem);
+  if (note.iconMode == ItemIconMode.Auto && hasFaviconUrl) {
+    return ItemIconMode.Favicon;
+  }
+  return itemIconKind(note.iconMode, context, hasFaviconUrl);
 }
 
 
