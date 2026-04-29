@@ -35,6 +35,7 @@ import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemCli
 import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
 import { FileFlags, FlagsMixin } from './base/flags-item';
+import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject } from './base/icon-item';
 import { VesCache } from '../layout/ves-cache';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -44,9 +45,7 @@ import { downloadRemoteFile } from '../util/remoteFile';
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
 
-export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin {
-  emoji: string | null,
-}
+export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin, IconMixin { }
 
 
 export const FileFns = {
@@ -71,6 +70,7 @@ export const FileFns = {
 
       flags: o.flags ?? FileFlags.None,
       emoji: o.emoji || null,
+      iconMode: itemIconModeFromObject(o, false),
 
       originalCreationDate: o.originalCreationDate,
       mimeType: o.mimeType,
@@ -98,6 +98,7 @@ export const FileFns = {
 
       flags: f.flags,
       emoji: f.emoji,
+      iconMode: f.iconMode,
 
       originalCreationDate: f.originalCreationDate,
       mimeType: f.mimeType,
@@ -105,9 +106,9 @@ export const FileFns = {
     });
   },
 
-  calcSpatialDimensionsBl: (file: FileMeasurable): Dimensions => {
+  calcSpatialDimensionsBl: (file: FileMeasurable, iconContext: ItemIconRenderContext = ItemIconRenderContext.Spatial): Dimensions => {
     const widthBl = file.spatialWidthGr / GRID_SIZE;
-    const textIndentPx = FileFns.showsIcon(file) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    const textIndentPx = FileFns.showsIcon(file, iconContext) ? desktopPopupIconTextIndentPx(widthBl) : 0;
     let lineCount = measureLineCount(file.title, widthBl, 0, textIndentPx);
     if (lineCount < 1) { lineCount = 1; }
     return { w: widthBl, h: lineCount };
@@ -127,7 +128,7 @@ export const FileFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (emitHitboxes && FileFns.showsIcon(file)) {
+    if (emitHitboxes && FileFns.showsIcon(file, ItemIconRenderContext.Spatial)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     if (emitHitboxes) {
@@ -202,9 +203,12 @@ export const FileFns = {
     return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
-    const showsIcon = FileFns.showsIcon(file);
+    const iconContext = inTable && !expandable
+      ? ItemIconRenderContext.TableAttachment
+      : ItemIconRenderContext.Line;
+    const showsIcon = FileFns.showsIcon(file, iconContext);
     const innerBoundsPx = {
       x: 0.0,
       y: 0.0,
@@ -248,7 +252,7 @@ export const FileFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (FileFns.showsIcon(file)) {
+    if (FileFns.showsIcon(file, ItemIconRenderContext.Spatial)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     hitboxes.push(
@@ -324,6 +328,7 @@ export const FileFns = {
       computed_attachments: file.computed_attachments,
       flags: file.flags,
       emoji: file.emoji,
+      iconMode: file.iconMode,
     });
   },
 
@@ -332,14 +337,17 @@ export const FileFns = {
   },
 
   getFingerprint: (fileItem: FileItem): string => {
-    return fileItem.title + "~~~!@#~~~" + fileItem.flags + "~~~!@#~~~" + (fileItem.emoji || "");
+    return fileItem.title + "~~~!@#~~~" + (fileItem.emoji || "") + "~~~!@#~~~" + fileItem.iconMode;
   },
 
-  showsIcon: (file: FileMeasurable): boolean => {
-    return !!(file.flags & FileFlags.ShowIcon);
+  iconRenderContextFromVisualElement,
+
+  showsIcon: (file: FileMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): boolean => {
+    return itemIconKind(file.iconMode, context, false) != ItemIconMode.None;
   },
 
-  emoji: (file: FileMeasurable): string | null => {
+  emoji: (file: FileMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): string | null => {
+    if (itemIconKind(file.iconMode, context, false) != ItemIconMode.Symbol) { return null; }
     const emoji = file.emoji?.trim();
     return emoji && emoji != "" ? emoji : null;
   },

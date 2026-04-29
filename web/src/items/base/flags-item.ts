@@ -42,18 +42,18 @@ export enum NoteFlags {
   HideBorder = 0x100,
   Code = 0x200,
   ExplicitHeight = 0x400,
-  ShowIcon = 0x800,
+  Unused = 0x800,
   Heading4 = 0x1000,
 };
 
 export enum FileFlags {
   None = 0x000,
-  ShowIcon = 0x001,
+  Unused = 0x001,
 }
 
 export enum PasswordFlags {
   None = 0x000,
-  ShowIcon = 0x001,
+  Unused = 0x001,
 }
 
 export enum CompositeFlags {

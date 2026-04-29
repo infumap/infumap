@@ -25,7 +25,8 @@ import { GRID_SIZE, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { itemState } from "../../store/ItemState";
-import { NoteFns, NoteIconMode, asNoteItem, isNote } from "../../items/note-item";
+import { ItemIconMode } from "../../items/base/icon-item";
+import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { NoteFaviconLoadStatus, clearNoteFaviconStatus, noteFaviconStatus } from "../../items/note-favicon-state";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
@@ -45,7 +46,6 @@ import { FileFns, asFileItem, isFile } from "../../items/file-item";
 import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-item";
 import { isImage } from "../../items/image-item";
 import { asContainerItem } from "../../items/base/container-item";
-import { FileFlags, NoteFlags, PasswordFlags } from "../../items/base/flags-item";
 
 
 const EMOJI_CATEGORIES = [
@@ -272,11 +272,11 @@ export const Toolbar_Popup: Component = () => {
   );
   const [itemIconVisible, setItemIconVisible] = createSignal(
     overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(store.history.getFocusItem())
-      ? NoteFns.showsIcon(noteItem())
+      ? noteItem().iconMode == ItemIconMode.Symbol || noteItem().iconMode == ItemIconMode.Favicon
       : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(store.history.getFocusItem())
-        ? FileFns.showsIcon(fileItem())
+        ? fileItem().iconMode == ItemIconMode.Symbol
         : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(store.history.getFocusItem())
-          ? PasswordFns.showsIcon(passwordItem())
+          ? passwordItem().iconMode == ItemIconMode.Symbol
           : false
   );
   const [selectedEmojiValue, setSelectedEmojiValue] = createSignal<string | null>(
@@ -442,7 +442,15 @@ export const Toolbar_Popup: Component = () => {
     isFile(store.history.getFocusItem()) ? "file" :
       isPassword(store.history.getFocusItem()) ? "password" :
         "note";
-  const noteIconIsFavicon = (): boolean => isNote(store.history.getFocusItem()) && noteItem().iconMode == NoteIconMode.Favicon;
+  const iconMode = (): ItemIconMode | null =>
+    isNote(store.history.getFocusItem()) ? noteItem().iconMode :
+      isFile(store.history.getFocusItem()) ? fileItem().iconMode :
+        isPassword(store.history.getFocusItem()) ? passwordItem().iconMode :
+          null;
+  const itemIconIsAuto = (): boolean => iconMode() == ItemIconMode.Auto;
+  const itemIconIsNone = (): boolean => iconMode() == ItemIconMode.None;
+  const itemIconIsSymbol = (): boolean => iconMode() == ItemIconMode.Symbol;
+  const noteIconIsFavicon = (): boolean => isNote(store.history.getFocusItem()) && noteItem().iconMode == ItemIconMode.Favicon;
   const noteHasFaviconUrl = (): boolean => isNote(store.history.getFocusItem()) && noteItem().url.trim() != "";
   const noteFaviconPath = (): string | null => isNote(store.history.getFocusItem()) ? NoteFns.faviconPath(noteItem()) : null;
   const noteFaviconLoadStatus = (): NoteFaviconLoadStatus => isNote(store.history.getFocusItem())
@@ -469,14 +477,15 @@ export const Toolbar_Popup: Component = () => {
     return "fas fa-globe";
   };
   const regularIconSelected = (): boolean =>
-    itemIconVisible() && selectedEmoji() == null && !noteIconIsFavicon();
+    itemIconIsSymbol() && selectedEmoji() == null;
   const emojiInputIsDefaultItemIcon = (): boolean => regularIconSelected() && !customEmojiInputFocused();
   const emojiInputFontStyle = (): string => emojiInputIsDefaultItemIcon()
     ? `font-family: "Font Awesome 5 Free"; font-weight: 900;`
     : emojiFontStyle();
-  const emojiInputValue = (): string => itemIconVisible() && !customEmojiInputFocused()
-    ? noteIconIsFavicon() ? "" : selectedEmoji() || defaultItemIconText()
-    : "";
+  const emojiInputValue = (): string => {
+    if (customEmojiInputFocused()) { return ""; }
+    return itemIconIsSymbol() ? selectedEmoji() || defaultItemIconText() : "";
+  };
   const emojiInputFontSize = (): number => emojiInputValue() == "" ? 10 : 18;
   const handleCustomEmojiFocus = (): void => {
     setCustomEmojiInputFocused(true);
@@ -501,37 +510,62 @@ export const Toolbar_Popup: Component = () => {
     }
     return emoji;
   };
-  const chooseItemIcon = (emoji: string | null, showIcon: boolean = true, closePopup: boolean = true): void => {
-    setItemIconVisible(showIcon);
-    setSelectedEmojiValue(showIcon ? emoji : null);
+  const chooseItemIcon = (emoji: string | null, useSymbol: boolean = true, closePopup: boolean = true): void => {
+    setItemIconVisible(useSymbol);
+    setSelectedEmojiValue(useSymbol ? emoji : null);
     if (emojiInputElement != null) {
-      emojiInputElement.value = showIcon ? emoji || "" : "";
+      emojiInputElement.value = useSymbol ? emoji || "" : "";
     }
     const focusItem = store.history.getFocusItem();
-    if (showIcon) {
+    if (useSymbol) {
       if (isNote(focusItem)) {
-        noteItem().flags |= NoteFlags.ShowIcon;
         noteItem().emoji = emoji;
-        noteItem().iconMode = NoteIconMode.Symbol;
+        noteItem().iconMode = ItemIconMode.Symbol;
       } else if (isFile(focusItem)) {
-        fileItem().flags |= FileFlags.ShowIcon;
         fileItem().emoji = emoji;
+        fileItem().iconMode = ItemIconMode.Symbol;
       } else if (isPassword(focusItem)) {
-        passwordItem().flags |= PasswordFlags.ShowIcon;
         passwordItem().emoji = emoji;
+        passwordItem().iconMode = ItemIconMode.Symbol;
       }
     } else {
       if (isNote(focusItem)) {
-        noteItem().flags &= ~NoteFlags.ShowIcon;
         noteItem().emoji = null;
-        noteItem().iconMode = NoteIconMode.None;
+        noteItem().iconMode = ItemIconMode.None;
       } else if (isFile(focusItem)) {
-        fileItem().flags &= ~FileFlags.ShowIcon;
         fileItem().emoji = null;
+        fileItem().iconMode = ItemIconMode.None;
       } else if (isPassword(focusItem)) {
-        passwordItem().flags &= ~PasswordFlags.ShowIcon;
         passwordItem().emoji = null;
+        passwordItem().iconMode = ItemIconMode.None;
       }
+    }
+    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    if (closePopup) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+    } else if (emojiInputElement != null) {
+      emojiInputElement.value = emojiInputValue();
+    }
+    store.touchToolbar();
+    requestArrange(store, "toolbar-popup-item-icon");
+  };
+  const chooseAutoIcon = (closePopup: boolean = true): void => {
+    const focusItem = store.history.getFocusItem();
+    if (!isNote(focusItem) && !isFile(focusItem) && !isPassword(focusItem)) { return; }
+    setItemIconVisible(false);
+    setSelectedEmojiValue(null);
+    if (emojiInputElement != null) {
+      emojiInputElement.value = "";
+    }
+    if (isNote(focusItem)) {
+      noteItem().emoji = null;
+      noteItem().iconMode = ItemIconMode.Auto;
+    } else if (isFile(focusItem)) {
+      fileItem().emoji = null;
+      fileItem().iconMode = ItemIconMode.Auto;
+    } else if (isPassword(focusItem)) {
+      passwordItem().emoji = null;
+      passwordItem().iconMode = ItemIconMode.Auto;
     }
     serverOrRemote.updateItem(focusItem, store.general.networkStatus);
     if (closePopup) {
@@ -550,9 +584,8 @@ export const Toolbar_Popup: Component = () => {
     if (emojiInputElement != null) {
       emojiInputElement.value = "";
     }
-    noteItem().flags |= NoteFlags.ShowIcon;
     noteItem().emoji = null;
-    noteItem().iconMode = NoteIconMode.Favicon;
+    noteItem().iconMode = ItemIconMode.Favicon;
     if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Failed) {
       clearNoteFaviconStatus(NoteFns.faviconPath(noteItem()), noteItem().origin);
     }
@@ -895,7 +928,13 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <div class="flex items-center gap-[7px] p-[8px] border-b border-slate-200 bg-white">
-              <button class={itemIconChoiceClass(!itemIconVisible())}
+              <button class={itemIconChoiceClass(itemIconIsAuto())}
+                title="Auto icon"
+                type="button"
+                onClick={() => chooseAutoIcon(false)}>
+                <span class="font-semibold text-[17px]">A</span>
+              </button>
+              <button class={itemIconChoiceClass(itemIconIsNone())}
                 title="No icon"
                 type="button"
                 onClick={() => chooseItemIcon(null, false, false)}>

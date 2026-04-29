@@ -18,7 +18,7 @@ use bytes::Bytes;
 use futures_util::StreamExt;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
-use infusdk::item::{ItemType, NoteIconMode};
+use infusdk::item::{ItemIconMode, ItemType};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::is_uid;
 use log::{debug, info, warn};
@@ -98,7 +98,9 @@ async fn get_or_fetch_favicon(
       Err(_) => return Ok(not_found_response()),
     };
     authorize_item(&db, item, session_user_id_maybe, 0)?;
-    if item.item_type != ItemType::Note || item.icon_mode != Some(NoteIconMode::Favicon) {
+    if item.item_type != ItemType::Note
+      || !matches!(item.icon_mode, Some(ItemIconMode::Auto) | Some(ItemIconMode::Favicon))
+    {
       return Ok(not_found_response());
     }
     let url = match item.url.as_ref().map(|v| v.trim()).filter(|v| !v.is_empty()) {

@@ -42,17 +42,12 @@ import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
 
 
-type CreateNewItemOptions = {
-  showIcon?: boolean,
-};
-
 function createNewItem(
   store: StoreContextModel,
   type: string,
   parentId: Uid,
   ordering: Uint8Array,
   relationship: string,
-  options: CreateNewItemOptions = {},
 ): PositionalItem {
   let newItem = null;
   if (type == "rating") {
@@ -60,17 +55,13 @@ function createNewItem(
   } else if (type == "table") {
     newItem = TableFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "note") {
-    newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering, {
-      showIcon: options.showIcon,
-    });
+    newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "page") {
     newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "link")  {
     newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "password")  {
-    newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering, {
-      showIcon: options.showIcon,
-    });
+    newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
   }
@@ -178,8 +169,7 @@ function createItemInPage(
     type,
     pageVe.displayItem.id,
     itemState.newOrderingAtEndOfChildren(pageVe.displayItem.id),
-    RelationshipToParent.Child,
-    { showIcon: pageArrangeAlgorithm == ArrangeAlgorithm.List });
+    RelationshipToParent.Child);
 
   positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
   applyNewPageDefaults(store, newItem);
@@ -246,8 +236,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           type,
           overElementVe.displayItem.id,
           itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId), // must be the case that it is at the end.
-          RelationshipToParent.Child,
-          { showIcon: true });
+          RelationshipToParent.Child);
         server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);

@@ -51,6 +51,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
   const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
+  const iconContext = () => NoteFns.iconRenderContextFromVisualElement(props.visualElement);
 
   const isInCalendarPage = () => {
     if (props.visualElement.parentPath) {
@@ -67,11 +68,11 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return false;
   };
 
-  const shouldShowIcon = () => NoteFns.showsIcon(noteItem()) && !isInCalendarPage();
+  const shouldRenderIcon = () => NoteFns.showsIcon(noteItem(), iconContext()) && !isInCalendarPage();
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
-  const shouldReserveLeadingBlock = () => shouldShowIcon() || shouldShowLinkMarking();
+  const shouldReserveLeadingBlock = () => shouldRenderIcon() || shouldShowLinkMarking();
 
   const leftPx = () => shouldReserveLeadingBlock()
     ? boundsPx().x + oneBlockWidthPx()
@@ -148,12 +149,12 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </Switch>;
 
   const renderIconMaybe = () =>
-    <Show when={shouldShowIcon()}>
+    <Show when={shouldRenderIcon()}>
       <div class="absolute text-center"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
-        <NoteIconGlyph note={noteItem} />
+        <NoteIconGlyph note={noteItem} iconContext={iconContext} />
       </div>
     </Show>;
 

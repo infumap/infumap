@@ -145,7 +145,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const reservePopupIconSpace = () =>
     FileFns.showsIcon(fileItem()) &&
     (hasPopupHandle() || isPopup());
-  const showIcon = () => reservePopupIconSpace();
+  const shouldRenderIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
     y: 1,
@@ -309,7 +309,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
-      <Show when={showIcon()}>
+      <Show when={shouldRenderIcon()}>
         <div class="absolute rounded-xs pointer-events-none"
           style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
             `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +

@@ -63,12 +63,13 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
     return false;
   };
 
-  const shouldShowIcon = () => FileFns.showsIcon(fileItem()) && !isInCalendarPage();
+  const iconContext = () => FileFns.iconRenderContextFromVisualElement(props.visualElement);
+  const shouldRenderIcon = () => FileFns.showsIcon(fileItem(), iconContext()) && !isInCalendarPage();
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
-  const shouldReserveLeadingBlock = () => shouldShowIcon() || shouldShowLinkMarking();
-  const emoji = () => FileFns.emoji(fileItem());
+  const shouldReserveLeadingBlock = () => shouldRenderIcon() || shouldShowLinkMarking();
+  const emoji = () => FileFns.emoji(fileItem(), iconContext());
 
   const leftPx = () => shouldReserveLeadingBlock()
     ? boundsPx().x + oneBlockWidthPx()
@@ -133,7 +134,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
     </Switch>;
 
   const renderIconMaybe = () =>
-    <Show when={shouldShowIcon()}>
+    <Show when={shouldRenderIcon()}>
       <div class="absolute text-center"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +

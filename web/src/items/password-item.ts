@@ -37,22 +37,18 @@ import { CursorEventState } from '../input/state';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { VesCache } from '../layout/ves-cache';
 import { FlagsMixin, PasswordFlags } from './base/flags-item';
+import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject } from './base/icon-item';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
 
-export interface PasswordMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, AttachmentsMixin {
+export interface PasswordMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, AttachmentsMixin, IconMixin {
   text: string,
-  emoji: string | null,
 }
-
-type PasswordCreateOptions = {
-  showIcon?: boolean,
-};
 
 
 export const PasswordFns = {
-  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, text: string, ordering: Uint8Array, options?: PasswordCreateOptions): PasswordItem => {
+  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, text: string, ordering: Uint8Array): PasswordItem => {
     if (parentId == EMPTY_UID) { panic("PasswordFns.create: parentId is empty."); }
     return {
       origin: null,
@@ -69,10 +65,11 @@ export const PasswordFns = {
 
       spatialWidthGr: 10.0 * GRID_SIZE,
 
-      flags: options?.showIcon ? PasswordFlags.ShowIcon : PasswordFlags.None,
+      flags: PasswordFlags.None,
 
       text,
       emoji: null,
+      iconMode: ItemIconMode.Auto,
 
       computed_attachments: [],
     };
@@ -100,6 +97,7 @@ export const PasswordFns = {
 
       text: o.text,
       emoji: o.emoji || null,
+      iconMode: itemIconModeFromObject(o, false),
 
       computed_attachments: [],
     });
@@ -124,6 +122,7 @@ export const PasswordFns = {
 
       text: p.text,
       emoji: p.emoji,
+      iconMode: p.iconMode,
     });
   },
 
@@ -145,7 +144,7 @@ export const PasswordFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (emitHitboxes && PasswordFns.showsIcon(password)) {
+    if (emitHitboxes && PasswordFns.showsIcon(password, ItemIconRenderContext.Spatial)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     if (emitHitboxes) {
@@ -214,9 +213,12 @@ export const PasswordFns = {
     return calcGeometryOfAttachmentItemImpl(password, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (password: PasswordMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (password: PasswordMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
-    const showsIcon = PasswordFns.showsIcon(password);
+    const iconContext = inTable && !expandable
+      ? ItemIconRenderContext.TableAttachment
+      : ItemIconRenderContext.Line;
+    const showsIcon = PasswordFns.showsIcon(password, iconContext);
     const boundsPx = {
       x: blockSizePx.w * col,
       y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX * scale : 0),
@@ -260,7 +262,7 @@ export const PasswordFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (PasswordFns.showsIcon(password)) {
+    if (PasswordFns.showsIcon(password, ItemIconRenderContext.Spatial)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     hitboxes.push(
@@ -290,6 +292,7 @@ export const PasswordFns = {
       flags: password.flags,
       text: password.text,
       emoji: password.emoji,
+      iconMode: password.iconMode,
     });
   },
 
@@ -298,14 +301,17 @@ export const PasswordFns = {
   },
 
   getFingerprint: (passwordItem: PasswordItem): string => {
-    return passwordItem.text + "~~~!@#~~~" + passwordItem.flags + "~~~!@#~~~" + (passwordItem.emoji || "");
+    return passwordItem.text + "~~~!@#~~~" + (passwordItem.emoji || "") + "~~~!@#~~~" + passwordItem.iconMode;
   },
 
-  showsIcon: (password: PasswordMeasurable): boolean => {
-    return !!(password.flags & PasswordFlags.ShowIcon);
+  iconRenderContextFromVisualElement,
+
+  showsIcon: (password: PasswordMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): boolean => {
+    return itemIconKind(password.iconMode, context, false) != ItemIconMode.None;
   },
 
-  emoji: (password: PasswordMeasurable): string | null => {
+  emoji: (password: PasswordMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): string | null => {
+    if (itemIconKind(password.iconMode, context, false) != ItemIconMode.Symbol) { return null; }
     const emoji = password.emoji?.trim();
     return emoji && emoji != "" ? emoji : null;
   },

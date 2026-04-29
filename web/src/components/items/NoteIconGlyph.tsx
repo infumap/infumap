@@ -19,16 +19,18 @@
 import { Component, Match, Switch, createEffect, createSignal, onCleanup } from "solid-js";
 import { getImage, releaseImage } from "../../imageManager";
 import { NoteFaviconLoadStatus, noteFaviconStatus, setNoteFaviconStatus } from "../../items/note-favicon-state";
+import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, type NoteItem } from "../../items/note-item";
 
 
-export const NoteIconGlyph: Component<{ note: () => NoteItem, highPriority?: () => boolean }> = (props) => {
+export const NoteIconGlyph: Component<{ note: () => NoteItem, iconContext?: () => ItemIconRenderContext, highPriority?: () => boolean }> = (props) => {
   const [faviconObjectUrl, setFaviconObjectUrl] = createSignal<string | null>(null);
   let currentFaviconPath = "";
   let currentFaviconOrigin: string | null = null;
 
-  const emoji = () => NoteFns.emoji(props.note());
-  const faviconPath = () => NoteFns.faviconPath(props.note());
+  const iconContext = () => props.iconContext?.() ?? ItemIconRenderContext.Spatial;
+  const emoji = () => NoteFns.emoji(props.note(), iconContext());
+  const faviconPath = () => NoteFns.faviconPath(props.note(), iconContext());
 
   const markCurrentFaviconFailed = (): void => {
     if (currentFaviconPath == "") { return; }

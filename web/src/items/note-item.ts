@@ -31,7 +31,7 @@ import { YSizableItem, YSizableMixin } from './base/y-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { FlagsItem, FlagsMixin, NoteFlags } from './base/flags-item';
-import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
+import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
@@ -42,45 +42,28 @@ import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret'
 import { CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
 import { isNumeric } from '../util/math';
+import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject } from './base/icon-item';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, AttachmentsItem, TitledItem {
   url: string,
 }
 
-export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin, AttachmentsMixin {
-  emoji: string | null,
-  iconMode: NoteIconMode,
+export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin, AttachmentsMixin, IconMixin { }
+
+export { ItemIconMode, ItemIconRenderContext };
+
+function noteHasFaviconUrl(note: NoteItem): boolean {
+  return note.url?.trim() != "";
 }
 
-export enum NoteIconMode {
-  Auto = "auto",
-  None = "none",
-  Symbol = "symbol",
-  Favicon = "favicon",
-}
-
-type NoteCreateOptions = {
-  showIcon?: boolean,
-};
-
-function isNoteIconMode(value: any): value is NoteIconMode {
-  return value == NoteIconMode.Auto || value == NoteIconMode.None || value == NoteIconMode.Symbol || value == NoteIconMode.Favicon;
-}
-
-function noteIconModeFromObject(o: any): NoteIconMode {
-  if (isNoteIconMode(o.iconMode)) {
-    return o.iconMode;
-  }
-  const emoji = o.emoji?.trim();
-  return emoji && emoji != ""
-    ? NoteIconMode.Symbol
-    : NoteIconMode.Auto;
+function noteIconKind(note: NoteMeasurable, context: ItemIconRenderContext): ItemIconMode.None | ItemIconMode.Symbol | ItemIconMode.Favicon {
+  return itemIconKind(note.iconMode, context, "url" in note && noteHasFaviconUrl(note as NoteItem));
 }
 
 
 export const NoteFns = {
-  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array, options?: NoteCreateOptions): NoteItem => {
+  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem => {
     if (parentId == EMPTY_UID) { panic("NoteFns.create: parent is empty."); }
     return {
       origin: null,
@@ -99,13 +82,13 @@ export const NoteFns = {
       spatialWidthGr: 10.0 * GRID_SIZE,
       spatialHeightGr: 0,
 
-      flags: options?.showIcon ? NoteFlags.ShowIcon : NoteFlags.None,
+      flags: NoteFlags.None,
 
       format: "",
 
       url: "",
       emoji: null,
-      iconMode: NoteIconMode.Auto,
+      iconMode: ItemIconMode.Auto,
 
       computed_attachments: [],
     };
@@ -136,7 +119,7 @@ export const NoteFns = {
 
       url: o.url,
       emoji: o.emoji || null,
-      iconMode: noteIconModeFromObject(o),
+      iconMode: itemIconModeFromObject(o, true),
       format: o.format,
 
       computed_attachments: [],
@@ -169,13 +152,13 @@ export const NoteFns = {
     });
   },
 
-  calcSpatialDimensionsBl: (note: NoteMeasurable, ignoreExplicitHeight: boolean = false): Dimensions => {
+  calcSpatialDimensionsBl: (note: NoteMeasurable, ignoreExplicitHeight: boolean = false, iconContext: ItemIconRenderContext = ItemIconRenderContext.Spatial): Dimensions => {
     if (!ignoreExplicitHeight && (note.flags & NoteFlags.ExplicitHeight) && note.spatialHeightGr > 0) {
       return { w: note.spatialWidthGr / GRID_SIZE, h: note.spatialHeightGr / GRID_SIZE };
     }
     const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
     const widthBl = note.spatialWidthGr / GRID_SIZE;
-    const textIndentPx = NoteFns.showsIcon(note) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    const textIndentPx = NoteFns.showsIcon(note, iconContext) ? desktopPopupIconTextIndentPx(widthBl) : 0;
     let measuredHeightBl = measureLineCount(formattedTitle, widthBl, note.flags, textIndentPx);
     if (measuredHeightBl < 1) { measuredHeightBl = 1; }
 
@@ -199,7 +182,7 @@ export const NoteFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (emitHitboxes && NoteFns.showsIcon(note)) {
+    if (emitHitboxes && NoteFns.showsIcon(note, ItemIconRenderContext.Spatial)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     if (emitHitboxes) {
@@ -275,7 +258,7 @@ export const NoteFns = {
     return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
     const boundsPx = {
       x: blockSizePx.w * col,
@@ -283,7 +266,10 @@ export const NoteFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
-    const showsIcon = NoteFns.showsIcon(note);
+    const iconContext = inTable && !expandable
+      ? ItemIconRenderContext.TableAttachment
+      : ItemIconRenderContext.Line;
+    const showsIcon = NoteFns.showsIcon(note, iconContext);
     const clickAreaBoundsPx = {
       x: showsIcon ? blockSizePx.w : 0.0,
       y: 0.0,
@@ -316,7 +302,7 @@ export const NoteFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
-    if (NoteFns.showsIcon(note)) {
+    if (NoteFns.showsIcon(note, ItemIconRenderContext.Spatial)) {
       hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
     }
     hitboxes.push(
@@ -422,20 +408,20 @@ export const NoteFns = {
     );
   },
 
-  showsIcon: (note: NoteMeasurable): boolean => {
-    return note.iconMode == NoteIconMode.Auto
-      ? !!(note.flags & NoteFlags.ShowIcon)
-      : note.iconMode != NoteIconMode.None;
+  iconRenderContextFromVisualElement,
+
+  showsIcon: (note: NoteMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): boolean => {
+    return noteIconKind(note, context) != ItemIconMode.None;
   },
 
-  emoji: (note: NoteMeasurable): string | null => {
-    if (note.iconMode != NoteIconMode.Symbol) { return null; }
+  emoji: (note: NoteMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): string | null => {
+    if (noteIconKind(note, context) != ItemIconMode.Symbol) { return null; }
     const emoji = note.emoji?.trim();
     return emoji && emoji != "" ? emoji : null;
   },
 
-  faviconPath: (note: NoteItem): string | null => {
-    if (note.iconMode != NoteIconMode.Favicon) { return null; }
+  faviconPath: (note: NoteItem, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): string | null => {
+    if (noteIconKind(note, context) != ItemIconMode.Favicon) { return null; }
     const url = note.url?.trim();
     if (!url) { return null; }
     return `/favicons/${note.id}?u=${encodeURIComponent(url)}`;

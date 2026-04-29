@@ -139,7 +139,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const reservePopupIconSpace = () =>
     PasswordFns.showsIcon(passwordItem()) &&
     (hasPopupHandle() || isPopup());
-  const showIcon = () => reservePopupIconSpace();
+  const shouldRenderIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
     y: 1,
@@ -300,7 +300,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
             `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
       </Show>
-      <Show when={showIcon()}>
+      <Show when={shouldRenderIcon()}>
         <div class="absolute rounded-xs pointer-events-none"
           style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
             `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +

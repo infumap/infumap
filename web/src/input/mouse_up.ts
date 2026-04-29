@@ -25,12 +25,12 @@ import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/bas
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
-import { FileFns, asFileItem, isFile } from "../items/file-item";
+import { asFileItem, isFile } from "../items/file-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { NoteFns, NoteIconMode, asNoteItem, isNote } from "../items/note-item";
-import { PasswordFns, asPasswordItem, isPassword } from "../items/password-item";
-import { FileFlags, NoteFlags, PasswordFlags } from "../items/base/flags-item";
+import { asNoteItem, isNote } from "../items/note-item";
+import { asPasswordItem, isPassword } from "../items/password-item";
+import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { TEMP_SEARCH_RESULTS_ORIGIN, isSearch } from "../items/search-item";
 import { asTableItem, isTable } from "../items/table-item";
@@ -78,76 +78,6 @@ interface MoveCommitOptions {
   rollbackExtras?: (() => void) | null,
 }
 
-
-function pageArrangeAlgorithmForMoveDestination(item: PositionalItem, destinationVe?: VisualElement | null): string | null {
-  const parentItem = itemState.get(item.parentId);
-  if (parentItem == null || !isPage(parentItem)) {
-    return null;
-  }
-
-  if (destinationVe != null && isPage(destinationVe.displayItem) && destinationVe.displayItem.id == item.parentId) {
-    return destinationVe.linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(destinationVe.displayItem).arrangeAlgorithm;
-  }
-
-  return asPageItem(parentItem).arrangeAlgorithm;
-}
-
-function movedItemShouldShowIcon(item: PositionalItem, destinationVe?: VisualElement | null): boolean {
-  if (item.relationshipToParent != RelationshipToParent.Child) {
-    return false;
-  }
-
-  const parentItem = itemState.get(item.parentId);
-  if (parentItem == null) {
-    return false;
-  }
-  if (isTable(parentItem)) {
-    return true;
-  }
-
-  return pageArrangeAlgorithmForMoveDestination(item, destinationVe) == ArrangeAlgorithm.List;
-}
-
-function applyMovedIconDefaultMaybe(item: Item, destinationVe?: VisualElement | null): void {
-  if (isNote(item)) {
-    const note = asNoteItem(item);
-    if (note.iconMode != NoteIconMode.Auto) {
-      return;
-    }
-    if (movedItemShouldShowIcon(note, destinationVe)) {
-      note.flags |= NoteFlags.ShowIcon;
-    } else {
-      note.flags &= ~NoteFlags.ShowIcon;
-    }
-    return;
-  }
-
-  if (isFile(item)) {
-    const file = asFileItem(item);
-    if (FileFns.emoji(file) != null) {
-      return;
-    }
-    if (movedItemShouldShowIcon(file, destinationVe)) {
-      file.flags |= FileFlags.ShowIcon;
-    } else {
-      file.flags &= ~FileFlags.ShowIcon;
-    }
-    return;
-  }
-
-  if (!isPassword(item)) {
-    return;
-  }
-  const password = asPasswordItem(item);
-  if (PasswordFns.emoji(password) != null) {
-    return;
-  }
-  if (movedItemShouldShowIcon(password, destinationVe)) {
-    password.flags |= PasswordFlags.ShowIcon;
-  } else {
-    password.flags &= ~PasswordFlags.ShowIcon;
-  }
-}
 
 function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, shouldSwitchRoot: boolean): void {
   const focusPagePath = store.history.getFocusPath();
@@ -281,9 +211,8 @@ function enqueueUpdateItem(
   store: StoreContextModel,
   item: Item,
   rollbackSnapshot?: Item | null,
-  iconMoveDestinationVe?: VisualElement | null,
+  _iconMoveDestinationVe?: VisualElement | null,
 ): void {
-  applyMovedIconDefaultMaybe(item, iconMoveDestinationVe);
   const snapshot = cloneItemSnapshot(item);
   ops.push({
     apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false),
@@ -571,14 +500,12 @@ function buildCleanupCollapsedCompositeOperations(
   childSnapshot.parentId = compositeItem.parentId;
   childSnapshot.spatialPositionGr = { ...compositeItem.spatialPositionGr };
   childSnapshot.ordering = new Uint8Array(compositeItem.ordering);
-  applyMovedIconDefaultMaybe(childSnapshot);
   ops.push({
     apply: async () => {
       await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
       await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
       asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
       itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
-      applyMovedIconDefaultMaybe(child);
       itemState.delete(compositeItem.id);
     },
     rollback: async () => {

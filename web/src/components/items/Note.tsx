@@ -17,6 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
+import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -105,10 +106,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
+  const iconContext = () => ItemIconRenderContext.Spatial;
   const reservePopupIconSpace = () =>
-    NoteFns.showsIcon(noteItem()) &&
+    NoteFns.showsIcon(noteItem(), iconContext()) &&
     (hasPopupHandle() || isPopup());
-  const showIcon = () => reservePopupIconSpace();
+  const shouldRenderIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
     y: 1,
@@ -360,7 +362,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
-        <Show when={showIcon()}>
+        <Show when={shouldRenderIcon()}>
           <div class="absolute rounded-xs pointer-events-none"
             style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
               `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
@@ -372,7 +374,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
               `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
-            <NoteIconGlyph note={noteItem} highPriority={isPopup} />
+            <NoteIconGlyph note={noteItem} iconContext={iconContext} highPriority={isPopup} />
           </div>
         </Show>
         <Switch>

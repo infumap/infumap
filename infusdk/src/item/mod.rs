@@ -41,7 +41,7 @@ bitflags! {
     const HideBorder =     0x100;
     const Code       =     0x200;
     const ExplicitHeight = 0x400;
-    const ShowIcon =      0x800;
+    const Unused =      0x800;
     const Heading4 =       0x1000;
   }
 }
@@ -56,14 +56,14 @@ bitflags! {
 bitflags! {
   pub struct FileFlags: i64 {
     const None =                 0x000;
-    const ShowIcon =             0x001;
+    const Unused =             0x001;
   }
 }
 
 bitflags! {
   pub struct PasswordFlags: i64 {
     const None =                 0x000;
-    const ShowIcon =             0x001;
+    const Unused =             0x001;
   }
 }
 
@@ -155,32 +155,41 @@ impl ArrangeAlgorithm {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum NoteIconMode {
+pub enum ItemIconMode {
   Auto,
   None,
   Symbol,
   Favicon,
 }
 
-impl NoteIconMode {
+impl ItemIconMode {
   pub fn as_str(&self) -> &'static str {
     match self {
-      NoteIconMode::Auto => "auto",
-      NoteIconMode::None => "none",
-      NoteIconMode::Symbol => "symbol",
-      NoteIconMode::Favicon => "favicon",
+      ItemIconMode::Auto => "auto",
+      ItemIconMode::None => "none",
+      ItemIconMode::Symbol => "symbol",
+      ItemIconMode::Favicon => "favicon",
     }
   }
 
-  pub fn from_str(s: &str) -> InfuResult<NoteIconMode> {
+  pub fn from_str(s: &str) -> InfuResult<ItemIconMode> {
     match s {
-      "auto" => Ok(NoteIconMode::Auto),
-      "none" => Ok(NoteIconMode::None),
-      "symbol" => Ok(NoteIconMode::Symbol),
-      "favicon" => Ok(NoteIconMode::Favicon),
-      other => Err(format!("Invalid NoteIconMode value: '{}'.", other).into()),
+      "auto" => Ok(ItemIconMode::Auto),
+      "none" => Ok(ItemIconMode::None),
+      "symbol" => Ok(ItemIconMode::Symbol),
+      "favicon" => Ok(ItemIconMode::Favicon),
+      other => Err(format!("Invalid ItemIconMode value: '{}'.", other).into()),
     }
   }
+}
+
+fn validate_item_icon_mode(item_type: ItemType, icon_mode: ItemIconMode, item_id: &str) -> InfuResult<ItemIconMode> {
+  if icon_mode == ItemIconMode::Favicon && item_type != ItemType::Note {
+    return Err(
+      format!("'favicon' iconMode is not applicable to item type '{}' for item '{}'.", item_type, item_id).into(),
+    );
+  }
+  Ok(icon_mode)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -365,6 +374,10 @@ pub fn is_format_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Note
 }
 
+pub fn is_icon_item_type(item_type: ItemType) -> bool {
+  item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Password
+}
+
 pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
@@ -506,7 +519,7 @@ pub struct Item {
   // note
   pub url: Option<String>,
   pub emoji: Option<String>,
-  pub icon_mode: Option<NoteIconMode>,
+  pub icon_mode: Option<ItemIconMode>,
 
   // file
 
@@ -1085,16 +1098,17 @@ impl JsonLogSerializable<Item> for Item {
     }
     match (&old.icon_mode, &new.icon_mode) {
       (Some(_), None) => {
-        if old.item_type != ItemType::Note {
+        if !is_icon_item_type(old.item_type) {
           cannot_modify_err("iconMode", &old.id)?;
         }
         result.insert(String::from("iconMode"), Value::Null);
       }
       (o, n @ Some(_)) if o != n => {
-        if old.item_type != ItemType::Note {
+        if !is_icon_item_type(old.item_type) {
           cannot_modify_err("iconMode", &old.id)?;
         }
-        result.insert(String::from("iconMode"), Value::String(n.as_ref().unwrap().as_str().to_owned()));
+        let icon_mode = validate_item_icon_mode(old.item_type, *n.as_ref().unwrap(), &old.id)?;
+        result.insert(String::from("iconMode"), Value::String(icon_mode.as_str().to_owned()));
       }
       _ => {}
     }
@@ -1505,11 +1519,11 @@ impl JsonLogSerializable<Item> for Item {
       self.emoji = json::get_string_field(map, "emoji")?;
     }
     if map.contains_key("iconMode") {
-      if self.item_type != ItemType::Note {
+      if !is_icon_item_type(self.item_type) {
         not_applicable_err("iconMode", self.item_type, &self.id)?;
       }
       self.icon_mode = match json::get_string_field(map, "iconMode")? {
-        Some(v) => Some(NoteIconMode::from_str(&v)?),
+        Some(v) => Some(validate_item_icon_mode(self.item_type, ItemIconMode::from_str(&v)?, &self.id)?),
         None => None,
       };
     }
@@ -1842,10 +1856,13 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(String::from("emoji"), Value::String(emoji.clone()));
   }
   if let Some(icon_mode) = &item.icon_mode {
-    if item.item_type != ItemType::Note {
+    if !is_icon_item_type(item.item_type) {
       unexpected_field_err("iconMode", &item.id, item.item_type)?
     }
-    result.insert(String::from("iconMode"), Value::String(icon_mode.as_str().to_owned()));
+    result.insert(
+      String::from("iconMode"),
+      Value::String(validate_item_icon_mode(item.item_type, *icon_mode, &item.id)?.as_str().to_owned()),
+    );
   }
 
   // file
@@ -1915,14 +1932,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     )
     .into()
   }
-  fn default_note_icon_mode(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<NoteIconMode> {
+  fn default_item_icon_mode(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<ItemIconMode> {
     let emoji = json::get_string_field(map, "emoji")?;
     let has_emoji = emoji.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false);
-    if has_emoji {
-      Ok(NoteIconMode::Symbol)
-    } else {
-      Ok(NoteIconMode::Auto)
-    }
+    if has_emoji { Ok(ItemIconMode::Symbol) } else { Ok(ItemIconMode::Auto) }
   }
 
   json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
@@ -2483,15 +2496,15 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
     icon_mode: match json::get_string_field(map, "iconMode")? {
       Some(v) => {
-        if item_type == ItemType::Note {
-          Ok(Some(NoteIconMode::from_str(&v)?))
+        if is_icon_item_type(item_type) {
+          Ok(Some(validate_item_icon_mode(item_type, ItemIconMode::from_str(&v)?, &id)?))
         } else {
           Err(not_applicable_err("iconMode", item_type, &id))
         }
       }
       None => {
-        if item_type == ItemType::Note {
-          Ok(Some(default_note_icon_mode(map)?))
+        if is_icon_item_type(item_type) {
+          Ok(Some(default_item_icon_mode(map)?))
         } else {
           Ok(None)
         }
@@ -2643,7 +2656,7 @@ impl Item {
       title: Some(title.to_owned()),
       url,
       emoji: None,
-      icon_mode: Some(NoteIconMode::Auto),
+      icon_mode: Some(ItemIconMode::Auto),
       format: Some(fmt.to_owned()),
       order_children_by: None,
       spatial_height_gr: None,
@@ -3184,13 +3197,13 @@ impl Item {
           hashes.push(hash_string_to_uid(url));
         }
       }
-      if let Some(icon_mode) = &self.icon_mode {
-        hashes.push(hash_string_to_uid(icon_mode.as_str()));
-      }
     }
 
     // Note/File/Password icon properties
     if self.item_type == ItemType::Note || self.item_type == ItemType::File || self.item_type == ItemType::Password {
+      if let Some(icon_mode) = &self.icon_mode {
+        hashes.push(hash_string_to_uid(icon_mode.as_str()));
+      }
       if let Some(emoji) = &self.emoji {
         if !emoji.is_empty() {
           hashes.push(hash_string_to_uid(emoji));

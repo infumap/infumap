@@ -60,13 +60,14 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     return false;
   };
 
-  const shouldShowIcon = () => PasswordFns.showsIcon(passwordItem()) && !isInCalendarPage();
+  const iconContext = () => PasswordFns.iconRenderContextFromVisualElement(props.visualElement);
+  const shouldRenderIcon = () => PasswordFns.showsIcon(passwordItem(), iconContext()) && !isInCalendarPage();
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
-  const shouldReserveLeadingBlock = () => shouldShowIcon() || shouldShowLinkMarking();
-  const emoji = () => PasswordFns.emoji(passwordItem());
+  const shouldReserveLeadingBlock = () => shouldRenderIcon() || shouldShowLinkMarking();
+  const emoji = () => PasswordFns.emoji(passwordItem(), iconContext());
   const trailingControlsWidthPx = () => oneBlockWidthPx() * 1.9;
 
   const leftPx = () => shouldReserveLeadingBlock()
@@ -112,7 +113,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     </Switch>;
 
   const renderIconMaybe = () =>
-    <Show when={shouldShowIcon()}>
+    <Show when={shouldRenderIcon()}>
       <div class="absolute text-center"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y + Math.max(boundsPx().h * 0.02, 0.5)}px; ` +
           `width: ${oneBlockWidthPx() / iconScale()}px; height: ${boundsPx().h / iconScale()}px; ` +
@@ -186,7 +187,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       <i class={`fas fa-copy cursor-pointer`} />
     </div>;
 
-  const renderShowIcon = () =>
+  const renderVisibilityToggle = () =>
     <div class="absolute text-center text-slate-600"
       style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx() * 1.8}px; top: ${boundsPx().y + boundsPx().h * PADDING_PROP}px; ` +
         `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h / smallScale()}px; ` +
@@ -213,7 +214,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       {renderIconMaybe()}
       {renderText()}
       {renderCopyIcon()}
-      {renderShowIcon()}
+      {renderVisibilityToggle()}
       {renderLinkMarkingMaybe()}
       <Show when={store.history.getFocusPathMaybe() === vePath() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
         <div class="absolute pointer-events-none"
