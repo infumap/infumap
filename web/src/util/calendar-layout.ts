@@ -34,9 +34,12 @@ export const CALENDAR_LAYOUT_CONSTANTS = {
   TITLE_TO_MONTH_SPACING: 14,
   SINGLE_MONTH_MAX_WIDTH_PX: 560,
   QUARTER_MAX_WIDTH_PX: 1200,
+  HALF_YEAR_MAX_WIDTH_PX: 2400,
 } as const;
 
 export const CALENDAR_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
+export type CalendarMonthsPerPage = 1 | 3 | 6 | 12;
 
 export interface CalendarDimensions {
   columnWidth: number;
@@ -63,7 +66,7 @@ export interface CalendarVisibleMonth {
 export interface CalendarWindow {
   anchorMonthIndex: number;
   startMonthIndex: number;
-  monthsPerPage: 1 | 3 | 12;
+  monthsPerPage: CalendarMonthsPerPage;
   year: number;
   startMonth: number;
   endMonth: number;
@@ -93,20 +96,26 @@ export function decodeCalendarMonthIndex(monthIndex: number): { year: number; mo
   };
 }
 
-export function getCalendarMonthsPerPage(pageWidthPx: number): 1 | 3 | 12 {
+export function getCalendarMonthsPerPage(pageWidthPx: number): CalendarMonthsPerPage {
   if (pageWidthPx < CALENDAR_LAYOUT_CONSTANTS.SINGLE_MONTH_MAX_WIDTH_PX) {
     return 1;
   }
   if (pageWidthPx < CALENDAR_LAYOUT_CONSTANTS.QUARTER_MAX_WIDTH_PX) {
     return 3;
   }
+  if (pageWidthPx < CALENDAR_LAYOUT_CONSTANTS.HALF_YEAR_MAX_WIDTH_PX) {
+    return 6;
+  }
   return 12;
 }
 
-export function alignCalendarWindowStartMonthIndex(monthIndex: number, monthsPerPage: 1 | 3 | 12): number {
+export function alignCalendarWindowStartMonthIndex(monthIndex: number, monthsPerPage: CalendarMonthsPerPage): number {
   const { year, month } = decodeCalendarMonthIndex(monthIndex);
   if (monthsPerPage == 12) {
     return encodeCalendarMonthIndex(year, 1);
+  }
+  if (monthsPerPage == 6) {
+    return encodeCalendarMonthIndex(year, Math.floor((month - 1) / 6) * 6 + 1);
   }
   if (monthsPerPage == 3) {
     return encodeCalendarMonthIndex(year, Math.floor((month - 1) / 3) * 3 + 1);
@@ -144,6 +153,9 @@ export function formatCalendarWindowTitle(calendarWindow: CalendarWindow): strin
   if (calendarWindow.monthsPerPage == 12) {
     return `${calendarWindow.year}`;
   }
+  if (calendarWindow.monthsPerPage == 6) {
+    return `${calendarWindow.year} ${calendarWindow.startMonth == 1 ? "H1" : "H2"}`;
+  }
   if (calendarWindow.monthsPerPage == 3) {
     return `${CALENDAR_MONTH_NAMES[calendarWindow.startMonth - 1]} - ${CALENDAR_MONTH_NAMES[calendarWindow.endMonth - 1]} ${calendarWindow.year}`;
   }
@@ -151,7 +163,8 @@ export function formatCalendarWindowTitle(calendarWindow: CalendarWindow): strin
 }
 
 export function isCalendarMonthVisible(calendarWindow: CalendarWindow, year: number, month: number): boolean {
-  return calendarWindow.year === year && calendarWindow.months.some((visibleMonth) => visibleMonth.month === month);
+  return calendarWindow.months.some((visibleMonth) =>
+    visibleMonth.year === year && visibleMonth.month === month);
 }
 
 export function calculateCalendarDimensions(
@@ -348,8 +361,9 @@ export function calculateCalendarDateTime(
   const position = calculateCalendarPosition(desktopPosPx, pageVe, store);
   const calendarWindow = calculateCalendarWindow(pageVe.childAreaBoundsPx!.w, store.perVe.getCalendarMonthIndex(VeFns.veToPath(pageVe)));
   const currentTime = new Date();
+  const visibleMonth = calendarWindow.months.find(month => month.month === position.month);
   const targetDate = new Date(
-    calendarWindow.year,
+    visibleMonth?.year ?? calendarWindow.year,
     position.month - 1, 
     position.day, 
     currentTime.getHours(), 
