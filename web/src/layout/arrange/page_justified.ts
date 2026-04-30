@@ -84,6 +84,12 @@ export function arrange_justified_page(
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
   childAreaBoundsPx.h = layout.containerHeight;
 
+  const isEmbeddedInteractive =
+    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+    (VeFns.pathDepth(parentPath) >= 2) &&
+    !(flags & ArrangeItemFlags.IsTopRoot) &&
+    !(flags & ArrangeItemFlags.IsPopupRoot) &&
+    !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
 
   const highlightedPath = store.find.highlightedPath.get();
@@ -105,6 +111,7 @@ export function arrange_justified_page(
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
       getCommonVisualElementFlags(flags) |
       (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+      (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
       (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
       (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
@@ -130,7 +137,7 @@ export function arrange_justified_page(
     };
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
-    const renderChildrenAsFull = arrangeFlagIsRoot(flags);
+    const renderChildrenAsFull = isEmbeddedInteractive || arrangeFlagIsRoot(flags);
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, true, false, store.smallScreenMode());
 
