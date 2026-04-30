@@ -244,6 +244,8 @@ export interface VisualElement {
 
   hitboxes: Array<Hitbox>,  // higher index => higher precedence.
 
+  calendarOverflowCounts: Array<CalendarOverflowCountOverlay>,
+
   parentPath: VisualElementPath | null,
 
   evaluatedTitle: string | null,
@@ -260,6 +262,14 @@ export interface VisualElement {
    * map to keep out of this interface.
    */
   _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags,
+}
+
+
+export interface CalendarOverflowCountOverlay {
+  key: string,
+  totalCount: number,
+  boundsPx: BoundingBox,
+  fontSizePx: number,
 }
 
 
@@ -287,6 +297,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   cellSizePx: null,
   numRows: null,
   hitboxes: [],
+  calendarOverflowCounts: [],
 
   parentPath: null,
   evaluatedTitle: null,
@@ -321,6 +332,7 @@ export interface VisualElementSpec {
   cellSizePx?: Dimensions,
   numRows?: number,
   hitboxes?: Array<Hitbox>,
+  calendarOverflowCounts?: Array<CalendarOverflowCountOverlay>,
   parentPath?: VisualElementPath,
   evaluatedTitle?: string | null,
 }
@@ -375,6 +387,7 @@ export const VeFns = {
       cellSizePx: null,
       numRows: null,
       hitboxes: [],
+      calendarOverflowCounts: [],
 
       parentPath: null,
       evaluatedTitle: null,
@@ -411,6 +424,7 @@ export const VeFns = {
     ve.cellSizePx = null;
     ve.numRows = null;
     ve.hitboxes = [];
+    ve.calendarOverflowCounts = [];
 
     ve.parentPath = null;
     ve.evaluatedTitle = null;
@@ -1011,6 +1025,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.cellSizePx) != 'undefined') { result.cellSizePx = override.cellSizePx; }
   if (typeof (override.numRows) != 'undefined') { result.numRows = override.numRows; }
   if (typeof (override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
+  if (typeof (override.calendarOverflowCounts) != 'undefined') { result.calendarOverflowCounts = override.calendarOverflowCounts; }
   if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
   if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
   if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }

@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { Veid, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
+import { Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -41,7 +41,6 @@ import {
   isCurrentDay,
 } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
-import { itemState } from "../../store/ItemState";
 import { desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
@@ -494,50 +493,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           }</For>
 
           {/* Render overflow count overlays per day */}
-          {(() => {
-            const childArea = pageFns().childAreaBoundsPx();
-            const dims = calculateCalendarDimensions(childArea, calendarResizeMaybe, calendarWindow);
-            const block = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
-            const rowsPerDay = Math.max(1, Math.floor(dims.dayRowHeight / block.h));
-
-            const itemCounts = new Map<string, number>();
-
-            // Count all items per day present in the page item state for the current year
-            const pageItem = asPageItem(props.visualElement.displayItem);
-            const year = calendarWindow.year;
-            for (const childId of pageItem.computed_children) {
-              const it = itemState.get(childId);
-              if (!it) continue;
-              const d = new Date(it.dateTime * 1000);
-              if (d.getFullYear() !== year || !visibleMonthSet.has(d.getMonth() + 1)) continue;
-              const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-              itemCounts.set(key, (itemCounts.get(key) || 0) + 1);
-            }
-
-            // For each day with overflow, render overlay
-            const overlays: any[] = [];
-            itemCounts.forEach((totalCount, key) => {
-              if (totalCount <= rowsPerDay) return;
-              const [y, m, dd] = key.split('-').map(n => parseInt(n, 10));
-              const month = m;
-              const day = dd;
-              const monthLeftPos = getCalendarMonthLeftPx(dims, month);
-              const monthWidth = getCalendarMonthWidthPx(dims, month);
-              const dayTopPos = dims.dayAreaTopPx + (day - 1) * dims.dayRowHeight;
-              const rightEdge = monthLeftPos + monthWidth;
-              const baseX = rightEdge - block.w;
-              const baseY = dayTopPos + (rowsPerDay - 1) * block.h + 1;
-              const overlayWidth = block.w - 2;
-              const overlayHeight = block.h - 4;
-              const overlayX = baseX + 2;
-              const overlayY = baseY + 2;
-              overlays.push(
-                <div class="absolute flex items-center justify-center text-[10px] font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
-                  style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px;`}>{totalCount}</div>
-              );
-            });
-            return overlays;
-          })()}
+          <For each={props.visualElement.calendarOverflowCounts}>{overlay =>
+            <div class="absolute flex items-center justify-center font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
+              style={`left: ${overlay.boundsPx.x}px; top: ${overlay.boundsPx.y}px; width: ${overlay.boundsPx.w}px; height: ${overlay.boundsPx.h}px; font-size: ${overlay.fontSizePx}px;`}>
+              {overlay.totalCount}
+            </div>
+          }</For>
           <Show when={store.anItemIsMoving.get() &&
             store.movingItemSourceCalendarInfo.get() != null &&
             store.movingItemSourceCalendarInfo.get()!.pageItemId === props.visualElement.displayItem.id}>

@@ -46,6 +46,10 @@ export function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
     blockSizePx: ve.blockSizePx ? { ...ve.blockSizePx } : null,
     cellSizePx: ve.cellSizePx ? { ...ve.cellSizePx } : null,
     hitboxes: ve.hitboxes.slice(),
+    calendarOverflowCounts: (ve.calendarOverflowCounts ?? []).map(count => ({
+      ...count,
+      boundsPx: { ...count.boundsPx },
+    })),
   };
 }
 
@@ -55,6 +59,22 @@ function specValueOrDefault<T>(value: T | undefined, fallback: T): T {
 
 function sameUidMaybe(a: { id: Uid } | null | undefined, b: { id: Uid } | null | undefined): boolean {
   return (a?.id ?? null) === (b?.id ?? null);
+}
+
+function calendarOverflowCountsEqual(
+  a: VisualElement["calendarOverflowCounts"] | undefined,
+  b: VisualElement["calendarOverflowCounts"] | undefined,
+): boolean {
+  const aCounts = a ?? [];
+  const bCounts = b ?? [];
+  if (aCounts.length !== bCounts.length) { return false; }
+  for (let i = 0; i < aCounts.length; ++i) {
+    if (aCounts[i].key !== bCounts[i].key) { return false; }
+    if (aCounts[i].totalCount !== bCounts[i].totalCount) { return false; }
+    if (aCounts[i].fontSizePx !== bCounts[i].fontSizePx) { return false; }
+    if (compareBoundingBox(aCounts[i].boundsPx, bCounts[i].boundsPx) !== 0) { return false; }
+  }
+  return true;
 }
 
 export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
@@ -78,6 +98,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if ((existingVe.col ?? null) !== (specValueOrDefault(preparedSpec.col, NONE_VISUAL_ELEMENT.col) ?? null)) { return false; }
   if ((existingVe.numRows ?? null) !== (specValueOrDefault(preparedSpec.numRows, NONE_VISUAL_ELEMENT.numRows) ?? null)) { return false; }
   if (HitboxFns.ArrayCompare(existingVe.hitboxes, specValueOrDefault(preparedSpec.hitboxes, NONE_VISUAL_ELEMENT.hitboxes)) !== 0) { return false; }
+  if (!calendarOverflowCountsEqual(existingVe.calendarOverflowCounts, specValueOrDefault(preparedSpec.calendarOverflowCounts, NONE_VISUAL_ELEMENT.calendarOverflowCounts))) { return false; }
   if ((existingVe.parentPath ?? null) !== (specValueOrDefault(preparedSpec.parentPath, NONE_VISUAL_ELEMENT.parentPath) ?? null)) { return false; }
   if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return false; }
 

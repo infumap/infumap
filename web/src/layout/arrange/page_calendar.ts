@@ -21,7 +21,7 @@ import { isRating } from "../../items/rating-item";
 import { PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { ItemGeometry } from "../item-geometry";
-import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { CalendarOverflowCountOverlay, VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeItem, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { VesCache } from "../ves-cache";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
@@ -268,6 +268,7 @@ export function arrange_calendar_page(
 
   // Prepare an array of page-level hitboxes for overflow indicators
   const overflowHitboxes: Array<ReturnType<typeof HitboxFns.create>> = [];
+  const overflowCounts: Array<CalendarOverflowCountOverlay> = [];
 
   // Arrange items by date
   itemsByDate.forEach((itemsForDate, dateKey) => {
@@ -289,22 +290,30 @@ export function arrange_calendar_page(
       const rightEdge = monthLeftPos + monthWidth;
       const baseX = rightEdge - blockSizePx.w;
       const baseY = dayTopPos + (rowsPerDay - 1) * itemHeight + 1;
+      const overlayBoundsPx = {
+        x: baseX + 2,
+        y: baseY + 2,
+        w: blockSizePx.w - 2,
+        h: Math.max(8, Math.round(itemHeight)) - 4,
+      };
+      const overlayScale = blockSizePx.h / NATURAL_BLOCK_SIZE_PX.h;
+      overflowCounts.push({
+        key: dateKey,
+        totalCount: itemsForDate.length,
+        boundsPx: overlayBoundsPx,
+        fontSizePx: Math.max(8, Math.round(10 * overlayScale)),
+      });
       // For popups, hitboxes are in boundsPx coordinates (includes title bar),
       // but the calendar positions are in viewportBoundsPx/childAreaBoundsPx coordinates.
       // Add the title bar height offset to convert to boundsPx coordinates.
-      const overlayBoundsPx = {
-        x: baseX + 2,
-        y: baseY + 2 + titleBarHeightPx,
-        w: blockSizePx.w - 2,
-        h: itemHeight - 4,
-      };
+      const overlayHitboxBoundsPx = { ...overlayBoundsPx, y: overlayBoundsPx.y + titleBarHeightPx };
       const meta = HitboxFns.createMeta({
         calendarYear: itemDate.getFullYear(),
         calendarMonth: month,
         calendarDay: day,
       });
-      overflowHitboxes.push(HitboxFns.create(HitboxFlags.CalendarOverflow, overlayBoundsPx, meta));
-      overflowHitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, overlayBoundsPx, meta));
+      overflowHitboxes.push(HitboxFns.create(HitboxFlags.CalendarOverflow, overlayHitboxBoundsPx, meta));
+      overflowHitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, overlayHitboxBoundsPx, meta));
     }
 
     cappedItems.forEach((childItem, stackIndex) => {
@@ -404,6 +413,7 @@ export function arrange_calendar_page(
     ...dividerHitboxes,
     ...overflowHitboxes,
   ];
+  pageSpec.calendarOverflowCounts = overflowCounts;
 
   // Add moving item if it exists and belongs to this page
   if (movingItemInThisPage) {

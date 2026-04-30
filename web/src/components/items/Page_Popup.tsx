@@ -41,7 +41,6 @@ import {
   isCurrentDay,
 } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
-import { itemState } from "../../store/ItemState";
 import { autoMovedIntoViewBackgroundImage, scrollGestureStyleForArrangeAlgorithm } from "./helper";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
@@ -416,7 +415,6 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       store.perVe.setCalendarMonthIndex(pagePath, calendarMonthIndex + delta * calendarWindow.monthsPerPage);
       requestArrange(store, "page-calendar-window-change");
     };
-    const visibleMonthSet = new Set(calendarWindow.months.map(({ month }) => month));
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6;
 
     return (
@@ -502,49 +500,12 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             <VisualElement_LineItem visualElement={childVes.get()} />
           }</For>
 
-          {(() => {
-            const childArea = pageFns().childAreaBoundsPx();
-            const dims = calculateCalendarDimensions(childArea, calendarResizeMaybe, calendarWindow);
-            // Scale block size to match the popup calendar scale
-            const block = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
-            const rowsPerDay = Math.max(1, Math.floor(effectiveDayRowHeight / block.h));
-
-            const itemCounts = new Map<string, number>();
-            const pageItem = asPageItem(props.visualElement.displayItem);
-            const year = calendarWindow.year;
-            for (const childId of pageItem.computed_children) {
-              const it = itemState.get(childId);
-              if (!it) continue;
-              const d = new Date(it.dateTime * 1000);
-              if (d.getFullYear() !== year || !visibleMonthSet.has(d.getMonth() + 1)) continue;
-              const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-              itemCounts.set(key, (itemCounts.get(key) || 0) + 1);
-            }
-
-            const overlays: any[] = [];
-            itemCounts.forEach((totalCount, key) => {
-              if (totalCount <= rowsPerDay) return;
-              const [y, m, dd] = key.split('-').map(n => parseInt(n, 10));
-              const month = m;
-              const day = dd;
-              const monthLeftPos = getCalendarMonthLeftPx(dims, month);
-              const monthWidth = getCalendarMonthWidthPx(dims, month);
-              const dayAreaTopPopup = (popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight) * scale;
-              const dayTopPos = dayAreaTopPopup + (day - 1) * effectiveDayRowHeight;
-              const rightEdge = monthLeftPos + monthWidth;
-              const baseX = rightEdge - block.w;
-              const baseY = dayTopPos + (rowsPerDay - 1) * effectiveDayRowHeight + 1;
-              const overlayWidth = block.w - 2;
-              const overlayHeight = Math.max(8, Math.round(effectiveDayRowHeight)) - 4;
-              const overlayX = baseX + 2;
-              const overlayY = baseY + 2;
-              overlays.push(
-                <div class="absolute flex items-center justify-center font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
-                  style={`left: ${overlayX}px; top: ${overlayY}px; width: ${overlayWidth}px; height: ${overlayHeight}px; font-size: ${Math.max(8, Math.round(10 * scale))}px;`}>{totalCount}</div>
-              );
-            });
-            return overlays;
-          })()}
+          <For each={props.visualElement.calendarOverflowCounts}>{overlay =>
+            <div class="absolute flex items-center justify-center font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
+              style={`left: ${overlay.boundsPx.x}px; top: ${overlay.boundsPx.y}px; width: ${overlay.boundsPx.w}px; height: ${overlay.boundsPx.h}px; font-size: ${overlay.fontSizePx}px;`}>
+              {overlay.totalCount}
+            </div>
+          }</For>
         </div>
       </div>
     );
