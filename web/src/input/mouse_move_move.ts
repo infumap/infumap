@@ -43,7 +43,7 @@ import { itemState } from "../store/ItemState";
 import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
-import { resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
+import { dockListPageIconMoveTargetMaybe, resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "../layout/arrange/dock";
 import { asContainerItem } from "../items/base/container-item";
@@ -405,6 +405,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       isPage(hitInfo.overVes.get().displayItem)
       ? VeFns.veToPath(hitInfo.overVes.get())
       : null;
+  const dockListPageIconMoveTarget = dockListPageIconMoveTargetMaybe(hitInfo, ignoreIds);
   const resolvedMoveTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
   const hasValidMoveTarget = resolvedMoveTarget.validity == "valid";
   const hitMoveTargetVe = resolvedMoveTarget.positioningPageVe;
@@ -466,7 +467,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       }
     }
 
-    if (!hoveredPageInsideTable && MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
+    if (!dockListPageIconMoveTarget &&
+      !hoveredPageInsideTable &&
+      MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
       clearTableChildContainerDropTarget(store, moveOverContainerPath);
       moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false);
       arrangeNow(store, "moving-enter-new-container");

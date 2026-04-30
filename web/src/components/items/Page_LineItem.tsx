@@ -120,6 +120,13 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
               `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
         </Match>
+        <Match when={store.perVe.getMovingItemIsOver(vePath())}>
+          <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+            style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +
+              `width: ${openPopupBoundsPx().w - 4}px; height: ${openPopupBoundsPx().h - 4}px; ` +
+              `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
+              `background-color: #0044ff0a;`} />
+        </Match>
         <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
           <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
             style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +

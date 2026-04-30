@@ -53,7 +53,7 @@ import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets } from "./move_group";
-import { resolveInternalMoveTarget } from "./move_target";
+import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
 
 
 interface MovePersistOperation {
@@ -1043,6 +1043,10 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     rollbackInvalidMove(store);
     MouseActionState.set(null);
     arrangeNow(store, "mouse-up-finish-move-no-target");
+    return;
+  }
+  if (isDockListPageIconMoveTargetVe(overContainerVe)) {
+    mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
     return;
   }
   if (isTable(overContainerVe.displayItem)) {

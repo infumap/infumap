@@ -17,10 +17,11 @@
 */
 
 import { isContainer } from "../items/base/container-item";
-import { isPage } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
+import { HitboxFlags } from "../layout/hitbox";
 import { TEMP_SEARCH_RESULTS_ORIGIN } from "../items/search-item";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VisualElementPath, VeFns } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VisualElementPath, VeFns } from "../layout/visual-element";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
@@ -66,12 +67,46 @@ export function isDisplayedInTransientSearchUi(ve: VisualElement | null): boolea
   return false;
 }
 
+function ignoreSetFrom(ignoreItems: Array<Uid> | Set<Uid>): Set<Uid> {
+  return Array.isArray(ignoreItems) ? new Set(ignoreItems) : ignoreItems;
+}
+
+function isIgnored(ve: VisualElement, ignored: Set<Uid>): boolean {
+  return ignored.has(ve.displayItem.id) || (ve.linkItemMaybe != null && ignored.has(ve.linkItemMaybe.id));
+}
+
+export function isDockListPageIconMoveTargetVe(ve: VisualElement): boolean {
+  if (!(ve.flags & VisualElementFlags.LineItem)) { return false; }
+  if (!isPage(ve.displayItem) || ve.parentPath == null) { return false; }
+
+  const parentVe = VesCache.current.readNode(ve.parentPath);
+  if (!parentVe || !(parentVe.flags & VisualElementFlags.DockItem)) { return false; }
+  if (!isPage(parentVe.displayItem)) { return false; }
+
+  const effectiveArrangeAlgorithm =
+    parentVe.linkItemMaybe?.overrideArrangeAlgorithm ??
+    asPageItem(parentVe.displayItem).arrangeAlgorithm;
+  return effectiveArrangeAlgorithm == ArrangeAlgorithm.List;
+}
+
+export function dockListPageIconMoveTargetMaybe(
+  hitInfo: HitInfo,
+  ignoreItems: Array<Uid> | Set<Uid> = [],
+): VisualElement | null {
+  if (!(hitInfo.hitboxType & HitboxFlags.OpenPopup)) { return null; }
+  const overVe = hitInfo.overVes?.get() ?? null;
+  if (overVe == null || !isDockListPageIconMoveTargetVe(overVe)) { return null; }
+  if (isIgnored(overVe, ignoreSetFrom(ignoreItems))) { return null; }
+  return overVe;
+}
+
 export function resolveInternalMoveTarget(
   hitInfo: HitInfo,
   ignoreItems: Array<Uid> | Set<Uid> = [],
 ): ResolvedInternalMoveTarget {
-  const hoverContainerVe = HitInfoFns.getOverContainerVe(hitInfo, ignoreItems);
-  const positioningPageVe = resolveMoveTargetPageVe(hitInfo.overPositionableVe ?? hoverContainerVe);
+  const dockListPageIconMoveTarget = dockListPageIconMoveTargetMaybe(hitInfo, ignoreItems);
+  const hoverContainerVe = dockListPageIconMoveTarget ?? HitInfoFns.getOverContainerVe(hitInfo, ignoreItems);
+  const positioningPageVe = dockListPageIconMoveTarget ?? resolveMoveTargetPageVe(hitInfo.overPositionableVe ?? hoverContainerVe);
   const displayedInTransientUi = isDisplayedInTransientSearchUi(hoverContainerVe);
   const backedByPersistentContainer =
     displayedInTransientUi &&
