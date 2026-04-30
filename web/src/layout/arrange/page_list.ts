@@ -395,7 +395,7 @@ export function arrangeSelectedListItem(
   boundsPx: BoundingBox,
   currentPath: VisualElementPath,
   canShiftLeft: boolean,
-  isRoot: boolean,
+  renderAsListPageRoot: boolean,
   insidePopup: boolean): VisualElementSignal | null {
 
   const item = itemState.get(veid.itemId);
@@ -443,7 +443,8 @@ export function arrangeSelectedListItem(
         HitboxFns.create(HitboxFlags.ShiftLeft, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       ];
     }
-    if (isPage(item)) {
+    const rendersAsTranslucentPage = isPage(item) && !renderAsListPageRoot;
+    if (rendersAsTranslucentPage) {
       const popupClickBoundsPx = insidePopup
         ? zeroBoundingBoxTopLeft(boundsPx)
         : {
@@ -468,7 +469,7 @@ export function arrangeSelectedListItem(
   const result = arrangeItem(
     store, currentPath, ArrangeAlgorithm.List, li, actualLinkItemMaybe as LinkItem | null, cellGeometry,
     ArrangeItemFlags.RenderChildrenAsFull |
-    (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
+    (renderAsListPageRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
     (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
   return result;
 }
@@ -479,10 +480,10 @@ export function arrangeSelectedListItemPath(
   boundsPx: BoundingBox,
   currentPath: VisualElementPath,
   canShiftLeft: boolean,
-  isRoot: boolean,
+  renderAsListPageRoot: boolean,
   insidePopup: boolean): VisualElementPath | null {
 
-  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, isRoot, insidePopup);
+  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, renderAsListPageRoot, insidePopup);
   return selectedVes ? VeFns.veToPath(selectedVes.get()) : null;
 }
 
