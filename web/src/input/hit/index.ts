@@ -145,6 +145,22 @@ function selectedPopupListRootHitboxType(rootVe: VisualElement, hitboxType: Hitb
   return (hitboxType & ~(HitboxFlags.OpenPopup | HitboxFlags.ShowPointer)) as HitboxFlags;
 }
 
+function pageContentScrollOffsetPx(store: StoreContextModel, pageVe: VisualElement): Vector {
+  if (!isPage(pageVe.displayItem) || !pageVe.viewportBoundsPx || !pageVe.childAreaBoundsPx) {
+    return { x: 0, y: 0 };
+  }
+
+  const pageVeid = (pageVe.flags & VisualElementFlags.Popup)
+    ? store.history.currentPopupSpec()?.actualVeid ?? VeFns.actualVeidFromVe(pageVe)
+    : VeFns.actualVeidFromVe(pageVe);
+  const scrollableWidthPx = Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w);
+  const scrollableHeightPx = Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h);
+  return {
+    x: scrollableWidthPx * store.perItem.getPageScrollXProp(pageVeid),
+    y: scrollableHeightPx * store.perItem.getPageScrollYProp(pageVeid),
+  };
+}
+
 function popupListTitleTargetPathMaybe(rootVe: VisualElement, titleLocalPos: Vector): string | null {
   if (!isListPageVe(rootVe) || !rootVe.listViewportBoundsPx) { return null; }
   const headerHeightPx = rootVe.boundsPx.h - (rootVe.viewportBoundsPx?.h ?? rootVe.boundsPx.h);
@@ -658,6 +674,7 @@ function hitPagePopupRootMaybe(
   let rootVe = parentRootInfo.rootVe;
   let rootVes = parentRootInfo.rootVes;
   let posRelativeToRootVeBoundsPx = parentRootInfo.posRelativeToRootVeBoundsPx;
+  let posForRootHitboxScan = posRelativeToRootVeBoundsPx;
   let changedRoot = false;
   const popupVes = VesCache.render.getPopup(VeFns.veToPath(rootVe))();
   if (popupVes && isPage(popupVes.get().displayItem)) {
@@ -680,19 +697,24 @@ function hitPagePopupRootMaybe(
           : hitboxMeta;
         return ({ parentRootVe: parentRootInfo.rootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx: posRelativeToPopupBoundsPx, posRelativeToRootVeViewportPx: vectorSubtract(popupPosRelativeToTopLevelVePx, isPage(popupRootVeMaybe.displayItem) ? getBoundingBoxTopLeft(rootVe.viewportBoundsPx!) : getBoundingBoxTopLeft(rootVe.boundsPx)), hitMaybe: new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(effectiveMeta).pos(posRelativeToPopupBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe1").build() });
       }
-      posRelativeToRootVeBoundsPx = vectorSubtract(popupPosRelativeToTopLevelVePx, { x: rootVe.boundsPx!.x, y: rootVe.boundsPx!.y });
+      posForRootHitboxScan = posRelativeToPopupBoundsPx;
+      posRelativeToRootVeBoundsPx = vectorAdd(
+        posRelativeToPopupBoundsPx,
+        pageContentScrollOffsetPx(store, rootVe)
+      );
       changedRoot = true;
     }
   }
-  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
+  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan);
   const hitboxType = selectedPopupListRootHitboxType(rootVe, scannedHitboxType);
   let hitMaybe = null as HitInfo | null;
   if (hitboxType != HitboxFlags.None) {
     hitMaybe = new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determinePopupOrSelectedRootMaybe3").build();
   }
 
-  // Calculate posRelativeToRootVeViewportPx - only adjust for title bar here
-  // Scroll offset for list pages will be applied in getHitInfoUnderRoot
+  // Calculate posRelativeToRootVeViewportPx. Page popup scroll is already
+  // included in posRelativeToRootVeBoundsPx; list-page scroll is applied later
+  // because list contents use separate list child-area bounds.
   let posRelativeToRootVeViewportPx = { ...posRelativeToRootVeBoundsPx };
   // Dock pages reserve space below the viewport for the fixed trash area, not above it.
   const rootTopInsetPx = rootVe.flags & VisualElementFlags.IsDock
