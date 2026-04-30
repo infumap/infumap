@@ -44,6 +44,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   let rootDiv: any = undefined; // HTMLDivElement | undefined
   let updatingRootScrollTop = false;
+  const SCROLL_PROP_EPSILON = 0.000001;
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
@@ -267,8 +268,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     const veid = getScrollVeid();
     const viewportH = pageFns().viewportBoundsPx().h;
     const scrollableHeightPx = Math.max(0, props.visualElement.listChildAreaBoundsPx.h - viewportH);
-
-    store.perItem.setPageScrollYProp(veid, scrollableHeightPx > 0 ? rootDiv.scrollTop / scrollableHeightPx : 0);
+    const nextScrollYProp = scrollableHeightPx > 0 ? rootDiv.scrollTop / scrollableHeightPx : 0;
+    if (Math.abs(store.perItem.getPageScrollYProp(veid) - nextScrollYProp) > SCROLL_PROP_EPSILON) {
+      store.perItem.setPageScrollYProp(veid, nextScrollYProp);
+    }
   };
 
   const rootScrollHandler = (_ev: Event) => {
@@ -280,8 +283,15 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     const scrollableWidthPx = Math.max(0, pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
     const scrollableHeightPx = Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
 
-    store.perItem.setPageScrollXProp(veid, scrollableWidthPx > 0 ? rootDiv.scrollLeft / scrollableWidthPx : 0);
-    store.perItem.setPageScrollYProp(veid, scrollableHeightPx > 0 ? rootDiv.scrollTop / scrollableHeightPx : 0);
+    const nextScrollYProp = scrollableHeightPx > 0 ? rootDiv.scrollTop / scrollableHeightPx : 0;
+    const nextScrollXProp = scrollableWidthPx > 0 ? rootDiv.scrollLeft / scrollableWidthPx : 0;
+
+    if (Math.abs(store.perItem.getPageScrollYProp(veid) - nextScrollYProp) > SCROLL_PROP_EPSILON) {
+      store.perItem.setPageScrollYProp(veid, nextScrollYProp);
+    }
+    if (Math.abs(store.perItem.getPageScrollXProp(veid) - nextScrollXProp) > SCROLL_PROP_EPSILON) {
+      store.perItem.setPageScrollXProp(veid, nextScrollXProp);
+    }
   };
 
   const renderListPage = () =>
