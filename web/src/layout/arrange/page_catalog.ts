@@ -77,11 +77,12 @@ export function arrange_catalog_page(
   })();
 
   const isEmbeddedInteractive =
-    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
-    (VeFns.pathDepth(parentPath) >= 2) &&
-    !(flags & ArrangeItemFlags.IsTopRoot) &&
-    !(flags & ArrangeItemFlags.IsPopupRoot) &&
-    !(flags & ArrangeItemFlags.IsListPageMainRoot);
+    !!(flags & ArrangeItemFlags.IsDockRoot) ||
+    (!!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+      (VeFns.pathDepth(parentPath) >= 2) &&
+      !(flags & ArrangeItemFlags.IsTopRoot) &&
+      !(flags & ArrangeItemFlags.IsPopupRoot) &&
+      !(flags & ArrangeItemFlags.IsListPageMainRoot));
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;

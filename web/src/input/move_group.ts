@@ -54,15 +54,24 @@ export function calculateMoveToPagePositionGr(
     panic(`calculateMoveToPagePositionGr: target is not a page (${moveToVe.displayItem.itemType}).`);
   }
 
-  const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
   const moveToPage = asPageItem(moveToVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, moveToVe);
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
+  const mousePointGr = VeFns.desktopPxToPageGr(store, moveToVe, desktopPx);
+  const mousePointBl = (() => {
+    if (mousePointGr != null) {
+      return {
+        x: Math.round((mousePointGr.x / GRID_SIZE) * 2.0) / 2.0,
+        y: Math.round((mousePointGr.y / GRID_SIZE) * 2.0) / 2.0,
+      };
+    }
 
-  const mousePointBl = {
-    x: Math.round((pagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
-    y: Math.round((pagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0,
-  };
+    const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
+    const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, moveToVe);
+    return {
+      x: Math.round((pagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
+      y: Math.round((pagePx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0,
+    };
+  })();
 
   const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(activeItem);
   const clickOffsetInActiveItemBl = relationshipToParent == RelationshipToParent.Child && clickOffsetProp != null

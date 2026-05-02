@@ -408,7 +408,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const dockListPageIconMoveTarget = dockListPageIconMoveTargetMaybe(hitInfo, ignoreIds);
   const resolvedMoveTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
   const hasValidMoveTarget = resolvedMoveTarget.validity == "valid";
-  const hitMoveTargetVe = resolvedMoveTarget.positioningPageVe;
+  const hitMoveTargetVe = isPage(resolvedMoveTarget.hoverContainerVe.displayItem)
+    ? resolvedMoveTarget.hoverContainerVe
+    : resolvedMoveTarget.positioningPageVe;
+  const hitMoveTargetPath = VeFns.veToPath(hitMoveTargetVe);
   const hoveredPageInsideTable =
     tableContainerVeMaybe != null &&
     !!(hitMoveTargetVe.flags & VisualElementFlags.InsideTable);
@@ -421,7 +424,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   } else {
     // update move over element state.
     const moveOverContainerPath = moveTargetIsDocumentPage
-      ? resolvedMoveTarget.positioningPagePath
+      ? hitMoveTargetPath
       : resolvedMoveTarget.hoverContainerPath;
     if (MouseActionState.getMoveOverContainerPath() == null ||
       MouseActionState.getMoveOverContainerPath()! != moveOverContainerPath) {
@@ -707,13 +710,8 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     relationshipToParent,
     clickOffsetProp,
   );
-  const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
   const sourceParentId = treeActiveItem.parentId;
-  if (moveToVe.parentPath == null) {
-    MouseActionState.setStartPx(desktopPx);
-  } else {
-    MouseActionState.setStartPx(pagePx);
-  }
+  MouseActionState.setStartPx(desktopPx);
   MouseActionState.setStartPosBl(startPosBl);
   const moveToPath = VeFns.veToPath(moveToVe);
 

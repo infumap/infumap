@@ -72,6 +72,13 @@ export const ArrangeAlgorithm = {
 
 export type ArrangeAlgorithm = typeof ArrangeAlgorithm[keyof typeof ArrangeAlgorithm];
 
+export function dockForcesEmbeddedInteractiveArrangeAlgorithm(arrangeAlgorithm: string): boolean {
+  return arrangeAlgorithm == ArrangeAlgorithm.List ||
+    arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+    arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
+    arrangeAlgorithm == ArrangeAlgorithm.Justified;
+}
+
 export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, ColorableMixin, AspectItem, Item {
   innerSpatialWidthGr: number;
   arrangeAlgorithm: string;
@@ -757,7 +764,7 @@ export const PageFns = {
 
     const treatAsEmbeddedInteractive =
       !!(page.flags & PageFlags.EmbeddedInteractive) ||
-      (parentIsDock && page.arrangeAlgorithm == ArrangeAlgorithm.List);
+      (parentIsDock && dockForcesEmbeddedInteractiveArrangeAlgorithm(page.arrangeAlgorithm));
 
     if (!isPopup && !treatAsEmbeddedInteractive) {
       const sizeBl = PageFns.calcSpatialDimensionsBl(page);

@@ -97,6 +97,15 @@ elif ! find "$AUDIT_TIMESTAMP" -mtime -7 -type f 2>/dev/null | grep -q .; then
 fi
 
 pushd "$SCRIPT_DIR"
-./web/build.sh "${WEB_BUILD_ARGS[@]}"
-./infumap/build.sh "${INFUMAP_BUILD_ARGS[@]}"
+if [[ ${#WEB_BUILD_ARGS[@]} -gt 0 ]]; then
+  ./web/build.sh "${WEB_BUILD_ARGS[@]}"
+else
+  ./web/build.sh
+fi
+
+if [[ ${#INFUMAP_BUILD_ARGS[@]} -gt 0 ]]; then
+  ./infumap/build.sh "${INFUMAP_BUILD_ARGS[@]}"
+else
+  ./infumap/build.sh
+fi
 popd

@@ -1517,7 +1517,22 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
   if (movedGroup) {
     enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
   } else {
-    activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+    const shouldUseSpatialDropPosition =
+      isPage(overContainerVe.displayItem) &&
+      asPageItem(overContainerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch &&
+      !!(overContainerVe.flags & VisualElementFlags.ShowChildren) &&
+      overContainerVe.childAreaBoundsPx != null &&
+      overContainerVe.viewportBoundsPx != null;
+    activeItem.spatialPositionGr = shouldUseSpatialDropPosition
+      ? calculateMoveToPagePositionGr(
+        store,
+        overContainerVe,
+        CursorEventState.getLatestDesktopPx(store),
+        activeItem,
+        RelationshipToParent.Child,
+        MouseActionState.getClickOffsetProp(),
+      ).activePosGr
+      : { x: 0.0, y: 0.0 };
     itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
     enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
   }

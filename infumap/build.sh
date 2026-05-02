@@ -47,7 +47,9 @@ fi
 if [[ -n "$TARGET" ]]; then
   CARGO_ARGS+=(--target "$TARGET")
 fi
-CARGO_ARGS+=("${EXTRA_ARGS[@]}")
+if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+  CARGO_ARGS+=("${EXTRA_ARGS[@]}")
+fi
 
 cargo "${CARGO_ARGS[@]}"
 popd >/dev/null

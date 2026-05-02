@@ -481,7 +481,15 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const canHitEmbeddedInteractive = !!(hitVe.flags & VisualElementFlags.EmbeddedInteractiveRoot);
   const ignoreItems = [hitVe.displayItem.id];
   const hitInfoFiltered = HitInfoFns.hit(store, desktopPosPx, ignoreItems, canHitEmbeddedInteractive);
-  const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
+  const sourceParentVe = hitVe.parentPath ? VesCache.current.readNode(hitVe.parentPath) : null;
+  const sourceScaleDefiningElement =
+    sourceParentVe != null &&
+      isPage(sourceParentVe.displayItem) &&
+      activeItem.parentId == sourceParentVe.displayItem.id &&
+      activeItem.relationshipToParent == RelationshipToParent.Child
+      ? sourceParentVe
+      : null;
+  const scaleDefiningElement = VeFns.veToPath(sourceScaleDefiningElement ?? hitInfoFiltered.overPositionableVe!);
 
   const activeElementPath = VeFns.veToPath(hitVe);
 
