@@ -17,10 +17,11 @@ Works well on a google cloud g2-standard-4 instance (NVIDIA L4). Note that a T4 
 
 Requirements:
 
-- `python3` 3.10 or newer
+- `python3` 3.10 through 3.13
 - `python3-venv`
 
-Set `PYTHON_BIN=/path/to/python3.11` if your default `python3` is older.
+Set `PYTHON_BIN=/path/to/python3.13` if your default `python3` is too old or too new.
+On macOS, `brew install python@3.13` is enough for the launcher to find it.
 
 From the repo root:
 

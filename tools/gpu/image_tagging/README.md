@@ -33,10 +33,11 @@ per-tool defaults and compatibility rules in the same file.
 
 Minimum requirements:
 
-- `python3` 3.10 or newer
+- `python3` 3.10 through 3.13
 - `python3-venv`
 
-Set `PYTHON_BIN=/path/to/python3.11` if your default `python3` is older.
+Set `PYTHON_BIN=/path/to/python3.13` if your default `python3` is too old or too new.
+On macOS, `brew install python@3.13` is enough for the launcher to find it.
 
 Install `llama-server` separately, or set `IMAGE_TAGGING_LLAMA_BIN` to an
 executable `llama-server` path.
