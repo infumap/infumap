@@ -30,9 +30,9 @@ The child services keep their own defaults:
 - `text_embedding`: `127.0.0.1:8789`
 - `text_extraction`: `127.0.0.1:8790`
 
-Model downloads now share a single cache root under `tools/gpu/models`.
-Aliases own their storage paths inside that shared root, for example
-`tools/gpu/models/vlm/gemma26` or `tools/gpu/models/embeddings/bgebase`.
+Hugging Face, FastEmbed, PyTorch, Transformers, and Marker downloads use their
+standard library cache locations, such as `~/.cache/huggingface` and
+`~/.cache/torch`.
 
 Short model aliases live in `tools/gpu/model_aliases.json`. That registry now
 has a global `aliases` section plus a `tools` section for per-tool defaults and
@@ -50,7 +50,6 @@ The combined launcher keeps each service independent:
 
 Optional environment variables:
 
-- `GPU_MODELS_DIR`
 - `GPU_MODEL_ALIAS_REGISTRY`
 - `GPU_RESTART_DELAY_SECS`
 - `GPU_GATEWAY_HOST`

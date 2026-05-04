@@ -23,17 +23,8 @@ from pathlib import Path
 from huggingface_hub import hf_hub_download
 
 
-def ensure_hf_file(repo_id: str, filename: str, dest_dir: Path) -> Path:
-    target_path = dest_dir / filename
-    if target_path.exists():
-        return target_path
-
-    downloaded_path = hf_hub_download(
-        repo_id=repo_id,
-        filename=filename,
-        local_dir=str(dest_dir),
-    )
-    return Path(downloaded_path)
+def ensure_hf_file(repo_id: str, filename: str) -> Path:
+    return Path(hf_hub_download(repo_id=repo_id, filename=filename))
 
 
 def main() -> int:
@@ -41,14 +32,10 @@ def main() -> int:
     parser.add_argument("--repo-id", required=True)
     parser.add_argument("--model-file", required=True)
     parser.add_argument("--mmproj-file", required=True)
-    parser.add_argument("--dest-dir", required=True)
     args = parser.parse_args()
 
-    dest_dir = Path(args.dest_dir).expanduser().resolve()
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    model_path = ensure_hf_file(args.repo_id, args.model_file, dest_dir)
-    mmproj_path = ensure_hf_file(args.repo_id, args.mmproj_file, dest_dir)
+    model_path = ensure_hf_file(args.repo_id, args.model_file)
+    mmproj_path = ensure_hf_file(args.repo_id, args.mmproj_file)
 
     print(
         json.dumps(

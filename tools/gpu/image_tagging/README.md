@@ -6,8 +6,7 @@ The default launcher path does three things for you:
 
 - creates a Python virtualenv for the service
 - downloads the GGUF + `mmproj` files if they are missing
-- uses an existing `llama-server` binary, or clones/builds `ggml-org/llama.cpp`
-  locally if one is not already available
+- starts an installed `llama-server` binary
 
 The service accepts multipart image uploads and forwards them to `llama-server`
 via its OpenAI-compatible chat completions endpoint. It also computes a local
@@ -21,7 +20,7 @@ By default:
 
 - the HTTP service listens on `127.0.0.1:8788`
 - local `llama-server` listens on `127.0.0.1:18080`
-- model files live under `tools/gpu/models/vlm/<alias>` by default
+- model files live in the standard Hugging Face cache by default
 - the launcher uses:
   - repo: `unsloth/Qwen3.5-9B-GGUF`
   - model file: `Qwen3.5-9B-Q4_K_M.gguf`
@@ -39,14 +38,8 @@ Minimum requirements:
 
 Set `PYTHON_BIN=/path/to/python3.11` if your default `python3` is older.
 
-If `llama-server` is already installed and on `PATH`, that is enough.
-
-If the launcher needs to build `llama.cpp` locally, you also need:
-
-- `git`
-- `cmake`
-- a working C/C++ toolchain
-- CUDA build dependencies if you want GPU acceleration from a local build
+Install `llama-server` separately, or set `IMAGE_TAGGING_LLAMA_BIN` to an
+executable `llama-server` path.
 
 ## Start The Service
 
@@ -87,19 +80,13 @@ llama-server management:
 - `IMAGE_TAGGING_LLAMA_HOST`
 - `IMAGE_TAGGING_LLAMA_PORT`
 - `IMAGE_TAGGING_LLAMA_BIN`
-- `IMAGE_TAGGING_LLAMA_CPP_DIR`
-- `IMAGE_TAGGING_LLAMA_CPP_REPO_URL`
-- `IMAGE_TAGGING_LLAMA_UPDATE_CHECKOUT`
-- `IMAGE_TAGGING_LLAMA_CMAKE_ARGS`
 - `IMAGE_TAGGING_LLAMA_EXTRA_ARGS`
 
 Model selection:
 
 - `IMAGE_TAGGING_MODEL` shared alias selector. If unset, the default comes from
   `tools/gpu/model_aliases.json` and is currently `qwen9`.
-- `GPU_MODELS_DIR`
 - `GPU_MODEL_ALIAS_REGISTRY`
-- `IMAGE_TAGGING_MODELS_DIR`
 - `IMAGE_TAGGING_MODEL_REPO`
 - `IMAGE_TAGGING_MODEL_FILE`
 - `IMAGE_TAGGING_MMPROJ_FILE`
@@ -144,12 +131,6 @@ Switch to the Gemma 4 preset:
 
 ```bash
 IMAGE_TAGGING_MODEL=gemma26 ./tools/gpu/image_tagging/run.sh
-```
-
-Use a different shared models root:
-
-```bash
-GPU_MODELS_DIR=/srv/infumap-gpu-models ./tools/gpu/image_tagging/run.sh
 ```
 
 Pass extra flags straight through to `llama-server`:

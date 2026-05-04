@@ -26,16 +26,11 @@ from huggingface_hub import snapshot_download
 def main() -> int:
     parser = argparse.ArgumentParser(description="Download an MLX VLM model directory if it is missing.")
     parser.add_argument("--repo-id", required=True)
-    parser.add_argument("--dest-dir", required=True)
     args = parser.parse_args()
 
-    dest_dir = Path(args.dest_dir).expanduser().resolve()
-    dest_dir.mkdir(parents=True, exist_ok=True)
+    model_path = Path(snapshot_download(repo_id=args.repo_id))
 
-    if not (dest_dir / "config.json").exists():
-        snapshot_download(repo_id=args.repo_id, local_dir=str(dest_dir))
-
-    print(json.dumps({"model_path": str(dest_dir)}))
+    print(json.dumps({"model_path": str(model_path)}))
     return 0
 
 

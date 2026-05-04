@@ -21,14 +21,14 @@ to the external service.
 - accepts JSON batches at `POST /embed`
 - loads the embedding model once at startup
 - returns one embedding per input in request order
-- caches the model files under `tools/gpu/models/embeddings/bgebase` by default
+- uses FastEmbed's default model cache unless `TEXT_EMBEDDING_MODELS_DIR` is set
 
 ## Default Layout
 
 By default:
 
 - the HTTP service listens on `127.0.0.1:8789`
-- model files live under `tools/gpu/models/embeddings/bgebase`
+- model files use FastEmbed's default cache
 - the launcher creates or reuses `tools/gpu/text_embedding/.venv`
 - the launcher defaults to `TEXT_EMBEDDING_DEVICE=cpu`
 - the launcher installs regular `fastembed` for CPU mode
@@ -64,7 +64,7 @@ On first run that command:
 1. creates `tools/gpu/text_embedding/.venv`
 2. installs Python dependencies
 3. starts the FastAPI service
-4. downloads the compatible model into the local model cache on first startup
+4. downloads the compatible model into the configured or default model cache on first startup
 
 ## Important Environment Variables
 
@@ -74,7 +74,6 @@ On first run that command:
 - `TEXT_EMBEDDING_MODEL`
 - `TEXT_EMBEDDING_MODEL_NAME`
 - `TEXT_EMBEDDING_MODELS_DIR`
-- `GPU_MODELS_DIR`
 - `GPU_MODEL_ALIAS_REGISTRY`
 - `TEXT_EMBEDDING_DEVICE`
 - `TEXT_EMBEDDING_MAX_BATCH_ITEMS`

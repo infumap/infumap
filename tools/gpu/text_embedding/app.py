@@ -41,7 +41,6 @@ DEFAULT_MAX_TEXT_CHARS = 32_768
 DEFAULT_MAX_CONCURRENCY = 1
 DEFAULT_MODEL_ALIAS = "bgebase"
 DEFAULT_MODEL_NAME = "Xenova/bge-base-en-v1.5"
-DEFAULT_MODEL_CACHE_DIR = Path(__file__).resolve().parent.parent / "models" / "embeddings" / DEFAULT_MODEL_ALIAS
 DEFAULT_DEVICE = "cpu"
 GPU_EXECUTION_PROVIDERS = {
     "CUDAExecutionProvider",
@@ -144,11 +143,11 @@ def root_path() -> str:
     return "/" + configured.strip("/")
 
 
-def model_cache_dir() -> Path:
+def model_cache_dir() -> Path | None:
     configured = os.environ.get("TEXT_EMBEDDING_MODELS_DIR", "").strip()
     if configured:
         return Path(configured).expanduser()
-    return DEFAULT_MODEL_CACHE_DIR
+    return None
 
 
 def onnx_providers() -> list[str] | None:
@@ -282,7 +281,7 @@ def build_runtime_summary() -> list[str]:
         f"compatible_with_rust_call={COMPATIBLE_WITH_RUST_CALL}",
         f"pooling={COMPATIBLE_MODEL_POOLING}",
         f"normalization={COMPATIBLE_MODEL_NORMALIZATION}",
-        f"model_cache_dir={model_cache_dir()}",
+        f"model_cache_dir={model_cache_dir() or '<fastembed default>'}",
         f"providers_configured={provider_summary}",
         f"providers_selected={selected_provider_summary}",
         f"providers_available={available_provider_summary}",
@@ -296,12 +295,13 @@ def build_runtime_summary() -> list[str]:
 def build_embedding_model() -> TextEmbedding:
     ensure_compatible_model_registered()
     cache_dir = model_cache_dir()
-    cache_dir.mkdir(parents=True, exist_ok=True)
 
     kwargs: dict[str, Any] = {
         "model_name": embedding_model_name(),
-        "cache_dir": str(cache_dir),
     }
+    if cache_dir is not None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        kwargs["cache_dir"] = str(cache_dir)
     providers = effective_onnx_providers()
     if providers:
         kwargs["providers"] = providers
@@ -415,7 +415,7 @@ async def root(request: Request) -> dict[str, Any]:
         "providers": APP_STATE.get("configured_providers", []),
         "available_providers": APP_STATE.get("available_providers", []),
         "active_providers": APP_STATE.get("active_providers", []),
-        "model_cache_dir": str(model_cache_dir()),
+        "model_cache_dir": str(model_cache_dir() or "<fastembed default>"),
         "max_batch_items": max_batch_items(),
         "max_text_chars": max_text_chars(),
     }

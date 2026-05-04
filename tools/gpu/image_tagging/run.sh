@@ -33,18 +33,8 @@ readonly LLAMA_SERVER_URL_DEFAULT="http://${LLAMA_HOST}:${LLAMA_PORT}"
 readonly STARTUP_TIMEOUT_SECS="${IMAGE_TAGGING_STARTUP_TIMEOUT_SECS:-900}"
 readonly MODEL_SELECTOR="${IMAGE_TAGGING_MODEL:-}"
 readonly MODEL_ALIAS_REGISTRY="${GPU_MODEL_ALIAS_REGISTRY:-$GPU_ROOT_DIR/model_aliases.json}"
-readonly SHARED_MODELS_DIR="${GPU_MODELS_DIR:-$GPU_ROOT_DIR/models}"
 
-export HF_HOME="${HF_HOME:-$SHARED_MODELS_DIR/huggingface}"
-export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
-export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
-export TORCH_HOME="${TORCH_HOME:-$SHARED_MODELS_DIR/torch}"
-
-readonly LLAMA_CPP_REPO_URL="${IMAGE_TAGGING_LLAMA_CPP_REPO_URL:-https://github.com/ggml-org/llama.cpp.git}"
-readonly LLAMA_CPP_DIR="${IMAGE_TAGGING_LLAMA_CPP_DIR:-$ROOT_DIR/.llama.cpp}"
-readonly LLAMA_BUILD_DIR="${IMAGE_TAGGING_LLAMA_BUILD_DIR:-$LLAMA_CPP_DIR/build}"
 readonly LLAMA_BIN_OVERRIDE="${IMAGE_TAGGING_LLAMA_BIN:-}"
-readonly LLAMA_CMAKE_ARGS="${IMAGE_TAGGING_LLAMA_CMAKE_ARGS:-}"
 readonly LLAMA_CTX="${IMAGE_TAGGING_LLAMA_CTX:-8192}"
 readonly LLAMA_BATCH_SIZE="${IMAGE_TAGGING_LLAMA_BATCH_SIZE:-2048}"
 readonly LLAMA_UBATCH_SIZE="${IMAGE_TAGGING_LLAMA_UBATCH_SIZE:-512}"
@@ -52,7 +42,6 @@ readonly LLAMA_PARALLEL="1"
 readonly LLAMA_IMAGE_MIN_TOKENS="${IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS:-}"
 readonly LLAMA_IMAGE_MAX_TOKENS="${IMAGE_TAGGING_LLAMA_IMAGE_MAX_TOKENS:-}"
 readonly LLAMA_REASONING_FORMAT="${IMAGE_TAGGING_LLAMA_REASONING_FORMAT:-none}"
-readonly LLAMA_UPDATE_CHECKOUT="${IMAGE_TAGGING_LLAMA_UPDATE_CHECKOUT:-0}"
 
 llama_pid=""
 api_pid=""
@@ -81,14 +70,13 @@ resolve_model_alias() {
 
 resolve_model_alias
 
-readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$SHARED_MODELS_DIR/$RESOLVED_MODELS_SUBDIR}"
 readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-$RESOLVED_MODEL_REPO}"
 readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-$RESOLVED_MODEL_FILE}"
 readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-$RESOLVED_MMPROJ_FILE}"
 readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
 readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
-readonly MODEL_PATH="${MODELS_DIR}/${MODEL_FILE}"
-readonly MMPROJ_PATH="${MODELS_DIR}/${MMPROJ_FILE}"
+MODEL_PATH="${IMAGE_TAGGING_MODEL_PATH:-}"
+MMPROJ_PATH="${IMAGE_TAGGING_MMPROJ_PATH:-}"
 readonly LLAMA_EXTRA_ARGS="${IMAGE_TAGGING_LLAMA_EXTRA_ARGS:-$RESOLVED_LLAMA_EXTRA_ARGS}"
 
 venv_package_name() {
@@ -205,12 +193,6 @@ wait_for_child_shutdown() {
     wait "$pid" 2>/dev/null || true
 }
 
-require_command() {
-    if ! command_exists "$1"; then
-        fail "Required command not found: $1"
-    fi
-}
-
 ensure_python_packages() {
     if "$VENV_PYTHON" -c "import fastapi, uvicorn, multipart, PIL, httpx, huggingface_hub, torch, torchvision, transformers" >/dev/null 2>&1; then
         return 0
@@ -252,22 +234,7 @@ effective_llama_flash_attn() {
     printf '%s\n' ""
 }
 
-ensure_llama_cpp_checkout() {
-    if [ ! -d "$LLAMA_CPP_DIR/.git" ]; then
-        require_command git
-        git clone --depth 1 "$LLAMA_CPP_REPO_URL" "$LLAMA_CPP_DIR" >&2
-        return 0
-    fi
-
-    if [ "$LLAMA_UPDATE_CHECKOUT" = "1" ]; then
-        require_command git
-        git -C "$LLAMA_CPP_DIR" pull --ff-only >&2
-    fi
-}
-
 ensure_local_llama_server() {
-    local candidate
-
     if [ -n "$LLAMA_BIN_OVERRIDE" ]; then
         [ -x "$LLAMA_BIN_OVERRIDE" ] || fail "IMAGE_TAGGING_LLAMA_BIN is not executable: $LLAMA_BIN_OVERRIDE"
         printf '%s\n' "$LLAMA_BIN_OVERRIDE"
@@ -279,54 +246,35 @@ ensure_local_llama_server() {
         return 0
     fi
 
-    candidate="$LLAMA_BUILD_DIR/bin/llama-server"
-    if [ -x "$candidate" ]; then
-        printf '%s\n' "$candidate"
-        return 0
-    fi
-
-    require_command git
-    require_command cmake
-    ensure_llama_cpp_checkout
-
-    local jobs
-    jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
-
-    local -a cmake_configure_args
-    cmake_configure_args=(
-        -S "$LLAMA_CPP_DIR"
-        -B "$LLAMA_BUILD_DIR"
-        -DCMAKE_BUILD_TYPE=Release
-    )
-    if has_nvidia_gpu; then
-        cmake_configure_args+=(-DGGML_CUDA=ON)
-    fi
-    if has_metal_gpu; then
-        cmake_configure_args+=(-DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON)
-    fi
-    if [ -n "$LLAMA_CMAKE_ARGS" ]; then
-        local -a extra_cmake_args
-        # shellcheck disable=SC2206
-        extra_cmake_args=($LLAMA_CMAKE_ARGS)
-        cmake_configure_args+=("${extra_cmake_args[@]}")
-    fi
-
-    echo "Configuring llama.cpp build in $LLAMA_BUILD_DIR" >&2
-    cmake "${cmake_configure_args[@]}" >&2
-    echo "Building llama-server with $jobs job(s)" >&2
-    cmake --build "$LLAMA_BUILD_DIR" --config Release -j "$jobs" --target llama-server >&2
-
-    [ -x "$candidate" ] || fail "Expected llama-server binary was not produced at $candidate"
-    printf '%s\n' "$candidate"
+    fail "llama-server was not found on PATH. Install llama.cpp or set IMAGE_TAGGING_LLAMA_BIN=/path/to/llama-server."
 }
 
 ensure_models() {
-    mkdir -p "$MODELS_DIR"
-    "$VENV_PYTHON" "$ROOT_DIR/bootstrap_models.py" \
-        --repo-id "$MODEL_REPO" \
-        --model-file "$MODEL_FILE" \
-        --mmproj-file "$MMPROJ_FILE" \
-        --dest-dir "$MODELS_DIR"
+    local model_json=""
+    local model_env=""
+    local -a model_cmd=(
+        "$VENV_PYTHON" "$ROOT_DIR/bootstrap_models.py"
+        --repo-id "$MODEL_REPO"
+        --model-file "$MODEL_FILE"
+        --mmproj-file "$MMPROJ_FILE"
+    )
+
+    if [ -n "$MODEL_PATH" ] && [ -n "$MMPROJ_PATH" ]; then
+        return 0
+    fi
+
+    model_json="$("${model_cmd[@]}")"
+    model_env="$("$VENV_PYTHON" - "$model_json" <<'PY'
+import json
+import shlex
+import sys
+
+data = json.loads(sys.argv[1])
+print(f"MODEL_PATH={shlex.quote(data['model_path'])}")
+print(f"MMPROJ_PATH={shlex.quote(data['mmproj_path'])}")
+PY
+)"
+    eval "$model_env"
 }
 
 wait_for_llama_server() {
@@ -460,7 +408,7 @@ echo "Starting Infumap image tagging service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "API host/port: $HOST:$PORT"
 echo "llama-server URL: $IMAGE_TAGGING_LLAMA_SERVER_URL"
-echo "Shared models dir: $SHARED_MODELS_DIR"
+echo "Hugging Face cache: ${HF_HOME:-<library default>}"
 echo "Model alias: $RESOLVED_ALIAS"
 echo "Default alias: $RESOLVED_DEFAULT_ALIAS"
 echo "Model repo: $MODEL_REPO"
@@ -488,8 +436,8 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
     readonly EFFECTIVE_LLAMA_FLASH_ATTN="$(effective_llama_flash_attn)"
 
     echo "llama-server binary: $LLAMA_SERVER_BIN"
-    echo "Local llama.cpp checkout: $LLAMA_CPP_DIR"
-    echo "Model directory: $MODELS_DIR"
+    echo "Model path: $MODEL_PATH"
+    echo "mmproj path: $MMPROJ_PATH"
     echo "llama ctx: $LLAMA_CTX"
     echo "llama batch size: $LLAMA_BATCH_SIZE"
     echo "llama ubatch size: $LLAMA_UBATCH_SIZE"

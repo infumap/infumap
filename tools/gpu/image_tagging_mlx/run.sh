@@ -38,12 +38,6 @@ readonly MLX_SERVER_URL_DEFAULT="http://${MLX_HOST}:${MLX_PORT}"
 readonly STARTUP_TIMEOUT_SECS="${IMAGE_TAGGING_STARTUP_TIMEOUT_SECS:-900}"
 readonly MODEL_SELECTOR="${IMAGE_TAGGING_MODEL:-}"
 readonly MODEL_ALIAS_REGISTRY="${GPU_MODEL_ALIAS_REGISTRY:-$GPU_ROOT_DIR/model_aliases.json}"
-readonly SHARED_MODELS_DIR="${GPU_MODELS_DIR:-$GPU_ROOT_DIR/models}"
-
-export HF_HOME="${HF_HOME:-$SHARED_MODELS_DIR/huggingface}"
-export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
-export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
-export TORCH_HOME="${TORCH_HOME:-$SHARED_MODELS_DIR/torch}"
 
 readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
 readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
@@ -78,9 +72,8 @@ resolve_model_alias() {
 
 resolve_model_alias
 
-readonly MODELS_DIR="${IMAGE_TAGGING_MODELS_DIR:-$SHARED_MODELS_DIR/$RESOLVED_MODELS_SUBDIR}"
 readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-$RESOLVED_MODEL_REPO}"
-readonly MODEL_PATH="${MODELS_DIR}"
+MODEL_PATH="${IMAGE_TAGGING_MODEL_PATH:-}"
 
 venv_package_name() {
     "$PYTHON_BIN" - <<'PY'
@@ -206,10 +199,28 @@ ensure_python_packages() {
 }
 
 ensure_models() {
-    mkdir -p "$MODELS_DIR"
-    "$VENV_PYTHON" "$ROOT_DIR/bootstrap_models.py" \
-        --repo-id "$MODEL_REPO" \
-        --dest-dir "$MODEL_PATH"
+    local model_json=""
+    local model_env=""
+    local -a model_cmd=(
+        "$VENV_PYTHON" "$ROOT_DIR/bootstrap_models.py"
+        --repo-id "$MODEL_REPO"
+    )
+
+    if [ -n "$MODEL_PATH" ]; then
+        return 0
+    fi
+
+    model_json="$("${model_cmd[@]}")"
+    model_env="$("$VENV_PYTHON" - "$model_json" <<'PY'
+import json
+import shlex
+import sys
+
+data = json.loads(sys.argv[1])
+print(f"MODEL_PATH={shlex.quote(data['model_path'])}")
+PY
+)"
+    eval "$model_env"
 }
 
 wait_for_mlx_server() {
@@ -342,11 +353,10 @@ echo "Starting Infumap image tagging service (MLX)"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "API host/port: $HOST:$PORT"
 echo "mlx-vlm server URL: $IMAGE_TAGGING_MLX_SERVER_URL"
-echo "Shared models dir: $SHARED_MODELS_DIR"
+echo "Hugging Face cache: ${HF_HOME:-<library default>}"
 echo "Model alias: $RESOLVED_ALIAS"
 echo "Default alias: $RESOLVED_DEFAULT_ALIAS"
 echo "Model repo: $MODEL_REPO"
-echo "Model path: $MODEL_PATH"
 echo "Image embedding enabled: $IMAGE_EMBEDDING_ENABLED"
 echo "Image embedding model: $IMAGE_EMBEDDING_MODEL_ID"
 echo "IMAGE_TAGGING_MAX_CONCURRENCY=${IMAGE_TAGGING_MAX_CONCURRENCY}"
@@ -354,6 +364,7 @@ echo "GPU: $(system_profiler SPDisplaysDataType 2>/dev/null | grep -E "Chipset M
 
 if [ "$MANAGE_MLX_SERVER" = "1" ]; then
     ensure_models
+    echo "Model path: $MODEL_PATH"
 
     mlx_cmd=(
         "$VENV_PYTHON" -m mlx_vlm.server
