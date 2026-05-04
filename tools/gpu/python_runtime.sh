@@ -39,16 +39,8 @@ PY
 
 add_gpu_python_candidate() {
     local candidate="$1"
-    local existing=""
 
     [ -n "$candidate" ] || return 0
-
-    for existing in "${candidates[@]}"; do
-        if [ "$existing" = "$candidate" ]; then
-            return 0
-        fi
-    done
-
     candidates+=("$candidate")
 }
 
