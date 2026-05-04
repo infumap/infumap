@@ -20,8 +20,10 @@ set -euo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
-readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
 readonly VENV_DIR="${IMAGE_TAGGING_VENV_DIR:-$ROOT_DIR/.venv}"
+source "$GPU_ROOT_DIR/python_runtime.sh"
+PYTHON_BIN="$(select_gpu_python_bin "$VENV_DIR")"
+readonly PYTHON_BIN
 readonly HOST="${IMAGE_TAGGING_HOST:-127.0.0.1}"
 readonly PORT="${IMAGE_TAGGING_PORT:-8788}"
 readonly MANAGE_LLAMA_SERVER="${IMAGE_TAGGING_MANAGE_LLAMA_SERVER:-1}"
@@ -427,6 +429,8 @@ fi
 if ! "$PYTHON_BIN" -m venv --help >/dev/null 2>&1; then
     fail "python venv support is required. On Debian this is usually provided by python3-venv."
 fi
+
+ensure_gpu_venv_python "$VENV_DIR" "$PYTHON_BIN"
 
 if [ ! -x "$VENV_DIR/bin/python" ]; then
     create_venv

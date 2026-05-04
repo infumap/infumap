@@ -7,6 +7,11 @@ This folder contains the three HTTP tools plus a shared HTTP gateway:
 - `text_embedding`
 - `text_extraction`
 
+The service launchers require Python 3.10 or newer because the pinned API and
+ML dependencies no longer install on Python 3.9. By default they reuse a valid
+service `.venv`, then try `python3` and common `python3.x` executables. Set
+`PYTHON_BIN=/path/to/python3.11` to force a specific interpreter.
+
 To start all three together from the repo root:
 
 ```bash

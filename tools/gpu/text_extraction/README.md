@@ -17,8 +17,10 @@ Works well on a google cloud g2-standard-4 instance (NVIDIA L4). Note that a T4 
 
 Requirements:
 
-- `python3`
+- `python3` 3.10 or newer
 - `python3-venv`
+
+Set `PYTHON_BIN=/path/to/python3.11` if your default `python3` is older.
 
 From the repo root:
 
