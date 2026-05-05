@@ -28,7 +28,6 @@ readonly REQUIREMENTS_FILES=(
   "text_embedding:tools/gpu/text_embedding/requirements.txt"
   "text_embedding (fastembed CPU):tools/gpu/text_embedding/requirements-fastembed.txt"
   "image_tagging:tools/gpu/image_tagging/requirements.txt"
-  "image_tagging_mlx:tools/gpu/image_tagging_mlx/requirements.txt"
   # CVE-2026-25990 (pillow >=10.3.0,<12.1.1, CVSS 8.9): out-of-bounds write loading
   #   PSD images. Low risk here — PDFs rarely embed PSD files.
   # CVE-2025-68616 (weasyprint <68.0, CVSS 7.5): SSRF bypass via HTTP redirects.

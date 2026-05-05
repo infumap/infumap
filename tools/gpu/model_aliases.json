@@ -22,14 +22,6 @@
       "llama_model_name": "gemma-4-26B-A4B-it-UD-Q4_K_XL",
       "llama_extra_args": "--chat-template-kwargs {\"enable_thinking\":false}"
     },
-    "qwen25vl7b4bit": {
-      "modalities": ["text", "image"],
-      "runtime": "mlx-vlm",
-      "model_repo": "mlx-community/Qwen2.5-VL-7B-Instruct-4bit",
-      "models_subdir": "mlx/qwen25vl7b4bit",
-      "model_id": "mlx-community/Qwen2.5-VL-7B-Instruct-4bit",
-      "mlx_model_name": "Qwen2.5-VL-7B-Instruct-4bit"
-    },
     "bgebase": {
       "modalities": ["text_embedding"],
       "runtime": "fastembed",
@@ -42,10 +34,6 @@
     "image_tagging": {
       "default_alias": "qwen9",
       "allowed_aliases": ["qwen9", "gemma26"]
-    },
-    "image_tagging_mlx": {
-      "default_alias": "qwen25vl7b4bit",
-      "allowed_aliases": ["qwen25vl7b4bit"]
     },
     "text_embedding": {
       "default_alias": "bgebase",
