@@ -36,16 +36,16 @@ Hugging Face, FastEmbed, PyTorch, Transformers, and Marker downloads use their
 standard library cache locations, such as `~/.cache/huggingface` and
 `~/.cache/torch`.
 
-Short model aliases live in `tools/gpu/model_aliases.json`. That registry now
+Short model aliases live in `tools/gpu/model_aliases.json`. This registry
 has a global `aliases` section plus a `tools` section for per-tool defaults and
 compatibility. The launchers resolve it through `tools/gpu/resolve_model_alias.py`.
 
-Note: `tools/gpu/text_embedding` now defaults to CPU execution. Set
+Note: `tools/gpu/text_embedding` defaults to CPU execution. Set
 `TEXT_EMBEDDING_DEVICE=gpu` if you want that service to request acceleration.
 
 The combined launcher keeps each service independent:
 
-- each child service still uses its own `run.sh` for setup and local supervision
+- each child service uses its own `run.sh` for setup and local supervision
 - the gateway uses its own `run.sh`
 - the top-level launcher monitors all child launchers and restarts a service if its launcher exits
 - requests are not serialized globally across all endpoints
