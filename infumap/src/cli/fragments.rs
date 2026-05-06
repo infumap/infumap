@@ -16,10 +16,10 @@ use time::format_description::well_known::Rfc3339;
 use tokio::fs;
 use tokio::sync::Mutex;
 
-use crate::ai::image_tagging::should_tag_image_item;
-use crate::ai::rag::{
+use crate::ai::fragments::{
   FragmentBuildOutcome, FragmentInput, FragmentSourceKind, build_fragment_inputs_for_item, clear_fragments_for_item,
 };
+use crate::ai::image_tagging::should_tag_image_item;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
@@ -78,7 +78,7 @@ struct FragmentRunSummary {
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("fragments")
-    .about("Build on-disk RAG fragment artifacts without starting the web server.")
+    .about("Build on-disk fragment artifacts without starting the web server.")
     .subcommand_required(true)
     .arg_required_else_help(true)
     .subcommand(make_content_subcommand())
@@ -254,7 +254,7 @@ fn record_fragment_outcome(summary: &mut FragmentRunSummary, outcome: &FragmentB
 
 fn log_fragment_summary(target_kind: FragmentTargetKind, summary: &FragmentRunSummary) {
   info!(
-    "Built {} RAG fragments for {} item(s), wrote {} fragment(s), cleared {} empty item artifact dir(s).",
+    "Built {} fragments for {} item(s), wrote {} fragment(s), cleared {} empty item artifact dir(s).",
     target_kind.summary_label(),
     summary.items_with_fragments,
     summary.fragments_written,

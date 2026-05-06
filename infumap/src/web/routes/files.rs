@@ -642,13 +642,13 @@ fn item_geo_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Pat
 }
 
 fn item_fragments_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_rag_dir(data_dir, user_id, item_id)?;
+  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
   path.push("fragments_manifest.json");
   Ok(path)
 }
 
 fn item_fragments_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_rag_dir(data_dir, user_id, item_id)?;
+  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
   path.push("fragments.jsonl");
   Ok(path)
 }
@@ -664,13 +664,13 @@ fn item_text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResu
   Ok(path)
 }
 
-fn item_rag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+fn item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   if item_id.len() < 2 {
     return Err(format!("Item id '{}' is too short.", item_id).into());
   }
   let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
   path.push(format!("user_{}", user_id));
-  path.push("rag");
+  path.push("fragments");
   path.push(&item_id[..2]);
   path.push(item_id);
   Ok(path)

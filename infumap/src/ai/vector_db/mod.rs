@@ -4,8 +4,15 @@ use std::path::PathBuf;
 
 use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
+use tokio::fs;
+
+use crate::util::fs::{expand_tilde, path_exists};
 
 pub mod sqlite_vec;
+
+pub const USER_INDEX_DIR_NAME: &str = "indexes";
+pub const FRAGMENT_VECTOR_DB_FILENAME: &str = "fragments.sqlite3";
+pub const FRAGMENT_VECTOR_DB_TEMP_FILENAME: &str = "fragments.sqlite3.tmp";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct EmbeddedFragment {
@@ -42,5 +49,76 @@ pub enum FragmentVectorDbBackend {
 pub fn open_fragment_vector_db(backend: FragmentVectorDbBackend, db_path: PathBuf) -> Box<dyn FragmentVectorDb> {
   match backend {
     FragmentVectorDbBackend::SqliteVec => Box::new(sqlite_vec::SqliteVecFragmentVectorDb::new(db_path)),
+  }
+}
+
+pub fn user_index_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  path.push(format!("user_{}", user_id));
+  path.push(USER_INDEX_DIR_NAME);
+  Ok(path)
+}
+
+pub async fn ensure_user_index_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+  let index_dir = user_index_dir(data_dir, user_id)?;
+  if !path_exists(&index_dir).await {
+    fs::create_dir_all(&index_dir).await?;
+  }
+  Ok(index_dir)
+}
+
+pub fn fragment_vector_db_path(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+  let mut path = user_index_dir(data_dir, user_id)?;
+  path.push(FRAGMENT_VECTOR_DB_FILENAME);
+  Ok(path)
+}
+
+pub fn fragment_vector_db_temp_path(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+  let mut path = user_index_dir(data_dir, user_id)?;
+  path.push(FRAGMENT_VECTOR_DB_TEMP_FILENAME);
+  Ok(path)
+}
+
+pub fn open_user_fragment_vector_db(
+  data_dir: &str,
+  user_id: &str,
+  backend: FragmentVectorDbBackend,
+) -> InfuResult<Box<dyn FragmentVectorDb>> {
+  Ok(open_fragment_vector_db(backend, fragment_vector_db_path(data_dir, user_id)?))
+}
+
+#[cfg(test)]
+mod tests {
+  use std::path::PathBuf;
+
+  use super::{
+    FRAGMENT_VECTOR_DB_FILENAME, FRAGMENT_VECTOR_DB_TEMP_FILENAME, USER_INDEX_DIR_NAME, ensure_user_index_dir,
+    fragment_vector_db_path, fragment_vector_db_temp_path, user_index_dir,
+  };
+
+  #[test]
+  fn builds_user_index_paths_next_to_user_artifact_dirs() {
+    let index_dir = user_index_dir("/data/infumap", "abc123").unwrap();
+    assert_eq!(index_dir, PathBuf::from("/data/infumap/user_abc123").join(USER_INDEX_DIR_NAME));
+
+    let db_path = fragment_vector_db_path("/data/infumap", "abc123").unwrap();
+    assert_eq!(db_path, index_dir.join(FRAGMENT_VECTOR_DB_FILENAME));
+
+    let temp_path = fragment_vector_db_temp_path("/data/infumap", "abc123").unwrap();
+    assert_eq!(temp_path, index_dir.join(FRAGMENT_VECTOR_DB_TEMP_FILENAME));
+  }
+
+  #[tokio::test]
+  async fn ensures_user_index_dir_exists() {
+    let data_dir = std::env::temp_dir().join(format!("infumap-index-layout-test-{}", std::process::id()));
+    if data_dir.exists() {
+      std::fs::remove_dir_all(&data_dir).unwrap();
+    }
+
+    let index_dir = ensure_user_index_dir(data_dir.to_str().unwrap(), "abc123").await.unwrap();
+    assert!(index_dir.is_dir());
+    assert_eq!(index_dir, data_dir.join("user_abc123").join(USER_INDEX_DIR_NAME));
+
+    std::fs::remove_dir_all(&data_dir).unwrap();
   }
 }

@@ -136,7 +136,7 @@ fn fragments_path_for_item(data_dir: &str, user_id: &str, item_id: &str) -> Infu
   }
   let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
   path.push(format!("user_{}", user_id));
-  path.push("rag");
+  path.push("fragments");
   path.push(&item_id[..2]);
   path.push(item_id);
   path.push("fragments.jsonl");

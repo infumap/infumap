@@ -183,7 +183,7 @@ Options:
 
 ### fragments
 
-Build on-disk RAG fragment artifacts without starting the web server. Fragments are written for pages and tables using the container title when present plus the titles of the items they contain. Composite children contribute the title text of the items inside the composite.
+Build on-disk fragment artifacts without starting the web server. Fragments are written for pages and tables using the container title when present plus the titles of the items they contain. Composite children contribute the title text of the items inside the composite.
 
 Options:
 

@@ -92,7 +92,7 @@ pub async fn build_fragments_for_item(
   let source_text = source_text.trim();
   let container_title = container_title.map(|title| title.trim().to_owned()).filter(|title| !title.is_empty());
   if source_text.is_empty() && container_title.is_none() {
-    let cleared = clear_item_rag_dir(data_dir, &item.owner_id, &item.id).await?;
+    let cleared = clear_item_fragments_dir(data_dir, &item.owner_id, &item.id).await?;
     return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
   }
   let fragment_text = match container_title.as_deref() {
@@ -123,12 +123,12 @@ pub async fn build_fragment_inputs_for_item(
     .collect::<Vec<FragmentInput>>();
 
   if fragments.is_empty() {
-    let cleared = clear_item_rag_dir(data_dir, &item.owner_id, &item.id).await?;
+    let cleared = clear_item_fragments_dir(data_dir, &item.owner_id, &item.id).await?;
     return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
   }
 
-  ensure_user_rag_dir(data_dir, &item.owner_id).await?;
-  let item_dir = item_rag_dir(data_dir, &item.owner_id, &item.id)?;
+  ensure_user_fragments_dir(data_dir, &item.owner_id).await?;
+  let item_dir = item_fragments_dir(data_dir, &item.owner_id, &item.id)?;
   fs::create_dir_all(&item_dir).await?;
   let fragments_path = fragments_path(data_dir, &item.owner_id, &item.id)?;
   let manifest_path = fragments_manifest_path(data_dir, &item.owner_id, &item.id)?;
@@ -163,7 +163,7 @@ pub async fn build_fragment_inputs_for_item(
 }
 
 pub async fn clear_fragments_for_item(data_dir: &str, item: &Item) -> InfuResult<FragmentBuildOutcome> {
-  let cleared = clear_item_rag_dir(data_dir, &item.owner_id, &item.id).await?;
+  let cleared = clear_item_fragments_dir(data_dir, &item.owner_id, &item.id).await?;
   Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() })
 }
 
@@ -174,29 +174,29 @@ fn sha256_hex(text: &str) -> String {
 }
 
 fn fragments_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_rag_dir(data_dir, user_id, item_id)?;
+  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
   path.push("fragments.jsonl");
   Ok(path)
 }
 
 fn fragments_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_rag_dir(data_dir, user_id, item_id)?;
+  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
   path.push("fragments_manifest.json");
   Ok(path)
 }
 
-fn item_rag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
+fn item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
   if item_id.len() < 2 {
     return Err(format!("Item id '{}' is too short.", item_id).into());
   }
-  let mut rag_dir = user_rag_dir(data_dir, user_id)?;
-  rag_dir.push(&item_id[..2]);
-  rag_dir.push(item_id);
-  Ok(rag_dir)
+  let mut fragments_dir = user_fragments_dir(data_dir, user_id)?;
+  fragments_dir.push(&item_id[..2]);
+  fragments_dir.push(item_id);
+  Ok(fragments_dir)
 }
 
-async fn clear_item_rag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
-  let dir = item_rag_dir(data_dir, user_id, item_id)?;
+async fn clear_item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
+  let dir = item_fragments_dir(data_dir, user_id, item_id)?;
   if !path_exists(&dir).await {
     return Ok(false);
   }
@@ -204,20 +204,20 @@ async fn clear_item_rag_dir(data_dir: &str, user_id: &str, item_id: &str) -> Inf
   Ok(true)
 }
 
-fn user_rag_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+fn user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
   let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
   path.push(format!("user_{}", user_id));
-  path.push("rag");
+  path.push("fragments");
   Ok(path)
 }
 
-async fn ensure_user_rag_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let rag_dir = user_rag_dir(data_dir, user_id)?;
-  if !path_exists(&rag_dir).await {
-    fs::create_dir_all(&rag_dir).await?;
+async fn ensure_user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+  let fragments_dir = user_fragments_dir(data_dir, user_id)?;
+  if !path_exists(&fragments_dir).await {
+    fs::create_dir_all(&fragments_dir).await?;
   }
-  ensure_256_subdirs(&rag_dir).await?;
-  Ok(rag_dir)
+  ensure_256_subdirs(&fragments_dir).await?;
+  Ok(fragments_dir)
 }
 
 fn unix_now_secs() -> InfuResult<i64> {
