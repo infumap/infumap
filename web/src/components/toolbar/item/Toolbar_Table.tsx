@@ -29,6 +29,7 @@ import { ClickState } from "../../../input/state";
 import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Table: Component = () => {
@@ -37,7 +38,7 @@ export const Toolbar_Table: Component = () => {
   let numColsDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
 
-  const tableItem = () => asTableItem(store.history.getFocusItem());
+  const tableItem = () => asTableItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(tableItem());
 
   const isSortedByTitle = () => {

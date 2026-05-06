@@ -25,6 +25,7 @@ import { ClickState } from "../../../input/state";
 import { FileFns, asFileItem } from "../../../items/file-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_File: Component = () => {
@@ -33,7 +34,7 @@ export const Toolbar_File: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
   let iconDiv: HTMLDivElement | undefined;
 
-  const fileItem = () => asFileItem(store.history.getFocusItem());
+  const fileItem = () => asFileItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(fileItem());
 
   const iconVisible = (): boolean => {

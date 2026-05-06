@@ -25,6 +25,7 @@ import { ClickState } from "../../../input/state";
 import { asRatingItem, ratingTypeLabel } from "../../../items/rating-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Rating: Component = () => {
@@ -32,7 +33,7 @@ export const Toolbar_Rating: Component = () => {
 
   let qrDiv: HTMLDivElement | undefined;
 
-  const ratingItem = () => asRatingItem(store.history.getFocusItem());
+  const ratingItem = () => asRatingItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(ratingItem());
   const ratingTypeText = () => {
     store.touchToolbarDependency();

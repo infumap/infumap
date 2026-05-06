@@ -54,6 +54,7 @@ import { Toolbar_Search } from './item/Toolbar_Search';
 import { VesCache } from '../../layout/ves-cache';
 import { logout } from '../Main';
 import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chrome';
+import { getToolbarFocusItem } from './toolbarFocus';
 
 
 const TOOLBAR_LOGO_VISIBLE_SIZE_PX = 28 * 419 / 448;
@@ -203,6 +204,7 @@ export const Toolbar: Component = () => {
     titleSpecs()[titleSpecs().length - 1];
 
   const focusedSearchChrome = () => getFocusedSearchWorkspaceChromeSpec(store);
+  const toolbarFocusItem = () => getToolbarFocusItem(store);
 
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
@@ -273,36 +275,36 @@ export const Toolbar: Component = () => {
 
       <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
         <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
-          <Match when={isPage(store.history.getFocusItem())}>
-            <Show when={asPageItem(store.history.getFocusItem()).arrangeAlgorithm != ArrangeAlgorithm.SingleCell}>
+          <Match when={isPage(toolbarFocusItem())}>
+            <Show when={asPageItem(toolbarFocusItem()).arrangeAlgorithm != ArrangeAlgorithm.SingleCell}>
               <Toolbar_Page />
             </Show>
           </Match>
-          <Match when={isNote(store.history.getFocusItem())}>
+          <Match when={isNote(toolbarFocusItem())}>
             <Toolbar_Note />
           </Match>
-          <Match when={isTable(store.history.getFocusItem())}>
+          <Match when={isTable(toolbarFocusItem())}>
             <Toolbar_Table />
           </Match>
-          <Match when={isRating(store.history.getFocusItem())}>
+          <Match when={isRating(toolbarFocusItem())}>
             <Toolbar_Rating />
           </Match>
-          <Match when={isPassword(store.history.getFocusItem())}>
+          <Match when={isPassword(toolbarFocusItem())}>
             <Toolbar_Password />
           </Match>
-          <Match when={isImage(store.history.getFocusItem())}>
+          <Match when={isImage(toolbarFocusItem())}>
             <Toolbar_Image />
           </Match>
-          <Match when={isFile(store.history.getFocusItem())}>
+          <Match when={isFile(toolbarFocusItem())}>
             <Toolbar_File />
           </Match>
-          <Match when={isLink(store.history.getFocusItem())}>
+          <Match when={isLink(toolbarFocusItem())}>
             <Toolbar_Link />
           </Match>
-          <Match when={isComposite(store.history.getFocusItem())}>
+          <Match when={isComposite(toolbarFocusItem())}>
             <Toolbar_Composite />
           </Match>
-          <Match when={isSearch(store.history.getFocusItem())}>
+          <Match when={isSearch(toolbarFocusItem())}>
             <Toolbar_Search />
           </Match>
         </Switch>

@@ -23,6 +23,7 @@ import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProv
 import { asCompositeItem } from "../../../items/composite-item";
 import { ClickState } from "../../../input/state";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Composite: Component = () => {
@@ -30,7 +31,7 @@ export const Toolbar_Composite: Component = () => {
 
   let qrDiv: HTMLDivElement | undefined;
 
-  const compositeItem = () => asCompositeItem(store.history.getFocusItem());
+  const compositeItem = () => asCompositeItem(getToolbarFocusItem(store));
 
   const handleQr = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {

@@ -27,6 +27,7 @@ import { serverOrRemote } from "../../../server";
 import { itemState } from "../../../store/ItemState";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
+import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 
 export const Toolbar_ItemOrdering: Component = () => {
   const store = useStore();
@@ -34,7 +35,7 @@ export const Toolbar_ItemOrdering: Component = () => {
   const shouldShow = () => {
     store.touchToolbarDependency();
 
-    const focusPath = store.history.getFocusPathMaybe();
+    const focusPath = getToolbarFocusPathMaybe(store);
     if (focusPath == null) {
       return false;
     }
@@ -47,7 +48,7 @@ export const Toolbar_ItemOrdering: Component = () => {
       return false;
     }
 
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     if (!itemCanMove(focusItem)) {
       return false;
     }
@@ -65,7 +66,7 @@ export const Toolbar_ItemOrdering: Component = () => {
   };
 
   const moveFocusedItemToTop = () => {
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     const parentId = focusItem.parentId;
     if (parentId == null) {
       return;
@@ -79,7 +80,7 @@ export const Toolbar_ItemOrdering: Component = () => {
   };
 
   const moveFocusedItemToBottom = () => {
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     const parentId = focusItem.parentId;
     if (parentId == null) {
       return;

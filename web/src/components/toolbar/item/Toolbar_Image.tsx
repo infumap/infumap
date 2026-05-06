@@ -28,12 +28,13 @@ import { ClickState } from "../../../input/state";
 import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Image: Component = () => {
   const store = useStore();
 
-  const imageItem = () => asImageItem(store.history.getFocusItem());
+  const imageItem = () => asImageItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(imageItem());
 
   let qrDiv: HTMLDivElement | undefined;

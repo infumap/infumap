@@ -24,6 +24,7 @@ import { ClickState } from "../../../input/state";
 import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../../items/page-item";
 import { asSearchItem } from "../../../items/search-item";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Search: Component = () => {
@@ -32,7 +33,7 @@ export const Toolbar_Search: Component = () => {
   let arrangeAlgoDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
 
-  const searchItem = () => asSearchItem(store.history.getFocusItem());
+  const searchItem = () => asSearchItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(searchItem());
 
   const handleArrangeAlgoClick = () => {

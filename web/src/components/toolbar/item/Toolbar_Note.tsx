@@ -31,6 +31,7 @@ import { GRID_SIZE } from "../../../constants";
 import { itemState } from "../../../store/ItemState";
 import { isTable } from "../../../items/table-item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Note: Component = () => {
@@ -44,7 +45,7 @@ export const Toolbar_Note: Component = () => {
 
   const noteItem = () => {
     store.touchToolbarDependency();
-    return asNoteItem(store.history.getFocusItem());
+    return asNoteItem(getToolbarFocusItem(store));
   };
   const canEdit = () => itemCanEdit(noteItem());
   const compositeItemMaybe = () => {

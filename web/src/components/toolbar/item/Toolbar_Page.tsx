@@ -35,6 +35,7 @@ import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { VeFns } from "../../../layout/visual-element";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Page: Component = () => {
@@ -52,7 +53,7 @@ export const Toolbar_Page: Component = () => {
   let calendarDayRowHeightDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
 
-  const pageItem = () => asPageItem(store.history.getFocusItem());
+  const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(pageItem());
 
   // Arrange Algorithm

@@ -25,6 +25,7 @@ import { ClickState } from "../../../input/state";
 import { PasswordFns, asPasswordItem } from "../../../items/password-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Password: Component = () => {
@@ -33,7 +34,7 @@ export const Toolbar_Password: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
   let iconDiv: HTMLDivElement | undefined;
 
-  const passwordItem = () => asPasswordItem(store.history.getFocusItem());
+  const passwordItem = () => asPasswordItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(passwordItem());
 
   const iconVisible = (): boolean => {

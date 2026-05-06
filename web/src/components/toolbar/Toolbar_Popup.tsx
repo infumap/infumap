@@ -46,6 +46,7 @@ import { FileFns, asFileItem, isFile } from "../../items/file-item";
 import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-item";
 import { isImage } from "../../items/image-item";
 import { asContainerItem } from "../../items/base/container-item";
+import { getToolbarFocusItem } from "./toolbarFocus";
 
 
 const EMOJI_CATEGORIES = [
@@ -184,12 +185,12 @@ function documentArrangeEnabled(store: StoreContextModel): boolean {
 export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   const popupType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const compositeItemMaybe = () => {
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     if (!isComposite(focusItem)) { return null; }
     return asCompositeItem(focusItem);
   };
   const showSeparateCompositeSection = () =>
-    compositeItemMaybe() != null && compositeItemMaybe()!.id != store.history.getFocusItem().id;
+    compositeItemMaybe() != null && compositeItemMaybe()!.id != getToolbarFocusItem(store).id;
 
   if (popupType != ToolbarPopupType.PageColor &&
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
@@ -244,47 +245,47 @@ export const Toolbar_Popup: Component = () => {
   let textElement: HTMLInputElement | undefined;
   let emojiInputElement: HTMLInputElement | undefined;
 
-  const pageItem = () => asPageItem(store.history.getFocusItem());
-  const noteItem = () => asNoteItem(store.history.getFocusItem());
-  const fileItem = () => asFileItem(store.history.getFocusItem());
-  const passwordItem = () => asPasswordItem(store.history.getFocusItem());
-  const tableItem = () => asTableItem(store.history.getFocusItem());
-  const ratingItem = () => asRatingItem(store.history.getFocusItem());
-  const formatItem = () => asFormatItem(store.history.getFocusItem());
+  const pageItem = () => asPageItem(getToolbarFocusItem(store));
+  const noteItem = () => asNoteItem(getToolbarFocusItem(store));
+  const fileItem = () => asFileItem(getToolbarFocusItem(store));
+  const passwordItem = () => asPasswordItem(getToolbarFocusItem(store));
+  const tableItem = () => asTableItem(getToolbarFocusItem(store));
+  const ratingItem = () => asRatingItem(getToolbarFocusItem(store));
+  const formatItem = () => asFormatItem(getToolbarFocusItem(store));
   const compositeItemMaybe = () => {
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     if (!isComposite(focusItem)) { return null; }
     return asCompositeItem(focusItem);
   };
   const showSeparateCompositeSection = () =>
-    compositeItemMaybe() != null && compositeItemMaybe()!.id != store.history.getFocusItem().id;
+    compositeItemMaybe() != null && compositeItemMaybe()!.id != getToolbarFocusItem(store).id;
 
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const [sliderValue, setSliderValue] = createSignal(
-    isTable(store.history.getFocusItem())
-      ? asTableItem(store.history.getFocusItem()).numberOfVisibleColumns.toString()
-      : isPage(store.history.getFocusItem())
+    isTable(getToolbarFocusItem(store))
+      ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
+      : isPage(getToolbarFocusItem(store))
         ? overlayTypeConst == ToolbarPopupType.PageCalendarDayRowHeight
-          ? asPageItem(store.history.getFocusItem()).calendarDayRowHeightBl.toString()
-          : asPageItem(store.history.getFocusItem()).gridNumberOfColumns.toString()
+          ? asPageItem(getToolbarFocusItem(store)).calendarDayRowHeightBl.toString()
+          : asPageItem(getToolbarFocusItem(store)).gridNumberOfColumns.toString()
         : "1"
   );
   const [itemIconVisible, setItemIconVisible] = createSignal(
-    overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(store.history.getFocusItem())
+    overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(getToolbarFocusItem(store))
       ? noteItem().iconMode == ItemIconMode.Symbol || noteItem().iconMode == ItemIconMode.Favicon
-      : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(store.history.getFocusItem())
+      : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(getToolbarFocusItem(store))
         ? fileItem().iconMode == ItemIconMode.Symbol
-        : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(store.history.getFocusItem())
+        : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(getToolbarFocusItem(store))
           ? passwordItem().iconMode == ItemIconMode.Symbol
           : false
   );
   const [selectedEmojiValue, setSelectedEmojiValue] = createSignal<string | null>(
-    overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(store.history.getFocusItem())
+    overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(getToolbarFocusItem(store))
       ? NoteFns.emoji(noteItem())
-      : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(store.history.getFocusItem())
+      : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(getToolbarFocusItem(store))
         ? FileFns.emoji(fileItem())
-        : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(store.history.getFocusItem())
+        : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(getToolbarFocusItem(store))
           ? PasswordFns.emoji(passwordItem())
           : null
   );
@@ -294,8 +295,8 @@ export const Toolbar_Popup: Component = () => {
     if (ev.code == "Enter") {
       handleTextChange();
       store.touchToolbar();
-      if (isNote(store.history.getFocusItem())) {
-        serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+      if (isNote(getToolbarFocusItem(store))) {
+        serverOrRemote.updateItem(getToolbarFocusItem(store), store.general.networkStatus);
         setTimeout(() => {
           store.overlay.toolbarPopupInfoMaybe.set(null);
           document.getElementById("noteEditOverlayTextArea")!.focus();
@@ -348,9 +349,9 @@ export const Toolbar_Popup: Component = () => {
 
   onMount(() => {
     if (overlayType() == ToolbarPopupType.TableNumCols) {
-      setSliderValue(asTableItem(store.history.getFocusItem()).numberOfVisibleColumns.toString());
+      setSliderValue(asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString());
     } else if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) {
-      setSliderValue(asPageItem(store.history.getFocusItem()).calendarDayRowHeightBl.toString());
+      setSliderValue(asPageItem(getToolbarFocusItem(store)).calendarDayRowHeightBl.toString());
     }
 
     if (overlayType() != ToolbarPopupType.PageColor &&
@@ -367,12 +368,12 @@ export const Toolbar_Popup: Component = () => {
   });
 
   const handleColorClick = (col: number) => {
-    if (!isPage(store.history.getFocusItem())) {
-      panic(`unexpected item type ${store.history.getFocusItem().itemType} changing color.`);
+    if (!isPage(getToolbarFocusItem(store))) {
+      panic(`unexpected item type ${getToolbarFocusItem(store).itemType} changing color.`);
     }
     pageItem().backgroundColorIndex = col;
     store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
-    serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(getToolbarFocusItem(store), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-page-color");
@@ -431,29 +432,29 @@ export const Toolbar_Popup: Component = () => {
   const emojiFontStyle = () =>
     `font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;`;
   const defaultItemIconText = (): string =>
-    isFile(store.history.getFocusItem()) ? DEFAULT_FILE_ICON_TEXT :
-      isPassword(store.history.getFocusItem()) ? DEFAULT_PASSWORD_ICON_TEXT :
+    isFile(getToolbarFocusItem(store)) ? DEFAULT_FILE_ICON_TEXT :
+      isPassword(getToolbarFocusItem(store)) ? DEFAULT_PASSWORD_ICON_TEXT :
         DEFAULT_NOTE_ICON_TEXT;
   const defaultItemIconClass = (): string =>
-    isFile(store.history.getFocusItem()) ? "fas fa-file" :
-      isPassword(store.history.getFocusItem()) ? "fas fa-eye-slash" :
+    isFile(getToolbarFocusItem(store)) ? "fas fa-file" :
+      isPassword(getToolbarFocusItem(store)) ? "fas fa-eye-slash" :
         "fas fa-sticky-note";
   const itemIconLabel = (): string =>
-    isFile(store.history.getFocusItem()) ? "file" :
-      isPassword(store.history.getFocusItem()) ? "password" :
+    isFile(getToolbarFocusItem(store)) ? "file" :
+      isPassword(getToolbarFocusItem(store)) ? "password" :
         "note";
   const iconMode = (): ItemIconMode | null =>
-    isNote(store.history.getFocusItem()) ? noteItem().iconMode :
-      isFile(store.history.getFocusItem()) ? fileItem().iconMode :
-        isPassword(store.history.getFocusItem()) ? passwordItem().iconMode :
+    isNote(getToolbarFocusItem(store)) ? noteItem().iconMode :
+      isFile(getToolbarFocusItem(store)) ? fileItem().iconMode :
+        isPassword(getToolbarFocusItem(store)) ? passwordItem().iconMode :
           null;
   const itemIconIsAuto = (): boolean => iconMode() == ItemIconMode.Auto;
   const itemIconIsNone = (): boolean => iconMode() == ItemIconMode.None;
   const itemIconIsSymbol = (): boolean => iconMode() == ItemIconMode.Symbol;
-  const noteIconIsFavicon = (): boolean => isNote(store.history.getFocusItem()) && noteItem().iconMode == ItemIconMode.Favicon;
-  const noteHasFaviconUrl = (): boolean => isNote(store.history.getFocusItem()) && noteItem().url.trim() != "";
-  const noteFaviconPath = (): string | null => isNote(store.history.getFocusItem()) ? NoteFns.faviconPath(noteItem()) : null;
-  const noteFaviconLoadStatus = (): NoteFaviconLoadStatus => isNote(store.history.getFocusItem())
+  const noteIconIsFavicon = (): boolean => isNote(getToolbarFocusItem(store)) && noteItem().iconMode == ItemIconMode.Favicon;
+  const noteHasFaviconUrl = (): boolean => isNote(getToolbarFocusItem(store)) && noteItem().url.trim() != "";
+  const noteFaviconPath = (): string | null => isNote(getToolbarFocusItem(store)) ? NoteFns.faviconPath(noteItem()) : null;
+  const noteFaviconLoadStatus = (): NoteFaviconLoadStatus => isNote(getToolbarFocusItem(store))
     ? noteFaviconStatus(noteFaviconPath(), noteItem().origin)
     : NoteFaviconLoadStatus.Idle;
   const noteFaviconButtonTitle = (): string => {
@@ -516,7 +517,7 @@ export const Toolbar_Popup: Component = () => {
     if (emojiInputElement != null) {
       emojiInputElement.value = useSymbol ? emoji || "" : "";
     }
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     if (useSymbol) {
       if (isNote(focusItem)) {
         noteItem().emoji = emoji;
@@ -550,7 +551,7 @@ export const Toolbar_Popup: Component = () => {
     requestArrange(store, "toolbar-popup-item-icon");
   };
   const chooseAutoIcon = (closePopup: boolean = true): void => {
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     if (!isNote(focusItem) && !isFile(focusItem) && !isPassword(focusItem)) { return; }
     setItemIconVisible(false);
     setSelectedEmojiValue(null);
@@ -577,7 +578,7 @@ export const Toolbar_Popup: Component = () => {
     requestArrange(store, "toolbar-popup-item-icon");
   };
   const chooseFaviconIcon = (closePopup: boolean = true): void => {
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     if (!isNote(focusItem) || !noteHasFaviconUrl()) { return; }
     setItemIconVisible(true);
     setSelectedEmojiValue(null);
@@ -624,11 +625,11 @@ export const Toolbar_Popup: Component = () => {
   const handleCustomEmojiKeyUp = (ev: KeyboardEvent): void => { ev.stopPropagation(); };
   const handleCustomEmojiKeyPress = (ev: KeyboardEvent): void => { ev.stopPropagation(); };
 
-  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(store.history.getFocusItem().id); }
+  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(getToolbarFocusItem(store).id); }
   const linkItemIdClickHandler = (): void => {
-    navigator.clipboard.writeText(window.location.origin + "/" + store.history.getFocusItem()!.id);
+    navigator.clipboard.writeText(window.location.origin + "/" + getToolbarFocusItem(store)!.id);
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.toolbarTransientMessage.set({ text: store.history.getFocusItem().itemType + " id → clipboard", type: TransientMessageType.Info });
+    store.overlay.toolbarTransientMessage.set({ text: getToolbarFocusItem(store).itemType + " id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
@@ -649,7 +650,7 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const openGeneratedItemClickHandler = (suffix: "text" | "fragments", artifactLabel: string): void => {
-    const currentItem = store.history.getFocusItem();
+    const currentItem = getToolbarFocusItem(store);
     store.overlay.toolbarPopupInfoMaybe.set(null);
     if (currentItem.origin != null) {
       const openPromise = suffix == "text"
@@ -666,17 +667,17 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const isDebugSupportedItem = () => {
-    const currentItem = store.history.getFocusItem();
+    const currentItem = getToolbarFocusItem(store);
     return isFile(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
   };
 
   const showExtractedTextDebugLink = () => {
-    const currentItem = store.history.getFocusItem();
+    const currentItem = getToolbarFocusItem(store);
     return isFile(currentItem) || isImage(currentItem);
   };
 
   const showFragmentsDebugLink = () => {
-    const currentItem = store.history.getFocusItem();
+    const currentItem = getToolbarFocusItem(store);
     return isFile(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
   };
 
@@ -699,8 +700,8 @@ export const Toolbar_Popup: Component = () => {
   const handleAutoClick = (): void => {
     const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
     textElement!.value = aspect;
-    if (!isPage(store.history.getFocusItem())) {
-      panic(`unexpected item type ${store.history.getFocusItem().itemType} changing aspect (auto).`);
+    if (!isPage(getToolbarFocusItem(store))) {
+      panic(`unexpected item type ${getToolbarFocusItem(store).itemType} changing aspect (auto).`);
     }
     pageItem().naturalAspect = parseFloat(textElement!.value);
     requestArrange(store, "toolbar-popup-page-aspect-auto");
@@ -715,7 +716,7 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const handlePageArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     if (!isPage(focusItem)) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
@@ -733,7 +734,7 @@ export const Toolbar_Popup: Component = () => {
   const aaDocumentClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Document); }
   const aaCalendarClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Calendar); }
   const handleSearchArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {
-    const focusItem = store.history.getFocusItem();
+    const focusItem = getToolbarFocusItem(store);
     if (!isSearch(focusItem)) { return; }
     store.perItem.setSearchArrangeAlgorithm(
       focusItem.id,
@@ -762,7 +763,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayTypeConst != ToolbarPopupType.QrLink) { return; }
     const canvas = document.getElementById('qrcanvas');
     if (canvas == null) { return; }
-    const url = window.location.origin + "/" + store.history.getFocusItem()!.id;
+    const url = window.location.origin + "/" + getToolbarFocusItem(store)!.id;
     QRCode.toCanvas(canvas, url, { scale: 7 });
   });
 
@@ -888,8 +889,8 @@ export const Toolbar_Popup: Component = () => {
               <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
             </Show>
             <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
-              <span class="font-mono text-slate-400">{store.history.getFocusItem().itemType[0].toUpperCase() + store.history.getFocusItem().itemType.substring(1)} Id:</span><br />
-              <span class="font-mono text-slate-400">{`${store.history.getFocusItem().id}`}</span>
+              <span class="font-mono text-slate-400">{getToolbarFocusItem(store).itemType[0].toUpperCase() + getToolbarFocusItem(store).itemType.substring(1)} Id:</span><br />
+              <span class="font-mono text-slate-400">{`${getToolbarFocusItem(store).id}`}</span>
               <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyItemIdClickHandler} />
             </div>
             <Show when={showSeparateCompositeSection()}>
@@ -905,10 +906,10 @@ export const Toolbar_Popup: Component = () => {
                 {renderDebugLinks()}
               </div>
             </Show>
-            <Show when={isPage(store.history.getFocusItem()) || isTable(store.history.getFocusItem())}>
+            <Show when={isPage(getToolbarFocusItem(store)) || isTable(getToolbarFocusItem(store))}>
               <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
                 {(() => {
-                  const currentItem = store.history.getFocusItem();
+                  const currentItem = getToolbarFocusItem(store);
                   const stats = calculateChildrenStats(asContainerItem(currentItem));
                   return (
                     <>
@@ -946,7 +947,7 @@ export const Toolbar_Popup: Component = () => {
                 onClick={() => chooseItemIcon(null, true, false)}>
                 <i class={defaultItemIconClass()} />
               </button>
-              <Show when={isNote(store.history.getFocusItem())}>
+              <Show when={isNote(getToolbarFocusItem(store))}>
                 <button class={noteFaviconButtonClass()}
                   title={noteFaviconButtonTitle()}
                   type="button"

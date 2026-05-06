@@ -27,6 +27,7 @@ import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Link: Component = () => {
@@ -35,7 +36,7 @@ export const Toolbar_Link: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
   let linkResourceInput: HTMLInputElement | undefined;
 
-  const linkItem = () => asLinkItem(store.history.getFocusItem());
+  const linkItem = () => asLinkItem(getToolbarFocusItem(store));
   const linkItemOnMount = linkItem();
   const canEditOnMount = itemCanEdit(linkItemOnMount);
   const canEdit = () => itemCanEdit(linkItem());
