@@ -17,6 +17,7 @@
 use async_recursion::async_recursion;
 use base64::{Engine as _, engine::general_purpose};
 use bytes::Bytes;
+use config::Config;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::ImageFormat;
@@ -41,12 +42,17 @@ use serde_json::Value;
 use std::io::Cursor;
 use std::str;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::MutexGuard;
 
 use crate::ai::image_tagging::{
   delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
 };
+use crate::ai::text_embedding::{
+  TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
+};
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
+use crate::ai::vector_db::{FragmentVectorDbBackend, open_user_fragment_vector_db};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
 use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};
@@ -63,6 +69,12 @@ use std::collections::{HashMap, HashSet};
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
 // 190+ MiB raw files while remaining bounded.
 const COMMAND_REQUEST_MAX_BYTES: usize = 256 * 1024 * 1024;
+const SEARCH_RRF_K: f64 = 60.0;
+const SEARCH_EXACT_WEIGHT: f64 = 1.25;
+const SEARCH_SEMANTIC_WEIGHT: f64 = 1.0;
+const SEARCH_CANDIDATE_OVERFETCH: i64 = 50;
+const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
+const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
 
 pub static METRIC_COMMAND_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(
@@ -121,6 +133,7 @@ fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKin
 }
 
 pub async fn serve_command_route(
+  config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   object_store: &Arc<object::ObjectStore>,
   image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
@@ -164,7 +177,7 @@ pub async fn serve_command_route(
       handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await
     }
     "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
-    "search" => handle_search(db, &request.json_data, &session_maybe).await,
+    "search" => handle_search(config, db, &request.json_data, &session_maybe).await,
     "empty-trash" => handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     _ => {
       if let Some(session) = &session_maybe {
@@ -1591,6 +1604,7 @@ pub struct SearchResponse {
 }
 
 async fn handle_search(
+  config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
   session_maybe: &Option<Session>,
@@ -1603,33 +1617,46 @@ async fn handle_search(
   let request: SearchRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
-  let mut db = db.lock().await;
-
-  let page_id = if let Some(request_page_id) = request.page_id {
-    request_page_id
-  } else {
-    let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}", session.user_id))?;
-    user.home_page_id.clone()
-  };
-
-  let mut results: Vec<SearchResult> = vec![];
-  let mut current_path: Vec<SearchPathElement> = vec![];
+  let full_user_search = request.page_id.is_none();
+  let search_text = request.text.to_lowercase();
 
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
 
-  let mut current_result = 0;
-  search_recursive(
-    &mut db,
-    &request.text.to_lowercase(),
-    page_id,
-    &session.user_id.clone(),
-    start_result,
-    end_result,
-    &mut current_path,
-    &mut results,
-    &mut current_result,
-  )?;
+  let (exact_results, data_dir) = {
+    let mut db = db.lock().await;
+
+    let page_id = if let Some(request_page_id) = request.page_id {
+      request_page_id
+    } else {
+      let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}", session.user_id))?;
+      user.home_page_id.clone()
+    };
+
+    let exact_end_result =
+      if full_user_search { end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH) } else { end_result };
+    let exact_start_result = if full_user_search { 0 } else { start_result };
+    let exact_results =
+      search_exact_paginated(&mut db, &search_text, page_id, &session.user_id, exact_start_result, exact_end_result)?;
+    (exact_results, db.item.data_dir().to_owned())
+  };
+
+  let mut results = if full_user_search {
+    let semantic_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
+      .map_err(|_| "Search result limit is too large.")?;
+    let semantic_results =
+      match semantic_search_results(config, db, &data_dir, &session.user_id, &request.text, semantic_limit).await {
+        Ok(results) => results,
+        Err(e) => {
+          warn!("Semantic search failed for user '{}'; falling back to exact-only search: {}", session.user_id, e);
+          Vec::new()
+        }
+      };
+    let mixed = mix_search_results(exact_results, semantic_results);
+    paginate_mixed_results(mixed, start_result, end_result)
+  } else {
+    exact_results
+  };
 
   let has_more = results.len() > request.num_results as usize;
   if has_more {
@@ -1640,6 +1667,190 @@ async fn handle_search(
   debug!("Executed 'search' command for user '{}'.", session.user_id);
 
   Ok(Some(serialized_results))
+}
+
+fn search_exact_paginated(
+  db: &mut MutexGuard<'_, Db>,
+  search_text: &str,
+  page_id: Uid,
+  user_id: &Uid,
+  start_result: i64,
+  end_result: i64,
+) -> InfuResult<Vec<SearchResult>> {
+  let mut results: Vec<SearchResult> = vec![];
+  let mut current_path: Vec<SearchPathElement> = vec![];
+  let mut current_result = 0;
+  search_recursive(
+    db,
+    search_text,
+    page_id,
+    user_id,
+    start_result,
+    end_result,
+    &mut current_path,
+    &mut results,
+    &mut current_result,
+  )?;
+  Ok(results)
+}
+
+async fn semantic_search_results(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  data_dir: &str,
+  user_id: &Uid,
+  search_text: &str,
+  limit: usize,
+) -> InfuResult<Vec<SearchResult>> {
+  if limit == 0 || search_text.trim().is_empty() {
+    return Ok(Vec::new());
+  }
+
+  let Some(service_url) = text_embedding_url_from_config(config.as_ref())? else {
+    return Ok(Vec::new());
+  };
+  let embed_url = text_embedding_embed_url(&service_url)?;
+  let client = reqwest::ClientBuilder::new()
+    .timeout(Duration::from_secs(SEARCH_EMBEDDING_TIMEOUT_SECS))
+    .build()
+    .map_err(|e| format!("Could not build semantic search HTTP client: {}", e))?;
+  let embedding_batch = embed_texts(
+    &client,
+    &embed_url,
+    &[TextEmbeddingInput { id: Some("search-query".to_owned()), text: search_text.to_owned() }],
+  )
+  .await?;
+  let query_embedding =
+    embedding_batch.embeddings.into_iter().next().ok_or("Text embedding service returned no query embedding.")?;
+  if query_embedding.is_empty() {
+    return Ok(Vec::new());
+  }
+
+  let fragment_limit = limit.saturating_mul(SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER).max(limit);
+  let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
+  let fragment_hits = vector_db.search(&query_embedding, fragment_limit).await?;
+
+  let mut results = Vec::new();
+  let mut seen_item_ids = HashSet::new();
+  let db = db.lock().await;
+  for hit in fragment_hits {
+    if results.len() >= limit {
+      break;
+    }
+    if !seen_item_ids.insert(hit.item_id.clone()) {
+      continue;
+    }
+    if let Some(result) = search_result_path_for_item(&db, &hit.item_id, user_id)? {
+      results.push(result);
+    }
+  }
+  Ok(results)
+}
+
+fn search_result_path_for_item(
+  db: &MutexGuard<'_, Db>,
+  item_id: &Uid,
+  user_id: &Uid,
+) -> InfuResult<Option<SearchResult>> {
+  let mut path = Vec::new();
+  let mut current_id = item_id.clone();
+  let mut seen = HashSet::new();
+
+  loop {
+    if !seen.insert(current_id.clone()) {
+      return Err(format!("Cycle detected while building search path for item '{}'.", item_id).into());
+    }
+    let item = match db.item.get(&current_id) {
+      Ok(item) => item,
+      Err(_) => return Ok(None),
+    };
+    if &item.owner_id != user_id || item.item_type == ItemType::Password {
+      return Ok(None);
+    }
+    path.push(SearchPathElement {
+      item_type: item.item_type.as_str().to_owned(),
+      title: item.title.clone(),
+      id: item.id.clone(),
+    });
+
+    let Some(parent_id) = item.parent_id.clone() else {
+      break;
+    };
+    current_id = parent_id;
+  }
+
+  path.reverse();
+  Ok(Some(SearchResult { path }))
+}
+
+#[derive(Clone)]
+struct SearchMergeCandidate {
+  result: SearchResult,
+  score: f64,
+  best_rank: usize,
+  exact_rank: Option<usize>,
+}
+
+fn mix_search_results(exact_results: Vec<SearchResult>, semantic_results: Vec<SearchResult>) -> Vec<SearchResult> {
+  let mut candidates: HashMap<Uid, SearchMergeCandidate> = HashMap::new();
+
+  for (rank, result) in exact_results.into_iter().enumerate() {
+    let Some(item_id) = search_result_item_id(&result) else {
+      continue;
+    };
+    let score = SEARCH_EXACT_WEIGHT / (SEARCH_RRF_K + rank as f64 + 1.0);
+    let entry = candidates.entry(item_id.clone()).or_insert_with(|| SearchMergeCandidate {
+      result: result.clone(),
+      score: 0.0,
+      best_rank: rank,
+      exact_rank: Some(rank),
+    });
+    entry.score += score;
+    entry.best_rank = entry.best_rank.min(rank);
+    if entry.exact_rank.is_none_or(|existing_rank| rank < existing_rank) {
+      entry.exact_rank = Some(rank);
+      entry.result = result;
+    }
+  }
+
+  for (rank, result) in semantic_results.into_iter().enumerate() {
+    let Some(item_id) = search_result_item_id(&result) else {
+      continue;
+    };
+    let score = SEARCH_SEMANTIC_WEIGHT / (SEARCH_RRF_K + rank as f64 + 1.0);
+    let entry = candidates.entry(item_id).or_insert_with(|| SearchMergeCandidate {
+      result: result.clone(),
+      score: 0.0,
+      best_rank: rank,
+      exact_rank: None,
+    });
+    entry.score += score;
+    entry.best_rank = entry.best_rank.min(rank);
+    if entry.exact_rank.is_none() {
+      entry.result = result;
+    }
+  }
+
+  let mut candidates = candidates.into_values().collect::<Vec<_>>();
+  candidates.sort_by(|a, b| {
+    b.score
+      .partial_cmp(&a.score)
+      .unwrap_or(std::cmp::Ordering::Equal)
+      .then_with(|| a.exact_rank.unwrap_or(usize::MAX).cmp(&b.exact_rank.unwrap_or(usize::MAX)))
+      .then_with(|| a.best_rank.cmp(&b.best_rank))
+      .then_with(|| search_result_item_id(&a.result).cmp(&search_result_item_id(&b.result)))
+  });
+  candidates.into_iter().map(|candidate| candidate.result).collect()
+}
+
+fn paginate_mixed_results(results: Vec<SearchResult>, start_result: i64, end_result: i64) -> Vec<SearchResult> {
+  let start = usize::try_from(start_result.max(0)).unwrap_or(0);
+  let take = usize::try_from(end_result.saturating_sub(start_result).max(0)).unwrap_or(0);
+  results.into_iter().skip(start).take(take).collect()
+}
+
+fn search_result_item_id(result: &SearchResult) -> Option<Uid> {
+  result.path.last().map(|element| element.id.clone())
 }
 
 fn search_recursive(
@@ -1731,4 +1942,38 @@ fn search_recursive(
   current_path.pop();
 
   Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{SearchPathElement, SearchResult, mix_search_results, paginate_mixed_results, search_result_item_id};
+
+  #[test]
+  fn mixes_exact_and_semantic_results_with_rank_fusion() {
+    let exact = vec![search_result("exact-a"), search_result("shared")];
+    let semantic = vec![search_result("semantic-a"), search_result("shared")];
+
+    let mixed = mix_search_results(exact, semantic);
+    let ids = mixed.iter().map(|result| search_result_item_id(result).unwrap()).collect::<Vec<_>>();
+
+    assert_eq!(ids[0], "shared");
+    assert!(ids.contains(&"exact-a".to_owned()));
+    assert!(ids.contains(&"semantic-a".to_owned()));
+    assert_eq!(ids.len(), 3);
+  }
+
+  #[test]
+  fn paginates_mixed_results_with_has_more_slot() {
+    let results = vec![search_result("a"), search_result("b"), search_result("c"), search_result("d")];
+    let page = paginate_mixed_results(results, 1, 4);
+    let ids = page.iter().map(|result| search_result_item_id(result).unwrap()).collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["b".to_owned(), "c".to_owned(), "d".to_owned()]);
+  }
+
+  fn search_result(id: &str) -> SearchResult {
+    SearchResult {
+      path: vec![SearchPathElement { item_type: "note".to_owned(), title: Some(id.to_owned()), id: id.to_owned() }],
+    }
+  }
 }

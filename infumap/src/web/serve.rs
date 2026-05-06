@@ -77,7 +77,7 @@ pub async fn http_serve(
   let enable_experimental = config.get_bool(CONFIG_ENABLE_EXPERIMENTAL).unwrap_or(false);
 
   let (mut response, cors_policy) = if req.uri().path() == "/command" {
-    (serve_command_route(&db, &object_store, image_cache.clone(), req).await, CorsPolicy::EmbedAllowed)
+    (serve_command_route(config.clone(), &db, &object_store, image_cache.clone(), req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path().starts_with("/account/") {
     (serve_account_route(config.clone(), &db, req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path().starts_with("/ingest/") {
