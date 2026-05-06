@@ -190,6 +190,16 @@ Options:
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--item-id (optional):** Build fragments only for this item.
 
+### embed
+
+Rebuild per-user fragment vector databases from existing fragment artifacts without starting the web server. This command reads known items, embeds existing `fragments/*/*/fragments.jsonl` records with the configured text embedding service, builds `indexes/fragments.sqlite3.tmp`, validates it, and atomically replaces `indexes/fragments.sqlite3`.
+
+Options:
+
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **--service-url (optional):** Override the configured `text_embedding_url` for this process.
+- **--continue (optional):** Resume a previous rebuild from `indexes/fragments.sqlite3.tmp`.
+
 ### geo
 
 Reverse geocode GPS-tagged supported images without starting the web server.

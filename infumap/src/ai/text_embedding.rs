@@ -161,6 +161,7 @@ pub async fn embed_texts(
   })
 }
 
+#[allow(dead_code)]
 pub async fn embed_texts_batched(
   client: &reqwest::Client,
   embed_url: &Url,

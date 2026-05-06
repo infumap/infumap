@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
@@ -36,9 +37,50 @@ pub struct FragmentVectorHit {
   pub page_end: Option<usize>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FragmentVectorDbFragmentKey {
+  pub item_id: String,
+  pub ordinal: usize,
+  pub text_sha256: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FragmentVectorDbRebuildMetadata {
+  pub source_digest: String,
+  pub expected_fragment_count: usize,
+  pub model: String,
+  pub embedding_dimensions: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FragmentVectorDbRebuildStatus {
+  pub source_digest: String,
+  pub expected_fragment_count: usize,
+  pub model: String,
+  pub embedding_dimensions: usize,
+  pub embedded_fragment_count: usize,
+  pub embedding_row_count: usize,
+  pub complete: bool,
+}
+
 #[async_trait]
 pub trait FragmentVectorDb: Send + Sync {
-  async fn rebuild(&self, fragments: &[EmbeddedFragment]) -> InfuResult<()>;
+  async fn rebuild_status(&self) -> InfuResult<Option<FragmentVectorDbRebuildStatus>>;
+
+  async fn begin_rebuild(
+    &self,
+    metadata: &FragmentVectorDbRebuildMetadata,
+    resume: bool,
+  ) -> InfuResult<FragmentVectorDbRebuildStatus>;
+
+  async fn embedded_fragment_keys(&self) -> InfuResult<HashSet<FragmentVectorDbFragmentKey>>;
+
+  async fn insert_embedded_fragments(&self, fragments: &[EmbeddedFragment]) -> InfuResult<()>;
+
+  async fn finish_rebuild(
+    &self,
+    metadata: &FragmentVectorDbRebuildMetadata,
+  ) -> InfuResult<FragmentVectorDbRebuildStatus>;
 
   async fn search(&self, query_embedding: &[f32], limit: usize) -> InfuResult<Vec<FragmentVectorHit>>;
 }

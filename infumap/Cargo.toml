@@ -29,15 +29,18 @@ pin-project-lite = "0.2.11"
 prometheus = "0.14.0"
 reqwest = { version = "0.12.4", default-features = false, features = ["json", "multipart", "rustls-tls-native-roots"] }
 rpassword = "7.3.1"
+rusqlite = { version = "0.39.0", default-features = false, features = ["bundled"] }
 rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
 serde = { version = "1.0.202", features = ["derive"] }
 serde_json = "1.0.117"
 sha2 = "0.10.8"
+sqlite-vec = "=0.1.9"
 time = { version = "0.3.36", features = ["formatting"] }
 tokio = { version = "1.37.0", features = ["full"] }
 tokio-stream = "0.1"
 totp-rs = { version = "5.5.1", features = ["qr", "otpauth"] }
 uuid = { version = "1.8.0", features = ["v4"] }
+zerocopy = "0.8.27"
 zstd = "0.12"
 
 infusdk = { path = "../infusdk/", version = "0.6.0" }
