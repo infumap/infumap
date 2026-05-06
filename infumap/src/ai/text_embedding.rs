@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::CONFIG_TEXT_EMBEDDING_URL;
 
-pub const DEFAULT_TEXT_EMBEDDING_MODEL: &str = "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0";
+pub const DEFAULT_TEXT_EMBEDDING_MODEL: &str = "unsloth/embeddinggemma-300m-GGUF:Q8_0";
 pub const DEFAULT_TEXT_EMBEDDING_BATCH_SIZE: usize = 256;
-pub const DEFAULT_RETRIEVAL_QUERY_INSTRUCTION: &str =
-  "Given a web search query, retrieve relevant passages that answer the query";
+pub const DEFAULT_RETRIEVAL_QUERY_TASK: &str = "search result";
+pub const DEFAULT_RETRIEVAL_DOCUMENT_TITLE: &str = "none";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TextEmbeddingInputRole {
@@ -60,10 +60,10 @@ struct OpenAiEmbeddingResult {
 
 fn format_text_embedding_input(input: &TextEmbeddingInput) -> String {
   match input.role {
-    TextEmbeddingInputRole::RetrievalDocument => input.text.clone(),
-    TextEmbeddingInputRole::RetrievalQuery => {
-      format!("Instruct: {}\nQuery: {}", DEFAULT_RETRIEVAL_QUERY_INSTRUCTION, input.text)
+    TextEmbeddingInputRole::RetrievalDocument => {
+      format!("title: {} | text: {}", DEFAULT_RETRIEVAL_DOCUMENT_TITLE, input.text)
     }
+    TextEmbeddingInputRole::RetrievalQuery => format!("task: {} | query: {}", DEFAULT_RETRIEVAL_QUERY_TASK, input.text),
   }
 }
 
@@ -221,18 +221,15 @@ mod tests {
   use super::{TextEmbeddingInput, format_text_embedding_input, text_embedding_embed_url};
 
   #[test]
-  fn retrieval_documents_are_embedded_without_instruction_prefix() {
+  fn retrieval_documents_are_embedded_with_document_prompt() {
     let input = TextEmbeddingInput::retrieval_document(Some("doc-1".to_owned()), "plain fragment text".to_owned());
-    assert_eq!(format_text_embedding_input(&input), "plain fragment text");
+    assert_eq!(format_text_embedding_input(&input), "title: none | text: plain fragment text");
   }
 
   #[test]
-  fn retrieval_queries_are_embedded_with_instruction_prefix() {
+  fn retrieval_queries_are_embedded_with_query_prompt() {
     let input = TextEmbeddingInput::retrieval_query(Some("query-1".to_owned()), "booking details".to_owned());
-    assert_eq!(
-      format_text_embedding_input(&input),
-      "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: booking details"
-    );
+    assert_eq!(format_text_embedding_input(&input), "task: search result | query: booking details");
   }
 
   #[test]

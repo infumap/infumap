@@ -46,7 +46,7 @@ compatibility. Python-backed launchers resolve it through
 metadata but passes its Hugging Face locator directly to `llama-server`.
 
 Note: `tools/gpu/text_embedding` defaults to
-`Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` with `llama-server --embedding`. It
+`unsloth/embeddinggemma-300m-GGUF:Q8_0` with `llama-server --embedding`. It
 requests GPU layers on NVIDIA and macOS hosts by default. Set
 `TEXT_EMBEDDING_LLAMA_NGL=0` to force CPU execution.
 
