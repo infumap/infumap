@@ -1963,6 +1963,18 @@ mod tests {
   }
 
   #[test]
+  fn duplicate_semantic_hit_keeps_exact_result_path() {
+    let exact = search_result_with_path("exact-parent", "Exact Parent", "shared", "Exact Shared");
+    let semantic = search_result_with_path("semantic-parent", "Semantic Parent", "shared", "Semantic Shared");
+
+    let mixed = mix_search_results(vec![exact], vec![semantic]);
+
+    assert_eq!(mixed.len(), 1);
+    assert_eq!(mixed[0].path[0].id, "exact-parent");
+    assert_eq!(mixed[0].path[1].title.as_deref(), Some("Exact Shared"));
+  }
+
+  #[test]
   fn paginates_mixed_results_with_has_more_slot() {
     let results = vec![search_result("a"), search_result("b"), search_result("c"), search_result("d")];
     let page = paginate_mixed_results(results, 1, 4);
@@ -1974,6 +1986,19 @@ mod tests {
   fn search_result(id: &str) -> SearchResult {
     SearchResult {
       path: vec![SearchPathElement { item_type: "note".to_owned(), title: Some(id.to_owned()), id: id.to_owned() }],
+    }
+  }
+
+  fn search_result_with_path(parent_id: &str, parent_title: &str, item_id: &str, item_title: &str) -> SearchResult {
+    SearchResult {
+      path: vec![
+        SearchPathElement {
+          item_type: "page".to_owned(),
+          title: Some(parent_title.to_owned()),
+          id: parent_id.to_owned(),
+        },
+        SearchPathElement { item_type: "note".to_owned(), title: Some(item_title.to_owned()), id: item_id.to_owned() },
+      ],
     }
   }
 }

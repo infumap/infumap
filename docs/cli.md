@@ -17,6 +17,8 @@ In addition to (or instead of) using a settings file, Infumap web server configu
 
 For more information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
 
+Searches from the user's home page mix exact title matches with semantic matches from the user's fragment vector index when `text_embedding_url` is configured and `indexes/fragments.sqlite3` has been built for that user. Searches scoped to a specific page or container currently use exact title matching only.
+
 
 Options:
 - **-s --settings (optional):** Path to a toml settings configuration file, or a directory containing `settings.toml`. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
@@ -193,6 +195,8 @@ Options:
 ### embed
 
 Rebuild per-user fragment vector databases from existing fragment artifacts without starting the web server. This command reads known items, embeds existing `fragments/*/*/fragments.jsonl` records with the configured text embedding service, builds `indexes/fragments.sqlite3.tmp`, validates it, and atomically replaces `indexes/fragments.sqlite3`.
+
+This is a manual indexing step. Run `extract pdf`, `extract image`, and `fragments` first when you want document/image-derived text included, then run `embed` to refresh semantic search. The web server does not currently update fragment vector indexes as items change.
 
 Options:
 
