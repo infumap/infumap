@@ -162,13 +162,6 @@ def root_path() -> str:
     return "/" + configured.strip("/")
 
 
-def model_alias() -> str:
-    configured = os.environ.get("IMAGE_TAGGING_MODEL_ALIAS", "").strip()
-    if configured:
-        return configured
-    return env_str("IMAGE_TAGGING_MODEL", "local-model")
-
-
 def llama_server_url() -> str:
     configured = os.environ.get("IMAGE_TAGGING_LLAMA_SERVER_URL", "").strip()
     if configured:
@@ -266,7 +259,6 @@ def build_runtime_summary() -> list[str]:
         f"transformers={package_version('transformers')}",
         f"backend={LLAMA_BACKEND_NAME}",
         f"llama_server_url={llama_server_url()}",
-        f"model_alias={model_alias()}",
         f"model_id={llama_model_id()}",
         f"model_name={llama_model_name()}",
         f"image_embedding_enabled={embedding_enabled}",
@@ -352,7 +344,6 @@ async def lifespan(_: FastAPI):
         pool=max(5.0, env_float("IMAGE_TAGGING_LLAMA_POOL_TIMEOUT_SECS", 60.0)),
     )
     APP_STATE["llama_client"] = httpx.AsyncClient(base_url=llama_server_url(), timeout=timeout)
-    APP_STATE["model_alias"] = model_alias()
     APP_STATE["model_name"] = llama_model_name()
     APP_STATE["model_id"] = llama_model_id()
     APP_STATE["image_embedding_enabled"] = image_embedding_enabled()
@@ -1135,7 +1126,6 @@ async def root(request: Request) -> dict[str, str]:
     return {
         "service": "infumap-image-tagging",
         "backend": LLAMA_BACKEND_NAME,
-        "model_alias": APP_STATE.get("model_alias") or model_alias(),
         "model_id": APP_STATE.get("model_id") or llama_model_id(),
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
@@ -1149,7 +1139,6 @@ async def healthz() -> dict[str, Any]:
     return {
         "ok": ok,
         "backend": LLAMA_BACKEND_NAME,
-        "model_alias": APP_STATE.get("model_alias") or model_alias(),
         "model_id": APP_STATE.get("model_id"),
         "llama_server_url": llama_server_url(),
         "image_embedding_enabled": APP_STATE.get("image_embedding_enabled"),

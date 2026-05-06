@@ -31,8 +31,11 @@ readonly LLAMA_HOST="${IMAGE_TAGGING_LLAMA_HOST:-127.0.0.1}"
 readonly LLAMA_PORT="${IMAGE_TAGGING_LLAMA_PORT:-18080}"
 readonly LLAMA_SERVER_URL_DEFAULT="http://${LLAMA_HOST}:${LLAMA_PORT}"
 readonly STARTUP_TIMEOUT_SECS="${IMAGE_TAGGING_STARTUP_TIMEOUT_SECS:-900}"
-readonly MODEL_SELECTOR="${IMAGE_TAGGING_MODEL:-}"
-readonly MODEL_ALIAS_REGISTRY="${GPU_MODEL_ALIAS_REGISTRY:-$GPU_ROOT_DIR/model_aliases.json}"
+MODEL_SELECTOR="${IMAGE_TAGGING_MODEL:-}"
+readonly DEFAULT_MODEL_REPO="unsloth/Qwen3.5-9B-GGUF"
+readonly DEFAULT_MODEL_FILE="Qwen3.5-9B-Q4_K_M.gguf"
+readonly DEFAULT_MMPROJ_FILE="mmproj-BF16.gguf"
+readonly DEFAULT_LLAMA_EXTRA_ARGS=""
 
 readonly LLAMA_BIN_OVERRIDE="${IMAGE_TAGGING_LLAMA_BIN:-}"
 readonly LLAMA_CTX="${IMAGE_TAGGING_LLAMA_CTX:-8192}"
@@ -52,32 +55,45 @@ fail() {
     exit 1
 }
 
-resolve_model_alias() {
-    local resolved_alias_env=""
-    local -a resolve_cmd=(
-        "$PYTHON_BIN" "$GPU_ROOT_DIR/resolve_model_alias.py"
-        --registry "$MODEL_ALIAS_REGISTRY"
-        --tool image_tagging
-    )
-    if [ -n "$MODEL_SELECTOR" ]; then
-        resolve_cmd+=(--alias "$MODEL_SELECTOR")
+if [ "$#" -gt 1 ]; then
+    fail "Usage: $0 [<huggingface-repo>:<gguf-file>]"
+fi
+if [ "$#" -eq 1 ]; then
+    MODEL_SELECTOR="$1"
+fi
+readonly MODEL_SELECTOR
+
+MODEL_REPO_FROM_SELECTOR=""
+MODEL_FILE_FROM_SELECTOR=""
+
+parse_model_selector() {
+    local selector="${1:-}"
+    if [ -z "$selector" ]; then
+        return 0
     fi
-    if ! resolved_alias_env="$("${resolve_cmd[@]}" 2>&1)"; then
-        fail "$resolved_alias_env"
+    if [[ "$selector" != *:* ]]; then
+        fail "IMAGE_TAGGING_MODEL must be '<huggingface-repo>:<gguf-file>', for example '${DEFAULT_MODEL_REPO}:${DEFAULT_MODEL_FILE}'."
     fi
-    eval "$resolved_alias_env"
+
+    MODEL_REPO_FROM_SELECTOR="${selector%%:*}"
+    MODEL_FILE_FROM_SELECTOR="${selector#*:}"
+    if [ -z "$MODEL_REPO_FROM_SELECTOR" ] || [ -z "$MODEL_FILE_FROM_SELECTOR" ]; then
+        fail "IMAGE_TAGGING_MODEL must include both a Hugging Face repo and GGUF file, for example '${DEFAULT_MODEL_REPO}:${DEFAULT_MODEL_FILE}'."
+    fi
 }
 
-resolve_model_alias
+parse_model_selector "$MODEL_SELECTOR"
 
-readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-$RESOLVED_MODEL_REPO}"
-readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-$RESOLVED_MODEL_FILE}"
-readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-$RESOLVED_MMPROJ_FILE}"
+readonly MODEL_REPO="${IMAGE_TAGGING_MODEL_REPO:-${MODEL_REPO_FROM_SELECTOR:-$DEFAULT_MODEL_REPO}}"
+readonly MODEL_FILE="${IMAGE_TAGGING_MODEL_FILE:-${MODEL_FILE_FROM_SELECTOR:-$DEFAULT_MODEL_FILE}}"
+readonly MMPROJ_FILE="${IMAGE_TAGGING_MMPROJ_FILE:-$DEFAULT_MMPROJ_FILE}"
 readonly IMAGE_EMBEDDING_ENABLED="${IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING:-1}"
 readonly IMAGE_EMBEDDING_MODEL_ID="${IMAGE_TAGGING_EMBEDDING_MODEL_ID:-facebook/dinov2-with-registers-base}"
 MODEL_PATH="${IMAGE_TAGGING_MODEL_PATH:-}"
 MMPROJ_PATH="${IMAGE_TAGGING_MMPROJ_PATH:-}"
-readonly LLAMA_EXTRA_ARGS="${IMAGE_TAGGING_LLAMA_EXTRA_ARGS:-$RESOLVED_LLAMA_EXTRA_ARGS}"
+readonly MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-${MODEL_REPO}:${MODEL_FILE}}"
+readonly LLAMA_MODEL_NAME="${IMAGE_TAGGING_LLAMA_MODEL_NAME:-${MODEL_FILE%.gguf}}"
+readonly LLAMA_EXTRA_ARGS="${IMAGE_TAGGING_LLAMA_EXTRA_ARGS:-$DEFAULT_LLAMA_EXTRA_ARGS}"
 
 venv_package_name() {
     "$PYTHON_BIN" - <<'PY'
@@ -396,12 +412,10 @@ else
 fi
 export IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING="$IMAGE_EMBEDDING_ENABLED"
 export IMAGE_TAGGING_EMBEDDING_MODEL_ID="$IMAGE_EMBEDDING_MODEL_ID"
-export IMAGE_TAGGING_MODEL="$RESOLVED_ALIAS"
-export IMAGE_TAGGING_MODEL_ALIAS="$RESOLVED_ALIAS"
 export IMAGE_TAGGING_MODEL_REPO="$MODEL_REPO"
 export IMAGE_TAGGING_MODEL_FILE="$MODEL_FILE"
-export IMAGE_TAGGING_MODEL_ID="${IMAGE_TAGGING_MODEL_ID:-${RESOLVED_MODEL_ID:-${MODEL_REPO}:${MODEL_FILE}}}"
-export IMAGE_TAGGING_LLAMA_MODEL_NAME="${IMAGE_TAGGING_LLAMA_MODEL_NAME:-${RESOLVED_LLAMA_MODEL_NAME:-${MODEL_FILE%.gguf}}}"
+export IMAGE_TAGGING_MODEL_ID="$MODEL_ID"
+export IMAGE_TAGGING_LLAMA_MODEL_NAME="$LLAMA_MODEL_NAME"
 export IMAGE_TAGGING_MAX_CONCURRENCY="1"
 
 echo "Starting Infumap image tagging service"
@@ -409,10 +423,10 @@ echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "API host/port: $HOST:$PORT"
 echo "llama-server URL: $IMAGE_TAGGING_LLAMA_SERVER_URL"
 echo "Hugging Face cache: ${HF_HOME:-<library default>}"
-echo "Model alias: $RESOLVED_ALIAS"
-echo "Default alias: $RESOLVED_DEFAULT_ALIAS"
+echo "Model selector: ${MODEL_SELECTOR:-<default>}"
 echo "Model repo: $MODEL_REPO"
 echo "Model file: $MODEL_FILE"
+echo "Model id: $MODEL_ID"
 echo "mmproj file: $MMPROJ_FILE"
 echo "Image embedding enabled: $IMAGE_EMBEDDING_ENABLED"
 echo "Image embedding model: $IMAGE_EMBEDDING_MODEL_ID"

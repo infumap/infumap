@@ -26,9 +26,6 @@ By default:
   - model file: `Qwen3.5-9B-Q4_K_M.gguf`
   - mmproj file: `mmproj-BF16.gguf`
 
-Shared model aliases are defined in `tools/gpu/model_aliases.json`, with
-per-tool defaults and compatibility rules in the same file.
-
 ## Requirements
 
 Minimum requirements:
@@ -85,9 +82,10 @@ llama-server management:
 
 Model selection:
 
-- `IMAGE_TAGGING_MODEL` shared alias selector. If unset, the default comes from
-  `tools/gpu/model_aliases.json` and is currently `qwen9`.
-- `GPU_MODEL_ALIAS_REGISTRY`
+- `IMAGE_TAGGING_MODEL` exact selector in `<huggingface-repo>:<gguf-file>`
+  form. You can also pass this selector as the first `run.sh` argument. If
+  unset, the launcher uses
+  `unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf`.
 - `IMAGE_TAGGING_MODEL_REPO`
 - `IMAGE_TAGGING_MODEL_FILE`
 - `IMAGE_TAGGING_MMPROJ_FILE`
@@ -122,16 +120,18 @@ IMAGE_TAGGING_LLAMA_SERVER_URL=http://127.0.0.1:18080 \
 ./tools/gpu/image_tagging/run.sh
 ```
 
-Use a different GGUF within the same repo:
+Use a different GGUF within the default repo:
 
 ```bash
 IMAGE_TAGGING_MODEL_FILE=Qwen3.5-9B-Q6_K.gguf ./tools/gpu/image_tagging/run.sh
 ```
 
-Switch to the Gemma 4 preset:
+Run a different Hugging Face repo/file:
 
 ```bash
-IMAGE_TAGGING_MODEL=gemma26 ./tools/gpu/image_tagging/run.sh
+IMAGE_TAGGING_LLAMA_EXTRA_ARGS='--chat-template-kwargs {"enable_thinking":false}' \
+./tools/gpu/image_tagging/run.sh \
+  unsloth/gemma-4-26B-A4B-it-GGUF:gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf
 ```
 
 Pass extra flags straight through to `llama-server`:

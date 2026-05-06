@@ -39,11 +39,12 @@ Hugging Face, llama.cpp, PyTorch, Transformers, and Marker downloads use their
 standard library cache locations, such as `~/.cache/huggingface` and
 `~/.cache/torch`.
 
-Short model aliases live in `tools/gpu/model_aliases.json`. This registry
-has a global `aliases` section plus a `tools` section for per-tool defaults and
-compatibility. Python-backed launchers resolve it through
-`tools/gpu/resolve_model_alias.py`; `text_embedding` uses the same default model
-metadata but passes its Hugging Face locator directly to `llama-server`.
+`image_tagging` defaults to
+`unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf`. Set
+`IMAGE_TAGGING_MODEL=<huggingface-repo>:<gguf-file>` or pass that selector as
+the first `image_tagging/run.sh` argument to select another model. You can also
+use `IMAGE_TAGGING_MODEL_REPO`, `IMAGE_TAGGING_MODEL_FILE`, and
+`IMAGE_TAGGING_MMPROJ_FILE` for separate fields.
 
 Note: `tools/gpu/text_embedding` defaults to
 `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` with `llama-server --embedding`. It
@@ -59,7 +60,6 @@ The combined launcher keeps each service independent:
 
 Optional environment variables:
 
-- `GPU_MODEL_ALIAS_REGISTRY`
 - `GPU_RESTART_DELAY_SECS`
 - `GPU_GATEWAY_HOST`
 - `GPU_GATEWAY_PORT`
