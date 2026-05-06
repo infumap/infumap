@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::HashSet;
+use std::io::ErrorKind;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
@@ -123,6 +124,15 @@ pub fn fragment_vector_db_temp_path(data_dir: &str, user_id: &str) -> InfuResult
   Ok(path)
 }
 
+pub async fn user_fragment_vector_db_exists(data_dir: &str, user_id: &str) -> InfuResult<bool> {
+  let path = fragment_vector_db_path(data_dir, user_id)?;
+  match fs::metadata(&path).await {
+    Ok(metadata) => Ok(metadata.is_file()),
+    Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
+    Err(e) => Err(format!("Could not inspect fragment vector DB '{}': {}", path.display(), e).into()),
+  }
+}
+
 pub fn open_user_fragment_vector_db(
   data_dir: &str,
   user_id: &str,
@@ -137,7 +147,7 @@ mod tests {
 
   use super::{
     FRAGMENT_VECTOR_DB_FILENAME, FRAGMENT_VECTOR_DB_TEMP_FILENAME, USER_INDEX_DIR_NAME, ensure_user_index_dir,
-    fragment_vector_db_path, fragment_vector_db_temp_path, user_index_dir,
+    fragment_vector_db_path, fragment_vector_db_temp_path, user_fragment_vector_db_exists, user_index_dir,
   };
 
   #[test]
@@ -162,6 +172,26 @@ mod tests {
     let index_dir = ensure_user_index_dir(data_dir.to_str().unwrap(), "abc123").await.unwrap();
     assert!(index_dir.is_dir());
     assert_eq!(index_dir, data_dir.join("user_abc123").join(USER_INDEX_DIR_NAME));
+
+    std::fs::remove_dir_all(&data_dir).unwrap();
+  }
+
+  #[tokio::test]
+  async fn checks_whether_user_fragment_vector_db_exists() {
+    let data_dir = std::env::temp_dir().join(format!("infumap-index-exists-test-{}", std::process::id()));
+    if data_dir.exists() {
+      std::fs::remove_dir_all(&data_dir).unwrap();
+    }
+    let data_dir_str = data_dir.to_str().unwrap();
+
+    assert!(!user_fragment_vector_db_exists(data_dir_str, "abc123").await.unwrap());
+
+    let index_dir = ensure_user_index_dir(data_dir_str, "abc123").await.unwrap();
+    assert!(!user_fragment_vector_db_exists(data_dir_str, "abc123").await.unwrap());
+
+    let db_path = index_dir.join(FRAGMENT_VECTOR_DB_FILENAME);
+    std::fs::write(db_path, b"placeholder").unwrap();
+    assert!(user_fragment_vector_db_exists(data_dir_str, "abc123").await.unwrap());
 
     std::fs::remove_dir_all(&data_dir).unwrap();
   }

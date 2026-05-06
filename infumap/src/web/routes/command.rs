@@ -52,7 +52,7 @@ use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
-use crate::ai::vector_db::{FragmentVectorDbBackend, open_user_fragment_vector_db};
+use crate::ai::vector_db::{FragmentVectorDbBackend, open_user_fragment_vector_db, user_fragment_vector_db_exists};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
 use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};
@@ -1722,6 +1722,18 @@ async fn semantic_search_results(
     return Ok(Vec::new());
   }
 
+  if !user_fragment_vector_db_exists(data_dir, user_id).await? {
+    return Ok(Vec::new());
+  }
+
+  let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
+  let Some(index_status) = vector_db.rebuild_status().await? else {
+    return Ok(Vec::new());
+  };
+  if !index_status.complete {
+    return Ok(Vec::new());
+  }
+
   let Some(service_url) = text_embedding_url_from_config(config.as_ref())? else {
     return Ok(Vec::new());
   };
@@ -1743,7 +1755,6 @@ async fn semantic_search_results(
   }
 
   let fragment_limit = limit.saturating_mul(SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER).max(limit);
-  let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
   let fragment_hits = vector_db.search(&query_embedding, fragment_limit).await?;
 
   let mut results = Vec::new();
