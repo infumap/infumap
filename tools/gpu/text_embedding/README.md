@@ -3,10 +3,10 @@
 This service runs a local `llama-server` in embedding mode. It is shell-only:
 there is no Python app, venv, or Python dependency installation in this tool.
 
-By default it serves the Q8 GGUF build of EmbeddingGemma 300M:
+By default it serves the Q8 GGUF build of Qwen3 Embedding 0.6B:
 
 ```bash
-unsloth/embeddinggemma-300m-GGUF:Q8_0
+Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0
 ```
 
 `llama-server` needs a GGUF model. If you want to use a converted build from a
@@ -60,8 +60,8 @@ The gateway maps that public `/embed` path to the upstream
 
 Defaults:
 
-- `TEXT_EMBEDDING_HF_MODEL=unsloth/embeddinggemma-300m-GGUF:Q8_0`
-- `TEXT_EMBEDDING_LLAMA_CTX=2048`
+- `TEXT_EMBEDDING_HF_MODEL=Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0`
+- `TEXT_EMBEDDING_LLAMA_CTX=32768`
 - `TEXT_EMBEDDING_LLAMA_POOLING=last`
 - `TEXT_EMBEDDING_LLAMA_NGL=all` on NVIDIA or macOS hosts, otherwise `0`
 
@@ -73,10 +73,10 @@ Direct llama-server request:
 curl -sS \
   -H 'content-type: application/json' \
   -d '{
-    "model": "unsloth/embeddinggemma-300m-GGUF:Q8_0",
+    "model": "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
     "input": [
-      "title: none | text: Document: Example.pdf\n\nThis is the first fragment.",
-      "title: none | text: Document: Example.pdf\n\nThis is the second fragment."
+      "Document: Example.pdf\n\nThis is the first fragment.",
+      "Document: Example.pdf\n\nThis is the second fragment."
     ]
   }' \
   http://127.0.0.1:8789/v1/embeddings
@@ -88,8 +88,8 @@ The same request through the gateway:
 curl -sS \
   -H 'content-type: application/json' \
   -d '{
-    "model": "unsloth/embeddinggemma-300m-GGUF:Q8_0",
-    "input": ["task: search result | query: mandarin oriental kuala lumpur booking details"]
+    "model": "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
+    "input": ["Instruct: Given a web search query, retrieve relevant passages that answer the query\n Query:mandarin oriental kuala lumpur booking details"]
   }' \
   http://127.0.0.1:8787/embed
 ```
@@ -113,8 +113,9 @@ Gateway:
 - The old FastAPI `/embed` payload shape is gone. Infumap now sends the
   OpenAI-compatible `model` plus `input` payload.
 - Infumap's Rust embedding API distinguishes retrieval documents from retrieval
-  queries. Fragment documents are embedded with `title: none | text: ...`.
-  Search queries are embedded with `task: search result | query: ...`.
+  queries. Fragment documents are embedded as-is. Search queries are embedded
+  with Qwen's retrieval instruction prefix:
+  `Instruct: Given a web search query, retrieve relevant passages that answer the query`.
 - The OpenAI-compatible endpoint requires pooling other than `none`; the
   launcher defaults to `last`.
 - On macOS, a Homebrew or source-built `llama-server` normally uses Metal when

@@ -22,13 +22,13 @@
       "llama_model_name": "gemma-4-26B-A4B-it-UD-Q4_K_XL",
       "llama_extra_args": "--chat-template-kwargs {\"enable_thinking\":false}"
     },
-    "embeddinggemma300m": {
+    "qwen3embed06b": {
       "modalities": ["text_embedding"],
       "runtime": "llama.cpp-embedding",
-      "model_repo": "unsloth/embeddinggemma-300m-GGUF",
-      "model_file": "embeddinggemma-300M-Q8_0.gguf",
-      "model_id": "unsloth/embeddinggemma-300m-GGUF:Q8_0",
-      "llama_model_name": "embeddinggemma-300M-Q8_0",
+      "model_repo": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+      "model_file": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "model_id": "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
+      "llama_model_name": "Qwen3-Embedding-0.6B-Q8_0",
       "llama_extra_args": ""
     }
   },
@@ -38,8 +38,8 @@
       "allowed_aliases": ["qwen9", "gemma26"]
     },
     "text_embedding": {
-      "default_alias": "embeddinggemma300m",
-      "allowed_aliases": ["embeddinggemma300m"]
+      "default_alias": "qwen3embed06b",
+      "allowed_aliases": ["qwen3embed06b"]
     }
   }
 }
