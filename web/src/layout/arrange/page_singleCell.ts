@@ -25,14 +25,48 @@ import { asLinkItem, isLink, LinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { assert } from "../../util/lang";
+import { SOLO_ITEM_HOLDER_PAGE_UID } from "../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeFlagIsRoot, arrangeItemPath, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
+
+const SOLO_ITEM_SMALL_DISPLAY_SHORT_SIDE_PX = 420;
+const SOLO_ITEM_NORMAL_DISPLAY_SHORT_SIDE_PX = 640;
+const SOLO_ITEM_MIN_DISPLAY_GAP_PX = 2;
+const SOLO_ITEM_NORMAL_DISPLAY_GAP_PX = 20;
+
+function calcSoloItemDisplayGapPx(boundsPx: BoundingBox): number {
+  const shortSidePx = Math.min(boundsPx.w, boundsPx.h);
+  if (shortSidePx <= 0) { return 0; }
+  if (shortSidePx <= SOLO_ITEM_SMALL_DISPLAY_SHORT_SIDE_PX) {
+    return SOLO_ITEM_MIN_DISPLAY_GAP_PX;
+  }
+  if (shortSidePx >= SOLO_ITEM_NORMAL_DISPLAY_SHORT_SIDE_PX) {
+    return SOLO_ITEM_NORMAL_DISPLAY_GAP_PX;
+  }
+
+  const proportion =
+    (shortSidePx - SOLO_ITEM_SMALL_DISPLAY_SHORT_SIDE_PX) /
+    (SOLO_ITEM_NORMAL_DISPLAY_SHORT_SIDE_PX - SOLO_ITEM_SMALL_DISPLAY_SHORT_SIDE_PX);
+  const gapPx = SOLO_ITEM_MIN_DISPLAY_GAP_PX + proportion * (SOLO_ITEM_NORMAL_DISPLAY_GAP_PX - SOLO_ITEM_MIN_DISPLAY_GAP_PX);
+  return Math.round(gapPx);
+}
+
+function insetBoundsPx(boundsPx: BoundingBox, insetPx: number): BoundingBox {
+  const xInsetPx = Math.min(insetPx, Math.max(0, (boundsPx.w - 1) / 2.0));
+  const yInsetPx = Math.min(insetPx, Math.max(0, (boundsPx.h - 1) / 2.0));
+  return {
+    x: boundsPx.x + xInsetPx,
+    y: boundsPx.y + yInsetPx,
+    w: boundsPx.w - 2.0 * xInsetPx,
+    h: boundsPx.h - 2.0 * yInsetPx,
+  };
+}
 
 export function arrange_single_cell_page(
   store: StoreContextModel,
@@ -93,6 +127,19 @@ export function arrange_single_cell_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
+  const cellBoundsPx = (() => {
+    const result = {
+      x: 0,
+      y: 0,
+      w: childAreaBoundsPx.w,
+      h: childAreaBoundsPx.h
+    };
+    if ((flags & ArrangeItemFlags.IsTopRoot) && displayItem_pageWithChildren.id == SOLO_ITEM_HOLDER_PAGE_UID) {
+      return insetBoundsPx(result, calcSoloItemDisplayGapPx(result));
+    }
+    return result;
+  })();
+
   const childrenPaths: Array<VisualElementPath> = [];
   for (let i = 0; i < pageItem.computed_children.length; ++i) {
     const childItem = itemState.get(pageItem.computed_children[i])!;
@@ -100,12 +147,6 @@ export function arrange_single_cell_page(
     if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
       continue;
     }
-    const cellBoundsPx = {
-      x: 0,
-      y: 0,
-      w: childAreaBoundsPx.w,
-      h: childAreaBoundsPx.h
-    };
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
     const renderChildrenAsFull = arrangeFlagIsRoot(flags);
