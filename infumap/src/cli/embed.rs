@@ -1,15 +1,16 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Arg, ArgMatches, Command};
-use config::Config;
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use super::build_http_client;
-use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EMBEDDING_URL};
+use crate::ai::text_embedding::{
+  DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingInput, embed_texts_batched, resolve_text_embedding_service_url,
+};
+use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::util::fs::expand_tilde;
@@ -39,7 +40,11 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let item = load_item(&data_dir, sub_matches).await?;
   let fragments_path = fragments_path_for_item(&data_dir, &item.owner_id, &item.id)?;
-  let embed_url = service_embed_url(&resolve_service_url(&config, sub_matches, "service_url", "--service-url")?)?;
+  let embed_url = resolve_text_embedding_service_url(
+    &config,
+    sub_matches.get_one::<String>("service_url").map(String::as_str),
+    "--service-url",
+  )?;
   let fragments = load_fragment_records(&fragments_path).await?;
   if fragments.is_empty() {
     return Err(
@@ -55,9 +60,16 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   eprintln!("Embedding {} fragment(s) for item '{}' via '{}'.", fragments.len(), item.id, embed_url);
 
   let client = build_http_client(None).await?;
-  let response = fetch_service_embeddings(&client, &embed_url, &item.id, &fragments).await?;
+  let inputs = fragments
+    .iter()
+    .map(|fragment| TextEmbeddingInput {
+      id: Some(format!("{}:{}", item.id, fragment.ordinal)),
+      text: fragment.text.clone(),
+    })
+    .collect::<Vec<_>>();
+  let response = embed_texts_batched(&client, &embed_url, &inputs, DEFAULT_TEXT_EMBEDDING_BATCH_SIZE).await?;
 
-  for (fragment, embedding) in fragments.iter().zip(response.results.into_iter()) {
+  for (fragment, embedding) in fragments.iter().zip(response.embeddings.into_iter()) {
     let record = PrintedEmbeddingRecord {
       item_id: item.id.clone(),
       model: response.model.clone(),
@@ -109,138 +121,6 @@ fn parse_fragment_records(contents: &str) -> InfuResult<Vec<StoredFragmentRecord
   Ok(out)
 }
 
-async fn fetch_service_embeddings(
-  client: &reqwest::Client,
-  embed_url: &Url,
-  item_id: &str,
-  fragments: &[StoredFragmentRecord],
-) -> InfuResult<ResolvedServiceEmbedResponse> {
-  let request = ServiceEmbedRequest {
-    inputs: fragments
-      .iter()
-      .map(|fragment| ServiceEmbedInput {
-        id: Some(format!("{}:{}", item_id, fragment.ordinal)),
-        text: fragment.text.clone(),
-      })
-      .collect(),
-  };
-
-  let response = client
-    .post(embed_url.clone())
-    .json(&request)
-    .send()
-    .await
-    .map_err(|e| format!("Could not call text embedding service '{}': {}", embed_url, e))?;
-  let status = response.status();
-  if !status.is_success() {
-    let body = response.text().await.unwrap_or_else(|_| String::from("<could not read response body>"));
-    return Err(format!("Text embedding service '{}' returned {}: {}", embed_url, status, body).into());
-  }
-
-  let response: ServiceEmbedResponse = response
-    .json()
-    .await
-    .map_err(|e| format!("Could not deserialize text embedding response from '{}': {}", embed_url, e))?;
-
-  if !response.success {
-    return Err(format!("Text embedding service '{}' reported success=false.", embed_url).into());
-  }
-
-  if response.count != fragments.len() {
-    return Err(
-      format!(
-        "Text embedding service '{}' returned count {} but {} fragments were requested.",
-        embed_url,
-        response.count,
-        fragments.len()
-      )
-      .into(),
-    );
-  }
-
-  if response.results.len() != fragments.len() {
-    return Err(
-      format!(
-        "Text embedding service '{}' returned {} result rows but {} fragments were requested.",
-        embed_url,
-        response.results.len(),
-        fragments.len()
-      )
-      .into(),
-    );
-  }
-
-  let mut ordered = vec![None; fragments.len()];
-  for result in response.results {
-    if result.index >= fragments.len() {
-      return Err(
-        format!(
-          "Text embedding service '{}' returned out-of-range result index {} for {} fragments.",
-          embed_url,
-          result.index,
-          fragments.len()
-        )
-        .into(),
-      );
-    }
-    if ordered[result.index].is_some() {
-      return Err(
-        format!("Text embedding service '{}' returned duplicate result index {}.", embed_url, result.index).into(),
-      );
-    }
-    ordered[result.index] = Some(result.embedding);
-  }
-
-  Ok(ResolvedServiceEmbedResponse {
-    model: response.model,
-    results: ordered
-      .into_iter()
-      .enumerate()
-      .map(|(index, vector)| {
-        vector.ok_or_else(|| {
-          format!("Text embedding service '{}' did not return an embedding for result index {}.", embed_url, index)
-            .into()
-        })
-      })
-      .collect::<InfuResult<Vec<Vec<f32>>>>()?,
-  })
-}
-
-fn resolve_service_url(
-  config: &Config,
-  sub_matches: &ArgMatches,
-  arg_name: &str,
-  flag_name: &str,
-) -> InfuResult<String> {
-  match sub_matches.get_one::<String>(arg_name) {
-    Some(url) if !url.trim().is_empty() => Ok(url.clone()),
-    _ => text_embedding_url_from_config(config)?
-      .ok_or(format!("{} must be configured or specified via {}.", CONFIG_TEXT_EMBEDDING_URL, flag_name).into()),
-  }
-}
-
-fn text_embedding_url_from_config(config: &Config) -> InfuResult<Option<String>> {
-  match config.get_string(CONFIG_TEXT_EMBEDDING_URL) {
-    Ok(value) => {
-      let trimmed = value.trim();
-      if trimmed.is_empty() { Ok(None) } else { Ok(Some(trimmed.to_owned())) }
-    }
-    Err(_) => Ok(None),
-  }
-}
-
-fn service_embed_url(base_url: &str) -> InfuResult<Url> {
-  let mut parsed = Url::parse(base_url).map_err(|e| format!("Could not parse service URL '{}': {}", base_url, e))?;
-  if parsed.path().ends_with("/embed") {
-    Ok(parsed)
-  } else {
-    let trimmed = parsed.path().trim_end_matches('/');
-    let embed_path = if trimmed.is_empty() { "/embed".to_owned() } else { format!("{}/embed", trimmed) };
-    parsed.set_path(&embed_path);
-    Ok(parsed)
-  }
-}
-
 fn settings_arg() -> Arg {
   Arg::new("settings_path")
     .short('s')
@@ -282,39 +162,9 @@ struct PrintedEmbeddingRecord {
   embedding: Vec<f32>,
 }
 
-#[derive(Serialize)]
-struct ServiceEmbedRequest {
-  inputs: Vec<ServiceEmbedInput>,
-}
-
-#[derive(Serialize)]
-struct ServiceEmbedInput {
-  id: Option<String>,
-  text: String,
-}
-
-#[derive(Deserialize)]
-struct ServiceEmbedResponse {
-  success: bool,
-  model: String,
-  count: usize,
-  results: Vec<ServiceEmbedResult>,
-}
-
-#[derive(Deserialize)]
-struct ServiceEmbedResult {
-  index: usize,
-  embedding: Vec<f32>,
-}
-
-struct ResolvedServiceEmbedResponse {
-  model: String,
-  results: Vec<Vec<f32>>,
-}
-
 #[cfg(test)]
 mod tests {
-  use super::{parse_fragment_records, service_embed_url};
+  use super::parse_fragment_records;
 
   #[test]
   fn parses_fragment_jsonl_records() {
@@ -331,14 +181,5 @@ mod tests {
     assert_eq!(records[0].page_start, Some(1));
     assert_eq!(records[1].ordinal, 1);
     assert_eq!(records[1].page_start, None);
-  }
-
-  #[test]
-  fn service_url_defaults_to_embed_path() {
-    let url = service_embed_url("http://127.0.0.1:8789").unwrap();
-    assert_eq!(url.as_str(), "http://127.0.0.1:8789/embed");
-
-    let url = service_embed_url("http://127.0.0.1:8789/embed").unwrap();
-    assert_eq!(url.as_str(), "http://127.0.0.1:8789/embed");
   }
 }
