@@ -30,10 +30,12 @@ By default:
 - the HTTP service listens on `127.0.0.1:8789`
 - model files use FastEmbed's default cache
 - the launcher creates or reuses `tools/gpu/text_embedding/.venv`
-- the launcher defaults to `TEXT_EMBEDDING_DEVICE=cpu`
-- the launcher installs regular `fastembed` for CPU mode
-- when `TEXT_EMBEDDING_DEVICE=gpu` is requested on an NVIDIA host, the launcher
+- on NVIDIA hosts, the launcher defaults to `TEXT_EMBEDDING_DEVICE=gpu` and
   installs `fastembed-gpu`
+- on macOS hosts, the launcher defaults to `TEXT_EMBEDDING_DEVICE=gpu` and
+  requests ONNX Runtime's `CoreMLExecutionProvider` through regular `fastembed`
+- on other hosts without `nvidia-smi`, the launcher defaults to
+  `TEXT_EMBEDDING_DEVICE=cpu` and installs regular `fastembed`
 
 Shared model aliases are defined in `tools/gpu/model_aliases.json`, with
 per-tool defaults and compatibility rules in the same file.
@@ -58,6 +60,12 @@ To force GPU mode explicitly:
 
 ```bash
 TEXT_EMBEDDING_DEVICE=gpu ./tools/gpu/text_embedding/run.sh
+```
+
+To force CPU mode explicitly:
+
+```bash
+TEXT_EMBEDDING_DEVICE=cpu ./tools/gpu/text_embedding/run.sh
 ```
 
 On first run that command:
@@ -91,7 +99,8 @@ Notes:
   instead of the Xenova ONNX file that Infumap has been matching historically.
 - `TEXT_EMBEDDING_MODEL` defaults via the tool config in
   `tools/gpu/model_aliases.json`; the current default alias is `bgebase`.
-- `TEXT_EMBEDDING_DEVICE` accepts `cpu` or `gpu`. The default is `cpu`.
+- `TEXT_EMBEDDING_DEVICE` accepts `cpu` or `gpu`. The launcher defaults to
+  `gpu` when `nvidia-smi` is available or on macOS, otherwise `cpu`.
 - `TEXT_EMBEDDING_DEVICE=gpu` requests an accelerated ONNX Runtime provider.
   On NVIDIA Linux hosts that means CUDA. On macOS it prefers CoreML when the
   installed ONNX Runtime build exposes it.

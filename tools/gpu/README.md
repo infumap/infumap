@@ -40,8 +40,9 @@ Short model aliases live in `tools/gpu/model_aliases.json`. This registry
 has a global `aliases` section plus a `tools` section for per-tool defaults and
 compatibility. The launchers resolve it through `tools/gpu/resolve_model_alias.py`.
 
-Note: `tools/gpu/text_embedding` defaults to CPU execution. Set
-`TEXT_EMBEDDING_DEVICE=gpu` if you want that service to request acceleration.
+Note: `tools/gpu/text_embedding` defaults to GPU execution on NVIDIA and macOS
+hosts, and CPU execution otherwise. Set `TEXT_EMBEDDING_DEVICE=cpu` or
+`TEXT_EMBEDDING_DEVICE=gpu` to override that choice explicitly.
 
 The combined launcher keeps each service independent:
 

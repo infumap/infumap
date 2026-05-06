@@ -1,6 +1,6 @@
 # CPU fastembed version pin.
-# Installed by run.sh for the default TEXT_EMBEDDING_DEVICE=cpu path, and also
-# for GPU requests on non-NVIDIA hosts where the regular fastembed package is
-# still the compatible choice (for example CoreML attempts on macOS).
+# Installed by run.sh for TEXT_EMBEDDING_DEVICE=cpu, and also for GPU requests
+# on non-NVIDIA hosts where the regular fastembed package is still the
+# compatible choice, including CoreML attempts on macOS.
 # For NVIDIA GPU, fastembed-gpu is installed instead (unpinned — platform-specific).
 fastembed==0.8.0

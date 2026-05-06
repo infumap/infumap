@@ -181,17 +181,32 @@ is_macos() {
 }
 
 normalize_device() {
-    local raw="${TEXT_EMBEDDING_DEVICE:-cpu}"
+    local default_device
+    local raw
+    default_device="$(default_embedding_device)"
+    raw="${TEXT_EMBEDDING_DEVICE:-$default_device}"
     raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
     case "$raw" in
         cpu|gpu)
             printf '%s\n' "$raw"
             ;;
         *)
-            echo "Warning: invalid TEXT_EMBEDDING_DEVICE=${TEXT_EMBEDDING_DEVICE:-<unset>}; defaulting to cpu." >&2
-            printf '%s\n' "cpu"
+            echo "Warning: invalid TEXT_EMBEDDING_DEVICE=${TEXT_EMBEDDING_DEVICE:-<unset>}; defaulting to ${default_device}." >&2
+            printf '%s\n' "$default_device"
             ;;
     esac
+}
+
+default_embedding_device() {
+    if has_nvidia_gpu; then
+        printf '%s\n' "gpu"
+        return 0
+    fi
+    if is_macos; then
+        printf '%s\n' "gpu"
+        return 0
+    fi
+    printf '%s\n' "cpu"
 }
 
 effective_fastembed_package() {

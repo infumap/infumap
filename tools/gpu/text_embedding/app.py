@@ -41,7 +41,7 @@ DEFAULT_MAX_TEXT_CHARS = 32_768
 DEFAULT_MAX_CONCURRENCY = 1
 DEFAULT_MODEL_ALIAS = "bgebase"
 DEFAULT_MODEL_NAME = "Xenova/bge-base-en-v1.5"
-DEFAULT_DEVICE = "cpu"
+DEFAULT_DEVICE = "gpu"
 GPU_EXECUTION_PROVIDERS = {
     "CUDAExecutionProvider",
     "CoreMLExecutionProvider",
