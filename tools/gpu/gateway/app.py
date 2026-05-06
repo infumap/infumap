@@ -71,8 +71,6 @@ def service_registry() -> dict[str, ServiceProxy]:
             service_name="text_embedding",
             public_paths=("/embed",),
             upstream_base_url=upstream_base_url("GPU_TEXT_EMBEDDING_UPSTREAM_URL", "127.0.0.1", 8789),
-            upstream_path_overrides={"/embed": "/v1/embeddings"},
-            health_paths=("/health", "/v1/models"),
         ),
         ServiceProxy(
             service_name="text_extraction",

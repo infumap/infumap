@@ -96,14 +96,14 @@ pub fn text_embedding_embed_url(base_url: &str) -> InfuResult<Url> {
   if trimmed.ends_with("/embed") || trimmed.ends_with("/v1/embeddings") {
     Ok(parsed)
   } else {
-    let embeddings_path = if trimmed.is_empty() {
-      "/v1/embeddings".to_owned()
+    let embed_path = if trimmed.is_empty() {
+      "/embed".to_owned()
     } else if trimmed.ends_with("/v1") {
       format!("{}/embeddings", trimmed)
     } else {
-      format!("{}/v1/embeddings", trimmed)
+      format!("{}/embed", trimmed)
     };
-    parsed.set_path(&embeddings_path);
+    parsed.set_path(&embed_path);
     Ok(parsed)
   }
 }
@@ -236,9 +236,9 @@ mod tests {
   }
 
   #[test]
-  fn service_url_defaults_to_openai_embeddings_path() {
+  fn service_url_defaults_to_public_embed_path() {
     let url = text_embedding_embed_url("http://127.0.0.1:8789").unwrap();
-    assert_eq!(url.as_str(), "http://127.0.0.1:8789/v1/embeddings");
+    assert_eq!(url.as_str(), "http://127.0.0.1:8789/embed");
 
     let url = text_embedding_embed_url("http://127.0.0.1:8789/v1").unwrap();
     assert_eq!(url.as_str(), "http://127.0.0.1:8789/v1/embeddings");

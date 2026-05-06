@@ -7,15 +7,13 @@ This folder contains the three HTTP tools plus a shared HTTP gateway:
 - `text_embedding`
 - `text_extraction`
 
-The `image_tagging`, `text_extraction`, and `gateway` launchers require Python
-3.10 through 3.13 because the pinned API and ML dependencies do not install
-reliably on Python 3.9 or 3.14. By default they reuse a valid service `.venv`,
-then try common versioned `python3.x` executables, Homebrew Python installs,
-and common macOS install locations before plain `python3`. Set
-`PYTHON_BIN=/path/to/python3.13` to force a specific interpreter.
-
-`text_embedding` is shell-only and starts `llama-server` directly. It does not
-create a Python venv.
+The `image_tagging`, `text_embedding`, `text_extraction`, and `gateway`
+launchers require Python 3.10 through 3.13 because the pinned API and ML
+dependencies do not install reliably on Python 3.9 or 3.14. By default they
+reuse a valid service `.venv`, then try common versioned `python3.x`
+executables, Homebrew Python installs, and common macOS install locations before
+plain `python3`. Set `PYTHON_BIN=/path/to/python3.13` to force a specific
+interpreter.
 
 To start all three together from the repo root:
 
@@ -26,7 +24,7 @@ To start all three together from the repo root:
 By default the gateway listens on `127.0.0.1:8787` and forwards:
 
 - `/tag` to the image tagging service
-- `/embed` to the text embedding service's `/v1/embeddings` endpoint
+- `/embed` to the text embedding service
 - `/convert` to the text extraction service
 
 The child services keep their own defaults:

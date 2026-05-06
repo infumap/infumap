@@ -1,21 +1,23 @@
 # Text Embedding
 
-This service runs a local `llama-server` in embedding mode.
+This service exposes Infumap's public text embedding API and uses a private
+`llama-server` process for the actual embedding work.
 
-By default it serves the Q8 GGUF build of Qwen3 Embedding 0.6B:
+The model is intentionally fixed to the Q8 GGUF build of Qwen3 Embedding 0.6B:
 
 ```bash
 Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0
 ```
 
-`llama-server` needs a GGUF model. If you want to use a converted build from a
-different repo, set `TEXT_EMBEDDING_HF_MODEL`. If you already have a local GGUF,
-set `TEXT_EMBEDDING_MODEL_PATH`.
+There is no launcher option to change the model. Requests may omit `model`; if
+they include it, it must match the fixed model above.
 
 ## Start The Service
 
 Requirements:
 
+- `python3` 3.10 through 3.13
+- `python3-venv`
 - `llama-server` on `PATH`, or `TEXT_EMBEDDING_LLAMA_BIN=/path/to/llama-server`
 
 From the repo root:
@@ -24,70 +26,73 @@ From the repo root:
 ./tools/gpu/text_embedding/run.sh
 ```
 
-The direct upstream service listens on `127.0.0.1:8789` by default and exposes
-llama.cpp's OpenAI-compatible embedding endpoint:
+By default:
+
+- the public FastAPI wrapper listens on `127.0.0.1:8789`
+- the managed private `llama-server` listens on `127.0.0.1:18089`
+- both the direct service and the shared GPU gateway expose `POST /embed`
+
+Direct service URL:
 
 ```bash
-http://127.0.0.1:8789/v1/embeddings
+http://127.0.0.1:8789/embed
 ```
 
-The shared GPU gateway still exposes Infumap's public embedding URL:
+Shared gateway URL:
 
 ```bash
 http://127.0.0.1:8787/embed
 ```
 
-The gateway maps that public `/embed` path to the upstream
-`/v1/embeddings` endpoint.
-
 ## Important Environment Variables
+
+Public wrapper:
 
 - `TEXT_EMBEDDING_HOST`
 - `TEXT_EMBEDDING_PORT`
+- `TEXT_EMBEDDING_VENV_DIR`
+
+Managed llama-server:
+
+- `TEXT_EMBEDDING_LLAMA_HOST`
+- `TEXT_EMBEDDING_LLAMA_PORT`
 - `TEXT_EMBEDDING_LLAMA_BIN`
-- `TEXT_EMBEDDING_HF_MODEL`
-- `TEXT_EMBEDDING_MODEL_PATH`
 - `TEXT_EMBEDDING_LLAMA_CTX`
 - `TEXT_EMBEDDING_LLAMA_BATCH_SIZE`
 - `TEXT_EMBEDDING_LLAMA_UBATCH_SIZE`
 - `TEXT_EMBEDDING_LLAMA_PARALLEL`
 - `TEXT_EMBEDDING_LLAMA_POOLING`
 - `TEXT_EMBEDDING_LLAMA_NGL`
-- `TEXT_EMBEDDING_LLAMA_EXTRA_ARGS`
-- `TEXT_EMBEDDING_RESTART_DELAY_SECS`
 - `TEXT_EMBEDDING_STARTUP_TIMEOUT_SECS`
 
 Defaults:
 
-- `TEXT_EMBEDDING_HF_MODEL=Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0`
 - `TEXT_EMBEDDING_LLAMA_CTX=32768`
 - `TEXT_EMBEDDING_LLAMA_POOLING=last`
 - `TEXT_EMBEDDING_LLAMA_NGL=all` on NVIDIA or macOS hosts, otherwise `0`
 
 ## Example Requests
 
-Direct llama-server request:
+Direct wrapper request:
 
 ```bash
 curl -sS \
   -H 'content-type: application/json' \
   -d '{
-    "model": "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
     "input": [
       "Document: Example.pdf\n\nThis is the first fragment.",
       "Document: Example.pdf\n\nThis is the second fragment."
     ]
   }' \
-  http://127.0.0.1:8789/v1/embeddings
+  http://127.0.0.1:8789/embed
 ```
 
-The same request through the gateway:
+The same public API through the gateway:
 
 ```bash
 curl -sS \
   -H 'content-type: application/json' \
   -d '{
-    "model": "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
     "input": ["Instruct: Given a web search query, retrieve relevant passages that answer the query\n Query:mandarin oriental kuala lumpur booking details"]
   }' \
   http://127.0.0.1:8787/embed
@@ -95,11 +100,13 @@ curl -sS \
 
 ## Endpoints
 
-Direct `llama-server`:
+Direct wrapper:
 
 - `GET /`
+- `GET /healthz`
 - `GET /health`
 - `GET /v1/models`
+- `POST /embed`
 - `POST /v1/embeddings`
 
 Gateway:
@@ -109,8 +116,11 @@ Gateway:
 
 ## Notes
 
-- The old FastAPI `/embed` payload shape is gone. Infumap now sends the
-  OpenAI-compatible `model` plus `input` payload.
+- `/embed` uses an OpenAI-compatible embedding payload with `input` and optional
+  `encoding_format`. The wrapper always forwards the fixed Qwen model to
+  `llama-server`.
+- `POST /v1/embeddings` remains available on the direct wrapper for
+  compatibility, but Infumap's public endpoint is `/embed`.
 - Infumap's Rust embedding API distinguishes retrieval documents from retrieval
   queries. Fragment documents are embedded as-is. Search queries are embedded
   with Qwen's retrieval instruction prefix:

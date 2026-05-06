@@ -33,7 +33,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Text embedding service base URL, /v1/embeddings endpoint, or gateway /embed endpoint. Falls back to text_embedding_url in settings.toml.")
+        .help("Text embedding service base URL, /embed endpoint, or legacy /v1/embeddings endpoint. Falls back to text_embedding_url in settings.toml.")
         .num_args(1)
         .required(false),
     )

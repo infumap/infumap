@@ -18,21 +18,28 @@ set -euo pipefail
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
+readonly VENV_DIR="${TEXT_EMBEDDING_VENV_DIR:-$ROOT_DIR/.venv}"
+source "$GPU_ROOT_DIR/python_runtime.sh"
+PYTHON_BIN="$(select_gpu_python_bin "$VENV_DIR")"
+readonly PYTHON_BIN
 readonly HOST="${TEXT_EMBEDDING_HOST:-127.0.0.1}"
 readonly PORT="${TEXT_EMBEDDING_PORT:-8789}"
-readonly RESTART_DELAY_SECS="${TEXT_EMBEDDING_RESTART_DELAY_SECS:-5}"
+readonly LLAMA_HOST="${TEXT_EMBEDDING_LLAMA_HOST:-127.0.0.1}"
+readonly LLAMA_PORT="${TEXT_EMBEDDING_LLAMA_PORT:-18089}"
+readonly LLAMA_SERVER_URL_DEFAULT="http://${LLAMA_HOST}:${LLAMA_PORT}"
 readonly STARTUP_TIMEOUT_SECS="${TEXT_EMBEDDING_STARTUP_TIMEOUT_SECS:-900}"
 readonly LLAMA_BIN_OVERRIDE="${TEXT_EMBEDDING_LLAMA_BIN:-}"
-readonly HF_MODEL="${TEXT_EMBEDDING_HF_MODEL:-Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0}"
-readonly MODEL_PATH="${TEXT_EMBEDDING_MODEL_PATH:-}"
+readonly MODEL_ID="Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0"
 readonly LLAMA_CTX="${TEXT_EMBEDDING_LLAMA_CTX:-32768}"
 readonly LLAMA_BATCH_SIZE="${TEXT_EMBEDDING_LLAMA_BATCH_SIZE:-8192}"
 readonly LLAMA_UBATCH_SIZE="${TEXT_EMBEDDING_LLAMA_UBATCH_SIZE:-8192}"
 readonly LLAMA_PARALLEL="${TEXT_EMBEDDING_LLAMA_PARALLEL:-1}"
 readonly LLAMA_POOLING="${TEXT_EMBEDDING_LLAMA_POOLING:-last}"
-readonly LLAMA_EXTRA_ARGS="${TEXT_EMBEDDING_LLAMA_EXTRA_ARGS:-}"
 
-child_pid=""
+llama_pid=""
+api_pid=""
 LAUNCHED_CHILD_PID=""
 
 fail() {
@@ -42,6 +49,69 @@ fail() {
 
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+venv_package_name() {
+    "$PYTHON_BIN" - <<'PY'
+import sys
+print(f"python{sys.version_info.major}.{sys.version_info.minor}-venv")
+PY
+}
+
+create_venv() {
+    local output_file
+    output_file="$(mktemp)"
+
+    if "$PYTHON_BIN" -m venv "$VENV_DIR" >"$output_file" 2>&1; then
+        rm -f "$output_file"
+        return 0
+    fi
+
+    rm -rf "$VENV_DIR"
+
+    if ! "$PYTHON_BIN" -m ensurepip --version >/dev/null 2>&1; then
+        local package_name
+        package_name="$(venv_package_name)"
+        echo "Python virtualenv bootstrap support is missing." >&2
+        echo "Install it with one of:" >&2
+        echo "  sudo apt install $package_name" >&2
+        echo "  sudo apt install python3-venv" >&2
+        echo "" >&2
+    fi
+
+    cat "$output_file" >&2
+    rm -f "$output_file"
+    exit 1
+}
+
+ensure_venv_pip() {
+    if "$VENV_PYTHON" -m pip --version >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
+        return 0
+    fi
+
+    rm -rf "$VENV_DIR"
+    create_venv
+
+    if "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local package_name
+    package_name="$(venv_package_name)"
+    fail "pip is unavailable inside the virtualenv. Install $package_name or python3-venv, then rerun."
+}
+
+ensure_python_packages() {
+    if "$VENV_PYTHON" -c "import fastapi, uvicorn, httpx" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    "$VENV_PYTHON" -m pip install --upgrade pip
+    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements.txt"
 }
 
 is_macos() {
@@ -139,68 +209,122 @@ wait_for_child_shutdown() {
     wait "$pid" 2>/dev/null || true
 }
 
-http_get_ok() {
-    local url="$1"
-    if command_exists curl; then
-        curl -fsS --max-time 5 "$url" >/dev/null 2>&1
-        return $?
+wait_for_llama_server() {
+    local server_url="$1"
+    local server_pid="$2"
+
+    "$VENV_PYTHON" - "$server_url" "$STARTUP_TIMEOUT_SECS" "$server_pid" <<'PY'
+import os
+import sys
+import time
+import urllib.request
+
+base_url = sys.argv[1].rstrip("/")
+deadline = time.time() + float(sys.argv[2])
+server_pid = int(sys.argv[3])
+
+while time.time() < deadline:
+    try:
+        os.kill(server_pid, 0)
+    except OSError:
+        print(f"llama-server exited before becoming ready at {base_url}", file=sys.stderr)
+        sys.exit(1)
+
+    for path in ("/health", "/v1/models", "/"):
+        try:
+            with urllib.request.urlopen(base_url + path, timeout=5) as response:
+                if 200 <= response.status < 400:
+                    sys.exit(0)
+        except Exception:
+            pass
+    time.sleep(1)
+
+print(f"Timed out waiting for llama-server at {base_url}", file=sys.stderr)
+sys.exit(1)
+PY
+}
+
+cleanup() {
+    if [ -n "$api_pid" ] && kill -0 "$api_pid" 2>/dev/null; then
+        terminate_child "$api_pid"
+    fi
+    if [ -n "$llama_pid" ] && kill -0 "$llama_pid" 2>/dev/null; then
+        terminate_child "$llama_pid"
+    fi
+    wait_for_child_shutdown "$api_pid"
+    wait_for_child_shutdown "$llama_pid"
+}
+
+supports_wait_n() {
+    local major="${BASH_VERSINFO[0]:-0}"
+    local minor="${BASH_VERSINFO[1]:-0}"
+    if [ "$major" -gt 4 ]; then
+        return 0
+    fi
+    if [ "$major" -eq 4 ] && [ "$minor" -ge 3 ]; then
+        return 0
     fi
     return 1
 }
 
-wait_for_llama_server() {
-    local base_url="http://${HOST}:${PORT}"
-    local deadline=$((SECONDS + STARTUP_TIMEOUT_SECS))
+wait_for_first_child_exit() {
+    local first_pid="$1"
+    local second_pid="$2"
 
-    while [ "$SECONDS" -lt "$deadline" ]; do
-        if [ -n "$child_pid" ] && ! kill -0 "$child_pid" 2>/dev/null; then
-            fail "llama-server exited before becoming ready at ${base_url}"
+    if supports_wait_n; then
+        wait -n "$first_pid" "$second_pid"
+        return $?
+    fi
+
+    while true; do
+        if ! kill -0 "$first_pid" 2>/dev/null; then
+            wait "$first_pid"
+            return $?
         fi
-        if http_get_ok "${base_url}/health" || http_get_ok "${base_url}/v1/models"; then
-            return 0
+        if ! kill -0 "$second_pid" 2>/dev/null; then
+            wait "$second_pid"
+            return $?
         fi
         sleep 1
     done
-
-    fail "Timed out waiting for llama-server at ${base_url}"
 }
 
-cleanup() {
-    if [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
-        terminate_child "$child_pid"
-        wait_for_child_shutdown "$child_pid"
-    fi
-}
+trap cleanup EXIT INT TERM
 
-cleanup_and_exit() {
-    cleanup
-    exit 0
-}
-
-trap cleanup EXIT
-trap cleanup_and_exit INT TERM
-
-LLAMA_SERVER_BIN="$(ensure_local_llama_server)"
-readonly LLAMA_SERVER_BIN
-EFFECTIVE_LLAMA_NGL="$(effective_llama_ngl)"
-readonly EFFECTIVE_LLAMA_NGL
-
-echo "Starting Infumap text embedding service with llama-server"
-echo "llama-server binary: $LLAMA_SERVER_BIN"
-echo "Host/port: $HOST:$PORT"
-if [ -n "$MODEL_PATH" ]; then
-    echo "Model path: $MODEL_PATH"
-else
-    echo "Hugging Face model: $HF_MODEL"
+if ! command_exists "$PYTHON_BIN"; then
+    fail "Python executable not found: $PYTHON_BIN"
 fi
+
+if ! "$PYTHON_BIN" -m venv --help >/dev/null 2>&1; then
+    fail "python venv support is required. On Debian this is usually provided by python3-venv."
+fi
+
+ensure_gpu_venv_python "$VENV_DIR" "$PYTHON_BIN"
+
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+    create_venv
+fi
+
+readonly VENV_PYTHON="$VENV_DIR/bin/python"
+
+ensure_venv_pip
+ensure_python_packages
+
+readonly LLAMA_SERVER_BIN="$(ensure_local_llama_server)"
+readonly EFFECTIVE_LLAMA_NGL="$(effective_llama_ngl)"
+
+echo "Starting Infumap text embedding service"
+echo "Python: $("$VENV_PYTHON" -V 2>&1)"
+echo "API host/port: $HOST:$PORT"
+echo "llama-server URL: $LLAMA_SERVER_URL_DEFAULT"
+echo "llama-server binary: $LLAMA_SERVER_BIN"
+echo "Hugging Face model: $MODEL_ID"
 echo "llama ctx: $LLAMA_CTX"
 echo "llama batch size: $LLAMA_BATCH_SIZE"
 echo "llama ubatch size: $LLAMA_UBATCH_SIZE"
 echo "llama parallel slots: $LLAMA_PARALLEL"
 echo "llama pooling: $LLAMA_POOLING"
 echo "llama n-gpu-layers: $EFFECTIVE_LLAMA_NGL"
-echo "llama extra args: ${LLAMA_EXTRA_ARGS:-<unset>}"
-echo "TEXT_EMBEDDING_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
 if has_nvidia_gpu; then
     echo "Detected GPUs via nvidia-smi:"
     nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true
@@ -211,54 +335,34 @@ else
     echo "nvidia-smi: not found"
 fi
 
-while true; do
-    llama_cmd=(
-        "$LLAMA_SERVER_BIN"
-        --embedding
-        --pooling "$LLAMA_POOLING"
-        -c "$LLAMA_CTX"
-        -b "$LLAMA_BATCH_SIZE"
-        -ub "$LLAMA_UBATCH_SIZE"
-        -np "$LLAMA_PARALLEL"
-        --host "$HOST"
-        --port "$PORT"
-    )
-    if [ -n "$MODEL_PATH" ]; then
-        llama_cmd+=(-m "$MODEL_PATH")
-    else
-        llama_cmd+=(-hf "$HF_MODEL")
-    fi
-    if [ "$EFFECTIVE_LLAMA_NGL" != "0" ]; then
-        llama_cmd+=(-ngl "$EFFECTIVE_LLAMA_NGL")
-    fi
-    if [ -n "$LLAMA_EXTRA_ARGS" ]; then
-        # shellcheck disable=SC2206
-        llama_extra_args=($LLAMA_EXTRA_ARGS)
-        llama_cmd+=("${llama_extra_args[@]}")
-    fi
+llama_cmd=(
+    "$LLAMA_SERVER_BIN"
+    --embedding
+    --pooling "$LLAMA_POOLING"
+    -c "$LLAMA_CTX"
+    -b "$LLAMA_BATCH_SIZE"
+    -ub "$LLAMA_UBATCH_SIZE"
+    -np "$LLAMA_PARALLEL"
+    --host "$LLAMA_HOST"
+    --port "$LLAMA_PORT"
+    -hf "$MODEL_ID"
+)
+if [ "$EFFECTIVE_LLAMA_NGL" != "0" ]; then
+    llama_cmd+=(-ngl "$EFFECTIVE_LLAMA_NGL")
+fi
 
-    launch_child "${llama_cmd[@]}"
-    child_pid="$LAUNCHED_CHILD_PID"
-    wait_for_llama_server
+launch_child "${llama_cmd[@]}"
+llama_pid="$LAUNCHED_CHILD_PID"
 
-    set +e
-    wait "$child_pid"
-    exit_code=$?
-    set -e
-    child_pid=""
+echo "Waiting for llama-server to become ready..."
+wait_for_llama_server "$LLAMA_SERVER_URL_DEFAULT" "$llama_pid"
 
-    if [ "$exit_code" -eq 0 ]; then
-        echo "Text embedding llama-server exited cleanly. Not restarting."
-        exit 0
-    fi
+launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT"
+api_pid="$LAUNCHED_CHILD_PID"
 
-    if [ "$exit_code" -eq 139 ]; then
-        echo "Text embedding llama-server crashed with SIGSEGV (exit 139). Restarting in ${RESTART_DELAY_SECS}s." >&2
-    elif [ "$exit_code" -gt 128 ]; then
-        echo "Text embedding llama-server exited due to signal $((exit_code - 128)) (exit ${exit_code}). Restarting in ${RESTART_DELAY_SECS}s." >&2
-    else
-        echo "Text embedding llama-server exited with status ${exit_code}. Restarting in ${RESTART_DELAY_SECS}s." >&2
-    fi
+set +e
+wait_for_first_child_exit "$api_pid" "$llama_pid"
+exit_code=$?
+set -e
 
-    sleep "$RESTART_DELAY_SECS"
-done
+exit "$exit_code"
