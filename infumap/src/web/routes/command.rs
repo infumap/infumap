@@ -1745,7 +1745,7 @@ async fn semantic_search_results(
   let embedding_batch = embed_texts(
     &client,
     &embed_url,
-    &[TextEmbeddingInput { id: Some("search-query".to_owned()), text: search_text.to_owned() }],
+    &[TextEmbeddingInput::retrieval_query(Some("search-query".to_owned()), search_text.to_owned())],
   )
   .await?;
   let query_embedding =

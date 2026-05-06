@@ -18,17 +18,21 @@ set -euo pipefail
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
-readonly VENV_DIR="${TEXT_EMBEDDING_VENV_DIR:-$ROOT_DIR/.venv}"
-source "$GPU_ROOT_DIR/python_runtime.sh"
-PYTHON_BIN="$(select_gpu_python_bin "$VENV_DIR")"
-readonly PYTHON_BIN
 readonly HOST="${TEXT_EMBEDDING_HOST:-127.0.0.1}"
 readonly PORT="${TEXT_EMBEDDING_PORT:-8789}"
 readonly RESTART_DELAY_SECS="${TEXT_EMBEDDING_RESTART_DELAY_SECS:-5}"
-readonly MODEL_SELECTOR="${TEXT_EMBEDDING_MODEL:-}"
-readonly MODEL_ALIAS_REGISTRY="${GPU_MODEL_ALIAS_REGISTRY:-$GPU_ROOT_DIR/model_aliases.json}"
+readonly STARTUP_TIMEOUT_SECS="${TEXT_EMBEDDING_STARTUP_TIMEOUT_SECS:-900}"
+readonly LLAMA_BIN_OVERRIDE="${TEXT_EMBEDDING_LLAMA_BIN:-}"
+readonly HF_MODEL="${TEXT_EMBEDDING_HF_MODEL:-Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0}"
+readonly MODEL_PATH="${TEXT_EMBEDDING_MODEL_PATH:-}"
+readonly LLAMA_CTX="${TEXT_EMBEDDING_LLAMA_CTX:-32768}"
+readonly LLAMA_BATCH_SIZE="${TEXT_EMBEDDING_LLAMA_BATCH_SIZE:-8192}"
+readonly LLAMA_UBATCH_SIZE="${TEXT_EMBEDDING_LLAMA_UBATCH_SIZE:-8192}"
+readonly LLAMA_PARALLEL="${TEXT_EMBEDDING_LLAMA_PARALLEL:-1}"
+readonly LLAMA_POOLING="${TEXT_EMBEDDING_LLAMA_POOLING:-last}"
+readonly LLAMA_EXTRA_ARGS="${TEXT_EMBEDDING_LLAMA_EXTRA_ARGS:-}"
+
+child_pid=""
 LAUNCHED_CHILD_PID=""
 
 fail() {
@@ -36,84 +40,47 @@ fail() {
     exit 1
 }
 
-resolve_model_alias() {
-    local resolved_alias_env=""
-    local -a resolve_cmd=(
-        "$PYTHON_BIN" "$GPU_ROOT_DIR/resolve_model_alias.py"
-        --registry "$MODEL_ALIAS_REGISTRY"
-        --tool text_embedding
-    )
-    if [ -n "$MODEL_SELECTOR" ]; then
-        resolve_cmd+=(--alias "$MODEL_SELECTOR")
-    fi
-    if ! resolved_alias_env="$("${resolve_cmd[@]}" 2>&1)"; then
-        fail "$resolved_alias_env"
-    fi
-    eval "$resolved_alias_env"
-}
-
-resolve_model_alias
-
-export TEXT_EMBEDDING_MODEL="$RESOLVED_ALIAS"
-export TEXT_EMBEDDING_MODEL_ALIAS="$RESOLVED_ALIAS"
-export TEXT_EMBEDDING_MODEL_NAME="${TEXT_EMBEDDING_MODEL_NAME:-$RESOLVED_MODEL_NAME}"
-
-venv_package_name() {
-    "$PYTHON_BIN" - <<'PY'
-import sys
-print(f"python{sys.version_info.major}.{sys.version_info.minor}-venv")
-PY
-}
-
-create_venv() {
-    local output_file
-    output_file="$(mktemp)"
-
-    if "$PYTHON_BIN" -m venv "$VENV_DIR" >"$output_file" 2>&1; then
-        rm -f "$output_file"
-        return 0
-    fi
-
-    rm -rf "$VENV_DIR"
-
-    if ! "$PYTHON_BIN" -m ensurepip --version >/dev/null 2>&1; then
-        local package_name
-        package_name="$(venv_package_name)"
-        echo "Python virtualenv bootstrap support is missing." >&2
-        echo "Install it with one of:" >&2
-        echo "  sudo apt install $package_name" >&2
-        echo "  sudo apt install python3-venv" >&2
-        echo "" >&2
-    fi
-
-    cat "$output_file" >&2
-    rm -f "$output_file"
-    exit 1
-}
-
-ensure_venv_pip() {
-    if "$VENV_PYTHON" -m pip --version >/dev/null 2>&1; then
-        return 0
-    fi
-
-    if "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
-        return 0
-    fi
-
-    rm -rf "$VENV_DIR"
-    create_venv
-
-    if "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
-        return 0
-    fi
-
-    local package_name
-    package_name="$(venv_package_name)"
-    fail "pip is unavailable inside the virtualenv. Install $package_name or python3-venv, then rerun."
-}
-
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+is_macos() {
+    [ "$(uname -s)" = "Darwin" ]
+}
+
+has_nvidia_gpu() {
+    command_exists nvidia-smi
+}
+
+has_gpu_acceleration() {
+    has_nvidia_gpu || is_macos
+}
+
+effective_llama_ngl() {
+    if [ -n "${TEXT_EMBEDDING_LLAMA_NGL:-}" ]; then
+        printf '%s\n' "${TEXT_EMBEDDING_LLAMA_NGL}"
+        return 0
+    fi
+    if has_gpu_acceleration; then
+        printf '%s\n' "all"
+        return 0
+    fi
+    printf '%s\n' "0"
+}
+
+ensure_local_llama_server() {
+    if [ -n "$LLAMA_BIN_OVERRIDE" ]; then
+        [ -x "$LLAMA_BIN_OVERRIDE" ] || fail "TEXT_EMBEDDING_LLAMA_BIN is not executable: $LLAMA_BIN_OVERRIDE"
+        printf '%s\n' "$LLAMA_BIN_OVERRIDE"
+        return 0
+    fi
+
+    if command_exists llama-server; then
+        command -v llama-server
+        return 0
+    fi
+
+    fail "llama-server was not found on PATH. Install llama.cpp or set TEXT_EMBEDDING_LLAMA_BIN=/path/to/llama-server."
 }
 
 launch_child() {
@@ -172,262 +139,125 @@ wait_for_child_shutdown() {
     wait "$pid" 2>/dev/null || true
 }
 
-has_nvidia_gpu() {
-    command_exists nvidia-smi
+http_get_ok() {
+    local url="$1"
+    if command_exists curl; then
+        curl -fsS --max-time 5 "$url" >/dev/null 2>&1
+        return $?
+    fi
+    return 1
 }
 
-is_macos() {
-    [ "$(uname -s)" = "Darwin" ]
-}
+wait_for_llama_server() {
+    local base_url="http://${HOST}:${PORT}"
+    local deadline=$((SECONDS + STARTUP_TIMEOUT_SECS))
 
-normalize_device() {
-    local default_device
-    local raw
-    default_device="$(default_embedding_device)"
-    raw="${TEXT_EMBEDDING_DEVICE:-$default_device}"
-    raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
-    case "$raw" in
-        cpu|gpu)
-            printf '%s\n' "$raw"
-            ;;
-        *)
-            echo "Warning: invalid TEXT_EMBEDDING_DEVICE=${TEXT_EMBEDDING_DEVICE:-<unset>}; defaulting to ${default_device}." >&2
-            printf '%s\n' "$default_device"
-            ;;
-    esac
-}
-
-default_embedding_device() {
-    if has_nvidia_gpu; then
-        printf '%s\n' "gpu"
-        return 0
-    fi
-    if is_macos; then
-        printf '%s\n' "gpu"
-        return 0
-    fi
-    printf '%s\n' "cpu"
-}
-
-effective_fastembed_package() {
-    if [ -n "${TEXT_EMBEDDING_FASTEMBED_PACKAGE:-}" ]; then
-        printf '%s\n' "${TEXT_EMBEDDING_FASTEMBED_PACKAGE}"
-        return 0
-    fi
-    if [ "$TEXT_EMBEDDING_DEVICE" = "gpu" ] && has_nvidia_gpu; then
-        printf '%s\n' "fastembed-gpu"
-        return 0
-    fi
-    printf '%s\n' "fastembed"
-}
-
-effective_providers() {
-    if [ -n "${TEXT_EMBEDDING_PROVIDERS:-}" ]; then
-        printf '%s\n' "${TEXT_EMBEDDING_PROVIDERS}"
-        return 0
-    fi
-    if [ "$TEXT_EMBEDDING_DEVICE" = "cpu" ]; then
-        printf '%s\n' "CPUExecutionProvider"
-        return 0
-    fi
-    if has_nvidia_gpu; then
-        printf '%s\n' "CUDAExecutionProvider,CPUExecutionProvider"
-        return 0
-    fi
-    if is_macos; then
-        printf '%s\n' "CoreMLExecutionProvider,CPUExecutionProvider"
-        return 0
-    fi
-    printf '%s\n' "CUDAExecutionProvider,CPUExecutionProvider"
-}
-
-prepend_env_path() {
-    local variable_name="$1"
-    local path_value="$2"
-    local current_value=""
-    [ -n "$path_value" ] || return 0
-
-    current_value="$(printenv "$variable_name" 2>/dev/null || true)"
-    if [ -n "$current_value" ]; then
-        export "${variable_name}=${path_value}:${current_value}"
-    else
-        export "${variable_name}=${path_value}"
-    fi
-}
-
-export_cuda_runtime_paths() {
-    local lib_dirs=()
-    local joined=""
-    local dir=""
-
-    if ! has_nvidia_gpu; then
-        return 0
-    fi
-
-    shopt -s nullglob
-    for dir in "$VENV_DIR"/lib/python*/site-packages/nvidia/*/lib "$VENV_DIR"/lib/python*/site-packages/torch/lib; do
-        if [ -d "$dir" ]; then
-            lib_dirs+=("$dir")
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        if [ -n "$child_pid" ] && ! kill -0 "$child_pid" 2>/dev/null; then
+            fail "llama-server exited before becoming ready at ${base_url}"
         fi
+        if http_get_ok "${base_url}/health" || http_get_ok "${base_url}/v1/models"; then
+            return 0
+        fi
+        sleep 1
     done
-    shopt -u nullglob
 
-    if [ "${#lib_dirs[@]}" -eq 0 ]; then
-        return 0
-    fi
-
-    joined="$(printf '%s:' "${lib_dirs[@]}")"
-    joined="${joined%:}"
-    prepend_env_path "LD_LIBRARY_PATH" "$joined"
+    fail "Timed out waiting for llama-server at ${base_url}"
 }
 
-package_installed() {
-    "$VENV_PYTHON" -m pip show "$1" >/dev/null 2>&1
-}
-
-has_ort_cuda12_runtime_libs() {
-    local matches=()
-    shopt -s nullglob
-    matches=("$VENV_DIR"/lib/python*/site-packages/nvidia/cublas/lib/libcublasLt.so.12)
-    shopt -u nullglob
-    [ "${#matches[@]}" -gt 0 ]
-}
-
-ensure_python_packages() {
-    local reinstall=0
-    local conflicting_package=""
-
-    if [ "$FASTEMBED_PACKAGE" = "fastembed-gpu" ]; then
-        conflicting_package="fastembed"
-    else
-        conflicting_package="fastembed-gpu"
-    fi
-
-    if ! "$VENV_PYTHON" -c "import fastapi, uvicorn, fastembed" >/dev/null 2>&1; then
-        reinstall=1
-    fi
-    if ! package_installed "$FASTEMBED_PACKAGE"; then
-        reinstall=1
-    fi
-    if [ "$FASTEMBED_PACKAGE" = "fastembed-gpu" ] && ! package_installed "onnxruntime-gpu"; then
-        reinstall=1
-    fi
-    if package_installed "$conflicting_package"; then
-        reinstall=1
-    fi
-    if [ "$FASTEMBED_PACKAGE" = "fastembed-gpu" ] && ! has_ort_cuda12_runtime_libs; then
-        reinstall=1
-    fi
-
-    if [ "$reinstall" -eq 0 ]; then
-        return 0
-    fi
-
-    "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip uninstall -y fastembed fastembed-gpu onnxruntime onnxruntime-gpu >/dev/null 2>&1 || true
-    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements.txt"
-    if [ "$FASTEMBED_PACKAGE" = "fastembed-gpu" ]; then
-        "$VENV_PYTHON" -m pip install --upgrade "$FASTEMBED_PACKAGE" "onnxruntime-gpu[cuda,cudnn]>=1.21.0"
-        return 0
-    fi
-    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements-fastembed.txt"
-}
-
-if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
-    fail "Python executable not found: $PYTHON_BIN"
-fi
-
-if ! "$PYTHON_BIN" -m venv --help >/dev/null 2>&1; then
-    fail "python venv support is required. On Debian this is usually provided by python3-venv."
-fi
-
-ensure_gpu_venv_python "$VENV_DIR" "$PYTHON_BIN"
-
-if [ ! -x "$VENV_DIR/bin/python" ]; then
-    create_venv
-fi
-
-readonly VENV_PYTHON="$VENV_DIR/bin/python"
-ensure_venv_pip
-
-export TEXT_EMBEDDING_DEVICE="$(normalize_device)"
-readonly FASTEMBED_PACKAGE="$(effective_fastembed_package)"
-readonly EFFECTIVE_PROVIDERS="$(effective_providers)"
-
-if [ -n "$EFFECTIVE_PROVIDERS" ]; then
-    export TEXT_EMBEDDING_PROVIDERS="$EFFECTIVE_PROVIDERS"
-fi
-
-ensure_python_packages
-export_cuda_runtime_paths
-
-if [ -n "${TEXT_EMBEDDING_MODELS_DIR:-}" ]; then
-    mkdir -p "$TEXT_EMBEDDING_MODELS_DIR"
-fi
-
-echo "Starting Infumap text embedding service"
-echo "Python: $("$VENV_PYTHON" -V 2>&1)"
-echo "Host/port: $HOST:$PORT"
-echo "TEXT_EMBEDDING_MODEL_ALIAS=${TEXT_EMBEDDING_MODEL_ALIAS}"
-echo "TEXT_EMBEDDING_DEFAULT_MODEL_ALIAS=${RESOLVED_DEFAULT_ALIAS}"
-echo "TEXT_EMBEDDING_MODEL_NAME=${TEXT_EMBEDDING_MODEL_NAME}"
-echo "TEXT_EMBEDDING_MODELS_DIR=${TEXT_EMBEDDING_MODELS_DIR:-<fastembed default>}"
-echo "TEXT_EMBEDDING_DEVICE=${TEXT_EMBEDDING_DEVICE}"
-echo "TEXT_EMBEDDING_FASTEMBED_PACKAGE=${FASTEMBED_PACKAGE}"
-echo "TEXT_EMBEDDING_MAX_BATCH_ITEMS=${TEXT_EMBEDDING_MAX_BATCH_ITEMS:-256}"
-echo "TEXT_EMBEDDING_MAX_TEXT_CHARS=${TEXT_EMBEDDING_MAX_TEXT_CHARS:-32768}"
-echo "TEXT_EMBEDDING_MAX_CONCURRENCY=${TEXT_EMBEDDING_MAX_CONCURRENCY:-1}"
-echo "TEXT_EMBEDDING_PROVIDERS=${TEXT_EMBEDDING_PROVIDERS:-<default>}"
-echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-<unset>}"
-echo "TEXT_EMBEDDING_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
-if has_nvidia_gpu; then
-    echo "Detected GPUs via nvidia-smi:"
-    nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true
-else
-    echo "nvidia-smi: not found"
-fi
-
-child_pid=""
-shutdown_requested=0
-restart_count=0
-
-stop_supervisor() {
-    shutdown_requested=1
-    if [ -n "${child_pid}" ]; then
+cleanup() {
+    if [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
         terminate_child "$child_pid"
         wait_for_child_shutdown "$child_pid"
     fi
 }
 
-trap stop_supervisor INT TERM
+cleanup_and_exit() {
+    cleanup
+    exit 0
+}
+
+trap cleanup EXIT
+trap cleanup_and_exit INT TERM
+
+LLAMA_SERVER_BIN="$(ensure_local_llama_server)"
+readonly LLAMA_SERVER_BIN
+EFFECTIVE_LLAMA_NGL="$(effective_llama_ngl)"
+readonly EFFECTIVE_LLAMA_NGL
+
+echo "Starting Infumap text embedding service with llama-server"
+echo "llama-server binary: $LLAMA_SERVER_BIN"
+echo "Host/port: $HOST:$PORT"
+if [ -n "$MODEL_PATH" ]; then
+    echo "Model path: $MODEL_PATH"
+else
+    echo "Hugging Face model: $HF_MODEL"
+fi
+echo "llama ctx: $LLAMA_CTX"
+echo "llama batch size: $LLAMA_BATCH_SIZE"
+echo "llama ubatch size: $LLAMA_UBATCH_SIZE"
+echo "llama parallel slots: $LLAMA_PARALLEL"
+echo "llama pooling: $LLAMA_POOLING"
+echo "llama n-gpu-layers: $EFFECTIVE_LLAMA_NGL"
+echo "llama extra args: ${LLAMA_EXTRA_ARGS:-<unset>}"
+echo "TEXT_EMBEDDING_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
+if has_nvidia_gpu; then
+    echo "Detected GPUs via nvidia-smi:"
+    nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,utilization.gpu --format=csv,noheader || true
+elif is_macos; then
+    echo "Detected Metal GPU (macOS)"
+    system_profiler SPDisplaysDataType 2>/dev/null | grep -E "Chipset Model|VRAM" || true
+else
+    echo "nvidia-smi: not found"
+fi
 
 while true; do
-    launch_child "$VENV_PYTHON" -m uvicorn app:app --app-dir "$ROOT_DIR" --host "$HOST" --port "$PORT"
+    llama_cmd=(
+        "$LLAMA_SERVER_BIN"
+        --embedding
+        --pooling "$LLAMA_POOLING"
+        -c "$LLAMA_CTX"
+        -b "$LLAMA_BATCH_SIZE"
+        -ub "$LLAMA_UBATCH_SIZE"
+        -np "$LLAMA_PARALLEL"
+        --host "$HOST"
+        --port "$PORT"
+    )
+    if [ -n "$MODEL_PATH" ]; then
+        llama_cmd+=(-m "$MODEL_PATH")
+    else
+        llama_cmd+=(-hf "$HF_MODEL")
+    fi
+    if [ "$EFFECTIVE_LLAMA_NGL" != "0" ]; then
+        llama_cmd+=(-ngl "$EFFECTIVE_LLAMA_NGL")
+    fi
+    if [ -n "$LLAMA_EXTRA_ARGS" ]; then
+        # shellcheck disable=SC2206
+        llama_extra_args=($LLAMA_EXTRA_ARGS)
+        llama_cmd+=("${llama_extra_args[@]}")
+    fi
+
+    launch_child "${llama_cmd[@]}"
     child_pid="$LAUNCHED_CHILD_PID"
+    wait_for_llama_server
 
     set +e
     wait "$child_pid"
     exit_code=$?
     set -e
-
     child_pid=""
 
-    if [ "$shutdown_requested" -eq 1 ]; then
-        exit 0
-    fi
-
     if [ "$exit_code" -eq 0 ]; then
-        echo "Text embedding service exited cleanly. Not restarting."
+        echo "Text embedding llama-server exited cleanly. Not restarting."
         exit 0
     fi
 
-    restart_count="$((restart_count + 1))"
     if [ "$exit_code" -eq 139 ]; then
-        echo "Text embedding service crashed with SIGSEGV (exit 139). Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
+        echo "Text embedding llama-server crashed with SIGSEGV (exit 139). Restarting in ${RESTART_DELAY_SECS}s." >&2
     elif [ "$exit_code" -gt 128 ]; then
-        echo "Text embedding service exited due to signal $((exit_code - 128)) (exit ${exit_code}). Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
+        echo "Text embedding llama-server exited due to signal $((exit_code - 128)) (exit ${exit_code}). Restarting in ${RESTART_DELAY_SECS}s." >&2
     else
-        echo "Text embedding service exited with status ${exit_code}. Restarting in ${RESTART_DELAY_SECS}s (restart #${restart_count})." >&2
+        echo "Text embedding llama-server exited with status ${exit_code}. Restarting in ${RESTART_DELAY_SECS}s." >&2
     fi
 
     sleep "$RESTART_DELAY_SECS"

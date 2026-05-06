@@ -5,12 +5,32 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::CONFIG_TEXT_EMBEDDING_URL;
 
+pub const DEFAULT_TEXT_EMBEDDING_MODEL: &str = "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0";
 pub const DEFAULT_TEXT_EMBEDDING_BATCH_SIZE: usize = 256;
+pub const DEFAULT_RETRIEVAL_QUERY_INSTRUCTION: &str =
+  "Given a web search query, retrieve relevant passages that answer the query";
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TextEmbeddingInputRole {
+  RetrievalDocument,
+  RetrievalQuery,
+}
+
+#[derive(Clone)]
 pub struct TextEmbeddingInput {
   pub id: Option<String>,
   pub text: String,
+  pub role: TextEmbeddingInputRole,
+}
+
+impl TextEmbeddingInput {
+  pub fn retrieval_document(id: Option<String>, text: String) -> Self {
+    Self { id, text, role: TextEmbeddingInputRole::RetrievalDocument }
+  }
+
+  pub fn retrieval_query(id: Option<String>, text: String) -> Self {
+    Self { id, text, role: TextEmbeddingInputRole::RetrievalQuery }
+  }
 }
 
 #[derive(Debug)]
@@ -20,22 +40,31 @@ pub struct TextEmbeddingBatch {
 }
 
 #[derive(Serialize)]
-struct ServiceEmbedRequest {
-  inputs: Vec<TextEmbeddingInput>,
-}
-
-#[derive(Deserialize)]
-struct ServiceEmbedResponse {
-  success: bool,
+struct OpenAiEmbeddingRequest {
   model: String,
-  count: usize,
-  results: Vec<ServiceEmbedResult>,
+  input: Vec<String>,
+  encoding_format: &'static str,
 }
 
 #[derive(Deserialize)]
-struct ServiceEmbedResult {
+struct OpenAiEmbeddingResponse {
+  model: Option<String>,
+  data: Vec<OpenAiEmbeddingResult>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiEmbeddingResult {
   index: usize,
   embedding: Vec<f32>,
+}
+
+fn format_text_embedding_input(input: &TextEmbeddingInput) -> String {
+  match input.role {
+    TextEmbeddingInputRole::RetrievalDocument => input.text.clone(),
+    TextEmbeddingInputRole::RetrievalQuery => {
+      format!("Instruct: {}\nQuery: {}", DEFAULT_RETRIEVAL_QUERY_INSTRUCTION, input.text)
+    }
+  }
 }
 
 pub fn resolve_text_embedding_service_url(
@@ -63,12 +92,18 @@ pub fn text_embedding_url_from_config(config: &Config) -> InfuResult<Option<Stri
 
 pub fn text_embedding_embed_url(base_url: &str) -> InfuResult<Url> {
   let mut parsed = Url::parse(base_url).map_err(|e| format!("Could not parse service URL '{}': {}", base_url, e))?;
-  if parsed.path().ends_with("/embed") {
+  let trimmed = parsed.path().trim_end_matches('/');
+  if trimmed.ends_with("/embed") || trimmed.ends_with("/v1/embeddings") {
     Ok(parsed)
   } else {
-    let trimmed = parsed.path().trim_end_matches('/');
-    let embed_path = if trimmed.is_empty() { "/embed".to_owned() } else { format!("{}/embed", trimmed) };
-    parsed.set_path(&embed_path);
+    let embeddings_path = if trimmed.is_empty() {
+      "/v1/embeddings".to_owned()
+    } else if trimmed.ends_with("/v1") {
+      format!("{}/embeddings", trimmed)
+    } else {
+      format!("{}/v1/embeddings", trimmed)
+    };
+    parsed.set_path(&embeddings_path);
     Ok(parsed)
   }
 }
@@ -78,7 +113,11 @@ pub async fn embed_texts(
   embed_url: &Url,
   inputs: &[TextEmbeddingInput],
 ) -> InfuResult<TextEmbeddingBatch> {
-  let request = ServiceEmbedRequest { inputs: inputs.to_vec() };
+  let request = OpenAiEmbeddingRequest {
+    model: DEFAULT_TEXT_EMBEDDING_MODEL.to_owned(),
+    input: inputs.iter().map(format_text_embedding_input).collect(),
+    encoding_format: "float",
+  };
 
   let response = client
     .post(embed_url.clone())
@@ -92,33 +131,17 @@ pub async fn embed_texts(
     return Err(format!("Text embedding service '{}' returned {}: {}", embed_url, status, body).into());
   }
 
-  let response: ServiceEmbedResponse = response
+  let response: OpenAiEmbeddingResponse = response
     .json()
     .await
     .map_err(|e| format!("Could not deserialize text embedding response from '{}': {}", embed_url, e))?;
 
-  if !response.success {
-    return Err(format!("Text embedding service '{}' reported success=false.", embed_url).into());
-  }
-
-  if response.count != inputs.len() {
-    return Err(
-      format!(
-        "Text embedding service '{}' returned count {} but {} input(s) were requested.",
-        embed_url,
-        response.count,
-        inputs.len()
-      )
-      .into(),
-    );
-  }
-
-  if response.results.len() != inputs.len() {
+  if response.data.len() != inputs.len() {
     return Err(
       format!(
         "Text embedding service '{}' returned {} result rows but {} input(s) were requested.",
         embed_url,
-        response.results.len(),
+        response.data.len(),
         inputs.len()
       )
       .into(),
@@ -126,7 +149,7 @@ pub async fn embed_texts(
   }
 
   let mut ordered = vec![None; inputs.len()];
-  for result in response.results {
+  for result in response.data {
     if result.index >= inputs.len() {
       return Err(
         format!(
@@ -146,15 +169,25 @@ pub async fn embed_texts(
     ordered[result.index] = Some(result.embedding);
   }
 
+  let model = response
+    .model
+    .map(|model| model.trim().to_owned())
+    .filter(|model| !model.is_empty())
+    .unwrap_or_else(|| DEFAULT_TEXT_EMBEDDING_MODEL.to_owned());
+
   Ok(TextEmbeddingBatch {
-    model: response.model,
+    model,
     embeddings: ordered
       .into_iter()
       .enumerate()
       .map(|(index, vector)| {
         vector.ok_or_else(|| {
-          format!("Text embedding service '{}' did not return an embedding for result index {}.", embed_url, index)
-            .into()
+          let id = inputs[index].id.as_deref().unwrap_or("<none>");
+          format!(
+            "Text embedding service '{}' did not return an embedding for result index {} (id {}).",
+            embed_url, index, id
+          )
+          .into()
         })
       })
       .collect::<InfuResult<Vec<Vec<f32>>>>()?,
@@ -185,12 +218,33 @@ pub async fn embed_texts_batched(
 
 #[cfg(test)]
 mod tests {
-  use super::text_embedding_embed_url;
+  use super::{TextEmbeddingInput, format_text_embedding_input, text_embedding_embed_url};
 
   #[test]
-  fn service_url_defaults_to_embed_path() {
+  fn retrieval_documents_are_embedded_without_instruction_prefix() {
+    let input = TextEmbeddingInput::retrieval_document(Some("doc-1".to_owned()), "plain fragment text".to_owned());
+    assert_eq!(format_text_embedding_input(&input), "plain fragment text");
+  }
+
+  #[test]
+  fn retrieval_queries_are_embedded_with_instruction_prefix() {
+    let input = TextEmbeddingInput::retrieval_query(Some("query-1".to_owned()), "booking details".to_owned());
+    assert_eq!(
+      format_text_embedding_input(&input),
+      "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: booking details"
+    );
+  }
+
+  #[test]
+  fn service_url_defaults_to_openai_embeddings_path() {
     let url = text_embedding_embed_url("http://127.0.0.1:8789").unwrap();
-    assert_eq!(url.as_str(), "http://127.0.0.1:8789/embed");
+    assert_eq!(url.as_str(), "http://127.0.0.1:8789/v1/embeddings");
+
+    let url = text_embedding_embed_url("http://127.0.0.1:8789/v1").unwrap();
+    assert_eq!(url.as_str(), "http://127.0.0.1:8789/v1/embeddings");
+
+    let url = text_embedding_embed_url("http://127.0.0.1:8789/v1/embeddings").unwrap();
+    assert_eq!(url.as_str(), "http://127.0.0.1:8789/v1/embeddings");
 
     let url = text_embedding_embed_url("http://127.0.0.1:8789/embed").unwrap();
     assert_eq!(url.as_str(), "http://127.0.0.1:8789/embed");

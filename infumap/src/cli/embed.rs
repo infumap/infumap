@@ -33,7 +33,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Text embedding service base URL or /embed endpoint. Falls back to text_embedding_url in settings.toml.")
+        .help("Text embedding service base URL, /v1/embeddings endpoint, or gateway /embed endpoint. Falls back to text_embedding_url in settings.toml.")
         .num_args(1)
         .required(false),
     )
@@ -201,9 +201,11 @@ async fn rebuild_user_fragment_index(
   for batch in pending_fragments.chunks(DEFAULT_TEXT_EMBEDDING_BATCH_SIZE) {
     let inputs = batch
       .iter()
-      .map(|fragment| TextEmbeddingInput {
-        id: Some(format!("{}:{}", fragment.item_id, fragment.ordinal)),
-        text: fragment.text.clone(),
+      .map(|fragment| {
+        TextEmbeddingInput::retrieval_document(
+          Some(format!("{}:{}", fragment.item_id, fragment.ordinal)),
+          fragment.text.clone(),
+        )
       })
       .collect::<Vec<_>>();
     let response = embed_texts(client, embed_url, &inputs).await?;

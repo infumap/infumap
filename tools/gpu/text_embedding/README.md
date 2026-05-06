@@ -1,54 +1,23 @@
 # Text Embedding
 
-This service exposes batched text embeddings over HTTP using Python
-`fastembed`.
+This service runs a local `llama-server` in embedding mode. It is shell-only:
+there is no Python app, venv, or Python dependency installation in this tool.
 
-It is intentionally configured to keep Infumap's embedding semantics stable:
+By default it serves the GGUF build of Qwen3 Embedding 0.6B:
 
-- same underlying ONNX repo as the previous Rust fastembed path: `Xenova/bge-base-en-v1.5`
-- same ONNX file: `onnx/model.onnx`
-- same pooling: `CLS`
-- same normalization: enabled
-- same raw text behavior: plain `embed()` calls, with no query/passage prefix
-  rewriting
+```bash
+Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0
+```
 
-That means a batch sent to this service should produce vectors compatible with
-the embeddings Infumap has been using already, while moving execution fully out
-to the external service.
-
-## What It Does
-
-- accepts JSON batches at `POST /embed`
-- loads the embedding model once at startup
-- returns one embedding per input in request order
-- uses FastEmbed's default model cache unless `TEXT_EMBEDDING_MODELS_DIR` is set
-
-## Default Layout
-
-By default:
-
-- the HTTP service listens on `127.0.0.1:8789`
-- model files use FastEmbed's default cache
-- the launcher creates or reuses `tools/gpu/text_embedding/.venv`
-- on NVIDIA hosts, the launcher defaults to `TEXT_EMBEDDING_DEVICE=gpu` and
-  installs `fastembed-gpu`
-- on macOS hosts, the launcher defaults to `TEXT_EMBEDDING_DEVICE=gpu` and
-  requests ONNX Runtime's `CoreMLExecutionProvider` through regular `fastembed`
-- on other hosts without `nvidia-smi`, the launcher defaults to
-  `TEXT_EMBEDDING_DEVICE=cpu` and installs regular `fastembed`
-
-Shared model aliases are defined in `tools/gpu/model_aliases.json`, with
-per-tool defaults and compatibility rules in the same file.
+`llama-server` needs a GGUF model. If you want to use a converted build from a
+different repo, set `TEXT_EMBEDDING_HF_MODEL`. If you already have a local GGUF,
+set `TEXT_EMBEDDING_MODEL_PATH`.
 
 ## Start The Service
 
 Requirements:
 
-- `python3` 3.10 through 3.13
-- `python3-venv`
-
-Set `PYTHON_BIN=/path/to/python3.13` if your default `python3` is too old or too new.
-On macOS, `brew install python@3.13` is enough for the launcher to find it.
+- `llama-server` on `PATH`, or `TEXT_EMBEDDING_LLAMA_BIN=/path/to/llama-server`
 
 From the repo root:
 
@@ -56,131 +25,99 @@ From the repo root:
 ./tools/gpu/text_embedding/run.sh
 ```
 
-To force GPU mode explicitly:
+The direct upstream service listens on `127.0.0.1:8789` by default and exposes
+llama.cpp's OpenAI-compatible embedding endpoint:
 
 ```bash
-TEXT_EMBEDDING_DEVICE=gpu ./tools/gpu/text_embedding/run.sh
+http://127.0.0.1:8789/v1/embeddings
 ```
 
-To force CPU mode explicitly:
+The shared GPU gateway still exposes Infumap's public embedding URL:
 
 ```bash
-TEXT_EMBEDDING_DEVICE=cpu ./tools/gpu/text_embedding/run.sh
+http://127.0.0.1:8787/embed
 ```
 
-On first run that command:
-
-1. creates `tools/gpu/text_embedding/.venv`
-2. installs Python dependencies
-3. starts the FastAPI service
-4. downloads the compatible model into the configured or default model cache on first startup
+The gateway maps that public `/embed` path to the upstream
+`/v1/embeddings` endpoint.
 
 ## Important Environment Variables
 
 - `TEXT_EMBEDDING_HOST`
 - `TEXT_EMBEDDING_PORT`
-- `TEXT_EMBEDDING_VENV_DIR`
-- `TEXT_EMBEDDING_MODEL`
-- `TEXT_EMBEDDING_MODEL_NAME`
-- `TEXT_EMBEDDING_MODELS_DIR`
-- `GPU_MODEL_ALIAS_REGISTRY`
-- `TEXT_EMBEDDING_DEVICE`
-- `TEXT_EMBEDDING_MAX_BATCH_ITEMS`
-- `TEXT_EMBEDDING_MAX_TEXT_CHARS`
-- `TEXT_EMBEDDING_MAX_CONCURRENCY`
+- `TEXT_EMBEDDING_LLAMA_BIN`
+- `TEXT_EMBEDDING_HF_MODEL`
+- `TEXT_EMBEDDING_MODEL_PATH`
+- `TEXT_EMBEDDING_LLAMA_CTX`
+- `TEXT_EMBEDDING_LLAMA_BATCH_SIZE`
+- `TEXT_EMBEDDING_LLAMA_UBATCH_SIZE`
+- `TEXT_EMBEDDING_LLAMA_PARALLEL`
+- `TEXT_EMBEDDING_LLAMA_POOLING`
+- `TEXT_EMBEDDING_LLAMA_NGL`
+- `TEXT_EMBEDDING_LLAMA_EXTRA_ARGS`
 - `TEXT_EMBEDDING_RESTART_DELAY_SECS`
+- `TEXT_EMBEDDING_STARTUP_TIMEOUT_SECS`
 
-Notes:
+Defaults:
 
-- The service intentionally registers and uses the exact model
-  `Xenova/bge-base-en-v1.5` at startup. This is important because in the
-  Python FastEmbed package currently used by this tool, the built-in public
-  alias `BAAI/bge-base-en-v1.5` resolves to a quantized Qdrant artifact
-  instead of the Xenova ONNX file that Infumap has been matching historically.
-- `TEXT_EMBEDDING_MODEL` defaults via the tool config in
-  `tools/gpu/model_aliases.json`; the current default alias is `bgebase`.
-- `TEXT_EMBEDDING_DEVICE` accepts `cpu` or `gpu`. The launcher defaults to
-  `gpu` when `nvidia-smi` is available or on macOS, otherwise `cpu`.
-- `TEXT_EMBEDDING_DEVICE=gpu` requests an accelerated ONNX Runtime provider.
-  On NVIDIA Linux hosts that means CUDA. On macOS it prefers CoreML when the
-  installed ONNX Runtime build exposes it.
-- If you request `TEXT_EMBEDDING_DEVICE=gpu` on a machine without a usable
-  accelerated provider, startup should fail rather than silently falling back
-  to CPU.
-- `TEXT_EMBEDDING_PROVIDERS` and `TEXT_EMBEDDING_FASTEMBED_PACKAGE` are still
-  honored as advanced overrides when you need to force a particular runtime.
-- On Linux NVIDIA hosts, the launcher now prepends the CUDA runtime libraries
-  bundled in the venv to `LD_LIBRARY_PATH` before starting the service so
-  ONNX Runtime can resolve `libcublas`, `libcudnn`, and related dependencies.
-- On Linux NVIDIA hosts, the launcher also installs `onnxruntime-gpu[cuda,cudnn]`
-  so the CUDA 12 / cuDNN 9 runtime expected by current ONNX Runtime GPU wheels
-  is present inside the venv.
+- `TEXT_EMBEDDING_HF_MODEL=Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0`
+- `TEXT_EMBEDDING_LLAMA_CTX=32768`
+- `TEXT_EMBEDDING_LLAMA_POOLING=last`
+- `TEXT_EMBEDDING_LLAMA_NGL=all` on NVIDIA or macOS hosts, otherwise `0`
 
 ## Example Requests
 
-Batch of fragments:
+Direct llama-server request:
 
 ```bash
 curl -sS \
   -H 'content-type: application/json' \
   -d '{
-    "inputs": [
-      {"id": "frag-1", "text": "Document: Example.pdf\n\nThis is the first fragment."},
-      {"id": "frag-2", "text": "Document: Example.pdf\n\nThis is the second fragment."}
+    "model": "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
+    "input": [
+      "Document: Example.pdf\n\nThis is the first fragment.",
+      "Document: Example.pdf\n\nThis is the second fragment."
     ]
   }' \
-  http://127.0.0.1:8789/embed
+  http://127.0.0.1:8789/v1/embeddings
 ```
 
-Single query text with the same embedding path:
+The same request through the gateway:
 
 ```bash
 curl -sS \
   -H 'content-type: application/json' \
   -d '{
-    "inputs": [
-      {"id": "query-1", "text": "mandarin oriental kuala lumpur booking details"}
-    ]
+    "model": "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
+    "input": ["mandarin oriental kuala lumpur booking details"]
   }' \
-  http://127.0.0.1:8789/embed
+  http://127.0.0.1:8787/embed
 ```
 
 ## Endpoints
 
+Direct `llama-server`:
+
 - `GET /`
+- `GET /health`
+- `GET /v1/models`
+- `POST /v1/embeddings`
+
+Gateway:
+
 - `GET /healthz`
 - `POST /embed`
 
-`GET /` and `GET /healthz` both report the configured, available, and active
-ONNX providers, along with the requested `device`, so you can confirm whether
-the service is actually on CPU or using acceleration.
-
-Interactive API docs are available at `http://127.0.0.1:8789/docs`.
-
-## Response Shape
-
-`POST /embed` returns:
-
-- `model`
-- `compatible_with_rust_model`
-- `dimensions`
-- `normalized`
-- `count`
-- `duration_ms`
-- `results`
-
-Each result contains:
-
-- `index`
-- `id`
-- `embedding`
-
 ## Notes
 
-- The service validates that the batch is non-empty and caps batch size and
-  per-input text length.
-- The `/embed` endpoint is generic text, not fragment-specific. A search query
-  is just a one-item batch.
-- Compatibility here means the service is configured to match Infumap's current
-  embedding model and semantics.
-- GPU vs CPU execution may still introduce small floating-point differences.
+- The old FastAPI `/embed` payload shape is gone. Infumap now sends the
+  OpenAI-compatible `model` plus `input` payload.
+- Infumap's Rust embedding API distinguishes retrieval documents from retrieval
+  queries. Fragment documents are embedded as-is. Search queries are embedded
+  with the default Qwen retrieval instruction:
+  `Instruct: Given a web search query, retrieve relevant passages that answer the query`.
+- The OpenAI-compatible endpoint requires pooling other than `none`; the
+  launcher defaults to `last`.
+- On macOS, a Homebrew or source-built `llama-server` normally uses Metal when
+  the binary was built with Metal support. The launcher requests GPU layers by
+  default on macOS.

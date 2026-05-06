@@ -44,6 +44,13 @@ class ServiceProxy:
     service_name: str
     public_paths: tuple[str, ...]
     upstream_base_url: str
+    upstream_path_overrides: dict[str, str] | None = None
+    health_paths: tuple[str, ...] = ("/healthz",)
+
+    def upstream_path_for(self, public_path: str) -> str:
+        if self.upstream_path_overrides and public_path in self.upstream_path_overrides:
+            return self.upstream_path_overrides[public_path]
+        return public_path
 
 
 def upstream_base_url(name: str, default_host: str, default_port: int) -> str:
@@ -64,6 +71,8 @@ def service_registry() -> dict[str, ServiceProxy]:
             service_name="text_embedding",
             public_paths=("/embed",),
             upstream_base_url=upstream_base_url("GPU_TEXT_EMBEDDING_UPSTREAM_URL", "127.0.0.1", 8789),
+            upstream_path_overrides={"/embed": "/v1/embeddings"},
+            health_paths=("/health", "/v1/models"),
         ),
         ServiceProxy(
             service_name="text_extraction",
@@ -100,7 +109,7 @@ def forwarded_headers(request: Request) -> dict[str, str]:
 
 
 def build_upstream_url(service: ServiceProxy, request_path: str, query: str) -> str:
-    url = service.upstream_base_url + request_path
+    url = service.upstream_base_url + service.upstream_path_for(request_path)
     if query:
         return f"{url}?{query}"
     return url
@@ -133,16 +142,36 @@ def proxy_client(request: Request) -> httpx.AsyncClient:
 
 
 async def health_probe(client: httpx.AsyncClient, service: ServiceProxy) -> dict[str, Any]:
-    health_url = f"{service.upstream_base_url}/healthz"
-    try:
-        response = await client.get(health_url)
-    except httpx.HTTPError as exc:
+    first_error: str | None = None
+    response: httpx.Response | None = None
+    response_health_url = ""
+    health_url = ""
+
+    for health_path in service.health_paths:
+        health_url = f"{service.upstream_base_url}{health_path}"
+        try:
+            candidate = await client.get(health_url)
+        except httpx.HTTPError as exc:
+            if first_error is None:
+                first_error = str(exc)
+            continue
+
+        if candidate.is_success:
+            response = candidate
+            response_health_url = health_url
+            break
+        if response is None:
+            response = candidate
+            response_health_url = health_url
+
+    if response is None:
         return {
             "ok": False,
             "paths": list(service.public_paths),
             "upstream": service.upstream_base_url,
+            "health_url": health_url,
             "status_code": None,
-            "detail": str(exc),
+            "detail": first_error or "No health endpoint could be reached.",
         }
 
     try:
@@ -158,6 +187,7 @@ async def health_probe(client: httpx.AsyncClient, service: ServiceProxy) -> dict
         "ok": response.is_success and payload_ok,
         "paths": list(service.public_paths),
         "upstream": service.upstream_base_url,
+        "health_url": response_health_url,
         "status_code": response.status_code,
         "detail": detail,
     }

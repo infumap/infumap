@@ -22,12 +22,14 @@
       "llama_model_name": "gemma-4-26B-A4B-it-UD-Q4_K_XL",
       "llama_extra_args": "--chat-template-kwargs {\"enable_thinking\":false}"
     },
-    "bgebase": {
+    "qwen3embed06b": {
       "modalities": ["text_embedding"],
-      "runtime": "fastembed",
-      "model_name": "Xenova/bge-base-en-v1.5",
-      "models_subdir": "embeddings/bgebase",
-      "model_id": "Xenova/bge-base-en-v1.5"
+      "runtime": "llama.cpp-embedding",
+      "model_repo": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+      "model_file": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "model_id": "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
+      "llama_model_name": "Qwen3-Embedding-0.6B-Q8_0",
+      "llama_extra_args": ""
     }
   },
   "tools": {
@@ -36,8 +38,8 @@
       "allowed_aliases": ["qwen9", "gemma26"]
     },
     "text_embedding": {
-      "default_alias": "bgebase",
-      "allowed_aliases": ["bgebase"]
+      "default_alias": "qwen3embed06b",
+      "allowed_aliases": ["qwen3embed06b"]
     }
   }
 }

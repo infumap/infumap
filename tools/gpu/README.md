@@ -7,12 +7,15 @@ This folder contains the three HTTP tools plus a shared HTTP gateway:
 - `text_embedding`
 - `text_extraction`
 
-The service launchers require Python 3.10 through 3.13 because the pinned API
-and ML dependencies do not install reliably on Python 3.9 or 3.14. By default
-they reuse a valid service `.venv`, then try common versioned `python3.x`
-executables, Homebrew Python installs, and common macOS install locations before
-plain `python3`. Set `PYTHON_BIN=/path/to/python3.13` to force a specific
-interpreter.
+The `image_tagging`, `text_extraction`, and `gateway` launchers require Python
+3.10 through 3.13 because the pinned API and ML dependencies do not install
+reliably on Python 3.9 or 3.14. By default they reuse a valid service `.venv`,
+then try common versioned `python3.x` executables, Homebrew Python installs,
+and common macOS install locations before plain `python3`. Set
+`PYTHON_BIN=/path/to/python3.13` to force a specific interpreter.
+
+`text_embedding` is shell-only and starts `llama-server` directly. It does not
+create a Python venv.
 
 To start all three together from the repo root:
 
@@ -23,7 +26,7 @@ To start all three together from the repo root:
 By default the gateway listens on `127.0.0.1:8787` and forwards:
 
 - `/tag` to the image tagging service
-- `/embed` to the text embedding service
+- `/embed` to the text embedding service's `/v1/embeddings` endpoint
 - `/convert` to the text extraction service
 
 The child services keep their own defaults:
@@ -32,17 +35,20 @@ The child services keep their own defaults:
 - `text_embedding`: `127.0.0.1:8789`
 - `text_extraction`: `127.0.0.1:8790`
 
-Hugging Face, FastEmbed, PyTorch, Transformers, and Marker downloads use their
+Hugging Face, llama.cpp, PyTorch, Transformers, and Marker downloads use their
 standard library cache locations, such as `~/.cache/huggingface` and
 `~/.cache/torch`.
 
 Short model aliases live in `tools/gpu/model_aliases.json`. This registry
 has a global `aliases` section plus a `tools` section for per-tool defaults and
-compatibility. The launchers resolve it through `tools/gpu/resolve_model_alias.py`.
+compatibility. Python-backed launchers resolve it through
+`tools/gpu/resolve_model_alias.py`; `text_embedding` uses the same default model
+metadata but passes its Hugging Face locator directly to `llama-server`.
 
-Note: `tools/gpu/text_embedding` defaults to GPU execution on NVIDIA and macOS
-hosts, and CPU execution otherwise. Set `TEXT_EMBEDDING_DEVICE=cpu` or
-`TEXT_EMBEDDING_DEVICE=gpu` to override that choice explicitly.
+Note: `tools/gpu/text_embedding` defaults to
+`Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` with `llama-server --embedding`. It
+requests GPU layers on NVIDIA and macOS hosts by default. Set
+`TEXT_EMBEDDING_LLAMA_NGL=0` to force CPU execution.
 
 The combined launcher keeps each service independent:
 
