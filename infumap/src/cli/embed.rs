@@ -111,19 +111,19 @@ async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmen
 
       let manifest_path = fragments_manifest_path_for_item(data_dir, &user_id, &item_id)?;
       let manifest = load_fragments_manifest(&manifest_path).await?;
-      if let Some(expected_count) = manifest.as_ref().and_then(|manifest| manifest.fragment_count) {
-        if expected_count != records.len() {
-          return Err(
-            format!(
-              "Fragment manifest '{}' says {} fragment(s), but '{}' contains {} non-empty fragment record(s).",
-              manifest_path.display(),
-              expected_count,
-              fragments_path.display(),
-              records.len()
-            )
-            .into(),
-          );
-        }
+      if let Some(expected_count) = manifest.as_ref().and_then(|manifest| manifest.fragment_count)
+        && expected_count != records.len()
+      {
+        return Err(
+          format!(
+            "Fragment manifest '{}' says {} fragment(s), but '{}' contains {} non-empty fragment record(s).",
+            manifest_path.display(),
+            expected_count,
+            fragments_path.display(),
+            records.len()
+          )
+          .into(),
+        );
       }
       let source_kind = manifest
         .and_then(|manifest| manifest.source_kind)
@@ -175,19 +175,17 @@ async fn rebuild_user_fragment_index(
 
   if continue_rebuild {
     let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path.clone());
-    if !path_exists(&temp_path).await {
-      if let Some(status) = final_db.rebuild_status().await? {
-        if status.complete
-          && status.source_digest == plan.source_digest
-          && status.expected_fragment_count == plan.fragments.len()
-        {
-          eprintln!(
-            "User {} fragment index is already current ({} fragment(s), model '{}', {} dims).",
-            plan.user_id, status.expected_fragment_count, status.model, status.embedding_dimensions
-          );
-          return Ok(UserRebuildOutcome { users_skipped_current: 1, ..Default::default() });
-        }
-      }
+    if !path_exists(&temp_path).await
+      && let Some(status) = final_db.rebuild_status().await?
+      && status.complete
+      && status.source_digest == plan.source_digest
+      && status.expected_fragment_count == plan.fragments.len()
+    {
+      eprintln!(
+        "User {} fragment index is already current ({} fragment(s), model '{}', {} dims).",
+        plan.user_id, status.expected_fragment_count, status.model, status.embedding_dimensions
+      );
+      return Ok(UserRebuildOutcome { users_skipped_current: 1, ..Default::default() });
     }
   }
 
@@ -226,7 +224,7 @@ async fn rebuild_user_fragment_index(
     validate_embedding_batch(&response, Some(&metadata_ref.model), Some(metadata_ref.embedding_dimensions))?;
     let embedded_fragments = batch
       .iter()
-      .zip(response.embeddings.into_iter())
+      .zip(response.embeddings)
       .map(|(fragment, embedding)| EmbeddedFragment {
         item_id: fragment.item_id.clone(),
         ordinal: fragment.ordinal,
@@ -336,16 +334,16 @@ fn validate_embedding_batch(
   if response.model.trim().is_empty() {
     return Err("Text embedding service returned an empty model name.".into());
   }
-  if let Some(expected_model) = expected_model {
-    if response.model != expected_model {
-      return Err(
-        format!(
-          "Text embedding service returned model '{}', but this rebuild is using model '{}'.",
-          response.model, expected_model
-        )
-        .into(),
-      );
-    }
+  if let Some(expected_model) = expected_model
+    && response.model != expected_model
+  {
+    return Err(
+      format!(
+        "Text embedding service returned model '{}', but this rebuild is using model '{}'.",
+        response.model, expected_model
+      )
+      .into(),
+    );
   }
 
   let first = response.embeddings.first().ok_or("Text embedding service returned an empty embedding batch.")?;
@@ -353,16 +351,16 @@ fn validate_embedding_batch(
   if dimensions == 0 {
     return Err("Text embedding service returned an embedding with zero dimensions.".into());
   }
-  if let Some(expected_dimensions) = expected_dimensions {
-    if dimensions != expected_dimensions {
-      return Err(
-        format!(
-          "Text embedding service returned {} dimensions, but this rebuild is using {} dimensions.",
-          dimensions, expected_dimensions
-        )
-        .into(),
-      );
-    }
+  if let Some(expected_dimensions) = expected_dimensions
+    && dimensions != expected_dimensions
+  {
+    return Err(
+      format!(
+        "Text embedding service returned {} dimensions, but this rebuild is using {} dimensions.",
+        dimensions, expected_dimensions
+      )
+      .into(),
+    );
   }
   for (index, embedding) in response.embeddings.iter().enumerate() {
     if embedding.len() != dimensions {

@@ -1,7 +1,6 @@
 # Text Embedding
 
-This service runs a local `llama-server` in embedding mode. It is shell-only:
-there is no Python app, venv, or Python dependency installation in this tool.
+This service runs a local `llama-server` in embedding mode.
 
 By default it serves the Q8 GGUF build of Qwen3 Embedding 0.6B:
 
