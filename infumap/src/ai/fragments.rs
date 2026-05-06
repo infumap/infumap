@@ -1,8 +1,11 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
+use log::info;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tokio::fs;
@@ -11,6 +14,7 @@ use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
 
 const FRAGMENTS_SCHEMA_VERSION: u32 = 1;
 const FRAGMENTER_VERSION: u32 = 12;
+static ENSURED_USER_FRAGMENT_DIRS: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
 
 #[derive(Clone, Copy)]
 pub enum FragmentSourceKind {
@@ -213,11 +217,50 @@ fn user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
 
 async fn ensure_user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
   let fragments_dir = user_fragments_dir(data_dir, user_id)?;
+  if was_user_fragments_dir_ensured(&fragments_dir)? {
+    return Ok(fragments_dir);
+  }
+
+  info!(
+    "Checking fragments shard directory '{}' for user '{}'. This is done once per user in this process.",
+    fragments_dir.display(),
+    user_id
+  );
   if !path_exists(&fragments_dir).await {
     fs::create_dir_all(&fragments_dir).await?;
   }
-  ensure_256_subdirs(&fragments_dir).await?;
+  let created = ensure_256_subdirs(&fragments_dir).await?;
+  if created > 0 {
+    info!(
+      "Initialized fragments shard directory '{}' for user '{}' with {} missing shard dir(s).",
+      fragments_dir.display(),
+      user_id,
+      created
+    );
+  } else {
+    info!("Fragments shard directory '{}' for user '{}' is ready.", fragments_dir.display(), user_id);
+  }
+  mark_user_fragments_dir_ensured(&fragments_dir)?;
   Ok(fragments_dir)
+}
+
+fn ensured_user_fragment_dirs() -> &'static Mutex<HashSet<PathBuf>> {
+  ENSURED_USER_FRAGMENT_DIRS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn was_user_fragments_dir_ensured(path: &PathBuf) -> InfuResult<bool> {
+  let dirs = ensured_user_fragment_dirs()
+    .lock()
+    .map_err(|_| "Could not lock fragment directory cache because it is poisoned.")?;
+  Ok(dirs.contains(path))
+}
+
+fn mark_user_fragments_dir_ensured(path: &PathBuf) -> InfuResult<()> {
+  let mut dirs = ensured_user_fragment_dirs()
+    .lock()
+    .map_err(|_| "Could not lock fragment directory cache because it is poisoned.")?;
+  dirs.insert(path.clone());
+  Ok(())
 }
 
 fn unix_now_secs() -> InfuResult<i64> {

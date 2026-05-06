@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use clap::{Arg, ArgMatches, Command};
 use infusdk::item::{ArrangeAlgorithm, Item, ItemType, RelationshipToParent};
@@ -35,6 +36,8 @@ const PDF_FRAGMENT_SOFT_LIMIT_TOKENS: usize = 380;
 const PDF_FRAGMENT_HARD_LIMIT_TOKENS: usize = 440;
 const EMBEDDING_TOKEN_ESTIMATE_CHARS_PER_TOKEN: usize = 4;
 const PDF_PAGE_BREAK_MIN_DASH_COUNT: usize = 8;
+const FRAGMENT_PROGRESS_ITEM_INTERVAL: usize = 5000;
+const FRAGMENT_PROGRESS_TIME_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
 enum FragmentTargetKind {
@@ -71,8 +74,10 @@ impl FragmentTargetKind {
 
 #[derive(Default)]
 struct FragmentRunSummary {
+  items_processed: usize,
   items_with_fragments: usize,
   items_cleared: usize,
+  items_without_fragments: usize,
   fragments_written: usize,
 }
 
@@ -157,15 +162,23 @@ async fn execute_content(sub_matches: &ArgMatches) -> InfuResult<()> {
 async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
   let (data_dir, db, items) = load_db_and_items(sub_matches, FragmentTargetKind::Image).await?;
   let mut summary = FragmentRunSummary::default();
+  let single_item_run = sub_matches.get_one::<String>("item_id").is_some();
+  let mut progress = FragmentRunProgress::new(FragmentTargetKind::Image, items.len());
 
-  for item in items {
+  for (index, item) in items.into_iter().enumerate() {
+    progress.log_before_item(index, &item);
     let context_title = {
       let db = db.lock().await;
       embedding_context_title_for_item(&db, &item)
     };
     let fragment_source = image_fragment_source_for_item(&data_dir, &item, context_title).await?;
+    let had_fragment_source = fragment_source.is_some();
     let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
     record_fragment_outcome(&mut summary, &outcome);
+    if single_item_run {
+      log_single_item_fragment_outcome(FragmentTargetKind::Image, &item, had_fragment_source, &outcome);
+    }
+    progress.log_after_item(index + 1, &summary);
   }
 
   log_fragment_summary(FragmentTargetKind::Image, &summary);
@@ -227,6 +240,13 @@ async fn load_db_and_items(
     }
   };
 
+  info!(
+    "Selected {} {} item(s) for fragment building{}.",
+    items.len(),
+    target_kind.summary_label(),
+    sub_matches.get_one::<String>("item_id").map(|item_id| format!(" (--item-id {})", item_id)).unwrap_or_default()
+  );
+
   Ok((data_dir, db, items))
 }
 
@@ -244,22 +264,134 @@ async fn apply_fragment_source(
 }
 
 fn record_fragment_outcome(summary: &mut FragmentRunSummary, outcome: &FragmentBuildOutcome) {
+  summary.items_processed += 1;
   if outcome.wrote_fragments {
     summary.items_with_fragments += 1;
     summary.fragments_written += outcome.fragment_count;
   } else if outcome.cleared_existing_fragments {
     summary.items_cleared += 1;
+  } else {
+    summary.items_without_fragments += 1;
   }
 }
 
 fn log_fragment_summary(target_kind: FragmentTargetKind, summary: &FragmentRunSummary) {
   info!(
-    "Built {} fragments for {} item(s), wrote {} fragment(s), cleared {} empty item artifact dir(s).",
+    "Finished {} fragment build: processed {} item(s), wrote fragments for {} item(s), wrote {} fragment(s), cleared {} stale item fragment dir(s), skipped {} item(s) with no fragment source.",
     target_kind.summary_label(),
+    summary.items_processed,
     summary.items_with_fragments,
     summary.fragments_written,
-    summary.items_cleared
+    summary.items_cleared,
+    summary.items_without_fragments
   );
+}
+
+struct FragmentRunProgress {
+  target_kind: FragmentTargetKind,
+  total_items: usize,
+  started_at: Instant,
+  last_log_at: Instant,
+}
+
+impl FragmentRunProgress {
+  fn new(target_kind: FragmentTargetKind, total_items: usize) -> FragmentRunProgress {
+    let now = Instant::now();
+    info!("Starting {} fragment build for {} item(s).", target_kind.summary_label(), total_items);
+    FragmentRunProgress { target_kind, total_items, started_at: now, last_log_at: now }
+  }
+
+  fn log_before_item(&mut self, index: usize, item: &Item) {
+    let now = Instant::now();
+    if index == 0 || now.duration_since(self.last_log_at) >= FRAGMENT_PROGRESS_TIME_INTERVAL {
+      info!(
+        "Building {} fragments: processing item {}/{} '{}' (user '{}', title '{}').",
+        self.target_kind.summary_label(),
+        index + 1,
+        self.total_items,
+        item.id,
+        item.owner_id,
+        log_item_title(item)
+      );
+      self.last_log_at = now;
+    }
+  }
+
+  fn log_after_item(&mut self, processed: usize, summary: &FragmentRunSummary) {
+    if self.total_items == 0 {
+      return;
+    }
+    let now = Instant::now();
+    let should_log = processed == self.total_items
+      || processed % FRAGMENT_PROGRESS_ITEM_INTERVAL == 0
+      || now.duration_since(self.last_log_at) >= FRAGMENT_PROGRESS_TIME_INTERVAL;
+    if !should_log {
+      return;
+    }
+    info!(
+      "{} fragment progress: processed {}/{} item(s) in {:.1}s; wrote {} fragment(s) for {} item(s), cleared {}, skipped {}.",
+      self.target_kind.summary_label(),
+      processed,
+      self.total_items,
+      now.duration_since(self.started_at).as_secs_f64(),
+      summary.fragments_written,
+      summary.items_with_fragments,
+      summary.items_cleared,
+      summary.items_without_fragments
+    );
+    self.last_log_at = now;
+  }
+}
+
+fn log_single_item_fragment_outcome(
+  target_kind: FragmentTargetKind,
+  item: &Item,
+  had_fragment_source: bool,
+  outcome: &FragmentBuildOutcome,
+) {
+  if outcome.wrote_fragments {
+    info!(
+      "Built {} fragment artifact for item '{}' (user '{}'): {} fragment(s).",
+      target_kind.summary_label(),
+      item.id,
+      item.owner_id,
+      outcome.fragment_count
+    );
+  } else if outcome.cleared_existing_fragments {
+    info!(
+      "Cleared {} fragment artifact directory for item '{}' (user '{}') because no usable fragment source was available.",
+      target_kind.summary_label(),
+      item.id,
+      item.owner_id
+    );
+  } else if had_fragment_source {
+    info!(
+      "No {} fragments were written for item '{}' (user '{}') after empty fragment text was filtered out.",
+      target_kind.summary_label(),
+      item.id,
+      item.owner_id
+    );
+  } else {
+    info!(
+      "Skipped {} fragment artifact for item '{}' (user '{}') because no usable fragment source was available.",
+      target_kind.summary_label(),
+      item.id,
+      item.owner_id
+    );
+  }
+}
+
+fn log_item_title(item: &Item) -> String {
+  normalized_text(item.title.as_deref()).map(|title| truncate_for_log(&title, 96)).unwrap_or_default()
+}
+
+fn truncate_for_log(value: &str, max_chars: usize) -> String {
+  if value.chars().count() <= max_chars {
+    return value.to_owned();
+  }
+  let mut truncated = value.chars().take(max_chars.saturating_sub(3)).collect::<String>();
+  truncated.push_str("...");
+  truncated
 }
 
 struct FragmentSource {
