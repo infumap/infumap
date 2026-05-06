@@ -1623,7 +1623,7 @@ async fn handle_search(
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
 
-  let (exact_results, data_dir) = {
+  let (exact_results, data_dir, search_root_id) = {
     let mut db = db.lock().await;
 
     let page_id = if let Some(request_page_id) = request.page_id {
@@ -1636,22 +1636,37 @@ async fn handle_search(
     let exact_end_result =
       if full_user_search { end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH) } else { end_result };
     let exact_start_result = if full_user_search { 0 } else { start_result };
-    let exact_results =
-      search_exact_paginated(&mut db, &search_text, page_id, &session.user_id, exact_start_result, exact_end_result)?;
-    (exact_results, db.item.data_dir().to_owned())
+    let exact_results = search_exact_paginated(
+      &mut db,
+      &search_text,
+      page_id.clone(),
+      &session.user_id,
+      exact_start_result,
+      exact_end_result,
+    )?;
+    (exact_results, db.item.data_dir().to_owned(), page_id)
   };
 
   let mut results = if full_user_search {
     let semantic_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
       .map_err(|_| "Search result limit is too large.")?;
-    let semantic_results =
-      match semantic_search_results(config, db, &data_dir, &session.user_id, &request.text, semantic_limit).await {
-        Ok(results) => results,
-        Err(e) => {
-          warn!("Semantic search failed for user '{}'; falling back to exact-only search: {}", session.user_id, e);
-          Vec::new()
-        }
-      };
+    let semantic_results = match semantic_search_results(
+      config,
+      db,
+      &data_dir,
+      &session.user_id,
+      &search_root_id,
+      &request.text,
+      semantic_limit,
+    )
+    .await
+    {
+      Ok(results) => results,
+      Err(e) => {
+        warn!("Semantic search failed for user '{}'; falling back to exact-only search: {}", session.user_id, e);
+        Vec::new()
+      }
+    };
     let mixed = mix_search_results(exact_results, semantic_results);
     paginate_mixed_results(mixed, start_result, end_result)
   } else {
@@ -1699,6 +1714,7 @@ async fn semantic_search_results(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
+  search_root_id: &Uid,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
@@ -1740,7 +1756,7 @@ async fn semantic_search_results(
     if !seen_item_ids.insert(hit.item_id.clone()) {
       continue;
     }
-    if let Some(result) = search_result_path_for_item(&db, &hit.item_id, user_id)? {
+    if let Some(result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
       results.push(result);
     }
   }
@@ -1751,6 +1767,7 @@ fn search_result_path_for_item(
   db: &MutexGuard<'_, Db>,
   item_id: &Uid,
   user_id: &Uid,
+  search_root_id: &Uid,
 ) -> InfuResult<Option<SearchResult>> {
   let mut path = Vec::new();
   let mut current_id = item_id.clone();
@@ -1780,7 +1797,14 @@ fn search_result_path_for_item(
   }
 
   path.reverse();
+  if !search_result_is_under_root_path(&path, search_root_id) {
+    return Ok(None);
+  }
   Ok(Some(SearchResult { path }))
+}
+
+fn search_result_is_under_root_path(path: &[SearchPathElement], search_root_id: &Uid) -> bool {
+  path.first().is_some_and(|element| &element.id == search_root_id)
 }
 
 #[derive(Clone)]
@@ -1946,7 +1970,10 @@ fn search_recursive(
 
 #[cfg(test)]
 mod tests {
-  use super::{SearchPathElement, SearchResult, mix_search_results, paginate_mixed_results, search_result_item_id};
+  use super::{
+    SearchPathElement, SearchResult, mix_search_results, paginate_mixed_results, search_result_is_under_root_path,
+    search_result_item_id,
+  };
 
   #[test]
   fn mixes_exact_and_semantic_results_with_rank_fusion() {
@@ -1981,6 +2008,15 @@ mod tests {
     let ids = page.iter().map(|result| search_result_item_id(result).unwrap()).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["b".to_owned(), "c".to_owned(), "d".to_owned()]);
+  }
+
+  #[test]
+  fn checks_search_result_root_path() {
+    let result = search_result_with_path("home", "Home", "hit", "Hit");
+
+    assert!(search_result_is_under_root_path(&result.path, &"home".to_owned()));
+    assert!(!search_result_is_under_root_path(&result.path, &"trash".to_owned()));
+    assert!(!search_result_is_under_root_path(&[], &"home".to_owned()));
   }
 
   fn search_result(id: &str) -> SearchResult {
