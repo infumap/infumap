@@ -18,6 +18,7 @@ pub const FRAGMENT_VECTOR_DB_TEMP_FILENAME: &str = "fragments.sqlite3.tmp";
 pub struct EmbeddedFragment {
   pub item_id: String,
   pub ordinal: usize,
+  pub source_kind: String,
   pub text: String,
   pub page_start: Option<usize>,
   pub page_end: Option<usize>,
@@ -28,6 +29,7 @@ pub struct EmbeddedFragment {
 pub struct FragmentVectorHit {
   pub item_id: String,
   pub ordinal: usize,
+  pub source_kind: String,
   pub distance: f32,
   pub text: String,
   pub page_start: Option<usize>,
