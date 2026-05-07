@@ -58,6 +58,7 @@ export const SignUp: Component = () => {
       if (areSettingUp()) {
         let r = await store.user.login(username, password, store.general.prefer2fa() ? totpToken : null);
         if (r.success) {
+          store.general.clearNetworkHistory();
           await store.general.retrieveInstallationState();
 
           switchToNonPage(store, "/"); // TODO: not quite right.

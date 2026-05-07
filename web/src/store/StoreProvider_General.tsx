@@ -64,6 +64,7 @@ export interface GeneralStoreContextModel {
   hasUnacknowledgedNetworkErrors: Accessor<boolean>,
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
   acknowledgeNetworkErrors: () => void,
+  clearNetworkHistory: () => void,
 }
 
 
@@ -142,6 +143,17 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     setErroredNetworkRequests([]);
   };
 
+  const clearNetworkHistory = () => {
+    recentNetworkRequestTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    recentNetworkRequestTimeouts.clear();
+    setInProgressNetworkRequestsSignal([]);
+    setRecentNetworkRequests([]);
+    setQueuedNetworkRequests([]);
+    setErroredNetworkRequests([]);
+    setHasUnacknowledgedNetworkErrors(false);
+    networkStatus.set(NETWORK_STATUS_OK);
+  };
+
   const retrieveInstallationState = async () => {
     try {
       setInstallationState(await post(null, "/admin/installation-state", {}));
@@ -177,6 +189,6 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     inProgressNetworkRequests, setInProgressNetworkRequests,
     recentNetworkRequests,
     queuedNetworkRequests, setQueuedNetworkRequests,
-    erroredNetworkRequests, hasUnacknowledgedNetworkErrors, addErroredNetworkRequest, acknowledgeNetworkErrors,
+    erroredNetworkRequests, hasUnacknowledgedNetworkErrors, addErroredNetworkRequest, acknowledgeNetworkErrors, clearNetworkHistory,
   };
 }

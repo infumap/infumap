@@ -42,6 +42,7 @@ export const Login: Component = () => {
   const handleLoginClick = async () => {
     const r = await store.user.login(username, password, store.general.prefer2fa() ? totpToken : null);
     if (r.success) {
+      store.general.clearNetworkHistory();
       const queryString = window.location.search;
       const urlParams = new URLSearchParams(queryString);
       const loginPath = "/login";
