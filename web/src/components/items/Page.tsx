@@ -168,6 +168,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         ? calcJustifiedPagePaddingPx(pageFns.childAreaBoundsPx().w, pageFns.pageItem().justifiedRowAspect)
         : 0,
 
+    gridPageTopPaddingPx: () =>
+      pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid && pageFns.isSearchResultsPage()
+        ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+        : pageFns.gridPagePaddingPx(),
+
     gridContentWidthPx: () =>
       Math.max(0, pageFns.childAreaBoundsPx().w - pageFns.gridPagePaddingPx() * 2.0),
 
@@ -347,7 +352,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                 <div class="absolute bg-slate-100"
                   style={`left: ${pageFns.gridPagePaddingPx() + props.visualElement.cellSizePx!.w * i}px; ` +
                     `height: ${props.visualElement.cellSizePx!.h * props.visualElement.numRows!}px; ` +
-                    `width: 1px; top: ${pageFns.gridPagePaddingPx()}px;`} />
+                    `width: 1px; top: ${pageFns.gridPageTopPaddingPx()}px;`} />
               </Show>
             }</For>
           </Match>
@@ -363,7 +368,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               `height: 1px; ` +
               `width: ${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogContentWidthPx() : pageFns.childAreaBoundsPx().w}px; ` +
               `${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ? `width: ${pageFns.gridContentWidthPx()}px; ` : ""}` +
-              `top: ${props.visualElement.cellSizePx!.h * (i + 1) + (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogPageTopPaddingPx() : pageFns.gridPagePaddingPx())}px;`} />
+              `top: ${props.visualElement.cellSizePx!.h * (i + 1) + (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogPageTopPaddingPx() : pageFns.gridPageTopPaddingPx())}px;`} />
         }</For>
       </Show>,
 
@@ -436,7 +441,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const row = Math.floor(selectedIndex / numCols);
         const col = selectedIndex % numCols;
         return `left: ${pageFns.gridPagePaddingPx() + col * props.visualElement.cellSizePx!.w}px; ` +
-          `top: ${pageFns.gridPagePaddingPx() + row * props.visualElement.cellSizePx!.h}px; ` +
+          `top: ${pageFns.gridPageTopPaddingPx() + row * props.visualElement.cellSizePx!.h}px; ` +
           `width: ${props.visualElement.cellSizePx!.w}px; ` +
           `height: ${props.visualElement.cellSizePx!.h}px; ` +
           `background-color: ${SELECTED_LIGHT}; z-index: 1;`;
@@ -463,7 +468,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const row = Math.floor(index / numCols);
         const col = index % numCols;
         return `left: ${pageFns.gridPagePaddingPx() + col * props.visualElement.cellSizePx!.w}px; ` +
-          `top: ${pageFns.gridPagePaddingPx() + row * props.visualElement.cellSizePx!.h}px; ` +
+          `top: ${pageFns.gridPageTopPaddingPx() + row * props.visualElement.cellSizePx!.h}px; ` +
           `width: ${props.visualElement.cellSizePx!.w}px; ` +
           `height: ${props.visualElement.cellSizePx!.h}px; ` +
           `background-color: #00000007; z-index: 3;`;
@@ -591,7 +596,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     renderMoveOverIndexMaybe: () => {
       if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-        const topPx = pageFns.gridPagePaddingPx() + props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
+        const topPx = pageFns.gridPageTopPaddingPx() + props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
         const leftPx = pageFns.gridPagePaddingPx() + props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns) + 1;
         const heightPx = props.visualElement.cellSizePx!.h;
         return (

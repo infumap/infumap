@@ -344,9 +344,12 @@ function searchGridCellIndexFromBounds(
   const scrollVeid = VeFns.actualVeidFromVe(gridPageVe);
   const scrollYPx = Math.max(0, gridPageVe.childAreaBoundsPx.h - gridPageVe.viewportBoundsPx.h) *
     store.perItem.getPageScrollYProp(scrollVeid);
-  const pagePaddingPx = calcJustifiedPagePaddingPx(gridPageVe.childAreaBoundsPx.w, pageItem.justifiedRowAspect);
-  const localX = desktopPosPx.x - gridViewportBoundsPx.x - pagePaddingPx;
-  const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx - pagePaddingPx;
+  const pageSidePaddingPx = calcJustifiedPagePaddingPx(gridPageVe.childAreaBoundsPx.w, pageItem.justifiedRowAspect);
+  const pageTopPaddingPx = gridPageVe.displayItem.origin == TEMP_SEARCH_RESULTS_ORIGIN
+    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    : pageSidePaddingPx;
+  const localX = desktopPosPx.x - gridViewportBoundsPx.x - pageSidePaddingPx;
+  const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx - pageTopPaddingPx;
   const cellW = gridPageVe.cellSizePx.w;
   const cellH = gridPageVe.cellSizePx.h;
   const contentWidthPx = cellW * Math.max(1, pageItem.gridNumberOfColumns);

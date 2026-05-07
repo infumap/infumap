@@ -53,7 +53,12 @@ import { PasswordFns, isPassword } from "../items/password-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { getVePropertiesForItem } from "../layout/arrange/util";
 import { isPlaceholder } from "../items/placeholder-item";
-import { isSearch } from "../items/search-item";
+import {
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  TEMP_SEARCH_RESULTS_ORIGIN,
+  isSearch,
+} from "../items/search-item";
 import type { SearchResult } from "../server";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 
@@ -250,8 +255,10 @@ function scrollSearchResultIndexIntoView(store: StoreContextModel, workspace: Ac
   const currentScrollPx = currentProp * maxScrollPx;
   const rowIndex = Math.floor(resultIndex / getSearchWorkspaceColumnCount(workspace));
   const resultsPage = asPageItem(resultsPageVe.displayItem);
-  const pagePaddingPx = calcJustifiedPagePaddingPx(resultsPageVe.childAreaBoundsPx.w, resultsPage.justifiedRowAspect);
-  const rowTopPx = pagePaddingPx + rowIndex * resultsPageVe.cellSizePx.h;
+  const pageTopPaddingPx = resultsPage.origin == TEMP_SEARCH_RESULTS_ORIGIN
+    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    : calcJustifiedPagePaddingPx(resultsPageVe.childAreaBoundsPx.w, resultsPage.justifiedRowAspect);
+  const rowTopPx = pageTopPaddingPx + rowIndex * resultsPageVe.cellSizePx.h;
   const rowBottomPx = rowTopPx + resultsPageVe.cellSizePx.h;
   const viewportTopPx = currentScrollPx;
   const viewportBottomPx = currentScrollPx + resultsPageVe.viewportBoundsPx.h;

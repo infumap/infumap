@@ -23,7 +23,12 @@ import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
-import { TEMP_SEARCH_RESULTS_ORIGIN, calcSearchWorkspaceResultsFooterHeightPx } from "../../items/search-item";
+import {
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  TEMP_SEARCH_RESULTS_ORIGIN,
+  calcSearchWorkspaceResultsFooterHeightPx,
+} from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -82,12 +87,15 @@ export function arrange_grid_page(
 
   const movingAdj = movingItemInThisPage ? 1 : 0;
   const numRows = Math.ceil((pageItem.computed_children.length - movingAdj + nItemAdj) / numCols);
-  const pagePaddingPx = calcJustifiedPagePaddingPx(geometry.boundsPx.w, pageItem.justifiedRowAspect);
-  const gridContentWidthPx = Math.max(0, geometry.boundsPx.w - pagePaddingPx * 2.0);
+  const pageSidePaddingPx = calcJustifiedPagePaddingPx(geometry.boundsPx.w, pageItem.justifiedRowAspect);
+  const pageTopPaddingPx = isSearchResultsGridPage
+    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    : pageSidePaddingPx;
+  const gridContentWidthPx = Math.max(0, geometry.boundsPx.w - pageSidePaddingPx * 2.0);
   const cellWPx = gridContentWidthPx / numCols;
   const cellHPx = cellWPx * (1.0 / pageItem.gridCellAspect);
   const marginPx = cellWPx * 0.01;
-  const pageHeightPx = pagePaddingPx + numRows * cellHPx + pagePaddingPx + searchResultsFooterHeightPx;
+  const pageHeightPx = pageTopPaddingPx + numRows * cellHPx + pageSidePaddingPx + searchResultsFooterHeightPx;
   const childAreaBoundsPx = (() => {
     const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
     result.h = pageHeightPx;
@@ -149,8 +157,8 @@ export function arrange_grid_page(
     const row = Math.floor(idx / numCols);
     idx += 1;
     const cellBoundsPx = {
-      x: pagePaddingPx + col * cellWPx + marginPx,
-      y: pagePaddingPx + row * cellHPx + marginPx,
+      x: pageSidePaddingPx + col * cellWPx + marginPx,
+      y: pageTopPaddingPx + row * cellHPx + marginPx,
       w: cellWPx - marginPx * 2.0,
       h: cellHPx - marginPx * 2.0
     };
@@ -175,8 +183,8 @@ export function arrange_grid_page(
         searchGridCellIndex: cellIndex,
         ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
       };
-      const cellLocalLeftPx = pagePaddingPx + col * cellWPx - cellGeometry.boundsPx.x;
-      const cellLocalTopPx = pagePaddingPx + row * cellHPx - cellGeometry.boundsPx.y;
+      const cellLocalLeftPx = pageSidePaddingPx + col * cellWPx - cellGeometry.boundsPx.x;
+      const cellLocalTopPx = pageTopPaddingPx + row * cellHPx - cellGeometry.boundsPx.y;
       const itemLocalLeftPx = 0;
       const itemLocalTopPx = 0;
       const itemLocalRightPx = cellGeometry.boundsPx.w;
