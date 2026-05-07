@@ -27,7 +27,7 @@ use serde::Deserialize;
 use tokio::fs;
 use tokio::sync::Mutex;
 
-use crate::ai::artifact_paths::{item_text_artifact_paths, item_text_content_path};
+use crate::ai::artifact_paths::item_text_artifact_paths;
 use crate::ai::batch_processing::{
   BatchScope, collect_image_item_ids_in_container, collect_pdf_item_ids_in_container, is_extractable_pdf_item,
   process_image_tagging_batch, process_pdf_extraction_batch,
@@ -182,15 +182,7 @@ fn make_image_subcommand() -> Command {
         .long("item-id")
         .help("Tag only this item (must be a supported image). Existing image-tag artifacts are overwritten. Exits after one image.")
         .num_args(1)
-        .conflicts_with_all(["container_id", "mark_failed_item_id", "delete_all", "test_item_id"])
-        .required(false),
-    )
-    .arg(
-      Arg::new("test_item_id")
-        .long("test")
-        .help("Test image-embedding nearest-neighbor retrieval for this supported image item. Prints the top 10 closest saved image embeddings and exits.")
-        .num_args(1)
-        .conflicts_with_all(["item_id", "container_id", "mark_failed_item_id", "delete_all", "service_url", "delay_secs"])
+        .conflicts_with_all(["container_id", "mark_failed_item_id", "delete_all"])
         .required(false),
     )
     .arg(
@@ -284,26 +276,6 @@ struct CliRuntime {
   data_dir: String,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
-}
-
-#[derive(Deserialize)]
-struct StoredImageEmbeddingArtifact {
-  #[serde(default)]
-  image_embedding: Vec<f32>,
-}
-
-struct ImageEmbeddingRecord {
-  user_id: String,
-  item_id: String,
-  title: String,
-  embedding: Vec<f32>,
-}
-
-struct ImageSimilarityHit {
-  user_id: String,
-  item_id: String,
-  title: String,
-  score: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -481,11 +453,6 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
-  if let Some(item_id) = sub_matches.get_one::<String>("test_item_id") {
-    test_image_embedding_similarity(&data_dir, db, item_id).await?;
-    return Ok(());
-  }
-
   let image_tagging_url = resolve_service_url(
     &config,
     sub_matches,
@@ -640,122 +607,6 @@ async fn maybe_execute_delete_all(
     content_count
   );
   Ok(true)
-}
-
-async fn test_image_embedding_similarity(data_dir: &str, db: Arc<Mutex<Db>>, item_id: &str) -> InfuResult<()> {
-  let query_item = {
-    let db = db.lock().await;
-    db.item.get(&item_id.to_owned()).map_err(|_| format!("Item '{}' was not found.", item_id))?.clone()
-  };
-
-  if !should_tag_image_item(&query_item) {
-    return Err(format!("Item '{}' is not a supported image.", item_id).into());
-  }
-
-  let records = load_image_embedding_records(data_dir, db.clone()).await?;
-  let query = records
-    .iter()
-    .find(|record| record.item_id == item_id)
-    .ok_or_else(|| format!("Item '{}' does not have a saved image embedding yet.", item_id))?;
-  let query_user_id = query.user_id.clone();
-  let query_item_id = query.item_id.clone();
-  let query_title = query.title.clone();
-  let query_embedding = query.embedding.clone();
-
-  let mut hits = records
-    .into_iter()
-    .filter(|record| record.item_id != item_id && record.embedding.len() == query_embedding.len())
-    .filter_map(|record| {
-      cosine_similarity(&query_embedding, &record.embedding).map(|score| ImageSimilarityHit {
-        user_id: record.user_id,
-        item_id: record.item_id,
-        title: record.title,
-        score,
-      })
-    })
-    .collect::<Vec<_>>();
-
-  hits.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.item_id.cmp(&b.item_id)));
-
-  println!("Query image");
-  println!("  user: {}", query_user_id);
-  println!("  item: {}", query_item_id);
-  println!("  title: {}", query_title);
-  println!("  embedding dims: {}", query_embedding.len());
-  println!();
-  println!("Top 10 closest");
-
-  for (index, hit) in hits.into_iter().take(10).enumerate() {
-    println!(
-      "{:2}. score={:.6}  user={}  item={}  title={}",
-      index + 1,
-      hit.score,
-      hit.user_id,
-      hit.item_id,
-      hit.title
-    );
-  }
-
-  Ok(())
-}
-
-async fn load_image_embedding_records(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<Vec<ImageEmbeddingRecord>> {
-  let image_items = {
-    let db = db.lock().await;
-    db.item
-      .all_loaded_items()
-      .into_iter()
-      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().cloned())
-      .filter(should_tag_image_item)
-      .collect::<Vec<Item>>()
-  };
-
-  let mut records = Vec::new();
-  for item in image_items {
-    let artifact_path = item_text_content_path(data_dir, &item.owner_id, &item.id)?;
-    let bytes = match fs::read(&artifact_path).await {
-      Ok(bytes) => bytes,
-      Err(_) => continue,
-    };
-    let artifact: StoredImageEmbeddingArtifact = match serde_json::from_slice(&bytes) {
-      Ok(artifact) => artifact,
-      Err(_) => continue,
-    };
-    if artifact.image_embedding.is_empty() {
-      continue;
-    }
-    records.push(ImageEmbeddingRecord {
-      user_id: item.owner_id.clone(),
-      item_id: item.id.clone(),
-      title: item.title.clone().unwrap_or_else(|| item.id.clone()),
-      embedding: artifact.image_embedding,
-    });
-  }
-
-  Ok(records)
-}
-
-fn cosine_similarity(left: &[f32], right: &[f32]) -> Option<f32> {
-  if left.len() != right.len() || left.is_empty() {
-    return None;
-  }
-
-  let mut dot = 0.0f64;
-  let mut left_norm = 0.0f64;
-  let mut right_norm = 0.0f64;
-  for (a, b) in left.iter().zip(right.iter()) {
-    let a = f64::from(*a);
-    let b = f64::from(*b);
-    dot += a * b;
-    left_norm += a * a;
-    right_norm += b * b;
-  }
-
-  if left_norm <= 0.0 || right_norm <= 0.0 {
-    return None;
-  }
-
-  Some((dot / (left_norm.sqrt() * right_norm.sqrt())) as f32)
 }
 
 fn parse_delay_arg(sub_matches: &ArgMatches, arg_name: &str, flag_name: &str) -> InfuResult<Duration> {
