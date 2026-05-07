@@ -22,7 +22,7 @@ const FRAGMENTER_VERSION: u32 = 12;
 static ENSURED_USER_FRAGMENT_DIRS: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
 
 #[allow(dead_code)]
-fn make_fragment_id(item_id: &str, fragmenter_version: u32, ordinal: usize) -> String {
+fn item_fragment_id(item_id: &str, fragmenter_version: u32, ordinal: usize) -> String {
   format!("{}:{}:{}", item_id, fragmenter_version, ordinal)
 }
 
@@ -47,7 +47,7 @@ struct FragmentsManifest {
 }
 
 #[allow(dead_code)]
-pub async fn build_fragments_for_item(
+async fn write_item_fragment_text(
   data_dir: &str,
   item: &Item,
   source_kind: FragmentSourceKind,
@@ -66,10 +66,10 @@ pub async fn build_fragments_for_item(
     None => source_text.to_owned(),
   };
 
-  build_fragment_inputs_for_item(data_dir, item, source_kind, vec![FragmentInput::new(fragment_text)]).await
+  write_item_fragments(data_dir, item, source_kind, vec![FragmentInput::new(fragment_text)]).await
 }
 
-pub async fn build_fragment_inputs_for_item(
+pub async fn write_item_fragments(
   data_dir: &str,
   item: &Item,
   source_kind: FragmentSourceKind,
@@ -127,12 +127,12 @@ pub async fn build_fragment_inputs_for_item(
   Ok(FragmentBuildOutcome { wrote_fragments: true, fragment_count: fragments.len(), cleared_existing_fragments: false })
 }
 
-pub async fn clear_fragments_for_item(data_dir: &str, item: &Item) -> InfuResult<FragmentBuildOutcome> {
+pub async fn clear_item_fragments(data_dir: &str, item: &Item) -> InfuResult<FragmentBuildOutcome> {
   let cleared = clear_item_fragments_dir(data_dir, &item.owner_id, &item.id).await?;
   Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() })
 }
 
-pub async fn delete_item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
+pub async fn delete_item_fragment_artifacts(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
   clear_item_fragments_dir(data_dir, user_id, item_id).await
 }
 

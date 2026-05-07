@@ -11,9 +11,7 @@ use crate::ai::fragments::sources::{
   content_fragment_source_for_item, embedding_context_title_for_item, image_fragment_source_for_item,
   pdf_fragment_source_for_item,
 };
-use crate::ai::fragments::{
-  FragmentBuildOutcome, FragmentSource, build_fragment_inputs_for_item, clear_fragments_for_item,
-};
+use crate::ai::fragments::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
 use crate::ai::image_tagging::should_tag_image_item;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
@@ -241,9 +239,9 @@ async fn apply_fragment_source(
 ) -> InfuResult<FragmentBuildOutcome> {
   match fragment_source {
     Some(fragment_source) => {
-      build_fragment_inputs_for_item(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await
+      write_item_fragments(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await
     }
-    None => clear_fragments_for_item(data_dir, item).await,
+    None => clear_item_fragments(data_dir, item).await,
   }
 }
 
