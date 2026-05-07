@@ -17,31 +17,36 @@
 use config::Config;
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
-use log::{debug, error, info};
+use log::{error, info};
 use once_cell::sync::OnceCell;
 use reqwest::multipart::{Form, Part};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::fs;
+use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
-use crate::ai::artifact_paths::{ensure_user_text_dir, item_text_content_path, item_text_manifest_path};
 use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
-use crate::util::fs::path_exists;
 use crate::util::retry::endpoint_retry_delay;
+
+mod artifacts;
+
+#[allow(unused_imports)]
+pub use artifacts::FailedPdfInfo;
+pub use artifacts::{delete_item_text_dir, item_needs_text_extraction, list_failed_pdfs};
+
+use self::artifacts::{
+  ManifestCheckResult, clear_item_text_dir, manifest_check, write_failed_manifest, write_success_artifacts,
+};
 
 const IDLE_POLL_SECS: u64 = 60;
 const REQUEST_TIMEOUT_SECS: u64 = 4 * 60 * 60;
-const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const LARGE_PDF_SIZE_BYTES: i64 = 25 * 1024 * 1024;
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
-const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
 const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
@@ -82,23 +87,6 @@ struct PdfToMdResponse {
   success: bool,
   markdown: String,
   duration_ms: u64,
-}
-
-#[derive(Serialize, Deserialize)]
-struct TextManifest {
-  schema_version: u32,
-  status: String,
-  source_mime_type: String,
-  content_mime_type: String,
-  extractor: TextManifestExtractor,
-  error: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct TextManifestExtractor {
-  text_extraction_url: String,
-  extracted_at_unix_secs: i64,
-  duration_ms: Option<u64>,
 }
 
 enum ExtractOutcome {
@@ -163,76 +151,6 @@ pub fn dequeue_pdf_item_if_active(item_id: &str) {
     let mut state = state.lock().await;
     remove_candidate(&mut state, &item_id);
   });
-}
-
-#[derive(Clone)]
-pub struct FailedPdfInfo {
-  pub user_id: String,
-  pub item_id: String,
-  pub file_name: String,
-  pub error: Option<String>,
-}
-
-pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<Vec<FailedPdfInfo>> {
-  let mut out = vec![];
-  let pdf_items: Vec<(String, String, String)> = {
-    let db = db.lock().await;
-    db.item
-      .all_loaded_items()
-      .into_iter()
-      .filter_map(|iu| db.item.get(&iu.item_id).ok().map(|item| (iu.user_id.clone(), item)))
-      .filter(|(_, item)| item.mime_type.as_deref() == Some("application/pdf"))
-      .map(|(user_id, item)| {
-        (user_id, item.id.clone(), item.title.clone().unwrap_or_else(|| format!("{}.pdf", item.id)))
-      })
-      .collect()
-  };
-  for (user_id, item_id, file_name) in pdf_items {
-    let path = match item_text_manifest_path(data_dir, &user_id, &item_id) {
-      Ok(p) => p,
-      Err(e) => {
-        debug!(
-          "Skipping failed PDF listing for item '{}' (user '{}'): could not build manifest path: {}",
-          item_id, user_id, e
-        );
-        continue;
-      }
-    };
-    if !path_exists(&path).await {
-      continue;
-    }
-    let bytes = match fs::read(&path).await {
-      Ok(b) => b,
-      Err(e) => {
-        debug!(
-          "Skipping failed PDF listing for item '{}' (user '{}'): could not read manifest '{}': {}",
-          item_id,
-          user_id,
-          path.display(),
-          e
-        );
-        continue;
-      }
-    };
-    let manifest: TextManifest = match serde_json::from_slice(&bytes) {
-      Ok(m) => m,
-      Err(e) => {
-        debug!(
-          "Skipping failed PDF listing for item '{}' (user '{}'): could not parse manifest '{}': {}",
-          item_id,
-          user_id,
-          path.display(),
-          e
-        );
-        continue;
-      }
-    };
-    if manifest.status != "failed" {
-      continue;
-    }
-    out.push(FailedPdfInfo { user_id, item_id, file_name, error: manifest.error });
-  }
-  Ok(out)
 }
 
 pub async fn extract_single_item_no_retry(
@@ -377,23 +295,6 @@ pub async fn mark_item_text_extraction_failed(
   write_failed_manifest(data_dir, CLI_FAILED_MANIFEST_EXTRACTOR_URL, &candidate, &error_message).await?;
   info!("Marked PDF '{}' (user {}) as failed for text extraction via CLI.", candidate.item_id, candidate.user_id);
   Ok(())
-}
-
-pub async fn item_needs_text_extraction(data_dir: &str, db: Arc<Mutex<Db>>, item_id: &str) -> InfuResult<bool> {
-  let candidate = {
-    let db = db.lock().await;
-    let id = item_id.to_string();
-    let item = db.item.get(&id).map_err(|e| e.to_string())?;
-    if item.mime_type.as_deref() != Some("application/pdf") {
-      return Err(format!("Item '{}' is not a PDF (mime_type: {:?}).", item_id, item.mime_type).into());
-    }
-    PdfCandidate::from_item(item)
-  };
-  Ok(matches!(manifest_check(data_dir, &candidate).await?, ManifestCheckResult::NeedsExtraction))
-}
-
-pub async fn delete_item_text_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
-  clear_item_text_dir(data_dir, user_id, item_id).await
 }
 
 pub fn text_extraction_url_from_config(config: &Config) -> InfuResult<Option<String>> {
@@ -912,12 +813,6 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
   );
 }
 
-enum ManifestCheckResult {
-  NeedsExtraction,
-  AlreadySucceeded,
-  AlreadyFailed,
-}
-
 async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &PdfCandidate) -> InfuResult<bool> {
   let db = db.lock().await;
   let item = match db.item.get(&candidate.item_id) {
@@ -929,37 +824,6 @@ async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &PdfCandidate) -
       && item.creation_date == candidate.creation_date
       && item.mime_type.as_deref() == Some(PDF_SOURCE_MIME_TYPE),
   )
-}
-
-async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> InfuResult<ManifestCheckResult> {
-  let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-
-  if !path_exists(&manifest_path).await {
-    return Ok(ManifestCheckResult::NeedsExtraction);
-  }
-  let manifest_bytes = fs::read(&manifest_path).await?;
-  let manifest: TextManifest = match serde_json::from_slice(&manifest_bytes) {
-    Ok(manifest) => manifest,
-    Err(_) => return Ok(ManifestCheckResult::NeedsExtraction),
-  };
-
-  if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
-    return Ok(ManifestCheckResult::NeedsExtraction);
-  }
-
-  if manifest.status == "succeeded" {
-    if path_exists(&text_path).await {
-      return Ok(ManifestCheckResult::AlreadySucceeded);
-    }
-    return Ok(ManifestCheckResult::NeedsExtraction);
-  }
-
-  if manifest.status == "failed" {
-    return Ok(ManifestCheckResult::AlreadyFailed);
-  }
-
-  Ok(ManifestCheckResult::NeedsExtraction)
 }
 
 async fn request_text_extraction(
@@ -1006,79 +870,4 @@ async fn request_text_extraction(
 
 fn is_terminal_document_response(status: reqwest::StatusCode) -> bool {
   matches!(status, reqwest::StatusCode::UNPROCESSABLE_ENTITY | reqwest::StatusCode::PAYLOAD_TOO_LARGE)
-}
-
-async fn write_success_artifacts(
-  data_dir: &str,
-  text_extraction_url: &str,
-  candidate: &PdfCandidate,
-  response: PdfToMdResponse,
-) -> InfuResult<()> {
-  ensure_user_text_dir(data_dir, &candidate.user_id).await?;
-  let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  fs::write(&text_path, response.markdown.as_bytes()).await?;
-  let manifest = TextManifest {
-    schema_version: MANIFEST_SCHEMA_VERSION,
-    status: "succeeded".to_owned(),
-    source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
-    content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
-    extractor: TextManifestExtractor {
-      text_extraction_url: text_extraction_url.to_owned(),
-      extracted_at_unix_secs: unix_now_secs()?,
-      duration_ms: Some(response.duration_ms),
-    },
-    error: None,
-  };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
-  Ok(())
-}
-
-async fn write_failed_manifest(
-  data_dir: &str,
-  text_extraction_url: &str,
-  candidate: &PdfCandidate,
-  error_message: &str,
-) -> InfuResult<()> {
-  ensure_user_text_dir(data_dir, &candidate.user_id).await?;
-  let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  if path_exists(&text_path).await {
-    fs::remove_file(&text_path).await?;
-  }
-  let manifest = TextManifest {
-    schema_version: MANIFEST_SCHEMA_VERSION,
-    status: "failed".to_owned(),
-    source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
-    content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
-    extractor: TextManifestExtractor {
-      text_extraction_url: text_extraction_url.to_owned(),
-      extracted_at_unix_secs: unix_now_secs()?,
-      duration_ms: None,
-    },
-    error: Some(error_message.to_owned()),
-  };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
-  Ok(())
-}
-
-async fn clear_item_text_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
-  let manifest_path = item_text_manifest_path(data_dir, user_id, item_id)?;
-  let text_path = item_text_content_path(data_dir, user_id, item_id)?;
-  if path_exists(&manifest_path).await {
-    fs::remove_file(&manifest_path).await?;
-  }
-  if path_exists(&text_path).await {
-    fs::remove_file(&text_path).await?;
-  }
-  Ok(())
-}
-
-fn unix_now_secs() -> InfuResult<i64> {
-  Ok(
-    SystemTime::now()
-      .duration_since(UNIX_EPOCH)
-      .map_err(|e| format!("Could not determine current unix time: {}", e))?
-      .as_secs() as i64,
-  )
 }
