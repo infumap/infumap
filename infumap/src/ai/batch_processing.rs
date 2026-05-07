@@ -22,7 +22,7 @@ use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object};
 
 #[derive(Clone)]
-pub enum ExtractionBatchScope {
+pub enum BatchScope {
   Container { container_id: String },
   AllItems,
 }
@@ -74,17 +74,17 @@ pub async fn process_pdf_extraction_batch(
   data_dir: &str,
   text_extraction_url: &str,
   delay: Duration,
-  scope: ExtractionBatchScope,
+  scope: BatchScope,
   overwrite: bool,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
 ) -> InfuResult<()> {
   let (collected_item_ids, internal_scope) = match &scope {
-    ExtractionBatchScope::Container { container_id } => (
+    BatchScope::Container { container_id } => (
       collect_pdf_item_ids_in_container(db.clone(), container_id).await?,
       InternalBatchScope::Container { container_id },
     ),
-    ExtractionBatchScope::AllItems => {
+    BatchScope::AllItems => {
       (collect_matching_item_ids_globally(db.clone(), is_extractable_pdf_item).await?, InternalBatchScope::AllItems)
     }
   };
@@ -126,17 +126,17 @@ pub async fn process_image_tagging_batch(
   data_dir: &str,
   image_tagging_url: &str,
   delay: Duration,
-  scope: ExtractionBatchScope,
+  scope: BatchScope,
   overwrite: bool,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
 ) -> InfuResult<()> {
   let (collected_item_ids, internal_scope) = match &scope {
-    ExtractionBatchScope::Container { container_id } => (
+    BatchScope::Container { container_id } => (
       collect_image_item_ids_in_container(db.clone(), container_id).await?,
       InternalBatchScope::Container { container_id },
     ),
-    ExtractionBatchScope::AllItems => {
+    BatchScope::AllItems => {
       (collect_matching_item_ids_globally(db.clone(), should_tag_image_item).await?, InternalBatchScope::AllItems)
     }
   };

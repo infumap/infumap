@@ -1,5 +1,5 @@
 pub mod artifact_paths;
-pub mod extraction;
+pub mod batch_processing;
 pub mod fragments;
 pub mod image_tagging;
 pub mod indexing;

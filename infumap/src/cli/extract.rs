@@ -28,9 +28,9 @@ use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::ai::artifact_paths::{item_text_artifact_paths, item_text_content_path};
-use crate::ai::extraction::{
-  ExtractionBatchScope, collect_image_item_ids_in_container, collect_pdf_item_ids_in_container,
-  is_extractable_pdf_item, process_image_tagging_batch, process_pdf_extraction_batch,
+use crate::ai::batch_processing::{
+  BatchScope, collect_image_item_ids_in_container, collect_pdf_item_ids_in_container, is_extractable_pdf_item,
+  process_image_tagging_batch, process_pdf_extraction_batch,
 };
 use crate::ai::image_tagging::{
   delete_item_image_tag_dir, image_tagging_url_from_config, is_supported_image_tagging_mime_type, list_failed_images,
@@ -414,7 +414,7 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
       &data_dir,
       &text_extraction_url,
       text_extraction_delay,
-      ExtractionBatchScope::Container { container_id: container_id.clone() },
+      BatchScope::Container { container_id: container_id.clone() },
       overwrite,
       db,
       object_store,
@@ -427,7 +427,7 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
     &data_dir,
     &text_extraction_url,
     text_extraction_delay,
-    ExtractionBatchScope::AllItems,
+    BatchScope::AllItems,
     false,
     db,
     object_store,
@@ -507,7 +507,7 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
       &data_dir,
       &image_tagging_url,
       image_tagging_delay,
-      ExtractionBatchScope::Container { container_id: container_id.clone() },
+      BatchScope::Container { container_id: container_id.clone() },
       overwrite,
       db,
       object_store,
@@ -520,7 +520,7 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     &data_dir,
     &image_tagging_url,
     image_tagging_delay,
-    ExtractionBatchScope::AllItems,
+    BatchScope::AllItems,
     false,
     db,
     object_store,
