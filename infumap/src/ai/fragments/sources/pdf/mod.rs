@@ -1,9 +1,7 @@
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 
-use crate::ai::fragments::FragmentSourceKind;
-
-use super::FragmentSource;
+use super::{FragmentSource, FragmentSourceKind};
 
 mod blocks;
 mod chunking;

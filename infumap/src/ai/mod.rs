@@ -1,6 +1,5 @@
 pub mod artifact_paths;
 pub mod extraction;
-pub mod fragmenting;
 pub mod fragments;
 pub mod image_tagging;
 pub mod indexing;

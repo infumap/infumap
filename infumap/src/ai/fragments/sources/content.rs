@@ -1,10 +1,9 @@
 use infusdk::item::{Item, ItemType};
 
-use crate::ai::fragments::FragmentSourceKind;
 use crate::storage::db::Db;
 
 use super::context::{container_child_title_lines, container_title_for_item};
-use super::{FragmentSource, build_titled_fragment_text, normalized_text, single_fragment_source};
+use super::{FragmentSource, FragmentSourceKind, build_titled_fragment_text, normalized_text, single_fragment_source};
 
 pub fn content_fragment_source_for_item(db: &Db, item: &Item) -> Option<FragmentSource> {
   match item.item_type {

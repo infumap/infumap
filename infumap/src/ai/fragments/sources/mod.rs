@@ -5,7 +5,7 @@ use infusdk::util::infu::InfuResult;
 use serde::de::DeserializeOwned;
 use tokio::fs;
 
-use crate::ai::fragments::{FragmentInput, FragmentSourceKind};
+use super::{FragmentInput, FragmentSourceKind};
 
 mod content;
 mod context;

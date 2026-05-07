@@ -7,7 +7,7 @@ use infusdk::util::infu::InfuResult;
 use log::info;
 use tokio::sync::Mutex;
 
-use crate::ai::fragmenting::{
+use crate::ai::fragments::sources::{
   FragmentSource, content_fragment_source_for_item, embedding_context_title_for_item, image_fragment_source_for_item,
   pdf_fragment_source_for_item,
 };

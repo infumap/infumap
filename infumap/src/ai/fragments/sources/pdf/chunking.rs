@@ -1,6 +1,4 @@
-use crate::ai::fragments::FragmentInput;
-
-use super::super::normalized_text;
+use super::super::{FragmentInput, normalized_text};
 use super::blocks::build_pdf_text_blocks;
 use super::pages::{resolve_pdf_pages, split_pdf_markdown_pages};
 use super::rendering::{heading_paths_equal, render_pdf_fragment_text};
