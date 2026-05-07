@@ -25,6 +25,7 @@ import { VeFns } from "../layout/visual-element";
 import { serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 
 
 const TOOLBAR_TITLE_DIV_ID_REGEX = /^toolbarTitleDiv-(\d+)$/;
@@ -56,6 +57,9 @@ export function commitActiveToolbarTitleEdit(store: StoreContextModel): boolean 
 
   const pageItem = toolbarTitlePageItem(store, activeElement);
   if (!pageItem || !itemCanEdit(pageItem)) {
+    return false;
+  }
+  if (pageItem.id == SOLO_ITEM_HOLDER_PAGE_UID) {
     return false;
   }
 

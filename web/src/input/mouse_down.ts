@@ -38,6 +38,7 @@ import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-ite
 import { PageFlags } from "../items/base/flags-item";
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
+import { getToolbarFocusItem } from "../components/toolbar/toolbarFocus";
 import { serverOrRemote } from "../server";
 import { isUrl, trimNewline } from "../util/string";
 import { isRating } from "../items/rating-item";
@@ -76,8 +77,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     arrangeNow(store, "mouse-down-close-toolbar-popup");
-    if (itemCanEdit(store.history.getFocusItem())) {
-      serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+    const toolbarFocusItem = getToolbarFocusItem(store);
+    if (itemCanEdit(toolbarFocusItem)) {
+      serverOrRemote.updateItem(toolbarFocusItem, store.general.networkStatus);
     }
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
@@ -269,7 +271,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         }
 
         if (editingItemType != ItemType.Search) {
-          serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
+          serverOrRemote.updateItem(item, store.general.networkStatus);
         }
         store.overlay.toolbarPopupInfoMaybe.set(null);
         store.overlay.setTextEditInfo(store.history, null);

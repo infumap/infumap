@@ -55,6 +55,7 @@ import { VesCache } from '../../layout/ves-cache';
 import { logout } from '../Main';
 import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chrome';
 import { getToolbarFocusItem } from './toolbarFocus';
+import { SOLO_ITEM_HOLDER_PAGE_UID } from '../../util/uid';
 
 
 const TOOLBAR_LOGO_VISIBLE_SIZE_PX = 28 * 419 / 448;
@@ -164,7 +165,7 @@ export const Toolbar: Component = () => {
         ? borderColorForColorIdx(firstTopPage.backgroundColorIndex, BorderType.MainPage)
         : ' ',
       borderWidthPx: focusPageIdx == 0 ? 2 : 1,
-      canEdit: itemCanEdit(firstTopPage),
+      canEdit: firstTopPage.id != SOLO_ITEM_HOLDER_PAGE_UID && itemCanEdit(firstTopPage),
     });
 
     for (let i = 1; i < topPageVeids.length; ++i) {
@@ -193,7 +194,7 @@ export const Toolbar: Component = () => {
           ? borderColorForColorIdx(focusPageItem!.backgroundColorIndex, BorderType.MainPage)
           : ' ',
         borderWidthPx: focusPageIdx <= i ? 2 : 1,
-        canEdit: itemCanEdit(page),
+        canEdit: page.id != SOLO_ITEM_HOLDER_PAGE_UID && itemCanEdit(page),
       });
     }
 

@@ -94,14 +94,17 @@ function selectionDebugInfo(): Record<string, unknown> {
 }
 
 function persistCurrentEditTarget(store: StoreContextModel) {
-  const focusItem = store.history.getFocusItem();
-  if (focusItem.relationshipToParent == RelationshipToParent.Child) {
-    const parentItem = itemState.get(focusItem.parentId);
+  const editInfo = store.overlay.textEditInfo();
+  const item = editInfo == null
+    ? store.history.getFocusItem()
+    : itemState.get(VeFns.veidFromPath(editInfo.itemPath).itemId) ?? store.history.getFocusItem();
+  if (item.relationshipToParent == RelationshipToParent.Child) {
+    const parentItem = itemState.get(item.parentId);
     if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
-      itemState.sortChildren(focusItem.parentId);
+      itemState.sortChildren(item.parentId);
     }
   }
-  serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+  serverOrRemote.updateItem(item, store.general.networkStatus);
 }
 
 function editableItemType(ve: VisualElement): ItemType | null {

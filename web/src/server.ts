@@ -151,6 +151,10 @@ interface ServerCommand {
   reject: (reason: any) => void,
 }
 
+function shouldSkipClientOnlyItemUpdate(item: Item): boolean {
+  return item.id == SOLO_ITEM_HOLDER_PAGE_UID;
+}
+
 const COMMAND_GET_ITEMS = "get-items";
 const COMMAND_ADD_ITEM = "add-item";
 const COMMAND_UPDATE_ITEM = "update-item";
@@ -577,6 +581,10 @@ export const server = {
   },
 
   updateItem: async (item: Item, networkStatus: NumberSignal, panicLogoutOnError: boolean = true): Promise<void> => {
+    if (shouldSkipClientOnlyItemUpdate(item)) {
+      console.warn(`Skipping update for client-only item '${item.id}'.`);
+      return;
+    }
     return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, panicLogoutOnError, networkStatus)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
@@ -730,6 +738,10 @@ export const remote = {
    * update an item
    */
   updateItem: async (host: string, item: Item, networkStatus: NumberSignal): Promise<void> => {
+    if (shouldSkipClientOnlyItemUpdate(item)) {
+      console.warn(`Skipping remote update for client-only item '${item.id}'.`);
+      return;
+    }
     return constructCommandPromise_remote(host, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, false, networkStatus);
   },
 
