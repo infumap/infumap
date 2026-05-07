@@ -96,6 +96,16 @@ FROM fragments
 
 pub const COUNT_FRAGMENT_ROWS_SQL: &str = "SELECT COUNT(*) FROM fragments";
 pub const COUNT_FRAGMENT_EMBEDDING_ROWS_SQL: &str = "SELECT COUNT(*) FROM fragment_embeddings";
+pub const DELETE_FRAGMENT_EMBEDDINGS_FOR_ITEM_SQL: &str = r#"
+DELETE FROM fragment_embeddings
+WHERE rowid IN (
+  SELECT fragment_id FROM fragments WHERE item_id = ?1
+)
+"#;
+pub const DELETE_FRAGMENTS_FOR_ITEM_SQL: &str = "DELETE FROM fragments WHERE item_id = ?1";
+pub const UPDATE_REBUILD_FRAGMENT_COUNT_SQL: &str = r#"
+UPDATE fragment_index_metadata SET fragment_count = ?1 WHERE id = 1
+"#;
 
 pub const SEARCH_FRAGMENTS_SQL: &str = r#"
 SELECT
@@ -480,6 +490,55 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
     Ok(())
   }
 
+  async fn delete_item_fragments(&self, item_id: &str) -> InfuResult<usize> {
+    if item_id.trim().is_empty() || !self.db_path.exists() {
+      return Ok(0);
+    }
+
+    let mut conn = self.open_connection()?;
+    if !table_exists(&conn, FRAGMENTS_TABLE_NAME)? {
+      return Ok(0);
+    }
+
+    let has_embedding_table = table_exists(&conn, FRAGMENT_EMBEDDINGS_TABLE_NAME)?;
+    let has_metadata_table = table_exists(&conn, INDEX_METADATA_TABLE_NAME)?;
+    let tx = conn
+      .transaction()
+      .map_err(|e| format!("Could not start sqlite-vec delete transaction '{}': {}", self.db_path.display(), e))?;
+
+    if has_embedding_table {
+      tx.execute(DELETE_FRAGMENT_EMBEDDINGS_FOR_ITEM_SQL, params![item_id]).map_err(|e| {
+        format!(
+          "Could not delete sqlite-vec embeddings for item '{}' from '{}': {}",
+          item_id,
+          self.db_path.display(),
+          e
+        )
+      })?;
+    }
+
+    let deleted_fragments = tx.execute(DELETE_FRAGMENTS_FOR_ITEM_SQL, params![item_id]).map_err(|e| {
+      format!("Could not delete sqlite-vec fragments for item '{}' from '{}': {}", item_id, self.db_path.display(), e)
+    })?;
+
+    if has_metadata_table {
+      let remaining_fragment_count = count_table_rows(&tx, FRAGMENTS_TABLE_NAME, COUNT_FRAGMENT_ROWS_SQL)?;
+      tx.execute(UPDATE_REBUILD_FRAGMENT_COUNT_SQL, params![usize_to_i64(remaining_fragment_count, "fragment_count")?])
+        .map_err(|e| {
+          format!(
+            "Could not update sqlite-vec fragment count after deleting item '{}' from '{}': {}",
+            item_id,
+            self.db_path.display(),
+            e
+          )
+        })?;
+    }
+
+    tx.commit()
+      .map_err(|e| format!("Could not commit sqlite-vec delete transaction '{}': {}", self.db_path.display(), e))?;
+    Ok(deleted_fragments)
+  }
+
   async fn finish_rebuild(
     &self,
     metadata: &FragmentVectorDbRebuildMetadata,
@@ -706,6 +765,58 @@ mod tests {
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].item_id, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     assert_eq!(hits[0].text, "alpha");
+
+    std::fs::remove_file(db_path).unwrap();
+  }
+
+  #[tokio::test]
+  async fn deletes_item_fragments_incrementally() {
+    let db_path = unique_test_db_path("delete-item");
+    let db = SqliteVecFragmentVectorDb::new(db_path.clone());
+    let metadata = FragmentVectorDbRebuildMetadata {
+      source_digest: "corpus-a".to_owned(),
+      expected_fragment_count: 2,
+      model: "test-model".to_owned(),
+      embedding_dimensions: 2,
+    };
+
+    db.begin_rebuild(&metadata, false).await.unwrap();
+    db.insert_embedded_fragments(&[
+      EmbeddedFragment {
+        item_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+        ordinal: 0,
+        source_kind: "page_contents".to_owned(),
+        text: "alpha".to_owned(),
+        page_start: None,
+        page_end: None,
+        embedding: vec![1.0, 0.0],
+      },
+      EmbeddedFragment {
+        item_id: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
+        ordinal: 0,
+        source_kind: "page_contents".to_owned(),
+        text: "beta".to_owned(),
+        page_start: None,
+        page_end: None,
+        embedding: vec![0.0, 1.0],
+      },
+    ])
+    .await
+    .unwrap();
+    db.finish_rebuild(&metadata).await.unwrap();
+
+    assert_eq!(db.delete_item_fragments("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").await.unwrap(), 1);
+    assert_eq!(db.delete_item_fragments("missingmissingmissingmissingmiss").await.unwrap(), 0);
+
+    let status = db.rebuild_status().await.unwrap().unwrap();
+    assert!(status.complete);
+    assert_eq!(status.expected_fragment_count, 1);
+    assert_eq!(status.embedded_fragment_count, 1);
+    assert_eq!(status.embedding_row_count, 1);
+
+    let hits = db.search(&[1.0, 0.0], 10).await.unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].item_id, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 
     std::fs::remove_file(db_path).unwrap();
   }

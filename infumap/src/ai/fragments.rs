@@ -172,6 +172,10 @@ pub async fn clear_fragments_for_item(data_dir: &str, item: &Item) -> InfuResult
   Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() })
 }
 
+pub async fn delete_item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
+  clear_item_fragments_dir(data_dir, user_id, item_id).await
+}
+
 fn sha256_hex(text: &str) -> String {
   let mut hasher = Sha256::new();
   hasher.update(text.as_bytes());

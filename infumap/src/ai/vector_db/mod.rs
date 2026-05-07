@@ -78,6 +78,8 @@ pub trait FragmentVectorDb: Send + Sync {
 
   async fn insert_embedded_fragments(&self, fragments: &[EmbeddedFragment]) -> InfuResult<()>;
 
+  async fn delete_item_fragments(&self, item_id: &str) -> InfuResult<usize>;
+
   async fn finish_rebuild(
     &self,
     metadata: &FragmentVectorDbRebuildMetadata,

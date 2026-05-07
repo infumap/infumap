@@ -15,7 +15,7 @@ use crate::ai::text_embedding::{
 use crate::ai::vector_db::{
   EmbeddedFragment, FragmentVectorDb, FragmentVectorDbBackend, FragmentVectorDbFragmentKey,
   FragmentVectorDbRebuildMetadata, ensure_user_index_dir, fragment_vector_db_path, fragment_vector_db_temp_path,
-  open_fragment_vector_db,
+  open_fragment_vector_db, open_user_fragment_vector_db, user_fragment_vector_db_exists,
 };
 use crate::storage::db::Db;
 use crate::util::fs::path_exists;
@@ -37,6 +37,15 @@ pub async fn rebuild_all_fragment_indexes(
   }
 
   Ok(summary)
+}
+
+pub async fn delete_item_fragment_index_entries(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<usize> {
+  if !user_fragment_vector_db_exists(data_dir, user_id).await? {
+    return Ok(0);
+  }
+
+  let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
+  vector_db.delete_item_fragments(item_id).await
 }
 
 async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmentIndexPlan>> {

@@ -45,9 +45,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::MutexGuard;
 
+use crate::ai::fragments::delete_item_fragments_dir;
 use crate::ai::image_tagging::{
   delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
 };
+use crate::ai::indexing::delete_item_fragment_index_entries;
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
 };
@@ -1414,6 +1416,11 @@ async fn handle_delete_item<'a>(
 
   delete_item_text_dir(&data_dir, &session.user_id, &request.id).await?;
   delete_item_image_tag_dir(&data_dir, &session.user_id, &request.id).await?;
+  delete_item_fragments_dir(&data_dir, &session.user_id, &request.id).await?;
+  let deleted_index_fragments = delete_item_fragment_index_entries(&data_dir, &session.user_id, &request.id).await?;
+  if deleted_index_fragments > 0 {
+    debug!("Deleted {} fragment index row(s) for item '{}'.", deleted_index_fragments, request.id);
+  }
 
   let _item = db.item.remove(&request.id).await?;
   let mut deltas_by_container = HashMap::new();
@@ -1553,6 +1560,11 @@ async fn delete_recursive(
 
     delete_item_text_dir(&data_dir, user_id, &item.id).await?;
     delete_item_image_tag_dir(&data_dir, user_id, &item.id).await?;
+    delete_item_fragments_dir(&data_dir, user_id, &item.id).await?;
+    let deleted_index_fragments = delete_item_fragment_index_entries(&data_dir, user_id, &item.id).await?;
+    if deleted_index_fragments > 0 {
+      debug!("Deleted {} fragment index row(s) for item '{}'.", deleted_index_fragments, item.id);
+    }
 
     let _item = db.item.remove(&item_id).await?;
     if let Some(container_id) = old_child_container_id {
