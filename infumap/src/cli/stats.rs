@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::ai::artifacts::item_text_artifact_paths;
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
@@ -526,19 +527,7 @@ fn derived_result_paths(
   item_id: &str,
   kind: DerivedKind,
 ) -> InfuResult<(PathBuf, PathBuf)> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut dir = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  dir.push(format!("user_{}", user_id));
-  dir.push("text");
-  dir.push(&item_id[..2]);
-
-  let mut manifest_path = dir.clone();
-  manifest_path.push(format!("{}{}", item_id, kind.manifest_suffix()));
-  let mut content_path = dir;
-  content_path.push(format!("{}{}", item_id, kind.content_suffix()));
-  Ok((manifest_path, content_path))
+  item_text_artifact_paths(data_dir, user_id, item_id, kind.manifest_suffix(), kind.content_suffix())
 }
 
 fn item_log_path(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {

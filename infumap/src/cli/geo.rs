@@ -14,11 +14,15 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use super::build_http_client;
+use crate::ai::artifacts::{
+  ensure_user_text_dir, item_geo_content_path as geo_content_path, item_geo_manifest_path as geo_manifest_path,
+  item_text_content_path as image_tag_text_path,
+};
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
-use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
+use crate::util::fs::path_exists;
 
 const DEFAULT_GEOAPIFY_REVERSE_URL: &str = "https://api.geoapify.com/v1/geocode/reverse";
 const JSON_CONTENT_MIME_TYPE: &str = "application/json";
@@ -528,49 +532,6 @@ async fn write_skipped_geo_manifest(
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
   info!("Skipping reverse geocoding for image '{}' (user {}): {}", candidate.item_id, candidate.user_id, reason);
   Ok(())
-}
-
-fn image_tag_text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_text", item_id));
-  Ok(path)
-}
-
-fn geo_content_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_geo.json", item_id));
-  Ok(path)
-}
-
-fn geo_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_geo_manifest.json", item_id));
-  Ok(path)
-}
-
-fn text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut text_dir = user_text_dir(data_dir, user_id)?;
-  text_dir.push(&item_id[..2]);
-  Ok(text_dir)
-}
-
-fn user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push("text");
-  Ok(path)
-}
-
-async fn ensure_user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let text_dir = user_text_dir(data_dir, user_id)?;
-  if !path_exists(&text_dir).await {
-    fs::create_dir_all(&text_dir).await?;
-  }
-  ensure_256_subdirs(&text_dir).await?;
-  Ok(text_dir)
 }
 
 fn unix_now_secs() -> InfuResult<i64> {

@@ -1,3 +1,4 @@
+pub mod artifacts;
 pub mod fragments;
 pub mod image_tagging;
 pub mod text_embedding;

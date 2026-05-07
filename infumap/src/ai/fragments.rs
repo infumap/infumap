@@ -10,7 +10,8 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
-use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
+use crate::ai::artifacts::{item_fragments_dir, item_fragments_manifest_path, item_fragments_path, user_fragments_dir};
+use crate::util::fs::{ensure_256_subdirs, path_exists};
 
 const FRAGMENTS_SCHEMA_VERSION: u32 = 1;
 const FRAGMENTER_VERSION: u32 = 12;
@@ -134,8 +135,8 @@ pub async fn build_fragment_inputs_for_item(
   ensure_user_fragments_dir(data_dir, &item.owner_id).await?;
   let item_dir = item_fragments_dir(data_dir, &item.owner_id, &item.id)?;
   fs::create_dir_all(&item_dir).await?;
-  let fragments_path = fragments_path(data_dir, &item.owner_id, &item.id)?;
-  let manifest_path = fragments_manifest_path(data_dir, &item.owner_id, &item.id)?;
+  let fragments_path = item_fragments_path(data_dir, &item.owner_id, &item.id)?;
+  let manifest_path = item_fragments_manifest_path(data_dir, &item.owner_id, &item.id)?;
 
   let source_text_sha256 =
     sha256_hex(&fragments.iter().map(|fragment| fragment.text.as_str()).collect::<Vec<_>>().join("\n\n"));
@@ -177,28 +178,6 @@ fn sha256_hex(text: &str) -> String {
   format!("{:x}", hasher.finalize())
 }
 
-fn fragments_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
-  path.push("fragments.jsonl");
-  Ok(path)
-}
-
-fn fragments_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
-  path.push("fragments_manifest.json");
-  Ok(path)
-}
-
-fn item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut fragments_dir = user_fragments_dir(data_dir, user_id)?;
-  fragments_dir.push(&item_id[..2]);
-  fragments_dir.push(item_id);
-  Ok(fragments_dir)
-}
-
 async fn clear_item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
   let dir = item_fragments_dir(data_dir, user_id, item_id)?;
   if !path_exists(&dir).await {
@@ -206,13 +185,6 @@ async fn clear_item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) 
   }
   fs::remove_dir_all(&dir).await?;
   Ok(true)
-}
-
-fn user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push("fragments");
-  Ok(path)
 }
 
 async fn ensure_user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {

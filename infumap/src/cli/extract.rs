@@ -31,6 +31,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
+use crate::ai::artifacts::{item_text_artifact_paths, item_text_content_path};
 use crate::ai::image_tagging::{
   LoadedImageTagging, delete_item_image_tag_dir, image_tagging_url_from_config, is_supported_image_tagging_mime_type,
   item_needs_image_tagging, list_failed_images, load_image_for_tagging, mark_item_image_tagging_failed,
@@ -875,7 +876,7 @@ async fn load_image_embedding_records(data_dir: &str, db: Arc<Mutex<Db>>) -> Inf
 
   let mut records = Vec::new();
   for item in image_items {
-    let artifact_path = image_tag_content_path(data_dir, &item.owner_id, &item.id)?;
+    let artifact_path = item_text_content_path(data_dir, &item.owner_id, &item.id)?;
     let bytes = match fs::read(&artifact_path).await {
       Ok(bytes) => bytes,
       Err(_) => continue,
@@ -896,23 +897,6 @@ async fn load_image_embedding_records(data_dir: &str, db: Arc<Mutex<Db>>) -> Inf
   }
 
   Ok(records)
-}
-
-fn image_tag_content_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<std::path::PathBuf> {
-  let mut path = image_tag_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_text", item_id));
-  Ok(path)
-}
-
-fn image_tag_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<std::path::PathBuf> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push("text");
-  path.push(&item_id[..2]);
-  Ok(path)
 }
 
 fn cosine_similarity(left: &[f32], right: &[f32]) -> Option<f32> {
@@ -1093,19 +1077,7 @@ fn derived_result_paths(
   user_id: &str,
   item_id: &str,
 ) -> InfuResult<(std::path::PathBuf, std::path::PathBuf)> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut dir = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  dir.push(format!("user_{}", user_id));
-  dir.push("text");
-  dir.push(&item_id[..2]);
-
-  let mut manifest_path = dir.clone();
-  manifest_path.push(format!("{}_manifest.json", item_id));
-  let mut content_path = dir;
-  content_path.push(format!("{}_text", item_id));
-  Ok((manifest_path, content_path))
+  item_text_artifact_paths(data_dir, user_id, item_id, "_manifest.json", "_text")
 }
 
 async fn collect_matching_item_ids_in_container<PredicateFn>(

@@ -17,6 +17,7 @@ use time::format_description::well_known::Rfc3339;
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::ai::artifacts::{item_geo_content_path, item_text_content_path, item_text_manifest_path};
 use crate::ai::fragments::{
   FragmentBuildOutcome, FragmentInput, FragmentSourceKind, build_fragment_inputs_for_item, clear_fragments_for_item,
 };
@@ -24,7 +25,6 @@ use crate::ai::image_tagging::should_tag_image_item;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
-use crate::util::fs::expand_tilde;
 use crate::util::ordering::compare_orderings;
 
 const PDF_MIME_TYPE: &str = "application/pdf";
@@ -477,7 +477,7 @@ async fn load_pdf_markdown_artifact(data_dir: &str, user_id: &str, item_id: &str
     return Ok(None);
   }
 
-  let path = pdf_text_path(data_dir, user_id, item_id)?;
+  let path = item_text_content_path(data_dir, user_id, item_id)?;
   let text = match fs::read_to_string(&path).await {
     Ok(text) => text,
     Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
@@ -492,7 +492,7 @@ async fn load_pdf_text_manifest(
   user_id: &str,
   item_id: &str,
 ) -> InfuResult<Option<StoredPdfTextManifest>> {
-  let path = pdf_manifest_path(data_dir, user_id, item_id)?;
+  let path = item_text_manifest_path(data_dir, user_id, item_id)?;
   read_json_if_exists(&path, "pdf text manifest").await
 }
 
@@ -1389,12 +1389,12 @@ async fn load_image_tag_artifact(
   user_id: &str,
   item_id: &str,
 ) -> InfuResult<Option<StoredImageTagArtifact>> {
-  let path = image_tag_text_path(data_dir, user_id, item_id)?;
+  let path = item_text_content_path(data_dir, user_id, item_id)?;
   read_json_if_exists(&path, "image-tag artifact").await
 }
 
 async fn load_geo_artifact(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Option<StoredGeoArtifact>> {
-  let path = geo_content_path(data_dir, user_id, item_id)?;
+  let path = item_geo_content_path(data_dir, user_id, item_id)?;
   read_json_if_exists(&path, "geo artifact").await
 }
 
@@ -1846,39 +1846,4 @@ fn titled_non_system_parent(db: &Db, item: &Item) -> Option<String> {
   }
   let parent = db.item.get(parent_id).ok()?;
   normalized_text(parent.title.as_deref())
-}
-
-fn image_tag_text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_text", item_id));
-  Ok(path)
-}
-
-fn pdf_text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_text", item_id));
-  Ok(path)
-}
-
-fn pdf_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_manifest.json", item_id));
-  Ok(path)
-}
-
-fn geo_content_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_geo.json", item_id));
-  Ok(path)
-}
-
-fn text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push("text");
-  path.push(&item_id[..2]);
-  Ok(path)
 }

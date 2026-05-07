@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 use tokio::fs;
 
 use super::build_http_client;
+use crate::ai::artifacts::{item_fragments_manifest_path, item_fragments_path};
 use crate::ai::text_embedding::{
   DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingBatch, TextEmbeddingInput, embed_texts,
   resolve_text_embedding_service_url,
@@ -22,7 +23,7 @@ use crate::ai::vector_db::{
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
-use crate::util::fs::{expand_tilde, path_exists};
+use crate::util::fs::path_exists;
 
 const UNKNOWN_FRAGMENT_SOURCE_KIND: &str = "unknown";
 
@@ -99,7 +100,7 @@ async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmen
     item_ids.sort();
     let mut fragments = Vec::new();
     for item_id in item_ids {
-      let fragments_path = fragments_path_for_item(data_dir, &user_id, &item_id)?;
+      let fragments_path = item_fragments_path(data_dir, &user_id, &item_id)?;
       if !path_exists(&fragments_path).await {
         continue;
       }
@@ -109,7 +110,7 @@ async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmen
         continue;
       }
 
-      let manifest_path = fragments_manifest_path_for_item(data_dir, &user_id, &item_id)?;
+      let manifest_path = item_fragments_manifest_path(data_dir, &user_id, &item_id)?;
       let manifest = load_fragments_manifest(&manifest_path).await?;
       if let Some(expected_count) = manifest.as_ref().and_then(|manifest| manifest.fragment_count)
         && expected_count != records.len()
@@ -457,30 +458,6 @@ fn settings_arg() -> Arg {
     .required(false)
 }
 
-fn fragments_path_for_item(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
-  path.push("fragments.jsonl");
-  Ok(path)
-}
-
-fn fragments_manifest_path_for_item(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
-  path.push("fragments_manifest.json");
-  Ok(path)
-}
-
-fn item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push("fragments");
-  path.push(&item_id[..2]);
-  path.push(item_id);
-  Ok(path)
-}
-
 fn fragment_text_sha256(text: &str) -> String {
   let mut hasher = Sha256::new();
   hasher.update(text.as_bytes());
@@ -579,9 +556,10 @@ struct StoredFragmentsManifest {
 #[cfg(test)]
 mod tests {
   use super::{
-    FragmentRecordForIndex, fragment_corpus_digest, fragments_path_for_item, parse_fragment_records,
-    validate_embedding_batch, validate_unique_fragment_ordinals,
+    FragmentRecordForIndex, fragment_corpus_digest, parse_fragment_records, validate_embedding_batch,
+    validate_unique_fragment_ordinals,
   };
+  use crate::ai::artifacts::item_fragments_path;
   use crate::ai::text_embedding::TextEmbeddingBatch;
 
   #[test]
@@ -603,7 +581,7 @@ mod tests {
 
   #[test]
   fn fragment_path_uses_fragments_directory() {
-    let path = fragments_path_for_item("/data/infumap", "user123", "abcdef").unwrap();
+    let path = item_fragments_path("/data/infumap", "user123", "abcdef").unwrap();
     assert_eq!(path.to_string_lossy(), "/data/infumap/user_user123/fragments/ab/abcdef/fragments.jsonl");
   }
 

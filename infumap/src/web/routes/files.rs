@@ -27,11 +27,14 @@ use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
 use serde::Deserialize;
 use std::io::Cursor;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::ai::artifacts::{
+  item_fragments_manifest_path, item_fragments_path, item_geo_content_path, item_text_content_path,
+  item_text_manifest_path,
+};
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
 use crate::config::{
   CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT,
@@ -40,7 +43,6 @@ use crate::storage::cache as storage_cache;
 use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
-use crate::util::fs::expand_tilde;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
 use crate::web::serve::{cors_response, full_body, internal_server_error_response, not_found_response};
 use crate::web::session::get_and_validate_session;
@@ -511,7 +513,7 @@ async fn get_item_text(
     return Ok(text_not_available_response());
   }
 
-  let text_path = item_text_path(&data_dir, &item.owner_id, uid)?;
+  let text_path = item_text_content_path(&data_dir, &item.owner_id, uid)?;
   let text_data = match fs::read(&text_path).await {
     Ok(bytes) => bytes,
     Err(_) => return Ok(text_not_available_response()),
@@ -520,7 +522,7 @@ async fn get_item_text(
   let (data, response_mime_type) = if manifest.content_mime_type == "application/json"
     && is_supported_image_tagging_mime_type(item.mime_type.as_deref())
   {
-    let geo_data = match fs::read(item_geo_path(&data_dir, &item.owner_id, uid)?).await {
+    let geo_data = match fs::read(item_geo_content_path(&data_dir, &item.owner_id, uid)?).await {
       Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
       Err(_) => GEO_INFO_NOT_AVAILABLE_MESSAGE.to_owned(),
     };
@@ -621,59 +623,6 @@ fn parse_fragments_text(data: &[u8]) -> InfuResult<Vec<u8>> {
     .collect::<Vec<String>>()
     .join(FRAGMENT_VIEW_SEPARATOR);
   Ok(text.into_bytes())
-}
-
-fn item_text_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_manifest.json", item_id));
-  Ok(path)
-}
-
-fn item_text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_text", item_id));
-  Ok(path)
-}
-
-fn item_geo_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_geo.json", item_id));
-  Ok(path)
-}
-
-fn item_fragments_manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
-  path.push("fragments_manifest.json");
-  Ok(path)
-}
-
-fn item_fragments_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = item_fragments_dir(data_dir, user_id, item_id)?;
-  path.push("fragments.jsonl");
-  Ok(path)
-}
-
-fn item_text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push("text");
-  path.push(&item_id[..2]);
-  Ok(path)
-}
-
-fn item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push("fragments");
-  path.push(&item_id[..2]);
-  path.push(item_id);
-  Ok(path)
 }
 
 fn item_text_filename(uid: &str, content_mime_type: &str) -> String {

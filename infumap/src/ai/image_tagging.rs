@@ -25,17 +25,17 @@ use serde_json::Value;
 use serde_json::map::Map as JsonMap;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::fs;
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
+use crate::ai::artifacts::{ensure_user_text_dir, item_text_content_path, item_text_manifest_path};
 use crate::config::{CONFIG_DATA_DIR, CONFIG_IMAGE_TAGGING_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
-use crate::util::fs::{ensure_256_subdirs, expand_tilde, path_exists};
+use crate::util::fs::path_exists;
 use crate::util::image::{ImageMetadata, extract_image_metadata};
 use crate::util::retry::endpoint_retry_delay;
 
@@ -337,7 +337,7 @@ pub async fn list_failed_images(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResul
       .collect()
   };
   for (user_id, item_id, file_name) in image_items {
-    let path = match manifest_path(data_dir, &user_id, &item_id) {
+    let path = match item_text_manifest_path(data_dir, &user_id, &item_id) {
       Ok(path) => path,
       Err(e) => {
         debug!(
@@ -1066,8 +1066,8 @@ async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &ImageCandidate)
 }
 
 async fn manifest_check(data_dir: &str, candidate: &ImageCandidate) -> InfuResult<ManifestCheckResult> {
-  let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
 
   if !path_exists(&manifest_path).await {
     return Ok(ManifestCheckResult::NeedsTagging);
@@ -1184,8 +1184,8 @@ async fn write_success_artifacts(
   duration_ms: Option<u64>,
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
-  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   fs::write(&text_path, serde_json::to_vec_pretty(tag_data)?).await?;
   let manifest = ImageTagManifest {
     schema_version: MANIFEST_SCHEMA_VERSION,
@@ -1212,8 +1212,8 @@ async fn write_failed_manifest(
   error_message: &str,
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
-  let text_path = text_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let manifest_path = manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
+  let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   if path_exists(&text_path).await {
     fs::remove_file(&text_path).await?;
   }
@@ -1235,30 +1235,9 @@ async fn write_failed_manifest(
   Ok(())
 }
 
-fn text_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_text", item_id));
-  Ok(path)
-}
-
-fn manifest_path(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  let mut path = text_shard_dir(data_dir, user_id, item_id)?;
-  path.push(format!("{}_manifest.json", item_id));
-  Ok(path)
-}
-
-fn text_shard_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PathBuf> {
-  if item_id.len() < 2 {
-    return Err(format!("Item id '{}' is too short.", item_id).into());
-  }
-  let mut text_dir = user_text_dir(data_dir, user_id)?;
-  text_dir.push(&item_id[..2]);
-  Ok(text_dir)
-}
-
 async fn clear_item_image_tag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
-  let manifest_path = manifest_path(data_dir, user_id, item_id)?;
-  let text_path = text_path(data_dir, user_id, item_id)?;
+  let manifest_path = item_text_manifest_path(data_dir, user_id, item_id)?;
+  let text_path = item_text_content_path(data_dir, user_id, item_id)?;
   if path_exists(&manifest_path).await {
     fs::remove_file(&manifest_path).await?;
   }
@@ -1268,13 +1247,6 @@ async fn clear_item_image_tag_dir(data_dir: &str, user_id: &str, item_id: &str) 
   Ok(())
 }
 
-fn user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push("text");
-  Ok(path)
-}
-
 fn unix_now_secs() -> InfuResult<i64> {
   Ok(
     SystemTime::now()
@@ -1282,15 +1254,6 @@ fn unix_now_secs() -> InfuResult<i64> {
       .map_err(|e| format!("Could not determine current unix time: {}", e))?
       .as_secs() as i64,
   )
-}
-
-async fn ensure_user_text_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let text_dir = user_text_dir(data_dir, user_id)?;
-  if !path_exists(&text_dir).await {
-    fs::create_dir_all(&text_dir).await?;
-  }
-  ensure_256_subdirs(&text_dir).await?;
-  Ok(text_dir)
 }
 
 #[cfg(test)]
