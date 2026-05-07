@@ -56,11 +56,19 @@ import {
 } from "../../items/search-item";
 import { materializeSearchResults } from "../../layout/search_materialize";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
+import { ArrangeAlgorithm } from "../../items/page-item";
 
 
 const EMPTY_SEARCH_EDIT_TEXT = "\u200B";
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
+const SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX = 20;
+const SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX = 64;
+const SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX = 30;
+const SEARCH_WORKSPACE_ARRANGE_OPTIONS = [
+  { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
+  { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
+] as const;
 
 
 export const Search_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -81,6 +89,10 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const queryText = () => store.perItem.getSearchQuery(searchItem().id);
   const searchHasMoreResults = () => store.perItem.getSearchHasMoreResults(searchItem().id);
   const searchLoadedPageCount = () => store.perItem.getSearchLoadedPageCount(searchItem().id);
+  const searchArrangeAlgorithm = () =>
+    store.perItem.getSearchArrangeAlgorithm(searchItem().id) == ArrangeAlgorithm.Grid
+      ? ArrangeAlgorithm.Grid
+      : ArrangeAlgorithm.Catalog;
   const isEditing = () => canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
   const editableQueryText = () => queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText();
@@ -180,6 +192,18 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         store.overlay.toolbarTransientMessage.set(null);
       }
     }, 1500);
+  };
+
+  const setSearchArrangeAlgorithm = (arrangeAlgorithm: ArrangeAlgorithm) => {
+    const nextArrangeAlgorithm = arrangeAlgorithm == ArrangeAlgorithm.Grid
+      ? ArrangeAlgorithm.Grid
+      : ArrangeAlgorithm.Catalog;
+    if (searchArrangeAlgorithm() == nextArrangeAlgorithm) {
+      return;
+    }
+    store.perItem.setSearchArrangeAlgorithm(searchItem().id, nextArrangeAlgorithm);
+    store.touchToolbar();
+    arrangeNow(store, "search-workspace-arrange-algorithm");
   };
 
   const clearSearchResults = () => {
@@ -401,6 +425,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsPx().w);
     const inputWidthPx = calcSearchWorkspaceInputWidthPx(boundsPx().w);
     const lowerTopPx = calcSearchWorkspaceResultsTopPx();
+    const arrangeSelectorTopPx = lowerTopPx - Math.round(SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
     const showMoreButton = () => searchHasMoreResults();
     return (
       <div class="absolute bg-white"
@@ -471,6 +496,34 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                 Materialize
               </button>
             </div>
+          </div>
+          <div class="absolute flex items-center gap-[4px]"
+            style={`right: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: 1;`}>
+            <For each={SEARCH_WORKSPACE_ARRANGE_OPTIONS}>{option => {
+              const selected = () => searchArrangeAlgorithm() == option.arrangeAlgorithm;
+              return (
+                <button
+                  class="flex items-center justify-center cursor-pointer"
+                  style={`width: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; ` +
+                    `font-size: 11px; letter-spacing: 0; font-weight: ${selected() ? 700 : 600}; ` +
+                    `color: ${selected() ? "rgba(51, 65, 85, 0.92)" : "rgba(100, 116, 139, 0.76)"}; ` +
+                    `background: rgba(255, 255, 255, 0.96); ` +
+                    `border: 1px solid rgba(203, 213, 225, 0.95); border-radius: 5px; ` +
+                    `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
+                  type="button"
+                  onMouseDown={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    setSearchArrangeAlgorithm(option.arrangeAlgorithm);
+                  }}
+                  onMouseUp={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                  }}>
+                  {option.label}
+                </button>
+              );
+            }}</For>
           </div>
         </div>
         <For each={VesCache.render.getChildren(vePath())()}>{childVe =>

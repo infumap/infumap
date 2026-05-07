@@ -733,6 +733,13 @@ export const Toolbar_Popup: Component = () => {
   const aaListClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.List); }
   const aaDocumentClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Document); }
   const aaCalendarClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Calendar); }
+  const searchArrangeAlgorithm = () => {
+    const focusItem = getToolbarFocusItem(store);
+    if (!isSearch(focusItem)) { return ArrangeAlgorithm.Catalog; }
+    return store.perItem.getSearchArrangeAlgorithm(focusItem.id) == ArrangeAlgorithm.Grid
+      ? ArrangeAlgorithm.Grid
+      : ArrangeAlgorithm.Catalog;
+  };
   const handleSearchArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {
     const focusItem = getToolbarFocusItem(store);
     if (!isSearch(focusItem)) { return; }
@@ -847,11 +854,11 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]"
+            <div class={`text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px] ${searchArrangeAlgorithm() == ArrangeAlgorithm.Grid ? "font-bold text-slate-900" : ""}`}
               onClick={() => { handleSearchArrangeAlgorithmChange(ArrangeAlgorithm.Grid); }}>
               Grid
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]"
+            <div class={`text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${searchArrangeAlgorithm() == ArrangeAlgorithm.Catalog ? "font-bold text-slate-900" : ""}`}
               onClick={() => { handleSearchArrangeAlgorithmChange(ArrangeAlgorithm.Catalog); }}>
               Catalog
             </div>
