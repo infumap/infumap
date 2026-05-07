@@ -41,3 +41,8 @@ impl FragmentInput {
     self
   }
 }
+
+pub struct FragmentSource {
+  pub source_kind: FragmentSourceKind,
+  pub fragments: Vec<FragmentInput>,
+}

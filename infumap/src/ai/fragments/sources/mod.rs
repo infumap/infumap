@@ -5,7 +5,7 @@ use infusdk::util::infu::InfuResult;
 use serde::de::DeserializeOwned;
 use tokio::fs;
 
-use super::{FragmentInput, FragmentSourceKind};
+use super::{FragmentInput, FragmentSource, FragmentSourceKind};
 
 mod content;
 mod context;
@@ -16,11 +16,6 @@ pub use content::content_fragment_source_for_item;
 pub use context::embedding_context_title_for_item;
 pub use image::image_fragment_source_for_item;
 pub use pdf::pdf_fragment_source_for_item;
-
-pub struct FragmentSource {
-  pub source_kind: FragmentSourceKind,
-  pub fragments: Vec<FragmentInput>,
-}
 
 fn single_fragment_source(source_kind: FragmentSourceKind, text: String) -> FragmentSource {
   FragmentSource { source_kind, fragments: vec![FragmentInput::new(text)] }

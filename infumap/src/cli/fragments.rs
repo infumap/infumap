@@ -8,10 +8,12 @@ use log::info;
 use tokio::sync::Mutex;
 
 use crate::ai::fragments::sources::{
-  FragmentSource, content_fragment_source_for_item, embedding_context_title_for_item, image_fragment_source_for_item,
+  content_fragment_source_for_item, embedding_context_title_for_item, image_fragment_source_for_item,
   pdf_fragment_source_for_item,
 };
-use crate::ai::fragments::{FragmentBuildOutcome, build_fragment_inputs_for_item, clear_fragments_for_item};
+use crate::ai::fragments::{
+  FragmentBuildOutcome, FragmentSource, build_fragment_inputs_for_item, clear_fragments_for_item,
+};
 use crate::ai::image_tagging::should_tag_image_item;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
