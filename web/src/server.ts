@@ -70,12 +70,14 @@ export interface SearchResponse {
   hasMore: boolean,
 }
 
+const SEARCH_RESULTS_PER_PAGE = 60;
+
 function normalizeSearchResponse(response: any): SearchResponse {
   if (Array.isArray(response)) {
     return {
       results: response as Array<SearchResult>,
       // Backward-compatible fallback for older servers that returned a bare array.
-      hasMore: response.length === 10,
+      hasMore: response.length === SEARCH_RESULTS_PER_PAGE,
     };
   }
 
@@ -589,7 +591,7 @@ export const server = {
   },
 
   search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal, pageNumMaybe?: number): Promise<SearchResponse> => {
-    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: 10, pageNum: pageNumMaybe }, null, true, networkStatus)
+    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum: pageNumMaybe }, null, true, networkStatus)
       .then((response: any) => normalizeSearchResponse(response));
   },
 
