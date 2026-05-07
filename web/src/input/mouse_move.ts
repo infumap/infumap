@@ -22,7 +22,11 @@ import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/ba
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { itemCanMove } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
-import { TEMP_SEARCH_RESULTS_ORIGIN } from "../items/search-item";
+import {
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  TEMP_SEARCH_RESULTS_ORIGIN,
+} from "../items/search-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
@@ -45,6 +49,7 @@ import { itemState } from "../store/ItemState";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { calcSpatialPopupGeometry } from "../layout/arrange/popup";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
+import { CATALOG_VERTICAL_MARGIN_PX } from "../layout/catalog";
 import {
   calculateCalendarDimensions,
   getCalendarDividerCenterPx,
@@ -272,10 +277,14 @@ function catalogRowNumberFromBounds(
   const localY = desktopPosPx.y - catalogViewportBoundsPx.y + scrollYPx;
   const rowHeightPx = catalogPageVe.cellSizePx?.h ?? 0;
   const numRows = catalogPageVe.numRows ?? 0;
-  if (rowHeightPx <= 0 || localY < 0 || localY >= catalogPageVe.childAreaBoundsPx.h) {
+  const rowsTopPx = catalogPageVe.displayItem.origin == TEMP_SEARCH_RESULTS_ORIGIN
+    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    : CATALOG_VERTICAL_MARGIN_PX;
+  const rowsBottomPx = rowsTopPx + numRows * rowHeightPx;
+  if (rowHeightPx <= 0 || localY < rowsTopPx || localY >= rowsBottomPx) {
     return -1;
   }
-  return Math.min(Math.floor(localY / rowHeightPx), Math.max(numRows - 1, 0));
+  return Math.min(Math.floor((localY - rowsTopPx) / rowHeightPx), Math.max(numRows - 1, 0));
 }
 
 function rowNumberFromAncestorUntilPage(overVe: VisualElement | null, pageVe: VisualElement): number {

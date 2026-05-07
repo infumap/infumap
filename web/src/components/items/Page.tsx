@@ -46,6 +46,7 @@ import {
   calcCatalogRowHeightPx,
   CATALOG_DETAIL_COLUMN_PADDING_PX,
   CATALOG_HORIZONTAL_MARGIN_PX,
+  CATALOG_VERTICAL_MARGIN_PX,
 } from "../../layout/catalog";
 import { itemPathSegmentsFromItem, resolvedPathTargetItemForItem } from "../../util/item-path";
 import { Item, ItemType } from "../../items/base/item";
@@ -55,6 +56,8 @@ import { asImageItem, isImage } from "../../items/image-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 import { SELECTED_LIGHT } from "../../style";
 import {
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
   TEMP_SEARCH_RESULTS_ORIGIN,
   SEARCH_WORKSPACE_MORE_SECTION_GAP_PX,
   calcSearchWorkspaceResultsFooterHeightPx,
@@ -350,7 +353,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           </Match>
           <Match when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
             <div class="absolute bg-slate-100"
-              style={`left: ${pageFns.catalogDividerLeftPx()}px; height: ${pageFns.childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
+              style={`left: ${pageFns.catalogDividerLeftPx()}px; height: ${pageFns.catalogRowsHeightPx()}px; width: 1px; top: ${pageFns.catalogPageTopPaddingPx()}px;`} />
           </Match>
         </Switch>
         <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
@@ -360,9 +363,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               `height: 1px; ` +
               `width: ${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogContentWidthPx() : pageFns.childAreaBoundsPx().w}px; ` +
               `${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ? `width: ${pageFns.gridContentWidthPx()}px; ` : ""}` +
-              `top: ${props.visualElement.cellSizePx!.h * (i + 1) + pageFns.gridPagePaddingPx()}px;`} />
+              `top: ${props.visualElement.cellSizePx!.h * (i + 1) + (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogPageTopPaddingPx() : pageFns.gridPagePaddingPx())}px;`} />
         }</For>
       </Show>,
+
+    catalogPageTopPaddingPx: () => pageFns.isSearchResultsPage()
+      ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+      : CATALOG_VERTICAL_MARGIN_PX,
 
     catalogContentLeftPx: () => CATALOG_HORIZONTAL_MARGIN_PX,
 
@@ -378,6 +385,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     catalogRowHeightPx: () =>
       props.visualElement.cellSizePx?.h ??
       calcCatalogRowHeightPx(pageFns.catalogPreviewColumnWidthPx(), pageFns.pageItem().gridCellAspect),
+
+    catalogRowsHeightPx: () => pageFns.catalogRowHeightPx() * (props.visualElement.numRows ?? 0),
 
     isSearchResultsPage: () => pageFns.pageItem().origin == TEMP_SEARCH_RESULTS_ORIGIN,
 
@@ -483,8 +492,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const isSelectedSearchRow = () => selectedSearchRow() == rowIndex();
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
           const metadataLines = () => catalogMetadataLines(catalogItem());
-          const rowIndex = () => childVe().row ?? Math.max(0, Math.round(childVe().boundsPx.y / pageFns.catalogRowHeightPx()));
-          const topPx = () => rowIndex() * pageFns.catalogRowHeightPx();
+          const rowIndex = () => childVe().row ??
+            Math.max(0, Math.round((childVe().boundsPx.y - pageFns.catalogPageTopPaddingPx()) / pageFns.catalogRowHeightPx()));
+          const topPx = () => pageFns.catalogPageTopPaddingPx() + rowIndex() * pageFns.catalogRowHeightPx();
           const leftPx = () => pageFns.catalogDividerLeftPx() + CATALOG_DETAIL_COLUMN_PADDING_PX;
           const widthPx = () => Math.max(0, pageFns.catalogContentLeftPx() + pageFns.catalogContentWidthPx() - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
           return (
@@ -588,9 +598,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
-        const lineBoundsPx = stackedInsertionLineBoundsPx(pageFns.nonMovingChildren().map(childVe => childVe.get()), pageFns.catalogContentWidthPx(), store.perVe.getMoveOverIndex(pageFns.vePath()));
+        const children = pageFns.nonMovingChildren().map(childVe => childVe.get());
+        const lineBoundsPx = stackedInsertionLineBoundsPx(children, pageFns.catalogContentWidthPx(), store.perVe.getMoveOverIndex(pageFns.vePath()));
         if (!lineBoundsPx) {
           return <></>;
+        }
+        if (children.length == 0) {
+          lineBoundsPx.y = pageFns.catalogPageTopPaddingPx();
         }
         return (
           <div class="absolute pointer-events-none bg-black"

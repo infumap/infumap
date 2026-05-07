@@ -32,7 +32,7 @@ import { ItemType } from "../../items/base/item";
 import { server } from "../../server";
 import { VisualElement_Desktop } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../layout/load";
 import { itemState } from "../../store/ItemState";
@@ -48,6 +48,9 @@ import {
   SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX,
   SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX,
   SEARCH_WORKSPACE_TOP_INSET_PX,
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX,
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX,
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX,
   calcSearchWorkspaceControlsWidthPx,
   calcSearchWorkspaceInputWidthPx,
   calcSearchWorkspaceResultsBoundsPx,
@@ -62,9 +65,6 @@ import { ArrangeAlgorithm } from "../../items/page-item";
 const EMPTY_SEARCH_EDIT_TEXT = "\u200B";
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
-const SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX = 20;
-const SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX = 64;
-const SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX = 30;
 const SEARCH_WORKSPACE_ARRANGE_OPTIONS = [
   { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
   { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
@@ -497,38 +497,38 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
               </button>
             </div>
           </div>
-          <div class="absolute flex items-center gap-[4px]"
-            style={`right: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: 1;`}>
-            <For each={SEARCH_WORKSPACE_ARRANGE_OPTIONS}>{option => {
-              const selected = () => searchArrangeAlgorithm() == option.arrangeAlgorithm;
-              return (
-                <button
-                  class="flex items-center justify-center cursor-pointer"
-                  style={`width: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; ` +
-                    `font-size: 11px; letter-spacing: 0; font-weight: ${selected() ? 700 : 600}; ` +
-                    `color: ${selected() ? "rgba(51, 65, 85, 0.92)" : "rgba(100, 116, 139, 0.76)"}; ` +
-                    `background: rgba(255, 255, 255, 0.96); ` +
-                    `border: 1px solid rgba(203, 213, 225, 0.95); border-radius: 5px; ` +
-                    `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
-                  type="button"
-                  onMouseDown={(ev) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    setSearchArrangeAlgorithm(option.arrangeAlgorithm);
-                  }}
-                  onMouseUp={(ev) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                  }}>
-                  {option.label}
-                </button>
-              );
-            }}</For>
-          </div>
         </div>
         <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
+        <div class="absolute flex items-center gap-[4px]"
+          style={`right: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
+          <For each={SEARCH_WORKSPACE_ARRANGE_OPTIONS}>{option => {
+            const selected = () => searchArrangeAlgorithm() == option.arrangeAlgorithm;
+            return (
+              <button
+                class="flex items-center justify-center cursor-pointer"
+                style={`width: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; ` +
+                  `font-size: 11px; letter-spacing: 0; font-weight: ${selected() ? 700 : 600}; ` +
+                  `color: ${selected() ? "rgba(51, 65, 85, 0.92)" : "rgba(100, 116, 139, 0.76)"}; ` +
+                  `background: rgba(255, 255, 255, 0.96); ` +
+                  `border: 1px solid rgba(203, 213, 225, 0.95); border-radius: 5px; ` +
+                  `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
+                type="button"
+                onMouseDown={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  setSearchArrangeAlgorithm(option.arrangeAlgorithm);
+                }}
+                onMouseUp={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                }}>
+                {option.label}
+              </button>
+            );
+          }}</For>
+        </div>
         <Show when={showMoreButton() && moreButtonHost()}>
           <Portal mount={moreButtonHost()!}>
             <button

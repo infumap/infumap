@@ -22,7 +22,12 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
-import { TEMP_SEARCH_RESULTS_ORIGIN, calcSearchWorkspaceResultsFooterHeightPx } from "../../items/search-item";
+import {
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  TEMP_SEARCH_RESULTS_ORIGIN,
+  calcSearchWorkspaceResultsFooterHeightPx,
+} from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -33,7 +38,7 @@ import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes,
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
-import { CATALOG_HORIZONTAL_MARGIN_PX, calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx } from "../catalog";
+import { CATALOG_HORIZONTAL_MARGIN_PX, CATALOG_VERTICAL_MARGIN_PX, calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx } from "../catalog";
 import { arrangeCellPopupPath } from "./popup";
 import { VisualElementSignal } from "../../util/signals";
 
@@ -64,12 +69,15 @@ export function arrange_catalog_page(
   const rowHeightPx = calcCatalogRowHeightPx(previewColumnWidthPx, displayItem_pageWithChildren.gridCellAspect);
   const marginPx = Math.max(1, Math.round(previewColumnWidthPx * 0.01));
   const isSearchResultsCatalogPage = displayItem_pageWithChildren.origin == TEMP_SEARCH_RESULTS_ORIGIN;
+  const pageTopPaddingPx = isSearchResultsCatalogPage
+    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    : CATALOG_VERTICAL_MARGIN_PX;
   const searchResultsFooterHeightPx = isSearchResultsCatalogPage
     ? calcSearchWorkspaceResultsFooterHeightPx(store.perItem.getSearchHasMoreResults(displayItem_pageWithChildren.parentId))
     : 0;
   const movingAdj = movingItemInThisPage ? 1 : 0;
   const numRows = Math.max(displayItem_pageWithChildren.computed_children.length - movingAdj, 0);
-  const pageHeightPx = numRows * rowHeightPx + searchResultsFooterHeightPx;
+  const pageHeightPx = pageTopPaddingPx + numRows * rowHeightPx + CATALOG_VERTICAL_MARGIN_PX + searchResultsFooterHeightPx;
   const childAreaBoundsPx = (() => {
     const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
     result.h = pageHeightPx;
@@ -129,7 +137,7 @@ export function arrange_catalog_page(
 
     const cellBoundsPx = {
       x: CATALOG_HORIZONTAL_MARGIN_PX + marginPx,
-      y: idx * rowHeightPx + marginPx,
+      y: pageTopPaddingPx + idx * rowHeightPx + marginPx,
       w: previewColumnWidthPx - marginPx * 2.0,
       h: rowHeightPx - marginPx * 2.0,
     };
@@ -141,7 +149,7 @@ export function arrange_catalog_page(
     if (isSearchResultsCatalogPage) {
       childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
         x: -childGeometry.boundsPx.x,
-        y: childGeometry.row * rowHeightPx - childGeometry.boundsPx.y,
+        y: pageTopPaddingPx + childGeometry.row * rowHeightPx - childGeometry.boundsPx.y,
         w: childAreaBoundsPx.w,
         h: rowHeightPx,
       }, {

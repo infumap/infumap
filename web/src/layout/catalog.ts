@@ -18,6 +18,7 @@
 
 export const CATALOG_DETAIL_COLUMN_PADDING_PX = 14;
 export const CATALOG_HORIZONTAL_MARGIN_PX = 12;
+export const CATALOG_VERTICAL_MARGIN_PX = CATALOG_HORIZONTAL_MARGIN_PX;
 
 export function calcCatalogContentWidthPx(pageWidthPx: number): number {
   return Math.max(0, pageWidthPx - CATALOG_HORIZONTAL_MARGIN_PX * 2);
