@@ -1,4 +1,4 @@
-pub mod artifacts;
+pub mod artifact_paths;
 pub mod extraction;
 pub mod fragmenting;
 pub mod fragments;

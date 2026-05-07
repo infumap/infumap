@@ -27,7 +27,7 @@ use serde::Deserialize;
 use tokio::fs;
 use tokio::sync::Mutex;
 
-use crate::ai::artifacts::{item_text_artifact_paths, item_text_content_path};
+use crate::ai::artifact_paths::{item_text_artifact_paths, item_text_content_path};
 use crate::ai::extraction::{
   ExtractionBatchScope, collect_image_item_ids_in_container, collect_pdf_item_ids_in_container,
   is_extractable_pdf_item, process_image_tagging_batch, process_pdf_extraction_batch,

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::sync::Mutex;
 
-use crate::ai::artifacts::item_text_artifact_paths;
+use crate::ai::artifact_paths::item_text_artifact_paths;
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;

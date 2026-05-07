@@ -4,7 +4,7 @@ use infusdk::util::infu::InfuResult;
 use serde::Deserialize;
 use tokio::fs;
 
-use crate::ai::artifacts::{item_text_content_path, item_text_manifest_path};
+use crate::ai::artifact_paths::{item_text_content_path, item_text_manifest_path};
 
 use super::super::read_json_if_exists;
 

@@ -8,7 +8,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
-use crate::ai::artifacts::{item_fragments_manifest_path, item_fragments_path};
+use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path};
 use crate::ai::text_embedding::{
   DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingBatch, TextEmbeddingInput, embed_texts,
 };
@@ -520,7 +520,7 @@ mod tests {
     FragmentRecordForIndex, fragment_corpus_digest, parse_fragment_records, validate_embedding_batch,
     validate_unique_fragment_ordinals,
   };
-  use crate::ai::artifacts::item_fragments_path;
+  use crate::ai::artifact_paths::item_fragments_path;
   use crate::ai::text_embedding::TextEmbeddingBatch;
 
   #[test]

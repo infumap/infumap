@@ -10,7 +10,9 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
-use crate::ai::artifacts::{item_fragments_dir, item_fragments_manifest_path, item_fragments_path, user_fragments_dir};
+use crate::ai::artifact_paths::{
+  item_fragments_dir, item_fragments_manifest_path, item_fragments_path, user_fragments_dir,
+};
 use crate::util::fs::{ensure_256_subdirs, path_exists};
 
 const FRAGMENTS_SCHEMA_VERSION: u32 = 1;

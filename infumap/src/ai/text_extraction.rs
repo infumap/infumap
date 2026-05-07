@@ -28,7 +28,7 @@ use tokio::fs;
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
-use crate::ai::artifacts::{ensure_user_text_dir, item_text_content_path, item_text_manifest_path};
+use crate::ai::artifact_paths::{ensure_user_text_dir, item_text_content_path, item_text_manifest_path};
 use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};

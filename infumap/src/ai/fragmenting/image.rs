@@ -6,7 +6,7 @@ use serde::Deserialize;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
-use crate::ai::artifacts::{item_geo_content_path, item_text_content_path};
+use crate::ai::artifact_paths::{item_geo_content_path, item_text_content_path};
 use crate::ai::fragments::FragmentSourceKind;
 
 use super::{FragmentSource, labeled_line, normalized_text, read_json_if_exists, single_fragment_source};

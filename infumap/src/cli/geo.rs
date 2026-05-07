@@ -14,7 +14,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use super::build_http_client;
-use crate::ai::artifacts::{
+use crate::ai::artifact_paths::{
   ensure_user_text_dir, item_geo_content_path as geo_content_path, item_geo_manifest_path as geo_manifest_path,
   item_text_content_path as image_tag_text_path,
 };

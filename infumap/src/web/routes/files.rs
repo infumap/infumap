@@ -31,7 +31,7 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Mutex;
 
-use crate::ai::artifacts::{
+use crate::ai::artifact_paths::{
   item_fragments_manifest_path, item_fragments_path, item_geo_content_path, item_text_content_path,
   item_text_manifest_path,
 };
