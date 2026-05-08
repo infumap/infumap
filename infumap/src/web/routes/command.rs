@@ -45,11 +45,14 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::MutexGuard;
 
-use crate::ai::fragment::delete_item_fragment_artifacts;
+use crate::ai::fragment::{PDF_MARKDOWN_SOURCE_KIND, delete_item_fragment_artifacts};
 use crate::ai::image_tagging::{
   delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
 };
 use crate::ai::indexing::delete_item_fragment_index_entries;
+use crate::ai::lexical_index::{
+  FragmentLexicalHit, open_user_pdf_fragment_lexical_index, user_pdf_fragment_lexical_index_exists,
+};
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
   text_embedding_vector_fingerprint, text_embedding_vector_norm, validate_text_embedding_vector,
@@ -76,8 +79,10 @@ use std::collections::{HashMap, HashSet};
 const COMMAND_REQUEST_MAX_BYTES: usize = 256 * 1024 * 1024;
 const SEARCH_RRF_K: f64 = 60.0;
 const SEARCH_EXACT_WEIGHT: f64 = 1.25;
+const SEARCH_LEXICAL_WEIGHT: f64 = 1.15;
 const SEARCH_SEMANTIC_WEIGHT: f64 = 1.0;
 const SEARCH_CANDIDATE_OVERFETCH: i64 = 50;
+const SEARCH_LEXICAL_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
 const SEARCH_SEMANTIC_MATCH_MAX_CHARS: usize = 1250;
@@ -1682,8 +1687,27 @@ async fn handle_search(
   };
 
   let mut results = if full_user_search {
-    let semantic_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
+    let fragment_result_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
       .map_err(|_| "Search result limit is too large.")?;
+    let lexical_results = match pdf_lexical_search_results(
+      db,
+      &data_dir,
+      &session.user_id,
+      &search_root_id,
+      &request.text,
+      fragment_result_limit,
+    )
+    .await
+    {
+      Ok(results) => results,
+      Err(e) => {
+        warn!(
+          "PDF lexical search failed for user '{}'; falling back without PDF lexical results: {}",
+          session.user_id, e
+        );
+        Vec::new()
+      }
+    };
     let semantic_results = match semantic_search_results(
       config,
       db,
@@ -1691,7 +1715,7 @@ async fn handle_search(
       &session.user_id,
       &search_root_id,
       &request.text,
-      semantic_limit,
+      fragment_result_limit,
     )
     .await
     {
@@ -1701,7 +1725,7 @@ async fn handle_search(
         Vec::new()
       }
     };
-    let mixed = mix_search_results(exact_results, semantic_results);
+    let mixed = mix_search_results(exact_results, lexical_results, semantic_results);
     paginate_mixed_results(mixed, start_result, end_result)
   } else {
     exact_results
@@ -1740,6 +1764,60 @@ fn search_exact_paginated(
     &mut results,
     &mut current_result,
   )?;
+  Ok(results)
+}
+
+async fn pdf_lexical_search_results(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  data_dir: &str,
+  user_id: &Uid,
+  search_root_id: &Uid,
+  search_text: &str,
+  limit: usize,
+) -> InfuResult<Vec<SearchResult>> {
+  if limit == 0 || search_text.trim().is_empty() {
+    return Ok(Vec::new());
+  }
+
+  if !user_pdf_fragment_lexical_index_exists(data_dir, user_id).await? {
+    return Ok(Vec::new());
+  }
+
+  let lexical_index = open_user_pdf_fragment_lexical_index(data_dir, user_id)?;
+  let Some(index_status) = lexical_index.rebuild_status().await? else {
+    return Ok(Vec::new());
+  };
+  if !index_status.complete {
+    return Ok(Vec::new());
+  }
+
+  let fragment_limit = limit.saturating_mul(SEARCH_LEXICAL_FRAGMENT_MULTIPLIER).max(limit);
+  let fragment_hits = lexical_index.search(search_text, fragment_limit).await?;
+  if !fragment_hits.is_empty() {
+    debug!(
+      "PDF lexical search top fragment hits for user '{}': {}",
+      user_id,
+      fragment_hits
+        .iter()
+        .take(8)
+        .map(|hit| format!("{}:{}@{:.6}", hit.item_id, hit.ordinal, hit.score))
+        .collect::<Vec<_>>()
+        .join(", ")
+    );
+  }
+  let fragment_hits = select_best_lexical_fragment_hit_per_item(fragment_hits);
+
+  let mut results = Vec::new();
+  let db = db.lock().await;
+  for hit in fragment_hits {
+    if results.len() >= limit {
+      break;
+    }
+    if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
+      result.semantic_match = Some(search_fragment_match_for_lexical_hit(&hit));
+      results.push(result);
+    }
+  }
   Ok(results)
 }
 
@@ -1797,7 +1875,12 @@ async fn semantic_search_results(
   );
 
   let fragment_limit = limit.saturating_mul(SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER).max(limit);
-  let fragment_hits = vector_db.search(&query_embedding, fragment_limit).await?;
+  let fragment_hits = vector_db
+    .search(&query_embedding, fragment_limit)
+    .await?
+    .into_iter()
+    .filter(|hit| hit.source_kind != PDF_MARKDOWN_SOURCE_KIND)
+    .collect::<Vec<_>>();
   if !fragment_hits.is_empty() {
     debug!(
       "Semantic search top fragment hits for user '{}': {}",
@@ -1840,6 +1923,24 @@ fn select_best_fragment_hit_per_item(fragment_hits: Vec<FragmentVectorHit>) -> V
   let mut hits = best_by_item.into_values().collect::<Vec<_>>();
   hits.sort_by(|a, b| {
     a.distance.total_cmp(&b.distance).then_with(|| a.item_id.cmp(&b.item_id)).then_with(|| a.ordinal.cmp(&b.ordinal))
+  });
+  hits
+}
+
+fn select_best_lexical_fragment_hit_per_item(fragment_hits: Vec<FragmentLexicalHit>) -> Vec<FragmentLexicalHit> {
+  let mut best_by_item = HashMap::<String, FragmentLexicalHit>::new();
+  for hit in fragment_hits {
+    match best_by_item.get(&hit.item_id) {
+      Some(best) if best.score >= hit.score => {}
+      _ => {
+        best_by_item.insert(hit.item_id.clone(), hit);
+      }
+    }
+  }
+
+  let mut hits = best_by_item.into_values().collect::<Vec<_>>();
+  hits.sort_by(|a, b| {
+    b.score.total_cmp(&a.score).then_with(|| a.item_id.cmp(&b.item_id)).then_with(|| a.ordinal.cmp(&b.ordinal))
   });
   hits
 }
@@ -1896,7 +1997,11 @@ struct SearchMergeCandidate {
   exact_rank: Option<usize>,
 }
 
-fn mix_search_results(exact_results: Vec<SearchResult>, semantic_results: Vec<SearchResult>) -> Vec<SearchResult> {
+fn mix_search_results(
+  exact_results: Vec<SearchResult>,
+  lexical_results: Vec<SearchResult>,
+  semantic_results: Vec<SearchResult>,
+) -> Vec<SearchResult> {
   let mut candidates: HashMap<Uid, SearchMergeCandidate> = HashMap::new();
 
   for (rank, result) in exact_results.into_iter().enumerate() {
@@ -1922,26 +2027,8 @@ fn mix_search_results(exact_results: Vec<SearchResult>, semantic_results: Vec<Se
     }
   }
 
-  for (rank, result) in semantic_results.into_iter().enumerate() {
-    let Some(item_id) = search_result_item_id(&result) else {
-      continue;
-    };
-    let semantic_match = result.semantic_match.clone();
-    let score = SEARCH_SEMANTIC_WEIGHT / (SEARCH_RRF_K + rank as f64 + 1.0);
-    let entry = candidates.entry(item_id).or_insert_with(|| SearchMergeCandidate {
-      result: result.clone(),
-      score: 0.0,
-      best_rank: rank,
-      exact_rank: None,
-    });
-    entry.score += score;
-    entry.best_rank = entry.best_rank.min(rank);
-    if entry.exact_rank.is_none() {
-      entry.result = result;
-    } else if entry.result.semantic_match.is_none() {
-      entry.result.semantic_match = semantic_match;
-    }
-  }
+  add_fragment_search_results(&mut candidates, lexical_results, SEARCH_LEXICAL_WEIGHT);
+  add_fragment_search_results(&mut candidates, semantic_results, SEARCH_SEMANTIC_WEIGHT);
 
   let mut candidates = candidates.into_values().collect::<Vec<_>>();
   candidates.sort_by(|a, b| {
@@ -1955,6 +2042,34 @@ fn mix_search_results(exact_results: Vec<SearchResult>, semantic_results: Vec<Se
   candidates.into_iter().map(|candidate| candidate.result).collect()
 }
 
+fn add_fragment_search_results(
+  candidates: &mut HashMap<Uid, SearchMergeCandidate>,
+  fragment_results: Vec<SearchResult>,
+  weight: f64,
+) {
+  for (rank, result) in fragment_results.into_iter().enumerate() {
+    let Some(item_id) = search_result_item_id(&result) else {
+      continue;
+    };
+    let fragment_match = result.semantic_match.clone();
+    let score = weight / (SEARCH_RRF_K + rank as f64 + 1.0);
+    let entry = candidates.entry(item_id).or_insert_with(|| SearchMergeCandidate {
+      result: result.clone(),
+      score: 0.0,
+      best_rank: rank,
+      exact_rank: None,
+    });
+    let should_replace_fragment_result = entry.exact_rank.is_none() && rank < entry.best_rank;
+    entry.score += score;
+    entry.best_rank = entry.best_rank.min(rank);
+    if should_replace_fragment_result {
+      entry.result = result;
+    } else if entry.result.semantic_match.is_none() {
+      entry.result.semantic_match = fragment_match;
+    }
+  }
+}
+
 fn paginate_mixed_results(results: Vec<SearchResult>, start_result: i64, end_result: i64) -> Vec<SearchResult> {
   let start = usize::try_from(start_result.max(0)).unwrap_or(0);
   let take = usize::try_from(end_result.saturating_sub(start_result).max(0)).unwrap_or(0);
@@ -1963,6 +2078,19 @@ fn paginate_mixed_results(results: Vec<SearchResult>, start_result: i64, end_res
 
 fn search_result_item_id(result: &SearchResult) -> Option<Uid> {
   result.path.last().map(|element| element.id.clone())
+}
+
+fn search_fragment_match_for_lexical_hit(hit: &FragmentLexicalHit) -> SearchSemanticMatch {
+  let (text, text_truncated) = clamp_text_chars(hit.text.trim(), SEARCH_SEMANTIC_MATCH_MAX_CHARS);
+  SearchSemanticMatch {
+    fragment_ordinal: hit.ordinal,
+    source_kind: hit.source_kind.clone(),
+    distance: hit.score,
+    text,
+    text_truncated,
+    page_start: hit.page_start,
+    page_end: hit.page_end,
+  }
 }
 
 fn search_semantic_match_for_hit(hit: &crate::ai::vector_db::FragmentVectorHit) -> SearchSemanticMatch {
@@ -2080,7 +2208,9 @@ mod tests {
   use super::{
     SearchPathElement, SearchResult, SearchSemanticMatch, clamp_text_chars, mix_search_results, paginate_mixed_results,
     search_result_is_under_root_path, search_result_item_id, select_best_fragment_hit_per_item,
+    select_best_lexical_fragment_hit_per_item,
   };
+  use crate::ai::lexical_index::FragmentLexicalHit;
   use crate::ai::vector_db::FragmentVectorHit;
 
   #[test]
@@ -2088,7 +2218,7 @@ mod tests {
     let exact = vec![search_result("exact-a"), search_result("shared")];
     let semantic = vec![search_result("semantic-a"), search_result("shared")];
 
-    let mixed = mix_search_results(exact, semantic);
+    let mixed = mix_search_results(exact, Vec::new(), semantic);
     let ids = mixed.iter().map(|result| search_result_item_id(result).unwrap()).collect::<Vec<_>>();
 
     assert_eq!(ids[0], "shared");
@@ -2102,7 +2232,7 @@ mod tests {
     let exact = search_result_with_path("exact-parent", "Exact Parent", "shared", "Exact Shared");
     let semantic = semantic_search_result_with_path("semantic-parent", "Semantic Parent", "shared", "Semantic Shared");
 
-    let mixed = mix_search_results(vec![exact], vec![semantic]);
+    let mixed = mix_search_results(vec![exact], Vec::new(), vec![semantic]);
 
     assert_eq!(mixed.len(), 1);
     assert_eq!(mixed[0].path[0].id, "exact-parent");
@@ -2124,6 +2254,22 @@ mod tests {
     assert_eq!(selected[0].ordinal, 2);
     assert_eq!(selected[1].item_id, "doc-b");
     assert_eq!(selected[1].ordinal, 1);
+  }
+
+  #[test]
+  fn selects_highest_score_lexical_fragment_hit_per_item() {
+    let selected = select_best_lexical_fragment_hit_per_item(vec![
+      lexical_fragment_hit("doc-a", 4, 3.0),
+      lexical_fragment_hit("doc-b", 1, 2.0),
+      lexical_fragment_hit("doc-a", 2, 10.0),
+      lexical_fragment_hit("doc-b", 3, 2.5),
+    ]);
+
+    assert_eq!(selected.len(), 2);
+    assert_eq!(selected[0].item_id, "doc-a");
+    assert_eq!(selected[0].ordinal, 2);
+    assert_eq!(selected[1].item_id, "doc-b");
+    assert_eq!(selected[1].ordinal, 3);
   }
 
   #[test]
@@ -2198,6 +2344,18 @@ mod tests {
       ordinal,
       source_kind: "pdf_markdown".to_owned(),
       distance,
+      text: format!("fragment {ordinal}"),
+      page_start: None,
+      page_end: None,
+    }
+  }
+
+  fn lexical_fragment_hit(item_id: &str, ordinal: usize, score: f32) -> FragmentLexicalHit {
+    FragmentLexicalHit {
+      item_id: item_id.to_owned(),
+      ordinal,
+      source_kind: "pdf_markdown".to_owned(),
+      score,
       text: format!("fragment {ordinal}"),
       page_start: None,
       page_end: None,

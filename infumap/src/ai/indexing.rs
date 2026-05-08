@@ -9,6 +9,11 @@ use sha2::{Digest, Sha256};
 use tokio::fs;
 
 use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path};
+use crate::ai::fragment::PDF_MARKDOWN_SOURCE_KIND;
+use crate::ai::lexical_index::{
+  FragmentLexicalIndexRebuildMetadata, LexicalFragment, open_user_pdf_fragment_lexical_index,
+  pdf_fragment_lexical_index_temp_dir, remove_pdf_fragment_lexical_index_dirs, user_pdf_fragment_lexical_index_exists,
+};
 use crate::ai::text_embedding::{
   DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingBatch, TextEmbeddingInput, embed_texts,
   validate_text_embedding_vector,
@@ -41,12 +46,16 @@ pub async fn rebuild_all_fragment_indexes(
 }
 
 pub async fn delete_item_fragment_index_entries(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<usize> {
-  if !user_fragment_vector_db_exists(data_dir, user_id).await? {
-    return Ok(0);
+  let mut deleted = 0;
+  if user_fragment_vector_db_exists(data_dir, user_id).await? {
+    let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
+    deleted += vector_db.delete_item_fragments(item_id).await?;
   }
-
-  let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
-  vector_db.delete_item_fragments(item_id).await
+  if user_pdf_fragment_lexical_index_exists(data_dir, user_id).await? {
+    let lexical_index = open_user_pdf_fragment_lexical_index(data_dir, user_id)?;
+    deleted += lexical_index.delete_item_fragments(item_id).await?;
+  }
+  Ok(deleted)
 }
 
 async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmentIndexPlan>> {
@@ -118,8 +127,7 @@ async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmen
 
     fragments.sort_by(|a, b| a.item_id.cmp(&b.item_id).then(a.ordinal.cmp(&b.ordinal)));
     validate_unique_fragment_ordinals(&user_id, &fragments)?;
-    let source_digest = fragment_corpus_digest(&fragments);
-    plans.push(UserFragmentIndexPlan { user_id, fragments, source_digest });
+    plans.push(UserFragmentIndexPlan { user_id, fragments });
   }
 
   Ok(plans)
@@ -132,40 +140,90 @@ async fn rebuild_user_fragment_index(
   embed_url: &Url,
   continue_rebuild: bool,
 ) -> InfuResult<UserRebuildOutcome> {
-  let final_path = fragment_vector_db_path(data_dir, &plan.user_id)?;
-  let temp_path = fragment_vector_db_temp_path(data_dir, &plan.user_id)?;
+  ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
-  if plan.fragments.is_empty() {
+  let vector_fragments =
+    plan.fragments.iter().filter(|fragment| !fragment.is_pdf_markdown()).cloned().collect::<Vec<_>>();
+  let pdf_fragments = plan.fragments.iter().filter(|fragment| fragment.is_pdf_markdown()).cloned().collect::<Vec<_>>();
+
+  let vector_source_digest = fragment_corpus_digest(&vector_fragments);
+  let pdf_source_digest = fragment_corpus_digest(&pdf_fragments);
+
+  let vector_outcome = rebuild_user_vector_fragment_index(
+    data_dir,
+    &plan.user_id,
+    &vector_fragments,
+    &vector_source_digest,
+    client,
+    embed_url,
+    continue_rebuild,
+  )
+  .await?;
+  let pdf_outcome = rebuild_user_pdf_fragment_lexical_index(
+    data_dir,
+    &plan.user_id,
+    &pdf_fragments,
+    &pdf_source_digest,
+    continue_rebuild,
+  )
+  .await?;
+
+  Ok(UserRebuildOutcome {
+    users_rebuilt: if vector_outcome.rebuilt || pdf_outcome.rebuilt { 1 } else { 0 },
+    users_skipped_current: if vector_outcome.skipped_current && pdf_outcome.skipped_current { 1 } else { 0 },
+    fragments_embedded: vector_outcome.fragments_embedded,
+    fragments_reused: vector_outcome.fragments_reused,
+    pdf_fragments_indexed: pdf_outcome.pdf_fragments_indexed,
+    empty_index_files_removed: vector_outcome.empty_index_files_removed + pdf_outcome.empty_index_files_removed,
+  })
+}
+
+async fn rebuild_user_vector_fragment_index(
+  data_dir: &str,
+  user_id: &str,
+  fragments: &[FragmentRecordForIndex],
+  source_digest: &str,
+  client: &reqwest::Client,
+  embed_url: &Url,
+  continue_rebuild: bool,
+) -> InfuResult<VectorRebuildOutcome> {
+  let final_path = fragment_vector_db_path(data_dir, user_id)?;
+  let temp_path = fragment_vector_db_temp_path(data_dir, user_id)?;
+
+  if fragments.is_empty() {
     let removed = remove_stale_empty_index_files(&final_path, &temp_path).await?;
     if removed > 0 {
-      eprintln!("User {} has no fragments; removed {} stale fragment index file(s).", plan.user_id, removed);
+      eprintln!("User {} has no vector-search fragments; removed {} stale vector index file(s).", user_id, removed);
     }
-    return Ok(UserRebuildOutcome { empty_index_files_removed: removed, ..Default::default() });
+    return Ok(VectorRebuildOutcome {
+      skipped_current: removed == 0,
+      empty_index_files_removed: removed,
+      ..Default::default()
+    });
   }
-
-  ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
   if continue_rebuild {
     let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path.clone());
     if !path_exists(&temp_path).await
       && let Some(status) = final_db.rebuild_status().await?
       && status.complete
-      && status.source_digest == plan.source_digest
-      && status.expected_fragment_count == plan.fragments.len()
+      && status.source_digest == source_digest
+      && status.expected_fragment_count == fragments.len()
     {
       eprintln!(
         "User {} fragment index is already current ({} fragment(s), model '{}', {} dims).",
-        plan.user_id, status.expected_fragment_count, status.model, status.embedding_dimensions
+        user_id, status.expected_fragment_count, status.model, status.embedding_dimensions
       );
-      return Ok(UserRebuildOutcome { users_skipped_current: 1, ..Default::default() });
+      return Ok(VectorRebuildOutcome { skipped_current: true, ..Default::default() });
     }
   }
 
   let temp_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, temp_path.clone());
-  let mut metadata = prepare_temp_rebuild(&*temp_db, &temp_path, plan, continue_rebuild).await?;
+  let mut metadata =
+    prepare_temp_rebuild(&*temp_db, &temp_path, user_id, source_digest, fragments.len(), continue_rebuild).await?;
   let existing_keys = if metadata.is_some() { temp_db.embedded_fragment_keys().await? } else { HashSet::new() };
   let pending_fragments =
-    plan.fragments.iter().filter(|fragment| !existing_keys.contains(&fragment.key())).cloned().collect::<Vec<_>>();
+    fragments.iter().filter(|fragment| !existing_keys.contains(&fragment.key())).cloned().collect::<Vec<_>>();
 
   let mut embedded_count = 0;
   for batch in pending_fragments.chunks(DEFAULT_TEXT_EMBEDDING_BATCH_SIZE) {
@@ -183,8 +241,8 @@ async fn rebuild_user_fragment_index(
     if metadata.is_none() {
       let dimensions = validate_embedding_batch(&response, None, None)?;
       let initialized_metadata = FragmentVectorDbRebuildMetadata {
-        source_digest: plan.source_digest.clone(),
-        expected_fragment_count: plan.fragments.len(),
+        source_digest: source_digest.to_owned(),
+        expected_fragment_count: fragments.len(),
         model: response.model.clone(),
         embedding_dimensions: dimensions,
       };
@@ -209,11 +267,11 @@ async fn rebuild_user_fragment_index(
       .collect::<Vec<_>>();
     temp_db.insert_embedded_fragments(&embedded_fragments).await?;
     embedded_count += embedded_fragments.len();
-    eprintln!("User {} embedded {}/{} pending fragment(s).", plan.user_id, embedded_count, pending_fragments.len());
+    eprintln!("User {} embedded {}/{} pending fragment(s).", user_id, embedded_count, pending_fragments.len());
   }
 
   let metadata = metadata.ok_or_else(|| {
-    format!("User {} has {} fragment(s), but no embeddings were produced.", plan.user_id, plan.fragments.len())
+    format!("User {} has {} vector-search fragment(s), but no embeddings were produced.", user_id, fragments.len())
   })?;
   let finished = temp_db.finish_rebuild(&metadata).await?;
   fs::rename(&temp_path, &final_path).await.map_err(|e| {
@@ -228,25 +286,89 @@ async fn rebuild_user_fragment_index(
   let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path);
   let final_status = final_db.rebuild_status().await?.ok_or("Final fragment vector DB is missing metadata.")?;
   if !final_status.complete
-    || final_status.source_digest != plan.source_digest
-    || final_status.expected_fragment_count != plan.fragments.len()
+    || final_status.source_digest != source_digest
+    || final_status.expected_fragment_count != fragments.len()
     || final_status.model != metadata.model
     || final_status.embedding_dimensions != metadata.embedding_dimensions
-    || final_status.embedded_fragment_count != plan.fragments.len()
-    || final_status.embedding_row_count != plan.fragments.len()
+    || final_status.embedded_fragment_count != fragments.len()
+    || final_status.embedding_row_count != fragments.len()
   {
-    return Err(format!("Final fragment vector DB validation failed for user {}.", plan.user_id).into());
+    return Err(format!("Final fragment vector DB validation failed for user {}.", user_id).into());
   }
 
   eprintln!(
     "User {} rebuilt fragment index: {} fragment(s), model '{}', {} dims.",
-    plan.user_id, finished.expected_fragment_count, finished.model, finished.embedding_dimensions
+    user_id, finished.expected_fragment_count, finished.model, finished.embedding_dimensions
   );
 
-  Ok(UserRebuildOutcome {
-    users_rebuilt: 1,
+  Ok(VectorRebuildOutcome {
+    rebuilt: true,
     fragments_embedded: embedded_count,
     fragments_reused: existing_keys.len(),
+    ..Default::default()
+  })
+}
+
+async fn rebuild_user_pdf_fragment_lexical_index(
+  data_dir: &str,
+  user_id: &str,
+  fragments: &[FragmentRecordForIndex],
+  source_digest: &str,
+  continue_rebuild: bool,
+) -> InfuResult<PdfLexicalRebuildOutcome> {
+  if fragments.is_empty() {
+    let removed = remove_pdf_fragment_lexical_index_dirs(data_dir, user_id).await?;
+    if removed > 0 {
+      eprintln!("User {} has no PDF fragments; removed {} stale PDF lexical index dir(s).", user_id, removed);
+    }
+    return Ok(PdfLexicalRebuildOutcome {
+      skipped_current: removed == 0,
+      empty_index_files_removed: removed,
+      ..Default::default()
+    });
+  }
+
+  let final_index = open_user_pdf_fragment_lexical_index(data_dir, user_id)?;
+  if continue_rebuild
+    && let Some(status) = final_index.rebuild_status().await?
+    && status.complete
+    && status.source_digest == source_digest
+    && status.expected_fragment_count == fragments.len()
+    && status.indexed_fragment_count == fragments.len()
+  {
+    eprintln!("User {} PDF fragment lexical index is already current ({} fragment(s)).", user_id, fragments.len());
+    return Ok(PdfLexicalRebuildOutcome { skipped_current: true, ..Default::default() });
+  }
+
+  let temp_dir = pdf_fragment_lexical_index_temp_dir(data_dir, user_id)?;
+  let lexical_fragments = fragments
+    .iter()
+    .map(|fragment| LexicalFragment {
+      item_id: fragment.item_id.clone(),
+      ordinal: fragment.ordinal,
+      source_kind: fragment.source_kind.clone(),
+      text: fragment.text.clone(),
+      page_start: fragment.page_start,
+      page_end: fragment.page_end,
+    })
+    .collect::<Vec<_>>();
+  let metadata = FragmentLexicalIndexRebuildMetadata {
+    source_digest: source_digest.to_owned(),
+    expected_fragment_count: fragments.len(),
+  };
+  let status = final_index.rebuild_from_fragments(&temp_dir, &metadata, &lexical_fragments).await?;
+  if !status.complete
+    || status.source_digest != source_digest
+    || status.expected_fragment_count != fragments.len()
+    || status.indexed_fragment_count != fragments.len()
+  {
+    return Err(format!("Final PDF fragment lexical index validation failed for user {}.", user_id).into());
+  }
+
+  eprintln!("User {} rebuilt PDF fragment lexical index: {} fragment(s).", user_id, status.indexed_fragment_count);
+  Ok(PdfLexicalRebuildOutcome {
+    rebuilt: true,
+    pdf_fragments_indexed: status.indexed_fragment_count,
     ..Default::default()
   })
 }
@@ -254,7 +376,9 @@ async fn rebuild_user_fragment_index(
 async fn prepare_temp_rebuild(
   temp_db: &dyn FragmentVectorDb,
   temp_path: &Path,
-  plan: &UserFragmentIndexPlan,
+  user_id: &str,
+  source_digest: &str,
+  fragment_count: usize,
   continue_rebuild: bool,
 ) -> InfuResult<Option<FragmentVectorDbRebuildMetadata>> {
   if !continue_rebuild {
@@ -267,22 +391,23 @@ async fn prepare_temp_rebuild(
     return Ok(None);
   };
 
-  if status.source_digest != plan.source_digest {
+  if status.source_digest != source_digest {
     return Err(
       format!(
-        "Cannot continue fragment vector DB rebuild '{}': temp DB source digest differs from current fragments. Run without --continue to start a fresh rebuild.",
-        temp_path.display()
+        "Cannot continue fragment vector DB rebuild '{}' for user '{}': temp DB source digest differs from current vector-search fragments. Run without --continue to start a fresh rebuild.",
+        temp_path.display(),
+        user_id
       )
       .into(),
     );
   }
-  if status.expected_fragment_count != plan.fragments.len() {
+  if status.expected_fragment_count != fragment_count {
     return Err(
       format!(
-        "Cannot continue fragment vector DB rebuild '{}': temp DB expects {} fragment(s), current fragments contain {}. Run without --continue to start a fresh rebuild.",
+        "Cannot continue fragment vector DB rebuild '{}': temp DB expects {} vector-search fragment(s), current fragments contain {}. Run without --continue to start a fresh rebuild.",
         temp_path.display(),
         status.expected_fragment_count,
-        plan.fragments.len()
+        fragment_count
       )
       .into(),
     );
@@ -453,6 +578,7 @@ pub struct EmbedRebuildSummary {
   pub users_skipped_current: usize,
   pub fragments_embedded: usize,
   pub fragments_reused: usize,
+  pub pdf_fragments_indexed: usize,
   pub empty_index_files_removed: usize,
 }
 
@@ -462,6 +588,7 @@ impl EmbedRebuildSummary {
     self.users_skipped_current += outcome.users_skipped_current;
     self.fragments_embedded += outcome.fragments_embedded;
     self.fragments_reused += outcome.fragments_reused;
+    self.pdf_fragments_indexed += outcome.pdf_fragments_indexed;
     self.empty_index_files_removed += outcome.empty_index_files_removed;
   }
 }
@@ -472,13 +599,30 @@ struct UserRebuildOutcome {
   users_skipped_current: usize,
   fragments_embedded: usize,
   fragments_reused: usize,
+  pdf_fragments_indexed: usize,
   empty_index_files_removed: usize,
 }
 
 struct UserFragmentIndexPlan {
   user_id: String,
   fragments: Vec<FragmentRecordForIndex>,
-  source_digest: String,
+}
+
+#[derive(Default)]
+struct VectorRebuildOutcome {
+  rebuilt: bool,
+  skipped_current: bool,
+  fragments_embedded: usize,
+  fragments_reused: usize,
+  empty_index_files_removed: usize,
+}
+
+#[derive(Default)]
+struct PdfLexicalRebuildOutcome {
+  rebuilt: bool,
+  skipped_current: bool,
+  pdf_fragments_indexed: usize,
+  empty_index_files_removed: usize,
 }
 
 #[derive(Clone)]
@@ -499,6 +643,10 @@ impl FragmentRecordForIndex {
       ordinal: self.ordinal,
       text_sha256: self.text_sha256.clone(),
     }
+  }
+
+  fn is_pdf_markdown(&self) -> bool {
+    self.source_kind == PDF_MARKDOWN_SOURCE_KIND
   }
 }
 

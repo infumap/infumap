@@ -40,11 +40,12 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let summary = rebuild_all_fragment_indexes(&data_dir, &client, &embed_url, continue_rebuild).await?;
 
   println!(
-    "Processed {} user(s): rebuilt {}, skipped current {}, embedded {} fragment(s), reused {} fragment(s) from temp DB, removed {} stale empty index file(s).",
+    "Processed {} user(s): rebuilt {}, skipped current {}, embedded {} vector fragment(s), indexed {} PDF fragment(s), reused {} fragment(s) from temp DB, removed {} stale empty index file(s).",
     summary.users_seen,
     summary.users_rebuilt,
     summary.users_skipped_current,
     summary.fragments_embedded,
+    summary.pdf_fragments_indexed,
     summary.fragments_reused,
     summary.empty_index_files_removed
   );

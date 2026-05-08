@@ -1,3 +1,5 @@
+pub const PDF_MARKDOWN_SOURCE_KIND: &str = "pdf_markdown";
+
 #[derive(Clone, Copy)]
 pub enum FragmentSourceKind {
   PageContents,
@@ -12,7 +14,7 @@ impl FragmentSourceKind {
       FragmentSourceKind::PageContents => "page_contents",
       FragmentSourceKind::TableContents => "table_contents",
       FragmentSourceKind::ImageContents => "image_contents",
-      FragmentSourceKind::PdfMarkdown => "pdf_markdown",
+      FragmentSourceKind::PdfMarkdown => PDF_MARKDOWN_SOURCE_KIND,
     }
   }
 }
