@@ -1,4 +1,4 @@
-use super::super::{labeled_sentence, normalized_text};
+use super::super::normalized_text;
 use super::types::PdfFragmentBlock;
 
 pub(super) fn render_pdf_fragment_text(
@@ -148,4 +148,15 @@ pub(super) fn heading_paths_equal(left: &[String], right: &[String]) -> bool {
 struct RenderablePdfBlock {
   headings: Vec<String>,
   body_parts: Vec<String>,
+}
+
+fn labeled_sentence(label: &str, value: &str) -> String {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return String::new();
+  }
+  match trimmed.chars().last() {
+    Some('.' | '!' | '?') => format!("{label}: {trimmed}"),
+    _ => format!("{label}: {trimmed}."),
+  }
 }

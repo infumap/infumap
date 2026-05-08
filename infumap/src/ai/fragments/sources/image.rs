@@ -8,9 +8,7 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::ai::artifact_paths::{item_geo_content_path, item_text_content_path};
 
-use super::{
-  FragmentSource, FragmentSourceKind, labeled_line, normalized_text, read_json_if_exists, single_fragment_source,
-};
+use super::{FragmentSource, FragmentSourceKind, normalized_text, read_json_if_exists, single_fragment_source};
 
 pub async fn image_fragment_source_for_item(
   data_dir: &str,
@@ -109,6 +107,14 @@ fn build_image_fragment_text(
   }
 
   if sections.is_empty() { None } else { Some(sections.join("\n\n")) }
+}
+
+fn labeled_line(label: &str, value: &str) -> String {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return String::new();
+  }
+  format!("{label}: {trimmed}")
 }
 
 fn embedding_useful_image_title(title: Option<&str>) -> Option<String> {
