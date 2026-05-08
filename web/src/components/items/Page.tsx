@@ -587,7 +587,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               <div class="absolute flex items-start pointer-events-none"
                 style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                   `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: 8px;`}>
-                <div class="min-w-0 flex flex-col gap-[2px]">
+                <div class="min-w-0 w-full flex flex-col gap-[2px]">
                   <div class="min-w-0 truncate whitespace-nowrap">
                     <For each={itemPathSegmentsFromItem(catalogItem())}>{(segment, idx) =>
                       <Show when={segment.itemType != ItemType.Composite}>
@@ -602,19 +602,23 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     }</For>
                   </div>
                   <Show when={semanticMatch()}>
-                    <div class="min-w-0 text-slate-700"
-                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25; overflow: hidden; ` +
-                        `display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;`}>
-                      <Show when={semanticMatch()!.pageLabel}>
-                        <span style="font-weight: 600; color: #475569;">{semanticMatch()!.pageLabel} | </span>
-                      </Show>
-                      <span style="font-style: italic;">{semanticMatch()!.text}</span>
+                    <div class="min-w-0 w-full flex items-start text-slate-700"
+                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25;`}>
+                      <div class="min-w-0 grow"
+                        style="overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;">
+                        <Show when={semanticMatch()!.pageLabel}>
+                          <span style="font-weight: 600; color: #475569;">{semanticMatch()!.pageLabel} | </span>
+                        </Show>
+                        <span style="font-style: italic;">{semanticMatch()!.text}</span>
+                      </div>
                       <a
                         class="pointer-events-auto"
-                        style="font-style: normal; color: #2563eb; margin-left: 4px; text-decoration: none;"
+                        style="align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; flex: 0 0 auto; font-style: normal; height: 18px; justify-content: center; line-height: 1; margin-left: 4px; text-decoration: none; width: 18px;"
                         href={semanticMatch()!.href}
                         target="_blank"
                         rel="noopener"
+                        title="Open full fragment"
+                        aria-label="Open full fragment"
                         onMouseDown={(ev) => ev.stopPropagation()}
                         onClick={(ev) => ev.stopPropagation()}>
                         ↗
