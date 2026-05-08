@@ -45,7 +45,7 @@ async fn main() {
     .subcommand(cli::reconcile::make_clap_subcommand())
     .subcommand(cli::restore::make_clap_subcommand())
     .subcommand(cli::extract::make_clap_subcommand())
-    .subcommand(cli::fragments::make_clap_subcommand())
+    .subcommand(cli::fragment::make_clap_subcommand())
     .subcommand(cli::geo::make_clap_subcommand())
     .subcommand(cli::stats::make_clap_subcommand())
     .subcommand(cli::upload::make_clap_subcommand())
@@ -71,7 +71,7 @@ async fn main() {
         "reconcile" => cli::reconcile::execute(&arg_sub_matches).await,
         "restore" => cli::restore::execute(&arg_sub_matches).await,
         "extract" => cli::extract::execute(&arg_sub_matches).await,
-        "fragments" => cli::fragments::execute(&arg_sub_matches).await,
+        "fragment" => cli::fragment::execute(&arg_sub_matches).await,
         "geo" => cli::geo::execute(&arg_sub_matches).await,
         "stats" => cli::stats::execute(&arg_sub_matches).await,
         "upload" => cli::upload::execute(&arg_sub_matches).await,

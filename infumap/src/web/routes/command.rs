@@ -45,7 +45,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::MutexGuard;
 
-use crate::ai::fragments::delete_item_fragment_artifacts;
+use crate::ai::fragment::delete_item_fragment_artifacts;
 use crate::ai::image_tagging::{
   delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
 };

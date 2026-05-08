@@ -7,11 +7,11 @@ use infusdk::util::infu::InfuResult;
 use log::info;
 use tokio::sync::Mutex;
 
-use crate::ai::fragments::sources::{
+use crate::ai::fragment::sources::{
   content_fragment_source_for_item, embedding_context_title_for_item, image_fragment_source_for_item,
   pdf_fragment_source_for_item,
 };
-use crate::ai::fragments::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
+use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
 use crate::ai::image_tagging::should_tag_image_item;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
@@ -64,7 +64,7 @@ struct FragmentRunSummary {
 }
 
 pub fn make_clap_subcommand() -> Command {
-  Command::new("fragments")
+  Command::new("fragment")
     .about("Build on-disk fragment artifacts without starting the web server.")
     .subcommand_required(true)
     .arg_required_else_help(true)
@@ -81,7 +81,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     Some(("images", sub_matches)) => execute_image(sub_matches).await,
     Some(("pdf", sub_matches)) => execute_pdf(sub_matches).await,
     Some(("pdfs", sub_matches)) => execute_pdf(sub_matches).await,
-    _ => Err("Missing fragments subcommand. Use 'fragments content', 'fragments image', or 'fragments pdf'.".into()),
+    _ => Err("Missing fragment subcommand. Use 'fragment content', 'fragment image', or 'fragment pdf'.".into()),
   }
 }
 

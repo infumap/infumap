@@ -32,7 +32,7 @@ pub mod compact;
 pub mod embed;
 pub mod emergency;
 pub mod extract;
-pub mod fragments;
+pub mod fragment;
 pub mod geo;
 pub mod keygen;
 pub mod login;

@@ -1,6 +1,6 @@
 pub mod artifact_paths;
 pub mod batch_processing;
-pub mod fragments;
+pub mod fragment;
 pub mod image_tagging;
 pub mod indexing;
 pub mod text_embedding;

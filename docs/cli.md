@@ -183,7 +183,7 @@ Options:
 - **--dry-run (optional):** Show which image-tagging results `--delete-all` would remove without deleting anything.
 - **--force (optional):** Perform the deletion requested by `--delete-all`.
 
-### fragments
+### fragment
 
 Build on-disk fragment artifacts without starting the web server. Fragments are written for pages and tables using the container title when present plus the titles of the items they contain. Composite children contribute the title text of the items inside the composite.
 
@@ -196,7 +196,7 @@ Options:
 
 Rebuild per-user fragment vector databases from existing fragment artifacts without starting the web server. This command reads known items, embeds existing `fragments/*/*/fragments.jsonl` records with the configured text embedding service, builds `indexes/fragments.sqlite3.tmp`, validates it, and atomically replaces `indexes/fragments.sqlite3`.
 
-This is a manual indexing step. Run `extract pdf`, `extract image`, and `fragments` first when you want document/image-derived text included, then run `embed` to refresh semantic search. The web server does not currently update fragment vector indexes as items change.
+This is a manual indexing step. Run `extract pdf`, `extract image`, and `fragment` first when you want document/image-derived text included, then run `embed` to refresh semantic search. The web server does not currently update fragment vector indexes as items change.
 
 Options:
 
