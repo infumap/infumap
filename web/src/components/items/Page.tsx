@@ -105,7 +105,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return [];
   };
 
-  const catalogSemanticMatch = (item: Item): { text: string, href: string } | null => {
+  const semanticMatchPageLabel = (pageStart?: number, pageEnd?: number): string | null => {
+    if (pageStart == null || pageEnd == null) {
+      return null;
+    }
+    return pageStart == pageEnd ? `Page ${pageStart}` : `Pages ${pageStart}-${pageEnd}`;
+  };
+
+  const catalogSemanticMatch = (item: Item): { text: string, href: string, pageLabel: string | null } | null => {
     if (!isLink(item)) {
       return null;
     }
@@ -122,6 +129,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return {
       text: match.textTruncated ? `${flattened}...` : flattened,
       href: `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
+      pageLabel: semanticMatchPageLabel(match.pageStart, match.pageEnd),
     };
   };
 
@@ -558,6 +566,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     <div class="min-w-0 text-slate-700"
                       style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25; overflow: hidden; ` +
                         `display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;`}>
+                      <Show when={semanticMatch()!.pageLabel}>
+                        <span style="font-weight: 600; color: #475569;">{semanticMatch()!.pageLabel} | </span>
+                      </Show>
                       <span style="font-style: italic;">{semanticMatch()!.text}</span>
                       <a
                         class="pointer-events-auto"

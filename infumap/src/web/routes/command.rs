@@ -1928,7 +1928,7 @@ fn search_result_item_id(result: &SearchResult) -> Option<Uid> {
 }
 
 fn search_semantic_match_for_hit(hit: &crate::ai::vector_db::FragmentVectorHit) -> SearchSemanticMatch {
-  let (text, text_truncated) = clamp_text_chars(&hit.text, SEARCH_SEMANTIC_MATCH_MAX_CHARS);
+  let (text, text_truncated) = clamp_text_chars(hit.text.trim(), SEARCH_SEMANTIC_MATCH_MAX_CHARS);
   SearchSemanticMatch {
     fragment_ordinal: hit.ordinal,
     source_kind: hit.source_kind.clone(),

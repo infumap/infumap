@@ -4,8 +4,8 @@ use super::types::PdfFragmentBlock;
 pub(super) fn render_pdf_fragment_text(
   document_title: Option<&str>,
   context_title: Option<&str>,
-  page_start: usize,
-  page_end: usize,
+  _page_start: usize,
+  _page_end: usize,
   blocks: &[PdfFragmentBlock],
 ) -> String {
   let document_title = normalized_text(document_title);
@@ -26,9 +26,6 @@ pub(super) fn render_pdf_fragment_text(
   if !section_path.is_empty() {
     lines.push(labeled_sentence("Section", &section_path.join(" > ")));
   }
-
-  let page_label = if page_start == page_end { page_start.to_string() } else { format!("{page_start}-{page_end}") };
-  lines.push(labeled_sentence(if page_start == page_end { "Page" } else { "Pages" }, &page_label));
 
   let body = rendered_blocks
     .iter()

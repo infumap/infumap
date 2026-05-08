@@ -82,6 +82,8 @@ struct ItemTextManifest {
 struct FragmentRecord {
   ordinal: usize,
   text: String,
+  page_start: Option<usize>,
+  page_end: Option<usize>,
 }
 
 fn is_safe_inline_mime(mime_type: &str) -> bool {
@@ -665,7 +667,7 @@ fn parse_fragments_text(data: &[u8]) -> InfuResult<Vec<u8>> {
   fragments.sort_by(|a, b| a.ordinal.cmp(&b.ordinal));
   let text = fragments
     .into_iter()
-    .map(|fragment| fragment.text.trim().to_owned())
+    .map(render_fragment_text)
     .filter(|fragment| !fragment.is_empty())
     .collect::<Vec<String>>()
     .join(FRAGMENT_VIEW_SEPARATOR);
@@ -677,7 +679,7 @@ fn parse_fragment_text(data: &[u8], ordinal: usize) -> InfuResult<Option<Vec<u8>
     parse_fragment_records(data)?
       .into_iter()
       .find(|fragment| fragment.ordinal == ordinal)
-      .map(|fragment| fragment.text.trim().as_bytes().to_vec()),
+      .map(|fragment| render_fragment_text(fragment).into_bytes()),
   )
 }
 
@@ -698,6 +700,23 @@ fn parse_item_fragment_route(name: &str) -> Option<(&str, usize)> {
     return None;
   }
   suffix.parse::<usize>().ok().map(|ordinal| (uid, ordinal))
+}
+
+fn render_fragment_text(fragment: FragmentRecord) -> String {
+  let text = fragment.text.trim().to_owned();
+  match fragment_page_label(fragment.page_start, fragment.page_end) {
+    Some(page_label) if text.is_empty() => page_label,
+    Some(page_label) => format!("{page_label}\n\n{text}"),
+    None => text,
+  }
+}
+
+fn fragment_page_label(page_start: Option<usize>, page_end: Option<usize>) -> Option<String> {
+  match (page_start, page_end) {
+    (Some(start), Some(end)) if start == end => Some(format!("Page {start}")),
+    (Some(start), Some(end)) => Some(format!("Pages {start}-{end}")),
+    _ => None,
+  }
 }
 
 fn item_text_filename(uid: &str, content_mime_type: &str) -> String {
@@ -801,6 +820,19 @@ mod tests {
     .unwrap();
 
     assert_eq!(String::from_utf8(parsed).unwrap(), "Second fragment");
+  }
+
+  #[test]
+  fn renders_fragment_page_label_from_metadata() {
+    let parsed = parse_fragment_text(
+      br#"{"ordinal":0,"text":"Document: Report.\n\nThe relevant body.","page_start":3,"page_end":3}
+"#,
+      0,
+    )
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(String::from_utf8(parsed).unwrap(), "Page 3\n\nDocument: Report.\n\nThe relevant body.");
   }
 
   #[test]
