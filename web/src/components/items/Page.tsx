@@ -55,7 +55,7 @@ import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
-import { catalogSemanticMatchDisplayFromMatch, type CatalogSemanticMatchDisplay } from "../../util/search-result-display";
+import { catalogSearchResultDisplay, catalogSemanticMatchDisplayFromMatch, type CatalogSemanticMatchDisplay } from "../../util/search-result-display";
 import { SELECTED_LIGHT } from "../../style";
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
@@ -510,8 +510,35 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             !store.anItemIsMoving.get();
           const isSelectedSearchRow = () => selectedSearchRow() == rowIndex();
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
+          const searchResultForRow = () => {
+            const searchItemId = searchSourceItemId();
+            if (!searchItemId) {
+              return null;
+            }
+            const results = store.perItem.getSearchResults(searchItemId);
+            if (!results) {
+              return null;
+            }
+
+            let visibleRow = -1;
+            for (const result of results) {
+              if (!result.path[result.path.length - 1]?.id) {
+                continue;
+              }
+              visibleRow += 1;
+              if (visibleRow == rowIndex()) {
+                return result;
+              }
+            }
+            return null;
+          };
+          const searchResultDisplay = () => {
+            const result = searchResultForRow();
+            return result ? catalogSearchResultDisplay(result) : null;
+          };
+          const pathSegments = () => searchResultDisplay()?.pathSegments ?? itemPathSegmentsFromItem(catalogItem());
           const metadataLines = () => catalogMetadataLines(catalogItem());
-          const semanticMatch = () => catalogSemanticMatch(catalogItem());
+          const semanticMatch = () => searchResultDisplay()?.semanticMatch ?? catalogSemanticMatch(catalogItem());
           const rowIndex = () => childVe().row ??
             Math.max(0, Math.round((childVe().boundsPx.y - pageFns.catalogPageTopPaddingPx()) / pageFns.catalogRowHeightPx()));
           const topPx = () => pageFns.catalogPageTopPaddingPx() + rowIndex() * pageFns.catalogRowHeightPx();
@@ -534,7 +561,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: 8px;`}>
                 <div class="min-w-0 w-full flex flex-col gap-[2px]">
                   <div class="min-w-0 truncate whitespace-nowrap">
-                    <For each={itemPathSegmentsFromItem(catalogItem())}>{(segment, idx) =>
+                    <For each={pathSegments()}>{(segment, idx) =>
                       <Show when={segment.itemType != ItemType.Composite}>
                         <span class="inline-flex items-center">
                           <Show when={idx() != 0}>
