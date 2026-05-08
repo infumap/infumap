@@ -108,6 +108,26 @@ pub fn text_embedding_embed_url(base_url: &str) -> InfuResult<Url> {
   }
 }
 
+pub fn validate_text_embedding_vector(label: &str, embedding: &[f32]) -> InfuResult<()> {
+  if embedding.is_empty() {
+    return Err(format!("{} has zero dimensions.", label).into());
+  }
+
+  let mut squared_norm = 0.0_f64;
+  for (index, value) in embedding.iter().enumerate() {
+    if !value.is_finite() {
+      return Err(format!("{} has non-finite value at dimension {}.", label, index).into());
+    }
+    squared_norm += f64::from(*value) * f64::from(*value);
+  }
+
+  if squared_norm == 0.0 {
+    return Err(format!("{} is all zeros.", label).into());
+  }
+
+  Ok(())
+}
+
 pub async fn embed_texts(
   client: &reqwest::Client,
   embed_url: &Url,
@@ -218,7 +238,9 @@ pub async fn embed_texts_batched(
 
 #[cfg(test)]
 mod tests {
-  use super::{TextEmbeddingInput, format_text_embedding_input, text_embedding_embed_url};
+  use super::{
+    TextEmbeddingInput, format_text_embedding_input, text_embedding_embed_url, validate_text_embedding_vector,
+  };
 
   #[test]
   fn retrieval_documents_are_embedded_without_instruction_prefix() {
@@ -248,5 +270,14 @@ mod tests {
 
     let url = text_embedding_embed_url("http://127.0.0.1:8789/embed").unwrap();
     assert_eq!(url.as_str(), "http://127.0.0.1:8789/embed");
+  }
+
+  #[test]
+  fn validates_embedding_vectors_are_finite_and_nonzero() {
+    assert!(validate_text_embedding_vector("embedding", &[0.1, -0.2]).is_ok());
+    assert!(validate_text_embedding_vector("embedding", &[]).is_err());
+    assert!(validate_text_embedding_vector("embedding", &[0.0, 0.0]).is_err());
+    assert!(validate_text_embedding_vector("embedding", &[f32::NAN]).is_err());
+    assert!(validate_text_embedding_vector("embedding", &[f32::INFINITY]).is_err());
   }
 }

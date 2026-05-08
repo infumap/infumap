@@ -11,6 +11,7 @@ use tokio::fs;
 use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path};
 use crate::ai::text_embedding::{
   DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingBatch, TextEmbeddingInput, embed_texts,
+  validate_text_embedding_vector,
 };
 use crate::ai::vector_db::{
   EmbeddedFragment, FragmentVectorDb, FragmentVectorDbBackend, FragmentVectorDbFragmentKey,
@@ -345,6 +346,7 @@ fn validate_embedding_batch(
         .into(),
       );
     }
+    validate_text_embedding_vector(&format!("Text embedding service returned embedding result {}", index), embedding)?;
   }
 
   Ok(dimensions)
@@ -567,6 +569,22 @@ mod tests {
     assert!(
       validate_embedding_batch(
         &TextEmbeddingBatch { model: "model-a".to_owned(), embeddings: vec![vec![0.0], vec![0.0, 1.0]] },
+        None,
+        None,
+      )
+      .is_err()
+    );
+    assert!(
+      validate_embedding_batch(
+        &TextEmbeddingBatch { model: "model-a".to_owned(), embeddings: vec![vec![0.0, 0.0]] },
+        None,
+        None,
+      )
+      .is_err()
+    );
+    assert!(
+      validate_embedding_batch(
+        &TextEmbeddingBatch { model: "model-a".to_owned(), embeddings: vec![vec![f32::NAN, 1.0]] },
         None,
         None,
       )

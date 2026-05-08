@@ -52,6 +52,7 @@ use crate::ai::image_tagging::{
 use crate::ai::indexing::delete_item_fragment_index_entries;
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
+  validate_text_embedding_vector,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::ai::vector_db::{
@@ -1786,9 +1787,23 @@ async fn semantic_search_results(
   if query_embedding.is_empty() {
     return Ok(Vec::new());
   }
+  validate_text_embedding_vector("Text embedding service returned query embedding", &query_embedding)?;
 
   let fragment_limit = limit.saturating_mul(SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER).max(limit);
-  let fragment_hits = select_best_fragment_hit_per_item(vector_db.search(&query_embedding, fragment_limit).await?);
+  let fragment_hits = vector_db.search(&query_embedding, fragment_limit).await?;
+  if !fragment_hits.is_empty() {
+    debug!(
+      "Semantic search top fragment hits for user '{}': {}",
+      user_id,
+      fragment_hits
+        .iter()
+        .take(8)
+        .map(|hit| format!("{}:{}@{:.6}", hit.item_id, hit.ordinal, hit.distance))
+        .collect::<Vec<_>>()
+        .join(", ")
+    );
+  }
+  let fragment_hits = select_best_fragment_hit_per_item(fragment_hits);
 
   let mut results = Vec::new();
   let db = db.lock().await;
