@@ -26,11 +26,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { newOrderingAtEnd } from "../util/ordering";
 import { requestArrange } from "./arrange";
 import type { SearchResult } from "../server";
-
-
-function fallbackPathTitle(itemType: string): string {
-  return `[${itemType}]`;
-}
+import { searchResultPathSegments } from "../util/search-result-display";
 
 function copyCurrentSearchResultsLayout(store: StoreContextModel, searchItem: SearchItem, materializedPage: ReturnType<typeof PageFns.create>) {
   const resultsPageId = tempSearchResultsPageUid(searchItem.id);
@@ -72,11 +68,7 @@ function makeMaterializedLink(
     newOrderingAtEnd(childOrderings),
   );
   LinkFns.syncSizeFromLinkedItem(link);
-  link.catalogPathOverride = result.path.map(segment => ({
-    id: segment.id,
-    itemType: segment.itemType,
-    title: segment.title ?? fallbackPathTitle(segment.itemType),
-  }));
+  link.catalogPathOverride = searchResultPathSegments(result);
   link.catalogSemanticMatch = result.semanticMatch ?? null;
   return link;
 }

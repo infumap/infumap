@@ -158,8 +158,8 @@ export const LinkFns = {
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
-      catalogPathOverride: null,
-      catalogSemanticMatch: null,
+      catalogPathOverride: o.catalogPathOverride ?? null,
+      catalogSemanticMatch: o.catalogSemanticMatch ?? null,
     });
   },
 
@@ -180,6 +180,8 @@ export const LinkFns = {
       spatialHeightGr: l.spatialHeightGr,
 
       linkTo: l.linkTo,
+      catalogPathOverride: l.catalogPathOverride ?? null,
+      catalogSemanticMatch: l.catalogSemanticMatch ?? null,
     });
   },
 
