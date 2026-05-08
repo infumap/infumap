@@ -70,7 +70,7 @@ const GEO_INFO_NOT_AVAILABLE_MESSAGE: &str = "[geo info not available]";
 // 75 and below => starting to see significant loss in quality.
 // TODO (LOW): Make this configurable.
 const JPEG_QUALITY: u8 = 80;
-const FRAGMENT_VIEW_SEPARATOR: &str = "\n\n-----------------\n\n";
+const FRAGMENT_VIEW_RULE: &str = "-----------------";
 
 #[derive(Deserialize)]
 struct ItemTextManifest {
@@ -670,7 +670,7 @@ fn parse_fragments_text(data: &[u8]) -> InfuResult<Vec<u8>> {
     .map(render_fragment_text)
     .filter(|fragment| !fragment.is_empty())
     .collect::<Vec<String>>()
-    .join(FRAGMENT_VIEW_SEPARATOR);
+    .join("");
   Ok(text.into_bytes())
 }
 
@@ -703,18 +703,18 @@ fn parse_item_fragment_route(name: &str) -> Option<(&str, usize)> {
 }
 
 fn render_fragment_text(fragment: FragmentRecord) -> String {
-  let text = fragment.text.trim().to_owned();
-  match fragment_page_label(fragment.page_start, fragment.page_end) {
-    Some(page_label) if text.is_empty() => page_label,
-    Some(page_label) => format!("{page_label}\n\n{text}"),
-    None => text,
+  let text = fragment.text.trim();
+  let mut metadata = vec![format!("Ordinal: {}", fragment.ordinal)];
+  if let Some(page_label) = fragment_page_label(fragment.page_start, fragment.page_end) {
+    metadata.push(page_label);
   }
+  format!("{FRAGMENT_VIEW_RULE}\n{}\n{FRAGMENT_VIEW_RULE}\n{text}\n\n", metadata.join("\n"))
 }
 
 fn fragment_page_label(page_start: Option<usize>, page_end: Option<usize>) -> Option<String> {
   match (page_start, page_end) {
-    (Some(start), Some(end)) if start == end => Some(format!("Page {start}")),
-    (Some(start), Some(end)) => Some(format!("Pages {start}-{end}")),
+    (Some(start), Some(end)) if start == end => Some(format!("Page: {start}")),
+    (Some(start), Some(end)) => Some(format!("Pages: {start}-{end}")),
     _ => None,
   }
 }
@@ -797,7 +797,7 @@ mod tests {
   }
 
   #[test]
-  fn separates_rendered_fragments_with_a_rule_line() {
+  fn renders_fragment_list_with_metadata_headers() {
     let parsed = parse_fragments_text(
       br#"{"ordinal":1,"text":"Second fragment"}
 {"ordinal":0,"text":"First fragment"}
@@ -805,7 +805,10 @@ mod tests {
     )
     .unwrap();
 
-    assert_eq!(String::from_utf8(parsed).unwrap(), "First fragment\n\n-----------------\n\nSecond fragment");
+    assert_eq!(
+      String::from_utf8(parsed).unwrap(),
+      "-----------------\nOrdinal: 0\n-----------------\nFirst fragment\n\n-----------------\nOrdinal: 1\n-----------------\nSecond fragment\n\n"
+    );
   }
 
   #[test]
@@ -819,11 +822,14 @@ mod tests {
     .unwrap()
     .unwrap();
 
-    assert_eq!(String::from_utf8(parsed).unwrap(), "Second fragment");
+    assert_eq!(
+      String::from_utf8(parsed).unwrap(),
+      "-----------------\nOrdinal: 1\n-----------------\nSecond fragment\n\n"
+    );
   }
 
   #[test]
-  fn renders_fragment_page_label_from_metadata() {
+  fn renders_fragment_metadata_header_with_ordinal_and_pages() {
     let parsed = parse_fragment_text(
       br#"{"ordinal":0,"text":"Document: Report.\n\nThe relevant body.","page_start":3,"page_end":3}
 "#,
@@ -832,7 +838,10 @@ mod tests {
     .unwrap()
     .unwrap();
 
-    assert_eq!(String::from_utf8(parsed).unwrap(), "Page 3\n\nDocument: Report.\n\nThe relevant body.");
+    assert_eq!(
+      String::from_utf8(parsed).unwrap(),
+      "-----------------\nOrdinal: 0\nPage: 3\n-----------------\nDocument: Report.\n\nThe relevant body.\n\n"
+    );
   }
 
   #[test]
