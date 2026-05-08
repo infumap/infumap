@@ -2189,10 +2189,14 @@ fn split_sentence_segments(text: &str) -> Vec<String> {
 }
 
 fn push_sentence_segment(segments: &mut Vec<String>, segment: &str) {
-  let cleaned = collapse_whitespace(segment);
+  let cleaned = trim_snippet_sentence_punctuation(&collapse_whitespace(segment));
   if !cleaned.is_empty() {
     segments.push(cleaned);
   }
+}
+
+fn trim_snippet_sentence_punctuation(segment: &str) -> String {
+  segment.trim_end_matches(['.', '!', '?']).trim_end().to_owned()
 }
 
 fn ellipsis_sentence_excerpt(sentences: &[String]) -> String {
@@ -2473,7 +2477,7 @@ mod tests {
       1250,
     );
 
-    assert_eq!(text, "... A red bicycle is leaning by the cafe. ...");
+    assert_eq!(text, "... A red bicycle is leaning by the cafe ...");
     assert!(!truncated);
   }
 
@@ -2488,7 +2492,7 @@ mod tests {
 
     assert_eq!(
       text,
-      "... Woodstock was a landmark festival. ... Woodstock changed music history. ... Woodstock appears again. ..."
+      "... Woodstock was a landmark festival ... Woodstock changed music history ... Woodstock appears again ..."
     );
     assert!(!truncated);
     assert!(!text.contains("Document:"));
