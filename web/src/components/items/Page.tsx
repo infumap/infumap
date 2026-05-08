@@ -55,6 +55,7 @@ import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
+import { catalogSemanticMatchDisplayFromMatch, type CatalogSemanticMatchDisplay } from "../../util/search-result-display";
 import { SELECTED_LIGHT } from "../../style";
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
@@ -65,46 +66,9 @@ import {
   searchResultsFooterHostId,
 } from "../../items/search-item";
 import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
-import { EMPTY_UID } from "../../util/uid";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
-
-const PDF_MARKDOWN_FRAGMENT_SOURCE_KIND = "pdf_markdown";
-const PDF_CATALOG_OMITTED_LABELS = new Set(["document", "context", "section"]);
-
-interface CatalogSemanticMatchDisplay {
-  text: string,
-  href: string,
-  pageLabel: string | null,
-}
-
-const flattenCatalogSemanticMatchText = (text: string): string =>
-  text.replace(/\r\n|\r|\n/g, " | ");
-
-const isPdfCatalogOmittedLine = (line: string): boolean => {
-  const separatorIndex = line.indexOf(":");
-  if (separatorIndex < 0) {
-    return false;
-  }
-  return PDF_CATALOG_OMITTED_LABELS.has(line.slice(0, separatorIndex).trim().toLowerCase());
-};
-
-const formatPdfMarkdownCatalogSemanticMatchText = (text: string): string =>
-  text
-    .split(/\r\n|\r|\n/g)
-    .map(line => line.trim())
-    .filter(line => line != "" && !isPdfCatalogOmittedLine(line))
-    .join(" | ");
-
-const formatCatalogSemanticMatchText = (sourceKind: string, text: string): string => {
-  switch (sourceKind) {
-    case PDF_MARKDOWN_FRAGMENT_SOURCE_KIND:
-      return formatPdfMarkdownCatalogSemanticMatchText(text);
-    default:
-      return flattenCatalogSemanticMatchText(text);
-  }
-};
 
 export interface PageVisualElementProps {
   visualElement: VisualElement,
@@ -141,13 +105,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return [];
   };
 
-  const semanticMatchPageLabel = (pageStart?: number, pageEnd?: number): string | null => {
-    if (pageStart == null || pageEnd == null) {
-      return null;
-    }
-    return pageStart == pageEnd ? `Page ${pageStart}` : `Pages ${pageStart}-${pageEnd}`;
-  };
-
   const catalogSemanticMatch = (item: Item): CatalogSemanticMatchDisplay | null => {
     if (!isLink(item)) {
       return null;
@@ -157,19 +114,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (!match) {
       return null;
     }
-    const targetId = LinkFns.getLinkToId(linkItem);
-    if (targetId == "" || targetId == EMPTY_UID) {
-      return null;
-    }
-    const formattedText = formatCatalogSemanticMatchText(match.sourceKind, match.text);
-    if (formattedText.trim() == "") {
-      return null;
-    }
-    return {
-      text: match.textTruncated ? `${formattedText}...` : formattedText,
-      href: `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
-      pageLabel: semanticMatchPageLabel(match.pageStart, match.pageEnd),
-    };
+    return catalogSemanticMatchDisplayFromMatch(LinkFns.getLinkToId(linkItem), match);
   };
 
   const itemTypeIcon = (itemType: string) => {
