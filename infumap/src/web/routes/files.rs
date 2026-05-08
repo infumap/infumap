@@ -708,7 +708,7 @@ fn render_fragment_text(fragment: FragmentRecord) -> String {
   if let Some(page_label) = fragment_page_label(fragment.page_start, fragment.page_end) {
     metadata.push(page_label);
   }
-  format!("{FRAGMENT_VIEW_RULE}\n{}\n{FRAGMENT_VIEW_RULE}\n{text}\n\n", metadata.join("\n"))
+  format!("{FRAGMENT_VIEW_RULE}\n{}\n{FRAGMENT_VIEW_RULE}\n\n{text}\n\n\n", metadata.join("\n"))
 }
 
 fn fragment_page_label(page_start: Option<usize>, page_end: Option<usize>) -> Option<String> {
@@ -807,7 +807,7 @@ mod tests {
 
     assert_eq!(
       String::from_utf8(parsed).unwrap(),
-      "-----------------\nOrdinal: 0\n-----------------\nFirst fragment\n\n-----------------\nOrdinal: 1\n-----------------\nSecond fragment\n\n"
+      "-----------------\nOrdinal: 0\n-----------------\n\nFirst fragment\n\n\n-----------------\nOrdinal: 1\n-----------------\n\nSecond fragment\n\n\n"
     );
   }
 
@@ -824,7 +824,7 @@ mod tests {
 
     assert_eq!(
       String::from_utf8(parsed).unwrap(),
-      "-----------------\nOrdinal: 1\n-----------------\nSecond fragment\n\n"
+      "-----------------\nOrdinal: 1\n-----------------\n\nSecond fragment\n\n\n"
     );
   }
 
@@ -840,7 +840,7 @@ mod tests {
 
     assert_eq!(
       String::from_utf8(parsed).unwrap(),
-      "-----------------\nOrdinal: 0\nPage: 3\n-----------------\nDocument: Report.\n\nThe relevant body.\n\n"
+      "-----------------\nOrdinal: 0\nPage: 3\n-----------------\n\nDocument: Report.\n\nThe relevant body.\n\n\n"
     );
   }
 
