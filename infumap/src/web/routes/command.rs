@@ -77,6 +77,7 @@ const SEARCH_SEMANTIC_WEIGHT: f64 = 1.0;
 const SEARCH_CANDIDATE_OVERFETCH: i64 = 50;
 const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
+const SEARCH_SEMANTIC_MATCH_MAX_CHARS: usize = 1000;
 
 pub static METRIC_COMMAND_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(
@@ -1606,6 +1607,24 @@ pub struct SearchPathElement {
 pub struct SearchResult {
   #[serde(rename = "path")]
   pub path: Vec<SearchPathElement>,
+  #[serde(rename = "semanticMatch", skip_serializing_if = "Option::is_none")]
+  pub semantic_match: Option<SearchSemanticMatch>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct SearchSemanticMatch {
+  #[serde(rename = "fragmentOrdinal")]
+  pub fragment_ordinal: usize,
+  #[serde(rename = "sourceKind")]
+  pub source_kind: String,
+  pub distance: f32,
+  pub text: String,
+  #[serde(rename = "textTruncated")]
+  pub text_truncated: bool,
+  #[serde(rename = "pageStart", skip_serializing_if = "Option::is_none")]
+  pub page_start: Option<usize>,
+  #[serde(rename = "pageEnd", skip_serializing_if = "Option::is_none")]
+  pub page_end: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -1779,7 +1798,8 @@ async fn semantic_search_results(
     if !seen_item_ids.insert(hit.item_id.clone()) {
       continue;
     }
-    if let Some(result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
+    if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
+      result.semantic_match = Some(search_semantic_match_for_hit(&hit));
       results.push(result);
     }
   }
@@ -1823,7 +1843,7 @@ fn search_result_path_for_item(
   if !search_result_is_under_root_path(&path, search_root_id) {
     return Ok(None);
   }
-  Ok(Some(SearchResult { path }))
+  Ok(Some(SearchResult { path, semantic_match: None }))
 }
 
 fn search_result_is_under_root_path(path: &[SearchPathElement], search_root_id: &Uid) -> bool {
@@ -1856,7 +1876,11 @@ fn mix_search_results(exact_results: Vec<SearchResult>, semantic_results: Vec<Se
     entry.best_rank = entry.best_rank.min(rank);
     if entry.exact_rank.is_none_or(|existing_rank| rank < existing_rank) {
       entry.exact_rank = Some(rank);
+      let semantic_match = entry.result.semantic_match.clone();
       entry.result = result;
+      if entry.result.semantic_match.is_none() {
+        entry.result.semantic_match = semantic_match;
+      }
     }
   }
 
@@ -1864,6 +1888,7 @@ fn mix_search_results(exact_results: Vec<SearchResult>, semantic_results: Vec<Se
     let Some(item_id) = search_result_item_id(&result) else {
       continue;
     };
+    let semantic_match = result.semantic_match.clone();
     let score = SEARCH_SEMANTIC_WEIGHT / (SEARCH_RRF_K + rank as f64 + 1.0);
     let entry = candidates.entry(item_id).or_insert_with(|| SearchMergeCandidate {
       result: result.clone(),
@@ -1875,6 +1900,8 @@ fn mix_search_results(exact_results: Vec<SearchResult>, semantic_results: Vec<Se
     entry.best_rank = entry.best_rank.min(rank);
     if entry.exact_rank.is_none() {
       entry.result = result;
+    } else if entry.result.semantic_match.is_none() {
+      entry.result.semantic_match = semantic_match;
     }
   }
 
@@ -1898,6 +1925,25 @@ fn paginate_mixed_results(results: Vec<SearchResult>, start_result: i64, end_res
 
 fn search_result_item_id(result: &SearchResult) -> Option<Uid> {
   result.path.last().map(|element| element.id.clone())
+}
+
+fn search_semantic_match_for_hit(hit: &crate::ai::vector_db::FragmentVectorHit) -> SearchSemanticMatch {
+  let (text, text_truncated) = clamp_text_chars(&hit.text, SEARCH_SEMANTIC_MATCH_MAX_CHARS);
+  SearchSemanticMatch {
+    fragment_ordinal: hit.ordinal,
+    source_kind: hit.source_kind.clone(),
+    distance: hit.distance,
+    text,
+    text_truncated,
+    page_start: hit.page_start,
+    page_end: hit.page_end,
+  }
+}
+
+fn clamp_text_chars(text: &str, max_chars: usize) -> (String, bool) {
+  let mut chars = text.chars();
+  let clamped = chars.by_ref().take(max_chars).collect::<String>();
+  (clamped, chars.next().is_some())
 }
 
 fn search_recursive(
@@ -1932,7 +1978,7 @@ fn search_recursive(
                 title: item.title.to_owned(),
                 id: item.id.to_owned(),
               });
-              results.push(SearchResult { path });
+              results.push(SearchResult { path, semantic_match: None });
             }
             *current_result += 1;
             if results.len() >= (end_result - start_result) as usize {
@@ -1994,8 +2040,8 @@ fn search_recursive(
 #[cfg(test)]
 mod tests {
   use super::{
-    SearchPathElement, SearchResult, mix_search_results, paginate_mixed_results, search_result_is_under_root_path,
-    search_result_item_id,
+    SearchPathElement, SearchResult, SearchSemanticMatch, clamp_text_chars, mix_search_results, paginate_mixed_results,
+    search_result_is_under_root_path, search_result_item_id,
   };
 
   #[test]
@@ -2015,13 +2061,22 @@ mod tests {
   #[test]
   fn duplicate_semantic_hit_keeps_exact_result_path() {
     let exact = search_result_with_path("exact-parent", "Exact Parent", "shared", "Exact Shared");
-    let semantic = search_result_with_path("semantic-parent", "Semantic Parent", "shared", "Semantic Shared");
+    let semantic = semantic_search_result_with_path("semantic-parent", "Semantic Parent", "shared", "Semantic Shared");
 
     let mixed = mix_search_results(vec![exact], vec![semantic]);
 
     assert_eq!(mixed.len(), 1);
     assert_eq!(mixed[0].path[0].id, "exact-parent");
     assert_eq!(mixed[0].path[1].title.as_deref(), Some("Exact Shared"));
+    assert_eq!(mixed[0].semantic_match.as_ref().map(|m| m.text.as_str()), Some("matched fragment"));
+  }
+
+  #[test]
+  fn clamps_semantic_match_text_by_chars() {
+    let (text, truncated) = clamp_text_chars("aébc", 3);
+
+    assert_eq!(text, "aéb");
+    assert!(truncated);
   }
 
   #[test]
@@ -2045,6 +2100,7 @@ mod tests {
   fn search_result(id: &str) -> SearchResult {
     SearchResult {
       path: vec![SearchPathElement { item_type: "note".to_owned(), title: Some(id.to_owned()), id: id.to_owned() }],
+      semantic_match: None,
     }
   }
 
@@ -2058,6 +2114,26 @@ mod tests {
         },
         SearchPathElement { item_type: "note".to_owned(), title: Some(item_title.to_owned()), id: item_id.to_owned() },
       ],
+      semantic_match: None,
     }
+  }
+
+  fn semantic_search_result_with_path(
+    parent_id: &str,
+    parent_title: &str,
+    item_id: &str,
+    item_title: &str,
+  ) -> SearchResult {
+    let mut result = search_result_with_path(parent_id, parent_title, item_id, item_title);
+    result.semantic_match = Some(SearchSemanticMatch {
+      fragment_ordinal: 7,
+      source_kind: "pdf_markdown".to_owned(),
+      distance: 0.2,
+      text: "matched fragment".to_owned(),
+      text_truncated: false,
+      page_start: Some(1),
+      page_end: Some(2),
+    });
+    result
   }
 }

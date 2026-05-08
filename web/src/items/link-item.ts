@@ -46,11 +46,22 @@ export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
   linkRequiresRemoteLogin?: string | null,
   aspectOverride?: number | null,
   catalogPathOverride?: Array<{ id: Uid, itemType: string, title: string }> | null,
+  catalogSemanticMatch?: LinkCatalogSemanticMatch | null,
 }
 
 export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
   linkTo: string,
   linkToResolvedId: Uid | null,
+}
+
+export interface LinkCatalogSemanticMatch {
+  fragmentOrdinal: number,
+  sourceKind: string,
+  distance: number,
+  text: string,
+  textTruncated: boolean,
+  pageStart?: number,
+  pageEnd?: number,
 }
 
 
@@ -101,6 +112,7 @@ export const LinkFns = {
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
       catalogPathOverride: null,
+      catalogSemanticMatch: null,
     };
   },
 
@@ -147,6 +159,7 @@ export const LinkFns = {
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
       catalogPathOverride: null,
+      catalogSemanticMatch: null,
     });
   },
 

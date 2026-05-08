@@ -210,6 +210,17 @@ pub async fn serve_files_route(
         internal_server_error_response(&format!("get_item_text failed: {}", e))
       }
     }
+  } else if name.contains("/fragments/") {
+    let Some((uid, ordinal)) = parse_item_fragment_route(name) else {
+      return not_found_response();
+    };
+    match get_item_fragment(db, &session_user_id_maybe, uid, ordinal).await {
+      Ok(fragment_response) => fragment_response,
+      Err(e) => {
+        METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
+        internal_server_error_response(&format!("get_item_fragment failed: {}", e))
+      }
+    }
   } else if let Some(uid) = name.strip_suffix("/fragments") {
     if uid.is_empty() || uid.contains('/') {
       return not_found_response();
@@ -587,6 +598,48 @@ async fn get_item_fragments(
   )
 }
 
+async fn get_item_fragment(
+  db: &Arc<Mutex<Db>>,
+  session_user_id_maybe: &Option<String>,
+  uid: &str,
+  ordinal: usize,
+) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
+  let (item, data_dir) = {
+    let db = db.lock().await;
+    let item = db.item.get(&String::from(uid))?.clone();
+    authorize_item(&db, &item, session_user_id_maybe, 0)?;
+    (item, db.item.data_dir().to_owned())
+  };
+
+  if fs::metadata(item_fragments_manifest_path(&data_dir, &item.owner_id, uid)?).await.is_err() {
+    return Ok(fragments_not_available_response());
+  }
+
+  let fragments_path = item_fragments_path(&data_dir, &item.owner_id, uid)?;
+  let fragments_bytes = match fs::read(&fragments_path).await {
+    Ok(bytes) => bytes,
+    Err(_) => return Ok(fragments_not_available_response()),
+  };
+
+  let fragment_text = match parse_fragment_text(&fragments_bytes, ordinal) {
+    Ok(Some(text)) if !text.is_empty() => text,
+    _ => return Ok(fragments_not_available_response()),
+  };
+
+  let filename = item_fragment_filename(uid, ordinal);
+  let (content_type, content_disposition) = response_content_headers_for_generated_item_text(&filename, "text/plain");
+
+  Ok(
+    Response::builder()
+      .header(hyper::header::CONTENT_TYPE, content_type)
+      .header("Content-Disposition", content_disposition)
+      .header("X-Content-Type-Options", "nosniff")
+      .header(hyper::header::CACHE_CONTROL, "no-cache")
+      .body(full_body(fragment_text))
+      .unwrap(),
+  )
+}
+
 fn text_not_available_response() -> Response<BoxBody<Bytes, hyper::Error>> {
   Response::builder()
     .header(hyper::header::CONTENT_TYPE, "text/plain; charset=utf-8")
@@ -608,13 +661,7 @@ fn fragments_not_available_response() -> Response<BoxBody<Bytes, hyper::Error>> 
 }
 
 fn parse_fragments_text(data: &[u8]) -> InfuResult<Vec<u8>> {
-  let mut fragments = vec![];
-  for line in String::from_utf8_lossy(data).lines() {
-    if line.trim().is_empty() {
-      continue;
-    }
-    fragments.push(serde_json::from_str::<FragmentRecord>(line)?);
-  }
+  let mut fragments = parse_fragment_records(data)?;
   fragments.sort_by(|a, b| a.ordinal.cmp(&b.ordinal));
   let text = fragments
     .into_iter()
@@ -623,6 +670,34 @@ fn parse_fragments_text(data: &[u8]) -> InfuResult<Vec<u8>> {
     .collect::<Vec<String>>()
     .join(FRAGMENT_VIEW_SEPARATOR);
   Ok(text.into_bytes())
+}
+
+fn parse_fragment_text(data: &[u8], ordinal: usize) -> InfuResult<Option<Vec<u8>>> {
+  Ok(
+    parse_fragment_records(data)?
+      .into_iter()
+      .find(|fragment| fragment.ordinal == ordinal)
+      .map(|fragment| fragment.text.trim().as_bytes().to_vec()),
+  )
+}
+
+fn parse_fragment_records(data: &[u8]) -> InfuResult<Vec<FragmentRecord>> {
+  let mut fragments = vec![];
+  for line in String::from_utf8_lossy(data).lines() {
+    if line.trim().is_empty() {
+      continue;
+    }
+    fragments.push(serde_json::from_str::<FragmentRecord>(line)?);
+  }
+  Ok(fragments)
+}
+
+fn parse_item_fragment_route(name: &str) -> Option<(&str, usize)> {
+  let (uid, suffix) = name.split_once("/fragments/")?;
+  if uid.is_empty() || uid.contains('/') || suffix.is_empty() || suffix.contains('/') {
+    return None;
+  }
+  suffix.parse::<usize>().ok().map(|ordinal| (uid, ordinal))
 }
 
 fn item_text_filename(uid: &str, content_mime_type: &str) -> String {
@@ -639,6 +714,10 @@ fn item_fragments_filename(uid: &str) -> String {
   format!("{}_fragments.txt", uid)
 }
 
+fn item_fragment_filename(uid: &str, ordinal: usize) -> String {
+  format!("{}_fragment_{}.txt", uid, ordinal)
+}
+
 fn calc_cache_control(max_age: i64) -> String {
   if max_age == 0 { "no-cache".to_owned() } else { format!("private, max-age={}", max_age) }
 }
@@ -646,8 +725,8 @@ fn calc_cache_control(max_age: i64) -> String {
 #[cfg(test)]
 mod tests {
   use super::{
-    content_disposition_header, is_safe_inline_mime, parse_fragments_text,
-    response_content_headers_for_generated_item_text, response_filename,
+    content_disposition_header, is_safe_inline_mime, parse_fragment_text, parse_fragments_text,
+    parse_item_fragment_route, response_content_headers_for_generated_item_text, response_filename,
   };
 
   #[test]
@@ -708,5 +787,27 @@ mod tests {
     .unwrap();
 
     assert_eq!(String::from_utf8(parsed).unwrap(), "First fragment\n\n-----------------\n\nSecond fragment");
+  }
+
+  #[test]
+  fn parses_single_fragment_text_by_ordinal() {
+    let parsed = parse_fragment_text(
+      br#"{"ordinal":1,"text":"Second fragment"}
+{"ordinal":0,"text":"First fragment"}
+"#,
+      1,
+    )
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(String::from_utf8(parsed).unwrap(), "Second fragment");
+  }
+
+  #[test]
+  fn parses_single_fragment_route() {
+    assert_eq!(parse_item_fragment_route("abc123/fragments/42"), Some(("abc123", 42)));
+    assert_eq!(parse_item_fragment_route("abc123/fragments"), None);
+    assert_eq!(parse_item_fragment_route("abc123/fragments/not-a-number"), None);
+    assert_eq!(parse_item_fragment_route("abc123/fragments/42/extra"), None);
   }
 }

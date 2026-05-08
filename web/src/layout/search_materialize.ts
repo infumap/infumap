@@ -77,6 +77,7 @@ function makeMaterializedLink(
     itemType: segment.itemType,
     title: segment.title ?? fallbackPathTitle(segment.itemType),
   }));
+  link.catalogSemanticMatch = result.semanticMatch ?? null;
   return link;
 }
 

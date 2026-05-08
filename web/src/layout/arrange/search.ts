@@ -99,6 +99,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
       itemType: segment.itemType,
       title: segment.title ?? fallbackPathTitle(segment.itemType),
     }));
+    tempLink.catalogSemanticMatch = result.semanticMatch ?? null;
 
     const linkItem = asLinkItem(itemState.upsertItemFromServerObject(LinkFns.toObject(tempLink), TEMP_SEARCH_RESULTS_ORIGIN));
     linkItem.origin = TEMP_SEARCH_RESULTS_ORIGIN;
@@ -109,6 +110,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
     linkItem.spatialHeightGr = tempLink.spatialHeightGr;
     linkItem.linkToResolvedId = resultItemId;
     linkItem.catalogPathOverride = tempLink.catalogPathOverride;
+    linkItem.catalogSemanticMatch = tempLink.catalogSemanticMatch;
     childIds.push(linkItem.id);
     childOrderings.push(linkItem.ordering);
   }

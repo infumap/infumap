@@ -57,6 +57,17 @@ export interface ItemsAndTheirAttachments {
 
 export interface SearchResult {
   path: Array<SearchPathElement>,
+  semanticMatch?: SearchSemanticMatch,
+}
+
+export interface SearchSemanticMatch {
+  fragmentOrdinal: number,
+  sourceKind: string,
+  distance: number,
+  text: string,
+  textTruncated: boolean,
+  pageStart?: number,
+  pageEnd?: number,
 }
 
 export interface SearchPathElement {

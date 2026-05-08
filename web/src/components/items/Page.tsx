@@ -53,6 +53,7 @@ import { Item, ItemType } from "../../items/base/item";
 import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
+import { asLinkItem, isLink } from "../../items/link-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 import { SELECTED_LIGHT } from "../../style";
 import {
@@ -101,6 +102,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       ];
     }
     return [];
+  };
+
+  const catalogSemanticMatchText = (item: Item): string | null => {
+    if (!isLink(item)) {
+      return null;
+    }
+    const match = asLinkItem(item).catalogSemanticMatch;
+    if (!match || match.text.trim() == "") {
+      return null;
+    }
+    const flattened = match.text.replace(/\r\n|\r|\n/g, " | ");
+    return match.textTruncated ? `${flattened}...` : flattened;
   };
 
   const itemTypeIcon = (itemType: string) => {
@@ -497,6 +510,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const isSelectedSearchRow = () => selectedSearchRow() == rowIndex();
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
           const metadataLines = () => catalogMetadataLines(catalogItem());
+          const semanticMatchText = () => catalogSemanticMatchText(catalogItem());
           const rowIndex = () => childVe().row ??
             Math.max(0, Math.round((childVe().boundsPx.y - pageFns.catalogPageTopPaddingPx()) / pageFns.catalogRowHeightPx()));
           const topPx = () => pageFns.catalogPageTopPaddingPx() + rowIndex() * pageFns.catalogRowHeightPx();
@@ -531,6 +545,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       </Show>
                     }</For>
                   </div>
+                  <Show when={semanticMatchText()}>
+                    <div class="min-w-0 text-slate-700"
+                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25; overflow: hidden; ` +
+                        `display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;`}>
+                      {semanticMatchText()}
+                    </div>
+                  </Show>
                   <For each={metadataLines()}>{line =>
                     <div class="min-w-0 truncate whitespace-nowrap text-slate-700"
                       style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px;`}>
