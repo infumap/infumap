@@ -53,7 +53,7 @@ import { Item, ItemType } from "../../items/base/item";
 import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
-import { asLinkItem, isLink } from "../../items/link-item";
+import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 import { SELECTED_LIGHT } from "../../style";
 import {
@@ -104,16 +104,24 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return [];
   };
 
-  const catalogSemanticMatchText = (item: Item): string | null => {
+  const catalogSemanticMatch = (item: Item): { text: string, href: string } | null => {
     if (!isLink(item)) {
       return null;
     }
-    const match = asLinkItem(item).catalogSemanticMatch;
+    const linkItem = asLinkItem(item);
+    const match = linkItem.catalogSemanticMatch;
     if (!match || match.text.trim() == "") {
       return null;
     }
+    const targetId = LinkFns.getLinkToId(linkItem);
+    if (targetId == "") {
+      return null;
+    }
     const flattened = match.text.replace(/\r\n|\r|\n/g, " | ");
-    return match.textTruncated ? `${flattened}...` : flattened;
+    return {
+      text: match.textTruncated ? `${flattened}...` : flattened,
+      href: `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
+    };
   };
 
   const itemTypeIcon = (itemType: string) => {
@@ -510,7 +518,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const isSelectedSearchRow = () => selectedSearchRow() == rowIndex();
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
           const metadataLines = () => catalogMetadataLines(catalogItem());
-          const semanticMatchText = () => catalogSemanticMatchText(catalogItem());
+          const semanticMatch = () => catalogSemanticMatch(catalogItem());
           const rowIndex = () => childVe().row ??
             Math.max(0, Math.round((childVe().boundsPx.y - pageFns.catalogPageTopPaddingPx()) / pageFns.catalogRowHeightPx()));
           const topPx = () => pageFns.catalogPageTopPaddingPx() + rowIndex() * pageFns.catalogRowHeightPx();
@@ -545,11 +553,21 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       </Show>
                     }</For>
                   </div>
-                  <Show when={semanticMatchText()}>
+                  <Show when={semanticMatch()}>
                     <div class="min-w-0 text-slate-700"
                       style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25; overflow: hidden; ` +
                         `display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;`}>
-                      {semanticMatchText()}
+                      <span style="font-style: italic;">{semanticMatch()!.text}</span>
+                      <a
+                        class="pointer-events-auto"
+                        style="font-style: normal; color: #2563eb; margin-left: 4px; text-decoration: none;"
+                        href={semanticMatch()!.href}
+                        target="_blank"
+                        rel="noopener"
+                        onMouseDown={(ev) => ev.stopPropagation()}
+                        onClick={(ev) => ev.stopPropagation()}>
+                        ↗
+                      </a>
                     </div>
                   </Show>
                   <For each={metadataLines()}>{line =>
