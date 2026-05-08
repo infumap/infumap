@@ -52,7 +52,7 @@ use crate::ai::image_tagging::{
 use crate::ai::indexing::delete_item_fragment_index_entries;
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
-  validate_text_embedding_vector,
+  text_embedding_vector_fingerprint, text_embedding_vector_norm, validate_text_embedding_vector,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::ai::vector_db::{
@@ -1788,6 +1788,13 @@ async fn semantic_search_results(
     return Ok(Vec::new());
   }
   validate_text_embedding_vector("Text embedding service returned query embedding", &query_embedding)?;
+  debug!(
+    "Semantic search query embedding for user '{}': dims={}, norm={:.6}, fingerprint={}",
+    user_id,
+    query_embedding.len(),
+    text_embedding_vector_norm(&query_embedding),
+    text_embedding_vector_fingerprint(&query_embedding)
+  );
 
   let fragment_limit = limit.saturating_mul(SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER).max(limit);
   let fragment_hits = vector_db.search(&query_embedding, fragment_limit).await?;

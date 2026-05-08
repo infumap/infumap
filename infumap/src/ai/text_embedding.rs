@@ -2,6 +2,7 @@ use config::Config;
 use infusdk::util::infu::InfuResult;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::config::CONFIG_TEXT_EMBEDDING_URL;
 
@@ -128,6 +129,19 @@ pub fn validate_text_embedding_vector(label: &str, embedding: &[f32]) -> InfuRes
   Ok(())
 }
 
+pub fn text_embedding_vector_fingerprint(embedding: &[f32]) -> String {
+  let mut hasher = Sha256::new();
+  for value in embedding {
+    hasher.update(value.to_le_bytes());
+  }
+  let hex = format!("{:x}", hasher.finalize());
+  hex.chars().take(12).collect()
+}
+
+pub fn text_embedding_vector_norm(embedding: &[f32]) -> f64 {
+  embedding.iter().map(|value| f64::from(*value) * f64::from(*value)).sum::<f64>().sqrt()
+}
+
 pub async fn embed_texts(
   client: &reqwest::Client,
   embed_url: &Url,
@@ -239,7 +253,8 @@ pub async fn embed_texts_batched(
 #[cfg(test)]
 mod tests {
   use super::{
-    TextEmbeddingInput, format_text_embedding_input, text_embedding_embed_url, validate_text_embedding_vector,
+    TextEmbeddingInput, format_text_embedding_input, text_embedding_embed_url, text_embedding_vector_fingerprint,
+    text_embedding_vector_norm, validate_text_embedding_vector,
   };
 
   #[test]
@@ -279,5 +294,12 @@ mod tests {
     assert!(validate_text_embedding_vector("embedding", &[0.0, 0.0]).is_err());
     assert!(validate_text_embedding_vector("embedding", &[f32::NAN]).is_err());
     assert!(validate_text_embedding_vector("embedding", &[f32::INFINITY]).is_err());
+  }
+
+  #[test]
+  fn fingerprints_embedding_vectors() {
+    assert_eq!(text_embedding_vector_fingerprint(&[1.0, 2.0]), text_embedding_vector_fingerprint(&[1.0, 2.0]));
+    assert_ne!(text_embedding_vector_fingerprint(&[1.0, 2.0]), text_embedding_vector_fingerprint(&[2.0, 1.0]));
+    assert_eq!(text_embedding_vector_norm(&[3.0, 4.0]), 5.0);
   }
 }
