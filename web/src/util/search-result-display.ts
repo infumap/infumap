@@ -21,9 +21,6 @@ import type { ItemPathSegment } from "./item-path";
 import { EMPTY_UID, Uid } from "./uid";
 
 
-const PDF_MARKDOWN_FRAGMENT_SOURCE_KIND = "pdf_markdown";
-const PDF_CATALOG_OMITTED_LABELS = new Set(["document", "context", "section"]);
-
 export interface CatalogSemanticMatchDisplay {
   text: string,
   href: string,
@@ -66,31 +63,12 @@ export function semanticMatchPageLabel(pageStart?: number, pageEnd?: number): st
   return pageStart == pageEnd ? `Page ${pageStart}` : `Pages ${pageStart}-${pageEnd}`;
 }
 
-const flattenCatalogSemanticMatchText = (text: string): string =>
-  text.replace(/\r\n|\r|\n/g, " | ");
+export function formatCatalogSemanticMatchText(_sourceKind: string, text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
 
-const isPdfCatalogOmittedLine = (line: string): boolean => {
-  const separatorIndex = line.indexOf(":");
-  if (separatorIndex < 0) {
-    return false;
-  }
-  return PDF_CATALOG_OMITTED_LABELS.has(line.slice(0, separatorIndex).trim().toLowerCase());
-};
-
-const formatPdfMarkdownCatalogSemanticMatchText = (text: string): string =>
-  text
-    .split(/\r\n|\r|\n/g)
-    .map(line => line.trim())
-    .filter(line => line != "" && !isPdfCatalogOmittedLine(line))
-    .join(" | ");
-
-export function formatCatalogSemanticMatchText(sourceKind: string, text: string): string {
-  switch (sourceKind) {
-    case PDF_MARKDOWN_FRAGMENT_SOURCE_KIND:
-      return formatPdfMarkdownCatalogSemanticMatchText(text);
-    default:
-      return flattenCatalogSemanticMatchText(text);
-  }
+function appendTruncationEllipsis(text: string): string {
+  return `${text.replace(/(?:\s*\.)+$/, "")}...`;
 }
 
 export function catalogSemanticMatchDisplayFromMatch(
@@ -107,7 +85,7 @@ export function catalogSemanticMatchDisplayFromMatch(
   }
 
   return {
-    text: match.textTruncated ? `${formattedText}...` : formattedText,
+    text: match.textTruncated ? appendTruncationEllipsis(formattedText) : formattedText,
     href: `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
     pageLabel: semanticMatchPageLabel(match.pageStart, match.pageEnd),
   };

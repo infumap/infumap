@@ -86,6 +86,13 @@ const SEARCH_LEXICAL_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
 const SEARCH_SEMANTIC_MATCH_MAX_CHARS: usize = 1250;
+const SEARCH_MATCH_SNIPPET_MAX_SENTENCES: usize = 3;
+const SEARCH_SNIPPET_ELLIPSIS: &str = "...";
+const PDF_CATALOG_OMITTED_LABELS: [&str; 3] = ["document", "context", "section"];
+const SEARCH_SNIPPET_STOP_WORDS: [&str; 32] = [
+  "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "he", "her", "his", "in", "is", "it", "its",
+  "of", "on", "or", "she", "that", "the", "their", "this", "to", "was", "were", "with", "you", "your",
+];
 
 pub static METRIC_COMMAND_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(
@@ -1814,7 +1821,7 @@ async fn pdf_lexical_search_results(
       break;
     }
     if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
-      result.semantic_match = Some(search_fragment_match_for_lexical_hit(&hit));
+      result.semantic_match = Some(search_fragment_match_for_lexical_hit(&hit, search_text));
       results.push(result);
     }
   }
@@ -1902,7 +1909,7 @@ async fn semantic_search_results(
       break;
     }
     if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
-      result.semantic_match = Some(search_semantic_match_for_hit(&hit));
+      result.semantic_match = Some(search_semantic_match_for_hit(&hit, search_text));
       results.push(result);
     }
   }
@@ -2080,8 +2087,9 @@ fn search_result_item_id(result: &SearchResult) -> Option<Uid> {
   result.path.last().map(|element| element.id.clone())
 }
 
-fn search_fragment_match_for_lexical_hit(hit: &FragmentLexicalHit) -> SearchSemanticMatch {
-  let (text, text_truncated) = clamp_text_chars(hit.text.trim(), SEARCH_SEMANTIC_MATCH_MAX_CHARS);
+fn search_fragment_match_for_lexical_hit(hit: &FragmentLexicalHit, search_text: &str) -> SearchSemanticMatch {
+  let (text, text_truncated) =
+    search_match_excerpt(&hit.source_kind, &hit.text, search_text, SEARCH_SEMANTIC_MATCH_MAX_CHARS);
   SearchSemanticMatch {
     fragment_ordinal: hit.ordinal,
     source_kind: hit.source_kind.clone(),
@@ -2093,8 +2101,12 @@ fn search_fragment_match_for_lexical_hit(hit: &FragmentLexicalHit) -> SearchSema
   }
 }
 
-fn search_semantic_match_for_hit(hit: &crate::ai::vector_db::FragmentVectorHit) -> SearchSemanticMatch {
-  let (text, text_truncated) = clamp_text_chars(hit.text.trim(), SEARCH_SEMANTIC_MATCH_MAX_CHARS);
+fn search_semantic_match_for_hit(
+  hit: &crate::ai::vector_db::FragmentVectorHit,
+  search_text: &str,
+) -> SearchSemanticMatch {
+  let (text, text_truncated) =
+    search_match_excerpt(&hit.source_kind, &hit.text, search_text, SEARCH_SEMANTIC_MATCH_MAX_CHARS);
   SearchSemanticMatch {
     fragment_ordinal: hit.ordinal,
     source_kind: hit.source_kind.clone(),
@@ -2104,6 +2116,178 @@ fn search_semantic_match_for_hit(hit: &crate::ai::vector_db::FragmentVectorHit) 
     page_start: hit.page_start,
     page_end: hit.page_end,
   }
+}
+
+fn search_match_excerpt(source_kind: &str, text: &str, search_text: &str, max_chars: usize) -> (String, bool) {
+  let display_text = fragment_display_text(source_kind, text);
+  if display_text.is_empty() {
+    return (String::new(), false);
+  }
+
+  let query_terms = normalized_search_terms(search_text);
+  let sentence_candidates = split_sentence_segments(&display_text);
+  let mut selected_sentences = sentence_candidates
+    .iter()
+    .filter(|sentence| sentence_matches_query_terms(sentence, &query_terms))
+    .take(SEARCH_MATCH_SNIPPET_MAX_SENTENCES)
+    .cloned()
+    .collect::<Vec<_>>();
+
+  if selected_sentences.is_empty() {
+    selected_sentences = sentence_candidates.into_iter().take(SEARCH_MATCH_SNIPPET_MAX_SENTENCES).collect();
+  }
+
+  let excerpt = ellipsis_sentence_excerpt(&selected_sentences);
+  clamp_text_chars(&excerpt, max_chars)
+}
+
+fn fragment_display_text(source_kind: &str, text: &str) -> String {
+  let lines = text.lines().map(str::trim).filter(|line| !line.is_empty());
+  let display_lines = if source_kind == PDF_MARKDOWN_SOURCE_KIND {
+    lines.filter(|line| !is_pdf_catalog_omitted_line(line)).collect::<Vec<_>>()
+  } else {
+    lines.collect::<Vec<_>>()
+  };
+  display_lines.join("\n")
+}
+
+fn is_pdf_catalog_omitted_line(line: &str) -> bool {
+  let Some((label, _)) = line.split_once(':') else {
+    return false;
+  };
+  PDF_CATALOG_OMITTED_LABELS.iter().any(|omitted| label.trim().eq_ignore_ascii_case(omitted))
+}
+
+fn split_sentence_segments(text: &str) -> Vec<String> {
+  let mut segments = Vec::new();
+  let mut start = 0;
+  let mut chars = text.char_indices().peekable();
+  while let Some((idx, ch)) = chars.next() {
+    if ch == '\n' {
+      push_sentence_segment(&mut segments, &text[start..idx]);
+      start = idx + ch.len_utf8();
+      continue;
+    }
+    let is_sentence_end = matches!(ch, '.' | '!' | '?')
+      && chars
+        .peek()
+        .map(|(_, next_ch)| next_ch.is_whitespace() || matches!(next_ch, '"' | '\'' | ')' | ']'))
+        .unwrap_or(true);
+    if is_sentence_end {
+      let end = idx + ch.len_utf8();
+      push_sentence_segment(&mut segments, &text[start..end]);
+      start = end;
+    }
+  }
+  if start < text.len() {
+    push_sentence_segment(&mut segments, &text[start..]);
+  }
+  if segments.is_empty() {
+    push_sentence_segment(&mut segments, text);
+  }
+  segments
+}
+
+fn push_sentence_segment(segments: &mut Vec<String>, segment: &str) {
+  let cleaned = collapse_whitespace(segment);
+  if !cleaned.is_empty() {
+    segments.push(cleaned);
+  }
+}
+
+fn ellipsis_sentence_excerpt(sentences: &[String]) -> String {
+  if sentences.is_empty() {
+    return String::new();
+  }
+  format!(
+    "{} {} {}",
+    SEARCH_SNIPPET_ELLIPSIS,
+    sentences.join(&format!(" {} ", SEARCH_SNIPPET_ELLIPSIS)),
+    SEARCH_SNIPPET_ELLIPSIS
+  )
+}
+
+fn normalized_search_terms(search_text: &str) -> Vec<String> {
+  let mut raw_terms = tokenize_search_text(search_text)
+    .into_iter()
+    .map(|term| light_stem_search_term(&term))
+    .filter(|term| !term.is_empty())
+    .collect::<Vec<_>>();
+  raw_terms.sort();
+  raw_terms.dedup();
+
+  let mut meaningful_terms = raw_terms
+    .iter()
+    .filter(|term| term.len() > 1 && !SEARCH_SNIPPET_STOP_WORDS.contains(&term.as_str()))
+    .cloned()
+    .collect::<Vec<_>>();
+  if meaningful_terms.is_empty() {
+    meaningful_terms = raw_terms;
+  }
+  meaningful_terms
+}
+
+fn sentence_matches_query_terms(sentence: &str, query_terms: &[String]) -> bool {
+  if query_terms.is_empty() {
+    return false;
+  }
+  let sentence_terms =
+    tokenize_search_text(sentence).into_iter().map(|term| light_stem_search_term(&term)).collect::<HashSet<_>>();
+  query_terms.iter().any(|term| sentence_terms.contains(term))
+}
+
+fn tokenize_search_text(text: &str) -> Vec<String> {
+  let mut terms = Vec::new();
+  let mut current = String::new();
+  for ch in text.chars() {
+    if ch.is_alphanumeric() {
+      current.extend(ch.to_lowercase());
+    } else if !current.is_empty() {
+      terms.push(std::mem::take(&mut current));
+    }
+  }
+  if !current.is_empty() {
+    terms.push(current);
+  }
+  terms
+}
+
+fn light_stem_search_term(term: &str) -> String {
+  let mut stem = term.to_owned();
+  if stem.len() > 5 && stem.ends_with("ies") {
+    stem.truncate(stem.len() - 3);
+    stem.push('y');
+  } else if stem.len() > 5 && stem.ends_with("ing") {
+    stem.truncate(stem.len() - 3);
+    remove_doubled_trailing_consonant(&mut stem);
+  } else if stem.len() > 4 && stem.ends_with("ed") {
+    stem.truncate(stem.len() - 2);
+    remove_doubled_trailing_consonant(&mut stem);
+  } else if stem.len() > 4
+    && (stem.ends_with("ches") || stem.ends_with("shes") || stem.ends_with("sses") || stem.ends_with("xes"))
+  {
+    stem.truncate(stem.len() - 2);
+  } else if stem.len() > 3 && stem.ends_with('s') {
+    stem.truncate(stem.len() - 1);
+  }
+  stem
+}
+
+fn remove_doubled_trailing_consonant(term: &mut String) {
+  let mut chars = term.chars().rev();
+  let Some(last) = chars.next() else {
+    return;
+  };
+  let Some(previous) = chars.next() else {
+    return;
+  };
+  if last == previous && !"aeiou".contains(last) {
+    term.truncate(term.len() - last.len_utf8());
+  }
+}
+
+fn collapse_whitespace(text: &str) -> String {
+  text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn clamp_text_chars(text: &str, max_chars: usize) -> (String, bool) {
@@ -2207,7 +2391,7 @@ fn search_recursive(
 mod tests {
   use super::{
     SearchPathElement, SearchResult, SearchSemanticMatch, clamp_text_chars, mix_search_results, paginate_mixed_results,
-    search_result_is_under_root_path, search_result_item_id, select_best_fragment_hit_per_item,
+    search_match_excerpt, search_result_is_under_root_path, search_result_item_id, select_best_fragment_hit_per_item,
     select_best_lexical_fragment_hit_per_item,
   };
   use crate::ai::lexical_index::FragmentLexicalHit;
@@ -2278,6 +2462,47 @@ mod tests {
 
     assert_eq!(text, "aéb");
     assert!(truncated);
+  }
+
+  #[test]
+  fn search_excerpt_uses_matching_sentences_with_ellipses() {
+    let (text, truncated) = search_match_excerpt(
+      "image_contents",
+      "A quiet street at night. A red bicycle is leaning by the cafe. The sky is cloudy.",
+      "bicycles",
+      1250,
+    );
+
+    assert_eq!(text, "... A red bicycle is leaning by the cafe. ...");
+    assert!(!truncated);
+  }
+
+  #[test]
+  fn search_excerpt_omits_pdf_metadata_lines_and_limits_sentences() {
+    let (text, truncated) = search_match_excerpt(
+      "pdf_markdown",
+      "Document: sample.pdf\nContext: Notes\nSection: Music\n\nWoodstock was a landmark festival. Other text.\nWoodstock changed music history. Woodstock appears again.",
+      "woodstock",
+      1250,
+    );
+
+    assert_eq!(
+      text,
+      "... Woodstock was a landmark festival. ... Woodstock changed music history. ... Woodstock appears again. ..."
+    );
+    assert!(!truncated);
+    assert!(!text.contains("Document:"));
+    assert!(!text.contains("Context:"));
+    assert!(!text.contains("Section:"));
+  }
+
+  #[test]
+  fn search_excerpt_collapses_newlines_without_pipes() {
+    let (text, truncated) = search_match_excerpt("image_contents", "A blue boat\nis near the dock.", "boat", 1250);
+
+    assert_eq!(text, "... A blue boat ...");
+    assert!(!truncated);
+    assert!(!text.contains('|'));
   }
 
   #[test]
