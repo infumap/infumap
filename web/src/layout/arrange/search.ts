@@ -42,10 +42,6 @@ import { ItemGeometry } from "../item-geometry";
 import { markChildrenLoadAsInitiatedOrComplete } from "../load";
 
 
-function fallbackPathTitle(itemType: string): string {
-  return `[${itemType}]`;
-}
-
 function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: SearchItem, results: Array<SearchResult>): PageItem {
   const pageId = tempSearchResultsPageUid(searchItem.id);
   const searchArrangeAlgorithm = (() => {
@@ -94,12 +90,6 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
     LinkFns.syncSizeFromLinkedItem(tempLink);
     tempLink.id = tempSearchResultLinkUid(searchItem.id, idx);
     tempLink.origin = TEMP_SEARCH_RESULTS_ORIGIN;
-    tempLink.catalogPathOverride = result.path.map(segment => ({
-      id: segment.id,
-      itemType: segment.itemType,
-      title: segment.title ?? fallbackPathTitle(segment.itemType),
-    }));
-    tempLink.catalogSemanticMatch = result.semanticMatch ?? null;
 
     const linkItem = asLinkItem(itemState.upsertItemFromServerObject(LinkFns.toObject(tempLink), TEMP_SEARCH_RESULTS_ORIGIN));
     linkItem.origin = TEMP_SEARCH_RESULTS_ORIGIN;
@@ -109,8 +99,6 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
     linkItem.spatialWidthGr = tempLink.spatialWidthGr;
     linkItem.spatialHeightGr = tempLink.spatialHeightGr;
     linkItem.linkToResolvedId = resultItemId;
-    linkItem.catalogPathOverride = tempLink.catalogPathOverride;
-    linkItem.catalogSemanticMatch = tempLink.catalogSemanticMatch;
     childIds.push(linkItem.id);
     childOrderings.push(linkItem.ordering);
   }
