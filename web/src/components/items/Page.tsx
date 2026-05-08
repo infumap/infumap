@@ -65,6 +65,7 @@ import {
   searchResultsFooterHostId,
 } from "../../items/search-item";
 import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
+import { EMPTY_UID } from "../../util/uid";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -114,7 +115,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return null;
     }
     const targetId = LinkFns.getLinkToId(linkItem);
-    if (targetId == "") {
+    if (targetId == "" || targetId == EMPTY_UID) {
       return null;
     }
     const flattened = match.text.replace(/\r\n|\r|\n/g, " | ");
