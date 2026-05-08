@@ -54,7 +54,9 @@ use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
-use crate::ai::vector_db::{FragmentVectorDbBackend, open_user_fragment_vector_db, user_fragment_vector_db_exists};
+use crate::ai::vector_db::{
+  FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,
+};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
 use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};
@@ -1786,17 +1788,13 @@ async fn semantic_search_results(
   }
 
   let fragment_limit = limit.saturating_mul(SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER).max(limit);
-  let fragment_hits = vector_db.search(&query_embedding, fragment_limit).await?;
+  let fragment_hits = select_best_fragment_hit_per_item(vector_db.search(&query_embedding, fragment_limit).await?);
 
   let mut results = Vec::new();
-  let mut seen_item_ids = HashSet::new();
   let db = db.lock().await;
   for hit in fragment_hits {
     if results.len() >= limit {
       break;
-    }
-    if !seen_item_ids.insert(hit.item_id.clone()) {
-      continue;
     }
     if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
       result.semantic_match = Some(search_semantic_match_for_hit(&hit));
@@ -1804,6 +1802,24 @@ async fn semantic_search_results(
     }
   }
   Ok(results)
+}
+
+fn select_best_fragment_hit_per_item(fragment_hits: Vec<FragmentVectorHit>) -> Vec<FragmentVectorHit> {
+  let mut best_by_item = HashMap::<String, FragmentVectorHit>::new();
+  for hit in fragment_hits {
+    match best_by_item.get(&hit.item_id) {
+      Some(best) if best.distance <= hit.distance => {}
+      _ => {
+        best_by_item.insert(hit.item_id.clone(), hit);
+      }
+    }
+  }
+
+  let mut hits = best_by_item.into_values().collect::<Vec<_>>();
+  hits.sort_by(|a, b| {
+    a.distance.total_cmp(&b.distance).then_with(|| a.item_id.cmp(&b.item_id)).then_with(|| a.ordinal.cmp(&b.ordinal))
+  });
+  hits
 }
 
 fn search_result_path_for_item(
@@ -2041,8 +2057,9 @@ fn search_recursive(
 mod tests {
   use super::{
     SearchPathElement, SearchResult, SearchSemanticMatch, clamp_text_chars, mix_search_results, paginate_mixed_results,
-    search_result_is_under_root_path, search_result_item_id,
+    search_result_is_under_root_path, search_result_item_id, select_best_fragment_hit_per_item,
   };
+  use crate::ai::vector_db::FragmentVectorHit;
 
   #[test]
   fn mixes_exact_and_semantic_results_with_rank_fusion() {
@@ -2069,6 +2086,22 @@ mod tests {
     assert_eq!(mixed[0].path[0].id, "exact-parent");
     assert_eq!(mixed[0].path[1].title.as_deref(), Some("Exact Shared"));
     assert_eq!(mixed[0].semantic_match.as_ref().map(|m| m.text.as_str()), Some("matched fragment"));
+  }
+
+  #[test]
+  fn selects_lowest_distance_fragment_hit_per_item() {
+    let selected = select_best_fragment_hit_per_item(vec![
+      fragment_hit("doc-a", 4, 0.30),
+      fragment_hit("doc-b", 1, 0.20),
+      fragment_hit("doc-a", 2, 0.10),
+      fragment_hit("doc-b", 3, 0.25),
+    ]);
+
+    assert_eq!(selected.len(), 2);
+    assert_eq!(selected[0].item_id, "doc-a");
+    assert_eq!(selected[0].ordinal, 2);
+    assert_eq!(selected[1].item_id, "doc-b");
+    assert_eq!(selected[1].ordinal, 1);
   }
 
   #[test]
@@ -2135,5 +2168,17 @@ mod tests {
       page_end: Some(2),
     });
     result
+  }
+
+  fn fragment_hit(item_id: &str, ordinal: usize, distance: f32) -> FragmentVectorHit {
+    FragmentVectorHit {
+      item_id: item_id.to_owned(),
+      ordinal,
+      source_kind: "pdf_markdown".to_owned(),
+      distance,
+      text: format!("fragment {ordinal}"),
+      page_start: None,
+      page_end: None,
+    }
   }
 }
