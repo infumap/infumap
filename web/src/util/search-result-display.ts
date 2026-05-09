@@ -31,6 +31,7 @@ export interface CatalogSearchResultDisplay {
   pathSegments: Array<ItemPathSegment>,
   scoreLabel: string | null,
   semanticMatch: CatalogSemanticMatchDisplay | null,
+  semanticMatches: Array<CatalogSemanticMatchDisplay>,
 }
 
 function fallbackPathTitle(itemType: string): string {
@@ -102,9 +103,18 @@ export function catalogSemanticMatchDisplayFromMatch(
 }
 
 export function catalogSearchResultDisplay(result: SearchResult): CatalogSearchResultDisplay {
+  const targetId = searchResultTargetId(result);
+  const semanticMatches = [
+    result.semanticMatch,
+    ...(result.additionalSemanticMatches ?? []),
+  ]
+    .map(match => catalogSemanticMatchDisplayFromMatch(targetId, match))
+    .filter((match): match is CatalogSemanticMatchDisplay => match != null);
+
   return {
     pathSegments: searchResultPathSegments(result),
     scoreLabel: formatSearchResultScore(result.score),
-    semanticMatch: catalogSemanticMatchDisplayFromMatch(searchResultTargetId(result), result.semanticMatch),
+    semanticMatch: semanticMatches[0] ?? null,
+    semanticMatches,
   };
 }

@@ -105,16 +105,17 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return [];
   };
 
-  const catalogSemanticMatch = (item: Item): CatalogSemanticMatchDisplay | null => {
+  const catalogSemanticMatches = (item: Item): Array<CatalogSemanticMatchDisplay> => {
     if (!isLink(item)) {
-      return null;
+      return [];
     }
     const linkItem = asLinkItem(item);
     const match = linkItem.catalogSemanticMatch;
     if (!match) {
-      return null;
+      return [];
     }
-    return catalogSemanticMatchDisplayFromMatch(LinkFns.getLinkToId(linkItem), match);
+    const display = catalogSemanticMatchDisplayFromMatch(LinkFns.getLinkToId(linkItem), match);
+    return display ? [display] : [];
   };
 
   const itemTypeIcon = (itemType: string) => {
@@ -543,7 +544,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             const score = scoreLabel();
             return score ? [...lines, score] : lines;
           };
-          const semanticMatch = () => searchResultDisplay()?.semanticMatch ?? catalogSemanticMatch(catalogItem());
+          const semanticMatches = () => searchResultDisplay()?.semanticMatches ?? catalogSemanticMatches(catalogItem());
           const rowIndex = () => childVe().row ??
             Math.max(0, Math.round((childVe().boundsPx.y - pageFns.catalogPageTopPaddingPx()) / pageFns.catalogRowHeightPx()));
           const topPx = () => pageFns.catalogPageTopPaddingPx() + rowIndex() * pageFns.catalogRowHeightPx();
@@ -578,20 +579,20 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       </Show>
                     }</For>
                   </div>
-                  <Show when={semanticMatch()}>
+                  <For each={semanticMatches()}>{match =>
                     <div class="min-w-0 w-full flex items-start text-slate-700"
                       style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25;`}>
                       <div class="min-w-0 grow"
                         style="overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;">
-                        <Show when={semanticMatch()!.pageLabel}>
-                          <span style="font-weight: 600; color: #475569;">{semanticMatch()!.pageLabel} | </span>
+                        <Show when={match.pageLabel}>
+                          <span style="font-weight: 600; color: #475569;">{match.pageLabel} | </span>
                         </Show>
-                        <span style="font-style: italic;">{semanticMatch()!.text}</span>
+                        <span style="font-style: italic;">{match.text}</span>
                       </div>
                       <a
                         class="pointer-events-auto"
                         style="align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; flex: 0 0 auto; font-style: normal; height: 18px; justify-content: center; line-height: 1; margin-left: 4px; text-decoration: none; width: 18px;"
-                        href={semanticMatch()!.href}
+                        href={match.href}
                         target="_blank"
                         rel="noopener"
                         title="Open full fragment"
@@ -601,7 +602,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         ↗
                       </a>
                     </div>
-                  </Show>
+                  }</For>
                   <For each={metadataLines()}>{line =>
                     <div class="min-w-0 truncate whitespace-nowrap text-slate-700"
                       style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px;`}>

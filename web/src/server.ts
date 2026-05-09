@@ -59,6 +59,7 @@ export interface SearchResult {
   path: Array<SearchPathElement>,
   score?: number,
   semanticMatch?: SearchSemanticMatch,
+  additionalSemanticMatches?: Array<SearchSemanticMatch>,
 }
 
 export interface SearchSemanticMatch {

@@ -83,6 +83,7 @@ const SEARCH_LEXICAL_WEIGHT: f64 = 1.15;
 const SEARCH_SEMANTIC_WEIGHT: f64 = 1.0;
 const SEARCH_CANDIDATE_OVERFETCH: i64 = 50;
 const SEARCH_LEXICAL_FRAGMENT_MULTIPLIER: usize = 4;
+const SEARCH_LEXICAL_MATCHES_PER_RESULT: usize = 2;
 const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
 const SEARCH_SEMANTIC_MATCH_MAX_CHARS: usize = 1250;
@@ -1626,6 +1627,8 @@ pub struct SearchResult {
   pub score: f32,
   #[serde(rename = "semanticMatch", skip_serializing_if = "Option::is_none")]
   pub semantic_match: Option<SearchSemanticMatch>,
+  #[serde(rename = "additionalSemanticMatches", skip_serializing_if = "Vec::is_empty")]
+  pub additional_semantic_matches: Vec<SearchSemanticMatch>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -1814,17 +1817,22 @@ async fn pdf_lexical_search_results(
         .join(", ")
     );
   }
-  let fragment_hits = select_best_lexical_fragment_hit_per_item(fragment_hits);
+  let fragment_hit_groups = select_top_lexical_fragment_hits_per_item(fragment_hits, SEARCH_LEXICAL_MATCHES_PER_RESULT);
 
   let mut results = Vec::new();
   let db = db.lock().await;
-  for hit in fragment_hits {
+  for hits in fragment_hit_groups {
     if results.len() >= limit {
       break;
     }
-    if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
-      result.score = bm25_score_to_search_score(hit.score);
-      result.semantic_match = Some(search_fragment_match_for_lexical_hit(&hit, search_text));
+    let Some(best_hit) = hits.first() else {
+      continue;
+    };
+    if let Some(mut result) = search_result_path_for_item(&db, &best_hit.item_id, user_id, search_root_id)? {
+      let matches = hits.iter().map(|hit| search_fragment_match_for_lexical_hit(hit, search_text)).collect::<Vec<_>>();
+      result.score = bm25_score_to_search_score(best_hit.score);
+      result.semantic_match = matches.first().cloned();
+      result.additional_semantic_matches = matches.into_iter().skip(1).collect();
       results.push(result);
     }
   }
@@ -1938,22 +1946,42 @@ fn select_best_fragment_hit_per_item(fragment_hits: Vec<FragmentVectorHit>) -> V
   hits
 }
 
-fn select_best_lexical_fragment_hit_per_item(fragment_hits: Vec<FragmentLexicalHit>) -> Vec<FragmentLexicalHit> {
-  let mut best_by_item = HashMap::<String, FragmentLexicalHit>::new();
-  for hit in fragment_hits {
-    match best_by_item.get(&hit.item_id) {
-      Some(best) if best.score >= hit.score => {}
-      _ => {
-        best_by_item.insert(hit.item_id.clone(), hit);
-      }
-    }
+fn select_top_lexical_fragment_hits_per_item(
+  fragment_hits: Vec<FragmentLexicalHit>,
+  max_hits_per_item: usize,
+) -> Vec<Vec<FragmentLexicalHit>> {
+  if max_hits_per_item == 0 {
+    return Vec::new();
   }
 
-  let mut hits = best_by_item.into_values().collect::<Vec<_>>();
-  hits.sort_by(|a, b| {
-    b.score.total_cmp(&a.score).then_with(|| a.item_id.cmp(&b.item_id)).then_with(|| a.ordinal.cmp(&b.ordinal))
+  let mut hits_by_item = HashMap::<String, Vec<FragmentLexicalHit>>::new();
+  for hit in fragment_hits {
+    hits_by_item.entry(hit.item_id.clone()).or_default().push(hit);
+  }
+
+  let mut hit_groups = hits_by_item
+    .into_values()
+    .map(|mut hits| {
+      hits.sort_by(|a, b| {
+        b.score.total_cmp(&a.score).then_with(|| a.item_id.cmp(&b.item_id)).then_with(|| a.ordinal.cmp(&b.ordinal))
+      });
+      hits.truncate(max_hits_per_item);
+      hits
+    })
+    .collect::<Vec<_>>();
+  hit_groups.sort_by(|a, b| {
+    let a = a.first();
+    let b = b.first();
+    match (a, b) {
+      (Some(a), Some(b)) => {
+        b.score.total_cmp(&a.score).then_with(|| a.item_id.cmp(&b.item_id)).then_with(|| a.ordinal.cmp(&b.ordinal))
+      }
+      (None, Some(_)) => std::cmp::Ordering::Greater,
+      (Some(_), None) => std::cmp::Ordering::Less,
+      (None, None) => std::cmp::Ordering::Equal,
+    }
   });
-  hits
+  hit_groups.into_iter().filter(|hits| !hits.is_empty()).collect()
 }
 
 fn search_result_path_for_item(
@@ -1993,7 +2021,7 @@ fn search_result_path_for_item(
   if !search_result_is_under_root_path(&path, search_root_id) {
     return Ok(None);
   }
-  Ok(Some(SearchResult { path, score: 0.0, semantic_match: None }))
+  Ok(Some(SearchResult { path, score: 0.0, semantic_match: None, additional_semantic_matches: Vec::new() }))
 }
 
 fn search_result_is_under_root_path(path: &[SearchPathElement], search_root_id: &Uid) -> bool {
@@ -2031,11 +2059,13 @@ fn mix_search_results(
     if entry.exact_rank.is_none_or(|existing_rank| rank < existing_rank) {
       entry.exact_rank = Some(rank);
       let semantic_match = entry.result.semantic_match.clone();
+      let additional_semantic_matches = entry.result.additional_semantic_matches.clone();
       let display_score = entry.result.score.max(result.score);
       entry.result = result;
       entry.result.score = display_score;
       if entry.result.semantic_match.is_none() {
         entry.result.semantic_match = semantic_match;
+        entry.result.additional_semantic_matches = additional_semantic_matches;
       }
     } else {
       entry.result.score = entry.result.score.max(result.score);
@@ -2068,6 +2098,7 @@ fn add_fragment_search_results(
     };
     let result_score = result.score;
     let fragment_match = result.semantic_match.clone();
+    let additional_fragment_matches = result.additional_semantic_matches.clone();
     let rank_score = weight / (SEARCH_RRF_K + rank as f64 + 1.0);
     let entry = candidates.entry(item_id).or_insert_with(|| SearchMergeCandidate {
       result: result.clone(),
@@ -2084,6 +2115,7 @@ fn add_fragment_search_results(
       entry.result.score = display_score;
     } else if entry.result.semantic_match.is_none() {
       entry.result.semantic_match = fragment_match;
+      entry.result.additional_semantic_matches = additional_fragment_matches;
     }
     entry.result.score = entry.result.score.max(result_score);
   }
@@ -2385,6 +2417,7 @@ fn search_recursive(
                 path,
                 score: exact_title_search_score(title, search_text),
                 semantic_match: None,
+                additional_semantic_matches: Vec::new(),
               });
             }
             *current_result += 1;
@@ -2450,7 +2483,7 @@ mod tests {
     SearchPathElement, SearchResult, SearchSemanticMatch, bm25_score_to_search_score, clamp_text_chars,
     exact_title_search_score, mix_search_results, paginate_mixed_results, search_match_excerpt,
     search_result_is_under_root_path, search_result_item_id, select_best_fragment_hit_per_item,
-    select_best_lexical_fragment_hit_per_item, semantic_distance_to_search_score,
+    select_top_lexical_fragment_hits_per_item, semantic_distance_to_search_score,
   };
   use crate::ai::lexical_index::FragmentLexicalHit;
   use crate::ai::vector_db::FragmentVectorHit;
@@ -2481,6 +2514,8 @@ mod tests {
     assert_eq!(mixed[0].path[1].title.as_deref(), Some("Exact Shared"));
     assert_eq!(mixed[0].score, 0.9);
     assert_eq!(mixed[0].semantic_match.as_ref().map(|m| m.text.as_str()), Some("matched fragment"));
+    assert_eq!(mixed[0].additional_semantic_matches.len(), 1);
+    assert_eq!(mixed[0].additional_semantic_matches[0].text, "second matched fragment");
   }
 
   #[test]
@@ -2511,19 +2546,50 @@ mod tests {
   }
 
   #[test]
-  fn selects_highest_score_lexical_fragment_hit_per_item() {
-    let selected = select_best_lexical_fragment_hit_per_item(vec![
-      lexical_fragment_hit("doc-a", 4, 3.0),
-      lexical_fragment_hit("doc-b", 1, 2.0),
-      lexical_fragment_hit("doc-a", 2, 10.0),
-      lexical_fragment_hit("doc-b", 3, 2.5),
-    ]);
+  fn selects_top_lexical_fragment_hits_per_item() {
+    let selected = select_top_lexical_fragment_hits_per_item(
+      vec![
+        lexical_fragment_hit("doc-a", 5, 1.0),
+        lexical_fragment_hit("doc-a", 4, 3.0),
+        lexical_fragment_hit("doc-b", 1, 2.0),
+        lexical_fragment_hit("doc-a", 2, 10.0),
+        lexical_fragment_hit("doc-b", 3, 2.5),
+      ],
+      2,
+    );
 
     assert_eq!(selected.len(), 2);
-    assert_eq!(selected[0].item_id, "doc-a");
-    assert_eq!(selected[0].ordinal, 2);
-    assert_eq!(selected[1].item_id, "doc-b");
-    assert_eq!(selected[1].ordinal, 3);
+    assert_eq!(selected[0].len(), 2);
+    assert_eq!(selected[0][0].item_id, "doc-a");
+    assert_eq!(selected[0][0].ordinal, 2);
+    assert_eq!(selected[0][1].item_id, "doc-a");
+    assert_eq!(selected[0][1].ordinal, 4);
+    assert_eq!(selected[1].len(), 2);
+    assert_eq!(selected[1][0].item_id, "doc-b");
+    assert_eq!(selected[1][0].ordinal, 3);
+    assert_eq!(selected[1][1].item_id, "doc-b");
+    assert_eq!(selected[1][1].ordinal, 1);
+  }
+
+  #[test]
+  fn lexical_fragment_hit_selection_respects_per_item_limit() {
+    let selected = select_top_lexical_fragment_hits_per_item(
+      vec![
+        lexical_fragment_hit("doc-a", 4, 3.0),
+        lexical_fragment_hit("doc-b", 1, 2.0),
+        lexical_fragment_hit("doc-a", 2, 10.0),
+        lexical_fragment_hit("doc-b", 3, 2.5),
+      ],
+      1,
+    );
+
+    assert_eq!(selected.len(), 2);
+    assert_eq!(selected[0].len(), 1);
+    assert_eq!(selected[0][0].item_id, "doc-a");
+    assert_eq!(selected[0][0].ordinal, 2);
+    assert_eq!(selected[1].len(), 1);
+    assert_eq!(selected[1][0].item_id, "doc-b");
+    assert_eq!(selected[1][0].ordinal, 3);
   }
 
   #[test]
@@ -2598,6 +2664,7 @@ mod tests {
       path: vec![SearchPathElement { item_type: "note".to_owned(), title: Some(id.to_owned()), id: id.to_owned() }],
       score: 0.7,
       semantic_match: None,
+      additional_semantic_matches: Vec::new(),
     }
   }
 
@@ -2613,6 +2680,7 @@ mod tests {
       ],
       score: 0.7,
       semantic_match: None,
+      additional_semantic_matches: Vec::new(),
     }
   }
 
@@ -2633,6 +2701,15 @@ mod tests {
       page_start: Some(1),
       page_end: Some(2),
     });
+    result.additional_semantic_matches = vec![SearchSemanticMatch {
+      fragment_ordinal: 8,
+      source_kind: "pdf_markdown".to_owned(),
+      distance: 0.3,
+      text: "second matched fragment".to_owned(),
+      text_truncated: false,
+      page_start: Some(3),
+      page_end: Some(3),
+    }];
     result
   }
 
