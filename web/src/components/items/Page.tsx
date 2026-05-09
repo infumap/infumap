@@ -603,12 +603,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       </a>
                     </div>
                   }</For>
-                  <For each={metadataLines()}>{line =>
-                    <div class="min-w-0 truncate whitespace-nowrap text-slate-700"
+                  <Show when={metadataLines().length > 0}>
+                    <div class="min-w-0 flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700"
                       style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px;`}>
-                      {line}
+                      <For each={metadataLines()}>{line =>
+                        <span class="shrink-0">{line}</span>
+                      }</For>
                     </div>
-                  }</For>
+                  </Show>
                 </div>
               </div>
             </>
