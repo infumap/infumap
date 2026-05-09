@@ -88,6 +88,9 @@ const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
 const SEARCH_SEMANTIC_MATCH_MAX_CHARS: usize = 1250;
 const SEARCH_MATCH_SNIPPET_MAX_SENTENCES: usize = 3;
+const SEARCH_MATCH_SNIPPET_MAX_SENTENCE_CHARS: usize = 220;
+const SEARCH_MATCH_SNIPPET_CONTEXT_BEFORE_CHARS: usize = 70;
+const SEARCH_MATCH_SNIPPET_BOUNDARY_SLOP_CHARS: usize = 20;
 const SEARCH_BM25_SCORE_SATURATION: f32 = 4.0;
 const SEARCH_SNIPPET_ELLIPSIS: &str = "...";
 const PDF_CATALOG_OMITTED_LABELS: [&str; 3] = ["document", "context", "section"];
@@ -2218,7 +2221,13 @@ fn search_match_excerpt(source_kind: &str, text: &str, search_text: &str, max_ch
     selected_sentences = sentence_candidates.into_iter().take(SEARCH_MATCH_SNIPPET_MAX_SENTENCES).collect();
   }
 
-  let excerpt = ellipsis_sentence_excerpt(&selected_sentences);
+  let selected_windows = selected_sentences
+    .iter()
+    .map(|sentence| search_snippet_sentence_window(sentence, &query_terms))
+    .filter(|sentence| !sentence.is_empty())
+    .collect::<Vec<_>>();
+
+  let excerpt = ellipsis_sentence_excerpt(&selected_windows);
   clamp_text_chars(&excerpt, max_chars)
 }
 
@@ -2290,6 +2299,109 @@ fn ellipsis_sentence_excerpt(sentences: &[String]) -> String {
     sentences.join(&format!(" {} ", SEARCH_SNIPPET_ELLIPSIS)),
     SEARCH_SNIPPET_ELLIPSIS
   )
+}
+
+fn search_snippet_sentence_window(sentence: &str, query_terms: &[String]) -> String {
+  let sentence = sentence.trim();
+  let total_chars = sentence.chars().count();
+  if total_chars <= SEARCH_MATCH_SNIPPET_MAX_SENTENCE_CHARS {
+    return sentence.to_owned();
+  }
+
+  let match_range = first_query_term_match_char_range(sentence, query_terms);
+  let match_start = match_range.map(|(start, _)| start).unwrap_or(0);
+  let match_end = match_range.map(|(_, end)| end).unwrap_or(match_start);
+  let mut start = match_start.saturating_sub(SEARCH_MATCH_SNIPPET_CONTEXT_BEFORE_CHARS);
+  let mut end = (start + SEARCH_MATCH_SNIPPET_MAX_SENTENCE_CHARS).min(total_chars);
+  if end == total_chars {
+    start = end.saturating_sub(SEARCH_MATCH_SNIPPET_MAX_SENTENCE_CHARS);
+  }
+  start = adjust_window_start_to_word_boundary(sentence, start, match_start);
+  end = adjust_window_end_to_word_boundary(sentence, end, match_end, total_chars);
+
+  let start_byte = byte_index_at_char(sentence, start);
+  let end_byte = byte_index_at_char(sentence, end);
+  trim_snippet_sentence_punctuation(&collapse_whitespace(&sentence[start_byte..end_byte]))
+}
+
+fn first_query_term_match_char_range(text: &str, query_terms: &[String]) -> Option<(usize, usize)> {
+  if query_terms.is_empty() {
+    return None;
+  }
+
+  let mut current = String::new();
+  let mut current_start_char = 0;
+  for (char_idx, ch) in text.chars().enumerate() {
+    if ch.is_alphanumeric() {
+      if current.is_empty() {
+        current_start_char = char_idx;
+      }
+      current.extend(ch.to_lowercase());
+    } else if !current.is_empty() {
+      let stem = light_stem_search_term(&current);
+      if query_terms.iter().any(|term| term == &stem) {
+        return Some((current_start_char, char_idx));
+      }
+      current.clear();
+    }
+  }
+
+  if !current.is_empty() {
+    let total_chars = text.chars().count();
+    let stem = light_stem_search_term(&current);
+    if query_terms.iter().any(|term| term == &stem) {
+      return Some((current_start_char, total_chars));
+    }
+  }
+  None
+}
+
+fn adjust_window_start_to_word_boundary(text: &str, start_char: usize, match_start_char: usize) -> usize {
+  if start_char == 0 {
+    return start_char;
+  }
+
+  text
+    .chars()
+    .enumerate()
+    .skip(start_char)
+    .take(match_start_char.saturating_sub(start_char))
+    .find_map(|(idx, ch)| {
+      if idx.saturating_sub(start_char) <= SEARCH_MATCH_SNIPPET_BOUNDARY_SLOP_CHARS && ch.is_whitespace() {
+        Some(idx + 1)
+      } else {
+        None
+      }
+    })
+    .unwrap_or(start_char)
+}
+
+fn adjust_window_end_to_word_boundary(text: &str, end_char: usize, match_end_char: usize, total_chars: usize) -> usize {
+  if end_char >= total_chars {
+    return end_char;
+  }
+
+  text
+    .chars()
+    .enumerate()
+    .skip(match_end_char)
+    .take(end_char.saturating_sub(match_end_char))
+    .filter_map(|(idx, ch)| {
+      if end_char.saturating_sub(idx) <= SEARCH_MATCH_SNIPPET_BOUNDARY_SLOP_CHARS && ch.is_whitespace() {
+        Some(idx)
+      } else {
+        None
+      }
+    })
+    .last()
+    .unwrap_or(end_char)
+}
+
+fn byte_index_at_char(text: &str, char_idx: usize) -> usize {
+  if char_idx == 0 {
+    return 0;
+  }
+  text.char_indices().nth(char_idx).map(|(idx, _)| idx).unwrap_or(text.len())
 }
 
 fn normalized_search_terms(search_text: &str) -> Vec<String> {
@@ -2630,6 +2742,18 @@ mod tests {
     assert!(!text.contains("Document:"));
     assert!(!text.contains("Context:"));
     assert!(!text.contains("Section:"));
+  }
+
+  #[test]
+  fn search_excerpt_windows_long_matching_sentences() {
+    let text = format!("{} earnings accelerated quarterly increases {}", "before ".repeat(50), "after ".repeat(50));
+    let (excerpt, truncated) = search_match_excerpt("pdf_markdown", &text, "earnings", 1250);
+
+    assert!(excerpt.contains("earnings accelerated quarterly increases"));
+    assert!(excerpt.chars().count() < 280);
+    assert!(!excerpt.contains(&"before ".repeat(25)));
+    assert!(!excerpt.contains(&"after ".repeat(25)));
+    assert!(!truncated);
   }
 
   #[test]

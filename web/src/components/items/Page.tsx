@@ -583,7 +583,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     <div class="min-w-0 w-full flex items-start text-slate-700"
                       style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25;`}>
                       <div class="min-w-0 grow"
-                        style="overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;">
+                        style="overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
                         <Show when={match.pageLabel}>
                           <span style="font-weight: 600; color: #475569;">{match.pageLabel} | </span>
                         </Show>
