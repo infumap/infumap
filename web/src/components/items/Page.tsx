@@ -617,7 +617,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       <div class="min-w-0 grow"
                         style={`overflow: hidden; display: -webkit-box; -webkit-line-clamp: ${CATALOG_SEARCH_SNIPPET_LINE_CLAMP}; -webkit-box-orient: vertical;`}>
                         <Show when={match.pageLabel}>
-                          <span style="font-weight: 600; color: #475569;">{match.pageLabel} | </span>
+                          <span style="font-weight: 600; color: #475569; margin-right: 12px;">{match.pageLabel}</span>
                         </Show>
                         <span style="font-style: italic;">{match.text}</span>
                       </div>
