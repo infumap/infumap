@@ -62,7 +62,8 @@ fn flush_pdf_paragraph_block(
 
 fn sanitize_markdown_inline(text: &str) -> String {
   let without_span_tags = strip_span_tags(text);
-  let with_links = replace_markdown_links(&without_span_tags);
+  let without_hyphenation = join_line_break_hyphenated_words(&without_span_tags);
+  let with_links = replace_markdown_links(&without_hyphenation);
   let mut out = Vec::new();
   let mut previous_domain = None::<String>;
 
@@ -83,6 +84,54 @@ fn sanitize_markdown_inline(text: &str) -> String {
   }
 
   cleanup_spacing(&out.join(" "))
+}
+
+fn join_line_break_hyphenated_words(text: &str) -> String {
+  let chars = text.chars().collect::<Vec<_>>();
+  let mut out = String::with_capacity(text.len());
+  let mut i = 0;
+
+  while i < chars.len() {
+    let ch = chars[i];
+    if is_line_break_hyphen(ch) {
+      let mut j = i + 1;
+      if j < chars.len() && chars[j].is_whitespace() {
+        j += 1;
+      }
+      if j >= chars.len() || !chars[j].is_whitespace() {
+        if let Some(left_boundary) = line_break_hyphen_left_boundary(&out) {
+          if j < chars.len() && chars[j].is_alphabetic() {
+            out.truncate(left_boundary);
+            i = j;
+            continue;
+          }
+        }
+      }
+    }
+
+    out.push(ch);
+    i += 1;
+  }
+
+  out
+}
+
+fn line_break_hyphen_left_boundary(text: &str) -> Option<usize> {
+  let mut chars = text.char_indices().rev();
+  let (last_index, last) = chars.next()?;
+  if last.is_alphabetic() {
+    return Some(text.len());
+  }
+  if !last.is_whitespace() {
+    return None;
+  }
+
+  let (_, previous) = chars.next()?;
+  if previous.is_alphabetic() { Some(last_index) } else { None }
+}
+
+fn is_line_break_hyphen(ch: char) -> bool {
+  ch == '\u{2010}'
 }
 
 fn strip_span_tags(text: &str) -> String {
@@ -291,6 +340,7 @@ fn is_markdown_rule_line(line: &str) -> bool {
 
 fn normalized_multiline_text(text: &str) -> Option<String> {
   let normalized = text.replace("\r\n", "\n").replace('\r', "\n").split_whitespace().collect::<Vec<_>>().join(" ");
+  let normalized = join_line_break_hyphenated_words(&normalized);
   if normalized.is_empty() { None } else { Some(normalized) }
 }
 
@@ -298,6 +348,36 @@ fn normalized_multiline_text(text: &str) -> Option<String> {
 mod tests {
   use super::super::types::ResolvedPdfPage;
   use super::{build_pdf_text_blocks, sanitize_markdown_inline};
+
+  #[test]
+  fn joins_line_break_hyphenated_words_in_pdf_inline_text() {
+    let text =
+      sanitize_markdown_inline("pro‐ cessing interac‐ tive Pro‐ fessional sys‐ tems Maintainabil ‐ ity reliabil‐ity");
+
+    assert_eq!(text, "processing interactive Professional systems Maintainability reliability");
+  }
+
+  #[test]
+  fn joins_line_break_hyphenated_words_across_pdf_lines() {
+    let blocks = build_pdf_text_blocks(&[ResolvedPdfPage {
+      page_number: 1,
+      text: "The data ‐\nbase pro‐\ncessing system remains client-server.".to_owned(),
+    }]);
+
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(blocks[0].text, "The database processing system remains client-server.");
+  }
+
+  #[test]
+  fn leaves_other_hyphen_characters_in_pdf_text() {
+    let blocks = build_pdf_text_blocks(&[ResolvedPdfPage {
+      page_number: 1,
+      text: "The data-\nbase soft\u{00ad}\nhyphen and nonbreaking‑\nhyphen remain.".to_owned(),
+    }]);
+
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(blocks[0].text, "The data- base soft\u{00ad} hyphen and nonbreaking‑ hyphen remain.");
+  }
 
   #[test]
   fn strips_span_tags_from_pdf_headings_and_body_text() {
