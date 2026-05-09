@@ -61,7 +61,8 @@ fn flush_pdf_paragraph_block(
 }
 
 fn sanitize_markdown_inline(text: &str) -> String {
-  let with_links = replace_markdown_links(text);
+  let without_span_tags = strip_span_tags(text);
+  let with_links = replace_markdown_links(&without_span_tags);
   let mut out = Vec::new();
   let mut previous_domain = None::<String>;
 
@@ -82,6 +83,66 @@ fn sanitize_markdown_inline(text: &str) -> String {
   }
 
   cleanup_spacing(&out.join(" "))
+}
+
+fn strip_span_tags(text: &str) -> String {
+  let mut out = String::with_capacity(text.len());
+  let mut cursor = 0;
+
+  while let Some(open_offset) = text[cursor..].find('<') {
+    let open = cursor + open_offset;
+    out.push_str(&text[cursor..open]);
+
+    if let Some(tag_end) = html_tag_end(text, open) {
+      if is_span_tag(&text[open + 1..tag_end - 1]) {
+        cursor = tag_end;
+        continue;
+      }
+    }
+
+    out.push('<');
+    cursor = open + 1;
+  }
+
+  out.push_str(&text[cursor..]);
+  out
+}
+
+fn html_tag_end(text: &str, open: usize) -> Option<usize> {
+  let mut quote = None::<char>;
+  for (offset, ch) in text[open + 1..].char_indices() {
+    if quote.is_some_and(|quoted| quoted == ch) {
+      quote = None;
+      continue;
+    }
+    if quote.is_none() && matches!(ch, '"' | '\'') {
+      quote = Some(ch);
+      continue;
+    }
+    if quote.is_none() && ch == '>' {
+      return Some(open + 1 + offset + ch.len_utf8());
+    }
+  }
+  None
+}
+
+fn is_span_tag(tag_inner: &str) -> bool {
+  const SPAN_TAG: &str = "span";
+
+  let tag_inner = tag_inner.trim_start();
+  let tag_inner = tag_inner.strip_prefix('/').unwrap_or(tag_inner).trim_start();
+  let Some(prefix) = tag_inner.get(..SPAN_TAG.len()) else {
+    return false;
+  };
+  if !prefix.eq_ignore_ascii_case(SPAN_TAG) {
+    return false;
+  }
+
+  tag_inner
+    .get(SPAN_TAG.len()..)
+    .and_then(|remainder| remainder.chars().next())
+    .map(|ch| ch.is_whitespace() || ch == '/')
+    .unwrap_or(true)
 }
 
 fn replace_markdown_links(text: &str) -> String {
@@ -231,4 +292,37 @@ fn is_markdown_rule_line(line: &str) -> bool {
 fn normalized_multiline_text(text: &str) -> Option<String> {
   let normalized = text.replace("\r\n", "\n").replace('\r', "\n").split_whitespace().collect::<Vec<_>>().join(" ");
   if normalized.is_empty() { None } else { Some(normalized) }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::super::types::ResolvedPdfPage;
+  use super::{build_pdf_text_blocks, sanitize_markdown_inline};
+
+  #[test]
+  fn strips_span_tags_from_pdf_headings_and_body_text() {
+    let blocks = build_pdf_text_blocks(&[ResolvedPdfPage {
+      page_number: 27,
+      text: "# Intro <span id=\"page-27-0\"></span>\n\nThis keeps <span class=\"note\">inside text</span> after spans."
+        .to_owned(),
+    }]);
+
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(blocks[0].headings, vec!["Intro"]);
+    assert_eq!(blocks[0].text, "This keeps inside text after spans.");
+  }
+
+  #[test]
+  fn strips_span_tags_with_quoted_attribute_gt_chars() {
+    let text = sanitize_markdown_inline("Before <span data-value=\">\">middle</span> after.");
+
+    assert_eq!(text, "Before middle after.");
+  }
+
+  #[test]
+  fn leaves_non_span_html_tags_unchanged() {
+    let text = sanitize_markdown_inline("Before <em>middle</em> after.");
+
+    assert_eq!(text, "Before <em>middle</em> after.");
+  }
 }
