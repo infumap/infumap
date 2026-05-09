@@ -667,7 +667,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   </div>
                   <For each={visibleSemanticMatches()}>{match =>
                     <div class="min-w-0 w-full pointer-events-auto select-text text-slate-700"
-                      style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; max-height: ${catalogDetailLineHeightPx(CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX) * CATALOG_SEARCH_SNIPPET_LINE_CLAMP}px; overflow: hidden; user-select: text;`}
+                      style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; user-select: text;`}
                       onMouseDown={stopTextSelectionMouseEvent}
                       onMouseMove={stopTextSelectionMouseEvent}
                       onMouseUp={stopTextSelectionMouseEvent}
@@ -682,7 +682,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         </Show>
                         <a
                           class="pointer-events-auto"
-                          style={`align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; font-size: 12px; font-style: normal; height: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px; justify-content: center; line-height: 1; margin-left: ${CATALOG_SEARCH_SNIPPET_LINK_GAP_PX}px; text-decoration: none; vertical-align: -2px; width: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px;`}
+                          style={`align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; font-size: 12px; font-style: normal; height: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px; justify-content: center; line-height: 1; margin-left: ${CATALOG_SEARCH_SNIPPET_LINK_GAP_PX}px; text-decoration: none; vertical-align: -1px; width: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px;`}
                           href={match.href}
                           target="_blank"
                           rel="noopener"
