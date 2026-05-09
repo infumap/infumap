@@ -537,6 +537,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             return result ? catalogSearchResultDisplay(result) : null;
           };
           const pathSegments = () => searchResultDisplay()?.pathSegments ?? itemPathSegmentsFromItem(catalogItem());
+          const scoreLabel = () => searchResultDisplay()?.scoreLabel ?? null;
           const metadataLines = () => catalogMetadataLines(catalogItem());
           const semanticMatch = () => searchResultDisplay()?.semanticMatch ?? catalogSemanticMatch(catalogItem());
           const rowIndex = () => childVe().row ??
@@ -560,18 +561,26 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                 style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                   `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: 8px;`}>
                 <div class="min-w-0 w-full flex flex-col gap-[2px]">
-                  <div class="min-w-0 truncate whitespace-nowrap">
-                    <For each={pathSegments()}>{(segment, idx) =>
-                      <Show when={segment.itemType != ItemType.Composite}>
-                        <span class="inline-flex items-center">
-                          <Show when={idx() != 0}>
-                            <span class="mx-2">/</span>
-                          </Show>
-                          <span>{itemTypeIcon(segment.itemType)}</span>
-                          <span class="ml-1">{segment.title}</span>
-                        </span>
-                      </Show>
-                    }</For>
+                  <div class="min-w-0 flex items-center whitespace-nowrap">
+                    <div class="min-w-0 truncate">
+                      <For each={pathSegments()}>{(segment, idx) =>
+                        <Show when={segment.itemType != ItemType.Composite}>
+                          <span class="inline-flex items-center">
+                            <Show when={idx() != 0}>
+                              <span class="mx-2">/</span>
+                            </Show>
+                            <span>{itemTypeIcon(segment.itemType)}</span>
+                            <span class="ml-1">{segment.title}</span>
+                          </span>
+                        </Show>
+                      }</For>
+                    </div>
+                    <Show when={scoreLabel()}>
+                      <span class="ml-2 shrink-0 text-slate-500"
+                        style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px;`}>
+                        {scoreLabel()}
+                      </span>
+                    </Show>
                   </div>
                   <Show when={semanticMatch()}>
                     <div class="min-w-0 w-full flex items-start text-slate-700"

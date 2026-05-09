@@ -2381,7 +2381,11 @@ fn search_recursive(
                 title: item.title.to_owned(),
                 id: item.id.to_owned(),
               });
-              results.push(SearchResult { path, score: exact_title_search_score(title, search_text), semantic_match: None });
+              results.push(SearchResult {
+                path,
+                score: exact_title_search_score(title, search_text),
+                semantic_match: None,
+              });
             }
             *current_result += 1;
             if results.len() >= (end_result - start_result) as usize {
@@ -2443,9 +2447,10 @@ fn search_recursive(
 #[cfg(test)]
 mod tests {
   use super::{
-    SearchPathElement, SearchResult, SearchSemanticMatch, clamp_text_chars, mix_search_results, paginate_mixed_results,
-    search_match_excerpt, search_result_is_under_root_path, search_result_item_id, select_best_fragment_hit_per_item,
-    select_best_lexical_fragment_hit_per_item,
+    SearchPathElement, SearchResult, SearchSemanticMatch, bm25_score_to_search_score, clamp_text_chars,
+    exact_title_search_score, mix_search_results, paginate_mixed_results, search_match_excerpt,
+    search_result_is_under_root_path, search_result_item_id, select_best_fragment_hit_per_item,
+    select_best_lexical_fragment_hit_per_item, semantic_distance_to_search_score,
   };
   use crate::ai::lexical_index::FragmentLexicalHit;
   use crate::ai::vector_db::FragmentVectorHit;
@@ -2474,7 +2479,19 @@ mod tests {
     assert_eq!(mixed.len(), 1);
     assert_eq!(mixed[0].path[0].id, "exact-parent");
     assert_eq!(mixed[0].path[1].title.as_deref(), Some("Exact Shared"));
+    assert_eq!(mixed[0].score, 0.9);
     assert_eq!(mixed[0].semantic_match.as_ref().map(|m| m.text.as_str()), Some("matched fragment"));
+  }
+
+  #[test]
+  fn normalizes_search_scores_for_display() {
+    assert_eq!(semantic_distance_to_search_score(0.25), 0.75);
+    assert_eq!(semantic_distance_to_search_score(1.25), 0.0);
+    assert_eq!(bm25_score_to_search_score(4.0), 0.5);
+    assert_eq!(bm25_score_to_search_score(-1.0), 0.0);
+    assert_eq!(exact_title_search_score("Woodstock", "woodstock"), 1.0);
+    assert_eq!(exact_title_search_score("Woodstock Festival", "woodstock"), 0.95);
+    assert!(exact_title_search_score("The WoodstockFestival", "woodstock") < 0.9);
   }
 
   #[test]
@@ -2579,6 +2596,7 @@ mod tests {
   fn search_result(id: &str) -> SearchResult {
     SearchResult {
       path: vec![SearchPathElement { item_type: "note".to_owned(), title: Some(id.to_owned()), id: id.to_owned() }],
+      score: 0.7,
       semantic_match: None,
     }
   }
@@ -2593,6 +2611,7 @@ mod tests {
         },
         SearchPathElement { item_type: "note".to_owned(), title: Some(item_title.to_owned()), id: item_id.to_owned() },
       ],
+      score: 0.7,
       semantic_match: None,
     }
   }
@@ -2604,6 +2623,7 @@ mod tests {
     item_title: &str,
   ) -> SearchResult {
     let mut result = search_result_with_path(parent_id, parent_title, item_id, item_title);
+    result.score = 0.9;
     result.semantic_match = Some(SearchSemanticMatch {
       fragment_ordinal: 7,
       source_kind: "pdf_markdown".to_owned(),

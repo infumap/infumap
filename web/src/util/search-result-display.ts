@@ -29,6 +29,7 @@ export interface CatalogSemanticMatchDisplay {
 
 export interface CatalogSearchResultDisplay {
   pathSegments: Array<ItemPathSegment>,
+  scoreLabel: string | null,
   semanticMatch: CatalogSemanticMatchDisplay | null,
 }
 
@@ -67,6 +68,15 @@ export function formatCatalogSemanticMatchText(_sourceKind: string, text: string
   return text.replace(/\s+/g, " ").trim();
 }
 
+export function formatSearchResultScore(score?: number): string | null {
+  if (typeof score != "number" || !Number.isFinite(score)) {
+    return null;
+  }
+
+  const clamped = Math.max(0, Math.min(1, score));
+  return `score: ${clamped.toFixed(2)}`;
+}
+
 function appendTruncationEllipsis(text: string): string {
   return `${text.replace(/(?:\s*\.)+$/, "")}...`;
 }
@@ -94,6 +104,7 @@ export function catalogSemanticMatchDisplayFromMatch(
 export function catalogSearchResultDisplay(result: SearchResult): CatalogSearchResultDisplay {
   return {
     pathSegments: searchResultPathSegments(result),
+    scoreLabel: formatSearchResultScore(result.score),
     semanticMatch: catalogSemanticMatchDisplayFromMatch(searchResultTargetId(result), result.semanticMatch),
   };
 }
