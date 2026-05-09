@@ -61,7 +61,8 @@ fn flush_pdf_paragraph_block(
 }
 
 fn sanitize_markdown_inline(text: &str) -> String {
-  let without_span_tags = strip_span_tags(text);
+  let without_breaks = text.replace("<br>", " ");
+  let without_span_tags = strip_span_tags(&without_breaks);
   let without_hyphenation = join_line_break_hyphenated_words(&without_span_tags);
   let with_links = replace_markdown_links(&without_hyphenation);
   let mut out = Vec::new();
@@ -348,6 +349,18 @@ fn normalized_multiline_text(text: &str) -> Option<String> {
 mod tests {
   use super::super::types::ResolvedPdfPage;
   use super::{build_pdf_text_blocks, sanitize_markdown_inline};
+
+  #[test]
+  fn replaces_pdf_break_tags_with_spaces() {
+    let blocks = build_pdf_text_blocks(&[ResolvedPdfPage {
+      page_number: 1,
+      text: "# First<br>Section\n\nA paragraph<br>with a break.".to_owned(),
+    }]);
+
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(blocks[0].headings, vec!["First Section"]);
+    assert_eq!(blocks[0].text, "A paragraph with a break.");
+  }
 
   #[test]
   fn joins_line_break_hyphenated_words_in_pdf_inline_text() {
