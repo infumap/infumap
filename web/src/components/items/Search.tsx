@@ -300,6 +300,23 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     return true;
   };
 
+  const selectQueryText = () => {
+    const el = document.getElementById(editingDomId());
+    if (!(el instanceof HTMLElement)) {
+      return false;
+    }
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const selection = window.getSelection();
+    if (selection == null) {
+      return false;
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  };
+
   const queryInputMouseDown = (ev: MouseEvent) => {
     if (!canEdit()) {
       ev.preventDefault();
@@ -309,6 +326,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       return;
     }
     if (isEditing()) {
+      if (ev.detail >= 3) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        selectQueryText();
+        return;
+      }
       const editingEl = document.getElementById(editingDomId());
       const target = ev.target;
       if (editingEl instanceof HTMLElement && target instanceof Node && editingEl.contains(target)) {
