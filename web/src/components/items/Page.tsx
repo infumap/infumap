@@ -581,7 +581,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   </div>
                   <For each={semanticMatches()}>{match =>
                     <div class="min-w-0 w-full flex items-start text-slate-700"
-                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25;`}>
+                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25; margin-top: 3px;`}>
                       <div class="min-w-0 grow"
                         style="overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
                         <Show when={match.pageLabel}>
@@ -605,7 +605,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   }</For>
                   <Show when={metadataLines().length > 0}>
                     <div class="min-w-0 flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700"
-                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px;`}>
+                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; margin-top: 3px;`}>
                       <For each={metadataLines()}>{line =>
                         <span class="shrink-0">{line}</span>
                       }</For>
