@@ -87,6 +87,10 @@ export interface PageVisualElementProps {
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
+  const stopTextSelectionMouseEvent = (ev: MouseEvent) => {
+    ev.stopPropagation();
+  };
+
   const catalogSourceItem = (item: Item): Item =>
     resolvedPathTargetItemForItem(item) ?? item;
 
@@ -594,8 +598,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                 style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                   `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: ${CATALOG_DETAIL_TOP_PADDING_PX}px;`}>
                 <div class="min-w-0 w-full flex flex-col gap-[2px]">
-                  <div class="min-w-0 truncate whitespace-nowrap"
-                    style={`font-size: ${CATALOG_DETAIL_PATH_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER};`}>
+                  <div class="min-w-0 pointer-events-auto select-text truncate whitespace-nowrap"
+                    style={`cursor: text; font-size: ${CATALOG_DETAIL_PATH_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; user-select: text;`}
+                    onMouseDown={stopTextSelectionMouseEvent}
+                    onMouseMove={stopTextSelectionMouseEvent}
+                    onMouseUp={stopTextSelectionMouseEvent}
+                    onClick={stopTextSelectionMouseEvent}>
                     <For each={pathSegments()}>{(segment, idx) =>
                       <Show when={segment.itemType != ItemType.Composite}>
                         <span class="inline-flex items-center">
@@ -609,8 +617,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     }</For>
                   </div>
                   <For each={visibleSemanticMatches()}>{match =>
-                    <div class="min-w-0 w-full flex items-start text-slate-700"
-                      style={`font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}>
+                    <div class="min-w-0 w-full pointer-events-auto select-text flex items-start text-slate-700"
+                      style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; user-select: text;`}
+                      onMouseDown={stopTextSelectionMouseEvent}
+                      onMouseMove={stopTextSelectionMouseEvent}
+                      onMouseUp={stopTextSelectionMouseEvent}
+                      onClick={stopTextSelectionMouseEvent}>
                       <div class="min-w-0 grow"
                         style={`overflow: hidden; display: -webkit-box; -webkit-line-clamp: ${CATALOG_SEARCH_SNIPPET_LINE_CLAMP}; -webkit-box-orient: vertical;`}>
                         <Show when={match.pageLabel}>
@@ -636,8 +648,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     </div>
                   }</For>
                   <Show when={metadataLines().length > 0}>
-                    <div class="min-w-0 flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700"
-                      style={`font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}>
+                    <div class="min-w-0 pointer-events-auto select-text flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700"
+                      style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; user-select: text;`}
+                      onMouseDown={stopTextSelectionMouseEvent}
+                      onMouseMove={stopTextSelectionMouseEvent}
+                      onMouseUp={stopTextSelectionMouseEvent}
+                      onClick={stopTextSelectionMouseEvent}>
                       <For each={metadataLines()}>{line =>
                         <span class="shrink-0">{line}</span>
                       }</For>
