@@ -80,7 +80,7 @@ const CATALOG_SEARCH_SNIPPET_LINE_CLAMP = 2;
 const CATALOG_SEARCH_SNIPPET_AVERAGE_CHAR_WIDTH_EM = 0.58;
 const CATALOG_SEARCH_SNIPPET_CONTROL_GAP_PX = 18;
 const CATALOG_SEARCH_SNIPPET_LINK_GAP_PX = 8;
-const CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX = 18;
+const CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX = 15;
 const catalogDetailLineHeightPx = (fontSizePx: number): number =>
   fontSizePx * CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER;
 
@@ -682,7 +682,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         </Show>
                         <a
                           class="pointer-events-auto"
-                          style={`align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; font-style: normal; height: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px; justify-content: center; line-height: 1; margin-left: ${CATALOG_SEARCH_SNIPPET_LINK_GAP_PX}px; text-decoration: none; vertical-align: -3px; width: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px;`}
+                          style={`align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; font-size: 12px; font-style: normal; height: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px; justify-content: center; line-height: 1; margin-left: ${CATALOG_SEARCH_SNIPPET_LINK_GAP_PX}px; text-decoration: none; vertical-align: -2px; width: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px;`}
                           href={match.href}
                           target="_blank"
                           rel="noopener"
