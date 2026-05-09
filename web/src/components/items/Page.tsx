@@ -26,6 +26,7 @@ import { VisualElementProps } from "../VisualElement";
 import { HitboxFlags } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
+import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { VisualElementFlags, VeFns, VisualElement } from "../../layout/visual-element";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
@@ -88,6 +89,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const store = useStore();
 
   const stopTextSelectionMouseEvent = (ev: MouseEvent) => {
+    if (ev.button == MOUSE_RIGHT) {
+      const selection = window.getSelection();
+      if (selection != null && !selection.isCollapsed) {
+        selection.removeAllRanges();
+      }
+    }
     ev.stopPropagation();
   };
 
@@ -617,25 +624,25 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     }</For>
                   </div>
                   <For each={visibleSemanticMatches()}>{match =>
-                    <div class="min-w-0 w-full pointer-events-auto select-text flex items-start text-slate-700"
+                    <div class="min-w-0 w-full pointer-events-auto select-text flex items-baseline text-slate-700"
                       style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; user-select: text;`}
                       onMouseDown={stopTextSelectionMouseEvent}
                       onMouseMove={stopTextSelectionMouseEvent}
                       onMouseUp={stopTextSelectionMouseEvent}
                       onClick={stopTextSelectionMouseEvent}>
-                      <div class="min-w-0 grow"
-                        style={`overflow: hidden; display: -webkit-box; -webkit-line-clamp: ${CATALOG_SEARCH_SNIPPET_LINE_CLAMP}; -webkit-box-orient: vertical;`}>
+                      <div class="min-w-0"
+                        style={`flex: 0 1 auto; overflow: hidden; display: -webkit-box; -webkit-line-clamp: ${CATALOG_SEARCH_SNIPPET_LINE_CLAMP}; -webkit-box-orient: vertical;`}>
                         <Show when={match.pageLabel}>
                           <span style="font-weight: 600; color: #475569; margin-right: 12px;">{match.pageLabel}</span>
                         </Show>
                         <span style="font-style: italic;">{match.text}</span>
                       </div>
                       <Show when={match.scoreLabel}>
-                        <span style="color: #64748b; flex: 0 0 auto; font-style: normal; margin-left: 8px;">{match.scoreLabel}</span>
+                        <span style="color: #64748b; flex: 0 0 auto; font-style: italic; margin-left: 18px;">{match.scoreLabel}</span>
                       </Show>
                       <a
                         class="pointer-events-auto"
-                        style="align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; flex: 0 0 auto; font-style: normal; height: 18px; justify-content: center; line-height: 1; margin-left: 4px; text-decoration: none; width: 18px;"
+                        style="color: #64748b; flex: 0 0 auto; font-style: italic; margin-left: 8px; text-decoration: none;"
                         href={match.href}
                         target="_blank"
                         rel="noopener"
