@@ -87,6 +87,7 @@ const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
 const SEARCH_SEMANTIC_MATCH_MAX_CHARS: usize = 1250;
 const SEARCH_MATCH_SNIPPET_MAX_SENTENCES: usize = 3;
+const SEARCH_BM25_SCORE_SATURATION: f32 = 4.0;
 const SEARCH_SNIPPET_ELLIPSIS: &str = "...";
 const PDF_CATALOG_OMITTED_LABELS: [&str; 3] = ["document", "context", "section"];
 const SEARCH_SNIPPET_STOP_WORDS: [&str; 32] = [
@@ -1622,6 +1623,7 @@ pub struct SearchPathElement {
 pub struct SearchResult {
   #[serde(rename = "path")]
   pub path: Vec<SearchPathElement>,
+  pub score: f32,
   #[serde(rename = "semanticMatch", skip_serializing_if = "Option::is_none")]
   pub semantic_match: Option<SearchSemanticMatch>,
 }
@@ -1821,6 +1823,7 @@ async fn pdf_lexical_search_results(
       break;
     }
     if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
+      result.score = bm25_score_to_search_score(hit.score);
       result.semantic_match = Some(search_fragment_match_for_lexical_hit(&hit, search_text));
       results.push(result);
     }
@@ -1909,6 +1912,7 @@ async fn semantic_search_results(
       break;
     }
     if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
+      result.score = semantic_distance_to_search_score(hit.distance);
       result.semantic_match = Some(search_semantic_match_for_hit(&hit, search_text));
       results.push(result);
     }
@@ -1989,7 +1993,7 @@ fn search_result_path_for_item(
   if !search_result_is_under_root_path(&path, search_root_id) {
     return Ok(None);
   }
-  Ok(Some(SearchResult { path, semantic_match: None }))
+  Ok(Some(SearchResult { path, score: 0.0, semantic_match: None }))
 }
 
 fn search_result_is_under_root_path(path: &[SearchPathElement], search_root_id: &Uid) -> bool {
@@ -1999,7 +2003,7 @@ fn search_result_is_under_root_path(path: &[SearchPathElement], search_root_id: 
 #[derive(Clone)]
 struct SearchMergeCandidate {
   result: SearchResult,
-  score: f64,
+  rank_score: f64,
   best_rank: usize,
   exact_rank: Option<usize>,
 }
@@ -2015,22 +2019,26 @@ fn mix_search_results(
     let Some(item_id) = search_result_item_id(&result) else {
       continue;
     };
-    let score = SEARCH_EXACT_WEIGHT / (SEARCH_RRF_K + rank as f64 + 1.0);
+    let rank_score = SEARCH_EXACT_WEIGHT / (SEARCH_RRF_K + rank as f64 + 1.0);
     let entry = candidates.entry(item_id.clone()).or_insert_with(|| SearchMergeCandidate {
       result: result.clone(),
-      score: 0.0,
+      rank_score: 0.0,
       best_rank: rank,
       exact_rank: Some(rank),
     });
-    entry.score += score;
+    entry.rank_score += rank_score;
     entry.best_rank = entry.best_rank.min(rank);
     if entry.exact_rank.is_none_or(|existing_rank| rank < existing_rank) {
       entry.exact_rank = Some(rank);
       let semantic_match = entry.result.semantic_match.clone();
+      let display_score = entry.result.score.max(result.score);
       entry.result = result;
+      entry.result.score = display_score;
       if entry.result.semantic_match.is_none() {
         entry.result.semantic_match = semantic_match;
       }
+    } else {
+      entry.result.score = entry.result.score.max(result.score);
     }
   }
 
@@ -2039,8 +2047,8 @@ fn mix_search_results(
 
   let mut candidates = candidates.into_values().collect::<Vec<_>>();
   candidates.sort_by(|a, b| {
-    b.score
-      .partial_cmp(&a.score)
+    b.rank_score
+      .partial_cmp(&a.rank_score)
       .unwrap_or(std::cmp::Ordering::Equal)
       .then_with(|| a.exact_rank.unwrap_or(usize::MAX).cmp(&b.exact_rank.unwrap_or(usize::MAX)))
       .then_with(|| a.best_rank.cmp(&b.best_rank))
@@ -2058,22 +2066,26 @@ fn add_fragment_search_results(
     let Some(item_id) = search_result_item_id(&result) else {
       continue;
     };
+    let result_score = result.score;
     let fragment_match = result.semantic_match.clone();
-    let score = weight / (SEARCH_RRF_K + rank as f64 + 1.0);
+    let rank_score = weight / (SEARCH_RRF_K + rank as f64 + 1.0);
     let entry = candidates.entry(item_id).or_insert_with(|| SearchMergeCandidate {
       result: result.clone(),
-      score: 0.0,
+      rank_score: 0.0,
       best_rank: rank,
       exact_rank: None,
     });
     let should_replace_fragment_result = entry.exact_rank.is_none() && rank < entry.best_rank;
-    entry.score += score;
+    entry.rank_score += rank_score;
     entry.best_rank = entry.best_rank.min(rank);
     if should_replace_fragment_result {
+      let display_score = entry.result.score.max(result_score);
       entry.result = result;
+      entry.result.score = display_score;
     } else if entry.result.semantic_match.is_none() {
       entry.result.semantic_match = fragment_match;
     }
+    entry.result.score = entry.result.score.max(result_score);
   }
 }
 
@@ -2085,6 +2097,43 @@ fn paginate_mixed_results(results: Vec<SearchResult>, start_result: i64, end_res
 
 fn search_result_item_id(result: &SearchResult) -> Option<Uid> {
   result.path.last().map(|element| element.id.clone())
+}
+
+fn clamp_search_score(score: f32) -> f32 {
+  if score.is_finite() { score.clamp(0.0, 1.0) } else { 0.0 }
+}
+
+fn semantic_distance_to_search_score(distance: f32) -> f32 {
+  clamp_search_score(1.0 - distance)
+}
+
+fn bm25_score_to_search_score(score: f32) -> f32 {
+  if score <= 0.0 {
+    return 0.0;
+  }
+  clamp_search_score(score / (score + SEARCH_BM25_SCORE_SATURATION))
+}
+
+fn exact_title_search_score(title: &str, search_text: &str) -> f32 {
+  let query = search_text.trim().to_lowercase();
+  if query.is_empty() {
+    return 0.0;
+  }
+
+  let title = title.trim().to_lowercase();
+  if title == query {
+    return 1.0;
+  }
+  if title.split_whitespace().any(|term| term == query) {
+    return 0.95;
+  }
+  if title.starts_with(&query) {
+    return 0.9;
+  }
+
+  let title_chars = title.chars().count().max(1) as f32;
+  let query_chars = query.chars().count() as f32;
+  clamp_search_score(0.65 + 0.25 * (query_chars / title_chars).min(1.0)).min(0.89)
 }
 
 fn search_fragment_match_for_lexical_hit(hit: &FragmentLexicalHit, search_text: &str) -> SearchSemanticMatch {
@@ -2332,7 +2381,7 @@ fn search_recursive(
                 title: item.title.to_owned(),
                 id: item.id.to_owned(),
               });
-              results.push(SearchResult { path, semantic_match: None });
+              results.push(SearchResult { path, score: exact_title_search_score(title, search_text), semantic_match: None });
             }
             *current_result += 1;
             if results.len() >= (end_result - start_result) as usize {

@@ -57,6 +57,7 @@ export interface ItemsAndTheirAttachments {
 
 export interface SearchResult {
   path: Array<SearchPathElement>,
+  score?: number,
   semanticMatch?: SearchSemanticMatch,
 }
 
