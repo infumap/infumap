@@ -73,8 +73,8 @@ export function formatSearchResultScore(score?: number): string | null {
     return null;
   }
 
-  const clamped = Math.max(0, Math.min(1, score));
-  return `score: ${clamped.toFixed(2)}`;
+  const clamped = Math.max(0.001, Math.min(99.999, score * 100));
+  return `Score: ${clamped.toFixed(3)}`;
 }
 
 function appendTruncationEllipsis(text: string): string {
