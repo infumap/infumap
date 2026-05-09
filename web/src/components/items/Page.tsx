@@ -77,6 +77,10 @@ const CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER = 1.25;
 const CATALOG_DETAIL_TOP_PADDING_PX = 8;
 const CATALOG_DETAIL_SECTION_GAP_PX = 4;
 const CATALOG_SEARCH_SNIPPET_LINE_CLAMP = 2;
+const CATALOG_SEARCH_SNIPPET_AVERAGE_CHAR_WIDTH_EM = 0.58;
+const CATALOG_SEARCH_SNIPPET_CONTROL_GAP_PX = 18;
+const CATALOG_SEARCH_SNIPPET_LINK_GAP_PX = 8;
+const CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX = 18;
 const catalogDetailLineHeightPx = (fontSizePx: number): number =>
   fontSizePx * CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER;
 
@@ -96,6 +100,24 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       }
     }
     ev.stopPropagation();
+  };
+
+  const clampCatalogSnippetText = (text: string, maxChars: number): string => {
+    const trimmed = text.trim();
+    const chars = [...trimmed];
+    if (chars.length <= maxChars) {
+      return trimmed;
+    }
+    if (maxChars <= 3) {
+      return "...";
+    }
+
+    const rawClamped = chars.slice(0, maxChars - 3).join("").trimEnd();
+    const wordClamped = rawClamped.replace(/\s+\S*$/, "").trimEnd();
+    const clamped = (wordClamped.length >= Math.floor(maxChars * 0.6) ? wordClamped : rawClamped)
+      .replace(/\s*(?:\.\.\.|…)\s*$/, "")
+      .replace(/(?:\s*\.)+$/, "");
+    return `${clamped}...`;
   };
 
   const catalogSourceItem = (item: Item): Item =>
@@ -584,6 +606,26 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             }
             return matches.slice(0, visibleCount);
           };
+          const inlineSnippetText = (match: CatalogSemanticMatchDisplay) => {
+            const averageCharWidthPx =
+              CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX * CATALOG_SEARCH_SNIPPET_AVERAGE_CHAR_WIDTH_EM;
+            const pageLabelWidthPx = match.pageLabel
+              ? match.pageLabel.length * averageCharWidthPx + 12
+              : 0;
+            const scoreWidthPx = match.scoreLabel
+              ? match.scoreLabel.length * averageCharWidthPx
+              : 0;
+            const reservedWidthPx =
+              pageLabelWidthPx +
+              CATALOG_SEARCH_SNIPPET_CONTROL_GAP_PX +
+              scoreWidthPx +
+              CATALOG_SEARCH_SNIPPET_LINK_GAP_PX +
+              CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX;
+            const maxChars = Math.floor(
+              Math.max(0, widthPx() * CATALOG_SEARCH_SNIPPET_LINE_CLAMP - reservedWidthPx) / averageCharWidthPx,
+            );
+            return clampCatalogSnippetText(match.text, maxChars);
+          };
           const rowIndex = () => childVe().row ??
             Math.max(0, Math.round((childVe().boundsPx.y - pageFns.catalogPageTopPaddingPx()) / pageFns.catalogRowHeightPx()));
           const topPx = () => pageFns.catalogPageTopPaddingPx() + rowIndex() * pageFns.catalogRowHeightPx();
@@ -624,34 +666,33 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     }</For>
                   </div>
                   <For each={visibleSemanticMatches()}>{match =>
-                    <div class="min-w-0 w-full pointer-events-auto select-text flex items-baseline text-slate-700"
-                      style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; user-select: text;`}
+                    <div class="min-w-0 w-full pointer-events-auto select-text text-slate-700"
+                      style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; max-height: ${catalogDetailLineHeightPx(CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX) * CATALOG_SEARCH_SNIPPET_LINE_CLAMP}px; overflow: hidden; user-select: text;`}
                       onMouseDown={stopTextSelectionMouseEvent}
                       onMouseMove={stopTextSelectionMouseEvent}
                       onMouseUp={stopTextSelectionMouseEvent}
                       onClick={stopTextSelectionMouseEvent}>
-                      <div class="min-w-0"
-                        style={`flex: 0 1 auto; overflow: hidden; display: -webkit-box; -webkit-line-clamp: ${CATALOG_SEARCH_SNIPPET_LINE_CLAMP}; -webkit-box-orient: vertical;`}>
-                        <Show when={match.pageLabel}>
-                          <span style="font-weight: 600; color: #475569; margin-right: 12px;">{match.pageLabel}</span>
-                        </Show>
-                        <span style="font-style: italic;">{match.text}</span>
-                      </div>
-                      <Show when={match.scoreLabel}>
-                        <span style="color: #64748b; flex: 0 0 auto; font-style: italic; margin-left: 18px;">{match.scoreLabel}</span>
+                      <Show when={match.pageLabel}>
+                        <span style="font-weight: 600; color: #475569; margin-right: 12px;">{match.pageLabel}</span>
                       </Show>
-                      <a
-                        class="pointer-events-auto"
-                        style="color: #64748b; flex: 0 0 auto; font-style: italic; margin-left: 8px; text-decoration: none;"
-                        href={match.href}
-                        target="_blank"
-                        rel="noopener"
-                        title="Open full fragment"
-                        aria-label="Open full fragment"
-                        onMouseDown={(ev) => ev.stopPropagation()}
-                        onClick={(ev) => ev.stopPropagation()}>
-                        ↗
-                      </a>
+                      <span style="font-style: italic;">{inlineSnippetText(match)}</span>
+                      <span style="white-space: nowrap;">
+                        <Show when={match.scoreLabel}>
+                          <span style={`color: #64748b; font-style: italic; margin-left: ${CATALOG_SEARCH_SNIPPET_CONTROL_GAP_PX}px;`}>{match.scoreLabel}</span>
+                        </Show>
+                        <a
+                          class="pointer-events-auto"
+                          style={`align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; font-style: normal; height: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px; justify-content: center; line-height: 1; margin-left: ${CATALOG_SEARCH_SNIPPET_LINK_GAP_PX}px; text-decoration: none; vertical-align: -3px; width: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px;`}
+                          href={match.href}
+                          target="_blank"
+                          rel="noopener"
+                          title="Open full fragment"
+                          aria-label="Open full fragment"
+                          onMouseDown={(ev) => ev.stopPropagation()}
+                          onClick={(ev) => ev.stopPropagation()}>
+                          ↗
+                        </a>
+                      </span>
                     </div>
                   }</For>
                   <Show when={metadataLines().length > 0}>
