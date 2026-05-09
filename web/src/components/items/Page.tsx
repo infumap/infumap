@@ -70,6 +70,15 @@ import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metri
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
+const CATALOG_DETAIL_PATH_FONT_SIZE_PX = 15;
+const CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX = Math.max(FONT_SIZE_PX - 2, 10);
+const CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER = 1.25;
+const CATALOG_DETAIL_TOP_PADDING_PX = 8;
+const CATALOG_DETAIL_SECTION_GAP_PX = 4;
+const CATALOG_SEARCH_SNIPPET_LINE_CLAMP = 2;
+const catalogDetailLineHeightPx = (fontSizePx: number): number =>
+  fontSizePx * CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER;
+
 export interface PageVisualElementProps {
   visualElement: VisualElement,
   pageFns: any
@@ -545,6 +554,28 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             return score ? [...lines, score] : lines;
           };
           const semanticMatches = () => searchResultDisplay()?.semanticMatches ?? catalogSemanticMatches(catalogItem());
+          const visibleSemanticMatches = () => {
+            const matches = semanticMatches();
+            if (matches.length == 0) {
+              return [];
+            }
+
+            const metadataHeightPx = metadataLines().length > 0
+              ? CATALOG_DETAIL_SECTION_GAP_PX + catalogDetailLineHeightPx(CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX)
+              : 0;
+            const availableHeightPx = pageFns.catalogRowHeightPx() - CATALOG_DETAIL_TOP_PADDING_PX;
+            let usedHeightPx = catalogDetailLineHeightPx(CATALOG_DETAIL_PATH_FONT_SIZE_PX) + metadataHeightPx;
+            const snippetHeightPx =
+              CATALOG_DETAIL_SECTION_GAP_PX +
+              catalogDetailLineHeightPx(CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX) * CATALOG_SEARCH_SNIPPET_LINE_CLAMP;
+
+            let visibleCount = 0;
+            while (visibleCount < matches.length && usedHeightPx + snippetHeightPx <= availableHeightPx) {
+              visibleCount += 1;
+              usedHeightPx += snippetHeightPx;
+            }
+            return matches.slice(0, visibleCount);
+          };
           const rowIndex = () => childVe().row ??
             Math.max(0, Math.round((childVe().boundsPx.y - pageFns.catalogPageTopPaddingPx()) / pageFns.catalogRowHeightPx()));
           const topPx = () => pageFns.catalogPageTopPaddingPx() + rowIndex() * pageFns.catalogRowHeightPx();
@@ -564,9 +595,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               </Show>
               <div class="absolute flex items-start pointer-events-none"
                 style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
-                  `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: 8px;`}>
+                  `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: ${CATALOG_DETAIL_TOP_PADDING_PX}px;`}>
                 <div class="min-w-0 w-full flex flex-col gap-[2px]">
-                  <div class="min-w-0 truncate whitespace-nowrap">
+                  <div class="min-w-0 truncate whitespace-nowrap"
+                    style={`font-size: ${CATALOG_DETAIL_PATH_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER};`}>
                     <For each={pathSegments()}>{(segment, idx) =>
                       <Show when={segment.itemType != ItemType.Composite}>
                         <span class="inline-flex items-center">
@@ -579,11 +611,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       </Show>
                     }</For>
                   </div>
-                  <For each={semanticMatches()}>{match =>
+                  <For each={visibleSemanticMatches()}>{match =>
                     <div class="min-w-0 w-full flex items-start text-slate-700"
-                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; line-height: 1.25; margin-top: 4px;`}>
+                      style={`font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}>
                       <div class="min-w-0 grow"
-                        style="overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                        style={`overflow: hidden; display: -webkit-box; -webkit-line-clamp: ${CATALOG_SEARCH_SNIPPET_LINE_CLAMP}; -webkit-box-orient: vertical;`}>
                         <Show when={match.pageLabel}>
                           <span style="font-weight: 600; color: #475569;">{match.pageLabel} | </span>
                         </Show>
@@ -605,7 +637,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   }</For>
                   <Show when={metadataLines().length > 0}>
                     <div class="min-w-0 flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700"
-                      style={`font-size: ${Math.max(FONT_SIZE_PX - 2, 10)}px; margin-top: 4px;`}>
+                      style={`font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}>
                       <For each={metadataLines()}>{line =>
                         <span class="shrink-0">{line}</span>
                       }</For>
