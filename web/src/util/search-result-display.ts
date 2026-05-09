@@ -25,11 +25,11 @@ export interface CatalogSemanticMatchDisplay {
   text: string,
   href: string,
   pageLabel: string | null,
+  scoreLabel: string | null,
 }
 
 export interface CatalogSearchResultDisplay {
   pathSegments: Array<ItemPathSegment>,
-  scoreLabel: string | null,
   semanticMatch: CatalogSemanticMatchDisplay | null,
   semanticMatches: Array<CatalogSemanticMatchDisplay>,
 }
@@ -69,13 +69,18 @@ export function formatCatalogSemanticMatchText(_sourceKind: string, text: string
   return text.replace(/\s+/g, " ").trim();
 }
 
-export function formatSearchResultScore(score?: number): string | null {
+function formatSearchScoreValue(score?: number): string | null {
   if (typeof score != "number" || !Number.isFinite(score)) {
     return null;
   }
 
   const clamped = Math.max(0.1, Math.min(99.9, score * 100));
-  return `Score: ${clamped.toFixed(1)}`;
+  return clamped.toFixed(1).padStart(4, "0");
+}
+
+export function formatSearchFragmentScore(score?: number): string | null {
+  const scoreValue = formatSearchScoreValue(score);
+  return scoreValue == null ? null : `(score: ${scoreValue})`;
 }
 
 function appendTruncationEllipsis(text: string): string {
@@ -99,6 +104,7 @@ export function catalogSemanticMatchDisplayFromMatch(
     text: match.textTruncated ? appendTruncationEllipsis(formattedText) : formattedText,
     href: `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
     pageLabel: semanticMatchPageLabel(match.pageStart, match.pageEnd),
+    scoreLabel: formatSearchFragmentScore(match.score),
   };
 }
 
@@ -113,7 +119,6 @@ export function catalogSearchResultDisplay(result: SearchResult): CatalogSearchR
 
   return {
     pathSegments: searchResultPathSegments(result),
-    scoreLabel: formatSearchResultScore(result.score),
     semanticMatch: semanticMatches[0] ?? null,
     semanticMatches,
   };

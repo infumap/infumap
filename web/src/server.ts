@@ -66,6 +66,7 @@ export interface SearchSemanticMatch {
   fragmentOrdinal: number,
   sourceKind: string,
   distance: number,
+  score?: number,
   text: string,
   textTruncated: boolean,
   pageStart?: number,

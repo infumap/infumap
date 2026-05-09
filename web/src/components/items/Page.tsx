@@ -547,11 +547,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             return result ? catalogSearchResultDisplay(result) : null;
           };
           const pathSegments = () => searchResultDisplay()?.pathSegments ?? itemPathSegmentsFromItem(catalogItem());
-          const scoreLabel = () => searchResultDisplay()?.scoreLabel ?? null;
           const metadataLines = () => {
-            const lines = catalogMetadataLines(catalogItem());
-            const score = scoreLabel();
-            return score ? [...lines, score] : lines;
+            return catalogMetadataLines(catalogItem());
           };
           const semanticMatches = () => searchResultDisplay()?.semanticMatches ?? catalogSemanticMatches(catalogItem());
           const visibleSemanticMatches = () => {
@@ -621,6 +618,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         </Show>
                         <span style="font-style: italic;">{match.text}</span>
                       </div>
+                      <Show when={match.scoreLabel}>
+                        <span style="color: #64748b; flex: 0 0 auto; font-style: normal; margin-left: 8px;">{match.scoreLabel}</span>
+                      </Show>
                       <a
                         class="pointer-events-auto"
                         style="align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; flex: 0 0 auto; font-style: normal; height: 18px; justify-content: center; line-height: 1; margin-left: 4px; text-decoration: none; width: 18px;"

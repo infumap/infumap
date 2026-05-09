@@ -58,6 +58,7 @@ export interface LinkCatalogSemanticMatch {
   fragmentOrdinal: number,
   sourceKind: string,
   distance: number,
+  score?: number,
   text: string,
   textTruncated: boolean,
   pageStart?: number,
