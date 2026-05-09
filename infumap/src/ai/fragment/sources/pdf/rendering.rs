@@ -13,14 +13,6 @@ pub(super) fn render_pdf_fragment_text(
     .filter(|context| document_title.as_deref().map(|title| !title.eq_ignore_ascii_case(context)).unwrap_or(true));
   let mut lines = Vec::new();
 
-  if let Some(document_title) = document_title.as_deref() {
-    lines.push(labeled_sentence("Document", document_title));
-  }
-
-  if let Some(context_title) = context_title.as_deref() {
-    lines.push(labeled_sentence("Context", context_title));
-  }
-
   let rendered_blocks = collapse_renderable_pdf_blocks(blocks, document_title.as_deref(), context_title.as_deref());
   let section_path = common_heading_path(&rendered_blocks);
   if !section_path.is_empty() {
@@ -155,5 +147,48 @@ fn labeled_sentence(label: &str, value: &str) -> String {
   match trimmed.chars().last() {
     Some('.' | '!' | '?') => format!("{label}: {trimmed}"),
     _ => format!("{label}: {trimmed}."),
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::super::types::PdfFragmentBlock;
+  use super::render_pdf_fragment_text;
+
+  #[test]
+  fn omits_document_and_context_headers_from_pdf_fragment_text() {
+    let text = render_pdf_fragment_text(
+      Some("Sample.pdf"),
+      Some("Shelf"),
+      1,
+      1,
+      &[block(1, &["Sample.pdf", "Shelf", "Chapter One"], "Woodstock appears in the body.")],
+    );
+
+    assert!(!text.contains("Document:"));
+    assert!(!text.contains("Context:"));
+    assert!(text.starts_with("Section: Chapter One.\n\n"));
+    assert!(text.contains("Woodstock appears in the body."));
+  }
+
+  #[test]
+  fn renders_body_only_when_pdf_fragment_has_no_section() {
+    let text = render_pdf_fragment_text(
+      Some("Sample.pdf"),
+      Some("Shelf"),
+      1,
+      1,
+      &[block(1, &[], "A paragraph without headings.")],
+    );
+
+    assert_eq!(text, "A paragraph without headings.");
+  }
+
+  fn block(page_number: usize, headings: &[&str], text: &str) -> PdfFragmentBlock {
+    PdfFragmentBlock {
+      page_number,
+      headings: headings.iter().map(|heading| heading.to_string()).collect(),
+      text: text.to_owned(),
+    }
   }
 }
