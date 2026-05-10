@@ -133,8 +133,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return { w: wPx, h: hPx };
   }
 
+  const imageFitStyle = (fit: "contain" | "cover") =>
+    `width: 100%; height: 100%; object-fit: ${fit}; object-position: center center;`;
+
   const thumbnailFitStyle = () =>
-    `width: 100%; height: 100%; object-fit: ${imageItem().flags & ImageFlags.NoCrop ? "contain" : "cover"};`;
+    imageFitStyle(imageItem().flags & ImageFlags.NoCrop ? "contain" : "cover");
 
   const noCropPaddingTopPx = (lockToResizingFromBounds: boolean): number => {
     const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
@@ -485,10 +488,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderNoCropImage = (): JSX.Element =>
     <img src={imgSrcSignal.get()}
       class="max-w-none absolute pointer-events-none"
-      style={`${isShowingThumbnail.get() ? thumbnailFitStyle() : ''}` +
-        `left: ${isShowingThumbnail.get() || popupNoCropFrameFollowsImage() ? 0 : noCropPaddingLeftPx(false)}px; ` +
-        `top: ${isShowingThumbnail.get() || popupNoCropFrameFollowsImage() ? 0 : noCropPaddingTopPx(false)}px;`}
-      width={isShowingThumbnail.get() ? undefined : noCropWidth(false)} />;
+      style={imageFitStyle("contain")} />;
 
   return (
     <div class={positionClass()}
