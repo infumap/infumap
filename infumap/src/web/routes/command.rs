@@ -46,7 +46,8 @@ use std::time::Duration;
 use tokio::sync::MutexGuard;
 
 use crate::ai::fragment::{
-  delete_item_fragment_artifacts, is_lexical_search_source_kind, is_markdown_document_source_kind,
+  ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_lexical_search_source_kind,
+  is_markdown_document_source_kind,
 };
 use crate::ai::image_tagging::{
   delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
@@ -1898,7 +1899,12 @@ async fn lexical_search_results(
   }
 
   let fragment_limit = limit.saturating_mul(SEARCH_LEXICAL_FRAGMENT_MULTIPLIER).max(limit);
-  let fragment_hits = lexical_index.search(search_text, fragment_limit).await?;
+  let fragment_hits = lexical_index
+    .search(search_text, fragment_limit)
+    .await?
+    .into_iter()
+    .filter(|hit| hit.source_kind != ITEM_TITLE_SOURCE_KIND)
+    .collect::<Vec<_>>();
   if !fragment_hits.is_empty() {
     debug!(
       "Lexical fragment search top hits for user '{}': {}",

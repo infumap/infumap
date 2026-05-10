@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Instant;
 
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, info, warn};
@@ -84,6 +85,7 @@ async fn run_item_title_indexing_loop(
 }
 
 async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<Db>>, user_id: &str) -> InfuResult<()> {
+  let reconcile_started = Instant::now();
   let fragments = {
     let db = db.lock().await;
     collect_user_item_title_lexical_fragments(&db, user_id)?
@@ -94,6 +96,11 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
     if removed > 0 {
       info!("User {} has no item title fragments; removed {} stale title lexical index dir(s).", user_id, removed);
     }
+    debug!(
+      "User {} item title lexical index reconciliation found no title fragments in {:.3}s.",
+      user_id,
+      reconcile_started.elapsed().as_secs_f64()
+    );
     return Ok(());
   }
 
@@ -107,10 +114,17 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
     && status.expected_fragment_count == fragments.len()
     && status.indexed_fragment_count == fragments.len()
   {
-    debug!("User {} item title lexical index is already current ({} fragment(s)).", user_id, fragments.len());
+    debug!(
+      "User {} item title lexical index is already current ({} fragment(s), checked in {:.3}s).",
+      user_id,
+      fragments.len(),
+      reconcile_started.elapsed().as_secs_f64()
+    );
     return Ok(());
   }
 
+  info!("User {} starting item title lexical index rebuild: {} fragment(s).", user_id, fragments.len());
+  let rebuild_started = Instant::now();
   let temp_dir = item_title_lexical_index_temp_dir(data_dir, user_id)?;
   let metadata = FragmentLexicalIndexRebuildMetadata {
     source_digest: source_digest.clone(),
@@ -125,7 +139,13 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
     return Err(format!("Final item title lexical index validation failed for user {}.", user_id).into());
   }
 
-  info!("User {} rebuilt item title lexical index: {} fragment(s).", user_id, status.indexed_fragment_count);
+  info!(
+    "User {} finished item title lexical index rebuild: {} fragment(s), rebuild {:.3}s, total {:.3}s.",
+    user_id,
+    status.indexed_fragment_count,
+    rebuild_started.elapsed().as_secs_f64(),
+    reconcile_started.elapsed().as_secs_f64()
+  );
   Ok(())
 }
 

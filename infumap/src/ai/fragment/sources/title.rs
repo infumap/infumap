@@ -21,17 +21,14 @@ pub fn item_title_fragment_for_item(db: &Db, item: &Item) -> InfuResult<Option<I
     return Ok(None);
   }
 
-  let title = normalized_text(item.title.as_deref());
-  let attachment_text = item_attachment_title_text(db, item)?;
-  if title.is_none() && attachment_text.is_none() {
+  let Some(title) = normalized_text(item.title.as_deref()) else {
     return Ok(None);
-  }
+  };
+  let attachment_text = item_attachment_title_text(db, item)?;
 
   let context_title = parent_title_for_item(db, item, false);
   let mut lines = Vec::new();
-  if let Some(title) = title {
-    lines.push(title);
-  }
+  lines.push(title);
   if let Some(context_title) = context_title {
     if !lines.iter().any(|line| normalized_text_eq(line, &context_title)) {
       lines.push(context_title);
