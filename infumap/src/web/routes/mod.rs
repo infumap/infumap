@@ -161,12 +161,7 @@ pub fn default_searches_page(owner_id: &str, searches_page_id: Uid, natural_aspe
   item
 }
 
-pub fn default_search_item(
-  owner_id: &str,
-  searches_page_id: &Uid,
-  search_item_id: Uid,
-  page_width_bl: i64,
-) -> Item {
+pub fn default_search_item(owner_id: &str, searches_page_id: &Uid, search_item_id: Uid, page_width_bl: i64) -> Item {
   let mut item = Item::new_search(
     searches_page_id,
     vec![128],

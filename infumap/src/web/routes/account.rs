@@ -34,13 +34,16 @@ use tokio::time::{Duration, sleep};
 use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 
+use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
 use crate::config::CONFIG_BYPASS_TOTP_CHECK;
 use crate::storage::db::Db;
 use crate::storage::db::user::{ROOT_USER_NAME, User};
 use crate::storage::db::users_extra::UserExtra;
 use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
-use crate::web::routes::{default_dock_page, default_home_page, default_search_item, default_searches_page, default_trash_page};
+use crate::web::routes::{
+  default_dock_page, default_home_page, default_search_item, default_searches_page, default_trash_page,
+};
 use crate::web::serve::{cors_response, forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 
@@ -459,16 +462,12 @@ pub async fn register(
       error!("Error adding default searches page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let search_item = default_search_item(
-      user_id.as_str(),
-      &searches_page_id,
-      search_item_id,
-      page_width_bl,
-    );
+    let search_item = default_search_item(user_id.as_str(), &searches_page_id, search_item_id, page_width_bl);
     if let Err(e) = db.item.add(search_item).await {
       error!("Error adding default search item: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
+    enqueue_item_title_index_reconcile_for_user(&user.id);
     info!("Created root user.");
   } else {
     if let Err(e) = db.pending_user.add(user.clone()).await {

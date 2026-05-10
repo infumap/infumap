@@ -10,7 +10,6 @@ use tokio::fs;
 
 use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path};
 use crate::ai::fragment::is_lexical_search_source_kind;
-use crate::ai::fragment::sources::{ItemTitleFragment, item_title_fragment_for_item};
 use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, document_fragment_lexical_index_temp_dir,
   open_user_document_fragment_lexical_index, remove_document_fragment_lexical_index_dirs,
@@ -82,11 +81,6 @@ async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmen
     item_ids.sort();
     let mut fragments = Vec::new();
     for item_id in item_ids {
-      let item = db.item.get(&item_id).map_err(|e| e.to_string())?;
-      if let Some(fragment) = item_title_fragment_for_item(&db, item)? {
-        fragments.push(fragment.into());
-      }
-
       let fragments_path = item_fragments_path(data_dir, &user_id, &item_id)?;
       if !path_exists(&fragments_path).await {
         continue;
@@ -649,21 +643,6 @@ struct FragmentRecordForIndex {
   text: String,
   page_start: Option<usize>,
   page_end: Option<usize>,
-}
-
-impl From<ItemTitleFragment> for FragmentRecordForIndex {
-  fn from(fragment: ItemTitleFragment) -> FragmentRecordForIndex {
-    let text_sha256 = fragment_text_sha256(&fragment.text);
-    FragmentRecordForIndex {
-      item_id: fragment.item_id,
-      ordinal: fragment.ordinal,
-      source_kind: fragment.source_kind.to_owned(),
-      text_sha256,
-      text: fragment.text,
-      page_start: None,
-      page_end: None,
-    }
-  }
 }
 
 impl FragmentRecordForIndex {

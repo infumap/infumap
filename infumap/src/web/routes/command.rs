@@ -60,6 +60,7 @@ use crate::ai::text_embedding::{
   text_embedding_vector_fingerprint, text_embedding_vector_norm, validate_text_embedding_vector,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
+use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
 use crate::ai::vector_db::{
   FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,
 };
@@ -1285,6 +1286,7 @@ pub async fn add_item_for_user(
     let sync_ack = build_sync_ack(&db, &queued_item.owner_id, &touched_container_ids);
     debug!("Executed 'add-item' command for item '{}'.", item_id);
     drop(db);
+    enqueue_item_title_index_reconcile_for_user(&queued_item.owner_id);
     if queued_item.mime_type.as_deref() == Some("application/pdf") {
       enqueue_pdf_item_if_active(&queued_item);
     }
@@ -1365,7 +1367,10 @@ async fn handle_update_item(
   let sync_ack =
     flush_container_sync_changes(&mut db, &item.owner_id, deltas_by_container, snapshot_required_container_ids);
 
+  let owner_id = item.owner_id.clone();
   debug!("Executed 'update-item' command for item '{}'.", item.id);
+  drop(db);
+  enqueue_item_title_index_reconcile_for_user(&owner_id);
 
   json_with_sync_ack(sync_ack, None)
 }
@@ -1461,7 +1466,10 @@ async fn handle_delete_item<'a>(
   }
   let sync_ack =
     flush_container_sync_changes(&mut db, &item.owner_id, deltas_by_container, snapshot_required_container_ids);
+  let owner_id = item.owner_id.clone();
   debug!("Deleted item '{}' from database.", request.id);
+  drop(db);
+  enqueue_item_title_index_reconcile_for_user(&owner_id);
 
   json_with_sync_ack(sync_ack, None)
 }
@@ -1505,6 +1513,9 @@ async fn handle_empty_trash<'a>(
   )
   .await?;
   let sync_ack = build_sync_ack(&db, &session.user_id, &touched_container_ids);
+  let user_id = session.user_id.clone();
+  drop(db);
+  enqueue_item_title_index_reconcile_for_user(&user_id);
 
   let mut result = serde_json::Map::new();
   result.insert("itemCount".to_owned(), Value::Number(count.into()));

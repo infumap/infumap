@@ -17,15 +17,18 @@
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Method, Request, Response};
+use infusdk::util::uid::new_uid;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use infusdk::util::uid::new_uid;
 
+use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
 use crate::storage::db::Db;
 use crate::storage::db::user::ROOT_USER_NAME;
-use crate::web::routes::{default_dock_page, default_home_page, default_search_item, default_searches_page, default_trash_page};
+use crate::web::routes::{
+  default_dock_page, default_home_page, default_search_item, default_searches_page, default_trash_page,
+};
 use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 
@@ -191,16 +194,13 @@ pub async fn approve_pending(
         error!("Error adding default searches page: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
-      let search_item = default_search_item(
-        pending_user.id.as_str(),
-        &pending_user.searches_page_id,
-        new_uid(),
-        page_width_bl,
-      );
+      let search_item =
+        default_search_item(pending_user.id.as_str(), &pending_user.searches_page_id, new_uid(), page_width_bl);
       if let Err(e) = db.item.add(search_item).await {
         error!("Error adding default search item: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
+      enqueue_item_title_index_reconcile_for_user(&pending_user.id);
     }
     Err(e) => {
       error!("An error occurred adding pending user: {}", e);

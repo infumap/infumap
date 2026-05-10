@@ -6,4 +6,5 @@ pub mod indexing;
 pub mod lexical_index;
 pub mod text_embedding;
 pub mod text_extraction;
+pub mod title_indexing;
 pub mod vector_db;
