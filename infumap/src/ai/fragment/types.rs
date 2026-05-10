@@ -5,8 +5,6 @@ pub const IMAGE_DOCUMENT_SOURCE_KIND: &str = "image_document_contents";
 
 #[derive(Clone, Copy)]
 pub enum FragmentSourceKind {
-  PageContents,
-  TableContents,
   ImageContents,
   ImageDocumentContents,
   Markdown,
@@ -17,8 +15,6 @@ pub enum FragmentSourceKind {
 impl FragmentSourceKind {
   pub(super) fn as_str(&self) -> &'static str {
     match self {
-      FragmentSourceKind::PageContents => "page_contents",
-      FragmentSourceKind::TableContents => "table_contents",
       FragmentSourceKind::ImageContents => "image_contents",
       FragmentSourceKind::ImageDocumentContents => IMAGE_DOCUMENT_SOURCE_KIND,
       FragmentSourceKind::Markdown => MARKDOWN_SOURCE_KIND,

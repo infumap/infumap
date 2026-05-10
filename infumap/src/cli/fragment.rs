@@ -8,8 +8,8 @@ use log::info;
 use tokio::sync::Mutex;
 
 use crate::ai::fragment::sources::{
-  content_fragment_source_for_item, embedding_context_title_for_item, image_fragment_source_for_item,
-  markdown_fragment_source_for_item, pdf_fragment_source_for_item, text_fragment_source_for_item,
+  embedding_context_title_for_item, image_fragment_source_for_item, markdown_fragment_source_for_item,
+  pdf_fragment_source_for_item, text_fragment_source_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
 use crate::ai::image_tagging::should_tag_image_item;
@@ -31,7 +31,6 @@ const FRAGMENT_PROGRESS_TIME_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
 enum FragmentTargetKind {
-  Content,
   Image,
   Markdown,
   Text,
@@ -41,7 +40,6 @@ enum FragmentTargetKind {
 impl FragmentTargetKind {
   fn matches_item(self, item: &Item) -> bool {
     match self {
-      FragmentTargetKind::Content => matches!(item.item_type, ItemType::Page | ItemType::Table),
       FragmentTargetKind::Image => should_tag_image_item(item),
       FragmentTargetKind::Markdown => {
         item.item_type == ItemType::File && item.mime_type.as_deref() == Some(MARKDOWN_MIME_TYPE)
@@ -53,7 +51,6 @@ impl FragmentTargetKind {
 
   fn singular_label(self) -> &'static str {
     match self {
-      FragmentTargetKind::Content => "page or table",
       FragmentTargetKind::Image => "supported image",
       FragmentTargetKind::Markdown => "Markdown file",
       FragmentTargetKind::Text => "text file",
@@ -63,7 +60,6 @@ impl FragmentTargetKind {
 
   fn summary_label(self) -> &'static str {
     match self {
-      FragmentTargetKind::Content => "page/table",
       FragmentTargetKind::Image => "image",
       FragmentTargetKind::Markdown => "markdown",
       FragmentTargetKind::Text => "text",
@@ -86,7 +82,6 @@ pub fn make_clap_subcommand() -> Command {
     .about("Build on-disk fragment artifacts without starting the web server.")
     .subcommand_required(true)
     .arg_required_else_help(true)
-    .subcommand(make_content_subcommand())
     .subcommand(make_image_subcommand())
     .subcommand(make_markdown_subcommand())
     .subcommand(make_text_subcommand())
@@ -95,23 +90,15 @@ pub fn make_clap_subcommand() -> Command {
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   match sub_matches.subcommand() {
-    Some(("content", sub_matches)) => execute_content(sub_matches).await,
     Some(("image", sub_matches)) => execute_image(sub_matches).await,
     Some(("markdown", sub_matches)) => execute_markdown(sub_matches).await,
     Some(("text", sub_matches)) => execute_text(sub_matches).await,
     Some(("pdf", sub_matches)) => execute_pdf(sub_matches).await,
     _ => Err(
-      "Missing fragment subcommand. Use 'fragment content', 'fragment image', 'fragment markdown', 'fragment text', or 'fragment pdf'."
+      "Missing fragment subcommand. Use 'fragment image', 'fragment markdown', 'fragment text', or 'fragment pdf'."
         .into(),
     ),
   }
-}
-
-fn make_content_subcommand() -> Command {
-  Command::new("content")
-    .about("Build fragments for page and table content.")
-    .arg(settings_arg())
-    .arg(item_id_arg("Build fragments only for this page or table item."))
 }
 
 fn make_image_subcommand() -> Command {
@@ -155,23 +142,6 @@ fn settings_arg() -> Arg {
 
 fn item_id_arg(help: &'static str) -> Arg {
   Arg::new("item_id").long("item-id").help(help).num_args(1).required(false)
-}
-
-async fn execute_content(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let (data_dir, db, items) = load_db_and_items(sub_matches, FragmentTargetKind::Content).await?;
-  let mut summary = FragmentRunSummary::default();
-
-  for item in items {
-    let fragment_source = {
-      let db = db.lock().await;
-      content_fragment_source_for_item(&db, &item)
-    };
-    let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
-    record_fragment_outcome(&mut summary, &outcome);
-  }
-
-  log_fragment_summary(FragmentTargetKind::Content, &summary);
-  Ok(())
 }
 
 async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {

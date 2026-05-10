@@ -10,12 +10,10 @@ use crate::storage::db::Db;
 
 use super::{FragmentInput, FragmentSource, FragmentSourceKind};
 
-mod content;
 mod image;
 mod markdown;
 mod pdf;
 
-pub use content::content_fragment_source_for_item;
 pub use image::image_fragment_source_for_item;
 pub use markdown::{markdown_fragment_source_for_item, text_fragment_source_for_item};
 pub use pdf::pdf_fragment_source_for_item;
