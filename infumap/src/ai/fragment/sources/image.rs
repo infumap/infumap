@@ -75,8 +75,6 @@ fn build_image_fragment_text(
 
   if let Some(location) = best_geo_location_text(geo_artifact) {
     lower_lines.push(labeled_line("Location", &location));
-  } else if let Some((lat, lon)) = best_coordinate_pair(image_tag_artifact, geo_artifact) {
-    lower_lines.push(labeled_line("Coordinates", &format!("{lat:.6}, {lon:.6}")));
   }
 
   if let Some(location_codes) = best_geo_location_codes(geo_artifact) {
@@ -260,23 +258,6 @@ fn best_geo_location_codes(geo_artifact: Option<&StoredGeoArtifact>) -> Option<V
   if codes.is_empty() { None } else { Some(codes) }
 }
 
-fn best_coordinate_pair(
-  image_tag_artifact: Option<&StoredImageTagArtifact>,
-  geo_artifact: Option<&StoredGeoArtifact>,
-) -> Option<(f64, f64)> {
-  if let Some(metadata) = image_tag_artifact.and_then(|artifact| artifact.image_metadata.as_ref()) {
-    if let (Some(lat), Some(lon)) = (metadata.gps_latitude, metadata.gps_longitude) {
-      return Some((lat, lon));
-    }
-  }
-
-  let query = geo_artifact?.query.as_ref()?;
-  match (query.lat, query.lon) {
-    (Some(lat), Some(lon)) => Some((lat, lon)),
-    _ => None,
-  }
-}
-
 #[derive(Default, Deserialize)]
 struct StoredImageTagArtifact {
   detailed_caption: Option<String>,
@@ -293,21 +274,12 @@ struct StoredImageTagArtifact {
 #[derive(Default, Deserialize)]
 struct StoredImageMetadata {
   captured_at: Option<String>,
-  gps_latitude: Option<f64>,
-  gps_longitude: Option<f64>,
 }
 
 #[derive(Default, Deserialize)]
 struct StoredGeoArtifact {
-  query: Option<StoredGeoQuery>,
   #[serde(default)]
   results: Vec<StoredGeoResult>,
-}
-
-#[derive(Default, Deserialize)]
-struct StoredGeoQuery {
-  lat: Option<f64>,
-  lon: Option<f64>,
 }
 
 #[derive(Default, Deserialize)]
