@@ -1,10 +1,12 @@
 pub const PDF_MARKDOWN_SOURCE_KIND: &str = "pdf_markdown";
+pub const IMAGE_DOCUMENT_SOURCE_KIND: &str = "image_document_contents";
 
 #[derive(Clone, Copy)]
 pub enum FragmentSourceKind {
   PageContents,
   TableContents,
   ImageContents,
+  ImageDocumentContents,
   PdfMarkdown,
 }
 
@@ -14,9 +16,14 @@ impl FragmentSourceKind {
       FragmentSourceKind::PageContents => "page_contents",
       FragmentSourceKind::TableContents => "table_contents",
       FragmentSourceKind::ImageContents => "image_contents",
+      FragmentSourceKind::ImageDocumentContents => IMAGE_DOCUMENT_SOURCE_KIND,
       FragmentSourceKind::PdfMarkdown => PDF_MARKDOWN_SOURCE_KIND,
     }
   }
+}
+
+pub fn is_lexical_search_source_kind(source_kind: &str) -> bool {
+  matches!(source_kind, PDF_MARKDOWN_SOURCE_KIND | IMAGE_DOCUMENT_SOURCE_KIND)
 }
 
 #[derive(Default)]

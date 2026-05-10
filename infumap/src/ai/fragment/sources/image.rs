@@ -10,6 +10,8 @@ use crate::ai::artifact_paths::{item_geo_content_path, item_text_content_path};
 
 use super::{FragmentSource, FragmentSourceKind, normalized_text, read_json_if_exists, single_fragment_source};
 
+const IMAGE_DOCUMENT_LEXICAL_CONFIDENCE_THRESHOLD: f64 = 0.9;
+
 pub async fn image_fragment_source_for_item(
   data_dir: &str,
   item: &Item,
@@ -24,7 +26,10 @@ pub async fn image_fragment_source_for_item(
     geo_artifact.as_ref(),
   );
 
-  Ok(fragment_text.map(|source_text| single_fragment_source(FragmentSourceKind::ImageContents, source_text)))
+  Ok(
+    fragment_text
+      .map(|source_text| single_fragment_source(image_fragment_source_kind(image_tag_artifact.as_ref()), source_text)),
+  )
 }
 
 async fn load_image_tag_artifact(
@@ -171,6 +176,16 @@ fn embedding_visible_text(values: &[String], document_confidence: f64) -> Vec<St
     out.truncate(2);
   }
   out
+}
+
+fn image_fragment_source_kind(image_tag_artifact: Option<&StoredImageTagArtifact>) -> FragmentSourceKind {
+  if image_tag_artifact
+    .is_some_and(|artifact| artifact.document_confidence >= IMAGE_DOCUMENT_LEXICAL_CONFIDENCE_THRESHOLD)
+  {
+    FragmentSourceKind::ImageDocumentContents
+  } else {
+    FragmentSourceKind::ImageContents
+  }
 }
 
 fn format_image_capture_date(value: &str) -> Option<String> {

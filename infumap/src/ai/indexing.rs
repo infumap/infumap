@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use tokio::fs;
 
 use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path};
-use crate::ai::fragment::PDF_MARKDOWN_SOURCE_KIND;
+use crate::ai::fragment::is_lexical_search_source_kind;
 use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, open_user_pdf_fragment_lexical_index,
   pdf_fragment_lexical_index_temp_dir, remove_pdf_fragment_lexical_index_dirs, user_pdf_fragment_lexical_index_exists,
@@ -142,12 +142,10 @@ async fn rebuild_user_fragment_index(
 ) -> InfuResult<UserRebuildOutcome> {
   ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
-  let vector_fragments =
-    plan.fragments.iter().filter(|fragment| !fragment.is_pdf_markdown()).cloned().collect::<Vec<_>>();
-  let pdf_fragments = plan.fragments.iter().filter(|fragment| fragment.is_pdf_markdown()).cloned().collect::<Vec<_>>();
+  let (vector_fragments, lexical_fragments) = split_fragment_records_by_index(&plan.fragments);
 
   let vector_source_digest = fragment_corpus_digest(&vector_fragments);
-  let pdf_source_digest = fragment_corpus_digest(&pdf_fragments);
+  let lexical_source_digest = fragment_corpus_digest(&lexical_fragments);
 
   let vector_outcome = rebuild_user_vector_fragment_index(
     data_dir,
@@ -159,23 +157,33 @@ async fn rebuild_user_fragment_index(
     continue_rebuild,
   )
   .await?;
-  let pdf_outcome = rebuild_user_pdf_fragment_lexical_index(
+  let lexical_outcome = rebuild_user_fragment_lexical_index(
     data_dir,
     &plan.user_id,
-    &pdf_fragments,
-    &pdf_source_digest,
+    &lexical_fragments,
+    &lexical_source_digest,
     continue_rebuild,
   )
   .await?;
 
   Ok(UserRebuildOutcome {
-    users_rebuilt: if vector_outcome.rebuilt || pdf_outcome.rebuilt { 1 } else { 0 },
-    users_skipped_current: if vector_outcome.skipped_current && pdf_outcome.skipped_current { 1 } else { 0 },
+    users_rebuilt: if vector_outcome.rebuilt || lexical_outcome.rebuilt { 1 } else { 0 },
+    users_skipped_current: if vector_outcome.skipped_current && lexical_outcome.skipped_current { 1 } else { 0 },
     fragments_embedded: vector_outcome.fragments_embedded,
     fragments_reused: vector_outcome.fragments_reused,
-    pdf_fragments_indexed: pdf_outcome.pdf_fragments_indexed,
-    empty_index_files_removed: vector_outcome.empty_index_files_removed + pdf_outcome.empty_index_files_removed,
+    lexical_fragments_indexed: lexical_outcome.lexical_fragments_indexed,
+    empty_index_files_removed: vector_outcome.empty_index_files_removed + lexical_outcome.empty_index_files_removed,
   })
+}
+
+fn split_fragment_records_by_index(
+  fragments: &[FragmentRecordForIndex],
+) -> (Vec<FragmentRecordForIndex>, Vec<FragmentRecordForIndex>) {
+  let vector_fragments =
+    fragments.iter().filter(|fragment| !fragment.is_lexical_search_fragment()).cloned().collect::<Vec<_>>();
+  let lexical_fragments =
+    fragments.iter().filter(|fragment| fragment.is_lexical_search_fragment()).cloned().collect::<Vec<_>>();
+  (vector_fragments, lexical_fragments)
 }
 
 async fn rebuild_user_vector_fragment_index(
@@ -309,19 +317,19 @@ async fn rebuild_user_vector_fragment_index(
   })
 }
 
-async fn rebuild_user_pdf_fragment_lexical_index(
+async fn rebuild_user_fragment_lexical_index(
   data_dir: &str,
   user_id: &str,
   fragments: &[FragmentRecordForIndex],
   source_digest: &str,
   continue_rebuild: bool,
-) -> InfuResult<PdfLexicalRebuildOutcome> {
+) -> InfuResult<LexicalRebuildOutcome> {
   if fragments.is_empty() {
     let removed = remove_pdf_fragment_lexical_index_dirs(data_dir, user_id).await?;
     if removed > 0 {
-      eprintln!("User {} has no PDF fragments; removed {} stale PDF lexical index dir(s).", user_id, removed);
+      eprintln!("User {} has no lexical-search fragments; removed {} stale lexical index dir(s).", user_id, removed);
     }
-    return Ok(PdfLexicalRebuildOutcome {
+    return Ok(LexicalRebuildOutcome {
       skipped_current: removed == 0,
       empty_index_files_removed: removed,
       ..Default::default()
@@ -336,8 +344,8 @@ async fn rebuild_user_pdf_fragment_lexical_index(
     && status.expected_fragment_count == fragments.len()
     && status.indexed_fragment_count == fragments.len()
   {
-    eprintln!("User {} PDF fragment lexical index is already current ({} fragment(s)).", user_id, fragments.len());
-    return Ok(PdfLexicalRebuildOutcome { skipped_current: true, ..Default::default() });
+    eprintln!("User {} fragment lexical index is already current ({} fragment(s)).", user_id, fragments.len());
+    return Ok(LexicalRebuildOutcome { skipped_current: true, ..Default::default() });
   }
 
   let temp_dir = pdf_fragment_lexical_index_temp_dir(data_dir, user_id)?;
@@ -362,13 +370,13 @@ async fn rebuild_user_pdf_fragment_lexical_index(
     || status.expected_fragment_count != fragments.len()
     || status.indexed_fragment_count != fragments.len()
   {
-    return Err(format!("Final PDF fragment lexical index validation failed for user {}.", user_id).into());
+    return Err(format!("Final fragment lexical index validation failed for user {}.", user_id).into());
   }
 
-  eprintln!("User {} rebuilt PDF fragment lexical index: {} fragment(s).", user_id, status.indexed_fragment_count);
-  Ok(PdfLexicalRebuildOutcome {
+  eprintln!("User {} rebuilt fragment lexical index: {} fragment(s).", user_id, status.indexed_fragment_count);
+  Ok(LexicalRebuildOutcome {
     rebuilt: true,
-    pdf_fragments_indexed: status.indexed_fragment_count,
+    lexical_fragments_indexed: status.indexed_fragment_count,
     ..Default::default()
   })
 }
@@ -578,7 +586,7 @@ pub struct EmbedRebuildSummary {
   pub users_skipped_current: usize,
   pub fragments_embedded: usize,
   pub fragments_reused: usize,
-  pub pdf_fragments_indexed: usize,
+  pub lexical_fragments_indexed: usize,
   pub empty_index_files_removed: usize,
 }
 
@@ -588,7 +596,7 @@ impl EmbedRebuildSummary {
     self.users_skipped_current += outcome.users_skipped_current;
     self.fragments_embedded += outcome.fragments_embedded;
     self.fragments_reused += outcome.fragments_reused;
-    self.pdf_fragments_indexed += outcome.pdf_fragments_indexed;
+    self.lexical_fragments_indexed += outcome.lexical_fragments_indexed;
     self.empty_index_files_removed += outcome.empty_index_files_removed;
   }
 }
@@ -599,7 +607,7 @@ struct UserRebuildOutcome {
   users_skipped_current: usize,
   fragments_embedded: usize,
   fragments_reused: usize,
-  pdf_fragments_indexed: usize,
+  lexical_fragments_indexed: usize,
   empty_index_files_removed: usize,
 }
 
@@ -618,10 +626,10 @@ struct VectorRebuildOutcome {
 }
 
 #[derive(Default)]
-struct PdfLexicalRebuildOutcome {
+struct LexicalRebuildOutcome {
   rebuilt: bool,
   skipped_current: bool,
-  pdf_fragments_indexed: usize,
+  lexical_fragments_indexed: usize,
   empty_index_files_removed: usize,
 }
 
@@ -645,8 +653,8 @@ impl FragmentRecordForIndex {
     }
   }
 
-  fn is_pdf_markdown(&self) -> bool {
-    self.source_kind == PDF_MARKDOWN_SOURCE_KIND
+  fn is_lexical_search_fragment(&self) -> bool {
+    is_lexical_search_source_kind(&self.source_kind)
   }
 }
 

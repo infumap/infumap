@@ -45,7 +45,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::MutexGuard;
 
-use crate::ai::fragment::{PDF_MARKDOWN_SOURCE_KIND, delete_item_fragment_artifacts};
+use crate::ai::fragment::{PDF_MARKDOWN_SOURCE_KIND, delete_item_fragment_artifacts, is_lexical_search_source_kind};
 use crate::ai::image_tagging::{
   delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
 };
@@ -1705,7 +1705,7 @@ async fn handle_search(
   let mut results = if full_user_search {
     let fragment_result_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
       .map_err(|_| "Search result limit is too large.")?;
-    let lexical_results = match pdf_lexical_search_results(
+    let lexical_results = match lexical_search_results(
       db,
       &data_dir,
       &session.user_id,
@@ -1718,7 +1718,7 @@ async fn handle_search(
       Ok(results) => results,
       Err(e) => {
         warn!(
-          "PDF lexical search failed for user '{}'; falling back without PDF lexical results: {}",
+          "Lexical fragment search failed for user '{}'; falling back without lexical fragment results: {}",
           session.user_id, e
         );
         Vec::new()
@@ -1783,7 +1783,7 @@ fn search_exact_paginated(
   Ok(results)
 }
 
-async fn pdf_lexical_search_results(
+async fn lexical_search_results(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
@@ -1811,7 +1811,7 @@ async fn pdf_lexical_search_results(
   let fragment_hits = lexical_index.search(search_text, fragment_limit).await?;
   if !fragment_hits.is_empty() {
     debug!(
-      "PDF lexical search top fragment hits for user '{}': {}",
+      "Lexical fragment search top hits for user '{}': {}",
       user_id,
       fragment_hits
         .iter()
@@ -1901,7 +1901,7 @@ async fn semantic_search_results(
     .search(&query_embedding, fragment_limit)
     .await?
     .into_iter()
-    .filter(|hit| hit.source_kind != PDF_MARKDOWN_SOURCE_KIND)
+    .filter(|hit| !is_lexical_search_source_kind(&hit.source_kind))
     .collect::<Vec<_>>();
   if !fragment_hits.is_empty() {
     debug!(
