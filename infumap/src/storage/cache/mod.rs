@@ -34,6 +34,8 @@ use crate::util::fs::{construct_file_subpath, ensure_256_subdirs, expand_tilde};
 pub mod favicon;
 
 const ONE_MEGABYTE: u64 = 1024 * 1024;
+pub const IMAGE_CACHE_DIR_NAME: &str = "images";
+pub const FAVICON_CACHE_DIR_NAME: &str = "favicons";
 
 #[derive(Debug, Clone)]
 struct FileInfo {
@@ -81,7 +83,8 @@ pub struct ImageCache {
 
 impl ImageCache {
   async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<ImageCache> {
-    let cache_dir = expand_tilde(cache_dir).ok_or(format!("Image cache path '{}' is not valid.", cache_dir))?;
+    let cache_dir = cache_subdir(cache_dir, IMAGE_CACHE_DIR_NAME, "Image cache")?;
+    tokio::fs::create_dir_all(&cache_dir).await?;
 
     let fileinfo_by_filename = Self::traverse_files(&cache_dir).await?;
     let current_total_bytes = fileinfo_by_filename.iter().fold(0, |a, (_k, v)| a + v.size_bytes) as u64;
@@ -159,6 +162,23 @@ impl ImageCache {
 
     Ok(cache)
   }
+}
+
+pub(crate) fn cache_subdir(cache_dir: &str, subdir_name: &str, cache_kind: &str) -> InfuResult<PathBuf> {
+  let mut path = expand_tilde(cache_dir).ok_or(format!("{} path '{}' is not valid.", cache_kind, cache_dir))?;
+  path.push(subdir_name);
+  Ok(path)
+}
+
+pub async fn ensure_cache_subdirs(cache_dir: &PathBuf) -> InfuResult<usize> {
+  let mut num_created = 0;
+  for subdir_name in [IMAGE_CACHE_DIR_NAME, FAVICON_CACHE_DIR_NAME] {
+    let mut path = cache_dir.clone();
+    path.push(subdir_name);
+    tokio::fs::create_dir_all(&path).await?;
+    num_created += ensure_256_subdirs(&path).await?;
+  }
+  Ok(num_created)
 }
 
 /// Instantiate an image cache instance.

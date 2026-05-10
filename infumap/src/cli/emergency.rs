@@ -24,7 +24,8 @@ use time::{OffsetDateTime, UtcOffset};
 
 use crate::cli::restore::process_backup;
 use crate::setup::get_config;
-use crate::util::fs::{ensure_256_subdirs, expand_tilde, write_last_backup_filename};
+use crate::storage::cache as storage_cache;
+use crate::util::fs::{expand_tilde, write_last_backup_filename};
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("emergency")
@@ -371,8 +372,8 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   info!("wrote local backup tracking file for user {} as {}.", user_id, backup_filename);
 
   info!("creating cache: {:?}", infumap_cache_dir);
-  let num_created = ensure_256_subdirs(&infumap_cache_dir).await?;
-  info!("created {} cache subdirectories.", num_created);
+  let num_created = storage_cache::ensure_cache_subdirs(&infumap_cache_dir).await?;
+  info!("created {} cache shard directories.", num_created);
 
   info!("validating generated settings.toml.");
   let settings_toml_path_str = settings_toml_path.to_str().ok_or("can't interpret settings.toml pathbuf")?.to_owned();

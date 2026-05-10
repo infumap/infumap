@@ -27,7 +27,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::util::fs::{construct_file_subpath, ensure_256_subdirs, expand_tilde};
+use crate::util::fs::{construct_file_subpath, ensure_256_subdirs};
+
+use super::{FAVICON_CACHE_DIR_NAME, cache_subdir};
 
 const ONE_MEGABYTE: u64 = 1024 * 1024;
 
@@ -59,7 +61,7 @@ pub struct FaviconCache {
 
 impl FaviconCache {
   async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<FaviconCache> {
-    let cache_dir = favicon_cache_dir(cache_dir)?;
+    let cache_dir = cache_subdir(cache_dir, FAVICON_CACHE_DIR_NAME, "Favicon cache")?;
     tokio::fs::create_dir_all(&cache_dir).await?;
 
     let fileinfo_by_filename = Self::traverse_files(&cache_dir).await?;
@@ -298,13 +300,6 @@ fn item_id_from_filename(filename: &str) -> InfuResult<&str> {
 fn hash_url(url: &str) -> String {
   let digest = Sha256::digest(url.trim().as_bytes());
   digest.iter().map(|b| format!("{:02x}", b)).collect()
-}
-
-fn favicon_cache_dir(cache_dir: &str) -> InfuResult<PathBuf> {
-  let cache_path = expand_tilde(cache_dir).ok_or(format!("Favicon cache path '{}' is not valid.", cache_dir))?;
-  let mut path = cache_path.parent().map(|parent| parent.to_path_buf()).unwrap_or_else(PathBuf::new);
-  path.push("favicons-cache");
-  Ok(path)
 }
 
 fn score(fi: &FileInfo) -> f64 {

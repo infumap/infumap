@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use crate::storage::cache as storage_cache;
 use crate::util::crypto::generate_key;
-use crate::util::fs::{ensure_256_subdirs, expand_tilde, expand_tilde_path_exists, path_exists};
+use crate::util::fs::{expand_tilde, expand_tilde_path_exists, path_exists};
 use crate::{config::*, init_logger};
 use config::builder::DefaultState;
 use config::{Config, ConfigBuilder, FileFormat};
@@ -143,9 +144,9 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
               info_messages.push("Created cache directory: '~/.infumap/cache'".to_owned());
             }
           }
-          let num_created = ensure_256_subdirs(&pb).await?;
+          let num_created = storage_cache::ensure_cache_subdirs(&pb).await?;
           if num_created > 0 {
-            info_messages.push(format!("Created {} sub cache directories", num_created));
+            info_messages.push(format!("Created {} cache shard directories", num_created));
           }
           pb.pop();
         }
@@ -207,10 +208,12 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       format!("Cache dir '{}' does not exist.", config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?).into(),
     );
   }
-  let num_created =
-    ensure_256_subdirs(&expand_tilde(config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?).unwrap()).await?;
+  let num_created = storage_cache::ensure_cache_subdirs(
+    &expand_tilde(config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?).unwrap(),
+  )
+  .await?;
   if num_created > 0 {
-    warn!("Created {} cache subdirectories.", num_created);
+    warn!("Created {} cache shard directories.", num_created);
   }
 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {

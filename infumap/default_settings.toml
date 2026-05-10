@@ -55,7 +55,7 @@
 #data_dir = "~/.infumap/data"
 
 
-# The cache directory. Used to store scaled down images.
+# The cache directory. Contains images and favicons subdirectories.
 #cache_dir = "~/.infumap/cache"
 
 # Optional URL for the external text extraction service. If set, Infumap will run a
@@ -74,8 +74,8 @@
 # matching only.
 #text_embedding_url = "http://127.0.0.1:8787/embed"
 
-# Maximum aggregate size (in megabytes) of all files in the cache. Files are
-# removed using an LRU policy if this size is exceeded.
+# Maximum aggregate size (in megabytes) of files in each server cache. Files
+# are removed using an LRU policy if this size is exceeded.
 #cache_max_mb = 500
 
 # Maximum length of time the browser may cache images and files. The maximum
