@@ -52,16 +52,16 @@ function movingOverlayVe(store: StoreContextModel, visualElement: VisualElement)
 function movingOverlayShouldYieldToTranslucentPage(visualElement: VisualElement): boolean {
   if (!visualElement.parentPath) { return false; }
 
-  const parentVisualElement = VesCache.current.readNode(visualElement.parentPath) ??
-    VesCache.render.getNode(visualElement.parentPath)?.get() ??
+  const parentVisualElementSignal = VesCache.render.getNode(visualElement.parentPath);
+  const parentVisualElement = parentVisualElementSignal?.get() ??
+    VesCache.current.readNode(visualElement.parentPath) ??
     null;
   if (parentVisualElement == null || !isVeTranslucentPage(parentVisualElement)) {
     return false;
   }
 
-  const scaleDefiningElement = MouseActionState.readScaleDefiningElement();
-  return scaleDefiningElement != null &&
-    VeFns.veToPath(scaleDefiningElement) == VeFns.veToPath(parentVisualElement);
+  VesCache.render.getChildren(visualElement.parentPath)();
+  return true;
 }
 
 function movingOverlayPath(visualElement: VisualElement): string {
