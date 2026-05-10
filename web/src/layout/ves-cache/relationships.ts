@@ -42,19 +42,30 @@ export function createRelationshipOps(
     const lineChildren: Array<VisualElementPath> = [];
     const desktopChildren: Array<VisualElementPath> = [];
     const nonMovingChildren: Array<VisualElementPath> = [];
+    const movingLineChildren: Array<VisualElementPath> = [];
+    const movingDesktopChildren: Array<VisualElementPath> = [];
 
     for (const childPath of allChildren) {
       const flags = getSceneNode(scene, childPath)?.flags ?? VisualElementFlags.None;
-      allChildPaths.push(childPath);
-      if (flags & VisualElementFlags.LineItem) {
-        lineChildren.push(childPath);
-      } else {
-        desktopChildren.push(childPath);
-      }
-      if (!(flags & VisualElementFlags.Moving)) {
+      const moving = !!(flags & VisualElementFlags.Moving);
+      if (!moving) {
+        allChildPaths.push(childPath);
         nonMovingChildren.push(childPath);
+        if (flags & VisualElementFlags.LineItem) {
+          lineChildren.push(childPath);
+        } else {
+          desktopChildren.push(childPath);
+        }
+      } else if (flags & VisualElementFlags.LineItem) {
+        movingLineChildren.push(childPath);
+      } else {
+        movingDesktopChildren.push(childPath);
       }
     }
+
+    lineChildren.push(...movingLineChildren);
+    desktopChildren.push(...movingDesktopChildren);
+    allChildPaths.push(...movingLineChildren, ...movingDesktopChildren);
 
     return {
       allChildren: allChildPaths,
