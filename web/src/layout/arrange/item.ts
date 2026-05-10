@@ -74,6 +74,18 @@ export function getCommonVisualElementFlags(flags: ArrangeItemFlags): VisualElem
     (flags & ArrangeItemFlags.IsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
 }
 
+function movingItemIsArrangedAtParentPath(itemVeid: ReturnType<typeof VeFns.veidFromPath>, parentPath: VisualElementPath): boolean {
+  const treeItem = VeFns.treeItemFromVeid(itemVeid);
+  if (treeItem == null) { return false; }
+
+  const parentVeid = VeFns.veidFromPath(parentPath);
+  return treeItem.parentId == parentVeid.itemId;
+}
+
+function arrangedItemMatchesMovingVeid(itemVeid: ReturnType<typeof VeFns.veidFromPath>, movingVeid: ReturnType<typeof VeFns.veidFromPath>): boolean {
+  return movingVeid.itemId == itemVeid.itemId && movingVeid.linkIdMaybe == itemVeid.linkIdMaybe;
+}
+
 
 export const arrangeItem = (
   store: StoreContextModel,
@@ -92,13 +104,17 @@ export const arrangeItem = (
   let isMoving = false;
   if (!MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving)) {
     const activeElementPath = MouseActionState.getActiveElementPath()!;
-    if (activeElementPath == VeFns.addVeidToPath(itemVeid, parentPath)) {
+    const activeVeid = VeFns.veidFromPath(activeElementPath);
+    if (activeElementPath == VeFns.addVeidToPath(itemVeid, parentPath) ||
+      (arrangedItemMatchesMovingVeid(itemVeid, activeVeid) && movingItemIsArrangedAtParentPath(activeVeid, parentPath))) {
       isMoving = true;
     } else {
       const activeParentPath = VeFns.parentPath(activeElementPath);
       const group = MouseActionState.getGroupMoveItems();
-      if (group && activeParentPath == parentPath) {
-        isMoving = group.some(g => g.veid.itemId == itemVeid.itemId && g.veid.linkIdMaybe == itemVeid.linkIdMaybe);
+      if (group) {
+        isMoving = group.some(g =>
+          arrangedItemMatchesMovingVeid(itemVeid, g.veid) &&
+          (activeParentPath == parentPath || movingItemIsArrangedAtParentPath(g.veid, parentPath)));
       }
     }
   }
