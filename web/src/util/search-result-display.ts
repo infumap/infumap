@@ -16,13 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import type { SearchPathElement, SearchResult, SearchSemanticMatch } from "../server";
+import type { SearchPathElement, SearchResult, SearchFragmentMatch } from "../server";
 import type { ItemPathSegment } from "./item-path";
 import { EMPTY_UID, Uid } from "./uid";
 
 const ITEM_TITLE_SOURCE_KIND = "item_title";
 
-export interface CatalogSemanticMatchDisplay {
+export interface CatalogFragmentMatchDisplay {
   text: string,
   href: string | null,
   pageLabel: string | null,
@@ -31,8 +31,8 @@ export interface CatalogSemanticMatchDisplay {
 
 export interface CatalogSearchResultDisplay {
   pathSegments: Array<ItemPathSegment>,
-  semanticMatch: CatalogSemanticMatchDisplay | null,
-  semanticMatches: Array<CatalogSemanticMatchDisplay>,
+  fragmentMatch: CatalogFragmentMatchDisplay | null,
+  fragmentMatches: Array<CatalogFragmentMatchDisplay>,
 }
 
 function fallbackPathTitle(itemType: string): string {
@@ -59,14 +59,14 @@ export function searchResultTargetId(result: SearchResult): Uid | null {
   return targetId;
 }
 
-export function semanticMatchPageLabel(pageStart?: number, pageEnd?: number): string | null {
+export function fragmentMatchPageLabel(pageStart?: number, pageEnd?: number): string | null {
   if (pageStart == null || pageEnd == null) {
     return null;
   }
   return pageStart == pageEnd ? `Page ${pageStart}` : `Pages ${pageStart}-${pageEnd}`;
 }
 
-export function formatCatalogSemanticMatchText(_sourceKind: string, text: string): string {
+export function formatCatalogFragmentMatchText(_sourceKind: string, text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
@@ -88,15 +88,15 @@ function appendTruncationEllipsis(text: string): string {
   return `${text.replace(/(?:\s*\.)+$/, "")}...`;
 }
 
-export function catalogSemanticMatchDisplayFromMatch(
+export function catalogFragmentMatchDisplayFromMatch(
   targetId: Uid | null | undefined,
-  match: SearchSemanticMatch | null | undefined,
-): CatalogSemanticMatchDisplay | null {
+  match: SearchFragmentMatch | null | undefined,
+): CatalogFragmentMatchDisplay | null {
   if (!targetId || targetId == EMPTY_UID || !match) {
     return null;
   }
 
-  const formattedText = formatCatalogSemanticMatchText(match.sourceKind, match.text);
+  const formattedText = formatCatalogFragmentMatchText(match.sourceKind, match.text);
   if (formattedText.trim() == "") {
     return null;
   }
@@ -104,23 +104,23 @@ export function catalogSemanticMatchDisplayFromMatch(
   return {
     text: match.textTruncated ? appendTruncationEllipsis(formattedText) : formattedText,
     href: match.sourceKind == ITEM_TITLE_SOURCE_KIND ? null : `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
-    pageLabel: semanticMatchPageLabel(match.pageStart, match.pageEnd),
+    pageLabel: fragmentMatchPageLabel(match.pageStart, match.pageEnd),
     scoreLabel: formatSearchFragmentScore(match.score),
   };
 }
 
 export function catalogSearchResultDisplay(result: SearchResult): CatalogSearchResultDisplay {
   const targetId = searchResultTargetId(result);
-  const semanticMatches = [
-    result.semanticMatch,
-    ...(result.additionalSemanticMatches ?? []),
+  const fragmentMatches = [
+    result.fragmentMatch,
+    ...(result.additionalFragmentMatches ?? []),
   ]
-    .map(match => catalogSemanticMatchDisplayFromMatch(targetId, match))
-    .filter((match): match is CatalogSemanticMatchDisplay => match != null);
+    .map(match => catalogFragmentMatchDisplayFromMatch(targetId, match))
+    .filter((match): match is CatalogFragmentMatchDisplay => match != null);
 
   return {
     pathSegments: searchResultPathSegments(result),
-    semanticMatch: semanticMatches[0] ?? null,
-    semanticMatches,
+    fragmentMatch: fragmentMatches[0] ?? null,
+    fragmentMatches,
   };
 }

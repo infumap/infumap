@@ -58,14 +58,15 @@ export interface ItemsAndTheirAttachments {
 export interface SearchResult {
   path: Array<SearchPathElement>,
   score?: number,
-  semanticMatch?: SearchSemanticMatch,
-  additionalSemanticMatches?: Array<SearchSemanticMatch>,
+  fragmentMatch?: SearchFragmentMatch,
+  additionalFragmentMatches?: Array<SearchFragmentMatch>,
 }
 
-export interface SearchSemanticMatch {
+export interface SearchFragmentMatch {
   fragmentOrdinal: number,
   sourceKind: string,
-  distance: number,
+  semanticDistance?: number,
+  lexicalScore?: number,
   score?: number,
   text: string,
   textTruncated: boolean,

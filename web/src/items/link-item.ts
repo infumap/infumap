@@ -46,7 +46,7 @@ export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
   linkRequiresRemoteLogin?: string | null,
   aspectOverride?: number | null,
   catalogPathOverride?: Array<{ id: Uid, itemType: string, title: string }> | null,
-  catalogSemanticMatch?: LinkCatalogSemanticMatch | null,
+  catalogFragmentMatch?: LinkCatalogFragmentMatch | null,
 }
 
 export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
@@ -54,10 +54,11 @@ export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   linkToResolvedId: Uid | null,
 }
 
-export interface LinkCatalogSemanticMatch {
+export interface LinkCatalogFragmentMatch {
   fragmentOrdinal: number,
   sourceKind: string,
-  distance: number,
+  semanticDistance?: number,
+  lexicalScore?: number,
   score?: number,
   text: string,
   textTruncated: boolean,
@@ -113,7 +114,7 @@ export const LinkFns = {
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
       catalogPathOverride: null,
-      catalogSemanticMatch: null,
+      catalogFragmentMatch: null,
     };
   },
 
@@ -160,7 +161,7 @@ export const LinkFns = {
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
       catalogPathOverride: o.catalogPathOverride ?? null,
-      catalogSemanticMatch: o.catalogSemanticMatch ?? null,
+      catalogFragmentMatch: o.catalogFragmentMatch ?? null,
     });
   },
 
@@ -182,7 +183,7 @@ export const LinkFns = {
 
       linkTo: l.linkTo,
       catalogPathOverride: l.catalogPathOverride ?? null,
-      catalogSemanticMatch: l.catalogSemanticMatch ?? null,
+      catalogFragmentMatch: l.catalogFragmentMatch ?? null,
     });
   },
 

@@ -56,7 +56,7 @@ import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
-import { catalogSearchResultDisplay, catalogSemanticMatchDisplayFromMatch, type CatalogSemanticMatchDisplay } from "../../util/search-result-display";
+import { catalogSearchResultDisplay, catalogFragmentMatchDisplayFromMatch, type CatalogFragmentMatchDisplay } from "../../util/search-result-display";
 import { SELECTED_LIGHT } from "../../style";
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
@@ -147,16 +147,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return [];
   };
 
-  const catalogSemanticMatches = (item: Item): Array<CatalogSemanticMatchDisplay> => {
+  const catalogFragmentMatches = (item: Item): Array<CatalogFragmentMatchDisplay> => {
     if (!isLink(item)) {
       return [];
     }
     const linkItem = asLinkItem(item);
-    const match = linkItem.catalogSemanticMatch;
+    const match = linkItem.catalogFragmentMatch;
     if (!match) {
       return [];
     }
-    const display = catalogSemanticMatchDisplayFromMatch(LinkFns.getLinkToId(linkItem), match);
+    const display = catalogFragmentMatchDisplayFromMatch(LinkFns.getLinkToId(linkItem), match);
     return display ? [display] : [];
   };
 
@@ -583,9 +583,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const metadataLines = () => {
             return catalogMetadataLines(catalogItem());
           };
-          const semanticMatches = () => searchResultDisplay()?.semanticMatches ?? catalogSemanticMatches(catalogItem());
-          const visibleSemanticMatches = () => {
-            const matches = semanticMatches();
+          const fragmentMatches = () => searchResultDisplay()?.fragmentMatches ?? catalogFragmentMatches(catalogItem());
+          const visibleFragmentMatches = () => {
+            const matches = fragmentMatches();
             if (matches.length == 0) {
               return [];
             }
@@ -606,7 +606,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             }
             return matches.slice(0, visibleCount);
           };
-          const inlineSnippetText = (match: CatalogSemanticMatchDisplay) => {
+          const inlineSnippetText = (match: CatalogFragmentMatchDisplay) => {
             const averageCharWidthPx =
               CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX * CATALOG_SEARCH_SNIPPET_AVERAGE_CHAR_WIDTH_EM;
             const pageLabelWidthPx = match.pageLabel
@@ -667,7 +667,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       </Show>
                     }</For>
                   </div>
-                  <For each={visibleSemanticMatches()}>{match =>
+                  <For each={visibleFragmentMatches()}>{match =>
                     <div class="min-w-0 w-full pointer-events-auto select-text text-slate-700"
                       style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; user-select: text;`}
                       onMouseDown={stopTextSelectionMouseEvent}

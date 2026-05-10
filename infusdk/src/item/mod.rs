@@ -207,10 +207,12 @@ pub struct CatalogPathSegment {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CatalogSemanticMatch {
+pub struct CatalogFragmentMatch {
   pub fragment_ordinal: i64,
   pub source_kind: String,
-  pub distance: f64,
+  pub semantic_distance: Option<f64>,
+  pub lexical_score: Option<f64>,
+  pub score: Option<f64>,
   pub text: String,
   pub text_truncated: bool,
   pub page_start: Option<i64>,
@@ -444,7 +446,7 @@ const ALL_JSON_FIELDS: [&'static str; 51] = [
   "tableColumns",
   "linkTo",
   "catalogPathOverride",
-  "catalogSemanticMatch",
+  "catalogFragmentMatch",
   "gridNumberOfColumns",
   "orderChildrenBy",
   "text",
@@ -559,7 +561,7 @@ pub struct Item {
   // link
   pub link_to: Option<Uid>,
   pub catalog_path_override: Option<Vec<CatalogPathSegment>>,
-  pub catalog_semantic_match: Option<CatalogSemanticMatch>,
+  pub catalog_fragment_match: Option<CatalogFragmentMatch>,
   // composite
 }
 
@@ -614,7 +616,7 @@ impl Clone for Item {
       rating_type: self.rating_type.clone(),
       link_to: self.link_to.clone(),
       catalog_path_override: self.catalog_path_override.clone(),
-      catalog_semantic_match: self.catalog_semantic_match.clone(),
+      catalog_fragment_match: self.catalog_fragment_match.clone(),
       text: self.text.clone(),
     }
   }
@@ -1225,17 +1227,17 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("catalogPathOverride"), catalog_path_segments_to_array(new_catalog_path_override));
       }
     }
-    if let Some(new_catalog_semantic_match) = &new.catalog_semantic_match {
-      if match &old.catalog_semantic_match {
-        Some(o) => o != new_catalog_semantic_match,
+    if let Some(new_catalog_fragment_match) = &new.catalog_fragment_match {
+      if match &old.catalog_fragment_match {
+        Some(o) => o != new_catalog_fragment_match,
         None => true,
       } {
         if old.item_type != ItemType::Link {
-          cannot_modify_err("catalogSemanticMatch", &old.id)?;
+          cannot_modify_err("catalogFragmentMatch", &old.id)?;
         }
         result.insert(
-          String::from("catalogSemanticMatch"),
-          catalog_semantic_match_to_object(new_catalog_semantic_match, &old.id)?,
+          String::from("catalogFragmentMatch"),
+          catalog_fragment_match_to_object(new_catalog_fragment_match, &old.id)?,
         );
       }
     }
@@ -1632,11 +1634,11 @@ impl JsonLogSerializable<Item> for Item {
       }
       self.catalog_path_override = Some(v);
     }
-    if let Some(v) = get_catalog_semantic_match_field(map, "catalogSemanticMatch")? {
+    if let Some(v) = get_catalog_fragment_match_field(map, "catalogFragmentMatch")? {
       if self.item_type != ItemType::Link {
-        not_applicable_err("catalogSemanticMatch", self.item_type, &self.id)?;
+        not_applicable_err("catalogFragmentMatch", self.item_type, &self.id)?;
       }
-      self.catalog_semantic_match = Some(v);
+      self.catalog_fragment_match = Some(v);
     }
 
     // composite
@@ -1644,7 +1646,10 @@ impl JsonLogSerializable<Item> for Item {
   }
 }
 
-fn get_catalog_path_override_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<Vec<CatalogPathSegment>>> {
+fn get_catalog_path_override_field(
+  map: &Map<String, Value>,
+  field: &str,
+) -> InfuResult<Option<Vec<CatalogPathSegment>>> {
   let v = match map.get(field) {
     None => return Ok(None),
     Some(v) if v.is_null() => return Ok(None),
@@ -1660,7 +1665,8 @@ fn get_catalog_path_override_field(map: &Map<String, Value>, field: &str) -> Inf
     }
     result.push(CatalogPathSegment {
       id,
-      item_type: json::get_string_field(o, "itemType")?.ok_or("catalogPathOverride item field 'itemType' was missing.")?,
+      item_type: json::get_string_field(o, "itemType")?
+        .ok_or("catalogPathOverride item field 'itemType' was missing.")?,
       title: json::get_string_field(o, "title")?.ok_or("catalogPathOverride item field 'title' was missing.")?,
     });
   }
@@ -1688,36 +1694,60 @@ fn get_bool_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<bo
   Ok(Some(v.as_bool().ok_or(format!("'{}' field was not of type 'bool'.", field))?))
 }
 
-fn get_catalog_semantic_match_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<CatalogSemanticMatch>> {
+fn get_catalog_fragment_match_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<CatalogFragmentMatch>> {
   let v = match map.get(field) {
     None => return Ok(None),
     Some(v) if v.is_null() => return Ok(None),
     Some(v) => v,
   };
   let o = v.as_object().ok_or(format!("'{}' field was not of type 'object'.", field))?;
-  Ok(Some(CatalogSemanticMatch {
+  Ok(Some(CatalogFragmentMatch {
     fragment_ordinal: json::get_integer_field(o, "fragmentOrdinal")?
-      .ok_or("catalogSemanticMatch field 'fragmentOrdinal' was missing.")?,
-    source_kind: json::get_string_field(o, "sourceKind")?.ok_or("catalogSemanticMatch field 'sourceKind' was missing.")?,
-    distance: json::get_float_field(o, "distance")?.ok_or("catalogSemanticMatch field 'distance' was missing.")?,
-    text: json::get_string_field(o, "text")?.ok_or("catalogSemanticMatch field 'text' was missing.")?,
-    text_truncated: get_bool_field(o, "textTruncated")?.ok_or("catalogSemanticMatch field 'textTruncated' was missing.")?,
+      .ok_or("catalogFragmentMatch field 'fragmentOrdinal' was missing.")?,
+    source_kind: json::get_string_field(o, "sourceKind")?
+      .ok_or("catalogFragmentMatch field 'sourceKind' was missing.")?,
+    semantic_distance: json::get_float_field(o, "semanticDistance")?,
+    lexical_score: json::get_float_field(o, "lexicalScore")?,
+    score: json::get_float_field(o, "score")?,
+    text: json::get_string_field(o, "text")?.ok_or("catalogFragmentMatch field 'text' was missing.")?,
+    text_truncated: get_bool_field(o, "textTruncated")?
+      .ok_or("catalogFragmentMatch field 'textTruncated' was missing.")?,
     page_start: json::get_integer_field(o, "pageStart")?,
     page_end: json::get_integer_field(o, "pageEnd")?,
   }))
 }
 
-fn catalog_semantic_match_to_object(match_info: &CatalogSemanticMatch, item_id: &str) -> InfuResult<Value> {
+fn catalog_fragment_match_to_object(match_info: &CatalogFragmentMatch, item_id: &str) -> InfuResult<Value> {
   let mut result: Map<String, Value> = Map::new();
   result.insert(String::from("fragmentOrdinal"), Value::Number(match_info.fragment_ordinal.into()));
   result.insert(String::from("sourceKind"), Value::String(match_info.source_kind.clone()));
-  result.insert(
-    String::from("distance"),
-    Value::Number(Number::from_f64(match_info.distance).ok_or(format!(
-      "Could not serialize the 'catalogSemanticMatch.distance' field of item '{}' because it is not a number.",
-      item_id
-    ))?),
-  );
+  if let Some(semantic_distance) = match_info.semantic_distance {
+    result.insert(
+      String::from("semanticDistance"),
+      Value::Number(Number::from_f64(semantic_distance).ok_or(format!(
+        "Could not serialize the 'catalogFragmentMatch.semanticDistance' field of item '{}' because it is not a number.",
+        item_id
+      ))?),
+    );
+  }
+  if let Some(lexical_score) = match_info.lexical_score {
+    result.insert(
+      String::from("lexicalScore"),
+      Value::Number(Number::from_f64(lexical_score).ok_or(format!(
+        "Could not serialize the 'catalogFragmentMatch.lexicalScore' field of item '{}' because it is not a number.",
+        item_id
+      ))?),
+    );
+  }
+  if let Some(score) = match_info.score {
+    result.insert(
+      String::from("score"),
+      Value::Number(Number::from_f64(score).ok_or(format!(
+        "Could not serialize the 'catalogFragmentMatch.score' field of item '{}' because it is not a number.",
+        item_id
+      ))?),
+    );
+  }
   result.insert(String::from("text"), Value::String(match_info.text.clone()));
   result.insert(String::from("textTruncated"), Value::Bool(match_info.text_truncated));
   if let Some(page_start) = match_info.page_start {
@@ -2064,13 +2094,13 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     }
     result.insert(String::from("catalogPathOverride"), catalog_path_segments_to_array(catalog_path_override));
   }
-  if let Some(catalog_semantic_match) = &item.catalog_semantic_match {
+  if let Some(catalog_fragment_match) = &item.catalog_fragment_match {
     if item.item_type != ItemType::Link {
-      unexpected_field_err("catalogSemanticMatch", &item.id, item.item_type)?
+      unexpected_field_err("catalogFragmentMatch", &item.id, item.item_type)?
     }
     result.insert(
-      String::from("catalogSemanticMatch"),
-      catalog_semantic_match_to_object(catalog_semantic_match, &item.id)?,
+      String::from("catalogFragmentMatch"),
+      catalog_fragment_match_to_object(catalog_fragment_match, &item.id)?,
     );
   }
 
@@ -2789,12 +2819,12 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       }
       None => Ok(None),
     }?,
-    catalog_semantic_match: match get_catalog_semantic_match_field(map, "catalogSemanticMatch")? {
+    catalog_fragment_match: match get_catalog_fragment_match_field(map, "catalogFragmentMatch")? {
       Some(v) => {
         if item_type == ItemType::Link {
           Ok(Some(v))
         } else {
-          Err(not_applicable_err("catalogSemanticMatch", item_type, &id))
+          Err(not_applicable_err("catalogFragmentMatch", item_type, &id))
         }
       }
       None => Ok(None),
@@ -2845,7 +2875,7 @@ impl Item {
       number_of_visible_columns: None,
       link_to: None,
       catalog_path_override: None,
-      catalog_semantic_match: None,
+      catalog_fragment_match: None,
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
@@ -2908,7 +2938,7 @@ impl Item {
       number_of_visible_columns: None,
       link_to: Some(link_to.clone()),
       catalog_path_override: None,
-      catalog_semantic_match: None,
+      catalog_fragment_match: None,
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
@@ -2973,7 +3003,7 @@ impl Item {
       format: None,
       link_to: None,
       catalog_path_override: None,
-      catalog_semantic_match: None,
+      catalog_fragment_match: None,
       table_columns: Some(table_columns),
       number_of_visible_columns: Some(number_of_visible_columns),
       original_creation_date: None,
@@ -3028,7 +3058,7 @@ impl Item {
       format: None,
       link_to: None,
       catalog_path_override: None,
-      catalog_semantic_match: None,
+      catalog_fragment_match: None,
       table_columns: None,
       number_of_visible_columns: None,
       original_creation_date: None,
@@ -3089,7 +3119,7 @@ impl Item {
       format: None,
       link_to: None,
       catalog_path_override: None,
-      catalog_semantic_match: None,
+      catalog_fragment_match: None,
       table_columns: None,
       number_of_visible_columns: None,
       original_creation_date: None,
@@ -3188,7 +3218,7 @@ impl Item {
       format: None,
       link_to: None,
       catalog_path_override: None,
-      catalog_semantic_match: None,
+      catalog_fragment_match: None,
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
@@ -3450,16 +3480,24 @@ impl Item {
           hashes.push(hash_string_to_uid(&segment.title));
         }
       }
-      if let Some(catalog_semantic_match) = &self.catalog_semantic_match {
-        hashes.push(hash_i64_to_uid(catalog_semantic_match.fragment_ordinal));
-        hashes.push(hash_string_to_uid(&catalog_semantic_match.source_kind));
-        hashes.push(hash_f64_to_uid(catalog_semantic_match.distance));
-        hashes.push(hash_string_to_uid(&catalog_semantic_match.text));
-        hashes.push(hash_i64_to_uid(if catalog_semantic_match.text_truncated { 1 } else { 0 }));
-        if let Some(page_start) = catalog_semantic_match.page_start {
+      if let Some(catalog_fragment_match) = &self.catalog_fragment_match {
+        hashes.push(hash_i64_to_uid(catalog_fragment_match.fragment_ordinal));
+        hashes.push(hash_string_to_uid(&catalog_fragment_match.source_kind));
+        if let Some(semantic_distance) = catalog_fragment_match.semantic_distance {
+          hashes.push(hash_f64_to_uid(semantic_distance));
+        }
+        if let Some(lexical_score) = catalog_fragment_match.lexical_score {
+          hashes.push(hash_f64_to_uid(lexical_score));
+        }
+        if let Some(score) = catalog_fragment_match.score {
+          hashes.push(hash_f64_to_uid(score));
+        }
+        hashes.push(hash_string_to_uid(&catalog_fragment_match.text));
+        hashes.push(hash_i64_to_uid(if catalog_fragment_match.text_truncated { 1 } else { 0 }));
+        if let Some(page_start) = catalog_fragment_match.page_start {
           hashes.push(hash_i64_to_uid(page_start));
         }
-        if let Some(page_end) = catalog_semantic_match.page_end {
+        if let Some(page_end) = catalog_fragment_match.page_end {
           hashes.push(hash_i64_to_uid(page_end));
         }
       }

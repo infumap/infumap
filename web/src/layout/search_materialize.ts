@@ -69,7 +69,7 @@ function makeMaterializedLink(
   );
   LinkFns.syncSizeFromLinkedItem(link);
   link.catalogPathOverride = searchResultPathSegments(result);
-  link.catalogSemanticMatch = result.semanticMatch ?? null;
+  link.catalogFragmentMatch = result.fragmentMatch ?? null;
   return link;
 }
 
