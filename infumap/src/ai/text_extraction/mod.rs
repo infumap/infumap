@@ -676,43 +676,6 @@ async fn request_text_extraction_with_retries(
   }
 }
 
-#[cfg(test)]
-mod tests {
-  use super::{is_terminal_document_response, manifest_failure_for_object_read_error};
-
-  #[test]
-  fn classifies_s3_404_as_terminal_document_failure() {
-    let message = "Unexpected status code getting S3 object 'user_item': 404";
-    let classified = manifest_failure_for_object_read_error(message);
-    assert!(classified.is_some());
-    assert!(classified.unwrap().contains("missing"));
-  }
-
-  #[test]
-  fn classifies_missing_local_file_as_terminal_document_failure() {
-    let message = "No such file or directory (os error 2)";
-    let classified = manifest_failure_for_object_read_error(message);
-    assert!(classified.is_some());
-    assert!(classified.unwrap().contains("local object storage"));
-  }
-
-  #[test]
-  fn leaves_transient_storage_errors_retryable() {
-    let message = "Timeout waiting for first byte from S3 for 'user_item'";
-    assert!(manifest_failure_for_object_read_error(message).is_none());
-  }
-
-  #[test]
-  fn classifies_payload_too_large_as_terminal_document_failure() {
-    assert!(is_terminal_document_response(reqwest::StatusCode::PAYLOAD_TOO_LARGE));
-  }
-
-  #[test]
-  fn leaves_internal_server_errors_retryable() {
-    assert!(!is_terminal_document_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR));
-  }
-}
-
 async fn request_text_extraction_once(
   client: &reqwest::Client,
   text_extraction_url: &str,

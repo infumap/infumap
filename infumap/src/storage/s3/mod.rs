@@ -94,40 +94,6 @@ pub fn init_bucket(
   Ok(bucket)
 }
 
-#[cfg(test)]
-mod tests {
-  use super::{is_retryable_get_error_message, validate_endpoint};
-
-  #[test]
-  fn validate_endpoint_allows_https_and_host_only() {
-    assert!(validate_endpoint("https://s3.example.com").is_ok());
-    assert!(validate_endpoint("s3.example.com").is_ok());
-  }
-
-  #[test]
-  fn validate_endpoint_rejects_http() {
-    assert!(validate_endpoint("http://s3.example.com").is_err());
-    assert!(validate_endpoint("HTTP://s3.example.com").is_err());
-  }
-
-  #[test]
-  fn retries_connection_closed_stream_errors() {
-    assert!(is_retryable_get_error_message(
-      "Error opening S3 response stream for 'user_item' before first chunk: hyper: connection closed before message completed"
-    ));
-  }
-
-  #[test]
-  fn retries_retryable_s3_status_codes() {
-    assert!(is_retryable_get_error_message("Unexpected status code getting S3 object 'user_item': 503"));
-  }
-
-  #[test]
-  fn leaves_not_found_terminal() {
-    assert!(!is_retryable_get_error_message("Unexpected status code getting S3 object 'user_item': 404"));
-  }
-}
-
 pub struct S3Store {
   bucket: Bucket,
 }

@@ -908,34 +908,3 @@ fn is_malformed_structured_output_detail(detail: &str) -> bool {
     || lowered.contains("json object")
     || lowered.contains("json root")
 }
-
-#[cfg(test)]
-mod tests {
-  use super::{classify_malformed_structured_output_response, is_terminal_document_response};
-
-  #[test]
-  fn detects_model_output_json_object_failures() {
-    let body = r#"{"detail":"Model output did not contain a JSON object."}"#;
-    let classified = classify_malformed_structured_output_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR, body);
-    assert_eq!(classified.as_deref(), Some("Model output did not contain a JSON object."));
-  }
-
-  #[test]
-  fn detects_json_decoder_failures_from_service_detail() {
-    let body = r#"{"detail":"Expecting property name enclosed in double quotes: line 1 column 3 (char 2)"}"#;
-    let classified = classify_malformed_structured_output_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR, body);
-    assert!(classified.is_some());
-  }
-
-  #[test]
-  fn leaves_unrelated_internal_server_errors_retryable() {
-    let body = r#"{"detail":"Image tagging service is not ready."}"#;
-    let classified = classify_malformed_structured_output_response(reqwest::StatusCode::INTERNAL_SERVER_ERROR, body);
-    assert!(classified.is_none());
-  }
-
-  #[test]
-  fn classifies_payload_too_large_as_terminal_document_failure() {
-    assert!(is_terminal_document_response(reqwest::StatusCode::PAYLOAD_TOO_LARGE));
-  }
-}

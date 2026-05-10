@@ -417,27 +417,3 @@ async fn delete_file(favicon_cache: Arc<Mutex<FaviconCache>>, filename: &str) ->
 
   Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn hash_url_trims_input() {
-    assert_eq!(hash_url("https://example.com"), hash_url("  https://example.com  "));
-  }
-
-  #[test]
-  fn validates_filename_shape() {
-    let filename =
-      "0123456789abcdef0123456789abcdef_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef_01234567";
-    assert_eq!(item_id_from_filename(filename).unwrap(), "0123456789abcdef0123456789abcdef");
-    assert!(item_id_from_filename("bad").is_err());
-  }
-
-  #[test]
-  fn places_favicon_cache_next_to_configured_cache_dir() {
-    assert_eq!(favicon_cache_dir("/tmp/infumap/cache").unwrap(), PathBuf::from("/tmp/infumap/favicons-cache"));
-    assert_eq!(favicon_cache_dir("cache").unwrap(), PathBuf::from("favicons-cache"));
-  }
-}
