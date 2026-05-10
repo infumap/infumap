@@ -55,7 +55,7 @@ import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
-import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
+import { calculateChildrenStats, formatBytes, type ContainerChildrenStats } from "../../util/item-metadata";
 import { catalogSearchResultDisplay, catalogFragmentMatchDisplayFromMatch, type CatalogFragmentMatchDisplay } from "../../util/search-result-display";
 import { SELECTED_LIGHT } from "../../style";
 import {
@@ -123,6 +123,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const catalogSourceItem = (item: Item): Item =>
     resolvedPathTargetItemForItem(item) ?? item;
 
+  const catalogChildrenStatsMetadataLines = (stats: ContainerChildrenStats): Array<string> => [
+    `Children: ${stats.totalChildren}`,
+    `Images & Files: ${stats.imageFileChildren}`,
+    `Total Size: ${formatBytes(stats.totalBytes)}`,
+  ];
+
   const catalogMetadataLines = (item: Item): Array<string> => {
     const targetItem = catalogSourceItem(item);
     if (isImage(targetItem)) {
@@ -137,12 +143,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return [`Size: ${formatBytes(asFileItem(targetItem).fileSizeBytes || 0)}`];
     }
     if (isContainer(targetItem)) {
-      const stats = calculateChildrenStats(asContainerItem(targetItem));
-      return [
-        `Children: ${stats.totalChildren}`,
-        `Images & Files: ${stats.imageFileChildren}`,
-        `Total Size: ${formatBytes(stats.totalBytes)}`,
-      ];
+      return catalogChildrenStatsMetadataLines(calculateChildrenStats(asContainerItem(targetItem)));
     }
     return [];
   };
@@ -581,8 +582,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           };
           const pathSegments = () => searchResultDisplay()?.pathSegments ?? itemPathSegmentsFromItem(catalogItem());
           const metadataLines = () => {
-            const lines = catalogMetadataLines(catalogItem());
-            const overallScoreLabel = searchResultDisplay()?.overallScoreLabel;
+            const display = searchResultDisplay();
+            const lines = display?.stats
+              ? catalogChildrenStatsMetadataLines(display.stats)
+              : catalogMetadataLines(catalogItem());
+            const overallScoreLabel = display?.overallScoreLabel;
             return overallScoreLabel ? [...lines, overallScoreLabel] : lines;
           };
           const fragmentMatches = () => searchResultDisplay()?.fragmentMatches ?? catalogFragmentMatches(catalogItem());

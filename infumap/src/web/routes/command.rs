@@ -1643,10 +1643,22 @@ pub struct SearchResult {
   #[serde(rename = "path")]
   pub path: Vec<SearchPathElement>,
   pub score: f32,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub stats: Option<SearchResultStats>,
   #[serde(rename = "fragmentMatch", skip_serializing_if = "Option::is_none")]
   pub fragment_match: Option<SearchFragmentMatch>,
   #[serde(rename = "additionalFragmentMatches", skip_serializing_if = "Vec::is_empty")]
   pub additional_fragment_matches: Vec<SearchFragmentMatch>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct SearchResultStats {
+  #[serde(rename = "totalChildren")]
+  pub total_children: usize,
+  #[serde(rename = "imageFileChildren")]
+  pub image_file_children: usize,
+  #[serde(rename = "totalBytes")]
+  pub total_bytes: i64,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -2090,6 +2102,15 @@ fn search_result_path_for_item(
   user_id: &Uid,
   search_root_id: &Uid,
 ) -> InfuResult<Option<SearchResult>> {
+  let target_item = match db.item.get(item_id) {
+    Ok(item) => item,
+    Err(_) => return Ok(None),
+  };
+  if &target_item.owner_id != user_id || target_item.item_type == ItemType::Password {
+    return Ok(None);
+  }
+  let stats = search_result_stats_for_item(db, target_item)?;
+
   let mut path = Vec::new();
   let mut current_id = item_id.clone();
   let mut seen = HashSet::new();
@@ -2121,7 +2142,25 @@ fn search_result_path_for_item(
   if !search_result_is_under_root_path(&path, search_root_id) {
     return Ok(None);
   }
-  Ok(Some(SearchResult { path, score: 0.0, fragment_match: None, additional_fragment_matches: Vec::new() }))
+  Ok(Some(SearchResult { path, score: 0.0, stats, fragment_match: None, additional_fragment_matches: Vec::new() }))
+}
+
+fn search_result_stats_for_item(db: &Db, item: &Item) -> InfuResult<Option<SearchResultStats>> {
+  if !is_container_item_type(item.item_type) {
+    return Ok(None);
+  }
+
+  let children = db.item.get_children(&item.id)?;
+  let mut stats = SearchResultStats { total_children: children.len(), image_file_children: 0, total_bytes: 0 };
+
+  for child in children {
+    if is_image_item(child) || is_data_item_type(child.item_type) {
+      stats.image_file_children += 1;
+      stats.total_bytes = stats.total_bytes.saturating_add(child.file_size_bytes.unwrap_or(0).max(0));
+    }
+  }
+
+  Ok(Some(stats))
 }
 
 fn search_result_is_under_root_path(path: &[SearchPathElement], search_root_id: &Uid) -> bool {
@@ -2605,9 +2644,11 @@ fn search_recursive(
                 title: item.title.to_owned(),
                 id: item.id.to_owned(),
               });
+              let stats = search_result_stats_for_item(db, item)?;
               results.push(SearchResult {
                 path,
                 score: exact_title_search_score(title, search_text),
+                stats,
                 fragment_match: None,
                 additional_fragment_matches: Vec::new(),
               });

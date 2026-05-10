@@ -58,8 +58,15 @@ export interface ItemsAndTheirAttachments {
 export interface SearchResult {
   path: Array<SearchPathElement>,
   score?: number,
+  stats?: SearchResultStats,
   fragmentMatch?: SearchFragmentMatch,
   additionalFragmentMatches?: Array<SearchFragmentMatch>,
+}
+
+export interface SearchResultStats {
+  totalChildren: number,
+  imageFileChildren: number,
+  totalBytes: number,
 }
 
 export interface SearchFragmentMatch {

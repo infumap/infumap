@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import type { SearchPathElement, SearchResult, SearchFragmentMatch } from "../server";
+import type { SearchPathElement, SearchResult, SearchFragmentMatch, SearchResultStats } from "../server";
 import type { ItemPathSegment } from "./item-path";
 import { EMPTY_UID, Uid } from "./uid";
 
@@ -34,6 +34,7 @@ export interface CatalogSearchResultDisplay {
   fragmentMatch: CatalogFragmentMatchDisplay | null,
   fragmentMatches: Array<CatalogFragmentMatchDisplay>,
   overallScoreLabel: string | null,
+  stats: SearchResultStats | null,
 }
 
 function fallbackPathTitle(itemType: string): string {
@@ -145,5 +146,6 @@ export function catalogSearchResultDisplay(result: SearchResult): CatalogSearchR
     fragmentMatch: fragmentMatches[0] ?? null,
     fragmentMatches,
     overallScoreLabel: formatSearchOverallScore(result.score),
+    stats: result.stats ?? null,
   };
 }
