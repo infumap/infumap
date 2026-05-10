@@ -96,17 +96,10 @@ pub fn make_clap_subcommand() -> Command {
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   match sub_matches.subcommand() {
     Some(("content", sub_matches)) => execute_content(sub_matches).await,
-    Some(("page-table", sub_matches)) => execute_content(sub_matches).await,
     Some(("image", sub_matches)) => execute_image(sub_matches).await,
-    Some(("images", sub_matches)) => execute_image(sub_matches).await,
     Some(("markdown", sub_matches)) => execute_markdown(sub_matches).await,
-    Some(("markdowns", sub_matches)) => execute_markdown(sub_matches).await,
-    Some(("md", sub_matches)) => execute_markdown(sub_matches).await,
     Some(("text", sub_matches)) => execute_text(sub_matches).await,
-    Some(("texts", sub_matches)) => execute_text(sub_matches).await,
-    Some(("txt", sub_matches)) => execute_text(sub_matches).await,
     Some(("pdf", sub_matches)) => execute_pdf(sub_matches).await,
-    Some(("pdfs", sub_matches)) => execute_pdf(sub_matches).await,
     _ => Err(
       "Missing fragment subcommand. Use 'fragment content', 'fragment image', 'fragment markdown', 'fragment text', or 'fragment pdf'."
         .into(),
@@ -116,7 +109,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 
 fn make_content_subcommand() -> Command {
   Command::new("content")
-    .visible_alias("page-table")
     .about("Build fragments for page and table content.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this page or table item."))
@@ -124,7 +116,6 @@ fn make_content_subcommand() -> Command {
 
 fn make_image_subcommand() -> Command {
   Command::new("image")
-    .visible_alias("images")
     .about(
       "Build semantic text fragments for supported images using item metadata, image-tagging output, and geo output.",
     )
@@ -134,8 +125,6 @@ fn make_image_subcommand() -> Command {
 
 fn make_markdown_subcommand() -> Command {
   Command::new("markdown")
-    .visible_alias("markdowns")
-    .visible_alias("md")
     .about("Build lexical text fragments directly from Markdown file items.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this Markdown file item."))
@@ -143,8 +132,6 @@ fn make_markdown_subcommand() -> Command {
 
 fn make_text_subcommand() -> Command {
   Command::new("text")
-    .visible_alias("texts")
-    .visible_alias("txt")
     .about("Build lexical text fragments directly from plain text file items.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this plain text file item."))
@@ -152,7 +139,6 @@ fn make_text_subcommand() -> Command {
 
 fn make_pdf_subcommand() -> Command {
   Command::new("pdf")
-    .visible_alias("pdfs")
     .about("Build semantic text fragments from extracted markdown for PDF file items.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this PDF item."))
