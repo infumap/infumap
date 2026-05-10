@@ -16,9 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LinkItem, isLink, asLinkItem, LinkFns } from "../../items/link-item";
+import { LinkItem, isLink, asLinkItem } from "../../items/link-item";
 import { isRating } from "../../items/rating-item";
-import { PageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
+import { ItemFns } from "../../items/base/item-polymorphism";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { ItemGeometry } from "../item-geometry";
 import { CalendarOverflowCountOverlay, VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -407,118 +408,68 @@ export function arrange_calendar_page(
       scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
     }
 
-    const umbrellaVisualElement = store.umbrellaVisualElement.get();
-    const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
-    const desktopSizePx = store.desktopBoundsPx();
-    const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
-    const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
-
-    const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
-    const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
+    const yOffsetPx = scrollPropY * Math.max(0, childAreaBoundsPx.h - geometry.viewportBoundsPx!.h);
+    const xOffsetPx = scrollPropX * Math.max(0, childAreaBoundsPx.w - geometry.viewportBoundsPx!.w);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-    const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
-    const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+    const mouseChildAreaPosPx = (() => {
+      if ((flags & ArrangeItemFlags.IsTopRoot) || (flags & ArrangeItemFlags.IsFixed)) {
+        return {
+          x: mouseDesktopPosPx.x - geometry.viewportBoundsPx!.x + xOffsetPx,
+          y: mouseDesktopPosPx.y - geometry.viewportBoundsPx!.y + yOffsetPx,
+        };
+      }
 
-    // Use calendar-specific item dimensions
-    const calendarItemHeight = itemHeight;
+      const umbrellaVisualElement = store.umbrellaVisualElement.get();
+      const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
+      const desktopSizePx = store.desktopBoundsPx();
+      const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
+      const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
+      const titleHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+      const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+      return {
+        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
+        y: mouseDesktopPosPx.y - geometry.boundsPx.y - titleHeightPx + yOffsetPx + pageYScrollPx,
+      };
+    })();
 
-    // Adjust Y position by approximately one row height to align with calendar grid
-    const calendarYAdjustment = dayRowHeight;
-
-    // Calculate moving item position using the same coordinate system as other page types
+    const movingItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const movingItemBoundsPx = {
-      x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
-      y: mouseDesktopPosPx.y - geometry.boundsPx.y - store.topToolbarHeightPx() - popupTitleHeightMaybePx - pageYScrollPx + yOffsetPx + calendarYAdjustment,
-      w: 0,
-      h: calendarItemHeight
+      x: mouseChildAreaPosPx.x,
+      y: mouseChildAreaPosPx.y,
+      w: movingItemDimensionsBl.w * blockSizePx.w,
+      h: movingItemDimensionsBl.h * blockSizePx.h,
     };
 
-    const movingMonth = getCalendarMonthForXOffset(calendarDimensions, movingItemBoundsPx.x);
-    const movingMonthWidth = getCalendarMonthWidthPx(calendarDimensions, movingMonth);
-    const movingItemWidth = Math.max(0, movingMonthWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding);
-    movingItemBoundsPx.w = movingItemWidth;
-
-    // Adjust for click offset
     const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
     movingItemBoundsPx.x -= clickOffsetProp.x * movingItemBoundsPx.w;
     movingItemBoundsPx.y -= clickOffsetProp.y * movingItemBoundsPx.h;
 
-    // Create hitboxes for moving item matching normal item structure
-    const movingWidthBl = Math.floor(movingItemWidth / blockSizePx.w);
-    const movingClickAreaBoundsPx = movingWidthBl > 1 ? {
-      x: blockSizePx.w, // Start after icon block
-      y: 0,
-      w: movingItemWidth - blockSizePx.w, // Text area width
-      h: calendarItemHeight
-    } : {
-      x: 0, // If only icon fits, click anywhere
-      y: 0,
-      w: movingItemWidth,
-      h: calendarItemHeight
-    };
+    const movingItemGeometry = ItemFns.calcGeometry_InCell(
+      movingItemInThisPage,
+      movingItemBoundsPx,
+      false,
+      !!(flags & ArrangeItemFlags.IsPopupRoot),
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      store.smallScreenMode(),
+    );
 
-    const movingPopupClickAreaBoundsPx = {
-      x: 0,
-      y: 0,
-      w: blockSizePx.w, // Icon area only
-      h: calendarItemHeight
-    };
-
-    const movingItemGeometry = {
-      boundsPx: movingItemBoundsPx,
-      blockSizePx,
-      viewportBoundsPx: null,
-      hitboxes: (
-        isRating(movingItemInThisPage)
-          ? [
-            HitboxFns.create(HitboxFlags.Click, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
-            HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
-          ]
-          : [
-            HitboxFns.create(HitboxFlags.Click, movingClickAreaBoundsPx),
-            HitboxFns.create(HitboxFlags.OpenPopup, movingPopupClickAreaBoundsPx),
-            HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, w: movingItemBoundsPx.w, h: movingItemBoundsPx.h }),
-          ]
-      )
-    };
-
-    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(movingItemInThisPage, actualMovingItemLinkItemMaybe), pageWithChildrenVePath);
-    const isChildHighlighted = highlightedPath !== null && highlightedPath === childPath;
-
-    let movingDisplayItem = movingItemInThisPage;
-    if (actualMovingItemLinkItemMaybe) {
-      const linkToId = LinkFns.getLinkToId(actualMovingItemLinkItemMaybe);
-      const linkedItem = itemState.get(linkToId);
-      if (linkedItem) {
-        movingDisplayItem = linkedItem;
-      } else {
-        const activeLinkIdMaybe = MouseActionState.getActiveLinkIdMaybe();
-        const activeLinkedDisplayItemMaybe = MouseActionState.getActiveLinkedDisplayItemMaybe();
-        if (!MouseActionState.empty() && activeLinkIdMaybe === actualMovingItemLinkItemMaybe.id && activeLinkedDisplayItemMaybe) {
-          movingDisplayItem = activeLinkedDisplayItemMaybe;
-        }
-      }
-    }
-
-    const movingItemVeSpec: VisualElementSpec = {
-      displayItem: movingDisplayItem,
-      linkItemMaybe: actualMovingItemLinkItemMaybe,
-      actualLinkItemMaybe: actualMovingItemLinkItemMaybe,
-      flags: VisualElementFlags.LineItem |
-        VisualElementFlags.Moving |
-        (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
-      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.IsMoving,
-      boundsPx: movingItemGeometry.boundsPx,
-      hitboxes: movingItemGeometry.hitboxes,
-      parentPath: pageWithChildrenVePath,
-      col: 0,
-      row: 0,
-      blockSizePx: blockSizePx,
-    };
-
-    const movingItemRelationships: VisualElementRelationships = {};
-    VesCache.arrange.writeVisualElement(movingItemVeSpec, movingItemRelationships, childPath);
-    calendarChildPaths.push(childPath);
+    const movingItemVes = arrangeItem(
+      store,
+      pageWithChildrenVePath,
+      ArrangeAlgorithm.Calendar,
+      movingItemInThisPage,
+      actualMovingItemLinkItemMaybe,
+      movingItemGeometry,
+      ArrangeItemFlags.RenderChildrenAsFull |
+      ArrangeItemFlags.IsMoving |
+      (flags & ArrangeItemFlags.IsPopupRoot ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None),
+    );
+    calendarChildPaths.push(VeFns.veToPath(movingItemVes.get()));
   }
 
   pageRelationships.childrenPaths = calendarChildPaths;

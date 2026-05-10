@@ -521,10 +521,15 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             );
           }}</For>
 
-          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
-
-            <VisualElement_LineItem visualElement={childVes.get()} />
-          }</For>
+          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes => {
+            const childVe = () => childVes.get();
+            return (
+              <Show when={childVe().flags & VisualElementFlags.Moving}
+                fallback={<VisualElement_LineItem visualElement={childVe()} />}>
+                <VisualElement_Desktop visualElement={childVe()} />
+              </Show>
+            );
+          }}</For>
 
           <For each={props.visualElement.calendarOverflowCounts}>{overlay =>
             <div class="absolute flex items-center justify-center font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"

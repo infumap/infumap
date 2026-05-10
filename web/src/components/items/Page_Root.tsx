@@ -487,10 +487,15 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           }}</For>
 
           {/* Render child items arranged in calendar grid */}
-          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
-
-            <VisualElement_LineItem visualElement={childVes.get()} />
-          }</For>
+          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes => {
+            const childVe = () => childVes.get();
+            return (
+              <Show when={childVe().flags & VisualElementFlags.Moving}
+                fallback={<VisualElement_LineItem visualElement={childVe()} />}>
+                <VisualElement_Desktop visualElement={childVe()} />
+              </Show>
+            );
+          }}</For>
 
           {/* Render overflow count overlays per day */}
           <For each={props.visualElement.calendarOverflowCounts}>{overlay =>
