@@ -2154,7 +2154,14 @@ fn mix_search_results(
       .then_with(|| a.best_rank.cmp(&b.best_rank))
       .then_with(|| search_result_item_id(&a.result).cmp(&search_result_item_id(&b.result)))
   });
-  candidates.into_iter().map(|candidate| candidate.result).collect()
+  let max_rank_score = candidates.first().map(|candidate| candidate.rank_score).unwrap_or(0.0);
+  candidates
+    .into_iter()
+    .map(|mut candidate| {
+      candidate.result.score = merged_rank_score_to_search_score(candidate.rank_score, max_rank_score);
+      candidate.result
+    })
+    .collect()
 }
 
 fn add_ranked_search_results(
@@ -2166,7 +2173,6 @@ fn add_ranked_search_results(
     let Some(item_id) = search_result_item_id(&result) else {
       continue;
     };
-    let result_score = result.score;
     let fragment_match = result.fragment_match.clone();
     let additional_fragment_matches = result.additional_fragment_matches.clone();
     let rank_score = weight / (SEARCH_RRF_K + rank as f64 + 1.0);
@@ -2179,14 +2185,11 @@ fn add_ranked_search_results(
     entry.rank_score += rank_score;
     entry.best_rank = entry.best_rank.min(rank);
     if should_replace_fragment_result {
-      let display_score = entry.result.score.max(result_score);
       entry.result = result;
-      entry.result.score = display_score;
     } else if entry.result.fragment_match.is_none() {
       entry.result.fragment_match = fragment_match;
       entry.result.additional_fragment_matches = additional_fragment_matches;
     }
-    entry.result.score = entry.result.score.max(result_score);
   }
 }
 
@@ -2202,6 +2205,13 @@ fn search_result_item_id(result: &SearchResult) -> Option<Uid> {
 
 fn clamp_search_score(score: f32) -> f32 {
   if score.is_finite() { score.clamp(0.0, 1.0) } else { 0.0 }
+}
+
+fn merged_rank_score_to_search_score(rank_score: f64, max_rank_score: f64) -> f32 {
+  if !rank_score.is_finite() || !max_rank_score.is_finite() || rank_score <= 0.0 || max_rank_score <= 0.0 {
+    return 0.0;
+  }
+  clamp_search_score((rank_score / max_rank_score) as f32)
 }
 
 fn semantic_distance_to_search_score(distance: f32) -> f32 {
