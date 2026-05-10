@@ -581,7 +581,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           };
           const pathSegments = () => searchResultDisplay()?.pathSegments ?? itemPathSegmentsFromItem(catalogItem());
           const metadataLines = () => {
-            return catalogMetadataLines(catalogItem());
+            const lines = catalogMetadataLines(catalogItem());
+            const overallScoreLabel = searchResultDisplay()?.overallScoreLabel;
+            return overallScoreLabel ? [...lines, overallScoreLabel] : lines;
           };
           const fragmentMatches = () => searchResultDisplay()?.fragmentMatches ?? catalogFragmentMatches(catalogItem());
           const visibleFragmentMatches = () => {

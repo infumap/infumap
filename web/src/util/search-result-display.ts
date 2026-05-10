@@ -33,6 +33,7 @@ export interface CatalogSearchResultDisplay {
   pathSegments: Array<ItemPathSegment>,
   fragmentMatch: CatalogFragmentMatchDisplay | null,
   fragmentMatches: Array<CatalogFragmentMatchDisplay>,
+  overallScoreLabel: string | null,
 }
 
 function fallbackPathTitle(itemType: string): string {
@@ -79,9 +80,30 @@ function formatSearchScoreValue(score?: number): string | null {
   return clamped.toFixed(1).padStart(4, "0");
 }
 
-export function formatSearchFragmentScore(score?: number): string | null {
+export function formatSearchOverallScore(score?: number): string | null {
   const scoreValue = formatSearchScoreValue(score);
-  return scoreValue == null ? null : `(score: ${scoreValue})`;
+  return scoreValue == null ? null : `Overall: ${scoreValue}`;
+}
+
+function formatRawSearchScoreValue(score?: number): string | null {
+  if (typeof score != "number" || !Number.isFinite(score)) {
+    return null;
+  }
+  return score.toFixed(3);
+}
+
+export function formatSearchEvidenceScore(match: SearchFragmentMatch): string | null {
+  const lexicalScore = formatRawSearchScoreValue(match.lexicalScore);
+  if (lexicalScore != null) {
+    return `(lexical: ${lexicalScore})`;
+  }
+
+  const semanticDistance = formatRawSearchScoreValue(match.semanticDistance);
+  if (semanticDistance != null) {
+    return `(semantic: ${semanticDistance})`;
+  }
+
+  return null;
 }
 
 function appendTruncationEllipsis(text: string): string {
@@ -105,7 +127,7 @@ export function catalogFragmentMatchDisplayFromMatch(
     text: match.textTruncated ? appendTruncationEllipsis(formattedText) : formattedText,
     href: match.sourceKind == ITEM_TITLE_SOURCE_KIND ? null : `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
     pageLabel: fragmentMatchPageLabel(match.pageStart, match.pageEnd),
-    scoreLabel: formatSearchFragmentScore(match.score),
+    scoreLabel: formatSearchEvidenceScore(match),
   };
 }
 
@@ -122,5 +144,6 @@ export function catalogSearchResultDisplay(result: SearchResult): CatalogSearchR
     pathSegments: searchResultPathSegments(result),
     fragmentMatch: fragmentMatches[0] ?? null,
     fragmentMatches,
+    overallScoreLabel: formatSearchOverallScore(result.score),
   };
 }
