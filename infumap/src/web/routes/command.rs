@@ -53,7 +53,8 @@ use crate::ai::image_tagging::{
 };
 use crate::ai::indexing::delete_item_fragment_index_entries;
 use crate::ai::lexical_index::{
-  FragmentLexicalHit, open_user_document_fragment_lexical_index, user_document_fragment_lexical_index_exists,
+  FragmentLexicalHit, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
+  user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,
 };
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
@@ -81,6 +82,7 @@ use std::collections::{HashMap, HashSet};
 // 190+ MiB raw files while remaining bounded.
 const COMMAND_REQUEST_MAX_BYTES: usize = 256 * 1024 * 1024;
 const SEARCH_RRF_K: f64 = 60.0;
+const SEARCH_TITLE_LEXICAL_WEIGHT: f64 = 1.35;
 const SEARCH_LEXICAL_WEIGHT: f64 = 1.15;
 const SEARCH_SEMANTIC_WEIGHT: f64 = 1.0;
 const SEARCH_CANDIDATE_OVERFETCH: i64 = 50;
@@ -1709,6 +1711,25 @@ async fn handle_search(
   let mut results = if full_user_search {
     let fragment_result_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
       .map_err(|_| "Search result limit is too large.")?;
+    let title_results = match title_lexical_search_results(
+      db,
+      &data_dir,
+      &session.user_id,
+      &search_root_id,
+      &request.text,
+      fragment_result_limit,
+    )
+    .await
+    {
+      Ok(results) => results,
+      Err(e) => {
+        warn!(
+          "Title lexical search failed for user '{}'; falling back without title lexical results: {}",
+          session.user_id, e
+        );
+        Vec::new()
+      }
+    };
     let lexical_results = match lexical_search_results(
       db,
       &data_dir,
@@ -1748,7 +1769,7 @@ async fn handle_search(
         Vec::new()
       }
     };
-    let mixed = mix_search_results(lexical_results, semantic_results);
+    let mixed = mix_search_results(title_results, lexical_results, semantic_results);
     paginate_mixed_results(mixed, start_result, end_result)
   } else {
     let mut db = db.lock().await;
@@ -1788,6 +1809,67 @@ fn search_exact_paginated(
     &mut results,
     &mut current_result,
   )?;
+  Ok(results)
+}
+
+async fn title_lexical_search_results(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  data_dir: &str,
+  user_id: &Uid,
+  search_root_id: &Uid,
+  search_text: &str,
+  limit: usize,
+) -> InfuResult<Vec<SearchResult>> {
+  if limit == 0 || search_text.trim().is_empty() {
+    return Ok(Vec::new());
+  }
+
+  if !user_item_title_lexical_index_exists(data_dir, user_id).await? {
+    return Ok(Vec::new());
+  }
+
+  let title_index = open_user_item_title_lexical_index(data_dir, user_id)?;
+  let Some(index_status) = title_index.rebuild_status().await? else {
+    return Ok(Vec::new());
+  };
+  if !index_status.complete {
+    return Ok(Vec::new());
+  }
+
+  let title_hits = title_index.search(search_text, limit).await?;
+  if !title_hits.is_empty() {
+    debug!(
+      "Title lexical search top hits for user '{}': {}",
+      user_id,
+      title_hits
+        .iter()
+        .take(8)
+        .map(|hit| format!("{}:{}@{:.6}", hit.item_id, hit.ordinal, hit.score))
+        .collect::<Vec<_>>()
+        .join(", ")
+    );
+  }
+
+  let mut results = Vec::new();
+  let db = db.lock().await;
+  for hit in title_hits {
+    if results.len() >= limit {
+      break;
+    }
+    if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
+      let mut match_result = search_fragment_match_for_lexical_hit(&hit, search_text);
+      let exact_title_score = result
+        .path
+        .last()
+        .and_then(|element| element.title.as_deref())
+        .map(|title| exact_title_search_score(title, search_text))
+        .unwrap_or(0.0);
+      match_result.score = match_result.score.max(exact_title_score);
+      result.score = match_result.score;
+      result.fragment_match = Some(match_result);
+      results.push(result);
+    }
+  }
   Ok(results)
 }
 
@@ -2047,11 +2129,16 @@ struct SearchMergeCandidate {
   best_rank: usize,
 }
 
-fn mix_search_results(lexical_results: Vec<SearchResult>, semantic_results: Vec<SearchResult>) -> Vec<SearchResult> {
+fn mix_search_results(
+  title_results: Vec<SearchResult>,
+  lexical_results: Vec<SearchResult>,
+  semantic_results: Vec<SearchResult>,
+) -> Vec<SearchResult> {
   let mut candidates: HashMap<Uid, SearchMergeCandidate> = HashMap::new();
 
-  add_fragment_search_results(&mut candidates, lexical_results, SEARCH_LEXICAL_WEIGHT);
-  add_fragment_search_results(&mut candidates, semantic_results, SEARCH_SEMANTIC_WEIGHT);
+  add_ranked_search_results(&mut candidates, title_results, SEARCH_TITLE_LEXICAL_WEIGHT);
+  add_ranked_search_results(&mut candidates, lexical_results, SEARCH_LEXICAL_WEIGHT);
+  add_ranked_search_results(&mut candidates, semantic_results, SEARCH_SEMANTIC_WEIGHT);
 
   let mut candidates = candidates.into_values().collect::<Vec<_>>();
   candidates.sort_by(|a, b| {
@@ -2064,12 +2151,12 @@ fn mix_search_results(lexical_results: Vec<SearchResult>, semantic_results: Vec<
   candidates.into_iter().map(|candidate| candidate.result).collect()
 }
 
-fn add_fragment_search_results(
+fn add_ranked_search_results(
   candidates: &mut HashMap<Uid, SearchMergeCandidate>,
-  fragment_results: Vec<SearchResult>,
+  results: Vec<SearchResult>,
   weight: f64,
 ) {
-  for (rank, result) in fragment_results.into_iter().enumerate() {
+  for (rank, result) in results.into_iter().enumerate() {
     let Some(item_id) = search_result_item_id(&result) else {
       continue;
     };

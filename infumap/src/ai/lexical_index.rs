@@ -15,13 +15,9 @@ pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_DIR_NAME: &str = "document_fragments_t
 pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "document_fragments_tantivy.tmp";
 pub const DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME: &str = "infumap_document_fragment_index.json";
 pub const DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION: u32 = 1;
-#[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_INDEX_DIR_NAME: &str = "item_titles_tantivy";
-#[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "item_titles_tantivy.tmp";
-#[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_METADATA_FILENAME: &str = "infumap_item_title_index.json";
-#[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_SCHEMA_VERSION: u32 = 1;
 
 const ITEM_ID_FIELD: &str = "item_id";
@@ -32,7 +28,6 @@ const PAGE_END_FIELD: &str = "page_end";
 const TEXT_FIELD: &str = "text";
 const INDEX_WRITER_HEAP_BYTES: usize = 50_000_000;
 const DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL: &str = "document fragment lexical index";
-#[allow(dead_code)]
 const ITEM_TITLE_LEXICAL_INDEX_LABEL: &str = "item title lexical index";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -76,7 +71,6 @@ pub struct TantivyDocumentFragmentIndex {
   index_dir: PathBuf,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct TantivyItemTitleIndex {
   index_dir: PathBuf,
@@ -155,7 +149,6 @@ impl TantivyDocumentFragmentIndex {
   }
 }
 
-#[allow(dead_code)]
 impl TantivyItemTitleIndex {
   pub fn new(index_dir: PathBuf) -> TantivyItemTitleIndex {
     TantivyItemTitleIndex { index_dir }
@@ -177,17 +170,6 @@ impl TantivyItemTitleIndex {
       temp_index_dir,
       metadata,
       fragments,
-      ITEM_TITLE_LEXICAL_METADATA_FILENAME,
-      ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
-      ITEM_TITLE_LEXICAL_INDEX_LABEL,
-    )
-    .await
-  }
-
-  pub async fn delete_item_fragments(&self, item_id: &str) -> InfuResult<usize> {
-    delete_item_documents_from_index(
-      &self.index_dir,
-      item_id,
       ITEM_TITLE_LEXICAL_METADATA_FILENAME,
       ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
       ITEM_TITLE_LEXICAL_INDEX_LABEL,
@@ -219,14 +201,12 @@ pub fn document_fragment_lexical_index_temp_dir(data_dir: &str, user_id: &str) -
   Ok(path)
 }
 
-#[allow(dead_code)]
 pub fn item_title_lexical_index_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
   let mut path = user_index_dir(data_dir, user_id)?;
   path.push(ITEM_TITLE_LEXICAL_INDEX_DIR_NAME);
   Ok(path)
 }
 
-#[allow(dead_code)]
 pub fn item_title_lexical_index_temp_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
   let mut path = user_index_dir(data_dir, user_id)?;
   path.push(ITEM_TITLE_LEXICAL_INDEX_TEMP_DIR_NAME);
@@ -242,7 +222,6 @@ pub async fn user_document_fragment_lexical_index_exists(data_dir: &str, user_id
   }
 }
 
-#[allow(dead_code)]
 pub async fn user_item_title_lexical_index_exists(data_dir: &str, user_id: &str) -> InfuResult<bool> {
   let path = item_title_lexical_index_dir(data_dir, user_id)?;
   match fs::metadata(&path).await {
@@ -259,7 +238,6 @@ pub fn open_user_document_fragment_lexical_index(
   Ok(TantivyDocumentFragmentIndex::new(document_fragment_lexical_index_dir(data_dir, user_id)?))
 }
 
-#[allow(dead_code)]
 pub fn open_user_item_title_lexical_index(data_dir: &str, user_id: &str) -> InfuResult<TantivyItemTitleIndex> {
   Ok(TantivyItemTitleIndex::new(item_title_lexical_index_dir(data_dir, user_id)?))
 }
@@ -275,7 +253,6 @@ pub async fn remove_document_fragment_lexical_index_dirs(data_dir: &str, user_id
   Ok(removed)
 }
 
-#[allow(dead_code)]
 pub async fn remove_item_title_lexical_index_dirs(data_dir: &str, user_id: &str) -> InfuResult<usize> {
   let mut removed = 0;
   if remove_path_if_exists(&item_title_lexical_index_temp_dir(data_dir, user_id)?).await? {
