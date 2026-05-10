@@ -17,7 +17,7 @@ mod pdf;
 
 pub use content::content_fragment_source_for_item;
 pub use image::image_fragment_source_for_item;
-pub use markdown::markdown_fragment_source_for_item;
+pub use markdown::{markdown_fragment_source_for_item, text_fragment_source_for_item};
 pub use pdf::pdf_fragment_source_for_item;
 
 fn single_fragment_source(source_kind: FragmentSourceKind, text: String) -> FragmentSource {

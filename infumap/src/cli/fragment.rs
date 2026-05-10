@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::ai::fragment::sources::{
   content_fragment_source_for_item, embedding_context_title_for_item, image_fragment_source_for_item,
-  markdown_fragment_source_for_item, pdf_fragment_source_for_item,
+  markdown_fragment_source_for_item, pdf_fragment_source_for_item, text_fragment_source_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
 use crate::ai::image_tagging::should_tag_image_item;
@@ -24,6 +24,7 @@ use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 
 const MARKDOWN_MIME_TYPE: &str = "text/markdown";
+const TEXT_MIME_TYPE: &str = "text/plain";
 const PDF_MIME_TYPE: &str = "application/pdf";
 const FRAGMENT_PROGRESS_ITEM_INTERVAL: usize = 5000;
 const FRAGMENT_PROGRESS_TIME_INTERVAL: Duration = Duration::from_secs(10);
@@ -33,6 +34,7 @@ enum FragmentTargetKind {
   Content,
   Image,
   Markdown,
+  Text,
   Pdf,
 }
 
@@ -44,6 +46,7 @@ impl FragmentTargetKind {
       FragmentTargetKind::Markdown => {
         item.item_type == ItemType::File && item.mime_type.as_deref() == Some(MARKDOWN_MIME_TYPE)
       }
+      FragmentTargetKind::Text => item.item_type == ItemType::File && item.mime_type.as_deref() == Some(TEXT_MIME_TYPE),
       FragmentTargetKind::Pdf => item.item_type == ItemType::File && item.mime_type.as_deref() == Some(PDF_MIME_TYPE),
     }
   }
@@ -53,6 +56,7 @@ impl FragmentTargetKind {
       FragmentTargetKind::Content => "page or table",
       FragmentTargetKind::Image => "supported image",
       FragmentTargetKind::Markdown => "Markdown file",
+      FragmentTargetKind::Text => "text file",
       FragmentTargetKind::Pdf => "PDF file",
     }
   }
@@ -62,6 +66,7 @@ impl FragmentTargetKind {
       FragmentTargetKind::Content => "page/table",
       FragmentTargetKind::Image => "image",
       FragmentTargetKind::Markdown => "markdown",
+      FragmentTargetKind::Text => "text",
       FragmentTargetKind::Pdf => "pdf",
     }
   }
@@ -84,6 +89,7 @@ pub fn make_clap_subcommand() -> Command {
     .subcommand(make_content_subcommand())
     .subcommand(make_image_subcommand())
     .subcommand(make_markdown_subcommand())
+    .subcommand(make_text_subcommand())
     .subcommand(make_pdf_subcommand())
 }
 
@@ -96,10 +102,13 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     Some(("markdown", sub_matches)) => execute_markdown(sub_matches).await,
     Some(("markdowns", sub_matches)) => execute_markdown(sub_matches).await,
     Some(("md", sub_matches)) => execute_markdown(sub_matches).await,
+    Some(("text", sub_matches)) => execute_text(sub_matches).await,
+    Some(("texts", sub_matches)) => execute_text(sub_matches).await,
+    Some(("txt", sub_matches)) => execute_text(sub_matches).await,
     Some(("pdf", sub_matches)) => execute_pdf(sub_matches).await,
     Some(("pdfs", sub_matches)) => execute_pdf(sub_matches).await,
     _ => Err(
-      "Missing fragment subcommand. Use 'fragment content', 'fragment image', 'fragment markdown', or 'fragment pdf'."
+      "Missing fragment subcommand. Use 'fragment content', 'fragment image', 'fragment markdown', 'fragment text', or 'fragment pdf'."
         .into(),
     ),
   }
@@ -130,6 +139,15 @@ fn make_markdown_subcommand() -> Command {
     .about("Build lexical text fragments directly from Markdown file items.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this Markdown file item."))
+}
+
+fn make_text_subcommand() -> Command {
+  Command::new("text")
+    .visible_alias("texts")
+    .visible_alias("txt")
+    .about("Build lexical text fragments directly from plain text file items.")
+    .arg(settings_arg())
+    .arg(item_id_arg("Build fragments only for this plain text file item."))
 }
 
 fn make_pdf_subcommand() -> Command {
@@ -232,6 +250,45 @@ async fn execute_markdown(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   log_fragment_summary(FragmentTargetKind::Markdown, &summary);
+  Ok(())
+}
+
+async fn execute_text(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let (data_dir, db, items) = load_db_and_items(sub_matches, FragmentTargetKind::Text).await?;
+  let mut summary = FragmentRunSummary::default();
+  if items.is_empty() {
+    log_fragment_summary(FragmentTargetKind::Text, &summary);
+    return Ok(());
+  }
+
+  let object_store = load_object_store(sub_matches, &data_dir).await?;
+  let single_item_run = sub_matches.get_one::<String>("item_id").is_some();
+  let mut progress = FragmentRunProgress::new(FragmentTargetKind::Text, items.len());
+
+  for (index, item) in items.into_iter().enumerate() {
+    progress.log_before_item(index, &item);
+    let (context_title, object_encryption_key) = {
+      let db = db.lock().await;
+      let object_encryption_key = db
+        .user
+        .get(&item.owner_id)
+        .ok_or(format!("User '{}' not loaded.", item.owner_id))?
+        .object_encryption_key
+        .clone();
+      (embedding_context_title_for_item(&db, &item), object_encryption_key)
+    };
+    let fragment_source =
+      text_fragment_source_for_item(object_store.clone(), &item, &object_encryption_key, context_title).await?;
+    let had_fragment_source = fragment_source.is_some();
+    let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
+    record_fragment_outcome(&mut summary, &outcome);
+    if single_item_run {
+      log_single_item_fragment_outcome(FragmentTargetKind::Text, &item, had_fragment_source, &outcome);
+    }
+    progress.log_after_item(index + 1, &summary);
+  }
+
+  log_fragment_summary(FragmentTargetKind::Text, &summary);
   Ok(())
 }
 
