@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, HashSet};
 use std::io::ErrorKind;
 use std::path::Path;
 
-use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::infu::InfuResult;
 use reqwest::Url;
 use serde::Deserialize;
@@ -10,7 +9,8 @@ use sha2::{Digest, Sha256};
 use tokio::fs;
 
 use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path};
-use crate::ai::fragment::{ITEM_TITLE_SOURCE_KIND, is_lexical_search_source_kind};
+use crate::ai::fragment::is_lexical_search_source_kind;
+use crate::ai::fragment::sources::{ItemTitleFragment, item_title_fragment_for_item};
 use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, open_user_pdf_fragment_lexical_index,
   pdf_fragment_lexical_index_temp_dir, remove_pdf_fragment_lexical_index_dirs, user_pdf_fragment_lexical_index_exists,
@@ -28,7 +28,6 @@ use crate::storage::db::Db;
 use crate::util::fs::path_exists;
 
 const UNKNOWN_FRAGMENT_SOURCE_KIND: &str = "unknown";
-const ITEM_TITLE_FRAGMENT_ORDINAL: usize = 1_000_000_000;
 
 pub async fn rebuild_all_fragment_indexes(
   data_dir: &str,
@@ -83,8 +82,8 @@ async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmen
     let mut fragments = Vec::new();
     for item_id in item_ids {
       let item = db.item.get(&item_id).map_err(|e| e.to_string())?;
-      if let Some(fragment) = item_title_fragment_for_index(&db, item)? {
-        fragments.push(fragment);
+      if let Some(fragment) = item_title_fragment_for_item(&db, item)? {
+        fragments.push(fragment.into());
       }
 
       let fragments_path = item_fragments_path(data_dir, &user_id, &item_id)?;
@@ -191,78 +190,6 @@ fn split_fragment_records_by_index(
   let lexical_fragments =
     fragments.iter().filter(|fragment| fragment.is_lexical_search_fragment()).cloned().collect::<Vec<_>>();
   (vector_fragments, lexical_fragments)
-}
-
-fn item_title_fragment_for_index(db: &Db, item: &Item) -> InfuResult<Option<FragmentRecordForIndex>> {
-  if item.item_type == ItemType::Password || item.relationship_to_parent == RelationshipToParent::Attachment {
-    return Ok(None);
-  }
-
-  let title = normalized_item_fragment_text(item.title.as_deref());
-  let attachment_text = item_attachment_title_text(db, item)?;
-  if title.is_none() && attachment_text.is_none() {
-    return Ok(None);
-  }
-
-  let context_title = item_title_context_title(db, item);
-  let mut lines = Vec::new();
-  if let Some(title) = title {
-    lines.push(title);
-  }
-  if let Some(context_title) = context_title {
-    if !lines.iter().any(|line| normalized_text_eq(line, &context_title)) {
-      lines.push(context_title);
-    }
-  }
-  if let Some(attachment_text) = attachment_text {
-    lines.push(attachment_text);
-  }
-
-  let text = lines.join("\n");
-  Ok(Some(FragmentRecordForIndex {
-    item_id: item.id.clone(),
-    ordinal: ITEM_TITLE_FRAGMENT_ORDINAL,
-    source_kind: ITEM_TITLE_SOURCE_KIND.to_owned(),
-    text_sha256: fragment_text_sha256(&text),
-    text,
-    page_start: None,
-    page_end: None,
-  }))
-}
-
-fn item_title_context_title(db: &Db, item: &Item) -> Option<String> {
-  if item.relationship_to_parent != RelationshipToParent::Child {
-    return None;
-  }
-
-  let parent_id = item.parent_id.as_ref()?;
-  let user = db.user.get(&item.owner_id)?;
-  if parent_id == &user.home_page_id || parent_id == &user.trash_page_id || parent_id == &user.dock_page_id {
-    return None;
-  }
-
-  let parent = db.item.get(parent_id).ok()?;
-  normalized_item_fragment_text(parent.title.as_deref())
-}
-
-fn item_attachment_title_text(db: &Db, item: &Item) -> InfuResult<Option<String>> {
-  let attachment_titles = db
-    .item
-    .get_attachments(&item.id)?
-    .into_iter()
-    .filter(|attachment| attachment.item_type != ItemType::Password)
-    .filter_map(|attachment| normalized_item_fragment_text(attachment.title.as_deref()))
-    .collect::<Vec<_>>();
-  if attachment_titles.is_empty() { Ok(None) } else { Ok(Some(attachment_titles.join(", "))) }
-}
-
-fn normalized_item_fragment_text(value: Option<&str>) -> Option<String> {
-  let collapsed = value?.split_whitespace().collect::<Vec<_>>().join(" ");
-  if collapsed.is_empty() { None } else { Some(collapsed) }
-}
-
-fn normalized_text_eq(left: &str, right: &str) -> bool {
-  left.to_lowercase() == right.to_lowercase()
 }
 
 async fn rebuild_user_vector_fragment_index(
@@ -721,6 +648,21 @@ struct FragmentRecordForIndex {
   text: String,
   page_start: Option<usize>,
   page_end: Option<usize>,
+}
+
+impl From<ItemTitleFragment> for FragmentRecordForIndex {
+  fn from(fragment: ItemTitleFragment) -> FragmentRecordForIndex {
+    let text_sha256 = fragment_text_sha256(&fragment.text);
+    FragmentRecordForIndex {
+      item_id: fragment.item_id,
+      ordinal: fragment.ordinal,
+      source_kind: fragment.source_kind.to_owned(),
+      text_sha256,
+      text: fragment.text,
+      page_start: None,
+      page_end: None,
+    }
+  }
 }
 
 impl FragmentRecordForIndex {
