@@ -520,10 +520,10 @@ export function calcSpatialPopupGeometry(
   }
 
   const buildGeometry = (nextCenterGr: typeof popupCenter, nextWidthGr: number): { geometry: ItemGeometry, heightGr: number } => {
-    const heightGr = popupImage
-      ? ((nextWidthGr / GRID_SIZE) * popupImage.imageSizePx.h / popupImage.imageSizePx.w) * GRID_SIZE
-      : nextWidthGr / targetAspect;
     li.spatialWidthGr = nextWidthGr;
+    const heightGr = popupImage
+      ? ItemFns.calcSpatialDimensionsBl(li).h * GRID_SIZE
+      : nextWidthGr / targetAspect;
     li.spatialPositionGr = {
       x: Math.round((nextCenterGr.x - nextWidthGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
       y: Math.round((nextCenterGr.y - heightGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0)

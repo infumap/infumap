@@ -165,8 +165,8 @@ export const ImageFns = {
   },
 
   calcSpatialDimensionsBl: (image: ImageMeasurable): Dimensions => {
-    // half block quantization.
-    let heightBl = ((image.spatialWidthGr / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w);
+    let heightBl = Math.round((image.spatialWidthGr / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w * 2.0) / 2.0;
+    if (heightBl < 0.5) { heightBl = 0.5; }
     return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
   },
 

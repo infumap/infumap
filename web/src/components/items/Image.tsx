@@ -133,6 +133,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return { w: wPx, h: hPx };
   }
 
+  const thumbnailFitStyle = () =>
+    `width: 100%; height: 100%; object-fit: ${imageItem().flags & ImageFlags.NoCrop ? "contain" : "cover"};`;
+
   const noCropPaddingTopPx = (lockToResizingFromBounds: boolean): number => {
     const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
     const imgSizePx = imageSizePx(lockToResizingFromBounds);
@@ -269,9 +272,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class="absolute border border-[#555] rounded-xs overflow-hidden pointer-events-none"
         style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; z-index: 0;`}>
         <img class="max-w-none absolute pointer-events-none"
-          style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-          width={imageWidthToRequestPx(false)}
-          height={imageWidthToRequestPx(false) / imageAspect()}
+          style={thumbnailFitStyle()}
           src={thumbnailSrc()} />
       </div>
     </Show>;
@@ -307,9 +308,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const notDetailedFallback = (): JSX.Element =>
     <img class="max-w-none absolute pointer-events-none"
-      style={`height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-      width={imageWidthToRequestPx(false)}
-      height={imageWidthToRequestPx(false) / imageAspect()}
+      style={thumbnailFitStyle()}
       src={thumbnailSrc()} />;
 
   const renderTitleMaybe = (): JSX.Element =>
@@ -437,13 +436,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       class="max-w-none absolute pointer-events-none"
       style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w) / 2.0) + BORDER_WIDTH_PX)}px; ` +
         `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) / imageAspect() - quantizedBoundsPx().h) / 2.0) + BORDER_WIDTH_PX)}px; ` +
-        (isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : '')}
+        (isShowingThumbnail.get() ? thumbnailFitStyle() : '')}
       width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />;
 
   const renderNoCropImage = (): JSX.Element =>
     <img src={imgSrcSignal.get()}
       class="max-w-none absolute pointer-events-none"
-      style={`${isShowingThumbnail.get() ? 'width: 100%; height: 100%; ' : ''}` +
+      style={`${isShowingThumbnail.get() ? thumbnailFitStyle() : ''}` +
         `left: ${isShowingThumbnail.get() ? 0 : noCropPaddingLeftPx(false)}px; ` +
         `top: ${isShowingThumbnail.get() ? 0 : noCropPaddingTopPx(false)}px;`}
       width={isShowingThumbnail.get() ? undefined : noCropWidth(false)} />;
