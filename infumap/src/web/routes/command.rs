@@ -45,7 +45,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::MutexGuard;
 
-use crate::ai::fragment::{PDF_MARKDOWN_SOURCE_KIND, delete_item_fragment_artifacts, is_lexical_search_source_kind};
+use crate::ai::fragment::{
+  delete_item_fragment_artifacts, is_lexical_search_source_kind, is_markdown_document_source_kind,
+};
 use crate::ai::image_tagging::{
   delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
 };
@@ -2236,7 +2238,7 @@ fn search_match_excerpt(source_kind: &str, text: &str, search_text: &str, max_ch
 
 fn fragment_display_text(source_kind: &str, text: &str) -> String {
   let lines = text.lines().map(str::trim).filter(|line| !line.is_empty());
-  let display_lines = if source_kind == PDF_MARKDOWN_SOURCE_KIND {
+  let display_lines = if is_markdown_document_source_kind(source_kind) {
     lines.filter(|line| !is_pdf_catalog_omitted_line(line)).collect::<Vec<_>>()
   } else {
     lines.collect::<Vec<_>>()

@@ -9,14 +9,21 @@ use tokio::sync::Mutex;
 
 use crate::ai::fragment::sources::{
   content_fragment_source_for_item, embedding_context_title_for_item, image_fragment_source_for_item,
-  pdf_fragment_source_for_item,
+  markdown_fragment_source_for_item, pdf_fragment_source_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
 use crate::ai::image_tagging::should_tag_image_item;
-use crate::config::CONFIG_DATA_DIR;
+use crate::config::{
+  CONFIG_DATA_DIR, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE,
+  CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_S3_1_BUCKET, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_KEY, CONFIG_S3_1_REGION,
+  CONFIG_S3_1_SECRET, CONFIG_S3_2_BUCKET, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_KEY, CONFIG_S3_2_REGION,
+  CONFIG_S3_2_SECRET,
+};
 use crate::setup::get_config;
 use crate::storage::db::Db;
+use crate::storage::object::{self as storage_object, ObjectStore};
 
+const MARKDOWN_MIME_TYPE: &str = "text/markdown";
 const PDF_MIME_TYPE: &str = "application/pdf";
 const FRAGMENT_PROGRESS_ITEM_INTERVAL: usize = 5000;
 const FRAGMENT_PROGRESS_TIME_INTERVAL: Duration = Duration::from_secs(10);
@@ -25,6 +32,7 @@ const FRAGMENT_PROGRESS_TIME_INTERVAL: Duration = Duration::from_secs(10);
 enum FragmentTargetKind {
   Content,
   Image,
+  Markdown,
   Pdf,
 }
 
@@ -33,6 +41,9 @@ impl FragmentTargetKind {
     match self {
       FragmentTargetKind::Content => matches!(item.item_type, ItemType::Page | ItemType::Table),
       FragmentTargetKind::Image => should_tag_image_item(item),
+      FragmentTargetKind::Markdown => {
+        item.item_type == ItemType::File && item.mime_type.as_deref() == Some(MARKDOWN_MIME_TYPE)
+      }
       FragmentTargetKind::Pdf => item.item_type == ItemType::File && item.mime_type.as_deref() == Some(PDF_MIME_TYPE),
     }
   }
@@ -41,6 +52,7 @@ impl FragmentTargetKind {
     match self {
       FragmentTargetKind::Content => "page or table",
       FragmentTargetKind::Image => "supported image",
+      FragmentTargetKind::Markdown => "Markdown file",
       FragmentTargetKind::Pdf => "PDF file",
     }
   }
@@ -49,6 +61,7 @@ impl FragmentTargetKind {
     match self {
       FragmentTargetKind::Content => "page/table",
       FragmentTargetKind::Image => "image",
+      FragmentTargetKind::Markdown => "markdown",
       FragmentTargetKind::Pdf => "pdf",
     }
   }
@@ -70,6 +83,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg_required_else_help(true)
     .subcommand(make_content_subcommand())
     .subcommand(make_image_subcommand())
+    .subcommand(make_markdown_subcommand())
     .subcommand(make_pdf_subcommand())
 }
 
@@ -79,9 +93,15 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     Some(("page-table", sub_matches)) => execute_content(sub_matches).await,
     Some(("image", sub_matches)) => execute_image(sub_matches).await,
     Some(("images", sub_matches)) => execute_image(sub_matches).await,
+    Some(("markdown", sub_matches)) => execute_markdown(sub_matches).await,
+    Some(("markdowns", sub_matches)) => execute_markdown(sub_matches).await,
+    Some(("md", sub_matches)) => execute_markdown(sub_matches).await,
     Some(("pdf", sub_matches)) => execute_pdf(sub_matches).await,
     Some(("pdfs", sub_matches)) => execute_pdf(sub_matches).await,
-    _ => Err("Missing fragment subcommand. Use 'fragment content', 'fragment image', or 'fragment pdf'.".into()),
+    _ => Err(
+      "Missing fragment subcommand. Use 'fragment content', 'fragment image', 'fragment markdown', or 'fragment pdf'."
+        .into(),
+    ),
   }
 }
 
@@ -101,6 +121,15 @@ fn make_image_subcommand() -> Command {
     )
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this supported image item."))
+}
+
+fn make_markdown_subcommand() -> Command {
+  Command::new("markdown")
+    .visible_alias("markdowns")
+    .visible_alias("md")
+    .about("Build lexical text fragments directly from Markdown file items.")
+    .arg(settings_arg())
+    .arg(item_id_arg("Build fragments only for this Markdown file item."))
 }
 
 fn make_pdf_subcommand() -> Command {
@@ -167,6 +196,45 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
   Ok(())
 }
 
+async fn execute_markdown(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let (data_dir, db, items) = load_db_and_items(sub_matches, FragmentTargetKind::Markdown).await?;
+  let mut summary = FragmentRunSummary::default();
+  if items.is_empty() {
+    log_fragment_summary(FragmentTargetKind::Markdown, &summary);
+    return Ok(());
+  }
+
+  let object_store = load_object_store(sub_matches, &data_dir).await?;
+  let single_item_run = sub_matches.get_one::<String>("item_id").is_some();
+  let mut progress = FragmentRunProgress::new(FragmentTargetKind::Markdown, items.len());
+
+  for (index, item) in items.into_iter().enumerate() {
+    progress.log_before_item(index, &item);
+    let (context_title, object_encryption_key) = {
+      let db = db.lock().await;
+      let object_encryption_key = db
+        .user
+        .get(&item.owner_id)
+        .ok_or(format!("User '{}' not loaded.", item.owner_id))?
+        .object_encryption_key
+        .clone();
+      (embedding_context_title_for_item(&db, &item), object_encryption_key)
+    };
+    let fragment_source =
+      markdown_fragment_source_for_item(object_store.clone(), &item, &object_encryption_key, context_title).await?;
+    let had_fragment_source = fragment_source.is_some();
+    let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
+    record_fragment_outcome(&mut summary, &outcome);
+    if single_item_run {
+      log_single_item_fragment_outcome(FragmentTargetKind::Markdown, &item, had_fragment_source, &outcome);
+    }
+    progress.log_after_item(index + 1, &summary);
+  }
+
+  log_fragment_summary(FragmentTargetKind::Markdown, &summary);
+  Ok(())
+}
+
 async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
   let (data_dir, db, items) = load_db_and_items(sub_matches, FragmentTargetKind::Pdf).await?;
   let mut summary = FragmentRunSummary::default();
@@ -230,6 +298,27 @@ async fn load_db_and_items(
   );
 
   Ok((data_dir, db, items))
+}
+
+async fn load_object_store(sub_matches: &ArgMatches, data_dir: &str) -> InfuResult<Arc<ObjectStore>> {
+  let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
+  storage_object::new(
+    data_dir,
+    config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?,
+    config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE).map_err(|e| e.to_string())?,
+    config.get_string(CONFIG_S3_1_REGION).ok(),
+    config.get_string(CONFIG_S3_1_ENDPOINT).ok(),
+    config.get_string(CONFIG_S3_1_BUCKET).ok(),
+    config.get_string(CONFIG_S3_1_KEY).ok(),
+    config.get_string(CONFIG_S3_1_SECRET).ok(),
+    config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE).map_err(|e| e.to_string())?,
+    config.get_string(CONFIG_S3_2_REGION).ok(),
+    config.get_string(CONFIG_S3_2_ENDPOINT).ok(),
+    config.get_string(CONFIG_S3_2_BUCKET).ok(),
+    config.get_string(CONFIG_S3_2_KEY).ok(),
+    config.get_string(CONFIG_S3_2_SECRET).ok(),
+  )
+  .map_err(|e| format!("Failed to initialize object store: {}", e).into())
 }
 
 async fn apply_fragment_source(

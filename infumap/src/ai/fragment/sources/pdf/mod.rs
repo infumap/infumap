@@ -30,10 +30,24 @@ pub async fn pdf_fragment_source_for_item(
     return Ok(None);
   };
 
-  let fragments = build_pdf_fragment_inputs(item.title.as_deref(), context_title.as_deref(), &markdown);
+  Ok(markdown_fragment_source(
+    FragmentSourceKind::PdfMarkdown,
+    item.title.as_deref(),
+    context_title.as_deref(),
+    &markdown,
+  ))
+}
+
+pub(super) fn markdown_fragment_source(
+  source_kind: FragmentSourceKind,
+  document_title: Option<&str>,
+  context_title: Option<&str>,
+  markdown: &str,
+) -> Option<FragmentSource> {
+  let fragments = build_pdf_fragment_inputs(document_title, context_title, markdown);
   if fragments.is_empty() {
-    return Ok(None);
+    return None;
   }
 
-  Ok(Some(FragmentSource { source_kind: FragmentSourceKind::PdfMarkdown, fragments }))
+  Some(FragmentSource { source_kind, fragments })
 }
