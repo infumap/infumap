@@ -151,6 +151,19 @@ export function arrange_calendar_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
+  const rendersAsTranslucentPage =
+    !(flags & (
+      ArrangeItemFlags.IsTopRoot |
+      ArrangeItemFlags.IsPopupRoot |
+      ArrangeItemFlags.IsListPageMainRoot |
+      ArrangeItemFlags.IsEmbeddedInteractiveRoot |
+      ArrangeItemFlags.IsDockRoot
+    ));
+
+  if (rendersAsTranslucentPage) {
+    return { spec: pageSpec, relationships: pageRelationships };
+  }
+
   // Arrange child items in calendar grid layout (6 blocks wide)
   let calendarChildPaths: Array<VisualElementPath> = [];
   const calendarWindow = calculateCalendarWindow(childAreaBoundsPx.w, store.perVe.getCalendarMonthIndex(pageWithChildrenVePath));
