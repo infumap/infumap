@@ -22,7 +22,7 @@ import { Item, ItemType } from "../items/base/item";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { asTableItem, isTable, TableFns } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
-import { HitboxFlags, hitboxFlagsToString } from "../layout/hitbox";
+import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -50,7 +50,6 @@ import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { asPasswordItem, isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
-import { resizeDebugItem, resizeDebugLog, resizeDebugParentVisualElement, resizeDebugVisualElement } from "./resize_debug";
 
 
 export const MOUSE_LEFT = 0;
@@ -495,46 +494,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const scaleDefiningElement = VeFns.veToPath(sourceScaleDefiningElement ?? hitInfoFiltered.overPositionableVe!);
 
   const activeElementPath = VeFns.veToPath(hitVe);
-  const sourceParentPageMaybe = sourceParentVe && isPage(sourceParentVe.displayItem)
-    ? asPageItem(sourceParentVe.displayItem)
-    : null;
-  const isSpatialPageChild =
-    sourceParentPageMaybe?.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch &&
-    activeItem.relationshipToParent == RelationshipToParent.Child;
-  const resizeHitOnMouseDown = !!(hitInfo.hitboxType & HitboxFlags.Resize);
-  if (resizeHitOnMouseDown || isSpatialPageChild) {
-    resizeDebugLog("mouse-down", {
-      note: resizeHitOnMouseDown
-        ? "Mouse down included a Resize hitbox."
-        : "Mouse down was on a child of a spatial page, but did not include a Resize hitbox.",
-      currentPageVeid: store.history.currentPageVeid(),
-      currentPagePath: store.history.currentPagePath(),
-      focusPath: store.history.getFocusPathMaybe(),
-      desktopPosPx: { ...desktopPosPx },
-      hitboxType: hitInfo.hitboxType,
-      hitboxTypeString: hitboxFlagsToString(hitInfo.hitboxType),
-      compositeHitboxTypeMaybe: hitInfo.compositeHitboxTypeMaybe,
-      compositeHitboxTypeMaybeString: hitboxFlagsToString(hitInfo.compositeHitboxTypeMaybe),
-      hitMeta: hitInfo.overElementMeta == null ? null : { ...hitInfo.overElementMeta },
-      hitInfoDebugCreatedAt: hitInfo.debugCreatedAt,
-      activeElementPath,
-      activeItem: resizeDebugItem(activeItem),
-      hitVisualElement: resizeDebugVisualElement(hitVe),
-      sourceParentVisualElement: resizeDebugParentVisualElement(sourceParentVe),
-      sourceParentArrangeAlgorithm: sourceParentPageMaybe?.arrangeAlgorithm ?? null,
-      sourceParentIsSpatialStretch: sourceParentPageMaybe?.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch,
-      boundsOnTopLevelPagePx: { ...boundsOnTopLevelPagePx },
-      onePxSizeBl: { ...onePxSizeBl },
-      clickOffsetProp: { ...clickOffsetProp },
-      ignoreItems,
-      filteredHitboxType: hitInfoFiltered.hitboxType,
-      filteredHitboxTypeString: hitboxFlagsToString(hitInfoFiltered.hitboxType),
-      filteredOverPositionableVe: resizeDebugParentVisualElement(hitInfoFiltered.overPositionableVe),
-      filteredOverPositionGr: hitInfoFiltered.overPositionGr ? { ...hitInfoFiltered.overPositionGr } : null,
-      scaleDefiningElement,
-      canHitEmbeddedInteractive,
-    });
-  }
 
   if (longHoldTimeoutId) {
     clearTimeout(longHoldTimeoutId);

@@ -17,7 +17,7 @@
 */
 
 import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
-import { HitboxFlags, hitboxFlagsToString } from "../layout/hitbox";
+import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { itemCanMove } from "../items/base/capabilities-item";
@@ -55,7 +55,6 @@ import {
   getCalendarDividerCenterPx,
   solveCalendarMonthWidthForDividerOffset,
 } from "../util/calendar-layout";
-import { resizeDebugItem, resizeDebugLog, resizeDebugParentVisualElement, resizeDebugVisualElement } from "./resize_debug";
 
 
 let lastMouseOverPath: VisualElementPath | null = null;
@@ -71,21 +70,10 @@ const SELECTION_ARRANGE_THROTTLE_MS = 33;
 function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
   const activeElementPath = MouseActionState.getActiveElementPath();
   const itemStateTreeItem = activeElementPath ? VeFns.treeItemFromPath(activeElementPath) : null;
-  const visualElementTreeItem = VeFns.treeItem(activeVisualElement);
   if (itemStateTreeItem && isPositionalItem(itemStateTreeItem)) {
-    return {
-      item: asPositionalItem(itemStateTreeItem),
-      source: "item-state",
-      itemStateTreeItem,
-      visualElementTreeItem,
-    };
+    return asPositionalItem(itemStateTreeItem);
   }
-  return {
-    item: asPositionalItem(visualElementTreeItem),
-    source: "visual-element",
-    itemStateTreeItem,
-    visualElementTreeItem,
-  };
+  return asPositionalItem(VeFns.treeItem(activeVisualElement));
 }
 
 
@@ -443,17 +431,6 @@ function changeMouseActionStateMaybe(
 
   const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeVisualElementSignal) {
-    if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
-      resizeDebugLog("promote-resize-missing-active-signal", {
-        note: "The mouse moved far enough to start a resize, but the active visual element signal could not be resolved.",
-        deltaPx: { ...deltaPx },
-        desktopPosPx: { ...desktopPosPx },
-        hitboxTypeOnMouseDown: MouseActionState.getHitboxTypeOnMouseDown(),
-        hitboxTypeOnMouseDownString: hitboxFlagsToString(MouseActionState.getHitboxTypeOnMouseDown()),
-        activeElementPath: MouseActionState.getActiveElementPath(),
-        onePxSizeBl: MouseActionState.getOnePxSizeBl(),
-      });
-    }
     store.anItemIsMoving.set(false);
     return;
   }
@@ -461,25 +438,7 @@ function changeMouseActionStateMaybe(
   let activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
-    const activeTreeItemResolution = resolveActiveTreeItemForResize(activeVisualElement);
-    activeItem = activeTreeItemResolution.item;
-    resizeDebugLog("promote-resize-threshold-crossed", {
-      note: "Mouse movement exceeded the ambiguous-click threshold and the mouse-down hitbox included Resize.",
-      deltaPx: { ...deltaPx },
-      desktopPosPx: { ...desktopPosPx },
-      hasUser,
-      activeElementPath: MouseActionState.getActiveElementPath(),
-      hitboxTypeOnMouseDown: MouseActionState.getHitboxTypeOnMouseDown(),
-      hitboxTypeOnMouseDownString: hitboxFlagsToString(MouseActionState.getHitboxTypeOnMouseDown()),
-      hitMeta: MouseActionState.getHitMeta() == null ? null : { ...MouseActionState.getHitMeta()! },
-      onePxSizeBl: MouseActionState.getOnePxSizeBl(),
-      activeVisualElement: resizeDebugVisualElement(activeVisualElement),
-      activeItem: resizeDebugItem(activeItem),
-      activeItemSource: activeTreeItemResolution.source,
-      itemStateTreeItem: resizeDebugItem(activeTreeItemResolution.itemStateTreeItem),
-      visualElementTreeItem: resizeDebugItem(activeTreeItemResolution.visualElementTreeItem),
-      parentVisualElement: resizeDebugParentVisualElement(MouseActionState.readVisualElement(activeVisualElement.parentPath)),
-    });
+    activeItem = resolveActiveTreeItemForResize(activeVisualElement);
     MouseActionState.setStartPosBl(null);
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
@@ -532,15 +491,6 @@ function changeMouseActionStateMaybe(
         }
       }
       MouseActionState.setAction(MouseAction.ResizingPopup);
-      resizeDebugLog("promote-resize-popup", {
-        note: "Resize action promoted to ResizingPopup.",
-        action: MouseActionState.getAction(),
-        startWidthBl: MouseActionState.getStartWidthBl(),
-        startHeightBl: MouseActionState.getStartHeightBl(),
-        activeVisualElement: resizeDebugVisualElement(activeVisualElement),
-        activeItem: resizeDebugItem(activeItem),
-        parentVisualElement: resizeDebugParentVisualElement(MouseActionState.readVisualElement(activeVisualElement.parentPath)),
-      });
     } else {
       MouseActionState.setStartWidthBl(isLink(activeItem) ? asLinkItem(activeItem).spatialWidthGr / GRID_SIZE : asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE);
       if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
@@ -572,20 +522,6 @@ function changeMouseActionStateMaybe(
       }
       store.anItemIsResizing.set(true);
       MouseActionState.setAction(MouseAction.Resizing);
-      resizeDebugLog("promote-resize-non-popup", {
-        note: "Resize action promoted to Resizing. These are the starting dimensions used for later drag calculations.",
-        action: MouseActionState.getAction(),
-        startWidthBl: MouseActionState.getStartWidthBl(),
-        startHeightBl: MouseActionState.getStartHeightBl(),
-        activeElementPath: MouseActionState.getActiveElementPath(),
-        activeVisualElement: resizeDebugVisualElement(activeVisualElement),
-        activeItem: resizeDebugItem(activeItem),
-        activeItemSource: activeTreeItemResolution.source,
-        itemStateTreeItem: resizeDebugItem(activeTreeItemResolution.itemStateTreeItem),
-        visualElementTreeItem: resizeDebugItem(activeTreeItemResolution.visualElementTreeItem),
-        parentVisualElement: resizeDebugParentVisualElement(MouseActionState.readVisualElement(activeVisualElement.parentPath)),
-        onePxSizeBl: MouseActionState.getOnePxSizeBl(),
-      });
     }
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.HorizontalResize)) {
@@ -807,24 +743,11 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
 
   const activeSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeSignal) {
-    resizeDebugLog("resize-move-missing-active-signal", {
-      note: "The active visual element signal disappeared during an active resize.",
-      deltaPx: { ...deltaPx },
-      activeElementPath: MouseActionState.getActiveElementPath(),
-      hitboxTypeOnMouseDown: MouseActionState.getHitboxTypeOnMouseDown(),
-      hitboxTypeOnMouseDownString: hitboxFlagsToString(MouseActionState.getHitboxTypeOnMouseDown()),
-      onePxSizeBl: MouseActionState.getOnePxSizeBl(),
-      startWidthBl: MouseActionState.getStartWidthBl(),
-      startHeightBl: MouseActionState.getStartHeightBl(),
-    });
     store.anItemIsResizing.set(false);
     return;
   }
   const activeVisualElement = activeSignal.get();
-  const activeTreeItemResolution = resolveActiveTreeItemForResize(activeVisualElement);
-  const activeItem = activeTreeItemResolution.item;
-  const activeParentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath);
-  const beforeItemDebug = resizeDebugItem(activeItem);
+  const activeItem = resolveActiveTreeItemForResize(activeVisualElement);
 
   const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
   const deltaBl = {
@@ -832,10 +755,7 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     y: deltaPx.y * onePxSizeBl.y
   };
 
-  const startWidthBl = MouseActionState.getStartWidthBl();
-  const startHeightBl = MouseActionState.getStartHeightBl();
-  const rawNewWidthBl = startWidthBl! + deltaBl.x;
-  let newWidthBl = rawNewWidthBl;
+  let newWidthBl = MouseActionState.getStartWidthBl()! + deltaBl.x;
   if (isLink(activeItem)) {
     if (isLink(activeVisualElement.displayItem)) {
       newWidthBl = Math.round(newWidthBl);
@@ -867,139 +787,52 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   }
 
   const newWidthGr = newWidthBl * GRID_SIZE;
-  const previousWidthGr = isLink(activeItem)
-    ? asLinkItem(activeItem).spatialWidthGr
-    : asXSizableItem(activeItem).spatialWidthGr;
-  let widthChanged = false;
 
   if (isLink(activeItem)) {
     if (newWidthGr != asLinkItem(activeItem).spatialWidthGr) {
       asLinkItem(activeItem).spatialWidthGr = newWidthGr;
       requireArrange = true;
-      widthChanged = true;
     }
   } else {
     if (newWidthGr != asXSizableItem(activeItem).spatialWidthGr) {
       asXSizableItem(activeItem).spatialWidthGr = newWidthGr;
       requireArrange = true;
-      widthChanged = true;
     }
   }
 
-  let heightBranch = "none";
-  let rawNewHeightBl: number | null = null;
-  let roundedNewHeightBl: number | null = null;
-  let previousHeightGr: number | null = null;
-  let newHeightGrForDebug: number | null = null;
-  let heightChanged = false;
   if (isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight)) {
-    heightBranch = "note-explicit-height";
-    previousHeightGr = asNoteItem(activeItem).spatialHeightGr;
     let newHeightBl = MouseActionState.getStartHeightBl()! + deltaBl.y;
-    rawNewHeightBl = newHeightBl;
     newHeightBl = Math.round(newHeightBl);
-    roundedNewHeightBl = newHeightBl;
 
     if (newHeightBl < 1) { newHeightBl = 1.0; }
     const newHeightGr = newHeightBl * GRID_SIZE;
-    newHeightGrForDebug = newHeightGr;
 
     if (newHeightGr != asNoteItem(activeItem).spatialHeightGr) {
       asNoteItem(activeItem).spatialHeightGr = newHeightGr;
       requireArrange = true;
-      heightChanged = true;
     }
   }
   else if (isYSizableItem(activeItem) || (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem)))) {
-    heightBranch = isLink(activeItem) ? "link-display-height" : "y-sizable";
-    previousHeightGr = isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem))
-      ? asLinkItem(activeItem).spatialHeightGr
-      : asYSizableItem(activeItem).spatialHeightGr;
     let newHeightBl = MouseActionState.getStartHeightBl()! + deltaBl.y;
-    rawNewHeightBl = newHeightBl;
     newHeightBl = Math.round(newHeightBl);
-    roundedNewHeightBl = newHeightBl;
     if (newHeightBl < 1) { newHeightBl = 1.0; }
 
     const newHeightGr = newHeightBl * GRID_SIZE;
-    newHeightGrForDebug = newHeightGr;
     if (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem))) {
       if (newHeightGr != asLinkItem(activeItem).spatialHeightGr) {
         asLinkItem(activeItem).spatialHeightGr = newHeightGr;
         requireArrange = true;
-        heightChanged = true;
       }
     } else {
       if (newHeightGr != asYSizableItem(activeItem).spatialHeightGr) {
         asYSizableItem(activeItem).spatialHeightGr = newHeightGr;
         requireArrange = true;
-        heightChanged = true;
       }
     }
   }
 
-  const likelyNoUpdateReasons: Array<string> = [];
-  if (onePxSizeBl.x == 0 && onePxSizeBl.y == 0) {
-    likelyNoUpdateReasons.push("onePxSizeBl is zero, so mouse delta converts to zero block delta.");
-  }
-  if (!widthChanged && !heightChanged) {
-    likelyNoUpdateReasons.push("computed grid dimensions were identical to current item dimensions after rounding/snapping.");
-  }
-  if (startWidthBl == null) {
-    likelyNoUpdateReasons.push("startWidthBl is null.");
-  }
-  if (heightBranch != "none" && startHeightBl == null) {
-    likelyNoUpdateReasons.push("height branch wanted a start height, but startHeightBl is null.");
-  }
-  if (activeParentVe && isPage(activeParentVe.displayItem) && asPageItem(activeParentVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch) {
-    likelyNoUpdateReasons.push(`parent page is ${asPageItem(activeParentVe.displayItem).arrangeAlgorithm}, not SpatialStretch.`);
-  }
-  resizeDebugLog("resize-move", {
-    note: requireArrange
-      ? "Resize mutated the item and will call arrangeNow('resize-item')."
-      : "Resize did not mutate item dimensions on this mouse move.",
-    activeElementPath: MouseActionState.getActiveElementPath(),
-    hitboxTypeOnMouseDown: MouseActionState.getHitboxTypeOnMouseDown(),
-    hitboxTypeOnMouseDownString: hitboxFlagsToString(MouseActionState.getHitboxTypeOnMouseDown()),
-    deltaPx: { ...deltaPx },
-    onePxSizeBl: { ...onePxSizeBl },
-    deltaBl,
-    startWidthBl,
-    startHeightBl,
-    rawNewWidthBl,
-    roundedNewWidthBl: newWidthBl,
-    previousWidthGr,
-    newWidthGr,
-    widthChanged,
-    heightBranch,
-    rawNewHeightBl,
-    roundedNewHeightBl,
-    previousHeightGr,
-    newHeightGr: newHeightGrForDebug,
-    heightChanged,
-    requireArrange,
-    likelyNoUpdateReasons,
-    activeItemSource: activeTreeItemResolution.source,
-    itemStateTreeItem: resizeDebugItem(activeTreeItemResolution.itemStateTreeItem),
-    visualElementTreeItem: resizeDebugItem(activeTreeItemResolution.visualElementTreeItem),
-    beforeItem: beforeItemDebug,
-    afterItem: resizeDebugItem(activeItem),
-    activeVisualElement: resizeDebugVisualElement(activeVisualElement),
-    parentVisualElement: resizeDebugParentVisualElement(activeParentVe),
-  });
-
   if (requireArrange) {
     arrangeNow(store, "resize-item");
-    const postArrangeActiveSignal = MouseActionState.getActiveVisualElementSignal();
-    const postArrangeActiveVe = postArrangeActiveSignal?.get() ?? null;
-    resizeDebugLog("resize-post-arrange", {
-      note: "arrangeNow('resize-item') returned; checking whether the rendered active visual element and item state reflect the resize.",
-      activeElementPath: MouseActionState.getActiveElementPath(),
-      itemFromState: resizeDebugItem(itemState.get(activeItem.id)),
-      activeItemObjectAfterArrange: resizeDebugItem(activeItem),
-      postArrangeActiveVisualElement: resizeDebugVisualElement(postArrangeActiveVe),
-      postArrangeParentVisualElement: resizeDebugParentVisualElement(postArrangeActiveVe ? MouseActionState.readVisualElement(postArrangeActiveVe.parentPath) : null),
-    });
   }
 }
 

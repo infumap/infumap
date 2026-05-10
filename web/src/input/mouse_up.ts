@@ -36,7 +36,7 @@ import { TEMP_SEARCH_RESULTS_ORIGIN, isSearch } from "../items/search-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
-import { HitboxFlags, hitboxFlagsToString } from "../layout/hitbox";
+import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, EMPTY_VEID, isVeTranslucentPage } from "../layout/visual-element";
@@ -54,7 +54,6 @@ import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets } from "./move_group";
 import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
-import { resizeDebugItem, resizeDebugLog, resizeDebugParentVisualElement, resizeDebugVisualElement } from "./resize_debug";
 
 
 interface MovePersistOperation {
@@ -779,32 +778,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       const ysized = isYSizableItem(resizeActiveItem) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asYSizableItem(resizeActiveItem).spatialHeightGr;
       const noteExplicitHeightSized = isNote(resizeActiveItem) && (asNoteItem(resizeActiveItem).flags & NoteFlags.ExplicitHeight) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asNoteItem(resizeActiveItem).spatialHeightGr;
       const linkDisplayHeightPersistCase = isLink(resizeActiveItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem));
-      const shouldPersistResize = xsized || ysized || noteExplicitHeightSized || linkDisplayHeightPersistCase;
-      const activeParentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath);
-      resizeDebugLog("mouse-up-resizing", {
-        note: shouldPersistResize
-          ? "Mouse up decided to persist the resized item."
-          : "Mouse up decided there was no dimension change to persist.",
-        action: MouseActionState.getAction(),
-        activeElementPath: MouseActionState.getActiveElementPath(),
-        hitboxTypeOnMouseDown: MouseActionState.getHitboxTypeOnMouseDown(),
-        hitboxTypeOnMouseDownString: hitboxFlagsToString(MouseActionState.getHitboxTypeOnMouseDown()),
-        startWidthBl: MouseActionState.getStartWidthBl(),
-        startHeightBl: MouseActionState.getStartHeightBl(),
-        xsized,
-        ysized,
-        noteExplicitHeightSized,
-        linkDisplayHeightPersistCase,
-        shouldPersistResize,
-        activeItemExistsInItemState: itemState.get(resizeActiveItem.id) != null,
-        activeItemSource: itemStateTreeItem && isPositionalItem(itemStateTreeItem) ? "item-state" : "visual-element",
-        activeItem: resizeDebugItem(resizeActiveItem),
-        itemStateTreeItem: resizeDebugItem(itemStateTreeItem),
-        visualElementTreeItem: resizeDebugItem(VeFns.treeItem(activeVisualElement)),
-        activeVisualElement: resizeDebugVisualElement(activeVisualElement),
-        parentVisualElement: resizeDebugParentVisualElement(activeParentVe),
-      });
-      if (shouldPersistResize) {
+      if (xsized || ysized || noteExplicitHeightSized || linkDisplayHeightPersistCase) {
         serverOrRemote.updateItem(itemState.get(resizeActiveItem.id)!, store.general.networkStatus);
       }
       // mouseActionState.activeVisualElement.update(ve => {
