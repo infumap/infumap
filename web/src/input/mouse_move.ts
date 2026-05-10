@@ -35,7 +35,7 @@ import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, ve
 import { panic } from "../util/lang";
 import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage, type VisualElementPath } from "../layout/visual-element";
 import { HitInfoFns } from "./hit";
-import { asPositionalItem } from "../items/base/positional-item";
+import { asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
@@ -66,6 +66,27 @@ let lastMouseOverSearchGridPagePath: VisualElementPath | null = null;
 let lastSelectionArrangeTimeMs = 0;
 let lastSelectionSignature = "";
 const SELECTION_ARRANGE_THROTTLE_MS = 33;
+
+
+function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
+  const activeElementPath = MouseActionState.getActiveElementPath();
+  const itemStateTreeItem = activeElementPath ? VeFns.treeItemFromPath(activeElementPath) : null;
+  const visualElementTreeItem = VeFns.treeItem(activeVisualElement);
+  if (itemStateTreeItem && isPositionalItem(itemStateTreeItem)) {
+    return {
+      item: asPositionalItem(itemStateTreeItem),
+      source: "item-state",
+      itemStateTreeItem,
+      visualElementTreeItem,
+    };
+  }
+  return {
+    item: asPositionalItem(visualElementTreeItem),
+    source: "visual-element",
+    itemStateTreeItem,
+    visualElementTreeItem,
+  };
+}
 
 
 export function mouseMoveHandler(store: StoreContextModel) {
@@ -440,6 +461,8 @@ function changeMouseActionStateMaybe(
   let activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
   if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
+    const activeTreeItemResolution = resolveActiveTreeItemForResize(activeVisualElement);
+    activeItem = activeTreeItemResolution.item;
     resizeDebugLog("promote-resize-threshold-crossed", {
       note: "Mouse movement exceeded the ambiguous-click threshold and the mouse-down hitbox included Resize.",
       deltaPx: { ...deltaPx },
@@ -452,6 +475,9 @@ function changeMouseActionStateMaybe(
       onePxSizeBl: MouseActionState.getOnePxSizeBl(),
       activeVisualElement: resizeDebugVisualElement(activeVisualElement),
       activeItem: resizeDebugItem(activeItem),
+      activeItemSource: activeTreeItemResolution.source,
+      itemStateTreeItem: resizeDebugItem(activeTreeItemResolution.itemStateTreeItem),
+      visualElementTreeItem: resizeDebugItem(activeTreeItemResolution.visualElementTreeItem),
       parentVisualElement: resizeDebugParentVisualElement(MouseActionState.readVisualElement(activeVisualElement.parentPath)),
     });
     MouseActionState.setStartPosBl(null);
@@ -554,6 +580,9 @@ function changeMouseActionStateMaybe(
         activeElementPath: MouseActionState.getActiveElementPath(),
         activeVisualElement: resizeDebugVisualElement(activeVisualElement),
         activeItem: resizeDebugItem(activeItem),
+        activeItemSource: activeTreeItemResolution.source,
+        itemStateTreeItem: resizeDebugItem(activeTreeItemResolution.itemStateTreeItem),
+        visualElementTreeItem: resizeDebugItem(activeTreeItemResolution.visualElementTreeItem),
         parentVisualElement: resizeDebugParentVisualElement(MouseActionState.readVisualElement(activeVisualElement.parentPath)),
         onePxSizeBl: MouseActionState.getOnePxSizeBl(),
       });
@@ -792,7 +821,8 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     return;
   }
   const activeVisualElement = activeSignal.get();
-  const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
+  const activeTreeItemResolution = resolveActiveTreeItemForResize(activeVisualElement);
+  const activeItem = activeTreeItemResolution.item;
   const activeParentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath);
   const beforeItemDebug = resizeDebugItem(activeItem);
 
@@ -949,6 +979,9 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     heightChanged,
     requireArrange,
     likelyNoUpdateReasons,
+    activeItemSource: activeTreeItemResolution.source,
+    itemStateTreeItem: resizeDebugItem(activeTreeItemResolution.itemStateTreeItem),
+    visualElementTreeItem: resizeDebugItem(activeTreeItemResolution.visualElementTreeItem),
     beforeItem: beforeItemDebug,
     afterItem: resizeDebugItem(activeItem),
     activeVisualElement: resizeDebugVisualElement(activeVisualElement),

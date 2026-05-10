@@ -763,14 +763,22 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
     }
 
-    case MouseAction.Resizing:
+    case MouseAction.Resizing: {
       DoubleClickState.preventDoubleClick();
-      const xsized = isLink(activeItem)
-        ? MouseActionState.getStartWidthBl()! * GRID_SIZE != asLinkItem(activeItem).spatialWidthGr
-        : MouseActionState.getStartWidthBl()! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr;
-      const ysized = isYSizableItem(activeItem) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr;
-      const noteExplicitHeightSized = isNote(activeItem) && (asNoteItem(activeItem).flags & NoteFlags.ExplicitHeight) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asNoteItem(activeItem).spatialHeightGr;
-      const linkDisplayHeightPersistCase = isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem));
+      const itemStateTreeItem = MouseActionState.getActiveElementPath()
+        ? VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!)
+        : null;
+      const resizeActiveItem = asPositionalItem(
+        itemStateTreeItem && isPositionalItem(itemStateTreeItem)
+          ? itemStateTreeItem
+          : VeFns.treeItem(activeVisualElement)
+      );
+      const xsized = isLink(resizeActiveItem)
+        ? MouseActionState.getStartWidthBl()! * GRID_SIZE != asLinkItem(resizeActiveItem).spatialWidthGr
+        : MouseActionState.getStartWidthBl()! * GRID_SIZE != asXSizableItem(resizeActiveItem).spatialWidthGr;
+      const ysized = isYSizableItem(resizeActiveItem) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asYSizableItem(resizeActiveItem).spatialHeightGr;
+      const noteExplicitHeightSized = isNote(resizeActiveItem) && (asNoteItem(resizeActiveItem).flags & NoteFlags.ExplicitHeight) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asNoteItem(resizeActiveItem).spatialHeightGr;
+      const linkDisplayHeightPersistCase = isLink(resizeActiveItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem));
       const shouldPersistResize = xsized || ysized || noteExplicitHeightSized || linkDisplayHeightPersistCase;
       const activeParentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath);
       resizeDebugLog("mouse-up-resizing", {
@@ -788,18 +796,22 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         noteExplicitHeightSized,
         linkDisplayHeightPersistCase,
         shouldPersistResize,
-        activeItemExistsInItemState: itemState.get(activeItem.id) != null,
-        activeItem: resizeDebugItem(activeItem),
+        activeItemExistsInItemState: itemState.get(resizeActiveItem.id) != null,
+        activeItemSource: itemStateTreeItem && isPositionalItem(itemStateTreeItem) ? "item-state" : "visual-element",
+        activeItem: resizeDebugItem(resizeActiveItem),
+        itemStateTreeItem: resizeDebugItem(itemStateTreeItem),
+        visualElementTreeItem: resizeDebugItem(VeFns.treeItem(activeVisualElement)),
         activeVisualElement: resizeDebugVisualElement(activeVisualElement),
         parentVisualElement: resizeDebugParentVisualElement(activeParentVe),
       });
       if (shouldPersistResize) {
-        serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(resizeActiveItem.id)!, store.general.networkStatus);
       }
       // mouseActionState.activeVisualElement.update(ve => {
       //   ve.resizingFromBoundsPx = null;
       // });
       break;
+    }
 
     case MouseAction.ResizingPopup: {
       if (activeVisualElement.actualLinkItemMaybe) {
