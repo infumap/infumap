@@ -12,8 +12,9 @@ use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_pat
 use crate::ai::fragment::is_lexical_search_source_kind;
 use crate::ai::fragment::sources::{ItemTitleFragment, item_title_fragment_for_item};
 use crate::ai::lexical_index::{
-  FragmentLexicalIndexRebuildMetadata, LexicalFragment, open_user_pdf_fragment_lexical_index,
-  pdf_fragment_lexical_index_temp_dir, remove_pdf_fragment_lexical_index_dirs, user_pdf_fragment_lexical_index_exists,
+  FragmentLexicalIndexRebuildMetadata, LexicalFragment, document_fragment_lexical_index_temp_dir,
+  open_user_document_fragment_lexical_index, remove_document_fragment_lexical_index_dirs,
+  user_document_fragment_lexical_index_exists,
 };
 use crate::ai::text_embedding::{
   DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingBatch, TextEmbeddingInput, embed_texts,
@@ -52,8 +53,8 @@ pub async fn delete_item_fragment_index_entries(data_dir: &str, user_id: &str, i
     let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
     deleted += vector_db.delete_item_fragments(item_id).await?;
   }
-  if user_pdf_fragment_lexical_index_exists(data_dir, user_id).await? {
-    let lexical_index = open_user_pdf_fragment_lexical_index(data_dir, user_id)?;
+  if user_document_fragment_lexical_index_exists(data_dir, user_id).await? {
+    let lexical_index = open_user_document_fragment_lexical_index(data_dir, user_id)?;
     deleted += lexical_index.delete_item_fragments(item_id).await?;
   }
   Ok(deleted)
@@ -331,7 +332,7 @@ async fn rebuild_user_fragment_lexical_index(
   continue_rebuild: bool,
 ) -> InfuResult<LexicalRebuildOutcome> {
   if fragments.is_empty() {
-    let removed = remove_pdf_fragment_lexical_index_dirs(data_dir, user_id).await?;
+    let removed = remove_document_fragment_lexical_index_dirs(data_dir, user_id).await?;
     if removed > 0 {
       eprintln!("User {} has no lexical-search fragments; removed {} stale lexical index dir(s).", user_id, removed);
     }
@@ -342,7 +343,7 @@ async fn rebuild_user_fragment_lexical_index(
     });
   }
 
-  let final_index = open_user_pdf_fragment_lexical_index(data_dir, user_id)?;
+  let final_index = open_user_document_fragment_lexical_index(data_dir, user_id)?;
   if continue_rebuild
     && let Some(status) = final_index.rebuild_status().await?
     && status.complete
@@ -354,7 +355,7 @@ async fn rebuild_user_fragment_lexical_index(
     return Ok(LexicalRebuildOutcome { skipped_current: true, ..Default::default() });
   }
 
-  let temp_dir = pdf_fragment_lexical_index_temp_dir(data_dir, user_id)?;
+  let temp_dir = document_fragment_lexical_index_temp_dir(data_dir, user_id)?;
   let lexical_fragments = fragments
     .iter()
     .map(|fragment| LexicalFragment {

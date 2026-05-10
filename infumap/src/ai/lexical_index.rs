@@ -11,10 +11,10 @@ use tokio::fs;
 use crate::ai::vector_db::user_index_dir;
 use crate::util::fs::expand_tilde;
 
-pub const PDF_FRAGMENT_LEXICAL_INDEX_DIR_NAME: &str = "pdf_fragments_tantivy";
-pub const PDF_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "pdf_fragments_tantivy.tmp";
-pub const PDF_FRAGMENT_LEXICAL_METADATA_FILENAME: &str = "infumap_pdf_fragment_index.json";
-pub const PDF_FRAGMENT_LEXICAL_SCHEMA_VERSION: u32 = 1;
+pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_DIR_NAME: &str = "document_fragments_tantivy";
+pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "document_fragments_tantivy.tmp";
+pub const DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME: &str = "infumap_document_fragment_index.json";
+pub const DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION: u32 = 1;
 #[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_INDEX_DIR_NAME: &str = "item_titles_tantivy";
 #[allow(dead_code)]
@@ -31,7 +31,7 @@ const PAGE_START_FIELD: &str = "page_start";
 const PAGE_END_FIELD: &str = "page_end";
 const TEXT_FIELD: &str = "text";
 const INDEX_WRITER_HEAP_BYTES: usize = 50_000_000;
-const PDF_FRAGMENT_LEXICAL_INDEX_LABEL: &str = "PDF fragment lexical index";
+const DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL: &str = "document fragment lexical index";
 #[allow(dead_code)]
 const ITEM_TITLE_LEXICAL_INDEX_LABEL: &str = "item title lexical index";
 
@@ -72,7 +72,7 @@ pub struct FragmentLexicalIndexRebuildStatus {
 }
 
 #[derive(Clone, Debug)]
-pub struct TantivyPdfFragmentIndex {
+pub struct TantivyDocumentFragmentIndex {
   index_dir: PathBuf,
 }
 
@@ -100,14 +100,18 @@ struct StoredLexicalIndexMetadata {
   complete: bool,
 }
 
-impl TantivyPdfFragmentIndex {
-  pub fn new(index_dir: PathBuf) -> TantivyPdfFragmentIndex {
-    TantivyPdfFragmentIndex { index_dir }
+impl TantivyDocumentFragmentIndex {
+  pub fn new(index_dir: PathBuf) -> TantivyDocumentFragmentIndex {
+    TantivyDocumentFragmentIndex { index_dir }
   }
 
   pub async fn rebuild_status(&self) -> InfuResult<Option<FragmentLexicalIndexRebuildStatus>> {
-    rebuild_status_for_index(&self.index_dir, PDF_FRAGMENT_LEXICAL_METADATA_FILENAME, PDF_FRAGMENT_LEXICAL_INDEX_LABEL)
-      .await
+    rebuild_status_for_index(
+      &self.index_dir,
+      DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
+      DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
+    )
+    .await
   }
 
   pub async fn rebuild_from_fragments(
@@ -121,9 +125,9 @@ impl TantivyPdfFragmentIndex {
       temp_index_dir,
       metadata,
       fragments,
-      PDF_FRAGMENT_LEXICAL_METADATA_FILENAME,
-      PDF_FRAGMENT_LEXICAL_SCHEMA_VERSION,
-      PDF_FRAGMENT_LEXICAL_INDEX_LABEL,
+      DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
+      DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION,
+      DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
     )
     .await
   }
@@ -132,9 +136,9 @@ impl TantivyPdfFragmentIndex {
     delete_item_documents_from_index(
       &self.index_dir,
       item_id,
-      PDF_FRAGMENT_LEXICAL_METADATA_FILENAME,
-      PDF_FRAGMENT_LEXICAL_SCHEMA_VERSION,
-      PDF_FRAGMENT_LEXICAL_INDEX_LABEL,
+      DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
+      DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION,
+      DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
     )
     .await
   }
@@ -144,8 +148,8 @@ impl TantivyPdfFragmentIndex {
       &self.index_dir,
       query_text,
       limit,
-      PDF_FRAGMENT_LEXICAL_METADATA_FILENAME,
-      PDF_FRAGMENT_LEXICAL_INDEX_LABEL,
+      DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
+      DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
     )
     .await
   }
@@ -203,15 +207,15 @@ impl TantivyItemTitleIndex {
   }
 }
 
-pub fn pdf_fragment_lexical_index_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+pub fn document_fragment_lexical_index_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
   let mut path = user_index_dir(data_dir, user_id)?;
-  path.push(PDF_FRAGMENT_LEXICAL_INDEX_DIR_NAME);
+  path.push(DOCUMENT_FRAGMENT_LEXICAL_INDEX_DIR_NAME);
   Ok(path)
 }
 
-pub fn pdf_fragment_lexical_index_temp_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+pub fn document_fragment_lexical_index_temp_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
   let mut path = user_index_dir(data_dir, user_id)?;
-  path.push(PDF_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME);
+  path.push(DOCUMENT_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME);
   Ok(path)
 }
 
@@ -229,12 +233,12 @@ pub fn item_title_lexical_index_temp_dir(data_dir: &str, user_id: &str) -> InfuR
   Ok(path)
 }
 
-pub async fn user_pdf_fragment_lexical_index_exists(data_dir: &str, user_id: &str) -> InfuResult<bool> {
-  let path = pdf_fragment_lexical_index_dir(data_dir, user_id)?;
+pub async fn user_document_fragment_lexical_index_exists(data_dir: &str, user_id: &str) -> InfuResult<bool> {
+  let path = document_fragment_lexical_index_dir(data_dir, user_id)?;
   match fs::metadata(&path).await {
     Ok(metadata) => Ok(metadata.is_dir()),
     Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
-    Err(e) => Err(format!("Could not inspect PDF fragment lexical index '{}': {}", path.display(), e).into()),
+    Err(e) => Err(format!("Could not inspect document fragment lexical index '{}': {}", path.display(), e).into()),
   }
 }
 
@@ -248,8 +252,11 @@ pub async fn user_item_title_lexical_index_exists(data_dir: &str, user_id: &str)
   }
 }
 
-pub fn open_user_pdf_fragment_lexical_index(data_dir: &str, user_id: &str) -> InfuResult<TantivyPdfFragmentIndex> {
-  Ok(TantivyPdfFragmentIndex::new(pdf_fragment_lexical_index_dir(data_dir, user_id)?))
+pub fn open_user_document_fragment_lexical_index(
+  data_dir: &str,
+  user_id: &str,
+) -> InfuResult<TantivyDocumentFragmentIndex> {
+  Ok(TantivyDocumentFragmentIndex::new(document_fragment_lexical_index_dir(data_dir, user_id)?))
 }
 
 #[allow(dead_code)]
@@ -257,12 +264,12 @@ pub fn open_user_item_title_lexical_index(data_dir: &str, user_id: &str) -> Infu
   Ok(TantivyItemTitleIndex::new(item_title_lexical_index_dir(data_dir, user_id)?))
 }
 
-pub async fn remove_pdf_fragment_lexical_index_dirs(data_dir: &str, user_id: &str) -> InfuResult<usize> {
+pub async fn remove_document_fragment_lexical_index_dirs(data_dir: &str, user_id: &str) -> InfuResult<usize> {
   let mut removed = 0;
-  if remove_path_if_exists(&pdf_fragment_lexical_index_temp_dir(data_dir, user_id)?).await? {
+  if remove_path_if_exists(&document_fragment_lexical_index_temp_dir(data_dir, user_id)?).await? {
     removed += 1;
   }
-  if remove_path_if_exists(&pdf_fragment_lexical_index_dir(data_dir, user_id)?).await? {
+  if remove_path_if_exists(&document_fragment_lexical_index_dir(data_dir, user_id)?).await? {
     removed += 1;
   }
   Ok(removed)

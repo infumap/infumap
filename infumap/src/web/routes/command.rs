@@ -53,7 +53,7 @@ use crate::ai::image_tagging::{
 };
 use crate::ai::indexing::delete_item_fragment_index_entries;
 use crate::ai::lexical_index::{
-  FragmentLexicalHit, open_user_pdf_fragment_lexical_index, user_pdf_fragment_lexical_index_exists,
+  FragmentLexicalHit, open_user_document_fragment_lexical_index, user_document_fragment_lexical_index_exists,
 };
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
@@ -1792,11 +1792,11 @@ async fn lexical_search_results(
     return Ok(Vec::new());
   }
 
-  if !user_pdf_fragment_lexical_index_exists(data_dir, user_id).await? {
+  if !user_document_fragment_lexical_index_exists(data_dir, user_id).await? {
     return Ok(Vec::new());
   }
 
-  let lexical_index = open_user_pdf_fragment_lexical_index(data_dir, user_id)?;
+  let lexical_index = open_user_document_fragment_lexical_index(data_dir, user_id)?;
   let Some(index_status) = lexical_index.rebuild_status().await? else {
     return Ok(Vec::new());
   };
