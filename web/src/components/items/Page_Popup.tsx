@@ -33,8 +33,11 @@ import { getMonthInfo } from "../../util/time";
 import {
   CALENDAR_MONTH_NAMES,
   calculateCalendarWindow,
-  calculateCalendarDimensions,
+  calculateCalendarDimensionsForVisualElement,
+  calculateCalendarVerticalLayout,
   CALENDAR_LAYOUT_CONSTANTS,
+  CALENDAR_POPUP_LAYOUT_CONSTANTS,
+  decodeCalendarCombinedIndex,
   formatCalendarWindowTitle,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
@@ -401,21 +404,44 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     const calendarResizeMaybe = calendarWindow.monthsPerPage == 12
       ? store.perVe.getCalendarMonthResize(pagePath)
       : null;
-    const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx(), calendarResizeMaybe, calendarWindow);
-    const baseDayRowPx = asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl * LINE_HEIGHT_PX;
-    const popupTopPadding = 5;
-    const popupTitleToMonthSpacing = 8;
-    const popupMonthTitleHeight = 26;
-    const popupBottomMargin = 3;
-    const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
-    const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
-    const scale = baseDayRowPx > 0 ? (pageFns().childAreaBoundsPx().h / naturalTotal) : 1.0;
-    const effectiveDayRowHeight = baseDayRowPx * scale;
+    const calendarDimensions = calculateCalendarDimensionsForVisualElement(props.visualElement, calendarResizeMaybe, calendarWindow);
+    const calendarVerticalLayout = calculateCalendarVerticalLayout(
+      pageFns().childAreaBoundsPx(),
+      asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl,
+      true,
+    );
+    const scale = calendarVerticalLayout.scale;
+    const effectiveDayRowHeight = calendarDimensions.dayRowHeight;
     const navigateCalendarWindow = (delta: -1 | 1) => {
       store.perVe.setCalendarMonthIndex(pagePath, calendarMonthIndex + delta * calendarWindow.monthsPerPage);
       requestArrange(store, "page-calendar-window-change");
     };
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6;
+    const visibleMonthSet = new Set(calendarWindow.months.map(({ month }) => month));
+    const renderMovingDayHighlight = (
+      getInfo: () => { pageItemId: string, combinedIndex: number } | null,
+      backgroundColor: string,
+      borderColor: string,
+    ) =>
+      <Show when={store.anItemIsMoving.get() &&
+        getInfo() != null &&
+        getInfo()!.pageItemId === props.visualElement.displayItem.id}>
+        {(() => {
+          const info = getInfo()!;
+          const { month, day } = decodeCalendarCombinedIndex(info.combinedIndex);
+          if (!visibleMonthSet.has(month)) {
+            return null;
+          }
+          const leftPx = getCalendarMonthLeftPx(calendarDimensions, month);
+          const widthPx = getCalendarMonthWidthPx(calendarDimensions, month);
+          const topPx = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
+          return (
+            <div class="absolute pointer-events-none"
+              style={`left: ${leftPx}px; top: ${topPx}px; width: ${widthPx}px; height: ${calendarDimensions.dayRowHeight}px; ` +
+                `background-color: ${backgroundColor}; border: 1px solid ${borderColor};`} />
+          );
+        })()}
+      </Show>;
 
     return (
       <div ref={popupDiv}
@@ -433,7 +459,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             `height: ${pageFns().childAreaBoundsPx().h}px;` +
             `outline: 0px solid transparent; `}>
           <div class="absolute flex items-center justify-center"
-            style={`left: 0px; top: ${popupTopPadding * scale}px; width: ${pageFns().childAreaBoundsPx().w}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT * scale}px;`}>
+            style={`left: 0px; top: ${CALENDAR_POPUP_LAYOUT_CONSTANTS.TOP_PADDING * scale}px; width: ${pageFns().childAreaBoundsPx().w}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT * scale}px;`}>
             <div class="flex items-center justify-center font-bold"
               style={`transform: scale(${scale}); transform-origin: center center;`}>
               <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
@@ -458,15 +484,15 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
             return (
               <div class="absolute"
-                style={`left: ${leftPos}px; top: ${(popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing) * scale}px; width: ${monthWidth}px;`}>
+                style={`left: ${leftPos}px; top: ${calendarVerticalLayout.monthTitleTopPx}px; width: ${monthWidth}px;`}>
                 <div class="text-center font-semibold"
-                  style={`height: ${popupMonthTitleHeight}px; line-height: ${popupMonthTitleHeight}px; width: ${monthWidth}px; transform: scale(${scale}); transform-origin: top left;`}>
+                  style={`height: ${CALENDAR_POPUP_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; line-height: ${CALENDAR_POPUP_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT}px; width: ${monthWidth}px; transform: scale(${scale}); transform-origin: top left;`}>
                   <span class="text-base" style={`position: relative; top: 3px;`}>{CALENDAR_MONTH_NAMES[month - 1]}</span>
                 </div>
 
                 <For each={Array.from({ length: monthInfo.daysInMonth }, (_, i) => i + 1)}>{day => {
                   const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
-                  const topPos = popupMonthTitleHeight * scale + (day - 1) * effectiveDayRowHeight;
+                  const topPos = calendarVerticalLayout.monthTitleHeightPx + (day - 1) * effectiveDayRowHeight;
                   const isToday = isCurrentDay(month, day, visibleMonth.year);
 
                   let backgroundColor = '#ffffff';
@@ -506,6 +532,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               {overlay.totalCount}
             </div>
           }</For>
+          {renderMovingDayHighlight(() => store.movingItemSourceCalendarInfo.get(), "#f59e0b33", "#f59e0b")}
+          {renderMovingDayHighlight(() => store.movingItemTargetCalendarInfo.get(), "#3b82f633", "#3b82f6")}
         </div>
       </div>
     );

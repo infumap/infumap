@@ -37,6 +37,7 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import {
   calculateCalendarWindow,
   calculateCalendarDimensions,
+  calculateCalendarVerticalLayout,
   CALENDAR_LAYOUT_CONSTANTS,
   getCalendarDividerCenterPx,
   getCalendarMonthForXOffset,
@@ -172,41 +173,17 @@ export function arrange_calendar_page(
     ? store.perVe.getCalendarMonthResize(pageWithChildrenVePath)
     : null;
   const calendarDimensions = calculateCalendarDimensions(childAreaBounds, calendarMonthResize, calendarWindow);
-
-  const popupTopPadding = 5;
-  const popupTitleToMonthSpacing = 8;
-  const popupMonthTitleHeight = 26;
-  const popupBottomMargin = 3;
-
-  const dayRowHeight = (() => {
-    if (flags & ArrangeItemFlags.IsPopupRoot) {
-      const baseDayRowPx = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
-      const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
-      const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
-      const scale = childAreaBounds.h / naturalTotal;
-      return baseDayRowPx * scale;
-    }
-    return calendarDimensions.dayRowHeight;
-  })();
-
-  const dayAreaTopPx = (() => {
-    if (flags & ArrangeItemFlags.IsPopupRoot) {
-      const baseDayRowPx = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
-      const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
-      const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
-      const scale = childAreaBounds.h / naturalTotal;
-      return (popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight) * scale;
-    }
-    return calendarDimensions.dayAreaTopPx;
-  })();
+  const calendarVerticalLayout = calculateCalendarVerticalLayout(
+    childAreaBounds,
+    displayItem_pageWithChildren.calendarDayRowHeightBl,
+    !!(flags & ArrangeItemFlags.IsPopupRoot),
+  );
+  const dayRowHeight = calendarVerticalLayout.dayRowHeight;
+  const dayAreaTopPx = calendarVerticalLayout.dayAreaTopPx;
   const titleBarHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
   const dividerTopPx = (() => {
     if (flags & ArrangeItemFlags.IsPopupRoot) {
-      const baseDayRowPx = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
-      const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
-      const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
-      const scale = childAreaBounds.h / naturalTotal;
-      return (popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing) * scale;
+      return calendarVerticalLayout.monthTitleTopPx;
     }
     return CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING;
   })();
@@ -232,11 +209,10 @@ export function arrange_calendar_page(
   // For popups, scale blockSizePx to match the calendar scaling
   const blockSizePx = (() => {
     if (flags & ArrangeItemFlags.IsPopupRoot) {
-      const baseDayRowPx = displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX;
-      const headerTotal = popupTopPadding + CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + popupTitleToMonthSpacing + popupMonthTitleHeight + popupBottomMargin;
-      const naturalTotal = headerTotal + CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * baseDayRowPx;
-      const scale = childAreaBounds.h / naturalTotal;
-      return { w: NATURAL_BLOCK_SIZE_PX.w * scale, h: NATURAL_BLOCK_SIZE_PX.h * scale };
+      return {
+        w: NATURAL_BLOCK_SIZE_PX.w * calendarVerticalLayout.scale,
+        h: NATURAL_BLOCK_SIZE_PX.h * calendarVerticalLayout.scale,
+      };
     }
     return NATURAL_BLOCK_SIZE_PX;
   })();
