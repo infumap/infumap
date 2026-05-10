@@ -58,13 +58,15 @@ export const Toolbar_Image: Component = () => {
   }
 
   const borderButtonHandler = () => {
-    if (imageItem().flags & ImageFlags.HideBorder) {
-      imageItem().flags &= ~ImageFlags.HideBorder;
+    const item = imageItem();
+    if (item.flags & ImageFlags.HideBorder) {
+      item.flags &= ~ImageFlags.HideBorder;
     } else {
-      imageItem().flags |= ImageFlags.HideBorder;
+      item.flags |= ImageFlags.HideBorder;
     }
     requestArrange(store, "toolbar-image-border");
-    serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
+    store.touchToolbar();
+    serverOrRemote.updateItem(item, store.general.networkStatus);
   }
 
   const borderVisible = () => {
@@ -72,13 +74,15 @@ export const Toolbar_Image: Component = () => {
   }
 
   const cropHandler = () => {
-    if (imageItem().flags & ImageFlags.NoCrop) {
-      imageItem().flags &= ~ImageFlags.NoCrop;
+    const item = imageItem();
+    if (item.flags & ImageFlags.NoCrop) {
+      item.flags &= ~ImageFlags.NoCrop;
     } else {
-      imageItem().flags |= ImageFlags.NoCrop;
+      item.flags |= ImageFlags.NoCrop;
     }
     requestArrange(store, "toolbar-image-crop");
-    serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
+    store.touchToolbar();
+    serverOrRemote.updateItem(item, store.general.networkStatus);
   }
 
   const shouldCropImage = () => {
