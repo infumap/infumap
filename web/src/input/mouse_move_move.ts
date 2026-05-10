@@ -186,17 +186,17 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     );
   }
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
-    moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone);
+    if (!moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone)) { return; }
     arrangeNow(store, "moving-init-out-of-table");
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
     const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
-    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone);
+    if (!moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone)) { return; }
     arrangeNow(store, "moving-init-out-of-attachment");
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
     const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false, false);
-    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
+    if (!moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone)) { return; }
     arrangeNow(store, "moving-init-out-of-composite");
   }
   else {
@@ -362,6 +362,13 @@ function quantizeSpatialPosGr(posGr: Vector): Vector {
   };
 }
 
+function pageCanHostLiveMovingItem(pageVe: VisualElement): boolean {
+  return isPage(pageVe.displayItem) &&
+    !!(pageVe.flags & VisualElementFlags.ShowChildren) &&
+    pageVe.childAreaBoundsPx != null &&
+    pageVe.viewportBoundsPx != null;
+}
+
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
   const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeVisualElementSignal) {
@@ -472,10 +479,12 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
     if (!dockListPageIconMoveTarget &&
       !hoveredPageInsideTable &&
+      pageCanHostLiveMovingItem(hitMoveTargetVe) &&
       MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
       clearTableChildContainerDropTarget(store, moveOverContainerPath);
-      moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false);
-      arrangeNow(store, "moving-enter-new-container");
+      if (moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false)) {
+        arrangeNow(store, "moving-enter-new-container");
+      }
       return;
     }
 
@@ -690,15 +699,18 @@ function moving_handleOverComposite(store: StoreContextModel, overContainerVe: V
 }
 
 
-function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean, shouldClone: boolean) {
+function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean, shouldClone: boolean): boolean {
   const activeSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeSignal) {
     store.anItemIsMoving.set(false);
-    return;
+    return false;
   }
   const activeElement = activeSignal.get();
   const treeActiveItem = asPositionalItem(VeFns.treeItem(activeElement));
   moveToVe = resolveMoveTargetPageVe(moveToVe);
+  if (!pageCanHostLiveMovingItem(moveToVe)) {
+    return false;
+  }
 
   const moveToPage = asPageItem(moveToVe.displayItem);
   const clickOffsetProp = MouseActionState.getClickOffsetProp();
@@ -790,14 +802,15 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   });
 
   MouseActionState.setScaleDefiningElementPath(moveToPath);
+  return true;
 }
 
 
-function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink: boolean, shouldClone: boolean) {
+function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink: boolean, shouldClone: boolean): boolean {
   const activeSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeSignal) {
     store.anItemIsMoving.set(false);
-    return;
+    return false;
   }
   const activeVisualElement = activeSignal.get();
   const tableVisualElement = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
@@ -824,8 +837,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
 
   const desktopPx = CursorEventState.getLatestDesktopPx(store);
   if (moveToPageVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
-    moving_activeItemToPage(store, moveToPageVe, desktopPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
-    return;
+    return moving_activeItemToPage(store, moveToPageVe, desktopPx, RelationshipToParent.Child, shouldCreateLink, shouldClone);
   }
 
   const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, moveToPageVe);
@@ -892,6 +904,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
 
   MouseActionState.setStartPosBl({ x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE });
   MouseActionState.setScaleDefiningElementPath(VeFns.veToPath(moveToPageVe));
+  return true;
 }
 
 
