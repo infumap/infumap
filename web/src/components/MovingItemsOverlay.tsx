@@ -21,7 +21,7 @@ import { Z_INDEX_GLOBAL_MOVING } from "../constants";
 import { MouseAction, MouseActionState } from "../input/state";
 import { isPage } from "../items/page-item";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { isVeTranslucentPage, VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { StoreContextModel, useStore } from "../store/StoreProvider";
 import { BoundingBox } from "../util/geometry";
 import { VisualElement_Desktop, VisualElement_LineItem } from "./VisualElement";
@@ -44,9 +44,24 @@ function movingOverlayBoundsPx(store: StoreContextModel, visualElement: VisualEl
 function movingOverlayVe(store: StoreContextModel, visualElement: VisualElement): VisualElement {
   return {
     ...visualElement,
-    flags: visualElement.flags & ~VisualElementFlags.Moving & ~VisualElementFlags.Fixed,
+    flags: visualElement.flags & ~VisualElementFlags.Fixed,
     boundsPx: movingOverlayBoundsPx(store, visualElement),
   };
+}
+
+function movingOverlayShouldYieldToTranslucentPage(visualElement: VisualElement): boolean {
+  if (!visualElement.parentPath) { return false; }
+
+  const parentVisualElement = VesCache.current.readNode(visualElement.parentPath) ??
+    VesCache.render.getNode(visualElement.parentPath)?.get() ??
+    null;
+  if (parentVisualElement == null || !isVeTranslucentPage(parentVisualElement)) {
+    return false;
+  }
+
+  const scaleDefiningElement = MouseActionState.readScaleDefiningElement();
+  return scaleDefiningElement != null &&
+    VeFns.veToPath(scaleDefiningElement) == VeFns.veToPath(parentVisualElement);
 }
 
 function movingOverlayPath(visualElement: VisualElement): string {
@@ -85,6 +100,10 @@ function movingOverlayVisualElements(store: StoreContextModel): Array<VisualElem
   const seenVeids = new Set<string>();
 
   const activeVisualElement = MouseActionState.getActiveVisualElement();
+  if (activeVisualElement && movingOverlayShouldYieldToTranslucentPage(activeVisualElement)) {
+    return [];
+  }
+
   if (activeVisualElement) {
     seenPaths.add(movingOverlayPath(activeVisualElement));
     movingElements.push(movingOverlayVe(store, activeVisualElement));
