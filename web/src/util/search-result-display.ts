@@ -20,10 +20,11 @@ import type { SearchPathElement, SearchResult, SearchSemanticMatch } from "../se
 import type { ItemPathSegment } from "./item-path";
 import { EMPTY_UID, Uid } from "./uid";
 
+const ITEM_TITLE_SOURCE_KIND = "item_title";
 
 export interface CatalogSemanticMatchDisplay {
   text: string,
-  href: string,
+  href: string | null,
   pageLabel: string | null,
   scoreLabel: string | null,
 }
@@ -102,7 +103,7 @@ export function catalogSemanticMatchDisplayFromMatch(
 
   return {
     text: match.textTruncated ? appendTruncationEllipsis(formattedText) : formattedText,
-    href: `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
+    href: match.sourceKind == ITEM_TITLE_SOURCE_KIND ? null : `/files/${targetId}/fragments/${match.fragmentOrdinal}`,
     pageLabel: semanticMatchPageLabel(match.pageStart, match.pageEnd),
     scoreLabel: formatSearchFragmentScore(match.score),
   };

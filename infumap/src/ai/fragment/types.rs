@@ -1,4 +1,5 @@
 pub const PDF_MARKDOWN_SOURCE_KIND: &str = "pdf_markdown";
+pub const ITEM_TITLE_SOURCE_KIND: &str = "item_title";
 const MARKDOWN_SOURCE_KIND: &str = "markdown";
 const TEXT_SOURCE_KIND: &str = "text";
 pub const IMAGE_DOCUMENT_SOURCE_KIND: &str = "image_document_contents";
@@ -25,7 +26,14 @@ impl FragmentSourceKind {
 }
 
 pub fn is_lexical_search_source_kind(source_kind: &str) -> bool {
-  matches!(source_kind, PDF_MARKDOWN_SOURCE_KIND | MARKDOWN_SOURCE_KIND | TEXT_SOURCE_KIND | IMAGE_DOCUMENT_SOURCE_KIND)
+  matches!(
+    source_kind,
+    ITEM_TITLE_SOURCE_KIND
+      | PDF_MARKDOWN_SOURCE_KIND
+      | MARKDOWN_SOURCE_KIND
+      | TEXT_SOURCE_KIND
+      | IMAGE_DOCUMENT_SOURCE_KIND
+  )
 }
 
 pub fn is_markdown_document_source_kind(source_kind: &str) -> bool {
