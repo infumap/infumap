@@ -152,6 +152,32 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return result;
   }
 
+  const localBoundsPx = (): BoundingBox => ({
+    x: 0,
+    y: 0,
+    w: quantizedBoundsPx().w,
+    h: quantizedBoundsPx().h,
+  });
+
+  const noCropImageBoundsPx = (lockToResizingFromBounds: boolean): BoundingBox => {
+    const imgSizePx = imageSizePx(lockToResizingFromBounds);
+    return {
+      x: noCropPaddingLeftPx(lockToResizingFromBounds),
+      y: noCropPaddingTopPx(lockToResizingFromBounds),
+      w: imgSizePx.w,
+      h: imgSizePx.h,
+    };
+  };
+
+  const popupNoCropFrameFollowsImage = () =>
+    isPopup() && !!(imageItem().flags & ImageFlags.NoCrop);
+
+  const visualFrameBoundsPx = (): BoundingBox =>
+    popupNoCropFrameFollowsImage() ? noCropImageBoundsPx(false) : localBoundsPx();
+
+  const boundsStylePx = (boundsPx: BoundingBox): string =>
+    `left: ${boundsPx.x}px; top: ${boundsPx.y}px; width: ${boundsPx.w}px; height: ${boundsPx.h}px;`;
+
   const isMainPoppedUp = () => {
     try {
       if (store.history.currentPopupSpecVeid() == null) {
@@ -258,71 +284,82 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w - 2}px; height: ${quantizedBoundsPx().h - 2}px; z-index: 0;`} />
     </Show>;
 
-  const renderFocusRingMaybe = () =>
-    <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
+  const renderFocusRingMaybe = () => {
+    const ringBoundsPx = visualFrameBoundsPx();
+    return <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
+        style={`${boundsStylePx(ringBoundsPx)} ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 3;`} />
     </Show>;
+  };
 
-  const renderPopupBaseMaybe = (): JSX.Element =>
-    <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
+  const renderPopupBaseMaybe = (): JSX.Element => {
+    const baseBoundsPx = visualFrameBoundsPx();
+    return <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
       <div class="absolute text-xl font-bold rounded-md p-8 blur-md pointer-events-none"
-        style={`left: -10px; top: -10px; width: ${quantizedBoundsPx().w + 20}px; height: ${quantizedBoundsPx().h + 20}px; background-color: #303030d0; z-index: 0;`} />
+        style={`left: ${baseBoundsPx.x - 10}px; top: ${baseBoundsPx.y - 10}px; ` +
+          `width: ${baseBoundsPx.w + 20}px; height: ${baseBoundsPx.h + 20}px; background-color: #303030d0; z-index: 0;`} />
       <div class="absolute border border-[#555] rounded-xs overflow-hidden pointer-events-none"
-        style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; z-index: 0;`}>
+        style={`${boundsStylePx(baseBoundsPx)} z-index: 0;`}>
         <img class="max-w-none absolute pointer-events-none"
           style={thumbnailFitStyle()}
           src={thumbnailSrc()} />
       </div>
     </Show>;
+  };
 
-  const renderFrameMaybe = (): JSX.Element =>
-    <div class={`absolute overflow-hidden border pointer-events-none rounded-xs ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
-      (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
-      style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; z-index: 1;`}>
-      <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX}>
-        <Show when={isDetailed()} fallback={notDetailedFallback()}>
-          {imageItem().flags & ImageFlags.NoCrop ? renderNoCropImage() : renderCroppedImage()}
-          <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || (isMainPoppedUp() && !(props.visualElement.flags & VisualElementFlags.Popup))}>
-            <div class="absolute"
-              style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; background-color: #dddddd88;`} />
-          </Show>
-          <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-            <div class="absolute"
-              style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
-                `background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
-          </Show>
-          <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
-            store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>
-            <div class="absolute bg-black"
-              style={`left: ${attachInsertBarPx().x}px; top: ${attachInsertBarPx().y}px; width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px;`} />
-          </Show>
-          <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && !isInComposite()}>
-            <div class="absolute"
-              style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; background-color: #ffffff33;`} />
+  const renderFrameMaybe = (): JSX.Element => {
+    const frameBoundsPx = visualFrameBoundsPx();
+    const frameInnerBoundsPx = { x: 0, y: 0, w: frameBoundsPx.w, h: frameBoundsPx.h };
+    return <div class={`absolute overflow-hidden border pointer-events-none rounded-xs ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
+        (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
+        style={`${boundsStylePx(frameBoundsPx)} z-index: 1;`}>
+        <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX}>
+          <Show when={isDetailed()} fallback={notDetailedFallback()}>
+            {imageItem().flags & ImageFlags.NoCrop ? renderNoCropImage() : renderCroppedImage()}
+            <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || (isMainPoppedUp() && !(props.visualElement.flags & VisualElementFlags.Popup))}>
+              <div class="absolute"
+                style={`${boundsStylePx(frameInnerBoundsPx)} background-color: #dddddd88;`} />
+            </Show>
+            <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+              <div class="absolute"
+                style={`${boundsStylePx(frameInnerBoundsPx)} ` +
+                  `background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
+            </Show>
+            <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
+              store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>
+              <div class="absolute bg-black"
+                style={`left: ${attachInsertBarPx().x}px; top: ${attachInsertBarPx().y}px; width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px;`} />
+            </Show>
+            <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && !isInComposite()}>
+              <div class="absolute"
+                style={`${boundsStylePx(frameInnerBoundsPx)} background-color: #ffffff33;`} />
+            </Show>
           </Show>
         </Show>
-      </Show>
-    </div>;
+      </div>;
+  };
 
   const notDetailedFallback = (): JSX.Element =>
     <img class="max-w-none absolute pointer-events-none"
       style={thumbnailFitStyle()}
       src={thumbnailSrc()} />;
 
-  const renderTitleMaybe = (): JSX.Element =>
-    <Show when={(props.visualElement.flags & VisualElementFlags.Popup) && boundsPx().w > MIN_IMAGE_WIDTH_PX}>
+  const renderTitleMaybe = (): JSX.Element => {
+    const titleBoundsPx = visualFrameBoundsPx();
+    return <Show when={(props.visualElement.flags & VisualElementFlags.Popup) && boundsPx().w > MIN_IMAGE_WIDTH_PX}>
       <div class="absolute flex items-center justify-center pointer-events-none"
-        style={`left: 0px; top: ${quantizedBoundsPx().h - 50}px; width: ${quantizedBoundsPx().w}px; height: 50px; z-index: 4;`}>
+        style={`left: ${titleBoundsPx.x}px; top: ${titleBoundsPx.y + titleBoundsPx.h - 50}px; width: ${titleBoundsPx.w}px; height: 50px; z-index: 4;`}>
         <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
           {imageItem().title}
         </div>
       </div>
     </Show>;
+  };
 
-  const renderAttachmentsAndDetailMaybe = (): JSX.Element =>
-    <Show when={isDetailed() && boundsPx().w > MIN_IMAGE_WIDTH_PX}>
+  const renderAttachmentsAndDetailMaybe = (): JSX.Element => {
+    const detailBoundsPx = visualFrameBoundsPx();
+    return <Show when={isDetailed() && boundsPx().w > MIN_IMAGE_WIDTH_PX}>
       <div class="absolute pointer-events-none"
         style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; z-index: 2;`}>
         <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
@@ -331,19 +368,22 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <Show when={showMoveOutOfCompositeArea()}>
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
         </Show>
-        <Show when={props.visualElement.linkItemMaybe != null &&
-          (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-          showTriangleDetail() &&
-          !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
-          (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
-          <InfuLinkTriangle />
-        </Show>
-        <Show when={showTriangleDetail() &&
-          (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
-          <InfuResizeTriangle />
-        </Show>
+        <div class="absolute" style={boundsStylePx(detailBoundsPx)}>
+          <Show when={props.visualElement.linkItemMaybe != null &&
+            (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+            showTriangleDetail() &&
+            !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
+            (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
+            <InfuLinkTriangle />
+          </Show>
+          <Show when={showTriangleDetail() &&
+            (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
+            <InfuResizeTriangle />
+          </Show>
+        </div>
       </div>
     </Show>;
+  };
 
   const tooSmallFallback = (): JSX.Element =>
     <div class={`absolute overflow-hidden border pointer-events-none rounded-xs ` +
@@ -382,20 +422,23 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
   };
 
-  const popupActionLayout = () => calcPopupActionStripLayout<PopupImageActionKey>([
-    ...(hasChildChanges() ? [{ key: "child", label: "pin here" } as const] : []),
-    ...(hasStoredPosition() ? [{ key: "default", label: "use default" } as const] : []),
-  ],
-  boundsPx().x + boundsPx().w,
-  boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0),
-  {
-    fontSizePx: 10,
-    gapPx: 4,
-    heightPx: 18,
-    horizontalPaddingPx: 8,
-    minActionWidthPx: 54,
-    rightInsetPx: 8,
-  });
+  const popupActionLayout = () => {
+    const actionAnchorBoundsPx = visualFrameBoundsPx();
+    return calcPopupActionStripLayout<PopupImageActionKey>([
+      ...(hasChildChanges() ? [{ key: "child", label: "pin here" } as const] : []),
+      ...(hasStoredPosition() ? [{ key: "default", label: "use default" } as const] : []),
+    ],
+    boundsPx().x + actionAnchorBoundsPx.x + actionAnchorBoundsPx.w,
+    boundsPx().y + actionAnchorBoundsPx.y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0),
+    {
+      fontSizePx: 10,
+      gapPx: 4,
+      heightPx: 18,
+      horizontalPaddingPx: 8,
+      minActionWidthPx: 54,
+      rightInsetPx: 8,
+    });
+  };
 
   const popupActionLayoutLocal = () => {
     const layout = popupActionLayout();
@@ -443,8 +486,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <img src={imgSrcSignal.get()}
       class="max-w-none absolute pointer-events-none"
       style={`${isShowingThumbnail.get() ? thumbnailFitStyle() : ''}` +
-        `left: ${isShowingThumbnail.get() ? 0 : noCropPaddingLeftPx(false)}px; ` +
-        `top: ${isShowingThumbnail.get() ? 0 : noCropPaddingTopPx(false)}px;`}
+        `left: ${isShowingThumbnail.get() || popupNoCropFrameFollowsImage() ? 0 : noCropPaddingLeftPx(false)}px; ` +
+        `top: ${isShowingThumbnail.get() || popupNoCropFrameFollowsImage() ? 0 : noCropPaddingTopPx(false)}px;`}
       width={isShowingThumbnail.get() ? undefined : noCropWidth(false)} />;
 
   return (
