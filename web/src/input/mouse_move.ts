@@ -957,6 +957,16 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
 
   if (requireArrange) {
     arrangeNow(store, "resize-item");
+    const postArrangeActiveSignal = MouseActionState.getActiveVisualElementSignal();
+    const postArrangeActiveVe = postArrangeActiveSignal?.get() ?? null;
+    resizeDebugLog("resize-post-arrange", {
+      note: "arrangeNow('resize-item') returned; checking whether the rendered active visual element and item state reflect the resize.",
+      activeElementPath: MouseActionState.getActiveElementPath(),
+      itemFromState: resizeDebugItem(itemState.get(activeItem.id)),
+      activeItemObjectAfterArrange: resizeDebugItem(activeItem),
+      postArrangeActiveVisualElement: resizeDebugVisualElement(postArrangeActiveVe),
+      postArrangeParentVisualElement: resizeDebugParentVisualElement(postArrangeActiveVe ? MouseActionState.readVisualElement(postArrangeActiveVe.parentPath) : null),
+    });
   }
 }
 

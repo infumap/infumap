@@ -30,10 +30,16 @@ import { GRID_SIZE } from "../constants";
 
 
 export function resizeDebugLog(event: string, details: Record<string, unknown>): void {
-  console.debug(`[resize-debug] ${event}`, {
+  const payload = {
     at: new Date().toISOString(),
     ...details,
-  });
+  };
+  console.debug(`[resize-debug] ${event}`, payload);
+  try {
+    console.debug(`[resize-debug-json] ${event} ${JSON.stringify(payload)}`);
+  } catch (e) {
+    console.debug(`[resize-debug-json] ${event} <JSON.stringify failed>`, e);
+  }
 }
 
 export function resizeDebugItem(item: Item | null | undefined): Record<string, unknown> | null {
