@@ -80,7 +80,6 @@ use std::collections::{HashMap, HashSet};
 // 190+ MiB raw files while remaining bounded.
 const COMMAND_REQUEST_MAX_BYTES: usize = 256 * 1024 * 1024;
 const SEARCH_RRF_K: f64 = 60.0;
-const SEARCH_EXACT_WEIGHT: f64 = 1.25;
 const SEARCH_LEXICAL_WEIGHT: f64 = 1.15;
 const SEARCH_SEMANTIC_WEIGHT: f64 = 1.0;
 const SEARCH_CANDIDATE_OVERFETCH: i64 = 50;
@@ -1683,8 +1682,8 @@ async fn handle_search(
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
 
-  let (exact_results, data_dir, search_root_id) = {
-    let mut db = db.lock().await;
+  let (data_dir, search_root_id) = {
+    let db = db.lock().await;
 
     let page_id = if let Some(request_page_id) = request.page_id {
       request_page_id
@@ -1693,18 +1692,7 @@ async fn handle_search(
       user.home_page_id.clone()
     };
 
-    let exact_end_result =
-      if full_user_search { end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH) } else { end_result };
-    let exact_start_result = if full_user_search { 0 } else { start_result };
-    let exact_results = search_exact_paginated(
-      &mut db,
-      &search_text,
-      page_id.clone(),
-      &session.user_id,
-      exact_start_result,
-      exact_end_result,
-    )?;
-    (exact_results, db.item.data_dir().to_owned(), page_id)
+    (db.item.data_dir().to_owned(), page_id)
   };
 
   let mut results = if full_user_search {
@@ -1742,14 +1730,18 @@ async fn handle_search(
     {
       Ok(results) => results,
       Err(e) => {
-        warn!("Semantic search failed for user '{}'; falling back to exact-only search: {}", session.user_id, e);
+        warn!(
+          "Semantic search failed for user '{}'; falling back without semantic fragment results: {}",
+          session.user_id, e
+        );
         Vec::new()
       }
     };
-    let mixed = mix_search_results(exact_results, lexical_results, semantic_results);
+    let mixed = mix_search_results(lexical_results, semantic_results);
     paginate_mixed_results(mixed, start_result, end_result)
   } else {
-    exact_results
+    let mut db = db.lock().await;
+    search_exact_paginated(&mut db, &search_text, search_root_id, &session.user_id, start_result, end_result)?
   };
 
   let has_more = results.len() > request.num_results as usize;
@@ -2042,44 +2034,10 @@ struct SearchMergeCandidate {
   result: SearchResult,
   rank_score: f64,
   best_rank: usize,
-  exact_rank: Option<usize>,
 }
 
-fn mix_search_results(
-  exact_results: Vec<SearchResult>,
-  lexical_results: Vec<SearchResult>,
-  semantic_results: Vec<SearchResult>,
-) -> Vec<SearchResult> {
+fn mix_search_results(lexical_results: Vec<SearchResult>, semantic_results: Vec<SearchResult>) -> Vec<SearchResult> {
   let mut candidates: HashMap<Uid, SearchMergeCandidate> = HashMap::new();
-
-  for (rank, result) in exact_results.into_iter().enumerate() {
-    let Some(item_id) = search_result_item_id(&result) else {
-      continue;
-    };
-    let rank_score = SEARCH_EXACT_WEIGHT / (SEARCH_RRF_K + rank as f64 + 1.0);
-    let entry = candidates.entry(item_id.clone()).or_insert_with(|| SearchMergeCandidate {
-      result: result.clone(),
-      rank_score: 0.0,
-      best_rank: rank,
-      exact_rank: Some(rank),
-    });
-    entry.rank_score += rank_score;
-    entry.best_rank = entry.best_rank.min(rank);
-    if entry.exact_rank.is_none_or(|existing_rank| rank < existing_rank) {
-      entry.exact_rank = Some(rank);
-      let fragment_match = entry.result.fragment_match.clone();
-      let additional_fragment_matches = entry.result.additional_fragment_matches.clone();
-      let display_score = entry.result.score.max(result.score);
-      entry.result = result;
-      entry.result.score = display_score;
-      if entry.result.fragment_match.is_none() {
-        entry.result.fragment_match = fragment_match;
-        entry.result.additional_fragment_matches = additional_fragment_matches;
-      }
-    } else {
-      entry.result.score = entry.result.score.max(result.score);
-    }
-  }
 
   add_fragment_search_results(&mut candidates, lexical_results, SEARCH_LEXICAL_WEIGHT);
   add_fragment_search_results(&mut candidates, semantic_results, SEARCH_SEMANTIC_WEIGHT);
@@ -2089,7 +2047,6 @@ fn mix_search_results(
     b.rank_score
       .partial_cmp(&a.rank_score)
       .unwrap_or(std::cmp::Ordering::Equal)
-      .then_with(|| a.exact_rank.unwrap_or(usize::MAX).cmp(&b.exact_rank.unwrap_or(usize::MAX)))
       .then_with(|| a.best_rank.cmp(&b.best_rank))
       .then_with(|| search_result_item_id(&a.result).cmp(&search_result_item_id(&b.result)))
   });
@@ -2113,9 +2070,8 @@ fn add_fragment_search_results(
       result: result.clone(),
       rank_score: 0.0,
       best_rank: rank,
-      exact_rank: None,
     });
-    let should_replace_fragment_result = entry.exact_rank.is_none() && rank < entry.best_rank;
+    let should_replace_fragment_result = rank < entry.best_rank;
     entry.rank_score += rank_score;
     entry.best_rank = entry.best_rank.min(rank);
     if should_replace_fragment_result {
