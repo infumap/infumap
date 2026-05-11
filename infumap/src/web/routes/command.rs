@@ -49,9 +49,11 @@ use crate::ai::fragment::{
   ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_lexical_search_source_kind,
   is_markdown_document_source_kind,
 };
-use crate::ai::image_tagging::{
-  delete_item_image_tag_dir, dequeue_image_item_if_active, enqueue_image_item_if_active, should_tag_image_item,
+use crate::ai::geo::delete_item_geo_artifacts;
+use crate::ai::image_pipeline::{
+  dequeue_image_semantic_pipeline_item_if_active, enqueue_image_semantic_pipeline_item_if_active,
 };
+use crate::ai::image_tagging::{delete_item_image_tag_dir, should_tag_image_item};
 use crate::ai::indexing::delete_item_fragment_index_entries;
 use crate::ai::lexical_index::{
   FragmentLexicalHit, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
@@ -61,7 +63,7 @@ use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
   text_embedding_vector_fingerprint, text_embedding_vector_norm, validate_text_embedding_vector,
 };
-use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
+use crate::ai::text_extraction::delete_item_text_dir;
 use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
 use crate::ai::vector_db::{
   FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,
@@ -1290,11 +1292,8 @@ pub async fn add_item_for_user(
     debug!("Executed 'add-item' command for item '{}'.", item_id);
     drop(db);
     enqueue_item_title_index_reconcile_for_user(&queued_item.owner_id);
-    if queued_item.mime_type.as_deref() == Some("application/pdf") {
-      enqueue_pdf_item_if_active(&queued_item);
-    }
     if should_tag_image_item(&queued_item) {
-      enqueue_image_item_if_active(&queued_item);
+      enqueue_image_semantic_pipeline_item_if_active(&queued_item);
     }
     return json_with_sync_ack(sync_ack, Some(serialized_item));
   }
@@ -1374,6 +1373,11 @@ async fn handle_update_item(
   debug!("Executed 'update-item' command for item '{}'.", item.id);
   drop(db);
   enqueue_item_title_index_reconcile_for_user(&owner_id);
+  if should_tag_image_item(&item) {
+    enqueue_image_semantic_pipeline_item_if_active(&item);
+  } else if should_tag_image_item(&old_item) {
+    dequeue_image_semantic_pipeline_item_if_active(&old_item.id);
+  }
 
   json_with_sync_ack(sync_ack, None)
 }
@@ -1431,8 +1435,7 @@ async fn handle_delete_item<'a>(
   let old_child_container_id = maybe_container_id_for_child_item(&item);
   let old_attachment_parent_id =
     if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
-  dequeue_pdf_item_if_active(&request.id);
-  dequeue_image_item_if_active(&request.id);
+  dequeue_image_semantic_pipeline_item_if_active(&request.id);
 
   if is_image_item(&item) {
     let num_removed = storage_cache::delete_all(image_cache, &session.user_id, &request.id).await?;
@@ -1446,6 +1449,7 @@ async fn handle_delete_item<'a>(
 
   delete_item_text_dir(&data_dir, &session.user_id, &request.id).await?;
   delete_item_image_tag_dir(&data_dir, &session.user_id, &request.id).await?;
+  delete_item_geo_artifacts(&data_dir, &session.user_id, &request.id).await?;
   delete_item_fragment_artifacts(&data_dir, &session.user_id, &request.id).await?;
   let deleted_index_fragments = delete_item_fragment_index_entries(&data_dir, &session.user_id, &request.id).await?;
   if deleted_index_fragments > 0 {
@@ -1579,8 +1583,7 @@ async fn delete_recursive(
     let old_child_container_id = maybe_container_id_for_child_item(&item);
     let old_attachment_parent_id =
       if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
-    dequeue_pdf_item_if_active(&item_id);
-    dequeue_image_item_if_active(&item_id);
+    dequeue_image_semantic_pipeline_item_if_active(&item_id);
 
     if is_image_item(&item) {
       let num_removed = storage_cache::delete_all(image_cache, &user_id, &item.id).await?;
@@ -1596,6 +1599,7 @@ async fn delete_recursive(
 
     delete_item_text_dir(&data_dir, user_id, &item.id).await?;
     delete_item_image_tag_dir(&data_dir, user_id, &item.id).await?;
+    delete_item_geo_artifacts(&data_dir, user_id, &item.id).await?;
     delete_item_fragment_artifacts(&data_dir, user_id, &item.id).await?;
     let deleted_index_fragments = delete_item_fragment_index_entries(&data_dir, user_id, &item.id).await?;
     if deleted_index_fragments > 0 {

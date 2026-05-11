@@ -49,6 +49,11 @@ pub const CONFIG_CACHE_DIR_DEFAULT: &'static str = "~/.infumap/cache";
 pub const CONFIG_TEXT_EXTRACTION_URL: &'static str = "text_extraction_url";
 pub const CONFIG_IMAGE_TAGGING_URL: &'static str = "image_tagging_url";
 pub const CONFIG_TEXT_EMBEDDING_URL: &'static str = "text_embedding_url";
+pub const CONFIG_GEOAPIFY_URL: &'static str = "geoapify_url";
+pub const CONFIG_GEOAPIFY_URL_DEFAULT: &'static str = "https://api.geoapify.com/v1/geocode/reverse";
+pub const CONFIG_GEOAPIFY_API_KEY: &'static str = "geoapify_api_key";
+pub const CONFIG_GEOAPIFY_MAX_REQUESTS_PER_MINUTE: &'static str = "geoapify_max_requests_per_minute";
+pub const CONFIG_GEOAPIFY_MAX_REQUESTS_PER_MINUTE_DEFAULT: u64 = 2;
 
 pub const CONFIG_CACHE_MAX_MB: &'static str = "cache_max_mb";
 pub const CONFIG_CACHE_MAX_MB_DEFAULT: u64 = 500;

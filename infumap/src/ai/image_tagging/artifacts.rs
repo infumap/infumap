@@ -195,6 +195,44 @@ pub async fn item_needs_image_tagging(data_dir: &str, db: Arc<Mutex<Db>>, item_i
   Ok(matches!(manifest_check(data_dir, &candidate).await?, ManifestCheckResult::NeedsTagging))
 }
 
+pub async fn image_tagging_manifest_is_complete(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
+  Ok(image_tagging_manifest_status(data_dir, user_id, item_id).await?.is_some())
+}
+
+pub async fn image_tagging_manifest_is_successful(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
+  Ok(matches!(
+    image_tagging_manifest_status(data_dir, user_id, item_id).await?,
+    Some(ManifestCheckResult::AlreadySucceeded)
+  ))
+}
+
+async fn image_tagging_manifest_status(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<Option<ManifestCheckResult>> {
+  let manifest_path = item_text_manifest_path(data_dir, user_id, item_id)?;
+  let text_path = item_text_content_path(data_dir, user_id, item_id)?;
+  if !path_exists(&manifest_path).await {
+    return Ok(None);
+  }
+  let manifest_bytes = fs::read(&manifest_path).await?;
+  let manifest = match serde_json::from_slice::<ImageTagManifest>(&manifest_bytes) {
+    Ok(manifest) => manifest,
+    Err(_) => return Ok(None),
+  };
+  if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
+    return Ok(None);
+  }
+  if manifest.status == "succeeded" {
+    return Ok(path_exists(&text_path).await.then_some(ManifestCheckResult::AlreadySucceeded));
+  }
+  if manifest.status == "failed" {
+    return Ok(Some(ManifestCheckResult::AlreadyFailed));
+  }
+  Ok(None)
+}
+
 pub async fn delete_item_image_tag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
   clear_item_image_tag_dir(data_dir, user_id, item_id).await
 }

@@ -1,6 +1,8 @@
 pub mod artifact_paths;
 pub mod batch_processing;
 pub mod fragment;
+pub mod geo;
+pub mod image_pipeline;
 pub mod image_tagging;
 pub mod indexing;
 pub mod lexical_index;

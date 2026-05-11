@@ -7,16 +7,26 @@ use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
 use crate::ai::artifact_paths::{item_geo_content_path, item_text_content_path};
+use crate::ai::image_tagging::image_tagging_manifest_is_successful;
 
+use super::super::{FragmentBuildOutcome, clear_item_fragments, write_item_fragments};
 use super::{FragmentSource, FragmentSourceKind, normalized_text, read_json_if_exists, single_fragment_source};
 
 const IMAGE_DOCUMENT_LEXICAL_CONFIDENCE_THRESHOLD: f64 = 0.9;
+
+pub struct ImageFragmentBuildResult {
+  pub had_fragment_source: bool,
+  pub outcome: FragmentBuildOutcome,
+}
 
 pub async fn image_fragment_source_for_item(
   data_dir: &str,
   item: &Item,
   context_title: Option<String>,
 ) -> InfuResult<Option<FragmentSource>> {
+  if !image_tagging_manifest_is_successful(data_dir, &item.owner_id, &item.id).await? {
+    return Ok(None);
+  }
   let image_tag_artifact = load_image_tag_artifact(data_dir, &item.owner_id, &item.id).await?;
   let geo_artifact = load_geo_artifact(data_dir, &item.owner_id, &item.id).await?;
   let fragment_text = build_image_fragment_text(
@@ -30,6 +40,22 @@ pub async fn image_fragment_source_for_item(
     fragment_text
       .map(|source_text| single_fragment_source(image_fragment_source_kind(image_tag_artifact.as_ref()), source_text)),
   )
+}
+
+pub async fn build_image_fragment_artifact(
+  data_dir: &str,
+  item: &Item,
+  context_title: Option<String>,
+) -> InfuResult<ImageFragmentBuildResult> {
+  let fragment_source = image_fragment_source_for_item(data_dir, item, context_title).await?;
+  let had_fragment_source = fragment_source.is_some();
+  let outcome = match fragment_source {
+    Some(fragment_source) => {
+      write_item_fragments(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await?
+    }
+    None => clear_item_fragments(data_dir, item).await?,
+  };
+  Ok(ImageFragmentBuildResult { had_fragment_source, outcome })
 }
 
 async fn load_image_tag_artifact(
@@ -52,6 +78,7 @@ fn build_image_fragment_text(
   image_tag_artifact: Option<&StoredImageTagArtifact>,
   geo_artifact: Option<&StoredGeoArtifact>,
 ) -> Option<String> {
+  let image_tag_artifact = image_tag_artifact?;
   let mut upper_lines = Vec::new();
   let mut lower_lines = Vec::new();
 
@@ -59,23 +86,21 @@ fn build_image_fragment_text(
   let context_title = normalized_text(context_title)
     .filter(|context| title.as_deref().map(|title| title.to_lowercase() != context.to_lowercase()).unwrap_or(true));
 
-  if let Some(image_tag_artifact) = image_tag_artifact {
-    if let Some(scene) = normalized_text(image_tag_artifact.scene.as_deref()) {
-      upper_lines.push(scene);
-    }
-    if let Some(caption) = normalized_text(image_tag_artifact.detailed_caption.as_deref()) {
-      upper_lines.push(caption);
-    }
+  if let Some(scene) = normalized_text(image_tag_artifact.scene.as_deref()) {
+    upper_lines.push(scene);
+  }
+  if let Some(caption) = normalized_text(image_tag_artifact.detailed_caption.as_deref()) {
+    upper_lines.push(caption);
+  }
 
-    let tags = normalized_text_list(&image_tag_artifact.tags);
-    if !tags.is_empty() {
-      upper_lines.push(labeled_line("Tags", &tags.join(", ")));
-    }
+  let tags = normalized_text_list(&image_tag_artifact.tags);
+  if !tags.is_empty() {
+    upper_lines.push(labeled_line("Tags", &tags.join(", ")));
+  }
 
-    let ocr_text = embedding_visible_text(&image_tag_artifact.ocr_text, image_tag_artifact.document_confidence);
-    if !ocr_text.is_empty() {
-      lower_lines.push(labeled_line("Visible text", &ocr_text.join("; ")));
-    }
+  let ocr_text = embedding_visible_text(&image_tag_artifact.ocr_text, image_tag_artifact.document_confidence);
+  if !ocr_text.is_empty() {
+    lower_lines.push(labeled_line("Visible text", &ocr_text.join("; ")));
   }
 
   if let Some(location) = best_geo_location_text(geo_artifact) {
@@ -86,11 +111,9 @@ fn build_image_fragment_text(
     lower_lines.push(labeled_line("Location codes", &location_codes.join(", ")));
   }
 
-  if let Some(captured_at) = image_tag_artifact
-    .and_then(|artifact| artifact.image_metadata.as_ref())
-    .and_then(|metadata| metadata.captured_at.as_deref())
-    .and_then(format_image_capture_date)
-  {
+  let captured_at = image_tag_artifact.image_metadata.as_ref().and_then(|metadata| metadata.captured_at.as_deref());
+
+  if let Some(captured_at) = captured_at.and_then(format_image_capture_date) {
     lower_lines.push(labeled_line("Date", &captured_at));
   }
 

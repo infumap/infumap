@@ -319,6 +319,20 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_TEXT_EMBEDDING_URL, "<not set>");
     }
   }
+  info!(" {} = '{}'", CONFIG_GEOAPIFY_URL, config.get_string(CONFIG_GEOAPIFY_URL).map_err(|e| e.to_string())?);
+  info!(
+    " {} = {}",
+    CONFIG_GEOAPIFY_MAX_REQUESTS_PER_MINUTE,
+    config.get_int(CONFIG_GEOAPIFY_MAX_REQUESTS_PER_MINUTE).map_err(|e| e.to_string())?
+  );
+  match config.get_string(CONFIG_GEOAPIFY_API_KEY) {
+    Ok(v) if !v.trim().is_empty() => {
+      info!(" {} = {}", CONFIG_GEOAPIFY_API_KEY, "<redacted>");
+    }
+    _ => {
+      info!(" {} = {}", CONFIG_GEOAPIFY_API_KEY, "<not set>");
+    }
+  }
   info!(" {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB).map_err(|e| e.to_string())?);
   info!(
     " {} = {}",
@@ -545,6 +559,10 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_GEOAPIFY_URL, CONFIG_GEOAPIFY_URL_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_GEOAPIFY_MAX_REQUESTS_PER_MINUTE, CONFIG_GEOAPIFY_MAX_REQUESTS_PER_MINUTE_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_CACHE_MAX_MB, CONFIG_CACHE_MAX_MB_DEFAULT)
       .map_err(|e| e.to_string())?

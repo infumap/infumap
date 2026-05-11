@@ -8,7 +8,7 @@ use log::info;
 use tokio::sync::Mutex;
 
 use crate::ai::fragment::sources::{
-  embedding_context_title_for_item, image_fragment_source_for_item, markdown_fragment_source_for_item,
+  build_image_fragment_artifact, embedding_context_title_for_item, markdown_fragment_source_for_item,
   pdf_fragment_source_for_item, text_fragment_source_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
@@ -156,9 +156,9 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
       let db = db.lock().await;
       embedding_context_title_for_item(&db, &item)
     };
-    let fragment_source = image_fragment_source_for_item(&data_dir, &item, context_title).await?;
-    let had_fragment_source = fragment_source.is_some();
-    let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
+    let build_result = build_image_fragment_artifact(&data_dir, &item, context_title).await?;
+    let had_fragment_source = build_result.had_fragment_source;
+    let outcome = build_result.outcome;
     record_fragment_outcome(&mut summary, &outcome);
     if single_item_run {
       log_single_item_fragment_outcome(FragmentTargetKind::Image, &item, had_fragment_source, &outcome);

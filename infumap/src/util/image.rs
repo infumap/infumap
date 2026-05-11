@@ -19,9 +19,9 @@ use std::io::Cursor;
 use exif::{Exif, In, Tag, Value};
 use image::DynamicImage;
 use log::debug;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ImageMetadata {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub captured_at: Option<String>,
