@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -38,8 +38,6 @@ struct ImagePipelineCandidate {
   user_id: String,
   item_id: String,
   mime_type: String,
-  file_size_bytes: Option<i64>,
-  last_modified_date: i64,
 }
 
 impl ImagePipelineCandidate {
@@ -51,15 +49,13 @@ impl ImagePipelineCandidate {
       user_id: item.owner_id.clone(),
       item_id: item.id.clone(),
       mime_type: item.mime_type.clone().unwrap_or_else(|| "application/octet-stream".to_owned()),
-      file_size_bytes: item.file_size_bytes,
-      last_modified_date: item.last_modified_date,
     })
   }
 }
 
 #[derive(Default)]
 struct StageQueue {
-  queue: Vec<ImagePipelineCandidate>,
+  queue: VecDeque<ImagePipelineCandidate>,
   queued_item_ids: HashSet<String>,
 }
 
@@ -527,27 +523,18 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>) {
   };
   let state = state.clone();
   let _enqueue_task = task::spawn(async move {
-    info!("Image semantic pipeline startup reconciliation collecting supported image candidates.");
     let candidates = {
       let db = db.lock().await;
-      let mut candidates = db
-        .item
+      db.item
         .all_loaded_items()
         .into_iter()
         .filter_map(|item_key| db.item.get(&item_key.item_id).ok())
         .filter_map(ImagePipelineCandidate::from_item)
-        .collect::<Vec<_>>();
-      candidates.sort_by(compare_candidates_asc);
-      candidates
+        .collect::<Vec<_>>()
     };
     let candidate_count = candidates.len();
-    let mut enqueued_count = 0usize;
     let mut state = state.lock().await;
-    for candidate in &candidates {
-      if enqueue_candidate_for_all_stages(&mut state, candidate.clone()) {
-        enqueued_count += 1;
-      }
-    }
+    let enqueued_count = enqueue_candidates_for_all_stages(&mut state, candidates);
     info!(
       "Image semantic pipeline startup reconciliation saw {} supported image item(s), queued {} new item(s); queues: {}.",
       candidate_count,
@@ -559,6 +546,13 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>) {
 
 fn enqueue_candidate_for_all_stages(state: &mut ImageSemanticPipelineState, candidate: ImagePipelineCandidate) -> bool {
   enqueue_candidate(state, PipelineStage::Source, candidate)
+}
+
+fn enqueue_candidates_for_all_stages(
+  state: &mut ImageSemanticPipelineState,
+  candidates: Vec<ImagePipelineCandidate>,
+) -> usize {
+  enqueue_candidates(state, PipelineStage::Source, candidates)
 }
 
 fn enqueue_live_candidate_for_all_stages_with_log(
@@ -601,7 +595,7 @@ fn queue_for_stage_mut(state: &mut ImageSemanticPipelineState, stage: PipelineSt
 
 fn pop_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage) -> Option<ImagePipelineCandidate> {
   let queue = queue_for_stage_mut(state, stage);
-  let candidate = queue.queue.pop()?;
+  let candidate = queue.queue.pop_front()?;
   queue.queued_item_ids.remove(&candidate.item_id);
   Some(candidate)
 }
@@ -632,18 +626,28 @@ fn enqueue_candidate(
   candidate: ImagePipelineCandidate,
 ) -> bool {
   let queue = queue_for_stage_mut(state, stage);
-  if queue.queued_item_ids.contains(&candidate.item_id) {
+  if !queue.queued_item_ids.insert(candidate.item_id.clone()) {
     return false;
   }
 
-  queue.queue.push(candidate);
-  queue.queue.sort_by(compare_candidates_desc);
-
-  queue.queued_item_ids.clear();
-  for queued_candidate in &queue.queue {
-    queue.queued_item_ids.insert(queued_candidate.item_id.clone());
-  }
+  queue.queue.push_back(candidate);
   true
+}
+
+fn enqueue_candidates(
+  state: &mut ImageSemanticPipelineState,
+  stage: PipelineStage,
+  candidates: Vec<ImagePipelineCandidate>,
+) -> usize {
+  let queue = queue_for_stage_mut(state, stage);
+  let mut enqueued_count = 0usize;
+  for candidate in candidates {
+    if queue.queued_item_ids.insert(candidate.item_id.clone()) {
+      queue.queue.push_back(candidate);
+      enqueued_count += 1;
+    }
+  }
+  enqueued_count
 }
 
 fn remove_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage, item_id: &str) -> usize {
@@ -671,16 +675,6 @@ impl PipelineStage {
       PipelineStage::Fragment => "fragment",
     }
   }
-}
-
-fn compare_candidates_asc(a: &ImagePipelineCandidate, b: &ImagePipelineCandidate) -> std::cmp::Ordering {
-  let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
-  let b_size = b.file_size_bytes.unwrap_or(i64::MAX);
-  a_size.cmp(&b_size).then(a.last_modified_date.cmp(&b.last_modified_date)).then(a.item_id.cmp(&b.item_id))
-}
-
-fn compare_candidates_desc(a: &ImagePipelineCandidate, b: &ImagePipelineCandidate) -> std::cmp::Ordering {
-  compare_candidates_asc(b, a)
 }
 
 fn format_duration_for_log(duration: Duration) -> String {
