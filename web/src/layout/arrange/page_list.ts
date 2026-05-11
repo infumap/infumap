@@ -179,7 +179,9 @@ export function arrange_list_page(
   })();
 
   // Snap the scaled list width so translucent/nested separators land on whole pixels.
-  const listWidthPx = Math.round(LINE_HEIGHT_PX * listWidthBl * listScale);
+  const configuredListWidthPx = Math.round(LINE_HEIGHT_PX * listWidthBl * listScale);
+  const listWidthPx = Math.min(configuredListWidthPx, geometry.viewportBoundsPx!.w);
+  const renderedListWidthBl = listWidthPx / (LINE_HEIGHT_PX * listScale);
 
   let resizeBoundsPx = {
     x: listWidthPx - RESIZE_BOX_SIZE_PX,
@@ -208,7 +210,7 @@ export function arrange_list_page(
   const listChildAreaBoundsPx = cloneBoundingBox(listViewportBoundsPx)!;
   listChildAreaBoundsPx.h = geometry.viewportBoundsPx!.h;
   const blockSizePx = {
-    w: listViewportBoundsPx.w / (displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE),
+    w: LINE_HEIGHT_PX * listScale,
     h: 0  // TODO (LOW): better to calculate this, but it's not needed for anything.
   };
 
@@ -273,7 +275,7 @@ export function arrange_list_page(
 
       const blockSizePx = { w: LINE_HEIGHT_PX * listScale, h: LINE_HEIGHT_PX * listScale };
 
-      const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, listWidthBl, insidePopup, true, false, false);
+      const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx - skippedCount, 0, renderedListWidthBl, insidePopup, true, false, false);
 
       const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
 
