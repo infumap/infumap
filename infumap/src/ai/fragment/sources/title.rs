@@ -1,4 +1,4 @@
-use infusdk::item::{Item, ItemType, RelationshipToParent};
+use infusdk::item::{Item, ItemType};
 use infusdk::util::infu::InfuResult;
 
 use crate::storage::db::Db;
@@ -17,7 +17,7 @@ pub struct ItemTitleFragment {
 }
 
 pub fn item_title_fragment_for_item(db: &Db, item: &Item) -> InfuResult<Option<ItemTitleFragment>> {
-  if item.item_type == ItemType::Password || item.relationship_to_parent == RelationshipToParent::Attachment {
+  if item.item_type == ItemType::Password {
     return Ok(None);
   }
 
