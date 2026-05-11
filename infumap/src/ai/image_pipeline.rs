@@ -113,17 +113,17 @@ pub fn init_image_semantic_pipeline_loop(
     && pipeline_config.geo_api_key.is_none()
     && !(ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE && pipeline_config.embed_url.is_some())
   {
-    debug!("Image semantic pipeline is disabled because image tagging and reverse geo are unconfigured.");
+    debug!("Image background pipeline is disabled because image tagging and reverse geo are unconfigured.");
     return Ok(());
   }
 
   let state = Arc::new(Mutex::new(ImageSemanticPipelineState::default()));
   IMAGE_SEMANTIC_PIPELINE_STATE
     .set(state.clone())
-    .map_err(|_| "Image semantic pipeline loop is already running in this process.".to_owned())?;
+    .map_err(|_| "Image background pipeline loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting image semantic pipeline loops (tag_source=enabled, image_tagging={}, reverse_geo={}, fragment_indexing={}, geo_max_requests_per_minute={}).",
+    "Starting image background pipeline loops (tag_source=enabled, image_tagging={}, reverse_geo={}, fragment_indexing={}, geo_max_requests_per_minute={}).",
     if pipeline_config.image_tagging_url.is_some() { "enabled" } else { "disabled" },
     if pipeline_config.geo_api_key.is_some() { "enabled" } else { "disabled" },
     if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE && pipeline_config.embed_url.is_some() {
@@ -349,7 +349,7 @@ async fn run_reverse_geo_loop(
       Ok(GeoProcessOutcome::Deferred { reason, retry_after_secs }) => {
         let retry_after = Duration::from_secs(retry_after_secs.max(1));
         info!(
-          "Image semantic pipeline suspending reverse geo for {} after Geoapify reported {}.",
+          "Image background pipeline suspending reverse geo for {} after Geoapify reported {}.",
           format_duration_for_log(retry_after),
           reason.label()
         );
@@ -478,7 +478,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
 
   let Some(embed_url) = config.embed_url.as_ref() else {
     debug!(
-      "Image semantic pipeline updated fragments for {} user(s), but text embedding is not configured; skipping fragment index rebuild.",
+      "Image background pipeline updated fragments for {} user(s), but text embedding is not configured; skipping fragment index rebuild.",
       user_ids.len()
     );
     return;
@@ -487,7 +487,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   let client = match reqwest::ClientBuilder::new().build() {
     Ok(client) => client,
     Err(e) => {
-      error!("Could not build embedding HTTP client for image semantic pipeline index rebuild: {}", e);
+      error!("Could not build embedding HTTP client for image background pipeline index rebuild: {}", e);
       for user_id in user_ids {
         dirty_user_ids.insert(user_id);
       }
@@ -497,14 +497,14 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   };
 
   info!(
-    "Image semantic pipeline rebuilding fragment indexes after image fragment updates for {} user(s): {}.",
+    "Image background pipeline rebuilding fragment indexes after image fragment updates for {} user(s): {}.",
     user_ids.len(),
     user_ids.join(", ")
   );
   match rebuild_all_fragment_indexes(&config.data_dir, &client, embed_url, true).await {
     Ok(summary) => {
       info!(
-        "Image semantic pipeline fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
+        "Image background pipeline fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
         summary.users_seen,
         summary.users_rebuilt,
         summary.users_skipped_current,
@@ -515,7 +515,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
       );
     }
     Err(e) => {
-      error!("Image semantic pipeline fragment index rebuild failed: {}", e);
+      error!("Image background pipeline fragment index rebuild failed: {}", e);
       for user_id in user_ids {
         dirty_user_ids.insert(user_id);
       }
@@ -559,7 +559,7 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
         Ok(None) => {}
         Err(e) => {
           debug!(
-            "Skipping image '{}' (user '{}') during image semantic pipeline startup reconciliation: {}",
+            "Skipping image '{}' (user '{}') during image background pipeline startup reconciliation: {}",
             candidate.item_id, candidate.user_id, e
           );
         }
@@ -571,7 +571,7 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
     let source_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Source, source_candidates);
     let geo_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Geo, geo_candidates);
     info!(
-      "Image semantic pipeline startup reconciliation saw {} supported image item(s), queued source={} of {} and reverse_geo={} of {}; image_tags: succeeded={}, failed={}, pending={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
+      "Image background pipeline startup reconciliation saw {} supported image item(s), queued source={} of {} and reverse_geo={} of {}; image_tags: succeeded={}, failed={}, pending={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
       candidate_count,
       source_enqueued_count,
       source_candidate_count,
@@ -659,7 +659,7 @@ fn enqueue_live_candidate_for_all_stages_with_log(
   let user_id = candidate.user_id.clone();
   if enqueue_candidate_for_all_stages(state, candidate) {
     info!(
-      "Image semantic pipeline queued image '{}' (user {}) for source stage from live update; queues: {}.",
+      "Image background pipeline queued image '{}' (user {}) for source stage from live update; queues: {}.",
       item_id,
       user_id,
       queue_depth_summary(state)
@@ -673,7 +673,7 @@ fn remove_candidate_from_all_stages_with_log(state: &mut ImageSemanticPipelineSt
     + remove_candidate(state, PipelineStage::Fragment, item_id);
   if removed > 0 {
     info!(
-      "Image semantic pipeline dequeued image '{}' from {} stage queue(s); queues: {}.",
+      "Image background pipeline dequeued image '{}' from {} stage queue(s); queues: {}.",
       item_id,
       removed,
       queue_depth_summary(state)
@@ -706,7 +706,7 @@ fn enqueue_candidate_with_log(
   let user_id = candidate.user_id.clone();
   if enqueue_candidate(state, stage, candidate) {
     info!(
-      "Image semantic pipeline queued image '{}' (user {}) for {} stage {}; queues: {}.",
+      "Image background pipeline queued image '{}' (user {}) for {} stage {}; queues: {}.",
       item_id,
       user_id,
       stage.label(),
