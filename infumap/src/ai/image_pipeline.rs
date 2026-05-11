@@ -13,12 +13,13 @@ use tokio::time::sleep;
 
 use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
 use crate::ai::geo::{
-  GeoCandidate, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete, geoapify_api_key_from_config,
-  geoapify_max_requests_per_minute_from_config, geoapify_url_from_config, reverse_geocode_candidate_if_needed,
+  GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
+  geo_manifest_status, geoapify_api_key_from_config, geoapify_max_requests_per_minute_from_config,
+  geoapify_url_from_config, reverse_geocode_candidate_if_needed,
 };
 use crate::ai::image_tagging::{
-  image_tagging_manifest_is_complete, image_tagging_manifest_is_successful, item_needs_image_tagging,
-  load_image_for_tagging, process_loaded_image_tagging, should_tag_image_item,
+  image_tagging_manifest_is_complete, image_tagging_manifest_is_failed, image_tagging_manifest_is_successful,
+  item_needs_image_tagging, load_image_for_tagging, process_loaded_image_tagging, should_tag_image_item,
 };
 use crate::ai::indexing::rebuild_all_fragment_indexes;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
@@ -92,12 +93,12 @@ pub fn init_image_semantic_pipeline_loop(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
+  let pipeline_config = image_semantic_pipeline_config(config.as_ref())?;
   if IMAGE_SEMANTIC_PIPELINE_STATE.get().is_some() {
-    enqueue_all_loaded_images(db);
+    enqueue_all_loaded_images(db, pipeline_config);
     return Ok(());
   }
 
-  let pipeline_config = image_semantic_pipeline_config(config.as_ref())?;
   if pipeline_config.image_tagging_url.is_none()
     && pipeline_config.geo_api_key.is_none()
     && !(ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE && pipeline_config.embed_url.is_some())
@@ -149,7 +150,7 @@ pub fn init_image_semantic_pipeline_loop(
     });
   }
 
-  enqueue_all_loaded_images(db);
+  enqueue_all_loaded_images(db, pipeline_config);
   Ok(())
 }
 
@@ -162,14 +163,14 @@ pub fn enqueue_image_semantic_pipeline_item_if_active(item: &Item) {
   };
 
   if let Ok(mut state) = state.try_lock() {
-    enqueue_candidate_for_all_stages(&mut state, candidate);
+    enqueue_live_candidate_for_all_stages_with_log(&mut state, candidate);
     return;
   }
 
   let state = state.clone();
   let _enqueue = task::spawn(async move {
     let mut state = state.lock().await;
-    enqueue_candidate_for_all_stages(&mut state, candidate);
+    enqueue_live_candidate_for_all_stages_with_log(&mut state, candidate);
   });
 }
 
@@ -180,14 +181,14 @@ pub fn dequeue_image_semantic_pipeline_item_if_active(item_id: &str) {
   let item_id = item_id.to_owned();
 
   if let Ok(mut state) = state.try_lock() {
-    remove_candidate_from_all_stages(&mut state, &item_id);
+    remove_candidate_from_all_stages_with_log(&mut state, &item_id);
     return;
   }
 
   let state = state.clone();
   let _dequeue = task::spawn(async move {
     let mut state = state.lock().await;
-    remove_candidate_from_all_stages(&mut state, &item_id);
+    remove_candidate_from_all_stages_with_log(&mut state, &item_id);
   });
 }
 
@@ -234,9 +235,9 @@ async fn run_source_image_loop(
       Ok(()) => {
         let mut state = state.lock().await;
         if config.geo_api_key.is_some() {
-          enqueue_candidate(&mut state, PipelineStage::Geo, candidate);
+          enqueue_candidate_with_log(&mut state, PipelineStage::Geo, candidate, "after source stage");
         } else if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-          enqueue_candidate(&mut state, PipelineStage::Fragment, candidate);
+          enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "after source stage");
         }
       }
       Err(e) => {
@@ -336,21 +337,21 @@ async fn run_reverse_geo_loop(
         );
         {
           let mut state = state.lock().await;
-          enqueue_candidate(&mut state, PipelineStage::Geo, candidate);
+          enqueue_candidate_with_log(&mut state, PipelineStage::Geo, candidate, "after reverse geo deferral");
         }
         sleep(retry_after).await;
       }
       Ok(_) => {
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
           let mut state = state.lock().await;
-          enqueue_candidate(&mut state, PipelineStage::Fragment, candidate);
+          enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "after reverse geo stage");
         }
       }
       Err(e) => {
         error!("Reverse geo pipeline failed for image '{}' (user '{}'): {}", candidate.item_id, candidate.user_id, e);
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
           let mut state = state.lock().await;
-          enqueue_candidate(&mut state, PipelineStage::Fragment, candidate);
+          enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "after reverse geo failure");
         }
       }
     }
@@ -513,7 +514,20 @@ async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandi
   Ok(item.owner_id == candidate.user_id && should_tag_image_item(item))
 }
 
-fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>) {
+#[derive(Default)]
+struct StartupArtifactSummary {
+  tag_succeeded: usize,
+  tag_failed: usize,
+  tag_pending: usize,
+  tag_unreadable: usize,
+  geo_succeeded: usize,
+  geo_failed: usize,
+  geo_skipped: usize,
+  geo_pending_after_successful_tag: usize,
+  geo_unreadable: usize,
+}
+
+fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineConfig) {
   let Some(state) = IMAGE_SEMANTIC_PIPELINE_STATE.get() else {
     return;
   };
@@ -531,23 +545,143 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>) {
       candidates.sort_by(compare_candidates_asc);
       candidates
     };
+    let summary = collect_startup_artifact_summary(&config, &candidates).await;
     let candidate_count = candidates.len();
+    let mut enqueued_count = 0usize;
     let mut state = state.lock().await;
     for candidate in candidates {
-      enqueue_candidate_for_all_stages(&mut state, candidate);
+      if enqueue_candidate_for_all_stages(&mut state, candidate) {
+        enqueued_count += 1;
+      }
     }
-    info!("Image semantic pipeline startup reconciliation queued {} supported image item(s).", candidate_count);
+    info!(
+      "Image semantic pipeline startup reconciliation saw {} supported image item(s), queued {} new item(s); image_tags: succeeded={}, failed={}, pending={}, unreadable={}; reverse_geo: {}; queues: {}.",
+      candidate_count,
+      enqueued_count,
+      summary.tag_succeeded,
+      summary.tag_failed,
+      summary.tag_pending,
+      summary.tag_unreadable,
+      startup_geo_summary(&config, &summary),
+      queue_depth_summary(&state)
+    );
   });
 }
 
-fn enqueue_candidate_for_all_stages(state: &mut ImageSemanticPipelineState, candidate: ImagePipelineCandidate) {
-  enqueue_candidate(state, PipelineStage::Source, candidate);
+async fn collect_startup_artifact_summary(
+  config: &ImageSemanticPipelineConfig,
+  candidates: &[ImagePipelineCandidate],
+) -> StartupArtifactSummary {
+  let mut summary = StartupArtifactSummary::default();
+  for candidate in candidates {
+    match image_tagging_manifest_is_failed(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
+      Ok(true) => {
+        summary.tag_failed += 1;
+        continue;
+      }
+      Ok(false) => {}
+      Err(e) => {
+        summary.tag_unreadable += 1;
+        debug!(
+          "Could not read image tag manifest status for image '{}' (user '{}') during startup reconciliation: {}",
+          candidate.item_id, candidate.user_id, e
+        );
+        continue;
+      }
+    }
+
+    let tag_succeeded =
+      match image_tagging_manifest_is_successful(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
+        Ok(value) => value,
+        Err(e) => {
+          summary.tag_unreadable += 1;
+          debug!(
+            "Could not read image tag manifest status for image '{}' (user '{}') during startup reconciliation: {}",
+            candidate.item_id, candidate.user_id, e
+          );
+          continue;
+        }
+      };
+    if tag_succeeded {
+      summary.tag_succeeded += 1;
+    } else {
+      summary.tag_pending += 1;
+    }
+
+    if config.geo_api_key.is_none() || !tag_succeeded {
+      continue;
+    }
+    match geo_manifest_status(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
+      Ok(Some(GeoManifestStatus::Succeeded)) => {
+        summary.geo_succeeded += 1;
+      }
+      Ok(Some(GeoManifestStatus::Failed)) => {
+        summary.geo_failed += 1;
+      }
+      Ok(Some(GeoManifestStatus::Skipped)) => {
+        summary.geo_skipped += 1;
+      }
+      Ok(None) => {
+        summary.geo_pending_after_successful_tag += 1;
+      }
+      Err(e) => {
+        summary.geo_unreadable += 1;
+        debug!(
+          "Could not read reverse geo manifest status for image '{}' (user '{}') during startup reconciliation: {}",
+          candidate.item_id, candidate.user_id, e
+        );
+      }
+    }
+  }
+  summary
 }
 
-fn remove_candidate_from_all_stages(state: &mut ImageSemanticPipelineState, item_id: &str) {
-  remove_candidate(state, PipelineStage::Source, item_id);
-  remove_candidate(state, PipelineStage::Geo, item_id);
-  remove_candidate(state, PipelineStage::Fragment, item_id);
+fn startup_geo_summary(config: &ImageSemanticPipelineConfig, summary: &StartupArtifactSummary) -> String {
+  if config.geo_api_key.is_none() {
+    return "disabled".to_owned();
+  }
+  format!(
+    "succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}",
+    summary.geo_succeeded,
+    summary.geo_failed,
+    summary.geo_skipped,
+    summary.geo_pending_after_successful_tag,
+    summary.geo_unreadable
+  )
+}
+
+fn enqueue_candidate_for_all_stages(state: &mut ImageSemanticPipelineState, candidate: ImagePipelineCandidate) -> bool {
+  enqueue_candidate(state, PipelineStage::Source, candidate)
+}
+
+fn enqueue_live_candidate_for_all_stages_with_log(
+  state: &mut ImageSemanticPipelineState,
+  candidate: ImagePipelineCandidate,
+) {
+  let item_id = candidate.item_id.clone();
+  let user_id = candidate.user_id.clone();
+  if enqueue_candidate_for_all_stages(state, candidate) {
+    info!(
+      "Image semantic pipeline queued image '{}' (user {}) for source stage from live update; queues: {}.",
+      item_id,
+      user_id,
+      queue_depth_summary(state)
+    );
+  }
+}
+
+fn remove_candidate_from_all_stages_with_log(state: &mut ImageSemanticPipelineState, item_id: &str) {
+  let removed = remove_candidate(state, PipelineStage::Source, item_id)
+    + remove_candidate(state, PipelineStage::Geo, item_id)
+    + remove_candidate(state, PipelineStage::Fragment, item_id);
+  if removed > 0 {
+    info!(
+      "Image semantic pipeline dequeued image '{}' from {} stage queue(s); queues: {}.",
+      item_id,
+      removed,
+      queue_depth_summary(state)
+    );
+  }
 }
 
 fn queue_for_stage_mut(state: &mut ImageSemanticPipelineState, stage: PipelineStage) -> &mut StageQueue {
@@ -565,10 +699,34 @@ fn pop_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage) -
   Some(candidate)
 }
 
-fn enqueue_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage, candidate: ImagePipelineCandidate) {
+fn enqueue_candidate_with_log(
+  state: &mut ImageSemanticPipelineState,
+  stage: PipelineStage,
+  candidate: ImagePipelineCandidate,
+  reason: &str,
+) {
+  let item_id = candidate.item_id.clone();
+  let user_id = candidate.user_id.clone();
+  if enqueue_candidate(state, stage, candidate) {
+    info!(
+      "Image semantic pipeline queued image '{}' (user {}) for {} stage {}; queues: {}.",
+      item_id,
+      user_id,
+      stage.label(),
+      reason,
+      queue_depth_summary(state)
+    );
+  }
+}
+
+fn enqueue_candidate(
+  state: &mut ImageSemanticPipelineState,
+  stage: PipelineStage,
+  candidate: ImagePipelineCandidate,
+) -> bool {
   let queue = queue_for_stage_mut(state, stage);
   if queue.queued_item_ids.contains(&candidate.item_id) {
-    return;
+    return false;
   }
 
   queue.queue.push(candidate);
@@ -578,12 +736,34 @@ fn enqueue_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStag
   for queued_candidate in &queue.queue {
     queue.queued_item_ids.insert(queued_candidate.item_id.clone());
   }
+  true
 }
 
-fn remove_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage, item_id: &str) {
+fn remove_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage, item_id: &str) -> usize {
   let queue = queue_for_stage_mut(state, stage);
+  let before = queue.queue.len();
   queue.queue.retain(|candidate| candidate.item_id != item_id);
   queue.queued_item_ids.remove(item_id);
+  before.saturating_sub(queue.queue.len())
+}
+
+fn queue_depth_summary(state: &ImageSemanticPipelineState) -> String {
+  format!(
+    "source={}, reverse_geo={}, fragment={}",
+    state.source.queue.len(),
+    state.geo.queue.len(),
+    state.fragment.queue.len()
+  )
+}
+
+impl PipelineStage {
+  fn label(self) -> &'static str {
+    match self {
+      PipelineStage::Source => "source",
+      PipelineStage::Geo => "reverse_geo",
+      PipelineStage::Fragment => "fragment",
+    }
+  }
 }
 
 fn compare_candidates_asc(a: &ImagePipelineCandidate, b: &ImagePipelineCandidate) -> std::cmp::Ordering {

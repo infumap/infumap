@@ -36,7 +36,9 @@ mod artifacts;
 #[allow(unused_imports)]
 pub use artifacts::FailedImageTagInfo;
 pub use artifacts::{delete_item_image_tag_dir, item_needs_image_tagging, list_failed_images};
-pub use artifacts::{image_tagging_manifest_is_complete, image_tagging_manifest_is_successful};
+pub use artifacts::{
+  image_tagging_manifest_is_complete, image_tagging_manifest_is_failed, image_tagging_manifest_is_successful,
+};
 
 use self::artifacts::{ImageTagArtifact, clear_item_image_tag_dir, write_failed_manifest, write_success_artifacts};
 
@@ -203,11 +205,20 @@ async fn process_image_tagging_for_candidate_and_bytes(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
+  info!(
+    "Starting image tagging for image '{}' (user {}) using '{}' ({} bytes).",
+    candidate.item_id,
+    candidate.user_id,
+    image_tagging_url,
+    file_bytes.len()
+  );
+  let tagging_started_at = Instant::now();
   let outcome = if retry_endpoint_unavailable {
     request_image_tagging_with_retries(&client, image_tagging_url, &candidate, &file_bytes, None).await
   } else {
     request_image_tagging_once(&client, image_tagging_url, &candidate, &file_bytes).await
   };
+  let tagging_elapsed = tagging_started_at.elapsed();
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(format!("Item '{}' was deleted or replaced while tagging was in progress.", candidate.item_id).into());
   }
@@ -215,17 +226,43 @@ async fn process_image_tagging_for_candidate_and_bytes(
     TagOutcome::Success(mut tag_data, duration_ms) => {
       tag_data.image_metadata = extract_image_metadata(file_bytes);
       write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms).await?;
-      info!("Tagged image '{}' (user {}).", candidate.item_id, candidate.user_id);
+      info!(
+        "Finished image tagging for image '{}' (user {}) in {}.",
+        candidate.item_id,
+        candidate.user_id,
+        format_duration_for_log(tagging_elapsed)
+      );
     }
     TagOutcome::DocumentFailed(msg) => {
       write_failed_manifest(data_dir, image_tagging_url, &candidate, &msg).await?;
+      info!(
+        "Finished image tagging for image '{}' (user {}) with document failure after {}: {}",
+        candidate.item_id,
+        candidate.user_id,
+        format_duration_for_log(tagging_elapsed),
+        msg
+      );
       return Err(format!("Image tagging failed for '{}': {}", candidate.item_id, msg).into());
     }
     TagOutcome::ResponseFormatFailed(msg) => {
       write_failed_manifest(data_dir, image_tagging_url, &candidate, &msg).await?;
+      info!(
+        "Finished image tagging for image '{}' (user {}) with response-format failure after {}: {}",
+        candidate.item_id,
+        candidate.user_id,
+        format_duration_for_log(tagging_elapsed),
+        msg
+      );
       return Err(format!("Image tagging failed for '{}': {}", candidate.item_id, msg).into());
     }
     TagOutcome::EndpointUnavailable(msg) => {
+      info!(
+        "Finished image tagging for image '{}' (user {}) with endpoint failure after {}: {}",
+        candidate.item_id,
+        candidate.user_id,
+        format_duration_for_log(tagging_elapsed),
+        msg
+      );
       return Err(format!("Image tagging endpoint unavailable: {}", msg).into());
     }
   }
