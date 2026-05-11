@@ -88,12 +88,12 @@ pub fn init_image_semantic_pipeline_loop(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
+  let pipeline_config = image_semantic_pipeline_config(config.as_ref())?;
   if IMAGE_SEMANTIC_PIPELINE_STATE.get().is_some() {
-    enqueue_all_loaded_images(db);
+    enqueue_all_loaded_images(db, pipeline_config);
     return Ok(());
   }
 
-  let pipeline_config = image_semantic_pipeline_config(config.as_ref())?;
   if pipeline_config.image_tagging_url.is_none()
     && pipeline_config.geo_api_key.is_none()
     && !(ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE && pipeline_config.embed_url.is_some())
@@ -145,7 +145,7 @@ pub fn init_image_semantic_pipeline_loop(
     });
   }
 
-  enqueue_all_loaded_images(db);
+  enqueue_all_loaded_images(db, pipeline_config);
   Ok(())
 }
 
@@ -517,7 +517,7 @@ async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandi
   Ok(item.owner_id == candidate.user_id && should_tag_image_item(item))
 }
 
-fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>) {
+fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineConfig) {
   let Some(state) = IMAGE_SEMANTIC_PIPELINE_STATE.get() else {
     return;
   };
@@ -533,26 +533,61 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>) {
         .collect::<Vec<_>>()
     };
     let candidate_count = candidates.len();
+    let mut source_candidates = vec![];
+    let mut geo_candidates = vec![];
+    for candidate in candidates {
+      match startup_stage_for_candidate(&config, &candidate).await {
+        Ok(Some(PipelineStage::Source)) => source_candidates.push(candidate),
+        Ok(Some(PipelineStage::Geo)) => geo_candidates.push(candidate),
+        Ok(Some(PipelineStage::Fragment)) => {}
+        Ok(None) => {}
+        Err(e) => {
+          debug!(
+            "Skipping image '{}' (user '{}') during image semantic pipeline startup reconciliation: {}",
+            candidate.item_id, candidate.user_id, e
+          );
+        }
+      }
+    }
     let mut state = state.lock().await;
-    let enqueued_count = enqueue_candidates_for_all_stages(&mut state, candidates);
+    let source_candidate_count = source_candidates.len();
+    let geo_candidate_count = geo_candidates.len();
+    let source_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Source, source_candidates);
+    let geo_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Geo, geo_candidates);
     info!(
-      "Image semantic pipeline startup reconciliation saw {} supported image item(s), queued {} new item(s); queues: {}.",
+      "Image semantic pipeline startup reconciliation saw {} supported image item(s), queued source={} of {} and reverse_geo={} of {}; queues: {}.",
       candidate_count,
-      enqueued_count,
+      source_enqueued_count,
+      source_candidate_count,
+      geo_enqueued_count,
+      geo_candidate_count,
       queue_depth_summary(&state)
     );
   });
 }
 
-fn enqueue_candidate_for_all_stages(state: &mut ImageSemanticPipelineState, candidate: ImagePipelineCandidate) -> bool {
-  enqueue_candidate(state, PipelineStage::Source, candidate)
+async fn startup_stage_for_candidate(
+  config: &ImageSemanticPipelineConfig,
+  candidate: &ImagePipelineCandidate,
+) -> InfuResult<Option<PipelineStage>> {
+  if config.image_tagging_url.is_some()
+    && !image_tagging_manifest_is_complete(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
+  {
+    return Ok(Some(PipelineStage::Source));
+  }
+
+  if config.geo_api_key.is_some()
+    && image_tagging_manifest_is_successful(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
+    && !geo_manifest_is_complete(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
+  {
+    return Ok(Some(PipelineStage::Geo));
+  }
+
+  Ok(None)
 }
 
-fn enqueue_candidates_for_all_stages(
-  state: &mut ImageSemanticPipelineState,
-  candidates: Vec<ImagePipelineCandidate>,
-) -> usize {
-  enqueue_candidates(state, PipelineStage::Source, candidates)
+fn enqueue_candidate_for_all_stages(state: &mut ImageSemanticPipelineState, candidate: ImagePipelineCandidate) -> bool {
+  enqueue_candidate(state, PipelineStage::Source, candidate)
 }
 
 fn enqueue_live_candidate_for_all_stages_with_log(
