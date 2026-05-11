@@ -206,13 +206,6 @@ pub async fn image_tagging_manifest_is_successful(data_dir: &str, user_id: &str,
   ))
 }
 
-pub async fn image_tagging_manifest_is_failed(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
-  Ok(matches!(
-    image_tagging_manifest_status(data_dir, user_id, item_id).await?,
-    Some(ManifestCheckResult::AlreadyFailed)
-  ))
-}
-
 async fn image_tagging_manifest_status(
   data_dir: &str,
   user_id: &str,

@@ -182,13 +182,6 @@ struct GeoManifestSummary {
   status: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum GeoManifestStatus {
-  Succeeded,
-  Failed,
-  Skipped,
-}
-
 #[derive(Serialize, Deserialize)]
 struct GeoManifest {
   schema_version: u32,
@@ -355,28 +348,6 @@ pub async fn existing_geo_manifest_should_skip(path: &PathBuf) -> InfuResult<boo
     Err(_) => return Ok(false),
   };
   Ok(matches!(manifest.status.as_str(), "succeeded" | "failed" | "skipped"))
-}
-
-pub async fn geo_manifest_status(
-  data_dir: &str,
-  user_id: &str,
-  item_id: &str,
-) -> InfuResult<Option<GeoManifestStatus>> {
-  let manifest_path = item_geo_manifest_path(data_dir, user_id, item_id)?;
-  if !path_exists(&manifest_path).await {
-    return Ok(None);
-  }
-  let bytes = fs::read(&manifest_path).await?;
-  let manifest = match serde_json::from_slice::<GeoManifestSummary>(&bytes) {
-    Ok(manifest) => manifest,
-    Err(_) => return Ok(None),
-  };
-  Ok(match manifest.status.as_str() {
-    "succeeded" => Some(GeoManifestStatus::Succeeded),
-    "failed" => Some(GeoManifestStatus::Failed),
-    "skipped" => Some(GeoManifestStatus::Skipped),
-    _ => None,
-  })
 }
 
 pub async fn geo_manifest_is_complete(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
