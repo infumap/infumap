@@ -244,6 +244,23 @@ pub async fn delete_item_image_tag_dir(data_dir: &str, user_id: &str, item_id: &
   clear_item_image_tag_dir(data_dir, user_id, item_id).await
 }
 
+pub(super) async fn existing_image_tag_artifact_paths(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<Vec<String>> {
+  let manifest_path = item_text_manifest_path(data_dir, user_id, item_id)?;
+  let text_path = item_text_content_path(data_dir, user_id, item_id)?;
+  let mut paths = vec![];
+  if path_exists(&text_path).await {
+    paths.push(text_path.display().to_string());
+  }
+  if path_exists(&manifest_path).await {
+    paths.push(manifest_path.display().to_string());
+  }
+  Ok(paths)
+}
+
 pub(super) async fn manifest_check(data_dir: &str, candidate: &ImageCandidate) -> InfuResult<ManifestCheckResult> {
   let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;

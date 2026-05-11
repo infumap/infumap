@@ -16,8 +16,8 @@
 
 use config::Config;
 use infusdk::item::Item;
-use infusdk::util::infu::InfuResult;
-use log::{error, info};
+use infusdk::util::infu::{InfuError, InfuResult};
+use log::{error, info, warn};
 use reqwest::multipart::{Form, Part};
 use serde_json::Value;
 use std::sync::Arc;
@@ -40,12 +40,48 @@ pub use artifacts::{
   image_tagging_manifest_is_complete, image_tagging_manifest_is_failed, image_tagging_manifest_is_successful,
 };
 
-use self::artifacts::{ImageTagArtifact, clear_item_image_tag_dir, write_failed_manifest, write_success_artifacts};
+use self::artifacts::{
+  ImageTagArtifact, clear_item_image_tag_dir, existing_image_tag_artifact_paths, write_failed_manifest,
+  write_success_artifacts,
+};
 
 const REQUEST_TIMEOUT_SECS: u64 = 30 * 60;
 const MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS: usize = 0;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
 const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
+const IMAGE_TAG_ARTIFACT_COLLISION_ERROR_PREFIX: &str = "Image tag artifact collision";
+
+#[derive(Clone, Copy)]
+pub(crate) enum ExistingImageTagArtifactAction {
+  Skip,
+  Abort,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct ImageTagArtifactPolicy {
+  pub allow_initial_overwrite: bool,
+  pub existing_artifact_action: ExistingImageTagArtifactAction,
+}
+
+impl ImageTagArtifactPolicy {
+  pub(crate) fn web_background() -> ImageTagArtifactPolicy {
+    ImageTagArtifactPolicy {
+      allow_initial_overwrite: false,
+      existing_artifact_action: ExistingImageTagArtifactAction::Skip,
+    }
+  }
+
+  pub(crate) fn cli(overwrite_existing: bool) -> ImageTagArtifactPolicy {
+    ImageTagArtifactPolicy {
+      allow_initial_overwrite: overwrite_existing,
+      existing_artifact_action: ExistingImageTagArtifactAction::Abort,
+    }
+  }
+}
+
+pub fn is_image_tag_artifact_collision_error(error: &InfuError) -> bool {
+  error.message().starts_with(IMAGE_TAG_ARTIFACT_COLLISION_ERROR_PREFIX)
+}
 
 #[derive(Clone)]
 struct ImageCandidate {
@@ -104,7 +140,7 @@ pub async fn tag_single_item_no_retry(
   object_store: Arc<ObjectStore>,
   item_id: &str,
 ) -> InfuResult<()> {
-  tag_single_item_inner(data_dir, image_tagging_url, db, object_store, item_id, false).await
+  tag_single_item_inner(data_dir, image_tagging_url, db, object_store, item_id, false, true).await
 }
 
 async fn tag_single_item_inner(
@@ -114,9 +150,18 @@ async fn tag_single_item_inner(
   object_store: Arc<ObjectStore>,
   item_id: &str,
   retry_endpoint_unavailable: bool,
+  overwrite_existing: bool,
 ) -> InfuResult<()> {
   let loaded = load_image_for_tagging(db.clone(), object_store, item_id).await?;
-  process_loaded_image_tagging(data_dir, image_tagging_url, db, loaded, retry_endpoint_unavailable).await
+  process_loaded_image_tagging(
+    data_dir,
+    image_tagging_url,
+    db,
+    loaded,
+    retry_endpoint_unavailable,
+    ImageTagArtifactPolicy::cli(overwrite_existing),
+  )
+  .await
 }
 
 pub(crate) async fn load_image_for_tagging(
@@ -176,6 +221,7 @@ pub(crate) async fn process_loaded_image_tagging(
   db: Arc<Mutex<Db>>,
   loaded: LoadedImageTagging,
   retry_endpoint_unavailable: bool,
+  artifact_policy: ImageTagArtifactPolicy,
 ) -> InfuResult<()> {
   let LoadedImageTagging { candidate, file_bytes } = loaded;
   process_image_tagging_for_candidate_and_bytes(
@@ -185,6 +231,7 @@ pub(crate) async fn process_loaded_image_tagging(
     candidate,
     &file_bytes,
     retry_endpoint_unavailable,
+    artifact_policy,
   )
   .await
 }
@@ -196,11 +243,18 @@ async fn process_image_tagging_for_candidate_and_bytes(
   candidate: ImageCandidate,
   file_bytes: &[u8],
   retry_endpoint_unavailable: bool,
+  artifact_policy: ImageTagArtifactPolicy,
 ) -> InfuResult<()> {
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(format!("Item '{}' was deleted or replaced before tagging started.", candidate.item_id).into());
   }
-  clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  if artifact_policy.allow_initial_overwrite {
+    clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  } else if !handle_existing_artifact_collision(data_dir, &candidate, artifact_policy, "before image tagging started")
+    .await?
+  {
+    return Ok(());
+  }
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
@@ -225,6 +279,16 @@ async fn process_image_tagging_for_candidate_and_bytes(
   match outcome {
     TagOutcome::Success(mut tag_data, duration_ms) => {
       tag_data.image_metadata = extract_image_metadata(file_bytes);
+      if !handle_existing_artifact_collision(
+        data_dir,
+        &candidate,
+        artifact_policy,
+        "before writing image tag artifacts",
+      )
+      .await?
+      {
+        return Ok(());
+      }
       write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms).await?;
       info!(
         "Finished image tagging for image '{}' (user {}) in {}.",
@@ -234,6 +298,16 @@ async fn process_image_tagging_for_candidate_and_bytes(
       );
     }
     TagOutcome::DocumentFailed(msg) => {
+      if !handle_existing_artifact_collision(
+        data_dir,
+        &candidate,
+        artifact_policy,
+        "before writing failed image tag manifest",
+      )
+      .await?
+      {
+        return Ok(());
+      }
       write_failed_manifest(data_dir, image_tagging_url, &candidate, &msg).await?;
       info!(
         "Finished image tagging for image '{}' (user {}) with document failure after {}: {}",
@@ -245,6 +319,16 @@ async fn process_image_tagging_for_candidate_and_bytes(
       return Err(format!("Image tagging failed for '{}': {}", candidate.item_id, msg).into());
     }
     TagOutcome::ResponseFormatFailed(msg) => {
+      if !handle_existing_artifact_collision(
+        data_dir,
+        &candidate,
+        artifact_policy,
+        "before writing failed image tag manifest",
+      )
+      .await?
+      {
+        return Ok(());
+      }
       write_failed_manifest(data_dir, image_tagging_url, &candidate, &msg).await?;
       info!(
         "Finished image tagging for image '{}' (user {}) with response-format failure after {}: {}",
@@ -267,6 +351,33 @@ async fn process_image_tagging_for_candidate_and_bytes(
     }
   }
   Ok(())
+}
+
+async fn handle_existing_artifact_collision(
+  data_dir: &str,
+  candidate: &ImageCandidate,
+  artifact_policy: ImageTagArtifactPolicy,
+  phase: &str,
+) -> InfuResult<bool> {
+  let existing_paths = existing_image_tag_artifact_paths(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  if existing_paths.is_empty() {
+    return Ok(true);
+  }
+  let message = format!(
+    "{}: image '{}' (user {}) already has text artifact(s) {}. This usually means another CLI or web image tagging worker wrote the output {}.",
+    IMAGE_TAG_ARTIFACT_COLLISION_ERROR_PREFIX,
+    candidate.item_id,
+    candidate.user_id,
+    existing_paths.join(", "),
+    phase
+  );
+  match artifact_policy.existing_artifact_action {
+    ExistingImageTagArtifactAction::Skip => {
+      warn!("{} Skipping this image tagging write.", message);
+      Ok(false)
+    }
+    ExistingImageTagArtifactAction::Abort => Err(message.into()),
+  }
 }
 
 pub async fn mark_item_image_tagging_failed(

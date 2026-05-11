@@ -12,8 +12,8 @@ use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
 use crate::ai::image_tagging::{
-  LoadedImageTagging, item_needs_image_tagging, load_image_for_tagging, process_loaded_image_tagging,
-  should_tag_image_item,
+  ImageTagArtifactPolicy, LoadedImageTagging, is_image_tag_artifact_collision_error, item_needs_image_tagging,
+  load_image_for_tagging, process_loaded_image_tagging, should_tag_image_item,
 };
 use crate::ai::text_extraction::{
   LoadedPdfExtraction, item_needs_text_extraction, load_pdf_for_extraction, process_loaded_pdf_extraction,
@@ -68,7 +68,7 @@ type LoadItemFn<LoadedItem> = for<'a> fn(
 ) -> LoadItemFuture<'a, LoadedItem>;
 type ProcessLoadedItemFuture<'a> = Pin<Box<dyn Future<Output = InfuResult<()>> + Send + 'a>>;
 type ProcessLoadedItemFn<LoadedItem> =
-  for<'a> fn(&'a str, &'a str, Arc<Mutex<Db>>, LoadedItem, bool) -> ProcessLoadedItemFuture<'a>;
+  for<'a> fn(&'a str, &'a str, Arc<Mutex<Db>>, LoadedItem, bool, bool) -> ProcessLoadedItemFuture<'a>;
 
 pub async fn process_pdf_extraction_batch(
   data_dir: &str,
@@ -105,6 +105,7 @@ pub async fn process_pdf_extraction_batch(
     total_candidate_items,
     skipped_existing,
     item_ids,
+    overwrite,
     db,
     object_store,
     BatchUiText {
@@ -157,6 +158,7 @@ pub async fn process_image_tagging_batch(
     total_candidate_items,
     skipped_existing,
     item_ids,
+    overwrite,
     db,
     object_store,
     BatchUiText {
@@ -340,6 +342,7 @@ async fn process_batch<'a, LoadedItem>(
   total_candidate_items: usize,
   skipped_existing: usize,
   item_ids: Vec<String>,
+  overwrite_existing: bool,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
   ui_text: BatchUiText,
@@ -431,13 +434,14 @@ where
     },
     &ui_text,
     &mut progress,
+    overwrite_existing,
     load_item,
     process_loaded_item,
   )
   .await?;
 
   while let Some(current_handle) = current_process {
-    let next_process = if delay == Duration::ZERO {
+    let mut next_process = if delay == Duration::ZERO {
       advance_prefetch_to_process(
         data_dir,
         service_url,
@@ -451,6 +455,7 @@ where
         },
         &ui_text,
         &mut progress,
+        overwrite_existing,
         load_item,
         process_loaded_item,
       )
@@ -493,6 +498,15 @@ where
         }
       }
       Err(e) => {
+        if is_image_tag_artifact_collision_error(&e) {
+          if let Some(handle) = next_process.take() {
+            handle.abort();
+          }
+          if let Some(handle) = next_prefetch.take() {
+            handle.abort();
+          }
+          return Err(e);
+        }
         progress.processed += 1;
         progress.failed += 1;
         let throughput_suffix =
@@ -529,6 +543,7 @@ where
         },
         &ui_text,
         &mut progress,
+        overwrite_existing,
         load_item,
         process_loaded_item,
       )
@@ -585,6 +600,7 @@ async fn advance_prefetch_to_process<LoadedItem>(
   scope_label: &str,
   ui_text: &BatchUiText,
   progress: &mut BatchProgress,
+  overwrite_existing: bool,
   load_item: LoadItemFn<LoadedItem>,
   process_loaded_item: ProcessLoadedItemFn<LoadedItem>,
 ) -> InfuResult<Option<JoinHandle<(String, InfuResult<()>)>>>
@@ -622,6 +638,7 @@ where
           db.clone(),
           item_id,
           loaded_item,
+          overwrite_existing,
           process_loaded_item,
         )));
       }
@@ -650,6 +667,7 @@ fn spawn_process_loaded_item<LoadedItem>(
   db: Arc<Mutex<Db>>,
   item_id: String,
   loaded_item: LoadedItem,
+  overwrite_existing: bool,
   process_loaded_item: ProcessLoadedItemFn<LoadedItem>,
 ) -> JoinHandle<(String, InfuResult<()>)>
 where
@@ -658,7 +676,8 @@ where
   let worker_data_dir = data_dir.to_owned();
   let worker_service_url = service_url.to_owned();
   tokio::spawn(async move {
-    let result = process_loaded_item(&worker_data_dir, &worker_service_url, db, loaded_item, true).await;
+    let result =
+      process_loaded_item(&worker_data_dir, &worker_service_url, db, loaded_item, true, overwrite_existing).await;
     (item_id, result)
   })
 }
@@ -722,6 +741,7 @@ fn process_loaded_pdf_extraction_boxed<'a>(
   db: Arc<Mutex<Db>>,
   loaded: LoadedPdfExtraction,
   retry_endpoint_unavailable: bool,
+  _overwrite_existing: bool,
 ) -> ProcessLoadedItemFuture<'a> {
   Box::pin(process_loaded_pdf_extraction(data_dir, service_url, db, loaded, retry_endpoint_unavailable))
 }
@@ -732,6 +752,14 @@ fn process_loaded_image_tagging_boxed<'a>(
   db: Arc<Mutex<Db>>,
   loaded: LoadedImageTagging,
   retry_endpoint_unavailable: bool,
+  overwrite_existing: bool,
 ) -> ProcessLoadedItemFuture<'a> {
-  Box::pin(process_loaded_image_tagging(data_dir, service_url, db, loaded, retry_endpoint_unavailable))
+  Box::pin(process_loaded_image_tagging(
+    data_dir,
+    service_url,
+    db,
+    loaded,
+    retry_endpoint_unavailable,
+    ImageTagArtifactPolicy::cli(overwrite_existing),
+  ))
 }

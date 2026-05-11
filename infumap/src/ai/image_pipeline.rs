@@ -18,8 +18,9 @@ use crate::ai::geo::{
   geoapify_url_from_config, reverse_geocode_candidate_if_needed,
 };
 use crate::ai::image_tagging::{
-  image_tagging_manifest_is_complete, image_tagging_manifest_is_failed, image_tagging_manifest_is_successful,
-  item_needs_image_tagging, load_image_for_tagging, process_loaded_image_tagging, should_tag_image_item,
+  ImageTagArtifactPolicy, image_tagging_manifest_is_complete, image_tagging_manifest_is_failed,
+  image_tagging_manifest_is_successful, item_needs_image_tagging, load_image_for_tagging, process_loaded_image_tagging,
+  should_tag_image_item,
 };
 use crate::ai::indexing::rebuild_all_fragment_indexes;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
@@ -269,7 +270,15 @@ async fn reconcile_source_image_item(
     return Ok(());
   };
   let loaded = load_image_for_tagging(db.clone(), object_store, &candidate.item_id).await?;
-  process_loaded_image_tagging(&config.data_dir, image_tagging_url, db, loaded, true).await
+  process_loaded_image_tagging(
+    &config.data_dir,
+    image_tagging_url,
+    db,
+    loaded,
+    true,
+    ImageTagArtifactPolicy::web_background(),
+  )
+  .await
 }
 
 async fn run_reverse_geo_loop(
