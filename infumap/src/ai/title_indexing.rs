@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, info, warn};
@@ -8,6 +8,7 @@ use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
 use tokio::sync::{Mutex, mpsc};
 use tokio::task;
+use tokio::time::{Instant as TokioInstant, timeout_at};
 
 use crate::ai::fragment::sources::{ItemTitleFragment, item_title_fragment_for_item};
 use crate::ai::lexical_index::{
@@ -17,7 +18,24 @@ use crate::ai::lexical_index::{
 use crate::ai::vector_db::ensure_user_index_dir;
 use crate::storage::db::Db;
 
-static ITEM_TITLE_INDEXING_QUEUE: OnceCell<mpsc::UnboundedSender<String>> = OnceCell::new();
+const ITEM_TITLE_INDEXING_DEBOUNCE_SECS: u64 = 10;
+const ITEM_TITLE_INDEXING_MAX_DEBOUNCE_SECS: u64 = 60;
+
+static ITEM_TITLE_INDEXING_QUEUE: OnceCell<mpsc::UnboundedSender<ItemTitleIndexingRequest>> = OnceCell::new();
+
+enum ItemTitleIndexingRequest {
+  Immediate(String),
+  Debounced(String),
+}
+
+impl ItemTitleIndexingRequest {
+  fn user_id(&self) -> &str {
+    match self {
+      ItemTitleIndexingRequest::Immediate(user_id) => user_id,
+      ItemTitleIndexingRequest::Debounced(user_id) => user_id,
+    }
+  }
+}
 
 pub fn init_item_title_indexing_loop(data_dir: String, db: Arc<Mutex<Db>>) -> InfuResult<()> {
   if ITEM_TITLE_INDEXING_QUEUE.get().is_some() {
@@ -39,10 +57,15 @@ pub fn init_item_title_indexing_loop(data_dir: String, db: Arc<Mutex<Db>>) -> In
 }
 
 pub fn enqueue_item_title_index_reconcile_for_user(user_id: &str) {
+  enqueue_item_title_indexing_request(ItemTitleIndexingRequest::Debounced(user_id.to_owned()));
+}
+
+fn enqueue_item_title_indexing_request(request: ItemTitleIndexingRequest) {
   let Some(sender) = ITEM_TITLE_INDEXING_QUEUE.get() else {
     return;
   };
-  if let Err(e) = sender.send(user_id.to_owned()) {
+  let user_id = request.user_id().to_owned();
+  if let Err(e) = sender.send(request) {
     warn!("Could not enqueue item title lexical index reconciliation for user '{}': {}", user_id, e);
   }
 }
@@ -55,7 +78,7 @@ fn enqueue_all_loaded_users(db: Arc<Mutex<Db>>) {
     };
     user_ids.sort();
     for user_id in user_ids {
-      enqueue_item_title_index_reconcile_for_user(&user_id);
+      enqueue_item_title_indexing_request(ItemTitleIndexingRequest::Immediate(user_id));
     }
   });
 }
@@ -63,15 +86,40 @@ fn enqueue_all_loaded_users(db: Arc<Mutex<Db>>) {
 async fn run_item_title_indexing_loop(
   data_dir: String,
   db: Arc<Mutex<Db>>,
-  mut receiver: mpsc::UnboundedReceiver<String>,
+  mut receiver: mpsc::UnboundedReceiver<ItemTitleIndexingRequest>,
 ) {
   enqueue_all_loaded_users(db.clone());
 
   let mut queued_user_ids = HashSet::<String>::new();
-  while let Some(user_id) = receiver.recv().await {
-    queued_user_ids.insert(user_id);
-    while let Ok(user_id) = receiver.try_recv() {
-      queued_user_ids.insert(user_id);
+  while let Some(request) = receiver.recv().await {
+    let mut has_immediate_request = queue_item_title_indexing_request(&mut queued_user_ids, request);
+    has_immediate_request |= drain_pending_item_title_indexing_requests(&mut receiver, &mut queued_user_ids);
+
+    if !has_immediate_request {
+      debug!("Debouncing item title lexical index reconciliation for {} second(s).", ITEM_TITLE_INDEXING_DEBOUNCE_SECS);
+      let max_debounce_deadline = TokioInstant::now() + Duration::from_secs(ITEM_TITLE_INDEXING_MAX_DEBOUNCE_SECS);
+      loop {
+        let quiet_deadline = TokioInstant::now() + Duration::from_secs(ITEM_TITLE_INDEXING_DEBOUNCE_SECS);
+        let next_deadline = quiet_deadline.min(max_debounce_deadline);
+        match timeout_at(next_deadline, receiver.recv()).await {
+          Ok(Some(request)) => {
+            has_immediate_request = queue_item_title_indexing_request(&mut queued_user_ids, request);
+            has_immediate_request |= drain_pending_item_title_indexing_requests(&mut receiver, &mut queued_user_ids);
+            if has_immediate_request {
+              break;
+            }
+            if TokioInstant::now() >= max_debounce_deadline {
+              debug!(
+                "Item title lexical index debounce reached {} second max wait with pending update(s).",
+                ITEM_TITLE_INDEXING_MAX_DEBOUNCE_SECS
+              );
+              break;
+            }
+          }
+          Ok(None) => break,
+          Err(_) => break,
+        }
+      }
     }
 
     let mut user_ids = queued_user_ids.drain().collect::<Vec<_>>();
@@ -82,6 +130,30 @@ async fn run_item_title_indexing_loop(
       }
     }
   }
+}
+
+fn queue_item_title_indexing_request(queued_user_ids: &mut HashSet<String>, request: ItemTitleIndexingRequest) -> bool {
+  match request {
+    ItemTitleIndexingRequest::Immediate(user_id) => {
+      queued_user_ids.insert(user_id);
+      true
+    }
+    ItemTitleIndexingRequest::Debounced(user_id) => {
+      queued_user_ids.insert(user_id);
+      false
+    }
+  }
+}
+
+fn drain_pending_item_title_indexing_requests(
+  receiver: &mut mpsc::UnboundedReceiver<ItemTitleIndexingRequest>,
+  queued_user_ids: &mut HashSet<String>,
+) -> bool {
+  let mut has_immediate_request = false;
+  while let Ok(request) = receiver.try_recv() {
+    has_immediate_request |= queue_item_title_indexing_request(queued_user_ids, request);
+  }
+  has_immediate_request
 }
 
 async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<Db>>, user_id: &str) -> InfuResult<()> {
