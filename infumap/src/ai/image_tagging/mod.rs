@@ -35,8 +35,11 @@ mod artifacts;
 
 #[allow(unused_imports)]
 pub use artifacts::FailedImageTagInfo;
+pub use artifacts::ImageTagManifestStatus;
 pub use artifacts::{delete_item_image_tag_dir, item_needs_image_tagging, list_failed_images};
-pub use artifacts::{image_tagging_manifest_is_complete, image_tagging_manifest_is_successful};
+pub use artifacts::{
+  image_tagging_manifest_is_complete, image_tagging_manifest_is_successful, image_tagging_manifest_status,
+};
 
 use self::artifacts::{
   ImageTagArtifact, clear_item_image_tag_dir, existing_image_tag_artifact_paths, write_failed_manifest,

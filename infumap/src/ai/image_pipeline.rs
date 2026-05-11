@@ -13,12 +13,14 @@ use tokio::time::sleep;
 
 use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
 use crate::ai::geo::{
-  GeoCandidate, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete, geoapify_api_key_from_config,
-  geoapify_max_requests_per_minute_from_config, geoapify_url_from_config, reverse_geocode_candidate_if_needed,
+  GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
+  geo_manifest_status, geoapify_api_key_from_config, geoapify_max_requests_per_minute_from_config,
+  geoapify_url_from_config, reverse_geocode_candidate_if_needed,
 };
 use crate::ai::image_tagging::{
-  ImageTagArtifactPolicy, image_tagging_manifest_is_complete, image_tagging_manifest_is_successful,
-  item_needs_image_tagging, load_image_for_tagging, process_loaded_image_tagging, should_tag_image_item,
+  ImageTagArtifactPolicy, ImageTagManifestStatus, image_tagging_manifest_is_complete,
+  image_tagging_manifest_is_successful, image_tagging_manifest_status, item_needs_image_tagging,
+  load_image_for_tagging, process_loaded_image_tagging, should_tag_image_item,
 };
 use crate::ai::indexing::rebuild_all_fragment_indexes;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
@@ -71,6 +73,19 @@ struct ImageSemanticPipelineState {
   source: StageQueue,
   geo: StageQueue,
   fragment: StageQueue,
+}
+
+#[derive(Default)]
+struct StartupReconciliationSummary {
+  tag_succeeded: usize,
+  tag_failed: usize,
+  tag_pending: usize,
+  tag_unreadable: usize,
+  geo_succeeded: usize,
+  geo_failed: usize,
+  geo_skipped: usize,
+  geo_pending_after_successful_tag: usize,
+  geo_unreadable: usize,
 }
 
 #[derive(Clone)]
@@ -535,8 +550,9 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
     let candidate_count = candidates.len();
     let mut source_candidates = vec![];
     let mut geo_candidates = vec![];
+    let mut summary = StartupReconciliationSummary::default();
     for candidate in candidates {
-      match startup_stage_for_candidate(&config, &candidate).await {
+      match startup_stage_for_candidate(&config, &candidate, &mut summary).await {
         Ok(Some(PipelineStage::Source)) => source_candidates.push(candidate),
         Ok(Some(PipelineStage::Geo)) => geo_candidates.push(candidate),
         Ok(Some(PipelineStage::Fragment)) => {}
@@ -555,12 +571,21 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
     let source_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Source, source_candidates);
     let geo_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Geo, geo_candidates);
     info!(
-      "Image semantic pipeline startup reconciliation saw {} supported image item(s), queued source={} of {} and reverse_geo={} of {}; queues: {}.",
+      "Image semantic pipeline startup reconciliation saw {} supported image item(s), queued source={} of {} and reverse_geo={} of {}; image_tags: succeeded={}, failed={}, pending={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
       candidate_count,
       source_enqueued_count,
       source_candidate_count,
       geo_enqueued_count,
       geo_candidate_count,
+      summary.tag_succeeded,
+      summary.tag_failed,
+      summary.tag_pending,
+      summary.tag_unreadable,
+      summary.geo_succeeded,
+      summary.geo_failed,
+      summary.geo_skipped,
+      summary.geo_pending_after_successful_tag,
+      summary.geo_unreadable,
       queue_depth_summary(&state)
     );
   });
@@ -569,21 +594,57 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
 async fn startup_stage_for_candidate(
   config: &ImageSemanticPipelineConfig,
   candidate: &ImagePipelineCandidate,
+  summary: &mut StartupReconciliationSummary,
 ) -> InfuResult<Option<PipelineStage>> {
-  if config.image_tagging_url.is_some()
-    && !image_tagging_manifest_is_complete(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
-  {
-    return Ok(Some(PipelineStage::Source));
+  let tag_status = match image_tagging_manifest_status(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
+    Ok(status) => status,
+    Err(e) => {
+      summary.tag_unreadable += 1;
+      return Err(e);
+    }
+  };
+
+  match tag_status {
+    Some(ImageTagManifestStatus::Succeeded) => {
+      summary.tag_succeeded += 1;
+    }
+    Some(ImageTagManifestStatus::Failed) => {
+      summary.tag_failed += 1;
+    }
+    None => {
+      summary.tag_pending += 1;
+      if config.image_tagging_url.is_some() {
+        return Ok(Some(PipelineStage::Source));
+      }
+    }
   }
 
-  if config.geo_api_key.is_some()
-    && image_tagging_manifest_is_successful(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
-    && !geo_manifest_is_complete(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
-  {
-    return Ok(Some(PipelineStage::Geo));
+  if config.geo_api_key.is_none() || tag_status != Some(ImageTagManifestStatus::Succeeded) {
+    return Ok(None);
   }
 
-  Ok(None)
+  match geo_manifest_status(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
+    Ok(Some(GeoManifestStatus::Succeeded)) => {
+      summary.geo_succeeded += 1;
+      Ok(None)
+    }
+    Ok(Some(GeoManifestStatus::Failed)) => {
+      summary.geo_failed += 1;
+      Ok(None)
+    }
+    Ok(Some(GeoManifestStatus::Skipped)) => {
+      summary.geo_skipped += 1;
+      Ok(None)
+    }
+    Ok(None) => {
+      summary.geo_pending_after_successful_tag += 1;
+      Ok(Some(PipelineStage::Geo))
+    }
+    Err(e) => {
+      summary.geo_unreadable += 1;
+      Err(e)
+    }
+  }
 }
 
 fn enqueue_candidate_for_all_stages(state: &mut ImageSemanticPipelineState, candidate: ImagePipelineCandidate) -> bool {

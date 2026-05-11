@@ -120,6 +120,12 @@ pub(super) enum ManifestCheckResult {
   AlreadyFailed,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImageTagManifestStatus {
+  Succeeded,
+  Failed,
+}
+
 pub async fn list_failed_images(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<Vec<FailedImageTagInfo>> {
   let mut out = vec![];
   let image_items: Vec<(String, String, String)> = {
@@ -196,17 +202,29 @@ pub async fn item_needs_image_tagging(data_dir: &str, db: Arc<Mutex<Db>>, item_i
 }
 
 pub async fn image_tagging_manifest_is_complete(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
-  Ok(image_tagging_manifest_status(data_dir, user_id, item_id).await?.is_some())
+  Ok(image_tagging_manifest_check_result(data_dir, user_id, item_id).await?.is_some())
 }
 
 pub async fn image_tagging_manifest_is_successful(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
   Ok(matches!(
-    image_tagging_manifest_status(data_dir, user_id, item_id).await?,
+    image_tagging_manifest_check_result(data_dir, user_id, item_id).await?,
     Some(ManifestCheckResult::AlreadySucceeded)
   ))
 }
 
-async fn image_tagging_manifest_status(
+pub async fn image_tagging_manifest_status(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<Option<ImageTagManifestStatus>> {
+  Ok(match image_tagging_manifest_check_result(data_dir, user_id, item_id).await? {
+    Some(ManifestCheckResult::AlreadySucceeded) => Some(ImageTagManifestStatus::Succeeded),
+    Some(ManifestCheckResult::AlreadyFailed) => Some(ImageTagManifestStatus::Failed),
+    Some(ManifestCheckResult::NeedsTagging) | None => None,
+  })
+}
+
+async fn image_tagging_manifest_check_result(
   data_dir: &str,
   user_id: &str,
   item_id: &str,
