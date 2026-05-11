@@ -18,9 +18,10 @@ use crate::ai::geo::{
   geoapify_url_from_config, reverse_geocode_candidate_if_needed,
 };
 use crate::ai::image_tagging::{
-  ImageTagArtifactPolicy, ImageTagArtifactState, WebImageTagArtifactReadiness, image_tagging_artifact_state,
-  image_tagging_manifest_is_complete, image_tagging_manifest_is_successful, load_image_for_tagging,
-  prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
+  ImageTagArtifactPolicy, ImageTagArtifactState, LoadedImageTagging, WebImageTagArtifactReadiness,
+  image_tagging_artifact_state, image_tagging_manifest_is_complete, image_tagging_manifest_is_successful,
+  load_image_for_tagging, prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging,
+  should_tag_image_item,
 };
 use crate::ai::indexing::rebuild_all_fragment_indexes;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
@@ -104,6 +105,14 @@ enum SourceImageReconcileOutcome {
   ReadyForDownstream,
   NotReady,
 }
+
+enum SourceImagePrefetchReadiness {
+  NeedsPrefetch,
+  ReadyForDownstream,
+  NotReady,
+}
+
+type SourceImagePrefetchHandle = task::JoinHandle<(ImagePipelineCandidate, InfuResult<LoadedImageTagging>)>;
 
 pub fn init_image_semantic_pipeline_loop(
   config: Arc<Config>,
@@ -237,25 +246,30 @@ async fn run_source_image_loop(
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ImageSemanticPipelineState>>,
 ) {
-  loop {
-    let candidate = {
-      let mut state = state.lock().await;
-      pop_candidate(&mut state, PipelineStage::Source)
-    };
+  let mut next_prefetch: Option<SourceImagePrefetchHandle> = None;
 
-    let Some(candidate) = candidate else {
-      sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
+  loop {
+    if next_prefetch.is_none() {
+      next_prefetch = start_next_source_image_prefetch(&config, db.clone(), object_store.clone(), state.clone()).await;
+      if next_prefetch.is_none() {
+        sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
+        continue;
+      }
+    }
+
+    let Some(current_prefetch) = next_prefetch.take() else {
+      continue;
+    };
+    let Some((candidate, loaded)) = await_source_image_prefetch(current_prefetch).await else {
       continue;
     };
 
-    match reconcile_source_image_item(&config, db.clone(), object_store.clone(), &candidate).await {
+    next_prefetch = start_next_source_image_prefetch(&config, db.clone(), object_store.clone(), state.clone()).await;
+
+    match process_prefetched_source_image_item(&config, db.clone(), &candidate, loaded).await {
       Ok(SourceImageReconcileOutcome::ReadyForDownstream) => {
         let mut state = state.lock().await;
-        if config.geo_api_key.is_some() {
-          enqueue_candidate_with_log(&mut state, PipelineStage::Geo, candidate, "after source stage");
-        } else if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-          enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "after source stage");
-        }
+        enqueue_source_candidate_downstream_if_needed(&config, &mut state, candidate, "after source stage");
       }
       Ok(SourceImageReconcileOutcome::NotReady) => {}
       Err(e) => {
@@ -265,37 +279,98 @@ async fn run_source_image_loop(
   }
 }
 
-async fn reconcile_source_image_item(
+async fn start_next_source_image_prefetch(
   config: &ImageSemanticPipelineConfig,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
+  state: Arc<Mutex<ImageSemanticPipelineState>>,
+) -> Option<SourceImagePrefetchHandle> {
+  loop {
+    let candidate = {
+      let mut state = state.lock().await;
+      pop_candidate(&mut state, PipelineStage::Source)
+    };
+
+    let Some(candidate) = candidate else {
+      return None;
+    };
+
+    match source_image_prefetch_readiness(config, db.clone(), &candidate).await {
+      Ok(SourceImagePrefetchReadiness::NeedsPrefetch) => {
+        let item_id = candidate.item_id.clone();
+        let prefetch_db = db.clone();
+        let prefetch_object_store = object_store.clone();
+        return Some(task::spawn(async move {
+          let loaded = load_image_for_tagging(prefetch_db, prefetch_object_store, &item_id).await;
+          (candidate, loaded)
+        }));
+      }
+      Ok(SourceImagePrefetchReadiness::ReadyForDownstream) => {
+        let mut state = state.lock().await;
+        enqueue_source_candidate_downstream_if_needed(config, &mut state, candidate, "after source prefetch check");
+      }
+      Ok(SourceImagePrefetchReadiness::NotReady) => {}
+      Err(e) => {
+        error!("Image source pipeline failed for image '{}' (user '{}'): {}", candidate.item_id, candidate.user_id, e);
+      }
+    }
+  }
+}
+
+async fn await_source_image_prefetch(
+  prefetch: SourceImagePrefetchHandle,
+) -> Option<(ImagePipelineCandidate, LoadedImageTagging)> {
+  match prefetch.await {
+    Ok((candidate, Ok(loaded))) => Some((candidate, loaded)),
+    Ok((candidate, Err(e))) => {
+      error!("Image source prefetch failed for image '{}' (user '{}'): {}", candidate.item_id, candidate.user_id, e);
+      None
+    }
+    Err(e) => {
+      error!("Image source prefetch task failed: {}", e);
+      None
+    }
+  }
+}
+
+async fn source_image_prefetch_readiness(
+  config: &ImageSemanticPipelineConfig,
+  db: Arc<Mutex<Db>>,
   candidate: &ImagePipelineCandidate,
-) -> InfuResult<SourceImageReconcileOutcome> {
+) -> InfuResult<SourceImagePrefetchReadiness> {
   if !item_still_supported(db.clone(), candidate).await? {
-    return Ok(SourceImageReconcileOutcome::NotReady);
+    return Ok(SourceImagePrefetchReadiness::NotReady);
   }
 
   if config.image_tagging_url.is_none() {
     return Ok(match image_tagging_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
-      ImageTagArtifactState::Succeeded => SourceImageReconcileOutcome::ReadyForDownstream,
+      ImageTagArtifactState::Succeeded => SourceImagePrefetchReadiness::ReadyForDownstream,
       ImageTagArtifactState::Empty
       | ImageTagArtifactState::Incomplete(_)
       | ImageTagArtifactState::UnsupportedSchemaVersion { .. }
-      | ImageTagArtifactState::Failed => SourceImageReconcileOutcome::NotReady,
+      | ImageTagArtifactState::Failed => SourceImagePrefetchReadiness::NotReady,
     });
   }
 
   match prepare_image_tag_artifacts_for_web_background(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
   {
-    WebImageTagArtifactReadiness::CompleteSuccess => return Ok(SourceImageReconcileOutcome::ReadyForDownstream),
-    WebImageTagArtifactReadiness::CompleteFailure => return Ok(SourceImageReconcileOutcome::NotReady),
+    WebImageTagArtifactReadiness::CompleteSuccess => return Ok(SourceImagePrefetchReadiness::ReadyForDownstream),
+    WebImageTagArtifactReadiness::CompleteFailure => return Ok(SourceImagePrefetchReadiness::NotReady),
     WebImageTagArtifactReadiness::Ready => {}
   }
 
+  Ok(SourceImagePrefetchReadiness::NeedsPrefetch)
+}
+
+async fn process_prefetched_source_image_item(
+  config: &ImageSemanticPipelineConfig,
+  db: Arc<Mutex<Db>>,
+  candidate: &ImagePipelineCandidate,
+  loaded: LoadedImageTagging,
+) -> InfuResult<SourceImageReconcileOutcome> {
   let Some(image_tagging_url) = config.image_tagging_url.as_deref() else {
     return Ok(SourceImageReconcileOutcome::NotReady);
   };
-  let loaded = load_image_for_tagging(db.clone(), object_store, &candidate.item_id).await?;
   process_loaded_image_tagging(
     &config.data_dir,
     image_tagging_url,
@@ -310,6 +385,19 @@ async fn reconcile_source_image_item(
     Ok(SourceImageReconcileOutcome::ReadyForDownstream)
   } else {
     Ok(SourceImageReconcileOutcome::NotReady)
+  }
+}
+
+fn enqueue_source_candidate_downstream_if_needed(
+  config: &ImageSemanticPipelineConfig,
+  state: &mut ImageSemanticPipelineState,
+  candidate: ImagePipelineCandidate,
+  reason: &str,
+) {
+  if config.geo_api_key.is_some() {
+    enqueue_candidate_with_log(state, PipelineStage::Geo, candidate, reason);
+  } else if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
+    enqueue_candidate_with_log(state, PipelineStage::Fragment, candidate, reason);
   }
 }
 
