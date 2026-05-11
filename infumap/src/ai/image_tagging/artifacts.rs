@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_json::map::Map as JsonMap;
 use std::collections::{BTreeMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
@@ -118,12 +119,28 @@ pub(super) enum ManifestCheckResult {
   NeedsTagging,
   AlreadySucceeded,
   AlreadyFailed,
+  AlreadyUnsupported,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ImageTagManifestStatus {
   Succeeded,
   Failed,
+}
+
+#[derive(Clone, Debug)]
+pub struct IncompleteImageTagArtifactInfo {
+  pub paths: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub enum ImageTagArtifactState {
+  Empty,
+  Succeeded,
+  Failed,
+  UnsupportedSchemaVersion { path: String, schema_version: u32 },
+  Incomplete(IncompleteImageTagArtifactInfo),
 }
 
 pub async fn list_failed_images(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<Vec<FailedImageTagInfo>> {
@@ -212,6 +229,7 @@ pub async fn image_tagging_manifest_is_successful(data_dir: &str, user_id: &str,
   ))
 }
 
+#[allow(dead_code)]
 pub async fn image_tagging_manifest_status(
   data_dir: &str,
   user_id: &str,
@@ -220,8 +238,60 @@ pub async fn image_tagging_manifest_status(
   Ok(match image_tagging_manifest_check_result(data_dir, user_id, item_id).await? {
     Some(ManifestCheckResult::AlreadySucceeded) => Some(ImageTagManifestStatus::Succeeded),
     Some(ManifestCheckResult::AlreadyFailed) => Some(ImageTagManifestStatus::Failed),
-    Some(ManifestCheckResult::NeedsTagging) | None => None,
+    Some(ManifestCheckResult::NeedsTagging) | Some(ManifestCheckResult::AlreadyUnsupported) | None => None,
   })
+}
+
+pub async fn image_tagging_artifact_state(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<ImageTagArtifactState> {
+  let manifest_path = item_text_manifest_path(data_dir, user_id, item_id)?;
+  let text_path = item_text_content_path(data_dir, user_id, item_id)?;
+  let manifest_exists = path_exists(&manifest_path).await;
+  let text_exists = path_exists(&text_path).await;
+
+  if !manifest_exists && !text_exists {
+    return Ok(ImageTagArtifactState::Empty);
+  }
+
+  let existing_path_bufs =
+    existing_image_tag_artifact_path_bufs(&manifest_path, manifest_exists, &text_path, text_exists);
+  let incomplete_info = || async {
+    Ok(ImageTagArtifactState::Incomplete(IncompleteImageTagArtifactInfo {
+      paths: existing_path_bufs.iter().map(|path| path.display().to_string()).collect(),
+    }))
+  };
+
+  if !manifest_exists {
+    return incomplete_info().await;
+  }
+
+  let manifest_bytes = match fs::read(&manifest_path).await {
+    Ok(bytes) => bytes,
+    Err(_) => return incomplete_info().await,
+  };
+  let manifest: ImageTagManifest = match serde_json::from_slice(&manifest_bytes) {
+    Ok(manifest) => manifest,
+    Err(_) => return incomplete_info().await,
+  };
+  if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
+    return Ok(ImageTagArtifactState::UnsupportedSchemaVersion {
+      path: manifest_path.display().to_string(),
+      schema_version: manifest.schema_version,
+    });
+  }
+
+  if manifest.status == "succeeded" {
+    return if text_exists { Ok(ImageTagArtifactState::Succeeded) } else { incomplete_info().await };
+  }
+
+  if manifest.status == "failed" {
+    return Ok(ImageTagArtifactState::Failed);
+  }
+
+  incomplete_info().await
 }
 
 async fn image_tagging_manifest_check_result(
@@ -229,26 +299,12 @@ async fn image_tagging_manifest_check_result(
   user_id: &str,
   item_id: &str,
 ) -> InfuResult<Option<ManifestCheckResult>> {
-  let manifest_path = item_text_manifest_path(data_dir, user_id, item_id)?;
-  let text_path = item_text_content_path(data_dir, user_id, item_id)?;
-  if !path_exists(&manifest_path).await {
-    return Ok(None);
-  }
-  let manifest_bytes = fs::read(&manifest_path).await?;
-  let manifest = match serde_json::from_slice::<ImageTagManifest>(&manifest_bytes) {
-    Ok(manifest) => manifest,
-    Err(_) => return Ok(None),
-  };
-  if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
-    return Ok(None);
-  }
-  if manifest.status == "succeeded" {
-    return Ok(path_exists(&text_path).await.then_some(ManifestCheckResult::AlreadySucceeded));
-  }
-  if manifest.status == "failed" {
-    return Ok(Some(ManifestCheckResult::AlreadyFailed));
-  }
-  Ok(None)
+  Ok(match image_tagging_artifact_state(data_dir, user_id, item_id).await? {
+    ImageTagArtifactState::Succeeded => Some(ManifestCheckResult::AlreadySucceeded),
+    ImageTagArtifactState::Failed => Some(ManifestCheckResult::AlreadyFailed),
+    ImageTagArtifactState::UnsupportedSchemaVersion { .. } => Some(ManifestCheckResult::AlreadyUnsupported),
+    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) => None,
+  })
 }
 
 pub async fn delete_item_image_tag_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<()> {
@@ -273,34 +329,12 @@ pub(super) async fn existing_image_tag_artifact_paths(
 }
 
 pub(super) async fn manifest_check(data_dir: &str, candidate: &ImageCandidate) -> InfuResult<ManifestCheckResult> {
-  let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-
-  if !path_exists(&manifest_path).await {
-    return Ok(ManifestCheckResult::NeedsTagging);
-  }
-  let manifest_bytes = fs::read(&manifest_path).await?;
-  let manifest: ImageTagManifest = match serde_json::from_slice(&manifest_bytes) {
-    Ok(manifest) => manifest,
-    Err(_) => return Ok(ManifestCheckResult::NeedsTagging),
-  };
-
-  if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
-    return Ok(ManifestCheckResult::NeedsTagging);
-  }
-
-  if manifest.status == "succeeded" {
-    if path_exists(&text_path).await {
-      return Ok(ManifestCheckResult::AlreadySucceeded);
-    }
-    return Ok(ManifestCheckResult::NeedsTagging);
-  }
-
-  if manifest.status == "failed" {
-    return Ok(ManifestCheckResult::AlreadyFailed);
-  }
-
-  Ok(ManifestCheckResult::NeedsTagging)
+  Ok(match image_tagging_artifact_state(data_dir, &candidate.user_id, &candidate.item_id).await? {
+    ImageTagArtifactState::Succeeded => ManifestCheckResult::AlreadySucceeded,
+    ImageTagArtifactState::Failed => ManifestCheckResult::AlreadyFailed,
+    ImageTagArtifactState::UnsupportedSchemaVersion { .. } => ManifestCheckResult::AlreadyUnsupported,
+    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) => ManifestCheckResult::NeedsTagging,
+  })
 }
 
 pub(super) async fn write_success_artifacts(
@@ -376,6 +410,22 @@ pub(super) async fn clear_item_image_tag_dir(data_dir: &str, user_id: &str, item
 
 fn take_optional_string(map: &mut JsonMap<String, Value>, key: &str) -> Option<String> {
   map.remove(key).and_then(value_as_string)
+}
+
+fn existing_image_tag_artifact_path_bufs(
+  manifest_path: &PathBuf,
+  manifest_exists: bool,
+  text_path: &PathBuf,
+  text_exists: bool,
+) -> Vec<PathBuf> {
+  let mut paths = vec![];
+  if text_exists {
+    paths.push(text_path.clone());
+  }
+  if manifest_exists {
+    paths.push(manifest_path.clone());
+  }
+  paths
 }
 
 fn take_string_list(map: &mut JsonMap<String, Value>, key: &str) -> Vec<String> {

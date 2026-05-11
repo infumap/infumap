@@ -18,9 +18,9 @@ use crate::ai::geo::{
   geoapify_url_from_config, reverse_geocode_candidate_if_needed,
 };
 use crate::ai::image_tagging::{
-  ImageTagArtifactPolicy, ImageTagManifestStatus, image_tagging_manifest_is_complete,
-  image_tagging_manifest_is_successful, image_tagging_manifest_status, item_needs_image_tagging,
-  load_image_for_tagging, process_loaded_image_tagging, should_tag_image_item,
+  ImageTagArtifactPolicy, ImageTagArtifactState, WebImageTagArtifactReadiness, image_tagging_artifact_state,
+  image_tagging_manifest_is_complete, image_tagging_manifest_is_successful, load_image_for_tagging,
+  prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
 };
 use crate::ai::indexing::rebuild_all_fragment_indexes;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
@@ -80,6 +80,8 @@ struct StartupReconciliationSummary {
   tag_succeeded: usize,
   tag_failed: usize,
   tag_pending: usize,
+  tag_incomplete: usize,
+  tag_unsupported_schema: usize,
   tag_unreadable: usize,
   geo_succeeded: usize,
   geo_failed: usize,
@@ -96,6 +98,11 @@ struct ImageSemanticPipelineConfig {
   geo_api_key: Option<String>,
   geo_service_url: String,
   geo_max_requests_per_minute: u64,
+}
+
+enum SourceImageReconcileOutcome {
+  ReadyForDownstream,
+  NotReady,
 }
 
 pub fn init_image_semantic_pipeline_loop(
@@ -242,7 +249,7 @@ async fn run_source_image_loop(
     };
 
     match reconcile_source_image_item(&config, db.clone(), object_store.clone(), &candidate).await {
-      Ok(()) => {
+      Ok(SourceImageReconcileOutcome::ReadyForDownstream) => {
         let mut state = state.lock().await;
         if config.geo_api_key.is_some() {
           enqueue_candidate_with_log(&mut state, PipelineStage::Geo, candidate, "after source stage");
@@ -250,6 +257,7 @@ async fn run_source_image_loop(
           enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "after source stage");
         }
       }
+      Ok(SourceImageReconcileOutcome::NotReady) => {}
       Err(e) => {
         error!("Image source pipeline failed for image '{}' (user '{}'): {}", candidate.item_id, candidate.user_id, e);
       }
@@ -262,21 +270,30 @@ async fn reconcile_source_image_item(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   candidate: &ImagePipelineCandidate,
-) -> InfuResult<()> {
+) -> InfuResult<SourceImageReconcileOutcome> {
   if !item_still_supported(db.clone(), candidate).await? {
-    return Ok(());
+    return Ok(SourceImageReconcileOutcome::NotReady);
   }
 
-  let needs_tagging = match config.image_tagging_url.as_deref() {
-    Some(_) => item_needs_image_tagging(&config.data_dir, db.clone(), &candidate.item_id).await?,
-    None => false,
-  };
-  if !needs_tagging {
-    return Ok(());
+  if config.image_tagging_url.is_none() {
+    return Ok(match image_tagging_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
+      ImageTagArtifactState::Succeeded => SourceImageReconcileOutcome::ReadyForDownstream,
+      ImageTagArtifactState::Empty
+      | ImageTagArtifactState::Incomplete(_)
+      | ImageTagArtifactState::UnsupportedSchemaVersion { .. }
+      | ImageTagArtifactState::Failed => SourceImageReconcileOutcome::NotReady,
+    });
+  }
+
+  match prepare_image_tag_artifacts_for_web_background(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
+  {
+    WebImageTagArtifactReadiness::CompleteSuccess => return Ok(SourceImageReconcileOutcome::ReadyForDownstream),
+    WebImageTagArtifactReadiness::CompleteFailure => return Ok(SourceImageReconcileOutcome::NotReady),
+    WebImageTagArtifactReadiness::Ready => {}
   }
 
   let Some(image_tagging_url) = config.image_tagging_url.as_deref() else {
-    return Ok(());
+    return Ok(SourceImageReconcileOutcome::NotReady);
   };
   let loaded = load_image_for_tagging(db.clone(), object_store, &candidate.item_id).await?;
   process_loaded_image_tagging(
@@ -287,7 +304,13 @@ async fn reconcile_source_image_item(
     true,
     ImageTagArtifactPolicy::web_background(),
   )
-  .await
+  .await?;
+
+  if image_tagging_manifest_is_successful(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
+    Ok(SourceImageReconcileOutcome::ReadyForDownstream)
+  } else {
+    Ok(SourceImageReconcileOutcome::NotReady)
+  }
 }
 
 async fn run_reverse_geo_loop(
@@ -571,7 +594,7 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
     let source_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Source, source_candidates);
     let geo_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Geo, geo_candidates);
     info!(
-      "Image background pipeline startup reconciliation saw {} supported image item(s), queued source={} of {} and reverse_geo={} of {}; image_tags: succeeded={}, failed={}, pending={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
+      "Image background pipeline startup reconciliation saw {} supported image item(s), queued source={} of {} and reverse_geo={} of {}; image_tags: succeeded={}, failed={}, pending={}, incomplete={}, unsupported_schema={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
       candidate_count,
       source_enqueued_count,
       source_candidate_count,
@@ -580,6 +603,8 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
       summary.tag_succeeded,
       summary.tag_failed,
       summary.tag_pending,
+      summary.tag_incomplete,
+      summary.tag_unsupported_schema,
       summary.tag_unreadable,
       summary.geo_succeeded,
       summary.geo_failed,
@@ -596,7 +621,7 @@ async fn startup_stage_for_candidate(
   candidate: &ImagePipelineCandidate,
   summary: &mut StartupReconciliationSummary,
 ) -> InfuResult<Option<PipelineStage>> {
-  let tag_status = match image_tagging_manifest_status(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
+  let tag_state = match image_tagging_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
     Ok(status) => status,
     Err(e) => {
       summary.tag_unreadable += 1;
@@ -604,22 +629,32 @@ async fn startup_stage_for_candidate(
     }
   };
 
-  match tag_status {
-    Some(ImageTagManifestStatus::Succeeded) => {
+  let tag_succeeded = matches!(tag_state, ImageTagArtifactState::Succeeded);
+  match &tag_state {
+    ImageTagArtifactState::Succeeded => {
       summary.tag_succeeded += 1;
     }
-    Some(ImageTagManifestStatus::Failed) => {
+    ImageTagArtifactState::Failed => {
       summary.tag_failed += 1;
     }
-    None => {
+    ImageTagArtifactState::Empty => {
       summary.tag_pending += 1;
       if config.image_tagging_url.is_some() {
         return Ok(Some(PipelineStage::Source));
       }
     }
+    ImageTagArtifactState::Incomplete(_) => {
+      summary.tag_incomplete += 1;
+      if config.image_tagging_url.is_some() {
+        return Ok(Some(PipelineStage::Source));
+      }
+    }
+    ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
+      summary.tag_unsupported_schema += 1;
+    }
   }
 
-  if config.geo_api_key.is_none() || tag_status != Some(ImageTagManifestStatus::Succeeded) {
+  if config.geo_api_key.is_none() || !tag_succeeded {
     return Ok(None);
   }
 

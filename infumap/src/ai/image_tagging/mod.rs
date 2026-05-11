@@ -33,12 +33,12 @@ use crate::util::retry::endpoint_retry_delay;
 
 mod artifacts;
 
+pub use artifacts::ImageTagArtifactState;
 #[allow(unused_imports)]
-pub use artifacts::FailedImageTagInfo;
-pub use artifacts::ImageTagManifestStatus;
+pub use artifacts::{FailedImageTagInfo, ImageTagManifestStatus, image_tagging_manifest_status};
 pub use artifacts::{delete_item_image_tag_dir, item_needs_image_tagging, list_failed_images};
 pub use artifacts::{
-  image_tagging_manifest_is_complete, image_tagging_manifest_is_successful, image_tagging_manifest_status,
+  image_tagging_artifact_state, image_tagging_manifest_is_complete, image_tagging_manifest_is_successful,
 };
 
 use self::artifacts::{
@@ -64,6 +64,12 @@ pub(crate) struct ImageTagArtifactPolicy {
   pub existing_artifact_action: ExistingImageTagArtifactAction,
 }
 
+pub(crate) enum WebImageTagArtifactReadiness {
+  Ready,
+  CompleteSuccess,
+  CompleteFailure,
+}
+
 impl ImageTagArtifactPolicy {
   pub(crate) fn web_background() -> ImageTagArtifactPolicy {
     ImageTagArtifactPolicy {
@@ -78,6 +84,35 @@ impl ImageTagArtifactPolicy {
       existing_artifact_action: ExistingImageTagArtifactAction::Abort,
     }
   }
+}
+
+pub(crate) async fn prepare_image_tag_artifacts_for_web_background(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<WebImageTagArtifactReadiness> {
+  Ok(match image_tagging_artifact_state(data_dir, user_id, item_id).await? {
+    ImageTagArtifactState::Empty => WebImageTagArtifactReadiness::Ready,
+    ImageTagArtifactState::Succeeded => WebImageTagArtifactReadiness::CompleteSuccess,
+    ImageTagArtifactState::Failed => WebImageTagArtifactReadiness::CompleteFailure,
+    ImageTagArtifactState::UnsupportedSchemaVersion { path, schema_version } => {
+      warn!(
+        "Image background pipeline found image tag manifest '{}' with unsupported schema version {} for image '{}' (user {}). Leaving it unchanged; migration must handle this explicitly.",
+        path, schema_version, item_id, user_id
+      );
+      WebImageTagArtifactReadiness::CompleteFailure
+    }
+    ImageTagArtifactState::Incomplete(info) => {
+      warn!(
+        "Image background pipeline found incomplete image tag artifacts for image '{}' (user {}): {}. Clearing and retrying.",
+        item_id,
+        user_id,
+        info.paths.join(", ")
+      );
+      clear_item_image_tag_dir(data_dir, user_id, item_id).await?;
+      WebImageTagArtifactReadiness::Ready
+    }
+  })
 }
 
 pub fn is_image_tag_artifact_collision_error(error: &InfuError) -> bool {
