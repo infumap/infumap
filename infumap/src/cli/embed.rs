@@ -37,7 +37,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let continue_rebuild = sub_matches.get_flag("continue");
 
   let client = build_http_client(None).await?;
-  let summary = rebuild_all_fragment_indexes(&data_dir, &client, &embed_url, continue_rebuild).await?;
+  let summary = rebuild_all_fragment_indexes(&data_dir, Some(&client), Some(&embed_url), continue_rebuild).await?;
 
   println!(
     "Processed {} user(s): rebuilt {}, skipped current {}, embedded {} vector fragment(s), indexed {} lexical fragment(s), reused {} fragment(s) from temp DB, removed {} stale empty index file(s).",

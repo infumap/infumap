@@ -614,32 +614,29 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   }
   let user_ids = dirty_user_ids.drain().collect::<Vec<_>>();
 
-  let Some(embed_url) = config.embed_url.as_ref() else {
-    debug!(
-      "Image background pipeline updated fragments for {} user(s), but text embedding is not configured; skipping fragment index rebuild.",
-      user_ids.len()
-    );
-    return;
-  };
-
-  let client = match reqwest::ClientBuilder::new().build() {
-    Ok(client) => client,
-    Err(e) => {
-      error!("Could not build embedding HTTP client for image background pipeline index rebuild: {}", e);
-      for user_id in user_ids {
-        dirty_user_ids.insert(user_id);
+  let client = if config.embed_url.is_some() {
+    match reqwest::ClientBuilder::new().build() {
+      Ok(client) => Some(client),
+      Err(e) => {
+        error!("Could not build embedding HTTP client for image background pipeline index rebuild: {}", e);
+        for user_id in user_ids {
+          dirty_user_ids.insert(user_id);
+        }
+        sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
+        return;
       }
-      sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
-      return;
     }
+  } else {
+    None
   };
 
   info!(
-    "Image background pipeline rebuilding fragment indexes after image fragment updates for {} user(s): {}.",
+    "Image background pipeline rebuilding fragment indexes after image fragment updates for {} user(s): {}; vector_embedding={}.",
     user_ids.len(),
-    user_ids.join(", ")
+    user_ids.join(", "),
+    if config.embed_url.is_some() { "enabled" } else { "disabled" }
   );
-  match rebuild_all_fragment_indexes(&config.data_dir, &client, embed_url, true).await {
+  match rebuild_all_fragment_indexes(&config.data_dir, client.as_ref(), config.embed_url.as_ref(), true).await {
     Ok(summary) => {
       info!(
         "Image background pipeline fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",

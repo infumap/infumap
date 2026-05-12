@@ -31,8 +31,8 @@ const UNKNOWN_FRAGMENT_SOURCE_KIND: &str = "unknown";
 
 pub async fn rebuild_all_fragment_indexes(
   data_dir: &str,
-  client: &reqwest::Client,
-  embed_url: &Url,
+  client: Option<&reqwest::Client>,
+  embed_url: Option<&Url>,
   continue_rebuild: bool,
 ) -> InfuResult<EmbedRebuildSummary> {
   let plans = load_fragment_index_plans(data_dir).await?;
@@ -137,8 +137,8 @@ async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmen
 async fn rebuild_user_fragment_index(
   data_dir: &str,
   plan: &UserFragmentIndexPlan,
-  client: &reqwest::Client,
-  embed_url: &Url,
+  client: Option<&reqwest::Client>,
+  embed_url: Option<&Url>,
   continue_rebuild: bool,
 ) -> InfuResult<UserRebuildOutcome> {
   ensure_user_index_dir(data_dir, &plan.user_id).await?;
@@ -148,16 +148,24 @@ async fn rebuild_user_fragment_index(
   let vector_source_digest = fragment_corpus_digest(&vector_fragments);
   let lexical_source_digest = fragment_corpus_digest(&lexical_fragments);
 
-  let vector_outcome = rebuild_user_vector_fragment_index(
-    data_dir,
-    &plan.user_id,
-    &vector_fragments,
-    &vector_source_digest,
-    client,
-    embed_url,
-    continue_rebuild,
-  )
-  .await?;
+  let vector_outcome = match (client, embed_url) {
+    (Some(client), Some(embed_url)) => {
+      rebuild_user_vector_fragment_index(
+        data_dir,
+        &plan.user_id,
+        &vector_fragments,
+        &vector_source_digest,
+        client,
+        embed_url,
+        continue_rebuild,
+      )
+      .await?
+    }
+    (None, None) => VectorRebuildOutcome { skipped_current: true, ..Default::default() },
+    _ => {
+      return Err("Text embedding client and URL must both be provided to rebuild vector fragment indexes.".into());
+    }
+  };
   let lexical_outcome = rebuild_user_fragment_lexical_index(
     data_dir,
     &plan.user_id,
