@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
+use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
 use crate::ai::geo::{
   GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
@@ -19,9 +20,8 @@ use crate::ai::geo::{
 };
 use crate::ai::image_tagging::{
   ImageTagArtifactPolicy, ImageTagArtifactState, LoadedImageTagging, WebImageTagArtifactReadiness,
-  image_tagging_artifact_state, image_tagging_manifest_is_complete, image_tagging_manifest_is_successful,
-  load_image_for_tagging, prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging,
-  should_tag_image_item,
+  image_tagging_artifact_state, image_tagging_manifest_is_successful, load_image_for_tagging,
+  prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
 };
 use crate::ai::indexing::rebuild_all_fragment_indexes;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
@@ -110,6 +110,12 @@ enum SourceImagePrefetchReadiness {
   NeedsPrefetch,
   ReadyForDownstream,
   NotReady,
+}
+
+enum ImageFragmentReadiness {
+  Ready,
+  Waiting,
+  Unavailable,
 }
 
 type SourceImagePrefetchHandle = task::JoinHandle<(ImagePipelineCandidate, InfuResult<LoadedImageTagging>)>;
@@ -533,10 +539,23 @@ async fn reconcile_image_fragment_item(
     }
   };
 
-  if !image_fragment_prerequisites_complete(config, &item_snapshot).await? {
-    sleep(Duration::from_millis(FRAGMENT_NOT_READY_WAIT_MILLIS)).await;
-    enqueue_image_semantic_pipeline_item_if_active(&item_snapshot);
-    return Ok(None);
+  match image_fragment_readiness(config, &item_snapshot).await? {
+    ImageFragmentReadiness::Ready => {}
+    ImageFragmentReadiness::Waiting => {
+      sleep(Duration::from_millis(FRAGMENT_NOT_READY_WAIT_MILLIS)).await;
+      enqueue_image_semantic_pipeline_item_if_active(&item_snapshot);
+      return Ok(None);
+    }
+    ImageFragmentReadiness::Unavailable => {
+      let outcome = clear_item_fragments(&config.data_dir, &item_snapshot).await?;
+      if outcome.cleared_existing_fragments {
+        info!(
+          "Image fragment pipeline cleared stale fragments for image '{}' (user {}) because image tagging is not successful.",
+          item_snapshot.id, item_snapshot.owner_id
+        );
+      }
+      return Ok(outcome.cleared_existing_fragments.then_some(item_snapshot.owner_id));
+    }
   }
 
   let context_title = {
@@ -562,20 +581,28 @@ async fn reconcile_image_fragment_item(
   )
 }
 
-async fn image_fragment_prerequisites_complete(config: &ImageSemanticPipelineConfig, item: &Item) -> InfuResult<bool> {
-  if config.image_tagging_url.is_some()
-    && !image_tagging_manifest_is_complete(&config.data_dir, &item.owner_id, &item.id).await?
-  {
-    return Ok(false);
+async fn image_fragment_readiness(
+  config: &ImageSemanticPipelineConfig,
+  item: &Item,
+) -> InfuResult<ImageFragmentReadiness> {
+  match image_tagging_artifact_state(&config.data_dir, &item.owner_id, &item.id).await? {
+    ImageTagArtifactState::Succeeded => {}
+    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) if config.image_tagging_url.is_some() => {
+      return Ok(ImageFragmentReadiness::Waiting);
+    }
+    ImageTagArtifactState::Empty
+    | ImageTagArtifactState::Incomplete(_)
+    | ImageTagArtifactState::Failed
+    | ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
+      return Ok(ImageFragmentReadiness::Unavailable);
+    }
   }
-  let has_successful_tag = image_tagging_manifest_is_successful(&config.data_dir, &item.owner_id, &item.id).await?;
-  if config.geo_api_key.is_some()
-    && has_successful_tag
-    && !geo_manifest_is_complete(&config.data_dir, &item.owner_id, &item.id).await?
-  {
-    return Ok(false);
+
+  if config.geo_api_key.is_some() && !geo_manifest_is_complete(&config.data_dir, &item.owner_id, &item.id).await? {
+    return Ok(ImageFragmentReadiness::Waiting);
   }
-  Ok(true)
+
+  Ok(ImageFragmentReadiness::Ready)
 }
 
 async fn rebuild_fragment_indexes_for_dirty_users(
