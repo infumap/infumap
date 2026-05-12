@@ -34,7 +34,7 @@ const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
 const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 5 * 60;
 const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 20 * 60;
 const FRAGMENT_INDEX_RETRY_DELAY_SECS: u64 = 60;
-const ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE: bool = false;
+const ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE: bool = true;
 
 static IMAGE_SEMANTIC_PIPELINE_STATE: OnceCell<Arc<Mutex<ImageSemanticPipelineState>>> = OnceCell::new();
 
@@ -183,7 +183,7 @@ pub fn init_image_semantic_pipeline_loop(
 
   if pipeline_config.image_tagging_url.is_none()
     && pipeline_config.geo_api_key.is_none()
-    && !(ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE && pipeline_config.embed_url.is_some())
+    && !ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE
   {
     debug!("Image background pipeline is disabled because image tagging and reverse geo are unconfigured.");
     return Ok(());
@@ -198,11 +198,7 @@ pub fn init_image_semantic_pipeline_loop(
     "Starting image background pipeline loops (tag_source=enabled, image_tagging={}, reverse_geo={}, fragment_indexing={}, geo_max_requests_per_minute={}).",
     if pipeline_config.image_tagging_url.is_some() { "enabled" } else { "disabled" },
     if pipeline_config.geo_api_key.is_some() { "enabled" } else { "disabled" },
-    if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE && pipeline_config.embed_url.is_some() {
-      "enabled"
-    } else {
-      "disabled"
-    },
+    if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE { "enabled" } else { "disabled" },
     pipeline_config.geo_max_requests_per_minute
   );
 
