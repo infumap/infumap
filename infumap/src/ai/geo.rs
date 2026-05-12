@@ -6,7 +6,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use config::Config;
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
-use log::info;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::fs;
@@ -511,7 +511,7 @@ async fn write_success_geo_artifacts(
     error: None,
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
-  info!(
+  debug!(
     "Reverse geocoded image '{}' (user {}){}.",
     candidate.item_id,
     user_id_for_log(&candidate.user_id),
@@ -553,7 +553,7 @@ async fn write_failed_geo_manifest(
     error: Some(error_message.to_owned()),
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
-  info!(
+  debug!(
     "Reverse geocoding failed for image '{}' (user {}): {}",
     candidate.item_id,
     user_id_for_log(&candidate.user_id),
@@ -594,7 +594,7 @@ async fn write_skipped_geo_manifest(
     error: Some(reason.to_owned()),
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
-  info!(
+  debug!(
     "Skipping reverse geocoding for image '{}' (user {}): {}",
     candidate.item_id,
     user_id_for_log(&candidate.user_id),

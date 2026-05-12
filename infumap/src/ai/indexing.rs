@@ -3,7 +3,7 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use infusdk::util::infu::InfuResult;
-use log::info;
+use log::{debug, info};
 use reqwest::Url;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -359,7 +359,7 @@ async fn rebuild_user_vector_fragment_index(
         ordinal: fragment.ordinal,
         text_sha256: fragment_text_sha256(&fragment.text),
       }));
-      info!(
+      debug!(
         "User {} reused {} unchanged fragment embedding(s) from the current vector index.",
         user_id_for_log(user_id),
         reusable_fragments.len()
@@ -411,7 +411,7 @@ async fn rebuild_user_vector_fragment_index(
       .collect::<Vec<_>>();
     temp_db.insert_embedded_fragments(&embedded_fragments).await?;
     embedded_count += embedded_fragments.len();
-    info!(
+    debug!(
       "User {} embedded {}/{} pending fragment(s).",
       user_id_for_log(user_id),
       embedded_count,

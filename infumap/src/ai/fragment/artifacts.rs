@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
-use log::info;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::fs;
@@ -199,7 +199,7 @@ async fn ensure_user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<
     return Ok(fragments_dir);
   }
 
-  info!(
+  debug!(
     "Checking fragments shard directory '{}' for user '{}'. This is done once per user in this process.",
     fragments_dir.display(),
     user_id_for_log(user_id)
@@ -209,14 +209,14 @@ async fn ensure_user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<
   }
   let created = ensure_256_subdirs(&fragments_dir).await?;
   if created > 0 {
-    info!(
+    debug!(
       "Initialized fragments shard directory '{}' for user '{}' with {} missing shard dir(s).",
       fragments_dir.display(),
       user_id_for_log(user_id),
       created
     );
   } else {
-    info!("Fragments shard directory '{}' for user '{}' is ready.", fragments_dir.display(), user_id_for_log(user_id));
+    debug!("Fragments shard directory '{}' for user '{}' is ready.", fragments_dir.display(), user_id_for_log(user_id));
   }
   mark_user_fragments_dir_ensured(&fragments_dir)?;
   Ok(fragments_dir)

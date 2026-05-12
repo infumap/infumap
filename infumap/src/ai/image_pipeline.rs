@@ -593,7 +593,7 @@ async fn run_image_fragment_loop(
         let was_empty = dirty_index_state.is_empty();
         dirty_index_state.record_user(user_id);
         if was_empty {
-          info!(
+          debug!(
             "Image fragment pipeline scheduled fragment index rebuild after {} quiet or {} max.",
             format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)),
             format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS))
@@ -636,7 +636,7 @@ async fn reconcile_image_fragment_item(
     ImageFragmentReadiness::Unavailable => {
       let outcome = clear_item_fragments(&config.data_dir, &item_snapshot).await?;
       if outcome.cleared_existing_fragments {
-        info!(
+        debug!(
           "Image fragment pipeline cleared stale fragments for image '{}' (user {}) because image tagging is not successful.",
           item_snapshot.id,
           user_id_for_log(&item_snapshot.owner_id)
@@ -652,14 +652,14 @@ async fn reconcile_image_fragment_item(
   };
   let fragment_result = build_image_fragment_artifact(&config.data_dir, &item_snapshot, context_title).await?;
   if fragment_result.outcome.wrote_fragments {
-    info!(
+    debug!(
       "Image fragment pipeline wrote {} fragment(s) for image '{}' (user {}).",
       fragment_result.outcome.fragment_count,
       item_snapshot.id,
       user_id_for_log(&item_snapshot.owner_id)
     );
   } else if fragment_result.outcome.cleared_existing_fragments {
-    info!(
+    debug!(
       "Image fragment pipeline cleared stale fragments for image '{}' (user {}).",
       item_snapshot.id,
       user_id_for_log(&item_snapshot.owner_id)
@@ -913,7 +913,7 @@ fn enqueue_live_candidate_for_all_stages_with_log(
   let item_id = candidate.item_id.clone();
   let user_id = user_id_for_log(&candidate.user_id);
   if enqueue_candidate_for_all_stages(state, candidate) {
-    info!(
+    debug!(
       "Queued image '{}' (user {}) for source stage from live update; queues: {}.",
       item_id,
       user_id,
@@ -927,7 +927,7 @@ fn remove_candidate_from_all_stages_with_log(state: &mut ImageSemanticPipelineSt
     + remove_candidate(state, PipelineStage::Geo, item_id)
     + remove_candidate(state, PipelineStage::Fragment, item_id);
   if removed > 0 {
-    info!("Dequeued image '{}' from {} stage queue(s); queues: {}.", item_id, removed, queue_depth_summary(state));
+    debug!("Dequeued image '{}' from {} stage queue(s); queues: {}.", item_id, removed, queue_depth_summary(state));
   }
 }
 
@@ -956,10 +956,18 @@ fn enqueue_candidate_with_log(
   let user_id = user_id_for_log(&candidate.user_id);
   if enqueue_candidate(state, stage, candidate) {
     if stage == PipelineStage::Fragment && reason == "fragmenting" {
-      info!("Queued image '{}' (user {}) fragmenting; queues: {}.", item_id, user_id, queue_depth_summary(state));
+      debug!("Queued image '{}' (user {}) fragmenting; queues: {}.", item_id, user_id, queue_depth_summary(state));
+    } else if reason.is_empty() {
+      debug!(
+        "Queued image '{}' (user {}) for {}; queues: {}.",
+        item_id,
+        user_id,
+        stage.label(),
+        queue_depth_summary(state)
+      );
     } else {
-      info!(
-        "Queued image '{}' (user {}) for {} stage {}; queues: {}.",
+      debug!(
+        "Queued image '{}' (user {}) for {} {}; queues: {}.",
         item_id,
         user_id,
         stage.label(),
@@ -1009,12 +1017,7 @@ fn remove_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage
 }
 
 fn queue_depth_summary(state: &ImageSemanticPipelineState) -> String {
-  format!(
-    "source={}, reverse_geo={}, fragment={}",
-    state.source.queue.len(),
-    state.geo.queue.len(),
-    state.fragment.queue.len()
-  )
+  format!("source={}, geo={}, fragment={}", state.source.queue.len(), state.geo.queue.len(), state.fragment.queue.len())
 }
 
 fn on_off(value: bool) -> &'static str {

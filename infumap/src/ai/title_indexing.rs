@@ -169,7 +169,7 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
   if fragments.is_empty() {
     let removed = remove_item_title_lexical_index_dirs(data_dir, user_id).await?;
     if removed > 0 {
-      info!(
+      debug!(
         "User {} has no item title fragments; removed {} stale title lexical index dir(s).",
         user_id_for_log(user_id),
         removed

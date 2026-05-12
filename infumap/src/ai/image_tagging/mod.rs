@@ -17,7 +17,7 @@
 use config::Config;
 use infusdk::item::Item;
 use infusdk::util::infu::{InfuError, InfuResult};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use reqwest::multipart::{Form, Part};
 use serde_json::Value;
 use std::sync::Arc;
@@ -218,7 +218,7 @@ pub(crate) async fn load_image_for_tagging(
       db.user.get(&item.owner_id).ok_or(format!("User '{}' not loaded.", item.owner_id))?.object_encryption_key.clone();
     (candidate, key)
   };
-  info!(
+  debug!(
     "Starting source object read/decrypt for image '{}' (user {}).",
     candidate.item_id,
     user_id_for_log(&candidate.user_id)
@@ -247,7 +247,7 @@ pub(crate) async fn load_image_for_tagging(
     }
   };
   let object_read_elapsed = object_read_started_at.elapsed();
-  info!(
+  debug!(
     "Completed read/decrypt for image '{}' (user {}) in {} ({} bytes).",
     candidate.item_id,
     user_id_for_log(&candidate.user_id),
@@ -301,7 +301,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
-  info!(
+  debug!(
     "Starting image tagging for image '{}' (user {}) using '{}' ({} bytes).",
     candidate.item_id,
     user_id_for_log(&candidate.user_id),
@@ -332,7 +332,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
         return Ok(());
       }
       write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms).await?;
-      info!(
+      debug!(
         "Finished image tagging for image '{}' (user {}) in {}.",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),

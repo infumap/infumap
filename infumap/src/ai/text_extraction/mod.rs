@@ -19,7 +19,7 @@
 use config::Config;
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
-use log::{error, info};
+use log::{debug, error, info};
 use once_cell::sync::OnceCell;
 use reqwest::multipart::{Form, Part};
 use serde::Deserialize;
@@ -197,7 +197,7 @@ pub(crate) async fn load_pdf_for_extraction(
     let c = PdfCandidate::from_item(item);
     (c, key)
   };
-  info!(
+  debug!(
     "Starting source object read/decrypt for PDF '{}' (user {}).",
     candidate.item_id,
     user_id_for_log(&candidate.user_id)
@@ -230,7 +230,7 @@ pub(crate) async fn load_pdf_for_extraction(
     }
   };
   let object_read_elapsed = object_read_started_at.elapsed();
-  info!(
+  debug!(
     "Completed source object read/decrypt for PDF '{}' (user {}) in {} ({} bytes).",
     candidate.item_id,
     user_id_for_log(&candidate.user_id),
@@ -266,7 +266,7 @@ pub(crate) async fn process_loaded_pdf_extraction(
   match outcome {
     ExtractOutcome::Success(response) => {
       write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
-      info!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
+      debug!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
     }
     ExtractOutcome::DocumentFailed(msg) => {
       write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
@@ -433,7 +433,7 @@ async fn run_text_extraction_loop(
           progress.on_success();
           progress.summary()
         };
-        info!(
+        debug!(
           "PDF '{}' (user {}): extracted successfully. {} remaining. {}",
           item_id,
           user_id_for_log(&user_id),
@@ -447,7 +447,7 @@ async fn run_text_extraction_loop(
           progress.on_other_failed();
           progress.summary()
         };
-        info!(
+        debug!(
           "PDF '{}' (user {}): extraction failed: {}. {} remaining. {}",
           item_id,
           user_id_for_log(&user_id),
@@ -547,7 +547,7 @@ async fn advance_pdf_prefetch_to_process(
       let progress = progress.lock().await;
       progress.summary()
     };
-    info!(
+    debug!(
       "Starting text extraction for PDF '{}' (user {}). Pending queue: {}. Progress: {}",
       item_id,
       user_id_for_log(&user_id),
@@ -588,7 +588,7 @@ async fn prefetch_next_pdf_extraction(
           progress.on_other_failed();
           progress.summary()
         };
-        info!(
+        debug!(
           "PDF '{}' (user {}): source-object prefetch failed: {}. {} remaining. {}",
           candidate.item_id,
           user_id_for_log(&candidate.user_id),
