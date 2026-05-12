@@ -23,7 +23,7 @@ use crate::ai::image_tagging::{
   image_tagging_artifact_state, image_tagging_manifest_is_successful, load_image_for_tagging,
   prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
 };
-use crate::ai::indexing::rebuild_fragment_indexes_for_users;
+use crate::ai::indexing::rebuild_fragment_indexes_for_loaded_items;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
 use crate::ai::{user_id_for_log, user_ids_for_log};
 use crate::config::CONFIG_DATA_DIR;
@@ -582,7 +582,7 @@ async fn run_image_fragment_loop(
 
     let Some(candidate) = candidate else {
       if dirty_index_state.should_rebuild(TokioInstant::now()) {
-        rebuild_fragment_indexes_for_dirty_users(&config, &mut dirty_index_state).await;
+        rebuild_fragment_indexes_for_dirty_users(&config, db.clone(), &mut dirty_index_state).await;
       }
       sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
       continue;
@@ -698,6 +698,7 @@ async fn image_fragment_readiness(
 
 async fn rebuild_fragment_indexes_for_dirty_users(
   config: &ImageSemanticPipelineConfig,
+  db: Arc<Mutex<Db>>,
   dirty_index_state: &mut DirtyFragmentIndexState,
 ) {
   if dirty_index_state.is_empty() {
@@ -725,9 +726,22 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     user_ids_for_log(&user_ids),
     on_off(config.embed_url.is_some())
   );
-  match rebuild_fragment_indexes_for_users(
+
+  let user_id_set = user_ids.iter().cloned().collect::<HashSet<_>>();
+  let loaded_items = {
+    let db = db.lock().await;
+    db.item
+      .all_loaded_items()
+      .into_iter()
+      .filter(|item_key| user_id_set.contains(&item_key.user_id))
+      .collect::<Vec<_>>()
+  };
+  debug!("Fragment index rebuild using {} loaded item id(s) for {} user(s).", loaded_items.len(), user_ids.len());
+
+  match rebuild_fragment_indexes_for_loaded_items(
     &config.data_dir,
     &user_ids,
+    loaded_items,
     client.as_ref(),
     config.embed_url.as_ref(),
     // Web rebuilds start from the current corpus; unchanged embeddings still reuse the completed index.

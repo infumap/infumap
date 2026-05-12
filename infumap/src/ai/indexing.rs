@@ -27,6 +27,7 @@ use crate::ai::vector_db::{
   open_fragment_vector_db, open_user_fragment_vector_db, user_fragment_vector_db_exists,
 };
 use crate::storage::db::Db;
+use crate::storage::db::item_db::ItemAndUserId;
 use crate::util::fs::path_exists;
 
 const UNKNOWN_FRAGMENT_SOURCE_KIND: &str = "unknown";
@@ -41,14 +42,15 @@ pub async fn rebuild_all_fragment_indexes(
   rebuild_fragment_index_plans(data_dir, plans, client, embed_url, continue_rebuild).await
 }
 
-pub async fn rebuild_fragment_indexes_for_users(
+pub async fn rebuild_fragment_indexes_for_loaded_items(
   data_dir: &str,
   user_ids: &[String],
+  loaded_items: Vec<ItemAndUserId>,
   client: Option<&reqwest::Client>,
   embed_url: Option<&Url>,
   continue_rebuild: bool,
 ) -> InfuResult<EmbedRebuildSummary> {
-  let plans = load_fragment_index_plans_for_users(data_dir, user_ids).await?;
+  let plans = load_fragment_index_plans_for_loaded_items(data_dir, user_ids, loaded_items).await?;
   rebuild_fragment_index_plans(data_dir, plans, client, embed_url, continue_rebuild).await
 }
 
@@ -89,24 +91,6 @@ async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmen
   load_fragment_index_plans_for_user_ids(&mut db, data_dir, user_ids).await
 }
 
-async fn load_fragment_index_plans_for_users(
-  data_dir: &str,
-  requested_user_ids: &[String],
-) -> InfuResult<Vec<UserFragmentIndexPlan>> {
-  let mut db = Db::new(data_dir).await.map_err(|e| format!("Failed to initialize database: {}", e))?;
-  let mut user_ids = requested_user_ids.to_vec();
-  user_ids.sort();
-  user_ids.dedup();
-
-  for user_id in &user_ids {
-    if db.user.get(user_id).is_none() {
-      return Err(format!("Unknown user '{}' while preparing fragment index rebuild.", user_id).into());
-    }
-  }
-
-  load_fragment_index_plans_for_user_ids(&mut db, data_dir, user_ids).await
-}
-
 async fn load_fragment_index_plans_for_user_ids(
   db: &mut Db,
   data_dir: &str,
@@ -116,9 +100,21 @@ async fn load_fragment_index_plans_for_user_ids(
     db.item.load_user_items(user_id, false).await?;
   }
 
+  load_fragment_index_plans_for_loaded_items(data_dir, &user_ids, db.item.all_loaded_items()).await
+}
+
+async fn load_fragment_index_plans_for_loaded_items(
+  data_dir: &str,
+  requested_user_ids: &[String],
+  loaded_items: Vec<ItemAndUserId>,
+) -> InfuResult<Vec<UserFragmentIndexPlan>> {
+  let mut user_ids = requested_user_ids.to_vec();
+  user_ids.sort();
+  user_ids.dedup();
+
   let mut item_ids_by_user_id =
     user_ids.iter().map(|user_id| (user_id.clone(), Vec::new())).collect::<BTreeMap<String, Vec<String>>>();
-  for item_key in db.item.all_loaded_items() {
+  for item_key in loaded_items {
     if let Some(item_ids) = item_ids_by_user_id.get_mut(&item_key.user_id) {
       item_ids.push(item_key.item_id);
     }
