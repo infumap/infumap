@@ -17,6 +17,7 @@ use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, item_title_lexical_index_temp_dir,
   open_user_item_title_lexical_index, remove_item_title_lexical_index_dirs,
 };
+use crate::ai::user_id_for_log;
 use crate::ai::vector_db::ensure_user_index_dir;
 use crate::storage::db::Db;
 
@@ -68,7 +69,7 @@ fn enqueue_item_title_indexing_request(request: ItemTitleIndexingRequest) {
   };
   let user_id = request.user_id().to_owned();
   if let Err(e) = sender.send(request) {
-    warn!("Could not enqueue item title lexical index reconciliation for user '{}': {}", user_id, e);
+    warn!("Could not enqueue item title lexical index reconciliation for user '{}': {}", user_id_for_log(&user_id), e);
   }
 }
 
@@ -128,7 +129,7 @@ async fn run_item_title_indexing_loop(
     user_ids.sort();
     for user_id in user_ids {
       if let Err(e) = reconcile_user_item_title_lexical_index(&data_dir, db.clone(), &user_id).await {
-        error!("Item title lexical index reconciliation failed for user '{}': {}", user_id, e);
+        error!("Item title lexical index reconciliation failed for user '{}': {}", user_id_for_log(&user_id), e);
       }
     }
   }
@@ -168,11 +169,15 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
   if fragments.is_empty() {
     let removed = remove_item_title_lexical_index_dirs(data_dir, user_id).await?;
     if removed > 0 {
-      info!("User {} has no item title fragments; removed {} stale title lexical index dir(s).", user_id, removed);
+      info!(
+        "User {} has no item title fragments; removed {} stale title lexical index dir(s).",
+        user_id_for_log(user_id),
+        removed
+      );
     }
     debug!(
       "User {} item title lexical index reconciliation found no title fragments in {:.3}s.",
-      user_id,
+      user_id_for_log(user_id),
       reconcile_started.elapsed().as_secs_f64()
     );
     return Ok(());
@@ -190,14 +195,18 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
   {
     debug!(
       "User {} item title lexical index is already current ({} fragment(s), checked in {:.3}s).",
-      user_id,
+      user_id_for_log(user_id),
       fragments.len(),
       reconcile_started.elapsed().as_secs_f64()
     );
     return Ok(());
   }
 
-  info!("User {} starting item title lexical index rebuild: {} fragment(s).", user_id, fragments.len());
+  info!(
+    "User {} starting item title lexical index rebuild: {} fragment(s).",
+    user_id_for_log(user_id),
+    fragments.len()
+  );
   let rebuild_started = Instant::now();
   let temp_dir = item_title_lexical_index_temp_dir(data_dir, user_id)?;
   let metadata = FragmentLexicalIndexRebuildMetadata {
@@ -215,7 +224,7 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
 
   info!(
     "User {} finished item title lexical index rebuild: {} fragment(s), rebuild {:.3}s, total {:.3}s.",
-    user_id,
+    user_id_for_log(user_id),
     status.indexed_fragment_count,
     rebuild_started.elapsed().as_secs_f64(),
     reconcile_started.elapsed().as_secs_f64()

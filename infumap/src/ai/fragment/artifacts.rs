@@ -13,6 +13,7 @@ use tokio::fs;
 use crate::ai::artifact_paths::{
   item_fragments_dir, item_fragments_manifest_path, item_fragments_path, user_fragments_dir,
 };
+use crate::ai::user_id_for_log;
 use crate::util::fs::{ensure_256_subdirs, path_exists};
 
 use super::types::{FragmentBuildOutcome, FragmentInput, FragmentSourceKind};
@@ -201,7 +202,7 @@ async fn ensure_user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<
   info!(
     "Checking fragments shard directory '{}' for user '{}'. This is done once per user in this process.",
     fragments_dir.display(),
-    user_id
+    user_id_for_log(user_id)
   );
   if !path_exists(&fragments_dir).await {
     fs::create_dir_all(&fragments_dir).await?;
@@ -211,11 +212,11 @@ async fn ensure_user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<
     info!(
       "Initialized fragments shard directory '{}' for user '{}' with {} missing shard dir(s).",
       fragments_dir.display(),
-      user_id,
+      user_id_for_log(user_id),
       created
     );
   } else {
-    info!("Fragments shard directory '{}' for user '{}' is ready.", fragments_dir.display(), user_id);
+    info!("Fragments shard directory '{}' for user '{}' is ready.", fragments_dir.display(), user_id_for_log(user_id));
   }
   mark_user_fragments_dir_ensured(&fragments_dir)?;
   Ok(fragments_dir)

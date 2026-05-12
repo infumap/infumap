@@ -29,6 +29,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
+use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
@@ -196,7 +197,11 @@ pub(crate) async fn load_pdf_for_extraction(
     let c = PdfCandidate::from_item(item);
     (c, key)
   };
-  info!("Starting source object read/decrypt for PDF '{}' (user {}).", candidate.item_id, candidate.user_id);
+  info!(
+    "Starting source object read/decrypt for PDF '{}' (user {}).",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id)
+  );
   let object_read_started_at = Instant::now();
   let file_bytes = storage_object::get(
     object_store.clone(),
@@ -213,7 +218,7 @@ pub(crate) async fn load_pdf_for_extraction(
       error!(
         "Could not read source PDF object for '{}' (user {}) after {}: {}",
         candidate.item_id,
-        candidate.user_id,
+        user_id_for_log(&candidate.user_id),
         format_duration_for_log(elapsed),
         error_message
       );
@@ -228,7 +233,7 @@ pub(crate) async fn load_pdf_for_extraction(
   info!(
     "Completed source object read/decrypt for PDF '{}' (user {}) in {} ({} bytes).",
     candidate.item_id,
-    candidate.user_id,
+    user_id_for_log(&candidate.user_id),
     format_duration_for_log(object_read_elapsed),
     file_bytes.len()
   );
@@ -261,7 +266,7 @@ pub(crate) async fn process_loaded_pdf_extraction(
   match outcome {
     ExtractOutcome::Success(response) => {
       write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
-      info!("Extracted text for PDF '{}' (user {}).", candidate.item_id, candidate.user_id);
+      info!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
     }
     ExtractOutcome::DocumentFailed(msg) => {
       write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
@@ -295,7 +300,11 @@ pub async fn mark_item_text_extraction_failed(
     None => "Marked failed via CLI.".to_owned(),
   };
   write_failed_manifest(data_dir, CLI_FAILED_MANIFEST_EXTRACTOR_URL, &candidate, &error_message).await?;
-  info!("Marked PDF '{}' (user {}) as failed for text extraction via CLI.", candidate.item_id, candidate.user_id);
+  info!(
+    "Marked PDF '{}' (user {}) as failed for text extraction via CLI.",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id)
+  );
   Ok(())
 }
 
@@ -426,7 +435,10 @@ async fn run_text_extraction_loop(
         };
         info!(
           "PDF '{}' (user {}): extracted successfully. {} remaining. {}",
-          item_id, user_id, queue_remaining, progress_summary
+          item_id,
+          user_id_for_log(&user_id),
+          queue_remaining,
+          progress_summary
         );
       }
       Err(e) => {
@@ -437,7 +449,11 @@ async fn run_text_extraction_loop(
         };
         info!(
           "PDF '{}' (user {}): extraction failed: {}. {} remaining. {}",
-          item_id, user_id, e, queue_remaining, progress_summary
+          item_id,
+          user_id_for_log(&user_id),
+          e,
+          queue_remaining,
+          progress_summary
         );
       }
     }
@@ -533,7 +549,10 @@ async fn advance_pdf_prefetch_to_process(
     };
     info!(
       "Starting text extraction for PDF '{}' (user {}). Pending queue: {}. Progress: {}",
-      item_id, user_id, queue_remaining, progress_summary
+      item_id,
+      user_id_for_log(&user_id),
+      queue_remaining,
+      progress_summary
     );
 
     return Some(spawn_pdf_process(data_dir.clone(), text_extraction_url.clone(), db.clone(), loaded, queue_remaining));
@@ -554,7 +573,7 @@ async fn prefetch_next_pdf_extraction(
       info!(
         "PDF '{}' (user {}): large document (~{} MB); extraction may take a long time and use significant memory.",
         candidate.item_id,
-        candidate.user_id,
+        user_id_for_log(&candidate.user_id),
         candidate.file_size_bytes.map(|s| s / (1024 * 1024)).unwrap_or(0)
       );
     }
@@ -571,7 +590,11 @@ async fn prefetch_next_pdf_extraction(
         };
         info!(
           "PDF '{}' (user {}): source-object prefetch failed: {}. {} remaining. {}",
-          candidate.item_id, candidate.user_id, e, queue_remaining, progress_summary
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e,
+          queue_remaining,
+          progress_summary
         );
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
       }
@@ -637,7 +660,7 @@ async fn request_text_extraction_with_retries(
               worker_id,
               text_extraction_url,
               candidate.item_id,
-              candidate.user_id,
+              user_id_for_log(&candidate.user_id),
               message,
               format_duration_for_log(delay)
             );
@@ -647,7 +670,7 @@ async fn request_text_extraction_with_retries(
               "Text extraction endpoint '{}' is unavailable for PDF '{}' (user {}) ({}). Retrying in {}.",
               text_extraction_url,
               candidate.item_id,
-              candidate.user_id,
+              user_id_for_log(&candidate.user_id),
               message,
               format_duration_for_log(delay)
             );
@@ -661,13 +684,20 @@ async fn request_text_extraction_with_retries(
             Some(worker_id) => {
               info!(
                 "Worker {}: text extraction endpoint '{}' accepted requests again for PDF '{}' (user {}) after {} unavailable attempt(s).",
-                worker_id, text_extraction_url, candidate.item_id, candidate.user_id, unavailable_attempt
+                worker_id,
+                text_extraction_url,
+                candidate.item_id,
+                user_id_for_log(&candidate.user_id),
+                unavailable_attempt
               );
             }
             None => {
               info!(
                 "Text extraction endpoint '{}' accepted requests again for PDF '{}' (user {}) after {} unavailable attempt(s).",
-                text_extraction_url, candidate.item_id, candidate.user_id, unavailable_attempt
+                text_extraction_url,
+                candidate.item_id,
+                user_id_for_log(&candidate.user_id),
+                unavailable_attempt
               );
             }
           }
@@ -758,7 +788,9 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
         skipped_errors += 1;
         error!(
           "Skipping PDF '{}' (user {}) during startup queue population: {}",
-          candidate.item_id, candidate.user_id, e
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e
         );
       }
     }

@@ -16,6 +16,7 @@ use crate::ai::artifact_paths::{
   ensure_user_text_dir, item_geo_content_path, item_geo_manifest_path, item_text_content_path,
 };
 use crate::ai::image_tagging::{image_tagging_manifest_is_successful, is_supported_image_tagging_mime_type};
+use crate::ai::user_id_for_log;
 use crate::config::{
   CONFIG_GEOAPIFY_API_KEY, CONFIG_GEOAPIFY_MAX_REQUESTS_PER_MINUTE, CONFIG_GEOAPIFY_URL, CONFIG_GEOAPIFY_URL_DEFAULT,
 };
@@ -513,7 +514,7 @@ async fn write_success_geo_artifacts(
   info!(
     "Reverse geocoded image '{}' (user {}){}.",
     candidate.item_id,
-    candidate.user_id,
+    user_id_for_log(&candidate.user_id),
     if cached { " using in-memory cache" } else { "" }
   );
   Ok(())
@@ -552,7 +553,12 @@ async fn write_failed_geo_manifest(
     error: Some(error_message.to_owned()),
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
-  info!("Reverse geocoding failed for image '{}' (user {}): {}", candidate.item_id, candidate.user_id, error_message);
+  info!(
+    "Reverse geocoding failed for image '{}' (user {}): {}",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id),
+    error_message
+  );
   Ok(())
 }
 
@@ -588,7 +594,12 @@ async fn write_skipped_geo_manifest(
     error: Some(reason.to_owned()),
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
-  info!("Skipping reverse geocoding for image '{}' (user {}): {}", candidate.item_id, candidate.user_id, reason);
+  info!(
+    "Skipping reverse geocoding for image '{}' (user {}): {}",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id),
+    reason
+  );
   Ok(())
 }
 

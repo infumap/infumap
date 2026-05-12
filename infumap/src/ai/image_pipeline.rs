@@ -25,6 +25,7 @@ use crate::ai::image_tagging::{
 };
 use crate::ai::indexing::rebuild_fragment_indexes_for_users;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
+use crate::ai::{user_id_for_log, user_ids_for_log};
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
 use crate::storage::object::ObjectStore;
@@ -967,16 +968,6 @@ fn enqueue_candidate_with_log(
       );
     }
   }
-}
-
-fn user_id_for_log(user_id: &str) -> String {
-  let mut chars = user_id.chars();
-  let prefix = chars.by_ref().take(5).collect::<String>();
-  if chars.next().is_some() { format!("{}..", prefix) } else { prefix }
-}
-
-fn user_ids_for_log(user_ids: &[String]) -> String {
-  user_ids.iter().map(|user_id| user_id_for_log(user_id)).collect::<Vec<_>>().join(", ")
 }
 
 fn enqueue_candidate(

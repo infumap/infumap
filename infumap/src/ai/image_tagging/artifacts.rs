@@ -27,6 +27,7 @@ use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::ai::artifact_paths::{ensure_user_text_dir, item_text_content_path, item_text_manifest_path};
+use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
 use crate::util::fs::path_exists;
 use crate::util::image::ImageMetadata;
@@ -163,7 +164,9 @@ pub async fn list_failed_images(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResul
       Err(e) => {
         debug!(
           "Skipping failed image tag listing for item '{}' (user '{}'): could not build manifest path: {}",
-          item_id, user_id, e
+          item_id,
+          user_id_for_log(&user_id),
+          e
         );
         continue;
       }
@@ -177,7 +180,7 @@ pub async fn list_failed_images(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResul
         debug!(
           "Skipping failed image tag listing for item '{}' (user '{}'): could not read manifest '{}': {}",
           item_id,
-          user_id,
+          user_id_for_log(&user_id),
           path.display(),
           e
         );
@@ -190,7 +193,7 @@ pub async fn list_failed_images(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResul
         debug!(
           "Skipping failed image tag listing for item '{}' (user '{}'): could not parse manifest '{}': {}",
           item_id,
-          user_id,
+          user_id_for_log(&user_id),
           path.display(),
           e
         );

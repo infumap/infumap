@@ -25,6 +25,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::time;
 
+use crate::ai::user_id_for_log;
 use crate::config::CONFIG_IMAGE_TAGGING_URL;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
@@ -96,7 +97,10 @@ pub(crate) async fn prepare_image_tag_artifacts_for_web_background(
     ImageTagArtifactState::UnsupportedSchemaVersion { path, schema_version } => {
       warn!(
         "Image background pipeline found image tag manifest '{}' with unsupported schema version {} for image '{}' (user {}). Leaving it unchanged; migration must handle this explicitly.",
-        path, schema_version, item_id, user_id
+        path,
+        schema_version,
+        item_id,
+        user_id_for_log(user_id)
       );
       WebImageTagArtifactReadiness::CompleteFailure
     }
@@ -104,7 +108,7 @@ pub(crate) async fn prepare_image_tag_artifacts_for_web_background(
       warn!(
         "Image background pipeline found incomplete image tag artifacts for image '{}' (user {}): {}. Clearing and retrying.",
         item_id,
-        user_id,
+        user_id_for_log(user_id),
         info.paths.join(", ")
       );
       clear_item_image_tag_dir(data_dir, user_id, item_id).await?;
@@ -214,7 +218,11 @@ pub(crate) async fn load_image_for_tagging(
       db.user.get(&item.owner_id).ok_or(format!("User '{}' not loaded.", item.owner_id))?.object_encryption_key.clone();
     (candidate, key)
   };
-  info!("Starting source object read/decrypt for image '{}' (user {}).", candidate.item_id, candidate.user_id);
+  info!(
+    "Starting source object read/decrypt for image '{}' (user {}).",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id)
+  );
   let object_read_started_at = Instant::now();
   let file_bytes = storage_object::get(
     object_store.clone(),
@@ -231,7 +239,7 @@ pub(crate) async fn load_image_for_tagging(
       error!(
         "Could not read source image object for '{}' (user {}) after {}: {}",
         candidate.item_id,
-        candidate.user_id,
+        user_id_for_log(&candidate.user_id),
         format_duration_for_log(elapsed),
         error_message
       );
@@ -242,7 +250,7 @@ pub(crate) async fn load_image_for_tagging(
   info!(
     "Completed read/decrypt for image '{}' (user {}) in {} ({} bytes).",
     candidate.item_id,
-    candidate.user_id,
+    user_id_for_log(&candidate.user_id),
     format_duration_for_log(object_read_elapsed),
     file_bytes.len()
   );
@@ -296,7 +304,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
   info!(
     "Starting image tagging for image '{}' (user {}) using '{}' ({} bytes).",
     candidate.item_id,
-    candidate.user_id,
+    user_id_for_log(&candidate.user_id),
     image_tagging_url,
     file_bytes.len()
   );
@@ -327,7 +335,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       info!(
         "Finished image tagging for image '{}' (user {}) in {}.",
         candidate.item_id,
-        candidate.user_id,
+        user_id_for_log(&candidate.user_id),
         format_duration_for_log(tagging_elapsed)
       );
     }
@@ -346,7 +354,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       info!(
         "Finished image tagging for image '{}' (user {}) with document failure after {}: {}",
         candidate.item_id,
-        candidate.user_id,
+        user_id_for_log(&candidate.user_id),
         format_duration_for_log(tagging_elapsed),
         msg
       );
@@ -367,7 +375,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       info!(
         "Finished image tagging for image '{}' (user {}) with response-format failure after {}: {}",
         candidate.item_id,
-        candidate.user_id,
+        user_id_for_log(&candidate.user_id),
         format_duration_for_log(tagging_elapsed),
         msg
       );
@@ -377,7 +385,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       info!(
         "Finished image tagging for image '{}' (user {}) with endpoint failure after {}: {}",
         candidate.item_id,
-        candidate.user_id,
+        user_id_for_log(&candidate.user_id),
         format_duration_for_log(tagging_elapsed),
         msg
       );
@@ -401,7 +409,7 @@ async fn handle_existing_artifact_collision(
     "{}: image '{}' (user {}) already has text artifact(s) {}. This usually means another CLI or web image tagging worker wrote the output {}.",
     IMAGE_TAG_ARTIFACT_COLLISION_ERROR_PREFIX,
     candidate.item_id,
-    candidate.user_id,
+    user_id_for_log(&candidate.user_id),
     existing_paths.join(", "),
     phase
   );
@@ -435,7 +443,11 @@ pub async fn mark_item_image_tagging_failed(
     None => "Marked failed via CLI.".to_owned(),
   };
   write_failed_manifest(data_dir, CLI_FAILED_MANIFEST_EXTRACTOR_URL, &candidate, &error_message).await?;
-  info!("Marked image '{}' (user {}) as failed for image tagging via CLI.", candidate.item_id, candidate.user_id);
+  info!(
+    "Marked image '{}' (user {}) as failed for image tagging via CLI.",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id)
+  );
   Ok(())
 }
 
@@ -486,13 +498,20 @@ async fn request_image_tagging_with_retries(
           Some(worker_id) => {
             info!(
               "Worker {}: image tagging endpoint '{}' returned malformed structured output for '{}' (user {}) ({}). Retrying immediately.",
-              worker_id, image_tagging_url, candidate.item_id, candidate.user_id, message
+              worker_id,
+              image_tagging_url,
+              candidate.item_id,
+              user_id_for_log(&candidate.user_id),
+              message
             );
           }
           None => {
             info!(
               "Image tagging endpoint '{}' returned malformed structured output for '{}' (user {}) ({}). Retrying immediately.",
-              image_tagging_url, candidate.item_id, candidate.user_id, message
+              image_tagging_url,
+              candidate.item_id,
+              user_id_for_log(&candidate.user_id),
+              message
             );
           }
         }
@@ -507,7 +526,7 @@ async fn request_image_tagging_with_retries(
               worker_id,
               image_tagging_url,
               candidate.item_id,
-              candidate.user_id,
+              user_id_for_log(&candidate.user_id),
               message,
               format_duration_for_log(delay)
             );
@@ -517,7 +536,7 @@ async fn request_image_tagging_with_retries(
               "Image tagging endpoint '{}' is unavailable for '{}' (user {}) ({}). Retrying in {}.",
               image_tagging_url,
               candidate.item_id,
-              candidate.user_id,
+              user_id_for_log(&candidate.user_id),
               message,
               format_duration_for_log(delay)
             );
@@ -534,7 +553,7 @@ async fn request_image_tagging_with_retries(
                 worker_id,
                 image_tagging_url,
                 candidate.item_id,
-                candidate.user_id,
+                user_id_for_log(&candidate.user_id),
                 unavailable_attempt,
                 response_format_attempt
               );
@@ -542,7 +561,11 @@ async fn request_image_tagging_with_retries(
             None => {
               info!(
                 "Image tagging endpoint '{}' accepted requests again for '{}' (user {}) after {} unavailable attempt(s) and {} malformed-response attempt(s).",
-                image_tagging_url, candidate.item_id, candidate.user_id, unavailable_attempt, response_format_attempt
+                image_tagging_url,
+                candidate.item_id,
+                user_id_for_log(&candidate.user_id),
+                unavailable_attempt,
+                response_format_attempt
               );
             }
           }
