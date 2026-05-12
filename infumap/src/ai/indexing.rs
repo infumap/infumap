@@ -50,16 +50,6 @@ pub async fn rebuild_fragment_indexes_for_users(
   rebuild_fragment_index_plans(data_dir, plans, client, embed_url, continue_rebuild).await
 }
 
-pub async fn remove_fragment_index_temp_artifacts_for_users(data_dir: &str, user_ids: &[String]) -> InfuResult<usize> {
-  let mut removed = 0;
-  for user_id in user_ids {
-    removed += remove_temp_path_if_exists(&fragment_vector_db_temp_path(data_dir, user_id)?).await? as usize;
-    removed +=
-      remove_temp_path_if_exists(&document_fragment_lexical_index_temp_dir(data_dir, user_id)?).await? as usize;
-  }
-  Ok(removed)
-}
-
 async fn rebuild_fragment_index_plans(
   data_dir: &str,
   plans: Vec<UserFragmentIndexPlan>,
@@ -654,21 +644,6 @@ async fn remove_file_if_exists(path: &Path) -> InfuResult<bool> {
     Ok(()) => Ok(true),
     Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
     Err(e) => Err(format!("Could not remove '{}': {}", path.display(), e).into()),
-  }
-}
-
-async fn remove_temp_path_if_exists(path: &Path) -> InfuResult<bool> {
-  match fs::metadata(path).await {
-    Ok(metadata) => {
-      if metadata.is_dir() {
-        fs::remove_dir_all(path).await?;
-      } else {
-        fs::remove_file(path).await?;
-      }
-      Ok(true)
-    }
-    Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
-    Err(e) => Err(format!("Could not inspect temp index artifact '{}': {}", path.display(), e).into()),
   }
 }
 
