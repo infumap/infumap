@@ -219,7 +219,7 @@ pub(crate) async fn load_image_for_tagging(
     (candidate, key)
   };
   debug!(
-    "Starting source object read/decrypt for image '{}' (user {}).",
+    "Starting object read/decrypt for image '{}' (user {}).",
     candidate.item_id,
     user_id_for_log(&candidate.user_id)
   );

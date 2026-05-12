@@ -822,7 +822,7 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
     let geo_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Geo, geo_candidates);
     let fragment_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Fragment, fragment_candidates);
     info!(
-      "Startup reconciliation saw {} supported image item(s), queued source={} of {}, reverse_geo={} of {}, and fragment={} of {}; image_tags: succeeded={}, failed={}, pending={}, incomplete={}, unsupported_schema={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
+      "Startup reconciliation saw {} supported image item(s), queued tag={} of {}, reverse_geo={} of {}, and fragment={} of {}; image_tags: succeeded={}, failed={}, pending={}, incomplete={}, unsupported_schema={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
       candidate_count,
       source_enqueued_count,
       source_candidate_count,
@@ -970,7 +970,7 @@ fn enqueue_candidate_with_log(
   let user_id = user_id_for_log(&candidate.user_id);
   if enqueue_candidate(state, stage, candidate) {
     if stage == PipelineStage::Fragment && reason == "fragmenting" {
-      debug!("Queued image '{}' (user {}) fragmenting; queues: {}.", item_id, user_id, queue_depth_summary(state));
+      debug!("Queued image '{}' (user {}) for fragmenting; queues: {}.", item_id, user_id, queue_depth_summary(state));
     } else if reason.is_empty() {
       debug!(
         "Queued image '{}' (user {}) for {}; queues: {}.",
@@ -1031,7 +1031,7 @@ fn remove_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage
 }
 
 fn queue_depth_summary(state: &ImageSemanticPipelineState) -> String {
-  format!("source={}, geo={}, fragment={}", state.source.queue.len(), state.geo.queue.len(), state.fragment.queue.len())
+  format!("tag={}, geo={}, fragment={}", state.source.queue.len(), state.geo.queue.len(), state.fragment.queue.len())
 }
 
 fn on_off(value: bool) -> &'static str {
