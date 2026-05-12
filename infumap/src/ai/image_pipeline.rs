@@ -23,7 +23,7 @@ use crate::ai::image_tagging::{
   image_tagging_artifact_state, image_tagging_manifest_is_successful, load_image_for_tagging,
   prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
 };
-use crate::ai::indexing::rebuild_fragment_indexes_for_users;
+use crate::ai::indexing::{rebuild_fragment_indexes_for_users, remove_fragment_index_temp_artifacts_for_users};
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -550,6 +550,8 @@ async fn run_image_fragment_loop(
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<ImageSemanticPipelineState>>,
 ) {
+  remove_startup_fragment_index_temp_artifacts(&config, db.clone()).await;
+
   let mut dirty_index_state = DirtyFragmentIndexState::default();
   loop {
     let candidate = {
@@ -584,6 +586,26 @@ async fn run_image_fragment_loop(
           candidate.item_id, candidate.user_id, e
         );
       }
+    }
+  }
+}
+
+async fn remove_startup_fragment_index_temp_artifacts(config: &ImageSemanticPipelineConfig, db: Arc<Mutex<Db>>) {
+  let mut user_ids = {
+    let db = db.lock().await;
+    db.user.all_user_ids()
+  };
+  user_ids.sort();
+
+  match remove_fragment_index_temp_artifacts_for_users(&config.data_dir, &user_ids).await {
+    Ok(0) => {
+      debug!("No stale fragment index temp artifacts found on startup.");
+    }
+    Ok(removed) => {
+      info!("Removed {} stale fragment index temp artifact(s) on startup.", removed);
+    }
+    Err(e) => {
+      error!("Could not remove stale fragment index temp artifacts on startup: {}", e);
     }
   }
 }
@@ -895,12 +917,7 @@ fn remove_candidate_from_all_stages_with_log(state: &mut ImageSemanticPipelineSt
     + remove_candidate(state, PipelineStage::Geo, item_id)
     + remove_candidate(state, PipelineStage::Fragment, item_id);
   if removed > 0 {
-    info!(
-      "Dequeued image '{}' from {} stage queue(s); queues: {}.",
-      item_id,
-      removed,
-      queue_depth_summary(state)
-    );
+    info!("Dequeued image '{}' from {} stage queue(s); queues: {}.", item_id, removed, queue_depth_summary(state));
   }
 }
 

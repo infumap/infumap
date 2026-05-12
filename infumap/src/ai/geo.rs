@@ -290,16 +290,7 @@ pub async fn reverse_geocode_candidate_if_needed(
   };
 
   let Some((lat, lon)) = coords else {
-    write_skipped_geo_manifest(
-      data_dir,
-      candidate,
-      service_url,
-      None,
-      None,
-      false,
-      "No GPS info",
-    )
-    .await?;
+    write_skipped_geo_manifest(data_dir, candidate, service_url, None, None, false, "No GPS info").await?;
     return Ok(GeoProcessOutcome::SkippedNoGps);
   };
 
