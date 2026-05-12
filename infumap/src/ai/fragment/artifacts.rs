@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use log::info;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
@@ -36,7 +36,7 @@ struct FragmentRecord {
   page_end: Option<usize>,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct FragmentsManifest {
   schema_version: u32,
   fragmenter_version: u32,
@@ -92,14 +92,28 @@ pub async fn write_item_fragments(
     return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
   }
 
-  ensure_user_fragments_dir(data_dir, &item.owner_id).await?;
   let item_dir = item_fragments_dir(data_dir, &item.owner_id, &item.id)?;
-  fs::create_dir_all(&item_dir).await?;
   let fragments_path = item_fragments_path(data_dir, &item.owner_id, &item.id)?;
   let manifest_path = item_fragments_manifest_path(data_dir, &item.owner_id, &item.id)?;
 
   let source_text_sha256 =
     sha256_hex(&fragments.iter().map(|fragment| fragment.text.as_str()).collect::<Vec<_>>().join("\n\n"));
+  let source_kind_str = source_kind.as_str();
+  if existing_fragments_are_current(
+    &fragments_path,
+    &manifest_path,
+    source_kind_str,
+    &source_text_sha256,
+    fragments.len(),
+  )
+  .await?
+  {
+    return Ok(FragmentBuildOutcome::default());
+  }
+
+  ensure_user_fragments_dir(data_dir, &item.owner_id).await?;
+  fs::create_dir_all(&item_dir).await?;
+
   let mut serialized = Vec::new();
   for (ordinal, fragment) in fragments.iter().enumerate() {
     let record = FragmentRecord {
@@ -117,7 +131,7 @@ pub async fn write_item_fragments(
   let manifest = FragmentsManifest {
     schema_version: FRAGMENTS_SCHEMA_VERSION,
     fragmenter_version: FRAGMENTER_VERSION,
-    source_kind: source_kind.as_str().to_owned(),
+    source_kind: source_kind_str.to_owned(),
     source_text_sha256,
     generated_at_unix_secs: unix_now_secs()?,
     fragment_count: fragments.len(),
@@ -140,6 +154,33 @@ fn sha256_hex(text: &str) -> String {
   let mut hasher = Sha256::new();
   hasher.update(text.as_bytes());
   format!("{:x}", hasher.finalize())
+}
+
+async fn existing_fragments_are_current(
+  fragments_path: &PathBuf,
+  manifest_path: &PathBuf,
+  source_kind: &str,
+  source_text_sha256: &str,
+  fragment_count: usize,
+) -> InfuResult<bool> {
+  if !path_exists(fragments_path).await || !path_exists(manifest_path).await {
+    return Ok(false);
+  }
+
+  let manifest_bytes = fs::read(manifest_path)
+    .await
+    .map_err(|e| format!("Could not read fragments manifest '{}': {}", manifest_path.display(), e))?;
+  let manifest = match serde_json::from_slice::<FragmentsManifest>(&manifest_bytes) {
+    Ok(manifest) => manifest,
+    Err(_) => return Ok(false),
+  };
+
+  Ok(
+    manifest.fragmenter_version == FRAGMENTER_VERSION
+      && manifest.source_kind == source_kind
+      && manifest.source_text_sha256 == source_text_sha256
+      && manifest.fragment_count == fragment_count,
+  )
 }
 
 async fn clear_item_fragments_dir(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
