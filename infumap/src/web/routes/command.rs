@@ -1370,6 +1370,8 @@ async fn handle_update_item(
     flush_container_sync_changes(&mut db, &item.owner_id, deltas_by_container, snapshot_required_container_ids);
 
   let owner_id = item.owner_id.clone();
+  let image_fragment_context_dependents =
+    image_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?;
   debug!("Executed 'update-item' command for item '{}'.", item.id);
   drop(db);
   enqueue_item_title_index_reconcile_for_user(&owner_id);
@@ -1378,8 +1380,28 @@ async fn handle_update_item(
   } else if should_tag_image_item(&old_item) {
     dequeue_image_semantic_pipeline_item_if_active(&old_item.id);
   }
+  for dependent in image_fragment_context_dependents {
+    enqueue_image_semantic_pipeline_item_if_active(&dependent);
+  }
 
   json_with_sync_ack(sync_ack, None)
+}
+
+fn image_fragment_context_dependents_for_parent_title_change(
+  db: &Db,
+  old_item: &Item,
+  item: &Item,
+) -> InfuResult<Vec<Item>> {
+  if old_item.title == item.title {
+    return Ok(Vec::new());
+  }
+
+  let mut dependents = Vec::new();
+  dependents.extend(db.item.get_children(&item.id)?.into_iter().filter(|child| should_tag_image_item(child)).cloned());
+  dependents.extend(
+    db.item.get_attachments(&item.id)?.into_iter().filter(|attachment| should_tag_image_item(attachment)).cloned(),
+  );
+  Ok(dependents)
 }
 
 #[derive(Deserialize)]
