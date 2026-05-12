@@ -31,8 +31,8 @@ use crate::storage::object::ObjectStore;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
-const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 5 * 60;
-const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 20 * 60;
+const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 10;
+const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 25;
 const FRAGMENT_INDEX_RETRY_DELAY_SECS: u64 = 60;
 const ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE: bool = true;
 
@@ -83,6 +83,7 @@ struct DirtyFragmentIndexState {
   user_ids: HashSet<String>,
   first_dirty_at: Option<TokioInstant>,
   last_dirty_at: Option<TokioInstant>,
+  last_reindex_completed_at: Option<TokioInstant>,
 }
 
 #[derive(Default)]
@@ -157,14 +158,19 @@ impl DirtyFragmentIndexState {
     let Some(last_dirty_at) = self.last_dirty_at else {
       return true;
     };
+    let max_debounce_anchor = self.last_reindex_completed_at.unwrap_or(first_dirty_at);
     now.duration_since(last_dirty_at) >= Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)
-      || now.duration_since(first_dirty_at) >= Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS)
+      || now.duration_since(max_debounce_anchor) >= Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS)
   }
 
   fn drain_user_ids(&mut self) -> Vec<String> {
     self.first_dirty_at = None;
     self.last_dirty_at = None;
     self.user_ids.drain().collect()
+  }
+
+  fn record_reindex_completed(&mut self) {
+    self.last_reindex_completed_at = Some(TokioInstant::now());
   }
 }
 
@@ -565,9 +571,9 @@ async fn run_image_fragment_loop(
         dirty_index_state.record_user(user_id);
         if was_empty {
           info!(
-            "Image fragment pipeline scheduled fragment index rebuild after {} quiet minute(s) or {} minute(s) max.",
-            FRAGMENT_INDEXING_DEBOUNCE_SECS / 60,
-            FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS / 60
+            "Image fragment pipeline scheduled fragment index rebuild after {} quiet or {} max.",
+            format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)),
+            format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS))
           );
         }
       }
@@ -700,6 +706,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   .await
   {
     Ok(summary) => {
+      dirty_index_state.record_reindex_completed();
       info!(
         "Image background pipeline fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
         summary.users_seen,

@@ -16,8 +16,10 @@ pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "document_fragme
 pub const DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME: &str = "infumap_document_fragment_index.json";
 pub const DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION: u32 = 1;
 pub const ITEM_TITLE_LEXICAL_INDEX_DIR_NAME: &str = "item_titles_tantivy";
+#[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "item_titles_tantivy.tmp";
 pub const ITEM_TITLE_LEXICAL_METADATA_FILENAME: &str = "infumap_item_title_index.json";
+#[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_SCHEMA_VERSION: u32 = 1;
 
 const ITEM_ID_FIELD: &str = "item_id";
@@ -159,6 +161,7 @@ impl TantivyItemTitleIndex {
       .await
   }
 
+  #[allow(dead_code)]
   pub async fn rebuild_from_fragments(
     &self,
     temp_index_dir: &Path,
@@ -207,6 +210,7 @@ pub fn item_title_lexical_index_dir(data_dir: &str, user_id: &str) -> InfuResult
   Ok(path)
 }
 
+#[allow(dead_code)]
 pub fn item_title_lexical_index_temp_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
   let mut path = user_index_dir(data_dir, user_id)?;
   path.push(ITEM_TITLE_LEXICAL_INDEX_TEMP_DIR_NAME);
@@ -253,6 +257,7 @@ pub async fn remove_document_fragment_lexical_index_dirs(data_dir: &str, user_id
   Ok(removed)
 }
 
+#[allow(dead_code)]
 pub async fn remove_item_title_lexical_index_dirs(data_dir: &str, user_id: &str) -> InfuResult<usize> {
   let mut removed = 0;
   if remove_path_if_exists(&item_title_lexical_index_temp_dir(data_dir, user_id)?).await? {

@@ -218,10 +218,6 @@ pub async fn item_needs_image_tagging(data_dir: &str, db: Arc<Mutex<Db>>, item_i
   Ok(matches!(manifest_check(data_dir, &candidate).await?, ManifestCheckResult::NeedsTagging))
 }
 
-pub async fn image_tagging_manifest_is_complete(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
-  Ok(image_tagging_manifest_check_result(data_dir, user_id, item_id).await?.is_some())
-}
-
 pub async fn image_tagging_manifest_is_successful(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
   Ok(matches!(
     image_tagging_manifest_check_result(data_dir, user_id, item_id).await?,
