@@ -9,7 +9,7 @@ use log::{debug, error, info};
 use once_cell::sync::OnceCell;
 use tokio::sync::Mutex;
 use tokio::task;
-use tokio::time::sleep;
+use tokio::time::{Instant as TokioInstant, sleep};
 
 use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
@@ -31,6 +31,8 @@ use crate::storage::object::ObjectStore;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
+const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 5 * 60;
+const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 20 * 60;
 const FRAGMENT_INDEX_RETRY_DELAY_SECS: u64 = 60;
 const ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE: bool = false;
 
@@ -77,6 +79,13 @@ struct ImageSemanticPipelineState {
 }
 
 #[derive(Default)]
+struct DirtyFragmentIndexState {
+  user_ids: HashSet<String>,
+  first_dirty_at: Option<TokioInstant>,
+  last_dirty_at: Option<TokioInstant>,
+}
+
+#[derive(Default)]
 struct StartupReconciliationSummary {
   tag_succeeded: usize,
   tag_failed: usize,
@@ -116,6 +125,47 @@ enum ImageFragmentReadiness {
   Ready,
   Waiting,
   Unavailable,
+}
+
+impl DirtyFragmentIndexState {
+  fn is_empty(&self) -> bool {
+    self.user_ids.is_empty()
+  }
+
+  fn record_user(&mut self, user_id: String) {
+    let now = TokioInstant::now();
+    if self.user_ids.is_empty() {
+      self.first_dirty_at = Some(now);
+    }
+    self.last_dirty_at = Some(now);
+    self.user_ids.insert(user_id);
+  }
+
+  fn record_users(&mut self, user_ids: Vec<String>) {
+    for user_id in user_ids {
+      self.record_user(user_id);
+    }
+  }
+
+  fn should_rebuild(&self, now: TokioInstant) -> bool {
+    if self.user_ids.is_empty() {
+      return false;
+    }
+    let Some(first_dirty_at) = self.first_dirty_at else {
+      return true;
+    };
+    let Some(last_dirty_at) = self.last_dirty_at else {
+      return true;
+    };
+    now.duration_since(last_dirty_at) >= Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)
+      || now.duration_since(first_dirty_at) >= Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS)
+  }
+
+  fn drain_user_ids(&mut self) -> Vec<String> {
+    self.first_dirty_at = None;
+    self.last_dirty_at = None;
+    self.user_ids.drain().collect()
+  }
 }
 
 type SourceImagePrefetchHandle = task::JoinHandle<(ImagePipelineCandidate, InfuResult<LoadedImageTagging>)>;
@@ -498,7 +548,7 @@ async fn run_image_fragment_loop(
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<ImageSemanticPipelineState>>,
 ) {
-  let mut dirty_user_ids = HashSet::<String>::new();
+  let mut dirty_index_state = DirtyFragmentIndexState::default();
   loop {
     let candidate = {
       let mut state = state.lock().await;
@@ -506,14 +556,24 @@ async fn run_image_fragment_loop(
     };
 
     let Some(candidate) = candidate else {
-      rebuild_fragment_indexes_for_dirty_users(&config, &mut dirty_user_ids).await;
+      if dirty_index_state.should_rebuild(TokioInstant::now()) {
+        rebuild_fragment_indexes_for_dirty_users(&config, &mut dirty_index_state).await;
+      }
       sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
       continue;
     };
 
     match reconcile_image_fragment_item(&config, db.clone(), &candidate).await {
       Ok(Some(user_id)) => {
-        dirty_user_ids.insert(user_id);
+        let was_empty = dirty_index_state.is_empty();
+        dirty_index_state.record_user(user_id);
+        if was_empty {
+          info!(
+            "Image fragment pipeline scheduled fragment index rebuild after {} quiet minute(s) or {} minute(s) max.",
+            FRAGMENT_INDEXING_DEBOUNCE_SECS / 60,
+            FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS / 60
+          );
+        }
       }
       Ok(None) => {}
       Err(e) => {
@@ -607,22 +667,20 @@ async fn image_fragment_readiness(
 
 async fn rebuild_fragment_indexes_for_dirty_users(
   config: &ImageSemanticPipelineConfig,
-  dirty_user_ids: &mut HashSet<String>,
+  dirty_index_state: &mut DirtyFragmentIndexState,
 ) {
-  if dirty_user_ids.is_empty() {
+  if dirty_index_state.is_empty() {
     return;
   }
-  let user_ids = dirty_user_ids.drain().collect::<Vec<_>>();
+  let user_ids = dirty_index_state.drain_user_ids();
 
   let client = if config.embed_url.is_some() {
     match reqwest::ClientBuilder::new().build() {
       Ok(client) => Some(client),
       Err(e) => {
         error!("Could not build embedding HTTP client for image background pipeline index rebuild: {}", e);
-        for user_id in user_ids {
-          dirty_user_ids.insert(user_id);
-        }
         sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
+        dirty_index_state.record_users(user_ids);
         return;
       }
     }
@@ -659,10 +717,8 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     }
     Err(e) => {
       error!("Image background pipeline fragment index rebuild failed: {}", e);
-      for user_id in user_ids {
-        dirty_user_ids.insert(user_id);
-      }
       sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
+      dirty_index_state.record_users(user_ids);
     }
   }
 }
