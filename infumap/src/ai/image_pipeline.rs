@@ -64,7 +64,7 @@ struct StageQueue {
   queued_item_ids: HashSet<String>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum PipelineStage {
   Source,
   Geo,
@@ -331,7 +331,12 @@ async fn run_source_image_loop(
       }
       Ok(SourceImageReconcileOutcome::NotReady) => {}
       Err(e) => {
-        error!("Image source pipeline failed for image '{}' (user '{}'): {}", candidate.item_id, candidate.user_id, e);
+        error!(
+          "Image source pipeline failed for image '{}' (user '{}'): {}",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e
+        );
       }
     }
   }
@@ -369,7 +374,12 @@ async fn start_next_source_image_prefetch(
       }
       Ok(SourceImagePrefetchReadiness::NotReady) => {}
       Err(e) => {
-        error!("Image source pipeline failed for image '{}' (user '{}'): {}", candidate.item_id, candidate.user_id, e);
+        error!(
+          "Image source pipeline failed for image '{}' (user '{}'): {}",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e
+        );
       }
     }
   }
@@ -381,7 +391,12 @@ async fn await_source_image_prefetch(
   match prefetch.await {
     Ok((candidate, Ok(loaded))) => Some((candidate, loaded)),
     Ok((candidate, Err(e))) => {
-      error!("Image source prefetch failed for image '{}' (user '{}'): {}", candidate.item_id, candidate.user_id, e);
+      error!(
+        "Image source prefetch failed for image '{}' (user '{}'): {}",
+        candidate.item_id,
+        user_id_for_log(&candidate.user_id),
+        e
+      );
       None
     }
     Err(e) => {
@@ -492,7 +507,9 @@ async fn run_reverse_geo_loop(
       Err(e) => {
         error!(
           "Reverse geo pipeline could not verify image '{}' (user '{}'): {}",
-          candidate.item_id, candidate.user_id, e
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e
         );
         continue;
       }
@@ -531,11 +548,16 @@ async fn run_reverse_geo_loop(
       Ok(_) => {
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
           let mut state = state.lock().await;
-          enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "after reverse geo stage");
+          enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "fragmenting");
         }
       }
       Err(e) => {
-        error!("Reverse geo pipeline failed for image '{}' (user '{}'): {}", candidate.item_id, candidate.user_id, e);
+        error!(
+          "Reverse geo pipeline failed for image '{}' (user '{}'): {}",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e
+        );
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
           let mut state = state.lock().await;
           enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "after reverse geo failure");
@@ -583,7 +605,9 @@ async fn run_image_fragment_loop(
       Err(e) => {
         error!(
           "Image fragment pipeline failed for image '{}' (user '{}'): {}",
-          candidate.item_id, candidate.user_id, e
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e
         );
       }
     }
@@ -635,7 +659,8 @@ async fn reconcile_image_fragment_item(
       if outcome.cleared_existing_fragments {
         info!(
           "Image fragment pipeline cleared stale fragments for image '{}' (user {}) because image tagging is not successful.",
-          item_snapshot.id, item_snapshot.owner_id
+          item_snapshot.id,
+          user_id_for_log(&item_snapshot.owner_id)
         );
       }
       return Ok(outcome.cleared_existing_fragments.then_some(item_snapshot.owner_id));
@@ -650,12 +675,15 @@ async fn reconcile_image_fragment_item(
   if fragment_result.outcome.wrote_fragments {
     info!(
       "Image fragment pipeline wrote {} fragment(s) for image '{}' (user {}).",
-      fragment_result.outcome.fragment_count, item_snapshot.id, item_snapshot.owner_id
+      fragment_result.outcome.fragment_count,
+      item_snapshot.id,
+      user_id_for_log(&item_snapshot.owner_id)
     );
   } else if fragment_result.outcome.cleared_existing_fragments {
     info!(
       "Image fragment pipeline cleared stale fragments for image '{}' (user {}).",
-      item_snapshot.id, item_snapshot.owner_id
+      item_snapshot.id,
+      user_id_for_log(&item_snapshot.owner_id)
     );
   }
 
@@ -715,7 +743,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   info!(
     "Rebuilding fragment indexes after image fragment updates for {} user(s): {}; vector_embedding={}.",
     user_ids.len(),
-    user_ids.join(", "),
+    user_ids_for_log(&user_ids),
     if config.embed_url.is_some() { "enabled" } else { "disabled" }
   );
   match rebuild_fragment_indexes_for_users(
@@ -785,7 +813,9 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
         Err(e) => {
           debug!(
             "Skipping image '{}' (user '{}') during image background pipeline startup reconciliation: {}",
-            candidate.item_id, candidate.user_id, e
+            candidate.item_id,
+            user_id_for_log(&candidate.user_id),
+            e
           );
         }
       }
@@ -901,7 +931,7 @@ fn enqueue_live_candidate_for_all_stages_with_log(
   candidate: ImagePipelineCandidate,
 ) {
   let item_id = candidate.item_id.clone();
-  let user_id = candidate.user_id.clone();
+  let user_id = user_id_for_log(&candidate.user_id);
   if enqueue_candidate_for_all_stages(state, candidate) {
     info!(
       "Queued image '{}' (user {}) for source stage from live update; queues: {}.",
@@ -943,17 +973,31 @@ fn enqueue_candidate_with_log(
   reason: &str,
 ) {
   let item_id = candidate.item_id.clone();
-  let user_id = candidate.user_id.clone();
+  let user_id = user_id_for_log(&candidate.user_id);
   if enqueue_candidate(state, stage, candidate) {
-    info!(
-      "Queued image '{}' (user {}) for {} stage {}; queues: {}.",
-      item_id,
-      user_id,
-      stage.label(),
-      reason,
-      queue_depth_summary(state)
-    );
+    if stage == PipelineStage::Fragment && reason == "fragmenting" {
+      info!("Queued image '{}' (user {}) fragmenting; queues: {}.", item_id, user_id, queue_depth_summary(state));
+    } else {
+      info!(
+        "Queued image '{}' (user {}) for {} stage {}; queues: {}.",
+        item_id,
+        user_id,
+        stage.label(),
+        reason,
+        queue_depth_summary(state)
+      );
+    }
   }
+}
+
+fn user_id_for_log(user_id: &str) -> String {
+  let mut chars = user_id.chars();
+  let prefix = chars.by_ref().take(5).collect::<String>();
+  if chars.next().is_some() { format!("{}..", prefix) } else { prefix }
+}
+
+fn user_ids_for_log(user_ids: &[String]) -> String {
+  user_ids.iter().map(|user_id| user_id_for_log(user_id)).collect::<Vec<_>>().join(", ")
 }
 
 fn enqueue_candidate(
