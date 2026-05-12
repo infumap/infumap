@@ -23,7 +23,7 @@ use crate::ai::image_tagging::{
   image_tagging_artifact_state, image_tagging_manifest_is_successful, load_image_for_tagging,
   prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
 };
-use crate::ai::indexing::rebuild_all_fragment_indexes;
+use crate::ai::indexing::rebuild_fragment_indexes_for_users;
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -636,7 +636,15 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     user_ids.join(", "),
     if config.embed_url.is_some() { "enabled" } else { "disabled" }
   );
-  match rebuild_all_fragment_indexes(&config.data_dir, client.as_ref(), config.embed_url.as_ref(), true).await {
+  match rebuild_fragment_indexes_for_users(
+    &config.data_dir,
+    &user_ids,
+    client.as_ref(),
+    config.embed_url.as_ref(),
+    true,
+  )
+  .await
+  {
     Ok(summary) => {
       info!(
         "Image background pipeline fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
