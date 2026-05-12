@@ -202,10 +202,10 @@ pub fn init_image_semantic_pipeline_loop(
     .map_err(|_| "Image background pipeline loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting image background pipeline loops (tag_source=enabled, image_tagging={}, reverse_geo={}, fragment_indexing={}, geo_max_requests_per_minute={}).",
-    if pipeline_config.image_tagging_url.is_some() { "enabled" } else { "disabled" },
-    if pipeline_config.geo_api_key.is_some() { "enabled" } else { "disabled" },
-    if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE { "enabled" } else { "disabled" },
+    "Starting image background pipeline loops (tag_source=on, image_tagging={}, reverse_geo={}, fragment_indexing={}, geo_max_requests_per_minute={}).",
+    on_off(pipeline_config.image_tagging_url.is_some()),
+    on_off(pipeline_config.geo_api_key.is_some()),
+    on_off(ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE),
     pipeline_config.geo_max_requests_per_minute
   );
 
@@ -723,7 +723,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     "Rebuilding fragment indexes after image fragment updates for {} user(s): {}; vector_embedding={}.",
     user_ids.len(),
     user_ids_for_log(&user_ids),
-    if config.embed_url.is_some() { "enabled" } else { "disabled" }
+    on_off(config.embed_url.is_some())
   );
   match rebuild_fragment_indexes_for_users(
     &config.data_dir,
@@ -1015,6 +1015,10 @@ fn queue_depth_summary(state: &ImageSemanticPipelineState) -> String {
     state.geo.queue.len(),
     state.fragment.queue.len()
   )
+}
+
+fn on_off(value: bool) -> &'static str {
+  if value { "on" } else { "off" }
 }
 
 impl PipelineStage {
