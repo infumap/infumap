@@ -199,11 +199,7 @@ async fn ensure_user_fragments_dir(data_dir: &str, user_id: &str) -> InfuResult<
     return Ok(fragments_dir);
   }
 
-  debug!(
-    "Checking fragments shard directory '{}' for user '{}'. This is done once per user in this process.",
-    fragments_dir.display(),
-    user_id_for_log(user_id)
-  );
+  debug!("Checking fragment shards for user {}: {}.", user_id_for_log(user_id), fragments_dir.display());
   if !path_exists(&fragments_dir).await {
     fs::create_dir_all(&fragments_dir).await?;
   }
