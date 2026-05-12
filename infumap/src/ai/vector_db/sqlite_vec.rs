@@ -94,6 +94,20 @@ SELECT item_id, ordinal, text_sha256
 FROM fragments
 "#;
 
+pub const SELECT_EMBEDDED_FRAGMENTS_SQL: &str = r#"
+SELECT
+  fragments.item_id,
+  fragments.ordinal,
+  fragments.source_kind,
+  fragments.page_start,
+  fragments.page_end,
+  fragments.text_sha256,
+  fragments.text,
+  fragment_embeddings.embedding
+FROM fragments
+JOIN fragment_embeddings ON fragment_embeddings.rowid = fragments.fragment_id
+"#;
+
 pub const COUNT_FRAGMENT_ROWS_SQL: &str = "SELECT COUNT(*) FROM fragments";
 pub const COUNT_FRAGMENT_EMBEDDING_ROWS_SQL: &str = "SELECT COUNT(*) FROM fragment_embeddings";
 pub const DELETE_FRAGMENT_EMBEDDINGS_FOR_ITEM_SQL: &str = r#"
@@ -320,6 +334,23 @@ fn optional_usize_to_i64(value: Option<usize>, field_name: &str) -> InfuResult<O
   value.map(|v| usize_to_i64(v, field_name)).transpose()
 }
 
+fn embedding_from_bytes(bytes: &[u8], expected_dimensions: usize) -> InfuResult<Vec<f32>> {
+  let chunks = bytes.chunks_exact(4);
+  if !chunks.remainder().is_empty() {
+    return Err(
+      format!("Stored sqlite-vec embedding has byte length {}, which is not divisible by 4.", bytes.len()).into(),
+    );
+  }
+  let embedding = chunks.map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])).collect::<Vec<_>>();
+  if embedding.len() != expected_dimensions {
+    return Err(
+      format!("Stored sqlite-vec embedding has {} dimensions, expected {}.", embedding.len(), expected_dimensions)
+        .into(),
+    );
+  }
+  Ok(embedding)
+}
+
 #[async_trait]
 impl FragmentVectorDb for SqliteVecFragmentVectorDb {
   async fn rebuild_status(&self) -> InfuResult<Option<FragmentVectorDbRebuildStatus>> {
@@ -425,6 +456,80 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
       });
     }
     Ok(keys)
+  }
+
+  async fn embedded_fragments_for_keys(
+    &self,
+    keys: &HashSet<FragmentVectorDbFragmentKey>,
+  ) -> InfuResult<Vec<EmbeddedFragment>> {
+    if keys.is_empty() || !self.db_path.exists() {
+      return Ok(Vec::new());
+    }
+    let conn = self.open_connection()?;
+    let Some(status) = self.read_rebuild_status(&conn)? else {
+      return Ok(Vec::new());
+    };
+    if !status.complete
+      || !table_exists(&conn, FRAGMENTS_TABLE_NAME)?
+      || !table_exists(&conn, FRAGMENT_EMBEDDINGS_TABLE_NAME)?
+    {
+      return Ok(Vec::new());
+    }
+
+    let mut stmt = conn.prepare(SELECT_EMBEDDED_FRAGMENTS_SQL).map_err(|e| {
+      format!("Could not prepare sqlite-vec embedded fragment query '{}': {}", self.db_path.display(), e)
+    })?;
+    let mut rows = stmt
+      .query([])
+      .map_err(|e| format!("Could not query sqlite-vec embedded fragments '{}': {}", self.db_path.display(), e))?;
+    let mut fragments = Vec::new();
+    while let Some(row) = rows
+      .next()
+      .map_err(|e| format!("Could not read sqlite-vec embedded fragment row '{}': {}", self.db_path.display(), e))?
+    {
+      let item_id: String = row
+        .get(0)
+        .map_err(|e| format!("Could not read sqlite-vec fragment item id '{}': {}", self.db_path.display(), e))?;
+      let ordinal = i64_to_usize(
+        row
+          .get::<_, i64>(1)
+          .map_err(|e| format!("Could not read sqlite-vec fragment ordinal '{}': {}", self.db_path.display(), e))?,
+        "ordinal",
+      )?;
+      let text_sha256: String = row
+        .get(5)
+        .map_err(|e| format!("Could not read sqlite-vec fragment text hash '{}': {}", self.db_path.display(), e))?;
+      if !keys.contains(&FragmentVectorDbFragmentKey { item_id: item_id.clone(), ordinal, text_sha256 }) {
+        continue;
+      }
+      let page_start = row
+        .get::<_, Option<i64>>(3)
+        .map_err(|e| format!("Could not read sqlite-vec fragment page_start '{}': {}", self.db_path.display(), e))?
+        .map(|value| i64_to_usize(value, "page_start"))
+        .transpose()?;
+      let page_end = row
+        .get::<_, Option<i64>>(4)
+        .map_err(|e| format!("Could not read sqlite-vec fragment page_end '{}': {}", self.db_path.display(), e))?
+        .map(|value| i64_to_usize(value, "page_end"))
+        .transpose()?;
+      let embedding_bytes: Vec<u8> = row
+        .get(7)
+        .map_err(|e| format!("Could not read sqlite-vec fragment embedding '{}': {}", self.db_path.display(), e))?;
+      fragments.push(EmbeddedFragment {
+        item_id,
+        ordinal,
+        source_kind: row
+          .get(2)
+          .map_err(|e| format!("Could not read sqlite-vec fragment source kind '{}': {}", self.db_path.display(), e))?,
+        page_start,
+        page_end,
+        text: row
+          .get(6)
+          .map_err(|e| format!("Could not read sqlite-vec fragment text '{}': {}", self.db_path.display(), e))?,
+        embedding: embedding_from_bytes(&embedding_bytes, status.embedding_dimensions)?,
+      });
+    }
+    Ok(fragments)
   }
 
   async fn insert_embedded_fragments(&self, fragments: &[EmbeddedFragment]) -> InfuResult<()> {

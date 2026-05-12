@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::ErrorKind;
 use std::path::Path;
 
@@ -265,10 +265,11 @@ async fn rebuild_user_vector_fragment_index(
     });
   }
 
+  let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path.clone());
+  let final_rebuild_status = final_db.rebuild_status().await?;
   if continue_rebuild {
-    let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path.clone());
     if !path_exists(&temp_path).await
-      && let Some(status) = final_db.rebuild_status().await?
+      && let Some(status) = final_rebuild_status.as_ref()
       && status.complete
       && status.source_digest == source_digest
       && status.expected_fragment_count == fragments.len()
@@ -284,7 +285,78 @@ async fn rebuild_user_vector_fragment_index(
   let temp_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, temp_path.clone());
   let mut metadata =
     prepare_temp_rebuild(&*temp_db, &temp_path, user_id, source_digest, fragments.len(), continue_rebuild).await?;
-  let existing_keys = if metadata.is_some() { temp_db.embedded_fragment_keys().await? } else { HashSet::new() };
+  let mut existing_keys = if metadata.is_some() { temp_db.embedded_fragment_keys().await? } else { HashSet::new() };
+  if let Some(final_status) = final_rebuild_status.as_ref()
+    && final_status.complete
+  {
+    let reusable_candidate_keys = fragments
+      .iter()
+      .map(FragmentRecordForIndex::key)
+      .filter(|key| !existing_keys.contains(key))
+      .collect::<HashSet<_>>();
+    let can_reuse_final_embeddings = match metadata.as_ref() {
+      Some(metadata) => {
+        metadata.model == final_status.model && metadata.embedding_dimensions == final_status.embedding_dimensions
+      }
+      None => true,
+    };
+    let reusable_fragments = if can_reuse_final_embeddings {
+      let mut reusable_embeddings_by_key = final_db
+        .embedded_fragments_for_keys(&reusable_candidate_keys)
+        .await?
+        .into_iter()
+        .map(|fragment| {
+          (
+            FragmentVectorDbFragmentKey {
+              item_id: fragment.item_id,
+              ordinal: fragment.ordinal,
+              text_sha256: fragment_text_sha256(&fragment.text),
+            },
+            fragment.embedding,
+          )
+        })
+        .collect::<HashMap<_, _>>();
+      fragments
+        .iter()
+        .filter_map(|fragment| {
+          reusable_embeddings_by_key.remove(&fragment.key()).map(|embedding| EmbeddedFragment {
+            item_id: fragment.item_id.clone(),
+            ordinal: fragment.ordinal,
+            source_kind: fragment.source_kind.clone(),
+            text: fragment.text.clone(),
+            page_start: fragment.page_start,
+            page_end: fragment.page_end,
+            embedding,
+          })
+        })
+        .collect::<Vec<_>>()
+    } else {
+      Vec::new()
+    };
+    if !reusable_fragments.is_empty() {
+      if metadata.is_none() {
+        let initialized_metadata = FragmentVectorDbRebuildMetadata {
+          source_digest: source_digest.to_owned(),
+          expected_fragment_count: fragments.len(),
+          model: final_status.model.clone(),
+          embedding_dimensions: final_status.embedding_dimensions,
+        };
+        temp_db.begin_rebuild(&initialized_metadata, false).await?;
+        metadata = Some(initialized_metadata);
+      }
+      temp_db.insert_embedded_fragments(&reusable_fragments).await?;
+      existing_keys.extend(reusable_fragments.iter().map(|fragment| FragmentVectorDbFragmentKey {
+        item_id: fragment.item_id.clone(),
+        ordinal: fragment.ordinal,
+        text_sha256: fragment_text_sha256(&fragment.text),
+      }));
+      eprintln!(
+        "User {} reused {} unchanged fragment embedding(s) from the current vector index.",
+        user_id,
+        reusable_fragments.len()
+      );
+    }
+  }
   let pending_fragments =
     fragments.iter().filter(|fragment| !existing_keys.contains(&fragment.key())).cloned().collect::<Vec<_>>();
 

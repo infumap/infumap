@@ -76,6 +76,11 @@ pub trait FragmentVectorDb: Send + Sync {
 
   async fn embedded_fragment_keys(&self) -> InfuResult<HashSet<FragmentVectorDbFragmentKey>>;
 
+  async fn embedded_fragments_for_keys(
+    &self,
+    keys: &HashSet<FragmentVectorDbFragmentKey>,
+  ) -> InfuResult<Vec<EmbeddedFragment>>;
+
   async fn insert_embedded_fragments(&self, fragments: &[EmbeddedFragment]) -> InfuResult<()>;
 
   async fn delete_item_fragments(&self, item_id: &str) -> InfuResult<usize>;
