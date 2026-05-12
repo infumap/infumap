@@ -191,7 +191,7 @@ pub fn init_image_semantic_pipeline_loop(
     && pipeline_config.geo_api_key.is_none()
     && !ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE
   {
-    debug!("Image background pipeline is disabled because image tagging and reverse geo are unconfigured.");
+    debug!("Disabled because image tagging and reverse geo are unconfigured.");
     return Ok(());
   }
 
@@ -518,7 +518,7 @@ async fn run_reverse_geo_loop(
       Ok(GeoProcessOutcome::Deferred { reason, retry_after_secs }) => {
         let retry_after = Duration::from_secs(retry_after_secs.max(1));
         info!(
-          "Image background pipeline suspending reverse geo for {} after Geoapify reported {}.",
+          "Suspending reverse geo for {} after Geoapify reported {}.",
           format_duration_for_log(retry_after),
           reason.label()
         );
@@ -691,7 +691,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   };
 
   info!(
-    "Image background pipeline rebuilding fragment indexes after image fragment updates for {} user(s): {}; vector_embedding={}.",
+    "Rebuilding fragment indexes after image fragment updates for {} user(s): {}; vector_embedding={}.",
     user_ids.len(),
     user_ids.join(", "),
     if config.embed_url.is_some() { "enabled" } else { "disabled" }
@@ -708,7 +708,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     Ok(summary) => {
       dirty_index_state.record_reindex_completed();
       info!(
-        "Image background pipeline fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
+        "Fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
         summary.users_seen,
         summary.users_rebuilt,
         summary.users_skipped_current,
@@ -719,7 +719,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
       );
     }
     Err(e) => {
-      error!("Image background pipeline fragment index rebuild failed: {}", e);
+      error!("Fragment index rebuild failed: {}", e);
       sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
       dirty_index_state.record_users(user_ids);
     }
@@ -776,7 +776,7 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
     let geo_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Geo, geo_candidates);
     let fragment_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Fragment, fragment_candidates);
     info!(
-      "Image background pipeline startup reconciliation saw {} supported image item(s), queued source={} of {}, reverse_geo={} of {}, and fragment={} of {}; image_tags: succeeded={}, failed={}, pending={}, incomplete={}, unsupported_schema={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
+      "Startup reconciliation saw {} supported image item(s), queued source={} of {}, reverse_geo={} of {}, and fragment={} of {}; image_tags: succeeded={}, failed={}, pending={}, incomplete={}, unsupported_schema={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
       candidate_count,
       source_enqueued_count,
       source_candidate_count,
@@ -882,7 +882,7 @@ fn enqueue_live_candidate_for_all_stages_with_log(
   let user_id = candidate.user_id.clone();
   if enqueue_candidate_for_all_stages(state, candidate) {
     info!(
-      "Image background pipeline queued image '{}' (user {}) for source stage from live update; queues: {}.",
+      "Queued image '{}' (user {}) for source stage from live update; queues: {}.",
       item_id,
       user_id,
       queue_depth_summary(state)
@@ -896,7 +896,7 @@ fn remove_candidate_from_all_stages_with_log(state: &mut ImageSemanticPipelineSt
     + remove_candidate(state, PipelineStage::Fragment, item_id);
   if removed > 0 {
     info!(
-      "Image background pipeline dequeued image '{}' from {} stage queue(s); queues: {}.",
+      "Dequeued image '{}' from {} stage queue(s); queues: {}.",
       item_id,
       removed,
       queue_depth_summary(state)
@@ -929,7 +929,7 @@ fn enqueue_candidate_with_log(
   let user_id = candidate.user_id.clone();
   if enqueue_candidate(state, stage, candidate) {
     info!(
-      "Image background pipeline queued image '{}' (user {}) for {} stage {}; queues: {}.",
+      "Queued image '{}' (user {}) for {} stage {}; queues: {}.",
       item_id,
       user_id,
       stage.label(),

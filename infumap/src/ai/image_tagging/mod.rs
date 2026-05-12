@@ -240,7 +240,7 @@ pub(crate) async fn load_image_for_tagging(
   };
   let object_read_elapsed = object_read_started_at.elapsed();
   info!(
-    "Completed source object read/decrypt for image '{}' (user {}) in {} ({} bytes).",
+    "Completed read/decrypt for image '{}' (user {}) in {} ({} bytes).",
     candidate.item_id,
     candidate.user_id,
     format_duration_for_log(object_read_elapsed),

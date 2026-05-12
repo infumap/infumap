@@ -297,7 +297,7 @@ pub async fn reverse_geocode_candidate_if_needed(
       None,
       None,
       false,
-      "No GPS latitude/longitude found in image metadata.",
+      "No GPS info",
     )
     .await?;
     return Ok(GeoProcessOutcome::SkippedNoGps);
