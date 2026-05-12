@@ -3,6 +3,7 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use infusdk::util::infu::InfuResult;
+use log::info;
 use reqwest::Url;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -19,6 +20,7 @@ use crate::ai::text_embedding::{
   DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingBatch, TextEmbeddingInput, embed_texts,
   validate_text_embedding_vector,
 };
+use crate::ai::user_id_for_log;
 use crate::ai::vector_db::{
   EmbeddedFragment, FragmentVectorDb, FragmentVectorDbBackend, FragmentVectorDbFragmentKey,
   FragmentVectorDbRebuildMetadata, ensure_user_index_dir, fragment_vector_db_path, fragment_vector_db_temp_path,
@@ -256,7 +258,11 @@ async fn rebuild_user_vector_fragment_index(
   if fragments.is_empty() {
     let removed = remove_stale_empty_index_files(&final_path, &temp_path).await?;
     if removed > 0 {
-      eprintln!("User {} has no vector-search fragments; removed {} stale vector index file(s).", user_id, removed);
+      info!(
+        "User {} has no vector-search fragments; removed {} stale vector index file(s).",
+        user_id_for_log(user_id),
+        removed
+      );
     }
     return Ok(VectorRebuildOutcome {
       skipped_current: removed == 0,
@@ -274,9 +280,12 @@ async fn rebuild_user_vector_fragment_index(
       && status.source_digest == source_digest
       && status.expected_fragment_count == fragments.len()
     {
-      eprintln!(
+      info!(
         "User {} fragment index is already current ({} fragment(s), model '{}', {} dims).",
-        user_id, status.expected_fragment_count, status.model, status.embedding_dimensions
+        user_id_for_log(user_id),
+        status.expected_fragment_count,
+        status.model,
+        status.embedding_dimensions
       );
       return Ok(VectorRebuildOutcome { skipped_current: true, ..Default::default() });
     }
@@ -350,9 +359,9 @@ async fn rebuild_user_vector_fragment_index(
         ordinal: fragment.ordinal,
         text_sha256: fragment_text_sha256(&fragment.text),
       }));
-      eprintln!(
+      info!(
         "User {} reused {} unchanged fragment embedding(s) from the current vector index.",
-        user_id,
+        user_id_for_log(user_id),
         reusable_fragments.len()
       );
     }
@@ -402,7 +411,12 @@ async fn rebuild_user_vector_fragment_index(
       .collect::<Vec<_>>();
     temp_db.insert_embedded_fragments(&embedded_fragments).await?;
     embedded_count += embedded_fragments.len();
-    eprintln!("User {} embedded {}/{} pending fragment(s).", user_id, embedded_count, pending_fragments.len());
+    info!(
+      "User {} embedded {}/{} pending fragment(s).",
+      user_id_for_log(user_id),
+      embedded_count,
+      pending_fragments.len()
+    );
   }
 
   let metadata = metadata.ok_or_else(|| {
@@ -431,9 +445,12 @@ async fn rebuild_user_vector_fragment_index(
     return Err(format!("Final fragment vector DB validation failed for user {}.", user_id).into());
   }
 
-  eprintln!(
+  info!(
     "User {} rebuilt fragment index: {} fragment(s), model '{}', {} dims.",
-    user_id, finished.expected_fragment_count, finished.model, finished.embedding_dimensions
+    user_id_for_log(user_id),
+    finished.expected_fragment_count,
+    finished.model,
+    finished.embedding_dimensions
   );
 
   Ok(VectorRebuildOutcome {
@@ -454,7 +471,11 @@ async fn rebuild_user_fragment_lexical_index(
   if fragments.is_empty() {
     let removed = remove_document_fragment_lexical_index_dirs(data_dir, user_id).await?;
     if removed > 0 {
-      eprintln!("User {} has no lexical-search fragments; removed {} stale lexical index dir(s).", user_id, removed);
+      info!(
+        "User {} has no lexical-search fragments; removed {} stale lexical index dir(s).",
+        user_id_for_log(user_id),
+        removed
+      );
     }
     return Ok(LexicalRebuildOutcome {
       skipped_current: removed == 0,
@@ -471,7 +492,11 @@ async fn rebuild_user_fragment_lexical_index(
     && status.expected_fragment_count == fragments.len()
     && status.indexed_fragment_count == fragments.len()
   {
-    eprintln!("User {} fragment lexical index is already current ({} fragment(s)).", user_id, fragments.len());
+    info!(
+      "User {} fragment lexical index is already current ({} fragment(s)).",
+      user_id_for_log(user_id),
+      fragments.len()
+    );
     return Ok(LexicalRebuildOutcome { skipped_current: true, ..Default::default() });
   }
 
@@ -500,7 +525,11 @@ async fn rebuild_user_fragment_lexical_index(
     return Err(format!("Final fragment lexical index validation failed for user {}.", user_id).into());
   }
 
-  eprintln!("User {} rebuilt fragment lexical index: {} fragment(s).", user_id, status.indexed_fragment_count);
+  info!(
+    "User {} rebuilt fragment lexical index: {} fragment(s).",
+    user_id_for_log(user_id),
+    status.indexed_fragment_count
+  );
   Ok(LexicalRebuildOutcome {
     rebuilt: true,
     lexical_fragments_indexed: status.indexed_fragment_count,
