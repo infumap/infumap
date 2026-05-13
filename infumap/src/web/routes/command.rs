@@ -64,7 +64,7 @@ use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
   text_embedding_vector_fingerprint, text_embedding_vector_norm, validate_text_embedding_vector,
 };
-use crate::ai::text_extraction::delete_item_text_dir;
+use crate::ai::text_extraction::{delete_item_text_dir, enqueue_pdf_item_if_active};
 use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
 use crate::ai::vector_db::{
   FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,
@@ -1296,6 +1296,7 @@ pub async fn add_item_for_user(
     if should_tag_image_item(&queued_item) {
       enqueue_image_semantic_pipeline_item_if_active(&queued_item);
     }
+    enqueue_pdf_item_if_active(&queued_item);
     return json_with_sync_ack(sync_ack, Some(serialized_item));
   }
 }
