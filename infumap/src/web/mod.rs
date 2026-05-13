@@ -43,6 +43,7 @@ use tokio::task::spawn_blocking;
 use tokio::{task, time};
 
 use crate::ai::image_pipeline::init_image_semantic_pipeline_loop;
+use crate::ai::text_extraction::init_text_extraction_processing_loop;
 use crate::ai::title_indexing::init_item_title_indexing_loop;
 use crate::config::*;
 use crate::setup::init_fs_maybe_and_get_config;
@@ -235,6 +236,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
   }
 
   init_item_title_indexing_loop(data_dir.clone(), db.clone())?;
+  init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone())?;
   init_image_semantic_pipeline_loop(config.clone(), db.clone(), object_store.clone())?;
 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {
