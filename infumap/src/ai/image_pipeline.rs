@@ -328,7 +328,7 @@ async fn run_source_image_loop(
     match process_prefetched_source_image_item(&config, db.clone(), &candidate, loaded).await {
       Ok(SourceImageReconcileOutcome::ReadyForDownstream) => {
         let mut state = state.lock().await;
-        enqueue_source_candidate_downstream_if_needed(&config, &mut state, candidate, "after source stage");
+        enqueue_source_candidate_downstream_if_needed(&config, &mut state, candidate, "after tag");
       }
       Ok(SourceImageReconcileOutcome::NotReady) => {}
       Err(e) => {
@@ -371,7 +371,7 @@ async fn start_next_source_image_prefetch(
       }
       Ok(SourceImagePrefetchReadiness::ReadyForDownstream) => {
         let mut state = state.lock().await;
-        enqueue_source_candidate_downstream_if_needed(config, &mut state, candidate, "after source prefetch check");
+        enqueue_source_candidate_downstream_if_needed(config, &mut state, candidate, "after tag check");
       }
       Ok(SourceImagePrefetchReadiness::NotReady) => {}
       Err(e) => {
@@ -928,7 +928,7 @@ fn enqueue_live_candidate_for_all_stages_with_log(
   let user_id = user_id_for_log(&candidate.user_id);
   if enqueue_candidate_for_all_stages(state, candidate) {
     debug!(
-      "Queued image '{}' (user {}) for source stage from live update; queues: {}.",
+      "Queued image '{}' (user {}) for tagging after item update; queues: {}.",
       item_id,
       user_id,
       queue_depth_summary(state)
