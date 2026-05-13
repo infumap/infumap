@@ -406,21 +406,6 @@ async fn run_text_extraction_loop(
       return;
     };
 
-    let next_process = if request_delay == Duration::ZERO {
-      advance_pdf_prefetch_to_process(
-        data_dir.clone(),
-        text_extraction_url.clone(),
-        db.clone(),
-        object_store.clone(),
-        state.clone(),
-        progress.clone(),
-        &mut next_prefetch,
-      )
-      .await
-    } else {
-      None
-    };
-
     let (item_id, user_id, queue_remaining, result) = match current_handle.await {
       Ok(result) => result,
       Err(e) => {
@@ -477,19 +462,17 @@ async fn run_text_extraction_loop(
 
     if request_delay > Duration::ZERO {
       time::sleep(request_delay).await;
-      current_process = advance_pdf_prefetch_to_process(
-        data_dir.clone(),
-        text_extraction_url.clone(),
-        db.clone(),
-        object_store.clone(),
-        state.clone(),
-        progress.clone(),
-        &mut next_prefetch,
-      )
-      .await;
-    } else {
-      current_process = next_process;
     }
+    current_process = advance_pdf_prefetch_to_process(
+      data_dir.clone(),
+      text_extraction_url.clone(),
+      db.clone(),
+      object_store.clone(),
+      state.clone(),
+      progress.clone(),
+      &mut next_prefetch,
+    )
+    .await;
   }
 }
 
