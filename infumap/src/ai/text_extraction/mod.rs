@@ -29,6 +29,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
+use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
 use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_URL};
 use crate::storage::db::Db;
@@ -423,6 +424,7 @@ async fn run_text_extraction_loop(
     let (item_id, user_id, queue_remaining, result) = match current_handle.await {
       Ok(result) => result,
       Err(e) => {
+        record_pdf_text_extraction_processed("failed");
         error!("Text extraction request task failed: {}", e);
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
         current_process = advance_pdf_prefetch_to_process(
@@ -441,6 +443,7 @@ async fn run_text_extraction_loop(
 
     match result {
       Ok(()) => {
+        record_pdf_text_extraction_processed("success");
         let progress_summary = {
           let mut progress = progress.lock().await;
           progress.on_success();
@@ -455,6 +458,7 @@ async fn run_text_extraction_loop(
         );
       }
       Err(e) => {
+        record_pdf_text_extraction_processed("failed");
         let progress_summary = {
           let mut progress = progress.lock().await;
           progress.on_other_failed();
@@ -531,6 +535,7 @@ async fn advance_pdf_prefetch_to_process(
     let (loaded, queue_remaining) = match current_prefetch.await {
       Ok(result) => result,
       Err(e) => {
+        record_pdf_text_extraction_processed("failed");
         error!("Text extraction prefetch task failed: {}", e);
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
         *next_prefetch = Some(spawn_pdf_prefetch(
@@ -585,6 +590,7 @@ async fn prefetch_next_pdf_extraction(
     match manifest_check(&data_dir, &candidate).await {
       Ok(ManifestCheckResult::NeedsExtraction) => {}
       Ok(ManifestCheckResult::AlreadySucceeded) => {
+        record_pdf_text_extraction_processed("skipped");
         debug!(
           "PDF '{}' (user {}) already has successful text extraction artifacts; skipping queued candidate.",
           candidate.item_id,
@@ -593,6 +599,7 @@ async fn prefetch_next_pdf_extraction(
         continue;
       }
       Ok(ManifestCheckResult::AlreadyFailed) => {
+        record_pdf_text_extraction_processed("skipped");
         debug!(
           "PDF '{}' (user {}) already has a failed text extraction manifest; skipping queued candidate.",
           candidate.item_id,
@@ -601,6 +608,7 @@ async fn prefetch_next_pdf_extraction(
         continue;
       }
       Err(e) => {
+        record_pdf_text_extraction_processed("failed");
         debug!(
           "PDF '{}' (user {}) text extraction manifest check failed before prefetch: {}",
           candidate.item_id,
@@ -626,6 +634,7 @@ async fn prefetch_next_pdf_extraction(
     {
       Ok(loaded) => return (loaded, queue_remaining),
       Err(e) => {
+        record_pdf_text_extraction_processed("failed");
         let progress_summary = {
           let mut progress = progress.lock().await;
           progress.on_other_failed();
@@ -769,6 +778,7 @@ fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
     None => return (None, 0),
   };
   let remaining = state.queue.len();
+  record_pdf_text_extraction_queue_depth(state);
   (Some(candidate), remaining)
 }
 
@@ -784,11 +794,21 @@ fn enqueue_candidate(state: &mut ProcessingState, candidate: PdfCandidate) {
   for queued_candidate in &state.queue {
     state.queued_item_ids.insert(queued_candidate.item_id.clone());
   }
+  record_pdf_text_extraction_queue_depth(state);
 }
 
 fn remove_candidate(state: &mut ProcessingState, item_id: &str) {
   state.queue.retain(|candidate| candidate.item_id != item_id);
   state.queued_item_ids.remove(item_id);
+  record_pdf_text_extraction_queue_depth(state);
+}
+
+fn record_pdf_text_extraction_queue_depth(state: &ProcessingState) {
+  METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH.set(state.queue.len() as i64);
+}
+
+fn record_pdf_text_extraction_processed(outcome: &'static str) {
+  METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL.with_label_values(&[outcome]).inc();
 }
 
 fn compare_pdf_candidates_desc(a: &PdfCandidate, b: &PdfCandidate) -> std::cmp::Ordering {

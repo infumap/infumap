@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use prometheus::{HistogramOpts, HistogramVec, IntCounterVec, IntGaugeVec, opts};
+use prometheus::{HistogramOpts, HistogramVec, IntCounterVec, IntGauge, IntGaugeVec, opts};
 
 pub static METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH: Lazy<IntGaugeVec> = Lazy::new(|| {
   IntGaugeVec::new(
@@ -18,6 +18,25 @@ pub static METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL: Lazy<IntCounterVec> = Lazy:
     &["stage", "outcome"],
   )
   .expect("Could not create METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL")
+});
+
+pub static METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH: Lazy<IntGauge> = Lazy::new(|| {
+  IntGauge::with_opts(opts!(
+    "infumap_ai_pdf_text_extraction_queue_depth",
+    "Current PDF text extraction background queue depth."
+  ))
+  .expect("Could not create METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH")
+});
+
+pub static METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
+  IntCounterVec::new(
+    opts!(
+      "infumap_ai_pdf_text_extraction_processed_total",
+      "Total PDF text extraction background items processed by outcome."
+    ),
+    &["outcome"],
+  )
+  .expect("Could not create METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL")
 });
 
 pub static METRIC_AI_TITLE_INDEX_REBUILDS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
@@ -100,6 +119,8 @@ pub static METRIC_SEARCH_BACKEND_DURATION_SECONDS: Lazy<HistogramVec> = Lazy::ne
 pub fn register_ai_metrics() {
   prometheus::register(Box::new(METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_TITLE_INDEX_REBUILDS_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_TITLE_INDEX_REBUILD_DURATION_SECONDS.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.clone())).unwrap();
