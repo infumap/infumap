@@ -75,6 +75,10 @@ impl PdfCandidate {
   }
 }
 
+fn pdf_candidate_for_item(item: &Item) -> Option<PdfCandidate> {
+  (item.mime_type.as_deref() == Some(PDF_SOURCE_MIME_TYPE)).then(|| PdfCandidate::from_item(item))
+}
+
 pub(crate) struct LoadedPdfExtraction {
   candidate: PdfCandidate,
   file_bytes: Vec<u8>,
@@ -123,7 +127,9 @@ pub fn enqueue_pdf_item_if_active(item: &Item) {
     return;
   };
 
-  let candidate = PdfCandidate::from_item(item);
+  let Some(candidate) = pdf_candidate_for_item(item) else {
+    return;
+  };
 
   if let Ok(mut state) = state.try_lock() {
     enqueue_candidate(&mut state, candidate);
@@ -336,8 +342,9 @@ pub fn start_text_extraction_processing_loop(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
-  if PROCESSING_STATE.get().is_some() {
-    return Err("Text extraction processing loop is already running in this process.".into());
+  if let Some(state) = PROCESSING_STATE.get() {
+    enqueue_all_loaded_pdfs(data_dir, db, state.clone());
+    return Ok(());
   }
   let state = Arc::new(Mutex::new(ProcessingState { queue: vec![], queued_item_ids: HashSet::new() }));
   PROCESSING_STATE
@@ -355,6 +362,12 @@ pub fn start_text_extraction_processing_loop(
   });
 
   Ok(())
+}
+
+fn enqueue_all_loaded_pdfs(data_dir: String, db: Arc<Mutex<Db>>, state: Arc<Mutex<ProcessingState>>) {
+  let _enqueue_task = task::spawn(async move {
+    populate_initial_pdf_queue(&data_dir, db, state).await;
+  });
 }
 
 async fn run_text_extraction_loop(
@@ -569,6 +582,36 @@ async fn prefetch_next_pdf_extraction(
 ) -> (LoadedPdfExtraction, usize) {
   loop {
     let (candidate, queue_remaining) = wait_for_next_pdf_candidate(state.clone()).await;
+    match manifest_check(&data_dir, &candidate).await {
+      Ok(ManifestCheckResult::NeedsExtraction) => {}
+      Ok(ManifestCheckResult::AlreadySucceeded) => {
+        debug!(
+          "PDF '{}' (user {}) already has successful text extraction artifacts; skipping queued candidate.",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id)
+        );
+        continue;
+      }
+      Ok(ManifestCheckResult::AlreadyFailed) => {
+        debug!(
+          "PDF '{}' (user {}) already has a failed text extraction manifest; skipping queued candidate.",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id)
+        );
+        continue;
+      }
+      Err(e) => {
+        debug!(
+          "PDF '{}' (user {}) text extraction manifest check failed before prefetch: {}",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e
+        );
+        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+        continue;
+      }
+    }
+
     if candidate.file_size_bytes.map_or(false, |s| s >= LARGE_PDF_SIZE_BYTES) {
       info!(
         "PDF '{}' (user {}): large document (~{} MB); extraction may take a long time and use significant memory.",
@@ -761,9 +804,7 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
       .item
       .all_loaded_items()
       .into_iter()
-      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().map(Item::clone))
-      .filter(|item| item.mime_type.as_deref() == Some(PDF_SOURCE_MIME_TYPE))
-      .map(|item| PdfCandidate::from_item(&item))
+      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().and_then(pdf_candidate_for_item))
       .collect::<Vec<PdfCandidate>>();
     candidates.sort_by(|a, b| {
       let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
