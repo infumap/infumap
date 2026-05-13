@@ -330,7 +330,10 @@ pub fn init_text_extraction_processing_loop(
 ) -> InfuResult<()> {
   let text_extraction_url = match text_extraction_url_from_config(config)? {
     Some(url) => url,
-    None => return Ok(()),
+    None => {
+      info!("PDF text extraction disabled: '{}' is not configured.", CONFIG_TEXT_EXTRACTION_URL);
+      return Ok(());
+    }
   };
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   start_text_extraction_processing_loop(data_dir, text_extraction_url, Duration::ZERO, db, object_store)
@@ -353,11 +356,11 @@ pub fn start_text_extraction_processing_loop(
     .map_err(|_| "Text extraction processing loop is already running in this process.".to_owned())?;
   let progress = Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
-  info!(
-    "Starting text extraction processing loop using '{}' with startup queue population and live enqueue updates (no rescan, delay {:.3}s).",
-    text_extraction_url,
-    request_delay.as_secs_f64()
-  );
+  if request_delay.is_zero() {
+    info!("Starting PDF text extraction loop: '{}'.", text_extraction_url);
+  } else {
+    info!("Starting PDF text extraction loop: '{}' (delay {:.3}s).", text_extraction_url, request_delay.as_secs_f64());
+  }
   let _worker = task::spawn(async move {
     run_text_extraction_loop(data_dir, text_extraction_url, request_delay, db, object_store, state, progress).await;
   });
