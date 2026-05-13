@@ -3,7 +3,9 @@ use infusdk::util::infu::InfuResult;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::time::Instant;
 
+use crate::ai::metrics::{METRIC_AI_EMBEDDING_REQUEST_DURATION_SECONDS, METRIC_AI_EMBEDDING_REQUESTS_TOTAL};
 use crate::config::CONFIG_TEXT_EMBEDDING_URL;
 
 pub const DEFAULT_TEXT_EMBEDDING_MODEL: &str = "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0";
@@ -143,6 +145,19 @@ pub fn text_embedding_vector_norm(embedding: &[f32]) -> f64 {
 }
 
 pub async fn embed_texts(
+  client: &reqwest::Client,
+  embed_url: &Url,
+  inputs: &[TextEmbeddingInput],
+) -> InfuResult<TextEmbeddingBatch> {
+  let started = Instant::now();
+  let result = embed_texts_inner(client, embed_url, inputs).await;
+  let outcome = if result.is_ok() { "success" } else { "failed" };
+  METRIC_AI_EMBEDDING_REQUESTS_TOTAL.with_label_values(&[outcome]).inc();
+  METRIC_AI_EMBEDDING_REQUEST_DURATION_SECONDS.with_label_values(&[outcome]).observe(started.elapsed().as_secs_f64());
+  result
+}
+
+async fn embed_texts_inner(
   client: &reqwest::Client,
   embed_url: &Url,
   inputs: &[TextEmbeddingInput],

@@ -25,6 +25,7 @@ use prometheus::{Encoder, TextEncoder};
 use tokio::{net::TcpListener, task};
 
 use crate::{
+  ai::metrics::register_ai_metrics,
   tokiort::TokioIo,
   web::serve::{internal_server_error_response, not_found_response, text_response},
 };
@@ -44,6 +45,7 @@ pub async fn spawn_prometheus_listener(prometheus_addr: SocketAddr) -> InfuResul
   prometheus::register(Box::new(METRIC_BACKUP_CLEANUP_DELETE_REQUESTS_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_BACKUP_CLEANUP_DELETE_FAILURES_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_CACHED_IMAGE_REQUESTS_TOTAL.clone())).unwrap();
+  register_ai_metrics();
 
   let _forever = task::spawn(async move {
     let listener = match TcpListener::bind(prometheus_addr).await {

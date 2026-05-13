@@ -42,7 +42,7 @@ use serde_json::Value;
 use std::io::Cursor;
 use std::str;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::MutexGuard;
 
 use crate::ai::fragment::{
@@ -59,6 +59,7 @@ use crate::ai::lexical_index::{
   FragmentLexicalHit, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
   user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,
 };
+use crate::ai::metrics::{METRIC_SEARCH_BACKEND_DURATION_SECONDS, METRIC_SEARCH_BACKEND_FAILURES_TOTAL};
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
   text_embedding_vector_fingerprint, text_embedding_vector_norm, validate_text_embedding_vector,
@@ -1812,7 +1813,11 @@ async fn handle_search(
     paginate_mixed_results(mixed, start_result, end_result)
   } else {
     let mut db = db.lock().await;
-    search_exact_paginated(&mut db, &search_text, search_root_id, &session.user_id, start_result, end_result)?
+    let started = Instant::now();
+    let result =
+      search_exact_paginated(&mut db, &search_text, search_root_id, &session.user_id, start_result, end_result);
+    record_search_backend_metrics("exact", started, &result);
+    result?
   };
 
   let has_more = results.len() > request.num_results as usize;
@@ -1851,7 +1856,28 @@ fn search_exact_paginated(
   Ok(results)
 }
 
+fn record_search_backend_metrics<T>(backend: &'static str, started: Instant, result: &InfuResult<T>) {
+  METRIC_SEARCH_BACKEND_DURATION_SECONDS.with_label_values(&[backend]).observe(started.elapsed().as_secs_f64());
+  if result.is_err() {
+    METRIC_SEARCH_BACKEND_FAILURES_TOTAL.with_label_values(&[backend]).inc();
+  }
+}
+
 async fn title_lexical_search_results(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  data_dir: &str,
+  user_id: &Uid,
+  search_root_id: &Uid,
+  search_text: &str,
+  limit: usize,
+) -> InfuResult<Vec<SearchResult>> {
+  let started = Instant::now();
+  let result = title_lexical_search_results_inner(db, data_dir, user_id, search_root_id, search_text, limit).await;
+  record_search_backend_metrics("title", started, &result);
+  result
+}
+
+async fn title_lexical_search_results_inner(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
@@ -1920,6 +1946,20 @@ async fn lexical_search_results(
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
+  let started = Instant::now();
+  let result = lexical_search_results_inner(db, data_dir, user_id, search_root_id, search_text, limit).await;
+  record_search_backend_metrics("lexical", started, &result);
+  result
+}
+
+async fn lexical_search_results_inner(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  data_dir: &str,
+  user_id: &Uid,
+  search_root_id: &Uid,
+  search_text: &str,
+  limit: usize,
+) -> InfuResult<Vec<SearchResult>> {
   if limit == 0 || search_text.trim().is_empty() {
     return Ok(Vec::new());
   }
@@ -1978,6 +2018,21 @@ async fn lexical_search_results(
 }
 
 async fn semantic_search_results(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  data_dir: &str,
+  user_id: &Uid,
+  search_root_id: &Uid,
+  search_text: &str,
+  limit: usize,
+) -> InfuResult<Vec<SearchResult>> {
+  let started = Instant::now();
+  let result = semantic_search_results_inner(config, db, data_dir, user_id, search_root_id, search_text, limit).await;
+  record_search_backend_metrics("semantic", started, &result);
+  result
+}
+
+async fn semantic_search_results_inner(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use config::Config;
 use infusdk::item::Item;
@@ -23,7 +23,11 @@ use crate::ai::image_tagging::{
   image_tagging_artifact_state, image_tagging_manifest_is_successful, load_image_for_tagging,
   prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
 };
-use crate::ai::indexing::rebuild_fragment_indexes_for_loaded_items;
+use crate::ai::indexing::{EmbedRebuildSummary, rebuild_fragment_indexes_for_loaded_items};
+use crate::ai::metrics::{
+  METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL,
+  METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH,
+};
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
 use crate::ai::{user_id_for_log, user_ids_for_log};
 use crate::config::CONFIG_DATA_DIR;
@@ -332,6 +336,7 @@ async fn run_source_image_loop(
       }
       Ok(SourceImageReconcileOutcome::NotReady) => {}
       Err(e) => {
+        record_image_pipeline_processed(PipelineStage::Source, "failed");
         error!(
           "Image source pipeline failed for image '{}' (user '{}'): {}",
           candidate.item_id,
@@ -370,11 +375,15 @@ async fn start_next_source_image_prefetch(
         }));
       }
       Ok(SourceImagePrefetchReadiness::ReadyForDownstream) => {
+        record_image_pipeline_processed(PipelineStage::Source, "success");
         let mut state = state.lock().await;
         enqueue_source_candidate_downstream_if_needed(config, &mut state, candidate, "after tag check");
       }
-      Ok(SourceImagePrefetchReadiness::NotReady) => {}
+      Ok(SourceImagePrefetchReadiness::NotReady) => {
+        record_image_pipeline_processed(PipelineStage::Source, "skipped");
+      }
       Err(e) => {
+        record_image_pipeline_processed(PipelineStage::Source, "failed");
         error!(
           "Image source pipeline failed for image '{}' (user '{}'): {}",
           candidate.item_id,
@@ -392,6 +401,7 @@ async fn await_source_image_prefetch(
   match prefetch.await {
     Ok((candidate, Ok(loaded))) => Some((candidate, loaded)),
     Ok((candidate, Err(e))) => {
+      record_image_pipeline_processed(PipelineStage::Source, "failed");
       error!(
         "Image source prefetch failed for image '{}' (user '{}'): {}",
         candidate.item_id,
@@ -401,6 +411,7 @@ async fn await_source_image_prefetch(
       None
     }
     Err(e) => {
+      record_image_pipeline_processed(PipelineStage::Source, "failed");
       error!("Image source prefetch task failed: {}", e);
       None
     }
@@ -456,8 +467,10 @@ async fn process_prefetched_source_image_item(
   .await?;
 
   if image_tagging_manifest_is_successful(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
+    record_image_pipeline_processed(PipelineStage::Source, "success");
     Ok(SourceImageReconcileOutcome::ReadyForDownstream)
   } else {
+    record_image_pipeline_processed(PipelineStage::Source, "skipped");
     Ok(SourceImageReconcileOutcome::NotReady)
   }
 }
@@ -504,8 +517,12 @@ async fn run_reverse_geo_loop(
 
     match item_still_supported(db.clone(), &candidate).await {
       Ok(true) => {}
-      Ok(false) => continue,
+      Ok(false) => {
+        record_image_pipeline_processed(PipelineStage::Geo, "skipped");
+        continue;
+      }
       Err(e) => {
+        record_image_pipeline_processed(PipelineStage::Geo, "failed");
         error!(
           "Reverse geo pipeline could not verify image '{}' (user '{}'): {}",
           candidate.item_id,
@@ -534,6 +551,7 @@ async fn run_reverse_geo_loop(
     .await
     {
       Ok(GeoProcessOutcome::Deferred { reason, retry_after_secs }) => {
+        record_image_pipeline_processed(PipelineStage::Geo, "deferred");
         let retry_after = Duration::from_secs(retry_after_secs.max(1));
         info!(
           "Suspending reverse geo for {} after Geoapify reported {}.",
@@ -546,13 +564,15 @@ async fn run_reverse_geo_loop(
         }
         sleep(retry_after).await;
       }
-      Ok(_) => {
+      Ok(outcome) => {
+        record_geo_pipeline_processed(&outcome);
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
           let mut state = state.lock().await;
           enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "fragmenting");
         }
       }
       Err(e) => {
+        record_image_pipeline_processed(PipelineStage::Geo, "failed");
         error!(
           "Reverse geo pipeline failed for image '{}' (user '{}'): {}",
           candidate.item_id,
@@ -602,6 +622,7 @@ async fn run_image_fragment_loop(
       }
       Ok(None) => {}
       Err(e) => {
+        record_image_pipeline_processed(PipelineStage::Fragment, "failed");
         error!(
           "Image fragment pipeline failed for image '{}' (user '{}'): {}",
           candidate.item_id,
@@ -622,7 +643,10 @@ async fn reconcile_image_fragment_item(
     let db = db.lock().await;
     match db.item.get(&candidate.item_id) {
       Ok(item) if item.owner_id == candidate.user_id && should_tag_image_item(item) => item.clone(),
-      _ => return Ok(None),
+      _ => {
+        record_image_pipeline_processed(PipelineStage::Fragment, "skipped");
+        return Ok(None);
+      }
     }
   };
 
@@ -642,6 +666,7 @@ async fn reconcile_image_fragment_item(
           user_id_for_log(&item_snapshot.owner_id)
         );
       }
+      record_image_pipeline_processed(PipelineStage::Fragment, "skipped");
       return Ok(outcome.cleared_existing_fragments.then_some(item_snapshot.owner_id));
     }
   }
@@ -652,6 +677,7 @@ async fn reconcile_image_fragment_item(
   };
   let fragment_result = build_image_fragment_artifact(&config.data_dir, &item_snapshot, context_title).await?;
   if fragment_result.outcome.wrote_fragments {
+    record_image_pipeline_processed(PipelineStage::Fragment, "success");
     debug!(
       "Image fragment pipeline wrote {} fragment(s) for image '{}' (user {}).",
       fragment_result.outcome.fragment_count,
@@ -659,11 +685,14 @@ async fn reconcile_image_fragment_item(
       user_id_for_log(&item_snapshot.owner_id)
     );
   } else if fragment_result.outcome.cleared_existing_fragments {
+    record_image_pipeline_processed(PipelineStage::Fragment, "success");
     debug!(
       "Image fragment pipeline cleared stale fragments for image '{}' (user {}).",
       item_snapshot.id,
       user_id_for_log(&item_snapshot.owner_id)
     );
+  } else {
+    record_image_pipeline_processed(PipelineStage::Fragment, "skipped");
   }
 
   Ok(
@@ -738,7 +767,8 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   };
   debug!("Fragment index rebuild using {} loaded item id(s) for {} user(s).", loaded_items.len(), user_ids.len());
 
-  match rebuild_fragment_indexes_for_loaded_items(
+  let rebuild_started = Instant::now();
+  let rebuild_result = rebuild_fragment_indexes_for_loaded_items(
     &config.data_dir,
     &user_ids,
     loaded_items,
@@ -747,9 +777,15 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     // Web rebuilds start from the current corpus; unchanged embeddings still reuse the completed index.
     false,
   )
-  .await
-  {
+  .await;
+  let rebuild_elapsed_secs = rebuild_started.elapsed().as_secs_f64();
+  match rebuild_result {
     Ok(summary) => {
+      let metric_outcome = fragment_index_rebuild_metric_outcome(&summary);
+      METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&[metric_outcome]).inc();
+      METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS
+        .with_label_values(&[metric_outcome])
+        .observe(rebuild_elapsed_secs);
       dirty_index_state.record_reindex_completed();
       info!(
         "Fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
@@ -763,6 +799,8 @@ async fn rebuild_fragment_indexes_for_dirty_users(
       );
     }
     Err(e) => {
+      METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&["failed"]).inc();
+      METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS.with_label_values(&["failed"]).observe(rebuild_elapsed_secs);
       error!("Fragment index rebuild failed: {}", e);
       sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
       dirty_index_state.record_users(user_ids);
@@ -957,6 +995,7 @@ fn pop_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage) -
   let queue = queue_for_stage_mut(state, stage);
   let candidate = queue.queue.pop_front()?;
   queue.queued_item_ids.remove(&candidate.item_id);
+  record_image_pipeline_queue_depths(state);
   Some(candidate)
 }
 
@@ -1003,6 +1042,7 @@ fn enqueue_candidate(
   }
 
   queue.queue.push_back(candidate);
+  record_image_pipeline_queue_depths(state);
   true
 }
 
@@ -1019,6 +1059,7 @@ fn enqueue_candidates(
       enqueued_count += 1;
     }
   }
+  record_image_pipeline_queue_depths(state);
   enqueued_count
 }
 
@@ -1027,11 +1068,45 @@ fn remove_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage
   let before = queue.queue.len();
   queue.queue.retain(|candidate| candidate.item_id != item_id);
   queue.queued_item_ids.remove(item_id);
-  before.saturating_sub(queue.queue.len())
+  let removed = before.saturating_sub(queue.queue.len());
+  record_image_pipeline_queue_depths(state);
+  removed
 }
 
 fn queue_depth_summary(state: &ImageSemanticPipelineState) -> String {
   format!("tag={}, geo={}, fragment={}", state.source.queue.len(), state.geo.queue.len(), state.fragment.queue.len())
+}
+
+fn record_image_pipeline_queue_depths(state: &ImageSemanticPipelineState) {
+  METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH.with_label_values(&["tag"]).set(state.source.queue.len() as i64);
+  METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH.with_label_values(&["geo"]).set(state.geo.queue.len() as i64);
+  METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH.with_label_values(&["fragment"]).set(state.fragment.queue.len() as i64);
+}
+
+fn record_image_pipeline_processed(stage: PipelineStage, outcome: &'static str) {
+  METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL.with_label_values(&[stage.metric_label(), outcome]).inc();
+}
+
+fn record_geo_pipeline_processed(outcome: &GeoProcessOutcome) {
+  let metric_outcome = match outcome {
+    GeoProcessOutcome::Succeeded { .. } => "success",
+    GeoProcessOutcome::Failed { .. } => "failed",
+    GeoProcessOutcome::Deferred { .. } => "deferred",
+    GeoProcessOutcome::SkippedExisting
+    | GeoProcessOutcome::SkippedNoGps
+    | GeoProcessOutcome::SkippedWithoutImageTagOutput => "skipped",
+  };
+  record_image_pipeline_processed(PipelineStage::Geo, metric_outcome);
+}
+
+fn fragment_index_rebuild_metric_outcome(summary: &EmbedRebuildSummary) -> &'static str {
+  if summary.users_rebuilt > 0 {
+    "success"
+  } else if summary.users_skipped_current == summary.users_seen {
+    "skipped_current"
+  } else {
+    "success"
+  }
 }
 
 fn on_off(value: bool) -> &'static str {
@@ -1043,6 +1118,14 @@ impl PipelineStage {
     match self {
       PipelineStage::Source => "source",
       PipelineStage::Geo => "reverse_geo",
+      PipelineStage::Fragment => "fragment",
+    }
+  }
+
+  fn metric_label(self) -> &'static str {
+    match self {
+      PipelineStage::Source => "tag",
+      PipelineStage::Geo => "geo",
       PipelineStage::Fragment => "fragment",
     }
   }

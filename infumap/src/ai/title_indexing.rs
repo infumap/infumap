@@ -15,6 +15,7 @@ use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, item_title_lexical_index_temp_dir,
   open_user_item_title_lexical_index, remove_item_title_lexical_index_dirs,
 };
+use crate::ai::metrics::{METRIC_AI_TITLE_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_TITLE_INDEX_REBUILDS_TOTAL};
 use crate::ai::user_id_for_log;
 use crate::ai::vector_db::ensure_user_index_dir;
 use crate::storage::db::Db;
@@ -29,11 +30,27 @@ enum ItemTitleIndexingRequest {
   Debounced(String),
 }
 
+enum ItemTitleIndexReconcileOutcome {
+  NoFragments,
+  SkippedCurrent,
+  Rebuilt,
+}
+
 impl ItemTitleIndexingRequest {
   fn user_id(&self) -> &str {
     match self {
       ItemTitleIndexingRequest::Immediate(user_id) => user_id,
       ItemTitleIndexingRequest::Debounced(user_id) => user_id,
+    }
+  }
+}
+
+impl ItemTitleIndexReconcileOutcome {
+  fn metric_label(&self) -> &'static str {
+    match self {
+      ItemTitleIndexReconcileOutcome::NoFragments => "no_fragments",
+      ItemTitleIndexReconcileOutcome::SkippedCurrent => "skipped_current",
+      ItemTitleIndexReconcileOutcome::Rebuilt => "success",
     }
   }
 }
@@ -159,6 +176,24 @@ fn drain_pending_item_title_indexing_requests(
 
 async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<Db>>, user_id: &str) -> InfuResult<()> {
   let reconcile_started = Instant::now();
+  let result = reconcile_user_item_title_lexical_index_inner(data_dir, db, user_id, reconcile_started).await;
+  let metric_outcome = match &result {
+    Ok(outcome) => outcome.metric_label(),
+    Err(_) => "failed",
+  };
+  METRIC_AI_TITLE_INDEX_REBUILDS_TOTAL.with_label_values(&[metric_outcome]).inc();
+  METRIC_AI_TITLE_INDEX_REBUILD_DURATION_SECONDS
+    .with_label_values(&[metric_outcome])
+    .observe(reconcile_started.elapsed().as_secs_f64());
+  result.map(|_| ())
+}
+
+async fn reconcile_user_item_title_lexical_index_inner(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  user_id: &str,
+  reconcile_started: Instant,
+) -> InfuResult<ItemTitleIndexReconcileOutcome> {
   let fragments = {
     let db = db.lock().await;
     collect_user_item_title_lexical_fragments(&db, user_id)?
@@ -178,7 +213,7 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
       user_id_for_log(user_id),
       reconcile_started.elapsed().as_secs_f64()
     );
-    return Ok(());
+    return Ok(ItemTitleIndexReconcileOutcome::NoFragments);
   }
 
   ensure_user_index_dir(data_dir, user_id).await?;
@@ -197,7 +232,7 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
       fragments.len(),
       reconcile_started.elapsed().as_secs_f64()
     );
-    return Ok(());
+    return Ok(ItemTitleIndexReconcileOutcome::SkippedCurrent);
   }
 
   info!(
@@ -227,7 +262,7 @@ async fn reconcile_user_item_title_lexical_index(data_dir: &str, db: Arc<Mutex<D
     rebuild_started.elapsed().as_secs_f64(),
     reconcile_started.elapsed().as_secs_f64()
   );
-  Ok(())
+  Ok(ItemTitleIndexReconcileOutcome::Rebuilt)
 }
 
 fn collect_user_item_title_lexical_fragments(db: &Db, user_id: &str) -> InfuResult<Vec<LexicalFragment>> {
