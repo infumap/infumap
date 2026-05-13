@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use infusdk::item::{Item, ItemType};
 use infusdk::util::infu::InfuResult;
 
