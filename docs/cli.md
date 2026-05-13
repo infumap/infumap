@@ -142,7 +142,7 @@ This command has two subcommands:
 - `extract image`
 
 Both subcommands load items, initialize the configured object store, and then either run a finite batch or a continuous background loop.
-In both modes, Infumap keeps only one extraction/tagging request in flight at a time, while pipelining the next source-object read from object storage in the background.
+Continuous extraction/tagging loops keep only one service request in flight at a time, while pipelining the next source-object read from object storage in the background. Finite batches are optimized for throughput and may overlap service requests when `--delay-secs=0`.
 
 ### extract pdf
 

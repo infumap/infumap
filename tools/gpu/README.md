@@ -23,9 +23,15 @@ To start all three together from the repo root:
 
 By default the gateway listens on `127.0.0.1:8787` and forwards:
 
-- `/tag` to the image tagging service
-- `/embed` to the text embedding service
-- `/convert` to the text extraction service
+- `/image-extract` to the image tagging service
+- `/text-embed` to the text embedding service
+- `/pdf-extract` to the text extraction service
+
+The gateway also keeps legacy aliases for existing callers:
+
+- `/tag`
+- `/embed`
+- `/convert`
 
 The child services keep their own defaults:
 

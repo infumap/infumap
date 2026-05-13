@@ -96,15 +96,15 @@ pub fn text_embedding_url_from_config(config: &Config) -> InfuResult<Option<Stri
 pub fn text_embedding_embed_url(base_url: &str) -> InfuResult<Url> {
   let mut parsed = Url::parse(base_url).map_err(|e| format!("Could not parse service URL '{}': {}", base_url, e))?;
   let trimmed = parsed.path().trim_end_matches('/');
-  if trimmed.ends_with("/embed") || trimmed.ends_with("/v1/embeddings") {
+  if trimmed.ends_with("/text-embed") || trimmed.ends_with("/embed") || trimmed.ends_with("/v1/embeddings") {
     Ok(parsed)
   } else {
     let embed_path = if trimmed.is_empty() {
-      "/embed".to_owned()
+      "/text-embed".to_owned()
     } else if trimmed.ends_with("/v1") {
       format!("{}/embeddings", trimmed)
     } else {
-      format!("{}/embed", trimmed)
+      format!("{}/text-embed", trimmed)
     };
     parsed.set_path(&embed_path);
     Ok(parsed)

@@ -6,4 +6,6 @@ Configuration values specified via environment variables should be prefixed with
 
 For documentation on each of the properties, refer to comments in the auto-generated `settings.toml` file, or [the template file](../infumap/default_settings.toml) in the source tree from which this is derived.
 
-`text_embedding_url` is used by both `infumap embed` and semantic search in the web server. If it is unset, search still works, but only exact title search is used. The fragment vector database itself is still populated manually with `infumap embed`; the web server only reads it.
+The GPU tool endpoint names used by the default settings are `/image-extract`, `/text-embed`, and `/pdf-extract`. The local GPU gateway also keeps `/tag`, `/embed`, and `/convert` as legacy aliases.
+
+`text_embedding_url` is used by `infumap embed`, semantic search in the web server, and web background vector index generation when configured. If it is unset, search still works, but only exact title search is used, and background lexical fragment indexing can still run without vector embeddings.

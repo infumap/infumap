@@ -1,6 +1,6 @@
 # Text Extraction
 
-This is a small ad-hoc HTTP wrapper around [Marker](https://github.com/datalab-to/marker) for converting uploaded files to markdown.
+This is a small ad-hoc HTTP wrapper around [Marker](https://github.com/datalab-to/marker) for extracting uploaded PDFs to markdown.
 
 Intended for burst or long running use.
 
@@ -8,7 +8,7 @@ Works well on a google cloud g2-standard-4 instance (NVIDIA L4). Note that a T4 
 
 ## What It Does
 
-- accepts multipart file uploads at `POST /convert`
+- accepts multipart file uploads at `POST /pdf-extract`
 - returns markdown and Marker metadata as JSON
 - loads Marker models once when the service starts
 - uses a fixed extraction policy chosen by the tool
@@ -101,19 +101,19 @@ sudo ufw reload
 Then point Infumap at:
 
 ```text
-http://10.0.0.10:8790/convert
+http://10.0.0.10:8790/pdf-extract
 ```
 
 If `10.0.0.1` can reach the service but `10.0.0.2` cannot, that usually means the VPN hub is still dropping forwarded `wg0` peer-to-peer traffic.
 
-## Convert A File
+## Extract A File
 
 Example upload request:
 
 ```bash
 curl -sS \
   -F "file=@/path/to/document.pdf" \
-  http://127.0.0.1:8790/convert
+  http://127.0.0.1:8790/pdf-extract
 ```
 
 Print only the markdown:
@@ -121,7 +121,7 @@ Print only the markdown:
 ```bash
 curl -sS \
   -F "file=@/path/to/document.pdf" \
-  http://127.0.0.1:8790/convert \
+  http://127.0.0.1:8790/pdf-extract \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["markdown"])'
 ```
 
@@ -129,13 +129,14 @@ curl -sS \
 
 - `GET /`
 - `GET /healthz`
-- `POST /convert`
+- `POST /pdf-extract`
+- `POST /convert` legacy alias
 
 ## Notes
 
-- The `/convert` endpoint now parses the multipart body directly from the request
-  stream instead of using FastAPI `UploadFile`, so the service code does not
-  spool uploads to temp files on disk.
+- The `/pdf-extract` endpoint parses the multipart body directly from the
+  request stream instead of using FastAPI `UploadFile`, so the service code
+  does not spool uploads to temp files on disk.
 - Marker still expects a file path, so the wrapper now feeds it an anonymous
   in-memory Linux `memfd` instead of a temp file on disk.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.

@@ -30,18 +30,18 @@ By default:
 
 - the public FastAPI wrapper listens on `127.0.0.1:8789`
 - the managed private `llama-server` listens on `127.0.0.1:18089`
-- both the direct service and the shared GPU gateway expose `POST /embed`
+- both the direct service and the shared GPU gateway expose `POST /text-embed`
 
 Direct service URL:
 
 ```bash
-http://127.0.0.1:8789/embed
+http://127.0.0.1:8789/text-embed
 ```
 
 Shared gateway URL:
 
 ```bash
-http://127.0.0.1:8787/embed
+http://127.0.0.1:8787/text-embed
 ```
 
 ## Important Environment Variables
@@ -84,7 +84,7 @@ curl -sS \
       "Document: Example.pdf\n\nThis is the second fragment."
     ]
   }' \
-  http://127.0.0.1:8789/embed
+  http://127.0.0.1:8789/text-embed
 ```
 
 The same public API through the gateway:
@@ -95,7 +95,7 @@ curl -sS \
   -d '{
     "input": ["Instruct: Given a web search query, retrieve relevant passages that answer the query\n Query:mandarin oriental kuala lumpur booking details"]
   }' \
-  http://127.0.0.1:8787/embed
+  http://127.0.0.1:8787/text-embed
 ```
 
 ## Endpoints
@@ -106,21 +106,23 @@ Direct wrapper:
 - `GET /healthz`
 - `GET /health`
 - `GET /v1/models`
-- `POST /embed`
+- `POST /text-embed`
+- `POST /embed` legacy alias
 - `POST /v1/embeddings`
 
 Gateway:
 
 - `GET /healthz`
-- `POST /embed`
+- `POST /text-embed`
+- `POST /embed` legacy alias
 
 ## Notes
 
-- `/embed` uses an OpenAI-compatible embedding payload with `input` and optional
-  `encoding_format`. The wrapper always forwards the fixed Qwen model to
-  `llama-server`.
+- `/text-embed` uses an OpenAI-compatible embedding payload with `input` and
+  optional `encoding_format`. The wrapper always forwards the fixed Qwen model
+  to `llama-server`.
 - `POST /v1/embeddings` remains available on the direct wrapper for
-  compatibility, but Infumap's public endpoint is `/embed`.
+  compatibility, but Infumap's public endpoint is `/text-embed`.
 - Infumap's Rust embedding API distinguishes retrieval documents from retrieval
   queries. Fragment documents are embedded as-is. Search queries are embedded
   with Qwen's retrieval instruction prefix:

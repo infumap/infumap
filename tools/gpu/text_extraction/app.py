@@ -505,6 +505,7 @@ async def root(request: Request) -> dict[str, str]:
         "service": "infumap-text-extraction",
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
+        "pdf_extract": rooted_path(request, "/pdf-extract"),
         "convert": rooted_path(request, "/convert"),
     }
 
@@ -514,6 +515,7 @@ async def healthz() -> dict[str, bool]:
     return {"ok": "models" in APP_STATE}
 
 
+@app.post("/pdf-extract", response_model=ConvertResponse)
 @app.post("/convert", response_model=ConvertResponse)
 async def convert_upload(request: Request) -> ConvertResponse:
     request_started_at = time.perf_counter()

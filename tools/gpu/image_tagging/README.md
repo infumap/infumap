@@ -54,7 +54,7 @@ That command will:
 3. download the configured model files if they are missing
 4. ensure `llama-server` exists
 5. start `llama-server`
-6. start the `/tag` service
+6. start the `/image-extract` service
 
 ## Important Environment Variables
 
@@ -144,7 +144,8 @@ IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/gpu/ima
 
 - `GET /`
 - `GET /healthz`
-- `POST /tag`
+- `POST /image-extract`
+- `POST /tag` legacy alias
 
 Interactive docs remain available at `http://127.0.0.1:8788/docs`.
 
@@ -153,7 +154,7 @@ Interactive docs remain available at `http://127.0.0.1:8788/docs`.
 ```bash
 curl -sS \
   -F "file=@/path/to/photo.jpg" \
-  http://127.0.0.1:8788/tag
+  http://127.0.0.1:8788/image-extract
 ```
 
 ## Notes
@@ -170,14 +171,14 @@ curl -sS \
 - GPU-facing inference is intentionally serialized: uploads and preprocessing
   may overlap, but only one `llama-server` request is allowed to execute at a
   time.
-- The `/tag` endpoint now parses the multipart body directly from the request
-  stream instead of using FastAPI `UploadFile`, so the service code does not
-  spool uploads to temp files on disk.
-- The `/tag` JSON response now also includes
+- The `/image-extract` endpoint parses the multipart body directly from the
+  request stream instead of using FastAPI `UploadFile`, so the service code
+  does not spool uploads to temp files on disk.
+- The `/image-extract` JSON response also includes
   `face_recognition_candidate_confidence` and
   `visible_face_count_estimate` so downstream services can decide whether an
   image is worth sending to a dedicated face-matching pipeline.
-- The `/tag` JSON response now also includes `image_embedding` as the last
+- The `/image-extract` JSON response also includes `image_embedding` as the last
   field. The vector is L2-normalized and is produced in parallel with the
   tagging request for the same prepared image.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.

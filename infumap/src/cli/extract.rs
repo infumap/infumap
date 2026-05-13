@@ -77,7 +77,7 @@ fn make_pdf_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Service URL. Overrides the configured text extraction URL, if present.")
+        .help("Text extraction service endpoint URL, for example http://127.0.0.1:8787/pdf-extract. Overrides the configured text extraction URL, if present.")
         .num_args(1)
         .required(false),
     )
@@ -173,7 +173,7 @@ fn make_image_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Service URL. Overrides the configured image tagging URL, if present.")
+        .help("Image tagging service endpoint URL, for example http://127.0.0.1:8787/image-extract. Overrides the configured image tagging URL, if present.")
         .num_args(1)
         .required(false),
     )

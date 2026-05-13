@@ -59,21 +59,20 @@
 #cache_dir = "~/.infumap/cache"
 
 # Optional URL for the external text extraction service. Used by CLI/batch
-# extraction commands for PDF file items. Web background extraction is disabled
-# in this stage.
-#text_extraction_url = "http://127.0.0.1:8787/convert"
+# extraction commands and web background extraction for PDF file items.
+#text_extraction_url = "http://127.0.0.1:8787/pdf-extract"
 
 # Optional URL for the external image tagging service. If set, Infumap web can
 # tag supported image items. The tag artifact includes image metadata used by
 # reverse geocoding and image fragment generation.
-#image_tagging_url = "http://127.0.0.1:8787/tag"
+#image_tagging_url = "http://127.0.0.1:8787/image-extract"
 
 # Optional URL for the external text embedding service. Used by `infumap embed`
 # to rebuild per-user fragment vector indexes, and by full-user web search to
 # embed the search query for semantic lookup. Web background vector index
 # generation also uses this setting when configured; lexical fragment indexing
 # can run without it. If unset, semantic fragment search is disabled.
-#text_embedding_url = "http://127.0.0.1:8787/embed"
+#text_embedding_url = "http://127.0.0.1:8787/text-embed"
 
 # Reverse geocoding service URL for GPS-tagged images. Used when geoapify_api_key
 # is set; this stage runs from successful image tag artifacts.

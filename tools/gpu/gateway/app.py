@@ -64,17 +64,17 @@ def service_registry() -> dict[str, ServiceProxy]:
     services = [
         ServiceProxy(
             service_name="image_tagging",
-            public_paths=("/tag",),
+            public_paths=("/image-extract", "/tag"),
             upstream_base_url=upstream_base_url("GPU_IMAGE_TAGGING_UPSTREAM_URL", "127.0.0.1", 8788),
         ),
         ServiceProxy(
             service_name="text_embedding",
-            public_paths=("/embed",),
+            public_paths=("/text-embed", "/embed"),
             upstream_base_url=upstream_base_url("GPU_TEXT_EMBEDDING_UPSTREAM_URL", "127.0.0.1", 8789),
         ),
         ServiceProxy(
             service_name="text_extraction",
-            public_paths=("/convert",),
+            public_paths=("/pdf-extract", "/convert"),
             upstream_base_url=upstream_base_url("GPU_TEXT_EXTRACTION_UPSTREAM_URL", "127.0.0.1", 8790),
         ),
     ]

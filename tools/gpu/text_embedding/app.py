@@ -141,6 +141,7 @@ async def root(request: Request) -> dict[str, Any]:
         "model_id": MODEL_ID,
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
+        "text_embed": rooted_path(request, "/text-embed"),
         "embed": rooted_path(request, "/embed"),
     }
 
@@ -205,6 +206,7 @@ async def embed_with_llama(request: Request) -> JSONResponse:
     return JSONResponse(status_code=response.status_code, content=content)
 
 
+@app.post("/text-embed")
 @app.post("/embed")
 async def embed(request: Request) -> JSONResponse:
     return await embed_with_llama(request)

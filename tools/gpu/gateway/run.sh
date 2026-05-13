@@ -173,7 +173,8 @@ fi
 echo "Starting Infumap GPU gateway"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
-echo "Forwarded endpoints: /tag /embed /convert"
+echo "Forwarded endpoints: /image-extract /text-embed /pdf-extract"
+echo "Legacy aliases: /tag /embed /convert"
 echo "GPU_GATEWAY_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
 
 child_pid=""
