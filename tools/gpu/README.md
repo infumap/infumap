@@ -63,6 +63,8 @@ The combined launcher keeps each service independent:
 - requests sent through the gateway are serialized by a global GPU lock so only
   one forwarded endpoint request runs at a time; direct calls to the child
   service ports bypass the gateway lock
+- gateway upstream read/write timeouts are 30 minutes by default, with a 4 hour
+  read/write timeout for `/pdf-extract` and its legacy `/convert` alias
 
 Optional environment variables:
 

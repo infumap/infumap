@@ -176,6 +176,7 @@ echo "Host/port: $HOST:$PORT"
 echo "Forwarded endpoints: /image-extract /text-embed /pdf-extract"
 echo "Legacy aliases: /tag /embed /convert"
 echo "Global GPU lock: enabled for forwarded endpoint requests"
+echo "Gateway upstream timeouts: default read/write 30m, /pdf-extract read/write 4h"
 echo "GPU_GATEWAY_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
 
 child_pid=""

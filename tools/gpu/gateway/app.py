@@ -42,6 +42,8 @@ HOP_BY_HOP_HEADERS = {
 }
 
 LOGGER = logging.getLogger("uvicorn.error")
+DEFAULT_UPSTREAM_READ_WRITE_TIMEOUT_SECS = 30.0 * 60.0
+PDF_EXTRACT_UPSTREAM_READ_WRITE_TIMEOUT_SECS = 4.0 * 60.0 * 60.0
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,7 @@ class ServiceProxy:
     upstream_base_url: str
     upstream_path_overrides: dict[str, str] | None = None
     health_paths: tuple[str, ...] = ("/healthz",)
+    upstream_read_write_timeout_secs: float = DEFAULT_UPSTREAM_READ_WRITE_TIMEOUT_SECS
 
     def upstream_path_for(self, public_path: str) -> str:
         if self.upstream_path_overrides and public_path in self.upstream_path_overrides:
@@ -81,6 +84,7 @@ def service_registry() -> dict[str, ServiceProxy]:
             service_name="text_extraction",
             public_paths=("/pdf-extract", "/convert"),
             upstream_base_url=upstream_base_url("GPU_TEXT_EXTRACTION_UPSTREAM_URL", "127.0.0.1", 8790),
+            upstream_read_write_timeout_secs=PDF_EXTRACT_UPSTREAM_READ_WRITE_TIMEOUT_SECS,
         ),
     ]
     return {service.service_name: service for service in services}
@@ -118,18 +122,28 @@ def build_upstream_url(service: ServiceProxy, request_path: str, query: str) -> 
     return url
 
 
+def upstream_timeout(read_write_timeout_secs: float) -> httpx.Timeout:
+    return httpx.Timeout(connect=10.0, read=read_write_timeout_secs, write=read_write_timeout_secs, pool=60.0)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    timeout = httpx.Timeout(connect=10.0, read=30.0 * 60.0, write=30.0 * 60.0, pool=60.0)
-    client = httpx.AsyncClient(timeout=timeout, follow_redirects=False)
+    client = httpx.AsyncClient(timeout=upstream_timeout(DEFAULT_UPSTREAM_READ_WRITE_TIMEOUT_SECS), follow_redirects=False)
+    long_client = httpx.AsyncClient(
+        timeout=upstream_timeout(PDF_EXTRACT_UPSTREAM_READ_WRITE_TIMEOUT_SECS),
+        follow_redirects=False,
+    )
     app.state.http_client = client
+    app.state.long_http_client = long_client
     app.state.gpu_lock = asyncio.Lock()
     try:
         yield
     finally:
         app.state.http_client = None
+        app.state.long_http_client = None
         app.state.gpu_lock = None
         await client.aclose()
+        await long_client.aclose()
 
 
 app = FastAPI(
@@ -143,6 +157,16 @@ def proxy_client(request: Request) -> httpx.AsyncClient:
     client = getattr(request.app.state, "http_client", None)
     if client is None:
         raise RuntimeError("Gateway HTTP client is not initialized.")
+    return client
+
+
+def proxy_client_for_service(request: Request, service: ServiceProxy) -> httpx.AsyncClient:
+    if service.upstream_read_write_timeout_secs <= DEFAULT_UPSTREAM_READ_WRITE_TIMEOUT_SECS:
+        return proxy_client(request)
+
+    client = getattr(request.app.state, "long_http_client", None)
+    if client is None:
+        raise RuntimeError("Gateway long-timeout HTTP client is not initialized.")
     return client
 
 
@@ -220,6 +244,7 @@ async def root(request: Request) -> dict[str, Any]:
             name: {
                 "paths": list(service.public_paths),
                 "upstream": service.upstream_base_url,
+                "upstream_read_write_timeout_secs": service.upstream_read_write_timeout_secs,
             }
             for name, service in SERVICES.items()
         },
@@ -255,7 +280,7 @@ def match_service_for_path(request_path: str) -> ServiceProxy:
 
 
 async def proxy_to_service(request: Request, service: ServiceProxy, request_path: str) -> StreamingResponse:
-    client = proxy_client(request)
+    client = proxy_client_for_service(request, service)
     lock = gpu_lock(request)
     upstream_url = build_upstream_url(service, request_path, request.url.query)
     upstream_request = client.build_request(
