@@ -1,6 +1,7 @@
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 
+use super::super::{FragmentBuildOutcome, clear_item_fragments, write_item_fragments};
 use super::{FragmentSource, FragmentSourceKind};
 
 mod blocks;
@@ -21,6 +22,11 @@ pub(super) const PDF_FRAGMENT_SOFT_LIMIT_TOKENS: usize = 380;
 pub(super) const PDF_FRAGMENT_HARD_LIMIT_TOKENS: usize = 440;
 pub(super) const PDF_PAGE_BREAK_MIN_DASH_COUNT: usize = 8;
 
+pub struct PdfFragmentBuildResult {
+  pub had_fragment_source: bool,
+  pub outcome: FragmentBuildOutcome,
+}
+
 pub async fn pdf_fragment_source_for_item(
   data_dir: &str,
   item: &Item,
@@ -36,6 +42,22 @@ pub async fn pdf_fragment_source_for_item(
     context_title.as_deref(),
     &markdown,
   ))
+}
+
+pub async fn build_pdf_fragment_artifact(
+  data_dir: &str,
+  item: &Item,
+  context_title: Option<String>,
+) -> InfuResult<PdfFragmentBuildResult> {
+  let fragment_source = pdf_fragment_source_for_item(data_dir, item, context_title).await?;
+  let had_fragment_source = fragment_source.is_some();
+  let outcome = match fragment_source {
+    Some(fragment_source) => {
+      write_item_fragments(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await?
+    }
+    None => clear_item_fragments(data_dir, item).await?,
+  };
+  Ok(PdfFragmentBuildResult { had_fragment_source, outcome })
 }
 
 pub(super) fn markdown_fragment_source(

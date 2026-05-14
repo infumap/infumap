@@ -13,8 +13,8 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
-use crate::ai::fragment::sources::{embedding_context_title_for_item, pdf_fragment_source_for_item};
-use crate::ai::fragment::{clear_item_fragments, write_item_fragments};
+use crate::ai::fragment::clear_item_fragments;
+use crate::ai::fragment::sources::{build_pdf_fragment_artifact, embedding_context_title_for_item};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state, text_extraction_url_from_config};
 use crate::ai::user_id_for_log;
@@ -184,14 +184,9 @@ async fn reconcile_document_fragment_item(
     let db = db.lock().await;
     embedding_context_title_for_item(&db, &item_snapshot)
   };
-  let fragment_source = pdf_fragment_source_for_item(&config.data_dir, &item_snapshot, context_title).await?;
-  let outcome = match fragment_source {
-    Some(fragment_source) => {
-      write_item_fragments(&config.data_dir, &item_snapshot, fragment_source.source_kind, fragment_source.fragments)
-        .await?
-    }
-    None => clear_item_fragments(&config.data_dir, &item_snapshot).await?,
-  };
+  let fragment_result = build_pdf_fragment_artifact(&config.data_dir, &item_snapshot, context_title).await?;
+  let had_fragment_source = fragment_result.had_fragment_source;
+  let outcome = fragment_result.outcome;
 
   if outcome.wrote_fragments {
     debug!(
@@ -203,6 +198,12 @@ async fn reconcile_document_fragment_item(
   } else if outcome.cleared_existing_fragments {
     debug!(
       "Document fragment pipeline cleared stale fragments for PDF '{}' (user {}).",
+      item_snapshot.id,
+      user_id_for_log(&item_snapshot.owner_id)
+    );
+  } else if had_fragment_source {
+    debug!(
+      "Document fragment pipeline found PDF fragments already current for PDF '{}' (user {}).",
       item_snapshot.id,
       user_id_for_log(&item_snapshot.owner_id)
     );
