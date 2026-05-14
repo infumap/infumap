@@ -63,6 +63,43 @@ pub(super) enum ManifestCheckResult {
   AlreadyFailed,
 }
 
+pub enum PdfTextArtifactState {
+  Succeeded,
+  Failed,
+  Pending,
+}
+
+pub async fn pdf_text_artifact_state(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<PdfTextArtifactState> {
+  let manifest_path = item_text_manifest_path(data_dir, user_id, item_id)?;
+  let text_path = item_text_content_path(data_dir, user_id, item_id)?;
+
+  if !path_exists(&manifest_path).await {
+    return Ok(PdfTextArtifactState::Pending);
+  }
+  let manifest_bytes = fs::read(&manifest_path).await?;
+  let manifest: TextManifest = match serde_json::from_slice(&manifest_bytes) {
+    Ok(manifest) => manifest,
+    Err(_) => return Ok(PdfTextArtifactState::Pending),
+  };
+
+  if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
+    return Ok(PdfTextArtifactState::Pending);
+  }
+
+  if manifest.status == "succeeded" {
+    if path_exists(&text_path).await {
+      return Ok(PdfTextArtifactState::Succeeded);
+    }
+    return Ok(PdfTextArtifactState::Pending);
+  }
+
+  if manifest.status == "failed" {
+    return Ok(PdfTextArtifactState::Failed);
+  }
+
+  Ok(PdfTextArtifactState::Pending)
+}
+
 pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<Vec<FailedPdfInfo>> {
   let mut out = vec![];
   let pdf_items: Vec<(String, String, String)> = {

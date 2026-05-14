@@ -1,5 +1,6 @@
 pub mod artifact_paths;
 pub mod batch_processing;
+pub mod document_pipeline;
 pub mod fragment;
 pub mod fragment_indexing;
 pub mod geo;

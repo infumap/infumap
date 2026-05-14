@@ -40,7 +40,9 @@ mod artifacts;
 
 #[allow(unused_imports)]
 pub use artifacts::FailedPdfInfo;
-pub use artifacts::{delete_item_text_dir, item_needs_text_extraction, list_failed_pdfs};
+pub use artifacts::{
+  PdfTextArtifactState, delete_item_text_dir, item_needs_text_extraction, list_failed_pdfs, pdf_text_artifact_state,
+};
 
 use self::artifacts::{
   ManifestCheckResult, clear_item_text_dir, manifest_check, write_failed_manifest, write_success_artifacts,
