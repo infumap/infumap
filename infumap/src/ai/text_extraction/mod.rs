@@ -29,6 +29,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
+use crate::ai::document_pipeline::enqueue_pdf_fragment_ids_if_active;
 use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
 use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_URL};
@@ -275,10 +276,12 @@ pub(crate) async fn process_loaded_pdf_extraction(
   match outcome {
     ExtractOutcome::Success(response) => {
       write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
+      enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       debug!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
     }
     ExtractOutcome::DocumentFailed(msg) => {
       write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
+      enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       return Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into());
     }
     ExtractOutcome::EndpointUnavailable(msg) => {
