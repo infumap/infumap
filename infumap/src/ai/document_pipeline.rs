@@ -67,6 +67,7 @@ enum DocumentFragmentReconcileOutcome {
 pub fn init_document_fragment_pipeline_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuResult<()> {
   let pipeline_config = document_fragment_pipeline_config(config)?;
   if DOCUMENT_FRAGMENT_PIPELINE_STATE.get().is_some() {
+    enqueue_all_loaded_pdf_fragments(db, pipeline_config);
     return Ok(());
   }
 
@@ -81,9 +82,14 @@ pub fn init_document_fragment_pipeline_loop(config: &Config, db: Arc<Mutex<Db>>)
     on_off(pipeline_config.text_extraction_enabled)
   );
 
+  let worker_config = pipeline_config.clone();
+  let worker_db = db.clone();
+  let worker_state = state.clone();
   let _worker = task::spawn(async move {
-    run_document_fragment_loop(pipeline_config, db, state).await;
+    run_document_fragment_loop(worker_config, worker_db, worker_state).await;
   });
+
+  enqueue_all_loaded_pdf_fragments(db, pipeline_config);
   Ok(())
 }
 
@@ -243,6 +249,93 @@ async fn document_fragment_readiness(
     PdfTextArtifactState::Pending if config.text_extraction_enabled => Ok(DocumentFragmentReadiness::Waiting),
     PdfTextArtifactState::Pending => Ok(DocumentFragmentReadiness::Unavailable),
   }
+}
+
+fn enqueue_all_loaded_pdf_fragments(db: Arc<Mutex<Db>>, config: DocumentFragmentPipelineConfig) {
+  let Some(state) = DOCUMENT_FRAGMENT_PIPELINE_STATE.get() else {
+    return;
+  };
+  let state = state.clone();
+  let _enqueue_task = task::spawn(async move {
+    populate_initial_document_fragment_queue(&config, db, state).await;
+  });
+}
+
+async fn populate_initial_document_fragment_queue(
+  config: &DocumentFragmentPipelineConfig,
+  db: Arc<Mutex<Db>>,
+  state: Arc<Mutex<DocumentFragmentPipelineState>>,
+) {
+  let candidates = {
+    let db = db.lock().await;
+    db.item
+      .all_loaded_items()
+      .into_iter()
+      .filter_map(|item_key| db.item.get(&item_key.item_id).ok())
+      .filter_map(DocumentFragmentCandidate::from_item)
+      .collect::<Vec<_>>()
+  };
+
+  let total_candidates = candidates.len();
+  let mut queued_candidates = Vec::new();
+  let mut already_succeeded = 0usize;
+  let mut already_failed = 0usize;
+  let mut pending_waiting_for_extraction = 0usize;
+  let mut pending_unavailable = 0usize;
+  let mut skipped_errors = 0usize;
+
+  for candidate in candidates {
+    match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
+      Ok(PdfTextArtifactState::Succeeded) => {
+        already_succeeded += 1;
+        queued_candidates.push(candidate);
+      }
+      Ok(PdfTextArtifactState::Failed) => {
+        already_failed += 1;
+        queued_candidates.push(candidate);
+      }
+      Ok(PdfTextArtifactState::Pending) if config.text_extraction_enabled => {
+        pending_waiting_for_extraction += 1;
+      }
+      Ok(PdfTextArtifactState::Pending) => {
+        pending_unavailable += 1;
+        queued_candidates.push(candidate);
+      }
+      Err(e) => {
+        skipped_errors += 1;
+        debug!(
+          "Skipping PDF '{}' (user {}) during document fragment startup reconciliation: {}",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          e
+        );
+      }
+    }
+  }
+
+  let queued_candidate_count = queued_candidates.len();
+  let enqueued_count = {
+    let mut state = state.lock().await;
+    let mut enqueued_count = 0usize;
+    for candidate in queued_candidates {
+      if enqueue_candidate(&mut state, candidate) {
+        enqueued_count += 1;
+      }
+    }
+    enqueued_count
+  };
+
+  info!(
+    "Startup document fragment reconciliation saw {} PDF item(s), queued {} of {}; text artifacts: succeeded={}, failed={}, pending_waiting_for_extraction={}, pending_unavailable={}, skipped_errors={}.",
+    total_candidates,
+    enqueued_count,
+    queued_candidate_count,
+    already_succeeded,
+    already_failed,
+    pending_waiting_for_extraction,
+    pending_unavailable,
+    skipped_errors
+  );
 }
 
 fn enqueue_candidate_if_active(candidate: DocumentFragmentCandidate) {
