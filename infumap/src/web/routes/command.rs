@@ -45,6 +45,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::MutexGuard;
 
+use crate::ai::document_pipeline::{dequeue_pdf_fragment_item_if_active, enqueue_pdf_fragment_item_if_active};
 use crate::ai::fragment::{
   ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_lexical_search_source_kind,
   is_markdown_document_source_kind,
@@ -101,6 +102,7 @@ const SEARCH_MATCH_SNIPPET_CONTEXT_BEFORE_CHARS: usize = 70;
 const SEARCH_MATCH_SNIPPET_BOUNDARY_SLOP_CHARS: usize = 20;
 const SEARCH_BM25_SCORE_SATURATION: f32 = 4.0;
 const SEARCH_SNIPPET_ELLIPSIS: &str = "...";
+const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 const PDF_CATALOG_OMITTED_LABELS: [&str; 3] = ["document", "context", "section"];
 const SEARCH_SNIPPET_STOP_WORDS: [&str; 32] = [
   "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "he", "her", "his", "in", "is", "it", "its",
@@ -1297,6 +1299,7 @@ pub async fn add_item_for_user(
       enqueue_image_semantic_pipeline_item_if_active(&queued_item);
     }
     enqueue_pdf_item_if_active(&queued_item);
+    enqueue_pdf_fragment_item_if_active(&queued_item);
     return json_with_sync_ack(sync_ack, Some(serialized_item));
   }
 }
@@ -1374,6 +1377,7 @@ async fn handle_update_item(
   let owner_id = item.owner_id.clone();
   let image_fragment_context_dependents =
     image_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?;
+  let pdf_fragment_context_dependents = pdf_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?;
   debug!("Executed 'update-item' command for item '{}'.", item.id);
   drop(db);
   enqueue_item_title_index_reconcile_for_user(&owner_id);
@@ -1384,6 +1388,14 @@ async fn handle_update_item(
   }
   for dependent in image_fragment_context_dependents {
     enqueue_image_semantic_pipeline_item_if_active(&dependent);
+  }
+  if should_fragment_pdf_item(&item) {
+    enqueue_pdf_fragment_item_if_active(&item);
+  } else if should_fragment_pdf_item(&old_item) {
+    dequeue_pdf_fragment_item_if_active(&old_item.id);
+  }
+  for dependent in pdf_fragment_context_dependents {
+    enqueue_pdf_fragment_item_if_active(&dependent);
   }
 
   json_with_sync_ack(sync_ack, None)
@@ -1404,6 +1416,28 @@ fn image_fragment_context_dependents_for_parent_title_change(
     db.item.get_attachments(&item.id)?.into_iter().filter(|attachment| should_tag_image_item(attachment)).cloned(),
   );
   Ok(dependents)
+}
+
+fn pdf_fragment_context_dependents_for_parent_title_change(
+  db: &Db,
+  old_item: &Item,
+  item: &Item,
+) -> InfuResult<Vec<Item>> {
+  if old_item.title == item.title {
+    return Ok(Vec::new());
+  }
+
+  let mut dependents = Vec::new();
+  dependents
+    .extend(db.item.get_children(&item.id)?.into_iter().filter(|child| should_fragment_pdf_item(child)).cloned());
+  dependents.extend(
+    db.item.get_attachments(&item.id)?.into_iter().filter(|attachment| should_fragment_pdf_item(attachment)).cloned(),
+  );
+  Ok(dependents)
+}
+
+fn should_fragment_pdf_item(item: &Item) -> bool {
+  item.mime_type.as_deref() == Some(PDF_SOURCE_MIME_TYPE)
 }
 
 #[derive(Deserialize)]
@@ -1461,6 +1495,7 @@ async fn handle_delete_item<'a>(
     if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
   dequeue_image_semantic_pipeline_item_if_active(&request.id);
   dequeue_pdf_item_if_active(&request.id);
+  dequeue_pdf_fragment_item_if_active(&request.id);
 
   if is_image_item(&item) {
     let num_removed = storage_cache::delete_all(image_cache, &session.user_id, &request.id).await?;
@@ -1610,6 +1645,7 @@ async fn delete_recursive(
       if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
     dequeue_image_semantic_pipeline_item_if_active(&item_id);
     dequeue_pdf_item_if_active(&item_id);
+    dequeue_pdf_fragment_item_if_active(&item_id);
 
     if is_image_item(&item) {
       let num_removed = storage_cache::delete_all(image_cache, &user_id, &item.id).await?;
