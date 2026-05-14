@@ -17,7 +17,7 @@ In addition to (or instead of) using a settings file, Infumap web server configu
 
 For more information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
 
-Searches from the user's home page mix exact title matches with semantic matches from the user's fragment vector index when `text_embedding_url` is configured and `indexes/fragments.sqlite3` has been built for that user. Searches scoped to a specific page or container currently use exact title matching only.
+Searches from the user's home page mix title lexical matches, document fragment lexical matches, and semantic fragment matches when the corresponding indexes exist. Semantic search also requires `text_embedding_url` so the query can be embedded. Searches scoped to a specific page or container currently use exact title matching only.
 
 
 Options:
@@ -144,6 +144,8 @@ This command has two subcommands:
 Both subcommands load items, initialize the configured object store, and then either run a finite batch or a continuous background loop.
 Continuous extraction/tagging loops keep only one service request in flight at a time, while pipelining the next source-object read from object storage in the background. Finite batches are optimized for throughput and may overlap service requests when `--delay-secs=0`.
 
+When the web server is running with the relevant service URL configured, PDF text extraction and image tagging are also maintained by web background loops. The CLI remains useful for offline backfills, targeted reprocessing, and operating without the web server.
+
 ### extract pdf
 
 Run the text extraction processing loop for PDFs.
@@ -185,7 +187,16 @@ Options:
 
 ### fragment
 
-Build on-disk fragment artifacts without starting the web server. Fragments are written for pages and tables using the container title when present plus the titles of the items they contain. Composite children contribute the title text of the items inside the composite.
+Build on-disk fragment artifacts without starting the web server.
+
+This command has four subcommands:
+
+- `fragment image` builds semantic text fragments from image-tagging and geo artifacts.
+- `fragment markdown` builds lexical text fragments directly from Markdown file objects.
+- `fragment text` builds lexical text fragments directly from plain text file objects.
+- `fragment pdf` builds semantic text fragments from PDF markdown produced by `extract pdf`.
+
+When the web server is running, image and PDF fragments are maintained by background loops after the corresponding tag or text-extraction artifacts become available. The CLI remains useful for offline backfills and targeted rebuilds.
 
 Options:
 
@@ -194,9 +205,9 @@ Options:
 
 ### embed
 
-Rebuild per-user fragment vector databases from existing fragment artifacts without starting the web server. This command reads known items, embeds existing `fragments/*/*/fragments.jsonl` records with the configured text embedding service, builds `indexes/fragments.sqlite3.tmp`, validates it, and atomically replaces `indexes/fragments.sqlite3`.
+Rebuild per-user fragment search indexes from existing fragment artifacts without starting the web server. This command reads known items, rebuilds the document-fragment lexical index, embeds semantic fragments with the configured text embedding service, builds `indexes/fragments.sqlite3.tmp`, validates it, and atomically replaces `indexes/fragments.sqlite3`.
 
-This is a manual indexing step. Run `extract pdf`, `extract image`, and `fragment` first when you want document/image-derived text included, then run `embed` to refresh semantic search. The web server does not currently update fragment vector indexes as items change.
+When the web server is running, fragment index reconciliation is scheduled automatically after item title changes and after image or PDF fragments are written. The CLI remains useful for offline full rebuilds, bulk backfills, or refreshing indexes after running `extract` and `fragment` without the web server.
 
 Options:
 

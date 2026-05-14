@@ -8,4 +8,6 @@ For documentation on each of the properties, refer to comments in the auto-gener
 
 The GPU tool endpoint names used by the default settings are `/image-extract`, `/text-embed`, and `/pdf-extract`. The local GPU gateway also keeps `/tag`, `/embed`, and `/convert` as legacy aliases.
 
-`text_embedding_url` is used by `infumap embed`, semantic search in the web server, and web background vector index generation when configured. If it is unset, search still works, but only exact title search is used, and background lexical fragment indexing can still run without vector embeddings.
+When configured, the web server uses these services to maintain derived artifacts in the background: PDFs are text-extracted, images are tagged, image/PDF fragments are generated from those artifacts, and fragment search indexes are reconciled after fragment or title changes.
+
+`text_embedding_url` is used by `infumap embed`, semantic search in the web server, and web background vector index generation when configured. If it is unset, semantic fragment search is disabled, but exact title search and lexical title/document-fragment search can still work when their indexes exist.
