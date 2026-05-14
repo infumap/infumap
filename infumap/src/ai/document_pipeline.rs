@@ -16,6 +16,7 @@ use tokio::time::sleep;
 use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_pdf_fragment_artifact, embedding_context_title_for_item};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
+use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state, text_extraction_url_from_config};
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
@@ -57,6 +58,12 @@ enum DocumentFragmentReadiness {
   Unavailable,
 }
 
+enum DocumentFragmentReconcileOutcome {
+  Changed(String),
+  Skipped,
+  Waiting,
+}
+
 pub fn init_document_fragment_pipeline_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuResult<()> {
   let pipeline_config = document_fragment_pipeline_config(config)?;
   if DOCUMENT_FRAGMENT_PIPELINE_STATE.get().is_some() {
@@ -64,6 +71,7 @@ pub fn init_document_fragment_pipeline_loop(config: &Config, db: Arc<Mutex<Db>>)
   }
 
   let state = Arc::new(Mutex::new(DocumentFragmentPipelineState::default()));
+  METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH.set(0);
   DOCUMENT_FRAGMENT_PIPELINE_STATE
     .set(state.clone())
     .map_err(|_| "Document fragment background pipeline loop is already running in this process.".to_owned())?;
@@ -131,11 +139,16 @@ async fn run_document_fragment_loop(
     };
 
     match reconcile_document_fragment_item(&config, db.clone(), &candidate).await {
-      Ok(Some(user_id)) => {
+      Ok(DocumentFragmentReconcileOutcome::Changed(user_id)) => {
+        record_document_fragment_processed("success");
         enqueue_fragment_index_rebuild_for_user(&user_id);
       }
-      Ok(None) => {}
+      Ok(DocumentFragmentReconcileOutcome::Skipped) => {
+        record_document_fragment_processed("skipped");
+      }
+      Ok(DocumentFragmentReconcileOutcome::Waiting) => {}
       Err(e) => {
+        record_document_fragment_processed("failed");
         error!(
           "Document fragment pipeline failed for PDF '{}' (user '{}'): {}",
           candidate.item_id,
@@ -151,12 +164,12 @@ async fn reconcile_document_fragment_item(
   config: &DocumentFragmentPipelineConfig,
   db: Arc<Mutex<Db>>,
   candidate: &DocumentFragmentCandidate,
-) -> InfuResult<Option<String>> {
+) -> InfuResult<DocumentFragmentReconcileOutcome> {
   let item_snapshot = {
     let db = db.lock().await;
     match db.item.get(&candidate.item_id) {
       Ok(item) if item.owner_id == candidate.user_id && is_pdf_item(item) => item.clone(),
-      _ => return Ok(None),
+      _ => return Ok(DocumentFragmentReconcileOutcome::Skipped),
     }
   };
 
@@ -165,7 +178,7 @@ async fn reconcile_document_fragment_item(
     DocumentFragmentReadiness::Waiting => {
       sleep(Duration::from_millis(FRAGMENT_NOT_READY_WAIT_MILLIS)).await;
       enqueue_pdf_fragment_ids_if_active(&item_snapshot.owner_id, &item_snapshot.id);
-      return Ok(None);
+      return Ok(DocumentFragmentReconcileOutcome::Waiting);
     }
     DocumentFragmentReadiness::Unavailable => {
       let outcome = clear_item_fragments(&config.data_dir, &item_snapshot).await?;
@@ -176,7 +189,11 @@ async fn reconcile_document_fragment_item(
           user_id_for_log(&item_snapshot.owner_id)
         );
       }
-      return Ok(outcome.cleared_existing_fragments.then_some(item_snapshot.owner_id));
+      return Ok(if outcome.cleared_existing_fragments {
+        DocumentFragmentReconcileOutcome::Changed(item_snapshot.owner_id)
+      } else {
+        DocumentFragmentReconcileOutcome::Skipped
+      });
     }
   }
 
@@ -209,7 +226,11 @@ async fn reconcile_document_fragment_item(
     );
   }
 
-  Ok((outcome.wrote_fragments || outcome.cleared_existing_fragments).then_some(item_snapshot.owner_id))
+  Ok(if outcome.wrote_fragments || outcome.cleared_existing_fragments {
+    DocumentFragmentReconcileOutcome::Changed(item_snapshot.owner_id)
+  } else {
+    DocumentFragmentReconcileOutcome::Skipped
+  })
 }
 
 async fn document_fragment_readiness(
@@ -246,12 +267,14 @@ fn enqueue_candidate(state: &mut DocumentFragmentPipelineState, candidate: Docum
     return false;
   }
   state.queue.push_back(candidate);
+  record_document_fragment_queue_depth(state);
   true
 }
 
 fn pop_candidate(state: &mut DocumentFragmentPipelineState) -> Option<DocumentFragmentCandidate> {
   let candidate = state.queue.pop_front()?;
   state.queued_item_ids.remove(&candidate.item_id);
+  record_document_fragment_queue_depth(state);
   Some(candidate)
 }
 
@@ -259,7 +282,17 @@ fn remove_candidate(state: &mut DocumentFragmentPipelineState, item_id: &str) ->
   let before = state.queue.len();
   state.queue.retain(|candidate| candidate.item_id != item_id);
   state.queued_item_ids.remove(item_id);
-  before.saturating_sub(state.queue.len())
+  let removed = before.saturating_sub(state.queue.len());
+  record_document_fragment_queue_depth(state);
+  removed
+}
+
+fn record_document_fragment_queue_depth(state: &DocumentFragmentPipelineState) {
+  METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH.set(state.queue.len() as i64);
+}
+
+fn record_document_fragment_processed(outcome: &'static str) {
+  METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL.with_label_values(&[outcome]).inc();
 }
 
 fn is_pdf_item(item: &Item) -> bool {

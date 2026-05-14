@@ -39,6 +39,25 @@ pub static METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL: Lazy<IntCounterVec> = 
   .expect("Could not create METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL")
 });
 
+pub static METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH: Lazy<IntGauge> = Lazy::new(|| {
+  IntGauge::with_opts(opts!(
+    "infumap_ai_document_fragment_queue_depth",
+    "Current document fragment background queue depth."
+  ))
+  .expect("Could not create METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH")
+});
+
+pub static METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
+  IntCounterVec::new(
+    opts!(
+      "infumap_ai_document_fragment_processed_total",
+      "Total document fragment background items processed by outcome."
+    ),
+    &["outcome"],
+  )
+  .expect("Could not create METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL")
+});
+
 pub static METRIC_AI_TITLE_INDEX_REBUILDS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(
     opts!("infumap_ai_title_index_rebuilds_total", "Total item title lexical index reconciliations by outcome."),
@@ -121,6 +140,8 @@ pub fn register_ai_metrics() {
   prometheus::register(Box::new(METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_TITLE_INDEX_REBUILDS_TOTAL.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_TITLE_INDEX_REBUILD_DURATION_SECONDS.clone())).unwrap();
   prometheus::register(Box::new(METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.clone())).unwrap();
