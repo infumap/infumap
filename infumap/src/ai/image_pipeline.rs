@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use config::Config;
 use infusdk::item::Item;
@@ -9,10 +9,11 @@ use log::{debug, error, info};
 use once_cell::sync::OnceCell;
 use tokio::sync::Mutex;
 use tokio::task;
-use tokio::time::{Instant as TokioInstant, sleep};
+use tokio::time::sleep;
 
 use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
+use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::geo::{
   GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
   geo_manifest_status, geoapify_api_key_from_config, geoapify_max_requests_per_minute_from_config,
@@ -23,22 +24,14 @@ use crate::ai::image_tagging::{
   image_tagging_artifact_state, image_tagging_manifest_is_successful, load_image_for_tagging,
   prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
 };
-use crate::ai::indexing::{EmbedRebuildSummary, rebuild_fragment_indexes_for_loaded_items};
-use crate::ai::metrics::{
-  METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL,
-  METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH,
-};
-use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
-use crate::ai::{user_id_for_log, user_ids_for_log};
+use crate::ai::metrics::{METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH};
+use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
 use crate::storage::object::ObjectStore;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
-const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 10;
-const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 25;
-const FRAGMENT_INDEX_RETRY_DELAY_SECS: u64 = 60;
 const ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE: bool = true;
 
 static IMAGE_SEMANTIC_PIPELINE_STATE: OnceCell<Arc<Mutex<ImageSemanticPipelineState>>> = OnceCell::new();
@@ -84,14 +77,6 @@ struct ImageSemanticPipelineState {
 }
 
 #[derive(Default)]
-struct DirtyFragmentIndexState {
-  user_ids: HashSet<String>,
-  first_dirty_at: Option<TokioInstant>,
-  last_dirty_at: Option<TokioInstant>,
-  last_reindex_completed_at: Option<TokioInstant>,
-}
-
-#[derive(Default)]
 struct StartupReconciliationSummary {
   tag_succeeded: usize,
   tag_failed: usize,
@@ -110,7 +95,6 @@ struct StartupReconciliationSummary {
 struct ImageSemanticPipelineConfig {
   data_dir: String,
   image_tagging_url: Option<String>,
-  embed_url: Option<reqwest::Url>,
   geo_api_key: Option<String>,
   geo_service_url: String,
   geo_max_requests_per_minute: u64,
@@ -131,52 +115,6 @@ enum ImageFragmentReadiness {
   Ready,
   Waiting,
   Unavailable,
-}
-
-impl DirtyFragmentIndexState {
-  fn is_empty(&self) -> bool {
-    self.user_ids.is_empty()
-  }
-
-  fn record_user(&mut self, user_id: String) {
-    let now = TokioInstant::now();
-    if self.user_ids.is_empty() {
-      self.first_dirty_at = Some(now);
-    }
-    self.last_dirty_at = Some(now);
-    self.user_ids.insert(user_id);
-  }
-
-  fn record_users(&mut self, user_ids: Vec<String>) {
-    for user_id in user_ids {
-      self.record_user(user_id);
-    }
-  }
-
-  fn should_rebuild(&self, now: TokioInstant) -> bool {
-    if self.user_ids.is_empty() {
-      return false;
-    }
-    let Some(first_dirty_at) = self.first_dirty_at else {
-      return true;
-    };
-    let Some(last_dirty_at) = self.last_dirty_at else {
-      return true;
-    };
-    let max_debounce_anchor = self.last_reindex_completed_at.unwrap_or(first_dirty_at);
-    now.duration_since(last_dirty_at) >= Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)
-      || now.duration_since(max_debounce_anchor) >= Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS)
-  }
-
-  fn drain_user_ids(&mut self) -> Vec<String> {
-    self.first_dirty_at = None;
-    self.last_dirty_at = None;
-    self.user_ids.drain().collect()
-  }
-
-  fn record_reindex_completed(&mut self) {
-    self.last_reindex_completed_at = Some(TokioInstant::now());
-  }
 }
 
 type SourceImagePrefetchHandle = task::JoinHandle<(ImagePipelineCandidate, InfuResult<LoadedImageTagging>)>;
@@ -206,7 +144,7 @@ pub fn init_image_semantic_pipeline_loop(
     .map_err(|_| "Image background pipeline loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting image background pipeline loops (tag_source=on, image_tagging={}, reverse_geo={}, fragment_indexing={}, geo_max_requests_per_minute={}).",
+    "Starting image background pipeline loops (tag_source=on, image_tagging={}, reverse_geo={}, fragmenting={}, geo_max_requests_per_minute={}).",
     on_off(pipeline_config.image_tagging_url.is_some()),
     on_off(pipeline_config.geo_api_key.is_some()),
     on_off(ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE),
@@ -284,19 +222,10 @@ pub fn dequeue_image_semantic_pipeline_item_if_active(item_id: &str) {
 fn image_semantic_pipeline_config(config: &Config) -> InfuResult<ImageSemanticPipelineConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let image_tagging_url = crate::ai::image_tagging::image_tagging_url_from_config(config)?;
-  let embed_url = if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-    match text_embedding_url_from_config(config)? {
-      Some(_) => Some(resolve_text_embedding_service_url(config, None, "text_embedding_url")?),
-      None => None,
-    }
-  } else {
-    None
-  };
   let geo_api_key = geoapify_api_key_from_config(config)?;
   Ok(ImageSemanticPipelineConfig {
     data_dir,
     image_tagging_url,
-    embed_url,
     geo_api_key,
     geo_service_url: geoapify_url_from_config(config)?,
     geo_max_requests_per_minute: geoapify_max_requests_per_minute_from_config(config)?,
@@ -593,7 +522,6 @@ async fn run_image_fragment_loop(
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<ImageSemanticPipelineState>>,
 ) {
-  let mut dirty_index_state = DirtyFragmentIndexState::default();
   loop {
     let candidate = {
       let mut state = state.lock().await;
@@ -601,24 +529,13 @@ async fn run_image_fragment_loop(
     };
 
     let Some(candidate) = candidate else {
-      if dirty_index_state.should_rebuild(TokioInstant::now()) {
-        rebuild_fragment_indexes_for_dirty_users(&config, db.clone(), &mut dirty_index_state).await;
-      }
       sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
       continue;
     };
 
     match reconcile_image_fragment_item(&config, db.clone(), &candidate).await {
       Ok(Some(user_id)) => {
-        let was_empty = dirty_index_state.is_empty();
-        dirty_index_state.record_user(user_id);
-        if was_empty {
-          debug!(
-            "Image fragment pipeline scheduled fragment index rebuild after {} quiet or {} max.",
-            format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)),
-            format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS))
-          );
-        }
+        enqueue_fragment_index_rebuild_for_user(&user_id);
       }
       Ok(None) => {}
       Err(e) => {
@@ -723,89 +640,6 @@ async fn image_fragment_readiness(
   }
 
   Ok(ImageFragmentReadiness::Ready)
-}
-
-async fn rebuild_fragment_indexes_for_dirty_users(
-  config: &ImageSemanticPipelineConfig,
-  db: Arc<Mutex<Db>>,
-  dirty_index_state: &mut DirtyFragmentIndexState,
-) {
-  if dirty_index_state.is_empty() {
-    return;
-  }
-  let user_ids = dirty_index_state.drain_user_ids();
-
-  let client = if config.embed_url.is_some() {
-    match reqwest::ClientBuilder::new().build() {
-      Ok(client) => Some(client),
-      Err(e) => {
-        error!("Could not build embedding HTTP client for image background pipeline index rebuild: {}", e);
-        sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
-        dirty_index_state.record_users(user_ids);
-        return;
-      }
-    }
-  } else {
-    None
-  };
-
-  info!(
-    "Rebuilding fragment indexes after image fragment updates for {} user(s): {}; vector_embedding={}.",
-    user_ids.len(),
-    user_ids_for_log(&user_ids),
-    on_off(config.embed_url.is_some())
-  );
-
-  let user_id_set = user_ids.iter().cloned().collect::<HashSet<_>>();
-  let loaded_items = {
-    let db = db.lock().await;
-    db.item
-      .all_loaded_items()
-      .into_iter()
-      .filter(|item_key| user_id_set.contains(&item_key.user_id))
-      .collect::<Vec<_>>()
-  };
-  debug!("Fragment index rebuild using {} loaded item id(s) for {} user(s).", loaded_items.len(), user_ids.len());
-
-  let rebuild_started = Instant::now();
-  let rebuild_result = rebuild_fragment_indexes_for_loaded_items(
-    &config.data_dir,
-    &user_ids,
-    loaded_items,
-    client.as_ref(),
-    config.embed_url.as_ref(),
-    // Web rebuilds start from the current corpus; unchanged embeddings still reuse the completed index.
-    false,
-  )
-  .await;
-  let rebuild_elapsed_secs = rebuild_started.elapsed().as_secs_f64();
-  match rebuild_result {
-    Ok(summary) => {
-      let metric_outcome = fragment_index_rebuild_metric_outcome(&summary);
-      METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&[metric_outcome]).inc();
-      METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS
-        .with_label_values(&[metric_outcome])
-        .observe(rebuild_elapsed_secs);
-      dirty_index_state.record_reindex_completed();
-      info!(
-        "Fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
-        summary.users_seen,
-        summary.users_rebuilt,
-        summary.users_skipped_current,
-        summary.fragments_embedded,
-        summary.lexical_fragments_indexed,
-        summary.fragments_reused,
-        summary.empty_index_files_removed
-      );
-    }
-    Err(e) => {
-      METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&["failed"]).inc();
-      METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS.with_label_values(&["failed"]).observe(rebuild_elapsed_secs);
-      error!("Fragment index rebuild failed: {}", e);
-      sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
-      dirty_index_state.record_users(user_ids);
-    }
-  }
 }
 
 async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandidate) -> InfuResult<bool> {
@@ -1097,16 +931,6 @@ fn record_geo_pipeline_processed(outcome: &GeoProcessOutcome) {
     | GeoProcessOutcome::SkippedWithoutImageTagOutput => "skipped",
   };
   record_image_pipeline_processed(PipelineStage::Geo, metric_outcome);
-}
-
-fn fragment_index_rebuild_metric_outcome(summary: &EmbedRebuildSummary) -> &'static str {
-  if summary.users_rebuilt > 0 {
-    "success"
-  } else if summary.users_skipped_current == summary.users_seen {
-    "skipped_current"
-  } else {
-    "success"
-  }
 }
 
 fn on_off(value: bool) -> &'static str {
