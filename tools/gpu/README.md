@@ -60,7 +60,9 @@ The combined launcher keeps each service independent:
 - each child service uses its own `run.sh` for setup and local supervision
 - the gateway uses its own `run.sh`
 - the top-level launcher monitors all child launchers and restarts a service if its launcher exits
-- requests are not serialized globally across all endpoints
+- requests sent through the gateway are serialized by a global GPU lock so only
+  one forwarded endpoint request runs at a time; direct calls to the child
+  service ports bypass the gateway lock
 
 Optional environment variables:
 

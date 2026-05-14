@@ -16,7 +16,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
+import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -24,7 +28,6 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from starlette.background import BackgroundTask
 
 HOP_BY_HOP_HEADERS = {
     "connection",
@@ -37,6 +40,8 @@ HOP_BY_HOP_HEADERS = {
     "upgrade",
     "host",
 }
+
+LOGGER = logging.getLogger("uvicorn.error")
 
 
 @dataclass(frozen=True)
@@ -118,10 +123,12 @@ async def lifespan(app: FastAPI):
     timeout = httpx.Timeout(connect=10.0, read=30.0 * 60.0, write=30.0 * 60.0, pool=60.0)
     client = httpx.AsyncClient(timeout=timeout, follow_redirects=False)
     app.state.http_client = client
+    app.state.gpu_lock = asyncio.Lock()
     try:
         yield
     finally:
         app.state.http_client = None
+        app.state.gpu_lock = None
         await client.aclose()
 
 
@@ -137,6 +144,13 @@ def proxy_client(request: Request) -> httpx.AsyncClient:
     if client is None:
         raise RuntimeError("Gateway HTTP client is not initialized.")
     return client
+
+
+def gpu_lock(request: Request) -> asyncio.Lock:
+    lock = getattr(request.app.state, "gpu_lock", None)
+    if lock is None:
+        raise RuntimeError("Gateway GPU lock is not initialized.")
+    return lock
 
 
 async def health_probe(client: httpx.AsyncClient, service: ServiceProxy) -> dict[str, Any]:
@@ -192,11 +206,16 @@ async def health_probe(client: httpx.AsyncClient, service: ServiceProxy) -> dict
 
 
 @app.get("/")
-async def root() -> dict[str, Any]:
+async def root(request: Request) -> dict[str, Any]:
+    lock = gpu_lock(request)
     return {
         "service": "infumap-gpu-gateway",
         "docs": "/docs",
         "health": "/healthz",
+        "global_gpu_lock": {
+            "enabled": True,
+            "locked": lock.locked(),
+        },
         "services": {
             name: {
                 "paths": list(service.public_paths),
@@ -210,6 +229,7 @@ async def root() -> dict[str, Any]:
 @app.get("/healthz")
 async def healthz(request: Request) -> JSONResponse:
     client = proxy_client(request)
+    lock = gpu_lock(request)
     service_statuses: dict[str, Any] = {}
     overall_ok = True
     for name, service in SERVICES.items():
@@ -219,7 +239,11 @@ async def healthz(request: Request) -> JSONResponse:
 
     return JSONResponse(
         status_code=200 if overall_ok else 503,
-        content={"ok": overall_ok, "services": service_statuses},
+        content={
+            "ok": overall_ok,
+            "global_gpu_lock": {"enabled": True, "locked": lock.locked()},
+            "services": service_statuses,
+        },
     )
 
 
@@ -232,6 +256,7 @@ def match_service_for_path(request_path: str) -> ServiceProxy:
 
 async def proxy_to_service(request: Request, service: ServiceProxy, request_path: str) -> StreamingResponse:
     client = proxy_client(request)
+    lock = gpu_lock(request)
     upstream_url = build_upstream_url(service, request_path, request.url.query)
     upstream_request = client.build_request(
         method=request.method,
@@ -239,19 +264,63 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
         headers=forwarded_headers(request),
         content=request.stream(),
     )
+    wait_started_at = time.perf_counter()
+    if lock.locked():
+        LOGGER.info(
+            "GPU gateway request waiting for global lock: service=%s path=%s method=%s",
+            service.service_name,
+            request_path,
+            request.method,
+        )
+    lock_owned_by_proxy = False
+    upstream_response: httpx.Response | None = None
     try:
+        await lock.acquire()
+        lock_owned_by_proxy = True
+        wait_ms = int((time.perf_counter() - wait_started_at) * 1000)
+        LOGGER.info(
+            "GPU gateway forwarding request: service=%s path=%s method=%s wait_ms=%d",
+            service.service_name,
+            request_path,
+            request.method,
+            wait_ms,
+        )
         upstream_response = await client.send(upstream_request, stream=True)
+        response = StreamingResponse(
+            stream_upstream_response_and_release_lock(upstream_response, lock, service.service_name, request_path),
+            status_code=upstream_response.status_code,
+            headers=strip_hop_by_hop_headers(upstream_response.headers),
+        )
+        lock_owned_by_proxy = False
+        return response
     except httpx.HTTPError as exc:
         raise HTTPException(
             status_code=503,
             detail=f"Upstream GPU service '{service.service_name}' is unavailable: {exc}",
         ) from exc
-    return StreamingResponse(
-        upstream_response.aiter_raw(),
-        status_code=upstream_response.status_code,
-        headers=strip_hop_by_hop_headers(upstream_response.headers),
-        background=BackgroundTask(upstream_response.aclose),
-    )
+    finally:
+        if lock_owned_by_proxy:
+            if upstream_response is not None:
+                await upstream_response.aclose()
+            lock.release()
+            LOGGER.info("GPU gateway released global lock: service=%s path=%s", service.service_name, request_path)
+
+
+async def stream_upstream_response_and_release_lock(
+    upstream_response: httpx.Response,
+    lock: asyncio.Lock,
+    service_name: str,
+    request_path: str,
+) -> AsyncIterator[bytes]:
+    try:
+        async for chunk in upstream_response.aiter_raw():
+            yield chunk
+    finally:
+        try:
+            await upstream_response.aclose()
+        finally:
+            lock.release()
+            LOGGER.info("GPU gateway released global lock: service=%s path=%s", service_name, request_path)
 
 
 @app.api_route(
