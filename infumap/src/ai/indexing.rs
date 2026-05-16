@@ -32,6 +32,22 @@ use crate::util::fs::path_exists;
 
 const UNKNOWN_FRAGMENT_SOURCE_KIND: &str = "unknown";
 
+#[derive(Clone, Copy)]
+struct FragmentIndexRebuildPolicy {
+  continue_rebuild: bool,
+  skip_current: bool,
+}
+
+impl FragmentIndexRebuildPolicy {
+  fn manual(continue_rebuild: bool) -> FragmentIndexRebuildPolicy {
+    FragmentIndexRebuildPolicy { continue_rebuild, skip_current: continue_rebuild }
+  }
+
+  fn background() -> FragmentIndexRebuildPolicy {
+    FragmentIndexRebuildPolicy { continue_rebuild: false, skip_current: true }
+  }
+}
+
 pub async fn rebuild_all_fragment_indexes(
   data_dir: &str,
   client: Option<&reqwest::Client>,
@@ -39,19 +55,19 @@ pub async fn rebuild_all_fragment_indexes(
   continue_rebuild: bool,
 ) -> InfuResult<EmbedRebuildSummary> {
   let plans = load_fragment_index_plans(data_dir).await?;
-  rebuild_fragment_index_plans(data_dir, plans, client, embed_url, continue_rebuild).await
+  rebuild_fragment_index_plans(data_dir, plans, client, embed_url, FragmentIndexRebuildPolicy::manual(continue_rebuild))
+    .await
 }
 
-pub async fn rebuild_fragment_indexes_for_loaded_items(
+pub async fn reconcile_fragment_indexes_for_loaded_items(
   data_dir: &str,
   user_ids: &[String],
   loaded_items: Vec<ItemAndUserId>,
   client: Option<&reqwest::Client>,
   embed_url: Option<&Url>,
-  continue_rebuild: bool,
 ) -> InfuResult<EmbedRebuildSummary> {
   let plans = load_fragment_index_plans_for_loaded_items(data_dir, user_ids, loaded_items).await?;
-  rebuild_fragment_index_plans(data_dir, plans, client, embed_url, continue_rebuild).await
+  rebuild_fragment_index_plans(data_dir, plans, client, embed_url, FragmentIndexRebuildPolicy::background()).await
 }
 
 async fn rebuild_fragment_index_plans(
@@ -59,12 +75,12 @@ async fn rebuild_fragment_index_plans(
   plans: Vec<UserFragmentIndexPlan>,
   client: Option<&reqwest::Client>,
   embed_url: Option<&Url>,
-  continue_rebuild: bool,
+  policy: FragmentIndexRebuildPolicy,
 ) -> InfuResult<EmbedRebuildSummary> {
   let mut summary = EmbedRebuildSummary { users_seen: plans.len(), ..Default::default() };
 
   for plan in plans {
-    let outcome = rebuild_user_fragment_index(data_dir, &plan, client, embed_url, continue_rebuild).await?;
+    let outcome = rebuild_user_fragment_index(data_dir, &plan, client, embed_url, policy).await?;
     summary.record(&outcome);
   }
 
@@ -183,7 +199,7 @@ async fn rebuild_user_fragment_index(
   plan: &UserFragmentIndexPlan,
   client: Option<&reqwest::Client>,
   embed_url: Option<&Url>,
-  continue_rebuild: bool,
+  policy: FragmentIndexRebuildPolicy,
 ) -> InfuResult<UserRebuildOutcome> {
   ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
@@ -191,6 +207,22 @@ async fn rebuild_user_fragment_index(
 
   let vector_source_digest = fragment_corpus_digest(&vector_fragments);
   let lexical_source_digest = fragment_corpus_digest(&lexical_fragments);
+
+  info!(
+    "User {} fragment index corpus: lexical={} vector={}.",
+    user_id_for_log(&plan.user_id),
+    lexical_fragments.len(),
+    vector_fragments.len()
+  );
+
+  let lexical_outcome = rebuild_user_fragment_lexical_index(
+    data_dir,
+    &plan.user_id,
+    &lexical_fragments,
+    &lexical_source_digest,
+    policy.skip_current,
+  )
+  .await?;
 
   let vector_outcome = match (client, embed_url) {
     (Some(client), Some(embed_url)) => {
@@ -201,7 +233,7 @@ async fn rebuild_user_fragment_index(
         &vector_source_digest,
         client,
         embed_url,
-        continue_rebuild,
+        policy,
       )
       .await?
     }
@@ -210,14 +242,6 @@ async fn rebuild_user_fragment_index(
       return Err("Text embedding client and URL must both be provided to rebuild vector fragment indexes.".into());
     }
   };
-  let lexical_outcome = rebuild_user_fragment_lexical_index(
-    data_dir,
-    &plan.user_id,
-    &lexical_fragments,
-    &lexical_source_digest,
-    continue_rebuild,
-  )
-  .await?;
 
   Ok(UserRebuildOutcome {
     users_rebuilt: if vector_outcome.rebuilt || lexical_outcome.rebuilt { 1 } else { 0 },
@@ -246,7 +270,7 @@ async fn rebuild_user_vector_fragment_index(
   source_digest: &str,
   client: &reqwest::Client,
   embed_url: &Url,
-  continue_rebuild: bool,
+  policy: FragmentIndexRebuildPolicy,
 ) -> InfuResult<VectorRebuildOutcome> {
   let final_path = fragment_vector_db_path(data_dir, user_id)?;
   let temp_path = fragment_vector_db_temp_path(data_dir, user_id)?;
@@ -269,7 +293,7 @@ async fn rebuild_user_vector_fragment_index(
 
   let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path.clone());
   let final_rebuild_status = final_db.rebuild_status().await?;
-  if continue_rebuild {
+  if policy.skip_current {
     if !path_exists(&temp_path).await
       && let Some(status) = final_rebuild_status.as_ref()
       && status.complete
@@ -289,7 +313,8 @@ async fn rebuild_user_vector_fragment_index(
 
   let temp_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, temp_path.clone());
   let mut metadata =
-    prepare_temp_rebuild(&*temp_db, &temp_path, user_id, source_digest, fragments.len(), continue_rebuild).await?;
+    prepare_temp_rebuild(&*temp_db, &temp_path, user_id, source_digest, fragments.len(), policy.continue_rebuild)
+      .await?;
   let mut existing_keys = if metadata.is_some() { temp_db.embedded_fragment_keys().await? } else { HashSet::new() };
   if let Some(final_status) = final_rebuild_status.as_ref()
     && final_status.complete
@@ -462,7 +487,7 @@ async fn rebuild_user_fragment_lexical_index(
   user_id: &str,
   fragments: &[FragmentRecordForIndex],
   source_digest: &str,
-  continue_rebuild: bool,
+  skip_current: bool,
 ) -> InfuResult<LexicalRebuildOutcome> {
   if fragments.is_empty() {
     let removed = remove_document_fragment_lexical_index_dirs(data_dir, user_id).await?;
@@ -481,7 +506,7 @@ async fn rebuild_user_fragment_lexical_index(
   }
 
   let final_index = open_user_document_fragment_lexical_index(data_dir, user_id)?;
-  if continue_rebuild
+  if skip_current
     && let Some(status) = final_index.rebuild_status().await?
     && status.complete
     && status.source_digest == source_digest

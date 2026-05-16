@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::{Instant as TokioInstant, sleep};
 
-use crate::ai::indexing::{EmbedRebuildSummary, rebuild_fragment_indexes_for_loaded_items};
+use crate::ai::indexing::{EmbedRebuildSummary, reconcile_fragment_indexes_for_loaded_items};
 use crate::ai::metrics::{METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL};
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
 use crate::ai::{user_id_for_log, user_ids_for_log};
@@ -21,6 +21,7 @@ const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 10;
 const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 25;
 const FRAGMENT_INDEX_RETRY_DELAY_SECS: u64 = 60;
+const BACKGROUND_EMBEDDING_REQUEST_TIMEOUT_SECS: u64 = 60;
 
 static FRAGMENT_INDEXING_STATE: OnceCell<Arc<Mutex<DirtyFragmentIndexState>>> = OnceCell::new();
 
@@ -169,7 +170,8 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   }
 
   let client = if config.embed_url.is_some() {
-    match reqwest::ClientBuilder::new().build() {
+    match reqwest::ClientBuilder::new().timeout(Duration::from_secs(BACKGROUND_EMBEDDING_REQUEST_TIMEOUT_SECS)).build()
+    {
       Ok(client) => Some(client),
       Err(e) => {
         error!("Could not build embedding HTTP client for fragment index rebuild: {}", e);
@@ -201,14 +203,12 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   debug!("Fragment index rebuild using {} loaded item id(s) for {} user(s).", loaded_items.len(), user_ids.len());
 
   let rebuild_started = Instant::now();
-  let rebuild_result = rebuild_fragment_indexes_for_loaded_items(
+  let rebuild_result = reconcile_fragment_indexes_for_loaded_items(
     &config.data_dir,
     &user_ids,
     loaded_items,
     client.as_ref(),
     config.embed_url.as_ref(),
-    // Web rebuilds start from the current corpus; unchanged embeddings still reuse the completed index.
-    false,
   )
   .await;
   let rebuild_elapsed_secs = rebuild_started.elapsed().as_secs_f64();
