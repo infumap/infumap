@@ -151,25 +151,6 @@ pub async fn delete_item_fragment_artifacts(data_dir: &str, user_id: &str, item_
   clear_item_fragments_dir(data_dir, user_id, item_id).await
 }
 
-pub async fn item_fragments_manifest_is_current_for_source(
-  data_dir: &str,
-  user_id: &str,
-  item_id: &str,
-  source_kind: FragmentSourceKind,
-) -> InfuResult<bool> {
-  let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
-  let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
-  let Some(manifest) = read_fragments_manifest_if_present(&fragments_path, &manifest_path).await? else {
-    return Ok(false);
-  };
-  Ok(
-    manifest.schema_version == FRAGMENTS_SCHEMA_VERSION
-      && manifest.fragmenter_version == FRAGMENTER_VERSION
-      && manifest.source_kind == source_kind.as_str()
-      && manifest.fragment_count > 0,
-  )
-}
-
 pub async fn item_fragment_artifact_files_exist(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
   let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
   let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
