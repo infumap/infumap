@@ -18,8 +18,8 @@ use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
-const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 10;
-const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 25;
+const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 60;
+const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 5 * 60;
 const FRAGMENT_INDEX_RETRY_DELAY_SECS: u64 = 60;
 const BACKGROUND_EMBEDDING_REQUEST_TIMEOUT_SECS: u64 = 60;
 
@@ -37,9 +37,14 @@ struct DirtyFragmentIndexState {
   first_dirty_at: Option<TokioInstant>,
   last_dirty_at: Option<TokioInstant>,
   last_reindex_completed_at: Option<TokioInstant>,
+  semantic_enabled: bool,
 }
 
 impl DirtyFragmentIndexState {
+  fn new(semantic_enabled: bool) -> DirtyFragmentIndexState {
+    DirtyFragmentIndexState { semantic_enabled, ..Default::default() }
+  }
+
   fn is_empty(&self) -> bool {
     self.user_ids.is_empty()
   }
@@ -101,14 +106,16 @@ pub fn init_fragment_indexing_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuR
     return Ok(());
   }
 
-  let state = Arc::new(Mutex::new(DirtyFragmentIndexState::default()));
+  let semantic_enabled = indexing_config.embed_url.is_some();
+  let state = Arc::new(Mutex::new(DirtyFragmentIndexState::new(semantic_enabled)));
   FRAGMENT_INDEXING_STATE
     .set(state.clone())
     .map_err(|_| "Fragment index reconciliation loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting fragment index reconciliation loop (vector_embedding={}).",
-    on_off(indexing_config.embed_url.is_some())
+    "Starting {} fragment index reconciliation loop (lexical=document_fragments, semantic={}).",
+    index_kind_for_log(semantic_enabled),
+    semantic_scope_for_log(semantic_enabled)
   );
 
   let _worker = task::spawn(async move {
@@ -182,12 +189,14 @@ async fn enqueue_all_loaded_users_for_fragment_index_rebuild_inner(
     return;
   }
 
-  {
+  let semantic_enabled = {
     let mut state = state.lock().await;
     state.record_users_immediate(user_ids.clone());
-  }
+    state.semantic_enabled
+  };
   info!(
-    "Scheduled startup fragment index reconciliation for {} user(s): {}.",
+    "Scheduled startup {} fragment index reconciliation for {} user(s): {}.",
+    index_kind_for_log(semantic_enabled),
     user_ids.len(),
     user_ids_for_log(&user_ids)
   );
@@ -220,7 +229,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     {
       Ok(client) => Some(client),
       Err(e) => {
-        error!("Could not build embedding HTTP client for fragment index rebuild: {}", e);
+        error!("Could not build embedding HTTP client for image semantic index: {}", e);
         sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
         record_dirty_users(state, user_ids).await;
         return;
@@ -231,10 +240,11 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   };
 
   info!(
-    "Rebuilding fragment indexes for {} user(s): {}; vector_embedding={}.",
+    "Reconciling {} fragment indexes for {} user(s): {}; lexical=document_fragments, semantic={}.",
+    index_kind_for_log(config.embed_url.is_some()),
     user_ids.len(),
     user_ids_for_log(&user_ids),
-    on_off(config.embed_url.is_some())
+    semantic_scope_for_log(config.embed_url.is_some())
   );
 
   let user_id_set = user_ids.iter().cloned().collect::<HashSet<_>>();
@@ -246,7 +256,12 @@ async fn rebuild_fragment_indexes_for_dirty_users(
       .filter(|item_key| user_id_set.contains(&item_key.user_id))
       .collect::<Vec<_>>()
   };
-  debug!("Fragment index rebuild using {} loaded item id(s) for {} user(s).", loaded_items.len(), user_ids.len());
+  debug!(
+    "{} fragment index reconciliation using {} loaded item id(s) for {} user(s).",
+    title_case_index_kind_for_log(config.embed_url.is_some()),
+    loaded_items.len(),
+    user_ids.len()
+  );
 
   let rebuild_started = Instant::now();
   let rebuild_result = reconcile_fragment_indexes_for_loaded_items(
@@ -270,7 +285,8 @@ async fn rebuild_fragment_indexes_for_dirty_users(
         state.record_reindex_completed();
       }
       info!(
-        "Fragment index rebuild complete: users_seen={} rebuilt={} skipped_current={} embedded={} lexical_indexed={} reused={} removed_empty={}.",
+        "{} fragment index reconciliation complete: users_seen={} users_rebuilt={} users_skipped_current={} semantic_image_embedded={} lexical_document_indexed={} semantic_image_reused={} removed_empty_indexes={}.",
+        title_case_index_kind_for_log(config.embed_url.is_some()),
         summary.users_seen,
         summary.users_rebuilt,
         summary.users_skipped_current,
@@ -283,7 +299,11 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     Err(e) => {
       METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&["failed"]).inc();
       METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS.with_label_values(&["failed"]).observe(rebuild_elapsed_secs);
-      error!("Fragment index rebuild failed: {}", e);
+      error!(
+        "{} fragment index reconciliation failed: {}",
+        title_case_index_kind_for_log(config.embed_url.is_some()),
+        e
+      );
       sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
       record_dirty_users(state, user_ids).await;
     }
@@ -301,7 +321,8 @@ fn record_dirty_user_with_log(state: &mut DirtyFragmentIndexState, user_id: Stri
   state.record_user(user_id);
   if was_empty {
     debug!(
-      "Scheduled fragment index rebuild after {} quiet or {} max for user {}.",
+      "Scheduled {} fragment index reconciliation after {} quiet or {} max for user {}.",
+      index_kind_for_log(state.semantic_enabled),
       format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)),
       format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS)),
       short_user_id
@@ -319,8 +340,16 @@ fn fragment_index_rebuild_metric_outcome(summary: &EmbedRebuildSummary) -> &'sta
   }
 }
 
-fn on_off(value: bool) -> &'static str {
-  if value { "on" } else { "off" }
+fn index_kind_for_log(semantic_enabled: bool) -> &'static str {
+  if semantic_enabled { "lexical + semantic" } else { "lexical" }
+}
+
+fn title_case_index_kind_for_log(semantic_enabled: bool) -> &'static str {
+  if semantic_enabled { "Lexical + semantic" } else { "Lexical" }
+}
+
+fn semantic_scope_for_log(semantic_enabled: bool) -> &'static str {
+  if semantic_enabled { "images" } else { "off" }
 }
 
 fn format_duration_for_log(duration: Duration) -> String {

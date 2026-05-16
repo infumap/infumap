@@ -163,7 +163,7 @@ async fn load_fragment_index_plans_for_loaded_items(
     fragment_items.sort_by(|a, b| a.item_id.cmp(&b.item_id));
     let summary = FragmentCorpusSummary::from_items(&fragment_items);
     info!(
-      "User {} loaded fragment manifest plan: {} item(s), complete_manifests={}, lexical={} vector={}, scan {:.3}s, manifest_load {:.3}s, total {:.3}s.",
+      "User {} loaded fragment manifest plan: {} item(s), complete_manifests={}, lexical_document={} semantic_image={}, scan {:.3}s, manifest_load {:.3}s, total {:.3}s.",
       user_id_for_log(&user_id),
       fragment_items.len(),
       manifest_complete_count,
@@ -176,7 +176,11 @@ async fn load_fragment_index_plans_for_loaded_items(
     plans.push(UserFragmentIndexPlan { user_id, fragment_items, summary });
   }
 
-  info!("Prepared {} fragment manifest index plan(s) in {:.3}s.", plans.len(), load_started.elapsed().as_secs_f64());
+  info!(
+    "Prepared {} fragment lexical/semantic index manifest plan(s) in {:.3}s.",
+    plans.len(),
+    load_started.elapsed().as_secs_f64()
+  );
   Ok(plans)
 }
 
@@ -346,7 +350,7 @@ async fn skip_current_lexical_index_from_manifest(
   }
   if !plan.summary.manifest_complete {
     info!(
-      "User {} fragment manifest plan has incomplete metadata; loading fragment text before current check.",
+      "User {} fragment manifest plan has incomplete metadata; loading document-lexical fragment text before current check.",
       user_id_for_log(&plan.user_id)
     );
     return Ok(None);
@@ -362,7 +366,7 @@ async fn skip_current_lexical_index_from_manifest(
     let removed = remove_document_fragment_lexical_index_dirs(data_dir, &plan.user_id).await?;
     if removed > 0 {
       info!(
-        "User {} has no lexical-search fragments; removed {} stale lexical index dir(s).",
+        "User {} has no document-lexical fragments; removed {} stale document fragment lexical index dir(s).",
         user_id_for_log(&plan.user_id),
         removed
       );
@@ -375,7 +379,7 @@ async fn skip_current_lexical_index_from_manifest(
   }
 
   info!(
-    "User {} fragment lexical index is already current from manifests ({} fragment(s), {}).",
+    "User {} document fragment lexical index is already current from manifests ({} fragment(s), {}).",
     user_id_for_log(&plan.user_id),
     plan.summary.lexical_fragment_count,
     lexical_current.reason
@@ -393,7 +397,7 @@ async fn skip_current_vector_index_from_manifest(
   }
   if !plan.summary.manifest_complete {
     info!(
-      "User {} fragment manifest plan has incomplete metadata; loading fragment text before vector current check.",
+      "User {} fragment manifest plan has incomplete metadata; loading image-semantic fragment text before current check.",
       user_id_for_log(&plan.user_id)
     );
     return Ok(None);
@@ -410,7 +414,7 @@ async fn skip_current_vector_index_from_manifest(
     let removed = remove_stale_empty_index_files(&final_path, &temp_path).await?;
     if removed > 0 {
       info!(
-        "User {} has no vector-search fragments; removed {} stale vector index file(s).",
+        "User {} has no image-semantic fragments; removed {} stale image semantic index file(s).",
         user_id_for_log(&plan.user_id),
         removed
       );
@@ -423,7 +427,7 @@ async fn skip_current_vector_index_from_manifest(
   }
 
   info!(
-    "User {} fragment vector index is already current from manifests ({} fragment(s), model '{}', {} dims, {}).",
+    "User {} image semantic index is already current from manifests ({} fragment(s), model '{}', {} dims, {}).",
     user_id_for_log(&plan.user_id),
     plan.summary.vector_fragment_count,
     vector_current.model.as_deref().unwrap_or("unknown"),
@@ -590,7 +594,7 @@ async fn rebuild_user_fragment_index(
   ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
   info!(
-    "User {} fragment index manifest corpus: lexical={} vector={} complete={}.",
+    "User {} fragment lexical/semantic index manifest corpus: lexical_document={} semantic_image={} complete={}.",
     user_id_for_log(&plan.user_id),
     plan.summary.lexical_fragment_count,
     plan.summary.vector_fragment_count,
@@ -635,7 +639,7 @@ async fn rebuild_user_fragment_index(
     }
     (None, None) => VectorRebuildOutcome { skipped_current: true, ..Default::default() },
     _ => {
-      return Err("Text embedding client and URL must both be provided to rebuild vector fragment indexes.".into());
+      return Err("Text embedding client and URL must both be provided to rebuild image semantic indexes.".into());
     }
   };
 
@@ -672,7 +676,7 @@ async fn rebuild_user_vector_fragment_index(
     let removed = remove_stale_empty_index_files(&final_path, &temp_path).await?;
     if removed > 0 {
       info!(
-        "User {} has no vector-search fragments; removed {} stale vector index file(s).",
+        "User {} has no image-semantic fragments; removed {} stale image semantic index file(s).",
         user_id_for_log(user_id),
         removed
       );
@@ -694,7 +698,7 @@ async fn rebuild_user_vector_fragment_index(
       && status.expected_fragment_count == fragments.len()
     {
       info!(
-        "User {} fragment index is already current ({} fragment(s), model '{}', {} dims).",
+        "User {} image semantic index is already current ({} fragment(s), model '{}', {} dims).",
         user_id_for_log(user_id),
         status.expected_fragment_count,
         status.model,
@@ -774,7 +778,7 @@ async fn rebuild_user_vector_fragment_index(
         text_sha256: fragment_text_sha256(&fragment.text),
       }));
       debug!(
-        "User {} reused {} unchanged fragment embedding(s) from the current vector index.",
+        "User {} reused {} unchanged image fragment embedding(s) from the current semantic index.",
         user_id_for_log(user_id),
         reusable_fragments.len()
       );
@@ -826,7 +830,7 @@ async fn rebuild_user_vector_fragment_index(
     temp_db.insert_embedded_fragments(&embedded_fragments).await?;
     embedded_count += embedded_fragments.len();
     debug!(
-      "User {} embedded {}/{} pending fragment(s).",
+      "User {} embedded {}/{} pending image fragment(s) for semantic index.",
       user_id_for_log(user_id),
       embedded_count,
       pending_fragments.len()
@@ -834,12 +838,12 @@ async fn rebuild_user_vector_fragment_index(
   }
 
   let metadata = metadata.ok_or_else(|| {
-    format!("User {} has {} vector-search fragment(s), but no embeddings were produced.", user_id, fragments.len())
+    format!("User {} has {} image-semantic fragment(s), but no embeddings were produced.", user_id, fragments.len())
   })?;
   let finished = temp_db.finish_rebuild(&metadata).await?;
   fs::rename(&temp_path, &final_path).await.map_err(|e| {
     format!(
-      "Could not atomically replace fragment vector DB '{}' with '{}': {}",
+      "Could not atomically replace image semantic index DB '{}' with '{}': {}",
       final_path.display(),
       temp_path.display(),
       e
@@ -847,7 +851,7 @@ async fn rebuild_user_vector_fragment_index(
   })?;
 
   let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path);
-  let final_status = final_db.rebuild_status().await?.ok_or("Final fragment vector DB is missing metadata.")?;
+  let final_status = final_db.rebuild_status().await?.ok_or("Final image semantic index DB is missing metadata.")?;
   if !final_status.complete
     || final_status.source_digest != source_digest
     || final_status.expected_fragment_count != fragments.len()
@@ -856,11 +860,11 @@ async fn rebuild_user_vector_fragment_index(
     || final_status.embedded_fragment_count != fragments.len()
     || final_status.embedding_row_count != fragments.len()
   {
-    return Err(format!("Final fragment vector DB validation failed for user {}.", user_id).into());
+    return Err(format!("Final image semantic index DB validation failed for user {}.", user_id).into());
   }
 
   info!(
-    "User {} rebuilt fragment index: {} fragment(s), model '{}', {} dims.",
+    "User {} rebuilt image semantic index: {} fragment(s), model '{}', {} dims.",
     user_id_for_log(user_id),
     finished.expected_fragment_count,
     finished.model,
@@ -886,7 +890,7 @@ async fn rebuild_user_fragment_lexical_index(
     let removed = remove_document_fragment_lexical_index_dirs(data_dir, user_id).await?;
     if removed > 0 {
       info!(
-        "User {} has no lexical-search fragments; removed {} stale lexical index dir(s).",
+        "User {} has no document-lexical fragments; removed {} stale document fragment lexical index dir(s).",
         user_id_for_log(user_id),
         removed
       );
@@ -907,7 +911,7 @@ async fn rebuild_user_fragment_lexical_index(
     && status.indexed_fragment_count == fragments.len()
   {
     info!(
-      "User {} fragment lexical index is already current ({} fragment(s)).",
+      "User {} document fragment lexical index is already current ({} fragment(s)).",
       user_id_for_log(user_id),
       fragments.len()
     );
@@ -942,7 +946,7 @@ async fn rebuild_user_fragment_lexical_index(
     || status.expected_fragment_count != fragments.len()
     || status.indexed_fragment_count != fragments.len()
   {
-    return Err(format!("Final fragment lexical index validation failed for user {}.", user_id).into());
+    return Err(format!("Final document fragment lexical index validation failed for user {}.", user_id).into());
   }
 
   info!(
@@ -979,7 +983,7 @@ async fn prepare_temp_rebuild(
   if status.source_digest != source_digest {
     return Err(
       format!(
-        "Cannot continue fragment vector DB rebuild '{}' for user '{}': temp DB source digest differs from current vector-search fragments. Run without --continue to start a fresh rebuild.",
+        "Cannot continue image semantic index DB rebuild '{}' for user '{}': temp DB source digest differs from current image-semantic fragments. Run without --continue to start a fresh rebuild.",
         temp_path.display(),
         user_id
       )
@@ -989,7 +993,7 @@ async fn prepare_temp_rebuild(
   if status.expected_fragment_count != fragment_count {
     return Err(
       format!(
-        "Cannot continue fragment vector DB rebuild '{}': temp DB expects {} vector-search fragment(s), current fragments contain {}. Run without --continue to start a fresh rebuild.",
+        "Cannot continue image semantic index DB rebuild '{}': temp DB expects {} image-semantic fragment(s), current fragments contain {}. Run without --continue to start a fresh rebuild.",
         temp_path.display(),
         status.expected_fragment_count,
         fragment_count
@@ -1332,8 +1336,8 @@ impl FragmentIndexSlice {
 
   fn label(&self) -> &'static str {
     match self {
-      FragmentIndexSlice::Lexical => "lexical",
-      FragmentIndexSlice::Vector => "vector",
+      FragmentIndexSlice::Lexical => "document-lexical",
+      FragmentIndexSlice::Vector => "image-semantic",
     }
   }
 }
