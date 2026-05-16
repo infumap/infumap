@@ -19,6 +19,7 @@ use infusdk::util::infu::InfuResult;
 use log::debug;
 use reqwest::Url;
 use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderValue, LOCATION};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
@@ -27,8 +28,10 @@ const LINK_TITLE_FETCH_TIMEOUT_SECS: u64 = 5;
 const MAX_LINK_TITLE_HTML_BYTES: usize = 256 * 1024;
 const MAX_LINK_TITLE_REDIRECTS: usize = 3;
 const MAX_LINK_TITLE_CHARS: usize = 1000;
+const MAX_X_OEMBED_JSON_BYTES: usize = 64 * 1024;
 const LINK_TITLE_USER_AGENT: &str = "Infumap link title fetcher";
 const LINK_TITLE_HTML_ACCEPT: &str = "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1";
+const LINK_TITLE_JSON_ACCEPT: &str = "application/json,*/*;q=0.1";
 
 pub fn normalize_link_url(value: &str) -> InfuResult<Url> {
   let trimmed = value.trim();
@@ -62,11 +65,19 @@ pub async fn fetch_link_title(url: &Url) -> InfuResult<Option<String>> {
     .build()
     .map_err(|e| format!("Could not build link title HTTP client: {}", e))?;
 
-  let Some(html) = fetch_html_prefix(&client, url.clone()).await? else {
-    return Ok(None);
-  };
+  let html_maybe = fetch_html_prefix(&client, url.clone()).await?;
 
-  Ok(extract_title_from_html(&html))
+  if let Some(html) = &html_maybe {
+    if let Some(title) = extract_title_from_html(html) {
+      return Ok(Some(title));
+    }
+  }
+
+  if is_x_or_twitter_url(url) {
+    return fetch_x_or_twitter_title(&client, url, html_maybe.as_deref()).await;
+  }
+
+  Ok(None)
 }
 
 async fn fetch_html_prefix(client: &reqwest::Client, mut page_url: Url) -> InfuResult<Option<String>> {
@@ -171,6 +182,243 @@ fn extract_meta_title(html: &str) -> Option<String> {
     }
   }
   fallback
+}
+
+#[derive(Deserialize)]
+struct XTwitterOEmbedResponse {
+  #[serde(default)]
+  author_name: String,
+  #[serde(default)]
+  html: String,
+  #[serde(default)]
+  title: String,
+}
+
+async fn fetch_x_or_twitter_title(
+  client: &reqwest::Client,
+  url: &Url,
+  html_maybe: Option<&str>,
+) -> InfuResult<Option<String>> {
+  if x_or_twitter_status_id(url).is_some() {
+    if let Some(title) = fetch_x_or_twitter_oembed_title(client, url).await? {
+      return Ok(Some(title));
+    }
+  }
+
+  Ok(html_maybe.and_then(|html| extract_x_or_twitter_initial_state_title(url, html)))
+}
+
+async fn fetch_x_or_twitter_oembed_title(client: &reqwest::Client, url: &Url) -> InfuResult<Option<String>> {
+  let mut oembed_url = Url::parse("https://publish.twitter.com/oembed")
+    .map_err(|e| format!("Could not build X/Twitter oEmbed URL: {}", e))?;
+  oembed_url.query_pairs_mut().append_pair("url", url.as_str()).append_pair("omit_script", "1").append_pair("dnt", "1");
+
+  let response = match client
+    .get(oembed_url.clone())
+    .header(ACCEPT, HeaderValue::from_static(LINK_TITLE_JSON_ACCEPT))
+    .send()
+    .await
+  {
+    Ok(response) => response,
+    Err(e) => {
+      debug!("X/Twitter oEmbed title fetch for '{}' failed: {}", url, e);
+      return Ok(None);
+    }
+  };
+
+  if !response.status().is_success() {
+    debug!("X/Twitter oEmbed title fetch for '{}' returned status {}.", url, response.status());
+    return Ok(None);
+  }
+
+  let bytes = response_bytes_prefix(response, MAX_X_OEMBED_JSON_BYTES).await;
+  let body = String::from_utf8_lossy(&bytes);
+  let parsed: XTwitterOEmbedResponse = match serde_json::from_str(&body) {
+    Ok(parsed) => parsed,
+    Err(e) => {
+      debug!("Could not parse X/Twitter oEmbed response for '{}': {}", url, e);
+      return Ok(None);
+    }
+  };
+
+  if let Some(text) = extract_x_oembed_tweet_text(&parsed.html) {
+    return Ok(format_x_or_twitter_title(Some(parsed.author_name.as_str()), None, &text));
+  }
+  Ok(normalize_title_text(&parsed.title))
+}
+
+fn extract_x_oembed_tweet_text(html: &str) -> Option<String> {
+  let lower = html.to_ascii_lowercase();
+  let p_start = lower.find("<p")?;
+  let content_start = find_html_tag_end(html.as_bytes(), p_start + 2)? + 1;
+  let rel_content_end = lower[content_start..].find("</p")?;
+  let content_end = content_start + rel_content_end;
+  html_fragment_to_text(&html[content_start..content_end])
+}
+
+fn extract_x_or_twitter_initial_state_title(url: &Url, html: &str) -> Option<String> {
+  let state = extract_x_initial_state_json(html)?;
+  if let Some(status_id) = x_or_twitter_status_id(url) {
+    if let Some(title) = extract_x_status_title_from_initial_state(&state, status_id) {
+      return Some(title);
+    }
+  }
+  let handle = x_or_twitter_profile_handle(url)?;
+  extract_x_profile_title_from_initial_state(&state, handle)
+}
+
+fn extract_x_initial_state_json(html: &str) -> Option<serde_json::Value> {
+  const MARKER: &str = "window.__INITIAL_STATE__=";
+  let json_start = html.find(MARKER)? + MARKER.len();
+  let json_end = find_balanced_json_object_end(&html[json_start..])?;
+  serde_json::from_str(&html[json_start..json_start + json_end]).ok()
+}
+
+fn find_balanced_json_object_end(value: &str) -> Option<usize> {
+  let bytes = value.as_bytes();
+  if bytes.first().copied()? != b'{' {
+    return None;
+  }
+  let mut depth = 0usize;
+  let mut in_string = false;
+  let mut escaped = false;
+  for (idx, byte) in bytes.iter().enumerate() {
+    if in_string {
+      if escaped {
+        escaped = false;
+      } else if *byte == b'\\' {
+        escaped = true;
+      } else if *byte == b'"' {
+        in_string = false;
+      }
+      continue;
+    }
+
+    if *byte == b'"' {
+      in_string = true;
+    } else if *byte == b'{' {
+      depth += 1;
+    } else if *byte == b'}' {
+      depth = depth.checked_sub(1)?;
+      if depth == 0 {
+        return Some(idx + 1);
+      }
+    }
+  }
+  None
+}
+
+fn extract_x_status_title_from_initial_state(state: &serde_json::Value, status_id: &str) -> Option<String> {
+  let tweet = state.pointer("/entities/tweets/entities")?.get(status_id)?;
+  let text = json_string_field(tweet, "full_text").or_else(|| json_string_field(tweet, "text"))?;
+  let user_id = json_string_field(tweet, "user");
+  let (name, screen_name) = user_id
+    .and_then(|id| state.pointer("/entities/users/entities").and_then(|users| users.get(id)))
+    .map(|user| (json_string_field(user, "name"), json_string_field(user, "screen_name")))
+    .unwrap_or((None, None));
+  format_x_or_twitter_title(name.as_deref(), screen_name.as_deref(), &text)
+}
+
+fn extract_x_profile_title_from_initial_state(state: &serde_json::Value, handle: &str) -> Option<String> {
+  let handle_lower = handle.to_ascii_lowercase();
+  let users = state.pointer("/entities/users/entities")?.as_object()?;
+  let user = users.values().find(|user| {
+    json_string_field(user, "screen_name")
+      .map(|screen_name| screen_name.eq_ignore_ascii_case(&handle_lower))
+      .unwrap_or(false)
+  })?;
+  let name = json_string_field(user, "name");
+  let screen_name = json_string_field(user, "screen_name");
+  format_x_profile_title(name.as_deref(), screen_name.as_deref())
+}
+
+fn json_string_field(value: &serde_json::Value, field: &str) -> Option<String> {
+  value.get(field)?.as_str().map(|v| v.to_owned())
+}
+
+fn format_x_or_twitter_title(author_name: Option<&str>, screen_name: Option<&str>, text: &str) -> Option<String> {
+  let author = format_x_author(author_name, screen_name);
+  let text = normalize_title_text(text)?;
+  match author {
+    Some(author) => normalize_title_text(&format!("{}: {}", author, text)),
+    None => Some(text),
+  }
+}
+
+fn format_x_profile_title(name: Option<&str>, screen_name: Option<&str>) -> Option<String> {
+  let author = format_x_author(name, screen_name)?;
+  normalize_title_text(&format!("{} / X", author))
+}
+
+fn format_x_author(name: Option<&str>, screen_name: Option<&str>) -> Option<String> {
+  let name = name.and_then(normalize_title_text);
+  let screen_name = screen_name.and_then(normalize_title_text);
+  match (name, screen_name) {
+    (Some(name), Some(screen_name)) if screen_name.starts_with('@') => Some(format!("{} ({})", name, screen_name)),
+    (Some(name), Some(screen_name)) => Some(format!("{} (@{})", name, screen_name)),
+    (Some(name), None) => Some(name),
+    (None, Some(screen_name)) if screen_name.starts_with('@') => Some(screen_name),
+    (None, Some(screen_name)) => Some(format!("@{}", screen_name)),
+    (None, None) => None,
+  }
+}
+
+fn html_fragment_to_text(html: &str) -> Option<String> {
+  let bytes = html.as_bytes();
+  let mut result = String::new();
+  let mut i = 0;
+  while i < bytes.len() {
+    if bytes[i] != b'<' {
+      let next_tag = bytes[i..].iter().position(|byte| *byte == b'<').map(|idx| i + idx).unwrap_or(bytes.len());
+      result.push_str(&html[i..next_tag]);
+      i = next_tag;
+      continue;
+    }
+
+    let tag_start = i;
+    let tag_name_start = tag_start + 1;
+    let tag_name_start =
+      if bytes.get(tag_name_start).copied() == Some(b'/') { tag_name_start + 1 } else { tag_name_start };
+    let Some(tag_end) = find_html_tag_end(bytes, tag_name_start) else {
+      break;
+    };
+    let tag_name_end = (tag_name_start..tag_end).find(|idx| !is_html_attr_name_byte(bytes[*idx])).unwrap_or(tag_end);
+    let tag_name = html[tag_name_start..tag_name_end].to_ascii_lowercase();
+    if matches!(tag_name.as_str(), "br" | "p" | "div" | "blockquote") {
+      result.push(' ');
+    }
+    i = tag_end + 1;
+  }
+  normalize_title_text(&result)
+}
+
+fn is_x_or_twitter_url(url: &Url) -> bool {
+  let Some(host) = url.host_str() else {
+    return false;
+  };
+  matches!(
+    host.trim_end_matches('.').to_ascii_lowercase().as_str(),
+    "x.com" | "www.x.com" | "twitter.com" | "www.twitter.com" | "mobile.twitter.com"
+  )
+}
+
+fn x_or_twitter_status_id(url: &Url) -> Option<&str> {
+  let segments = url.path_segments()?.filter(|segment| !segment.is_empty()).collect::<Vec<&str>>();
+  for window in segments.windows(2) {
+    if window[0] == "status" && window[1].chars().all(|c| c.is_ascii_digit()) {
+      return Some(window[1]);
+    }
+  }
+  None
+}
+
+fn x_or_twitter_profile_handle(url: &Url) -> Option<&str> {
+  let first_segment = url.path_segments()?.find(|segment| !segment.is_empty())?;
+  if matches!(first_segment, "home" | "explore" | "messages" | "notifications" | "search" | "settings" | "i" | "intent")
+  {
+    return None;
+  }
+  if first_segment.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') { Some(first_segment) } else { None }
 }
 
 fn normalize_title_text(value: &str) -> Option<String> {
