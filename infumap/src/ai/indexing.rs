@@ -9,6 +9,7 @@ use reqwest::Url;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tokio::fs;
+use tokio::task::JoinSet;
 
 use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path, user_fragments_dir};
 use crate::ai::fragment::is_lexical_search_source_kind;
@@ -32,6 +33,7 @@ use crate::storage::db::item_db::ItemAndUserId;
 use crate::util::fs::path_exists;
 
 const UNKNOWN_FRAGMENT_SOURCE_KIND: &str = "unknown";
+const FRAGMENT_MANIFEST_LOAD_CONCURRENCY: usize = 64;
 
 #[derive(Clone, Copy)]
 struct FragmentIndexRebuildPolicy {
@@ -155,30 +157,8 @@ async fn load_fragment_index_plans_for_loaded_items(
     );
 
     let manifest_load_started = Instant::now();
-    let mut fragment_items = Vec::new();
-    let mut manifest_complete_count = 0;
-    let mut last_progress_log = Instant::now();
-    for item_id in item_ids.iter() {
-      let manifest_path = item_fragments_manifest_path(data_dir, &user_id, item_id)?;
-      let manifest = load_fragments_manifest(&manifest_path).await?;
-      let fragment_item = FragmentItemForIndex::from_manifest(item_id.to_owned(), manifest);
-      if fragment_item.has_complete_manifest() {
-        manifest_complete_count += 1;
-      }
-      fragment_items.push(fragment_item);
-
-      if last_progress_log.elapsed().as_secs() >= 10 {
-        info!(
-          "User {} loading fragment manifests: {}/{} item(s), {} complete manifest(s) so far ({:.3}s elapsed).",
-          user_id_for_log(&user_id),
-          fragment_items.len(),
-          item_ids.len(),
-          manifest_complete_count,
-          manifest_load_started.elapsed().as_secs_f64()
-        );
-        last_progress_log = Instant::now();
-      }
-    }
+    let (mut fragment_items, manifest_complete_count) =
+      load_fragment_items_from_manifests(data_dir, &user_id, &item_ids, manifest_load_started).await?;
 
     fragment_items.sort_by(|a, b| a.item_id.cmp(&b.item_id));
     let summary = FragmentCorpusSummary::from_items(&fragment_items);
@@ -278,6 +258,82 @@ async fn fragment_item_ids_for_loaded_user(
   item_ids.sort();
   item_ids.dedup();
   Ok(item_ids)
+}
+
+async fn load_fragment_items_from_manifests(
+  data_dir: &str,
+  user_id: &str,
+  item_ids: &[String],
+  load_started: Instant,
+) -> InfuResult<(Vec<FragmentItemForIndex>, usize)> {
+  if item_ids.is_empty() {
+    return Ok((Vec::new(), 0));
+  }
+
+  info!(
+    "User {} loading {} fragment manifest(s) with concurrency {}.",
+    user_id_for_log(user_id),
+    item_ids.len(),
+    FRAGMENT_MANIFEST_LOAD_CONCURRENCY
+  );
+
+  let mut set = JoinSet::new();
+  let mut next_index = 0;
+  let mut in_flight = 0;
+  let mut completed_count = 0;
+  let mut complete_manifest_count = 0;
+  let mut fragment_items = Vec::with_capacity(item_ids.len());
+  let mut last_progress_log = Instant::now();
+
+  loop {
+    while next_index < item_ids.len() && in_flight < FRAGMENT_MANIFEST_LOAD_CONCURRENCY {
+      let data_dir = data_dir.to_owned();
+      let user_id = user_id.to_owned();
+      let item_id = item_ids[next_index].clone();
+      set.spawn(async move { load_fragment_item_from_manifest(&data_dir, &user_id, item_id).await });
+      next_index += 1;
+      in_flight += 1;
+    }
+
+    if in_flight == 0 {
+      break;
+    }
+
+    let join_result =
+      set.join_next().await.ok_or("Fragment manifest load task set ended while work was still in flight.")?;
+    in_flight -= 1;
+    let fragment_item = join_result.map_err(|e| format!("Fragment manifest load task failed: {}", e))??;
+    completed_count += 1;
+    if fragment_item.has_complete_manifest() {
+      complete_manifest_count += 1;
+    }
+    fragment_items.push(fragment_item);
+
+    if last_progress_log.elapsed().as_secs() >= 10 {
+      info!(
+        "User {} loading fragment manifests: {}/{} item(s), {} complete manifest(s) so far ({:.3}s elapsed, concurrency {}).",
+        user_id_for_log(user_id),
+        completed_count,
+        item_ids.len(),
+        complete_manifest_count,
+        load_started.elapsed().as_secs_f64(),
+        FRAGMENT_MANIFEST_LOAD_CONCURRENCY
+      );
+      last_progress_log = Instant::now();
+    }
+  }
+
+  Ok((fragment_items, complete_manifest_count))
+}
+
+async fn load_fragment_item_from_manifest(
+  data_dir: &str,
+  user_id: &str,
+  item_id: String,
+) -> InfuResult<FragmentItemForIndex> {
+  let manifest_path = item_fragments_manifest_path(data_dir, user_id, &item_id)?;
+  let manifest = load_fragments_manifest(&manifest_path).await?;
+  Ok(FragmentItemForIndex::from_manifest(item_id, manifest))
 }
 
 async fn try_skip_current_user_fragment_index_from_manifest(
