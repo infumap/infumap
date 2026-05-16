@@ -26,6 +26,7 @@ By default the gateway listens on `127.0.0.1:8787` and forwards:
 - `/image-extract` to the image tagging service
 - `/text-embed` to the text embedding service
 - `/pdf-extract` to the text extraction service
+- `/pdf-extract/jobs` as the gateway-owned async PDF extraction job API
 
 The gateway also keeps legacy aliases for existing callers:
 
@@ -68,6 +69,11 @@ The combined launcher keeps each service independent:
   and return HTTP 503 when the lock stays busy too long
 - gateway upstream read/write timeouts are 30 minutes by default, with a 4 hour
   read/write timeout for `/pdf-extract` and its legacy `/convert` alias
+- the gateway also exposes async PDF extraction jobs for web-background use:
+  `POST /pdf-extract/jobs`, `GET /pdf-extract/jobs/{job_id}`, and
+  `GET /pdf-extract/jobs/{job_id}/result`; the gateway holds the global GPU lock
+  while each async job calls the text extraction service, and uses a separate
+  async-job upstream timeout defaulting to 24 hours
 - child image-tagging and text-extraction services also bound their internal
   worker-slot waits with `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS` and
   `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
@@ -80,6 +86,8 @@ Optional environment variables:
 - `GPU_GATEWAY_VENV_DIR`
 - `GPU_GATEWAY_RESTART_DELAY_SECS`
 - `GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS`
+- `GPU_GATEWAY_PDF_EXTRACT_JOB_UPSTREAM_TIMEOUT_SECS`
+- `GPU_GATEWAY_PDF_EXTRACT_JOB_RESULT_RETENTION_SECS`
 - `GPU_IMAGE_TAGGING_UPSTREAM_URL`
 - `GPU_TEXT_EMBEDDING_UPSTREAM_URL`
 - `GPU_TEXT_EXTRACTION_UPSTREAM_URL`

@@ -21,6 +21,7 @@ use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, info};
 use once_cell::sync::OnceCell;
+use reqwest::Url;
 use reqwest::multipart::{Form, Part};
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -51,6 +52,8 @@ use self::artifacts::{
 
 const IDLE_POLL_SECS: u64 = 60;
 const REQUEST_TIMEOUT_SECS: u64 = 4 * 60 * 60;
+const ASYNC_POLL_SECS: u64 = 2;
+const ASYNC_PROGRESS_LOG_SECS: u64 = 60;
 const LARGE_PDF_SIZE_BYTES: i64 = 25 * 1024 * 1024;
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
@@ -98,6 +101,14 @@ struct PdfToMdResponse {
   success: bool,
   markdown: String,
   duration_ms: u64,
+}
+
+#[derive(Deserialize)]
+struct PdfExtractJobResponse {
+  job_id: String,
+  status: String,
+  http_status: Option<u16>,
+  error: Option<String>,
 }
 
 enum ExtractOutcome {
@@ -291,6 +302,43 @@ pub(crate) async fn process_loaded_pdf_extraction(
   Ok(())
 }
 
+pub(crate) async fn process_loaded_pdf_extraction_web_background(
+  data_dir: &str,
+  text_extraction_url: &str,
+  db: Arc<Mutex<Db>>,
+  loaded: LoadedPdfExtraction,
+) -> InfuResult<()> {
+  let LoadedPdfExtraction { candidate, file_bytes } = loaded;
+  clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  let client = reqwest::ClientBuilder::new()
+    .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+    .build()
+    .map_err(|e| format!("Could not build HTTP client: {}", e))?;
+  let outcome =
+    request_text_extraction_async_polling_with_retries(&client, text_extraction_url, &candidate, &file_bytes).await;
+  if !candidate_still_current(db.clone(), &candidate).await? {
+    return Err(
+      format!("Item '{}' was deleted or replaced while extraction was in progress.", candidate.item_id).into(),
+    );
+  }
+  match outcome {
+    ExtractOutcome::Success(response) => {
+      write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
+      enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
+      debug!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
+    }
+    ExtractOutcome::DocumentFailed(msg) => {
+      write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
+      enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
+      return Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into());
+    }
+    ExtractOutcome::EndpointUnavailable(msg) => {
+      return Err(format!("Text extraction endpoint unavailable: {}", msg).into());
+    }
+  }
+  Ok(())
+}
+
 pub async fn mark_item_text_extraction_failed(
   data_dir: &str,
   db: Arc<Mutex<Db>>,
@@ -362,9 +410,13 @@ pub fn start_text_extraction_processing_loop(
   let progress = Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   if request_delay.is_zero() {
-    info!("Starting PDF text extraction loop: '{}'.", text_extraction_url);
+    info!("Starting PDF text extraction loop: '{}' (async polling).", text_extraction_url);
   } else {
-    info!("Starting PDF text extraction loop: '{}' (delay {:.3}s).", text_extraction_url, request_delay.as_secs_f64());
+    info!(
+      "Starting PDF text extraction loop: '{}' (async polling, delay {:.3}s).",
+      text_extraction_url,
+      request_delay.as_secs_f64()
+    );
   }
   let _worker = task::spawn(async move {
     run_text_extraction_loop(data_dir, text_extraction_url, request_delay, db, object_store, state, progress).await;
@@ -507,7 +559,7 @@ fn spawn_pdf_process(
   let item_id = loaded.candidate.item_id.clone();
   let user_id = loaded.candidate.user_id.clone();
   task::spawn(async move {
-    let result = process_loaded_pdf_extraction(&data_dir, &text_extraction_url, db, loaded, true).await;
+    let result = process_loaded_pdf_extraction_web_background(&data_dir, &text_extraction_url, db, loaded).await;
     (item_id, user_id, queue_remaining, result)
   })
 }
@@ -751,6 +803,46 @@ async fn request_text_extraction_with_retries(
   }
 }
 
+async fn request_text_extraction_async_polling_with_retries(
+  client: &reqwest::Client,
+  text_extraction_url: &str,
+  candidate: &PdfCandidate,
+  file_bytes: &[u8],
+) -> ExtractOutcome {
+  let mut unavailable_attempt = 0usize;
+
+  loop {
+    let outcome = request_text_extraction_async_polling(client, text_extraction_url, candidate, file_bytes).await;
+    match outcome {
+      ExtractOutcome::EndpointUnavailable(message) => {
+        let delay = endpoint_retry_delay(unavailable_attempt);
+        unavailable_attempt += 1;
+        info!(
+          "Async text extraction endpoint '{}' is unavailable for PDF '{}' (user {}) ({}). Retrying in {}.",
+          text_extraction_url,
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          message,
+          format_duration_for_log(delay)
+        );
+        time::sleep(delay).await;
+      }
+      other => {
+        if unavailable_attempt > 0 {
+          info!(
+            "Async text extraction endpoint '{}' accepted requests again for PDF '{}' (user {}) after {} unavailable attempt(s).",
+            text_extraction_url,
+            candidate.item_id,
+            user_id_for_log(&candidate.user_id),
+            unavailable_attempt
+          );
+        }
+        return other;
+      }
+    }
+  }
+}
+
 async fn request_text_extraction_once(
   client: &reqwest::Client,
   text_extraction_url: &str,
@@ -758,6 +850,121 @@ async fn request_text_extraction_once(
   file_bytes: &[u8],
 ) -> ExtractOutcome {
   request_text_extraction(client, text_extraction_url, file_bytes.to_vec()).await
+}
+
+async fn request_text_extraction_async_polling(
+  client: &reqwest::Client,
+  text_extraction_url: &str,
+  candidate: &PdfCandidate,
+  file_bytes: &[u8],
+) -> ExtractOutcome {
+  let jobs_url = match text_extraction_jobs_url(text_extraction_url) {
+    Ok(url) => url,
+    Err(e) => return ExtractOutcome::EndpointUnavailable(e),
+  };
+  let part = match Part::bytes(file_bytes.to_vec()).mime_str("application/pdf") {
+    Ok(part) => part,
+    Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not build multipart upload: {}", e)),
+  };
+  let form = Form::new().part("file", part);
+  let response = match client
+    .post(jobs_url.as_str())
+    .header("Idempotency-Key", pdf_extraction_idempotency_key(candidate))
+    .multipart(form)
+    .send()
+    .await
+  {
+    Ok(response) => response,
+    Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not submit async job: {}", e)),
+  };
+  let status = response.status();
+  let body = match response.text().await {
+    Ok(body) => body,
+    Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not read async submit response body: {}", e)),
+  };
+  if !status.is_success() {
+    return ExtractOutcome::EndpointUnavailable(format!("Async submit returned HTTP {}: {}", status, body));
+  }
+  let mut job = match serde_json::from_str::<PdfExtractJobResponse>(&body) {
+    Ok(job) => job,
+    Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not parse async submit response: {}", e)),
+  };
+  let job_status_url = format!("{}/{}", jobs_url.as_str().trim_end_matches('/'), job.job_id);
+  let job_result_url = format!("{}/result", job_status_url);
+  let poll_started_at = Instant::now();
+  let mut last_progress_log_at = Instant::now();
+  info!(
+    "Submitted async text extraction job '{}' for PDF '{}' (user {}).",
+    job.job_id,
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id)
+  );
+
+  loop {
+    match job.status.as_str() {
+      "queued" | "running" => {
+        if last_progress_log_at.elapsed() >= Duration::from_secs(ASYNC_PROGRESS_LOG_SECS) {
+          info!(
+            "Async text extraction job '{}' for PDF '{}' (user {}) is still {} after {}.",
+            job.job_id,
+            candidate.item_id,
+            user_id_for_log(&candidate.user_id),
+            job.status,
+            format_duration_for_log(poll_started_at.elapsed())
+          );
+          last_progress_log_at = Instant::now();
+        }
+        time::sleep(Duration::from_secs(ASYNC_POLL_SECS)).await;
+        job = match poll_text_extraction_job(client, &job_status_url).await {
+          Ok(job) => job,
+          Err(outcome) => return outcome,
+        };
+      }
+      "succeeded" | "failed" => {
+        return fetch_text_extraction_job_result(client, &job_result_url).await;
+      }
+      other => {
+        return ExtractOutcome::EndpointUnavailable(format!(
+          "Async job '{}' returned unknown status '{}' (http_status={:?}, error={:?})",
+          job.job_id, other, job.http_status, job.error
+        ));
+      }
+    }
+  }
+}
+
+async fn poll_text_extraction_job(
+  client: &reqwest::Client,
+  job_status_url: &str,
+) -> Result<PdfExtractJobResponse, ExtractOutcome> {
+  let response = client
+    .get(job_status_url)
+    .send()
+    .await
+    .map_err(|e| ExtractOutcome::EndpointUnavailable(format!("Could not poll async job: {}", e)))?;
+  let status = response.status();
+  let body = response
+    .text()
+    .await
+    .map_err(|e| ExtractOutcome::EndpointUnavailable(format!("Could not read async poll response body: {}", e)))?;
+  if !status.is_success() {
+    return Err(ExtractOutcome::EndpointUnavailable(format!("Async poll returned HTTP {}: {}", status, body)));
+  }
+  serde_json::from_str::<PdfExtractJobResponse>(&body)
+    .map_err(|e| ExtractOutcome::EndpointUnavailable(format!("Could not parse async poll response: {}", e)))
+}
+
+async fn fetch_text_extraction_job_result(client: &reqwest::Client, job_result_url: &str) -> ExtractOutcome {
+  let response = match client.get(job_result_url).send().await {
+    Ok(response) => response,
+    Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not fetch async job result: {}", e)),
+  };
+  let status = response.status();
+  let body = match response.text().await {
+    Ok(body) => body,
+    Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not read async result response body: {}", e)),
+  };
+  parse_text_extraction_response(status, body)
 }
 
 fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
@@ -897,6 +1104,10 @@ async fn request_text_extraction(
     Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not read response body: {}", e)),
   };
 
+  parse_text_extraction_response(status, body)
+}
+
+fn parse_text_extraction_response(status: reqwest::StatusCode, body: String) -> ExtractOutcome {
   if status.is_success() {
     return match serde_json::from_str::<PdfToMdResponse>(&body) {
       Ok(parsed) => {
@@ -915,6 +1126,33 @@ async fn request_text_extraction(
   }
 
   ExtractOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body))
+}
+
+fn text_extraction_jobs_url(text_extraction_url: &str) -> Result<Url, String> {
+  let mut url = Url::parse(text_extraction_url)
+    .map_err(|e| format!("Could not parse text extraction URL '{}': {}", text_extraction_url, e))?;
+  let path = url.path().trim_end_matches('/');
+  let jobs_path = if path.ends_with("/pdf-extract") {
+    format!("{}/jobs", path)
+  } else if let Some(prefix) = path.strip_suffix("/convert") {
+    format!("{}/pdf-extract/jobs", prefix.trim_end_matches('/'))
+  } else {
+    format!("{}/pdf-extract/jobs", path)
+  };
+  url.set_path(&jobs_path);
+  url.set_query(None);
+  Ok(url)
+}
+
+fn pdf_extraction_idempotency_key(candidate: &PdfCandidate) -> String {
+  format!(
+    "infumap-pdf-extract:{}:{}:{}:{}:{}",
+    candidate.user_id,
+    candidate.item_id,
+    candidate.creation_date,
+    candidate.last_modified_date,
+    candidate.file_size_bytes.unwrap_or(-1)
+  )
 }
 
 fn is_terminal_document_response(status: reqwest::StatusCode) -> bool {
