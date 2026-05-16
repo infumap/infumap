@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use config::Config;
 use infusdk::item::Item;
@@ -11,8 +11,8 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
-use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
+use crate::ai::fragment::{FragmentSourceKind, clear_item_fragments, item_fragments_manifest_exists_for_any_source};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::geo::{
   GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
@@ -32,6 +32,7 @@ use crate::storage::object::ObjectStore;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
+const STARTUP_RECONCILIATION_PROGRESS_LOG_SECS: u64 = 10;
 const ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE: bool = true;
 
 static IMAGE_SEMANTIC_PIPELINE_STATE: OnceCell<Arc<Mutex<ImageSemanticPipelineState>>> = OnceCell::new();
@@ -89,6 +90,8 @@ struct StartupReconciliationSummary {
   geo_skipped: usize,
   geo_pending_after_successful_tag: usize,
   geo_unreadable: usize,
+  fragment_already_present: usize,
+  fragment_unreadable: usize,
 }
 
 #[derive(Clone)]
@@ -666,11 +669,14 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
         .collect::<Vec<_>>()
     };
     let candidate_count = candidates.len();
+    let started_at = Instant::now();
+    let mut last_progress_log_at = started_at;
+    info!("Starting image background pipeline startup reconciliation for {} supported image item(s).", candidate_count);
     let mut source_candidates = vec![];
     let mut geo_candidates = vec![];
     let mut fragment_candidates = vec![];
     let mut summary = StartupReconciliationSummary::default();
-    for candidate in candidates {
+    for (index, candidate) in candidates.into_iter().enumerate() {
       match startup_stage_for_candidate(&config, &candidate, &mut summary).await {
         Ok(Some(PipelineStage::Source)) => source_candidates.push(candidate),
         Ok(Some(PipelineStage::Geo)) => geo_candidates.push(candidate),
@@ -685,6 +691,20 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
           );
         }
       }
+      let processed = index + 1;
+      if last_progress_log_at.elapsed() >= Duration::from_secs(STARTUP_RECONCILIATION_PROGRESS_LOG_SECS) {
+        info!(
+          "Image background pipeline startup reconciliation: processed {}/{} image item(s); candidates so far tag={}, reverse_geo={}, fragment={}; fragments_already_present={}; elapsed {}.",
+          processed,
+          candidate_count,
+          source_candidates.len(),
+          geo_candidates.len(),
+          fragment_candidates.len(),
+          summary.fragment_already_present,
+          format_duration_for_log(started_at.elapsed())
+        );
+        last_progress_log_at = Instant::now();
+      }
     }
     let mut state = state.lock().await;
     let source_candidate_count = source_candidates.len();
@@ -694,7 +714,7 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
     let geo_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Geo, geo_candidates);
     let fragment_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Fragment, fragment_candidates);
     info!(
-      "Startup reconciliation saw {} supported image item(s), queued tag={} of {}, reverse_geo={} of {}, and fragment={} of {}; image_tags: succeeded={}, failed={}, pending={}, incomplete={}, unsupported_schema={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; queues: {}.",
+      "Startup reconciliation saw {} supported image item(s), queued tag={} of {}, reverse_geo={} of {}, and fragment={} of {}; image_tags: succeeded={}, failed={}, pending={}, incomplete={}, unsupported_schema={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; image_fragments: already_present={}, unreadable={}; queues: {}; elapsed {}.",
       candidate_count,
       source_enqueued_count,
       source_candidate_count,
@@ -713,7 +733,10 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
       summary.geo_skipped,
       summary.geo_pending_after_successful_tag,
       summary.geo_unreadable,
-      queue_depth_summary(&state)
+      summary.fragment_already_present,
+      summary.fragment_unreadable,
+      queue_depth_summary(&state),
+      format_duration_for_log(started_at.elapsed())
     );
   });
 }
@@ -757,21 +780,21 @@ async fn startup_stage_for_candidate(
   }
 
   if config.geo_api_key.is_none() || !tag_succeeded {
-    return Ok(if tag_succeeded { startup_fragment_stage_if_enabled() } else { None });
+    return if tag_succeeded { startup_fragment_stage_if_needed(config, candidate, summary).await } else { Ok(None) };
   }
 
   match geo_manifest_status(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
     Ok(Some(GeoManifestStatus::Succeeded)) => {
       summary.geo_succeeded += 1;
-      Ok(startup_fragment_stage_if_enabled())
+      startup_fragment_stage_if_needed(config, candidate, summary).await
     }
     Ok(Some(GeoManifestStatus::Failed)) => {
       summary.geo_failed += 1;
-      Ok(startup_fragment_stage_if_enabled())
+      startup_fragment_stage_if_needed(config, candidate, summary).await
     }
     Ok(Some(GeoManifestStatus::Skipped)) => {
       summary.geo_skipped += 1;
-      Ok(startup_fragment_stage_if_enabled())
+      startup_fragment_stage_if_needed(config, candidate, summary).await
     }
     Ok(None) => {
       summary.geo_pending_after_successful_tag += 1;
@@ -784,8 +807,33 @@ async fn startup_stage_for_candidate(
   }
 }
 
-fn startup_fragment_stage_if_enabled() -> Option<PipelineStage> {
-  ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE.then_some(PipelineStage::Fragment)
+async fn startup_fragment_stage_if_needed(
+  config: &ImageSemanticPipelineConfig,
+  candidate: &ImagePipelineCandidate,
+  summary: &mut StartupReconciliationSummary,
+) -> InfuResult<Option<PipelineStage>> {
+  if !ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
+    return Ok(None);
+  }
+
+  match item_fragments_manifest_exists_for_any_source(
+    &config.data_dir,
+    &candidate.user_id,
+    &candidate.item_id,
+    &[FragmentSourceKind::ImageContents, FragmentSourceKind::ImageDocumentContents],
+  )
+  .await
+  {
+    Ok(true) => {
+      summary.fragment_already_present += 1;
+      Ok(None)
+    }
+    Ok(false) => Ok(Some(PipelineStage::Fragment)),
+    Err(e) => {
+      summary.fragment_unreadable += 1;
+      Err(e)
+    }
+  }
 }
 
 fn enqueue_candidate_for_all_stages(state: &mut ImageSemanticPipelineState, candidate: ImagePipelineCandidate) -> bool {

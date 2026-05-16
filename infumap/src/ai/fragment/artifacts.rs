@@ -170,6 +170,20 @@ pub async fn item_fragments_manifest_is_current_for_source(
   )
 }
 
+pub async fn item_fragments_manifest_exists_for_any_source(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+  source_kinds: &[FragmentSourceKind],
+) -> InfuResult<bool> {
+  let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
+  let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
+  let Some(manifest) = read_fragments_manifest_if_present(&fragments_path, &manifest_path).await? else {
+    return Ok(false);
+  };
+  Ok(manifest.fragment_count > 0 && source_kinds.iter().any(|source_kind| manifest.source_kind == source_kind.as_str()))
+}
+
 fn sha256_hex(text: &str) -> String {
   let mut hasher = Sha256::new();
   hasher.update(text.as_bytes());
