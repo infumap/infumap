@@ -10,9 +10,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
-use crate::ai::artifact_paths::{
-  FRAGMENTS_FILENAME, item_fragments_manifest_path, item_fragments_path, user_fragments_dir,
-};
+use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path, user_fragments_dir};
 use crate::ai::fragment::is_lexical_search_source_kind;
 use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, document_fragment_lexical_index_temp_dir,
@@ -150,89 +148,55 @@ async fn load_fragment_index_plans_for_loaded_items(
     let item_ids = fragment_item_ids_for_loaded_user(data_dir, &user_id, &loaded_item_ids).await?;
     let artifact_scan_elapsed = artifact_scan_started.elapsed();
     info!(
-      "User {} found {} loaded item(s) with fragment artifacts in {:.3}s.",
+      "User {} found {} loaded item(s) with fragment artifact dirs in {:.3}s.",
       user_id_for_log(&user_id),
       item_ids.len(),
       artifact_scan_elapsed.as_secs_f64()
     );
 
-    let fragment_load_started = Instant::now();
-    let mut fragments = Vec::new();
-    let mut processed_fragment_item_count = 0;
-    let mut loaded_fragment_item_count = 0;
+    let manifest_load_started = Instant::now();
+    let mut fragment_items = Vec::new();
+    let mut manifest_complete_count = 0;
     let mut last_progress_log = Instant::now();
     for item_id in item_ids.iter() {
-      processed_fragment_item_count += 1;
-      let fragments_path = item_fragments_path(data_dir, &user_id, item_id)?;
-      let records = load_fragment_records(&fragments_path).await?;
-      if records.is_empty() {
-        continue;
-      }
-      loaded_fragment_item_count += 1;
-
       let manifest_path = item_fragments_manifest_path(data_dir, &user_id, item_id)?;
       let manifest = load_fragments_manifest(&manifest_path).await?;
-      if let Some(expected_count) = manifest.as_ref().and_then(|manifest| manifest.fragment_count)
-        && expected_count != records.len()
-      {
-        return Err(
-          format!(
-            "Fragment manifest '{}' says {} fragment(s), but '{}' contains {} non-empty fragment record(s).",
-            manifest_path.display(),
-            expected_count,
-            fragments_path.display(),
-            records.len()
-          )
-          .into(),
-        );
+      let fragment_item = FragmentItemForIndex::from_manifest(item_id.to_owned(), manifest);
+      if fragment_item.has_complete_manifest() {
+        manifest_complete_count += 1;
       }
-      let source_kind = manifest
-        .and_then(|manifest| manifest.source_kind)
-        .map(|source_kind| source_kind.trim().to_owned())
-        .filter(|source_kind| !source_kind.is_empty())
-        .unwrap_or_else(|| UNKNOWN_FRAGMENT_SOURCE_KIND.to_owned());
-
-      for record in records {
-        fragments.push(FragmentRecordForIndex {
-          item_id: item_id.to_owned(),
-          ordinal: record.ordinal,
-          source_kind: source_kind.clone(),
-          text_sha256: fragment_text_sha256(&record.text),
-          text: record.text,
-          page_start: record.page_start,
-          page_end: record.page_end,
-        });
-      }
+      fragment_items.push(fragment_item);
 
       if last_progress_log.elapsed().as_secs() >= 10 {
         info!(
-          "User {} loading fragment artifacts: processed {}/{} item(s), loaded {} non-empty item(s), {} fragment(s) so far ({:.3}s elapsed).",
+          "User {} loading fragment manifests: {}/{} item(s), {} complete manifest(s) so far ({:.3}s elapsed).",
           user_id_for_log(&user_id),
-          processed_fragment_item_count,
+          fragment_items.len(),
           item_ids.len(),
-          loaded_fragment_item_count,
-          fragments.len(),
-          fragment_load_started.elapsed().as_secs_f64()
+          manifest_complete_count,
+          manifest_load_started.elapsed().as_secs_f64()
         );
         last_progress_log = Instant::now();
       }
     }
 
-    fragments.sort_by(|a, b| a.item_id.cmp(&b.item_id).then(a.ordinal.cmp(&b.ordinal)));
-    validate_unique_fragment_ordinals(&user_id, &fragments)?;
+    fragment_items.sort_by(|a, b| a.item_id.cmp(&b.item_id));
+    let summary = FragmentCorpusSummary::from_items(&fragment_items);
     info!(
-      "User {} loaded fragment index plan: {} item(s), {} fragment(s), scan {:.3}s, load {:.3}s, total {:.3}s.",
+      "User {} loaded fragment manifest plan: {} item(s), complete_manifests={}, lexical={} vector={}, scan {:.3}s, manifest_load {:.3}s, total {:.3}s.",
       user_id_for_log(&user_id),
-      loaded_fragment_item_count,
-      fragments.len(),
+      fragment_items.len(),
+      manifest_complete_count,
+      summary.lexical_fragment_count,
+      summary.vector_fragment_count,
       artifact_scan_elapsed.as_secs_f64(),
-      fragment_load_started.elapsed().as_secs_f64(),
+      manifest_load_started.elapsed().as_secs_f64(),
       user_started.elapsed().as_secs_f64()
     );
-    plans.push(UserFragmentIndexPlan { user_id, fragments });
+    plans.push(UserFragmentIndexPlan { user_id, fragment_items, summary });
   }
 
-  info!("Prepared {} fragment index plan(s) in {:.3}s.", plans.len(), load_started.elapsed().as_secs_f64());
+  info!("Prepared {} fragment manifest index plan(s) in {:.3}s.", plans.len(), load_started.elapsed().as_secs_f64());
   Ok(plans)
 }
 
@@ -295,15 +259,11 @@ async fn fragment_item_ids_for_loaded_user(
         continue;
       }
 
-      let mut fragments_path = item_entry.path();
-      fragments_path.push(FRAGMENTS_FILENAME);
-      if path_exists(&fragments_path).await {
-        item_ids.push(item_id);
-      }
+      item_ids.push(item_id);
 
       if last_progress_log.elapsed().as_secs() >= 10 {
         info!(
-          "User {} scanning fragment artifacts: {} shard dir(s), {} artifact item dir(s), {} loaded match(es) so far ({:.3}s elapsed).",
+          "User {} scanning fragment artifacts: {} shard dir(s), {} artifact item dir(s), {} loaded item dir match(es) so far ({:.3}s elapsed).",
           user_id_for_log(user_id),
           shard_dir_count,
           artifact_item_dir_count,
@@ -320,6 +280,232 @@ async fn fragment_item_ids_for_loaded_user(
   Ok(item_ids)
 }
 
+async fn try_skip_current_user_fragment_index_from_manifest(
+  data_dir: &str,
+  plan: &UserFragmentIndexPlan,
+  client: Option<&reqwest::Client>,
+  embed_url: Option<&Url>,
+  policy: FragmentIndexRebuildPolicy,
+) -> InfuResult<Option<UserRebuildOutcome>> {
+  if !policy.skip_current {
+    return Ok(None);
+  }
+  if !plan.summary.manifest_complete {
+    info!(
+      "User {} fragment manifest plan has incomplete metadata; loading fragment text before current check.",
+      user_id_for_log(&plan.user_id)
+    );
+    return Ok(None);
+  }
+
+  let lexical_current =
+    document_fragment_lexical_index_current_from_manifest(data_dir, &plan.user_id, &plan.summary).await?;
+  let vector_current = match (client, embed_url) {
+    (Some(_), Some(_)) => fragment_vector_index_current_from_manifest(data_dir, &plan.user_id, &plan.summary).await?,
+    (None, None) => Some(ManifestCurrentStatus { reason: "vector embedding disabled", model: None, dimensions: None }),
+    _ => {
+      return Err("Text embedding client and URL must both be provided to rebuild vector fragment indexes.".into());
+    }
+  };
+
+  let Some(lexical_current) = lexical_current else {
+    return Ok(None);
+  };
+  let Some(vector_current) = vector_current else {
+    return Ok(None);
+  };
+
+  let mut removed_empty = 0;
+  if plan.summary.lexical_fragment_count == 0 {
+    let removed = remove_document_fragment_lexical_index_dirs(data_dir, &plan.user_id).await?;
+    if removed > 0 {
+      info!(
+        "User {} has no lexical-search fragments; removed {} stale lexical index dir(s).",
+        user_id_for_log(&plan.user_id),
+        removed
+      );
+    }
+    removed_empty += removed;
+  } else {
+    info!(
+      "User {} fragment lexical index is already current from manifests ({} fragment(s), {}).",
+      user_id_for_log(&plan.user_id),
+      plan.summary.lexical_fragment_count,
+      lexical_current.reason
+    );
+  }
+
+  if client.is_some() && plan.summary.vector_fragment_count == 0 {
+    let final_path = fragment_vector_db_path(data_dir, &plan.user_id)?;
+    let temp_path = fragment_vector_db_temp_path(data_dir, &plan.user_id)?;
+    let removed = remove_stale_empty_index_files(&final_path, &temp_path).await?;
+    if removed > 0 {
+      info!(
+        "User {} has no vector-search fragments; removed {} stale vector index file(s).",
+        user_id_for_log(&plan.user_id),
+        removed
+      );
+    }
+    removed_empty += removed;
+  } else if client.is_some() {
+    info!(
+      "User {} fragment vector index is already current from manifests ({} fragment(s), model '{}', {} dims, {}).",
+      user_id_for_log(&plan.user_id),
+      plan.summary.vector_fragment_count,
+      vector_current.model.as_deref().unwrap_or("unknown"),
+      vector_current.dimensions.unwrap_or(0),
+      vector_current.reason
+    );
+  }
+
+  Ok(Some(UserRebuildOutcome {
+    users_skipped_current: if removed_empty == 0 { 1 } else { 0 },
+    empty_index_files_removed: removed_empty,
+    ..Default::default()
+  }))
+}
+
+async fn document_fragment_lexical_index_current_from_manifest(
+  data_dir: &str,
+  user_id: &str,
+  summary: &FragmentCorpusSummary,
+) -> InfuResult<Option<ManifestCurrentStatus>> {
+  if summary.lexical_fragment_count == 0 {
+    return Ok(Some(ManifestCurrentStatus::empty()));
+  }
+
+  let final_index = open_user_document_fragment_lexical_index(data_dir, user_id)?;
+  let Some(status) = final_index.rebuild_status().await? else {
+    return Ok(None);
+  };
+  if !status.complete
+    || status.expected_fragment_count != summary.lexical_fragment_count
+    || status.indexed_fragment_count != summary.lexical_fragment_count
+  {
+    return Ok(None);
+  }
+
+  Ok(Some(ManifestCurrentStatus::from_digest_match(
+    summary.lexical_source_digest.as_ref().is_some_and(|digest| status.source_digest == *digest),
+  )))
+}
+
+async fn fragment_vector_index_current_from_manifest(
+  data_dir: &str,
+  user_id: &str,
+  summary: &FragmentCorpusSummary,
+) -> InfuResult<Option<ManifestCurrentStatus>> {
+  if summary.vector_fragment_count == 0 {
+    return Ok(Some(ManifestCurrentStatus::empty()));
+  }
+
+  let temp_path = fragment_vector_db_temp_path(data_dir, user_id)?;
+  if path_exists(&temp_path).await {
+    return Ok(None);
+  }
+
+  let final_path = fragment_vector_db_path(data_dir, user_id)?;
+  let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path);
+  let Some(status) = final_db.rebuild_status().await? else {
+    return Ok(None);
+  };
+  if !status.complete
+    || status.expected_fragment_count != summary.vector_fragment_count
+    || status.embedded_fragment_count != summary.vector_fragment_count
+    || status.embedding_row_count != summary.vector_fragment_count
+  {
+    return Ok(None);
+  }
+
+  let mut current_status = ManifestCurrentStatus::from_digest_match(
+    summary.vector_source_digest.as_ref().is_some_and(|digest| status.source_digest == *digest),
+  );
+  current_status.model = Some(status.model);
+  current_status.dimensions = Some(status.embedding_dimensions);
+  Ok(Some(current_status))
+}
+
+async fn load_fragment_records_for_index_plan(
+  data_dir: &str,
+  plan: &UserFragmentIndexPlan,
+) -> InfuResult<Vec<FragmentRecordForIndex>> {
+  let load_started = Instant::now();
+  info!(
+    "User {} loading fragment text for index rebuild: {} item(s).",
+    user_id_for_log(&plan.user_id),
+    plan.fragment_items.len()
+  );
+
+  let mut fragments = Vec::new();
+  let mut processed_item_count = 0;
+  let mut loaded_item_count = 0;
+  let mut last_progress_log = Instant::now();
+  for item in &plan.fragment_items {
+    processed_item_count += 1;
+    let fragments_path = item_fragments_path(data_dir, &plan.user_id, &item.item_id)?;
+    if !path_exists(&fragments_path).await {
+      continue;
+    }
+
+    let records = load_fragment_records(&fragments_path).await?;
+    if records.is_empty() {
+      continue;
+    }
+    loaded_item_count += 1;
+
+    if let Some(expected_count) = item.fragment_count
+      && expected_count != records.len()
+    {
+      return Err(
+        format!(
+          "Fragment manifest for item '{}' says {} fragment(s), but '{}' contains {} non-empty fragment record(s).",
+          item.item_id,
+          expected_count,
+          fragments_path.display(),
+          records.len()
+        )
+        .into(),
+      );
+    }
+
+    for record in records {
+      fragments.push(FragmentRecordForIndex {
+        item_id: item.item_id.clone(),
+        ordinal: record.ordinal,
+        source_kind: item.source_kind.clone(),
+        text_sha256: fragment_text_sha256(&record.text),
+        text: record.text,
+        page_start: record.page_start,
+        page_end: record.page_end,
+      });
+    }
+
+    if last_progress_log.elapsed().as_secs() >= 10 {
+      info!(
+        "User {} loading fragment text: processed {}/{} item(s), loaded {} non-empty item(s), {} fragment(s) so far ({:.3}s elapsed).",
+        user_id_for_log(&plan.user_id),
+        processed_item_count,
+        plan.fragment_items.len(),
+        loaded_item_count,
+        fragments.len(),
+        load_started.elapsed().as_secs_f64()
+      );
+      last_progress_log = Instant::now();
+    }
+  }
+
+  fragments.sort_by(|a, b| a.item_id.cmp(&b.item_id).then(a.ordinal.cmp(&b.ordinal)));
+  validate_unique_fragment_ordinals(&plan.user_id, &fragments)?;
+  info!(
+    "User {} loaded fragment text for index rebuild: {} item(s), {} fragment(s), total {:.3}s.",
+    user_id_for_log(&plan.user_id),
+    loaded_item_count,
+    fragments.len(),
+    load_started.elapsed().as_secs_f64()
+  );
+  Ok(fragments)
+}
+
 async fn rebuild_user_fragment_index(
   data_dir: &str,
   plan: &UserFragmentIndexPlan,
@@ -329,16 +515,22 @@ async fn rebuild_user_fragment_index(
 ) -> InfuResult<UserRebuildOutcome> {
   ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
-  let corpus_started = Instant::now();
-  info!(
-    "User {} preparing fragment index corpus for {} fragment(s).",
-    user_id_for_log(&plan.user_id),
-    plan.fragments.len()
-  );
-  let (vector_fragments, lexical_fragments) = split_fragment_records_by_index(&plan.fragments);
+  if let Some(outcome) =
+    try_skip_current_user_fragment_index_from_manifest(data_dir, plan, client, embed_url, policy).await?
+  {
+    return Ok(outcome);
+  }
 
-  let vector_source_digest = fragment_corpus_digest(&vector_fragments);
-  let lexical_source_digest = fragment_corpus_digest(&lexical_fragments);
+  let fragments = load_fragment_records_for_index_plan(data_dir, plan).await?;
+
+  let corpus_started = Instant::now();
+  info!("User {} preparing fragment index corpus for {} fragment(s).", user_id_for_log(&plan.user_id), fragments.len());
+  let (vector_fragments, lexical_fragments) = split_fragment_records_by_index(&fragments);
+
+  let vector_source_digest =
+    plan.summary.vector_source_digest.clone().unwrap_or_else(|| fragment_corpus_digest(&vector_fragments));
+  let lexical_source_digest =
+    plan.summary.lexical_source_digest.clone().unwrap_or_else(|| fragment_corpus_digest(&lexical_fragments));
 
   info!(
     "User {} fragment index corpus: lexical={} vector={} (prepared {:.3}s).",
@@ -896,6 +1088,22 @@ fn fragment_corpus_digest(fragments: &[FragmentRecordForIndex]) -> String {
   format!("{:x}", hasher.finalize())
 }
 
+fn manifest_fragment_corpus_digest<'a>(items: impl Iterator<Item = &'a FragmentItemForIndex>) -> String {
+  let mut hasher = Sha256::new();
+  hasher.update(b"infumap-fragment-manifest-corpus-v1");
+  for item in items {
+    hasher.update(item.item_id.as_bytes());
+    hasher.update([0_u8]);
+    hasher.update(item.source_kind.as_bytes());
+    hasher.update([0_u8]);
+    hasher.update(item.fragment_count.unwrap_or(0).to_string().as_bytes());
+    hasher.update([0_u8]);
+    hasher.update(item.source_text_sha256.as_deref().unwrap_or_default().as_bytes());
+    hasher.update([0xff_u8]);
+  }
+  format!("{:x}", hasher.finalize())
+}
+
 #[derive(Default)]
 pub struct EmbedRebuildSummary {
   pub users_seen: usize,
@@ -930,7 +1138,114 @@ struct UserRebuildOutcome {
 
 struct UserFragmentIndexPlan {
   user_id: String,
-  fragments: Vec<FragmentRecordForIndex>,
+  fragment_items: Vec<FragmentItemForIndex>,
+  summary: FragmentCorpusSummary,
+}
+
+struct FragmentItemForIndex {
+  item_id: String,
+  source_kind: String,
+  source_text_sha256: Option<String>,
+  fragment_count: Option<usize>,
+}
+
+impl FragmentItemForIndex {
+  fn from_manifest(item_id: String, manifest: Option<StoredFragmentsManifest>) -> FragmentItemForIndex {
+    let Some(manifest) = manifest else {
+      return FragmentItemForIndex {
+        item_id,
+        source_kind: UNKNOWN_FRAGMENT_SOURCE_KIND.to_owned(),
+        source_text_sha256: None,
+        fragment_count: None,
+      };
+    };
+
+    let source_kind = manifest
+      .source_kind
+      .map(|source_kind| source_kind.trim().to_owned())
+      .filter(|source_kind| !source_kind.is_empty())
+      .unwrap_or_else(|| UNKNOWN_FRAGMENT_SOURCE_KIND.to_owned());
+    let source_text_sha256 = manifest
+      .source_text_sha256
+      .map(|source_text_sha256| source_text_sha256.trim().to_owned())
+      .filter(|source_text_sha256| !source_text_sha256.is_empty());
+    let fragment_count = manifest.fragment_count.filter(|count| *count > 0);
+
+    FragmentItemForIndex { item_id, source_kind, source_text_sha256, fragment_count }
+  }
+
+  fn has_complete_manifest(&self) -> bool {
+    self.source_kind != UNKNOWN_FRAGMENT_SOURCE_KIND
+      && self.source_text_sha256.is_some()
+      && self.fragment_count.is_some()
+  }
+}
+
+#[derive(Default)]
+struct FragmentCorpusSummary {
+  manifest_complete: bool,
+  lexical_fragment_count: usize,
+  vector_fragment_count: usize,
+  lexical_source_digest: Option<String>,
+  vector_source_digest: Option<String>,
+}
+
+impl FragmentCorpusSummary {
+  fn from_items(items: &[FragmentItemForIndex]) -> FragmentCorpusSummary {
+    let manifest_complete = items.iter().all(FragmentItemForIndex::has_complete_manifest);
+    let lexical_fragment_count = items
+      .iter()
+      .filter(|item| is_lexical_search_source_kind(&item.source_kind))
+      .map(|item| item.fragment_count.unwrap_or(0))
+      .sum();
+    let vector_fragment_count = items
+      .iter()
+      .filter(|item| !is_lexical_search_source_kind(&item.source_kind))
+      .map(|item| item.fragment_count.unwrap_or(0))
+      .sum();
+    let lexical_source_digest = if manifest_complete {
+      Some(manifest_fragment_corpus_digest(
+        items.iter().filter(|item| is_lexical_search_source_kind(&item.source_kind)),
+      ))
+    } else {
+      None
+    };
+    let vector_source_digest = if manifest_complete {
+      Some(manifest_fragment_corpus_digest(
+        items.iter().filter(|item| !is_lexical_search_source_kind(&item.source_kind)),
+      ))
+    } else {
+      None
+    };
+
+    FragmentCorpusSummary {
+      manifest_complete,
+      lexical_fragment_count,
+      vector_fragment_count,
+      lexical_source_digest,
+      vector_source_digest,
+    }
+  }
+}
+
+struct ManifestCurrentStatus {
+  reason: &'static str,
+  model: Option<String>,
+  dimensions: Option<usize>,
+}
+
+impl ManifestCurrentStatus {
+  fn empty() -> ManifestCurrentStatus {
+    ManifestCurrentStatus { reason: "empty corpus", model: None, dimensions: None }
+  }
+
+  fn from_digest_match(digest_matches: bool) -> ManifestCurrentStatus {
+    ManifestCurrentStatus {
+      reason: if digest_matches { "manifest digest match" } else { "immutable count match" },
+      model: None,
+      dimensions: None,
+    }
+  }
 }
 
 #[derive(Default)]
@@ -986,5 +1301,6 @@ struct StoredFragmentRecord {
 #[derive(Deserialize)]
 struct StoredFragmentsManifest {
   source_kind: Option<String>,
+  source_text_sha256: Option<String>,
   fragment_count: Option<usize>,
 }
