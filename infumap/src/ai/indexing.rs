@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::ErrorKind;
 use std::path::Path;
+use std::time::Instant;
 
 use infusdk::util::infu::InfuResult;
 use log::{debug, info};
@@ -521,6 +522,12 @@ async fn rebuild_user_fragment_lexical_index(
     return Ok(LexicalRebuildOutcome { skipped_current: true, ..Default::default() });
   }
 
+  info!(
+    "User {} starting document fragment lexical index rebuild: {} fragment(s).",
+    user_id_for_log(user_id),
+    fragments.len()
+  );
+  let rebuild_started = Instant::now();
   let temp_dir = document_fragment_lexical_index_temp_dir(data_dir, user_id)?;
   let lexical_fragments = fragments
     .iter()
@@ -547,9 +554,10 @@ async fn rebuild_user_fragment_lexical_index(
   }
 
   info!(
-    "User {} rebuilt fragment lexical index: {} fragment(s).",
+    "User {} finished document fragment lexical index rebuild: {} fragment(s), rebuild {:.3}s.",
     user_id_for_log(user_id),
-    status.indexed_fragment_count
+    status.indexed_fragment_count,
+    rebuild_started.elapsed().as_secs_f64()
   );
   Ok(LexicalRebuildOutcome {
     rebuilt: true,

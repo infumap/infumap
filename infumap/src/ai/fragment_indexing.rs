@@ -44,6 +44,15 @@ impl DirtyFragmentIndexState {
     self.user_ids.is_empty()
   }
 
+  fn record_users_immediate(&mut self, user_ids: Vec<String>) {
+    if user_ids.is_empty() {
+      return;
+    }
+    self.first_dirty_at = None;
+    self.last_dirty_at = None;
+    self.user_ids.extend(user_ids);
+  }
+
   fn record_user(&mut self, user_id: String) {
     let now = TokioInstant::now();
     if self.user_ids.is_empty() {
@@ -88,6 +97,7 @@ impl DirtyFragmentIndexState {
 pub fn init_fragment_indexing_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuResult<()> {
   let indexing_config = fragment_indexing_config(config)?;
   if FRAGMENT_INDEXING_STATE.get().is_some() {
+    enqueue_all_loaded_users_for_fragment_index_rebuild(db);
     return Ok(());
   }
 
@@ -139,12 +149,48 @@ async fn run_fragment_indexing_loop(
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<DirtyFragmentIndexState>>,
 ) {
+  enqueue_all_loaded_users_for_fragment_index_rebuild_inner(db.clone(), state.clone()).await;
+
   loop {
     if should_rebuild_dirty_users(state.clone()).await {
       rebuild_fragment_indexes_for_dirty_users(&config, db.clone(), state.clone()).await;
     }
     sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
   }
+}
+
+fn enqueue_all_loaded_users_for_fragment_index_rebuild(db: Arc<Mutex<Db>>) {
+  let Some(state) = FRAGMENT_INDEXING_STATE.get() else {
+    return;
+  };
+  let state = state.clone();
+  let _enqueue_task = task::spawn(async move {
+    enqueue_all_loaded_users_for_fragment_index_rebuild_inner(db, state).await;
+  });
+}
+
+async fn enqueue_all_loaded_users_for_fragment_index_rebuild_inner(
+  db: Arc<Mutex<Db>>,
+  state: Arc<Mutex<DirtyFragmentIndexState>>,
+) {
+  let mut user_ids = {
+    let db = db.lock().await;
+    db.user.all_user_ids().iter().map(|user_id| user_id.to_owned()).collect::<Vec<_>>()
+  };
+  user_ids.sort();
+  if user_ids.is_empty() {
+    return;
+  }
+
+  {
+    let mut state = state.lock().await;
+    state.record_users_immediate(user_ids.clone());
+  }
+  info!(
+    "Scheduled startup fragment index reconciliation for {} user(s): {}.",
+    user_ids.len(),
+    user_ids_for_log(&user_ids)
+  );
 }
 
 async fn should_rebuild_dirty_users(state: Arc<Mutex<DirtyFragmentIndexState>>) -> bool {
