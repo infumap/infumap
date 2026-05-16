@@ -10,7 +10,9 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
-use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path};
+use crate::ai::artifact_paths::{
+  FRAGMENTS_FILENAME, item_fragments_manifest_path, item_fragments_path, user_fragments_dir,
+};
 use crate::ai::fragment::is_lexical_search_source_kind;
 use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, document_fragment_lexical_index_temp_dir,
@@ -125,34 +127,50 @@ async fn load_fragment_index_plans_for_loaded_items(
   requested_user_ids: &[String],
   loaded_items: Vec<ItemAndUserId>,
 ) -> InfuResult<Vec<UserFragmentIndexPlan>> {
+  let load_started = Instant::now();
   let mut user_ids = requested_user_ids.to_vec();
   user_ids.sort();
   user_ids.dedup();
 
   let mut item_ids_by_user_id =
-    user_ids.iter().map(|user_id| (user_id.clone(), Vec::new())).collect::<BTreeMap<String, Vec<String>>>();
+    user_ids.iter().map(|user_id| (user_id.clone(), HashSet::new())).collect::<BTreeMap<String, HashSet<String>>>();
   for item_key in loaded_items {
     if let Some(item_ids) = item_ids_by_user_id.get_mut(&item_key.user_id) {
-      item_ids.push(item_key.item_id);
+      item_ids.insert(item_key.item_id);
     }
   }
 
   let mut plans = Vec::new();
-  for (user_id, mut item_ids) in item_ids_by_user_id {
-    item_ids.sort();
-    let mut fragments = Vec::new();
-    for item_id in item_ids {
-      let fragments_path = item_fragments_path(data_dir, &user_id, &item_id)?;
-      if !path_exists(&fragments_path).await {
-        continue;
-      }
+  for (user_id, loaded_item_ids) in item_ids_by_user_id {
+    let user_started = Instant::now();
+    let loaded_item_count = loaded_item_ids.len();
+    info!("User {} scanning fragment artifacts for {} loaded item(s).", user_id_for_log(&user_id), loaded_item_count);
 
+    let artifact_scan_started = Instant::now();
+    let item_ids = fragment_item_ids_for_loaded_user(data_dir, &user_id, &loaded_item_ids).await?;
+    let artifact_scan_elapsed = artifact_scan_started.elapsed();
+    info!(
+      "User {} found {} loaded item(s) with fragment artifacts in {:.3}s.",
+      user_id_for_log(&user_id),
+      item_ids.len(),
+      artifact_scan_elapsed.as_secs_f64()
+    );
+
+    let fragment_load_started = Instant::now();
+    let mut fragments = Vec::new();
+    let mut processed_fragment_item_count = 0;
+    let mut loaded_fragment_item_count = 0;
+    let mut last_progress_log = Instant::now();
+    for item_id in item_ids.iter() {
+      processed_fragment_item_count += 1;
+      let fragments_path = item_fragments_path(data_dir, &user_id, item_id)?;
       let records = load_fragment_records(&fragments_path).await?;
       if records.is_empty() {
         continue;
       }
+      loaded_fragment_item_count += 1;
 
-      let manifest_path = item_fragments_manifest_path(data_dir, &user_id, &item_id)?;
+      let manifest_path = item_fragments_manifest_path(data_dir, &user_id, item_id)?;
       let manifest = load_fragments_manifest(&manifest_path).await?;
       if let Some(expected_count) = manifest.as_ref().and_then(|manifest| manifest.fragment_count)
         && expected_count != records.len()
@@ -176,7 +194,7 @@ async fn load_fragment_index_plans_for_loaded_items(
 
       for record in records {
         fragments.push(FragmentRecordForIndex {
-          item_id: item_id.clone(),
+          item_id: item_id.to_owned(),
           ordinal: record.ordinal,
           source_kind: source_kind.clone(),
           text_sha256: fragment_text_sha256(&record.text),
@@ -185,14 +203,121 @@ async fn load_fragment_index_plans_for_loaded_items(
           page_end: record.page_end,
         });
       }
+
+      if last_progress_log.elapsed().as_secs() >= 10 {
+        info!(
+          "User {} loading fragment artifacts: processed {}/{} item(s), loaded {} non-empty item(s), {} fragment(s) so far ({:.3}s elapsed).",
+          user_id_for_log(&user_id),
+          processed_fragment_item_count,
+          item_ids.len(),
+          loaded_fragment_item_count,
+          fragments.len(),
+          fragment_load_started.elapsed().as_secs_f64()
+        );
+        last_progress_log = Instant::now();
+      }
     }
 
     fragments.sort_by(|a, b| a.item_id.cmp(&b.item_id).then(a.ordinal.cmp(&b.ordinal)));
     validate_unique_fragment_ordinals(&user_id, &fragments)?;
+    info!(
+      "User {} loaded fragment index plan: {} item(s), {} fragment(s), scan {:.3}s, load {:.3}s, total {:.3}s.",
+      user_id_for_log(&user_id),
+      loaded_fragment_item_count,
+      fragments.len(),
+      artifact_scan_elapsed.as_secs_f64(),
+      fragment_load_started.elapsed().as_secs_f64(),
+      user_started.elapsed().as_secs_f64()
+    );
     plans.push(UserFragmentIndexPlan { user_id, fragments });
   }
 
+  info!("Prepared {} fragment index plan(s) in {:.3}s.", plans.len(), load_started.elapsed().as_secs_f64());
   Ok(plans)
+}
+
+async fn fragment_item_ids_for_loaded_user(
+  data_dir: &str,
+  user_id: &str,
+  loaded_item_ids: &HashSet<String>,
+) -> InfuResult<Vec<String>> {
+  let fragments_dir = user_fragments_dir(data_dir, user_id)?;
+  let mut shard_entries = match fs::read_dir(&fragments_dir).await {
+    Ok(entries) => entries,
+    Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+    Err(e) => {
+      return Err(format!("Could not read fragment directory '{}': {}", fragments_dir.display(), e).into());
+    }
+  };
+
+  let mut item_ids = Vec::new();
+  let scan_started = Instant::now();
+  let mut shard_dir_count = 0;
+  let mut artifact_item_dir_count = 0;
+  let mut last_progress_log = Instant::now();
+  while let Some(shard_entry) = shard_entries
+    .next_entry()
+    .await
+    .map_err(|e| format!("Could not read entry in fragment directory '{}': {}", fragments_dir.display(), e))?
+  {
+    let shard_file_type = shard_entry
+      .file_type()
+      .await
+      .map_err(|e| format!("Could not read file type for '{}': {}", shard_entry.path().display(), e))?;
+    if !shard_file_type.is_dir() {
+      continue;
+    }
+    shard_dir_count += 1;
+
+    let shard_path = shard_entry.path();
+    let mut item_entries = fs::read_dir(&shard_path)
+      .await
+      .map_err(|e| format!("Could not read fragment shard directory '{}': {}", shard_path.display(), e))?;
+    while let Some(item_entry) = item_entries
+      .next_entry()
+      .await
+      .map_err(|e| format!("Could not read entry in fragment shard directory '{}': {}", shard_path.display(), e))?
+    {
+      let item_file_type = item_entry
+        .file_type()
+        .await
+        .map_err(|e| format!("Could not read file type for '{}': {}", item_entry.path().display(), e))?;
+      if !item_file_type.is_dir() {
+        continue;
+      }
+      artifact_item_dir_count += 1;
+
+      let item_id = match item_entry.file_name().into_string() {
+        Ok(item_id) => item_id,
+        Err(_) => continue,
+      };
+      if !loaded_item_ids.contains(&item_id) {
+        continue;
+      }
+
+      let mut fragments_path = item_entry.path();
+      fragments_path.push(FRAGMENTS_FILENAME);
+      if path_exists(&fragments_path).await {
+        item_ids.push(item_id);
+      }
+
+      if last_progress_log.elapsed().as_secs() >= 10 {
+        info!(
+          "User {} scanning fragment artifacts: {} shard dir(s), {} artifact item dir(s), {} loaded match(es) so far ({:.3}s elapsed).",
+          user_id_for_log(user_id),
+          shard_dir_count,
+          artifact_item_dir_count,
+          item_ids.len(),
+          scan_started.elapsed().as_secs_f64()
+        );
+        last_progress_log = Instant::now();
+      }
+    }
+  }
+
+  item_ids.sort();
+  item_ids.dedup();
+  Ok(item_ids)
 }
 
 async fn rebuild_user_fragment_index(
@@ -204,16 +329,23 @@ async fn rebuild_user_fragment_index(
 ) -> InfuResult<UserRebuildOutcome> {
   ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
+  let corpus_started = Instant::now();
+  info!(
+    "User {} preparing fragment index corpus for {} fragment(s).",
+    user_id_for_log(&plan.user_id),
+    plan.fragments.len()
+  );
   let (vector_fragments, lexical_fragments) = split_fragment_records_by_index(&plan.fragments);
 
   let vector_source_digest = fragment_corpus_digest(&vector_fragments);
   let lexical_source_digest = fragment_corpus_digest(&lexical_fragments);
 
   info!(
-    "User {} fragment index corpus: lexical={} vector={}.",
+    "User {} fragment index corpus: lexical={} vector={} (prepared {:.3}s).",
     user_id_for_log(&plan.user_id),
     lexical_fragments.len(),
-    vector_fragments.len()
+    vector_fragments.len(),
+    corpus_started.elapsed().as_secs_f64()
   );
 
   let lexical_outcome = rebuild_user_fragment_lexical_index(
