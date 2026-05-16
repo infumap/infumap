@@ -57,7 +57,7 @@ const App: Component = () => {
       <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="status"></div>
 
       <div style="padding-top: 5px; padding-left: 10px; font-weight: bold;">Add Link</div>
-      <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 2px;">
+      <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 6px;">
         <input type="text" id="link" inputmode="url" autocomplete="url"
           class="border border-slate-700 rounded-md"
           style="position: relative; width: 100%; box-sizing: border-box; font-size: 16px; padding: 5px;"
