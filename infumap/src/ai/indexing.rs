@@ -336,13 +336,11 @@ async fn load_fragment_item_from_manifest(
   Ok(FragmentItemForIndex::from_manifest(item_id, manifest))
 }
 
-async fn try_skip_current_user_fragment_index_from_manifest(
+async fn skip_current_lexical_index_from_manifest(
   data_dir: &str,
   plan: &UserFragmentIndexPlan,
-  client: Option<&reqwest::Client>,
-  embed_url: Option<&Url>,
   policy: FragmentIndexRebuildPolicy,
-) -> InfuResult<Option<UserRebuildOutcome>> {
+) -> InfuResult<Option<LexicalRebuildOutcome>> {
   if !policy.skip_current {
     return Ok(None);
   }
@@ -356,22 +354,10 @@ async fn try_skip_current_user_fragment_index_from_manifest(
 
   let lexical_current =
     document_fragment_lexical_index_current_from_manifest(data_dir, &plan.user_id, &plan.summary).await?;
-  let vector_current = match (client, embed_url) {
-    (Some(_), Some(_)) => fragment_vector_index_current_from_manifest(data_dir, &plan.user_id, &plan.summary).await?,
-    (None, None) => Some(ManifestCurrentStatus { reason: "vector embedding disabled", model: None, dimensions: None }),
-    _ => {
-      return Err("Text embedding client and URL must both be provided to rebuild vector fragment indexes.".into());
-    }
-  };
-
   let Some(lexical_current) = lexical_current else {
     return Ok(None);
   };
-  let Some(vector_current) = vector_current else {
-    return Ok(None);
-  };
 
-  let mut removed_empty = 0;
   if plan.summary.lexical_fragment_count == 0 {
     let removed = remove_document_fragment_lexical_index_dirs(data_dir, &plan.user_id).await?;
     if removed > 0 {
@@ -381,17 +367,44 @@ async fn try_skip_current_user_fragment_index_from_manifest(
         removed
       );
     }
-    removed_empty += removed;
-  } else {
-    info!(
-      "User {} fragment lexical index is already current from manifests ({} fragment(s), {}).",
-      user_id_for_log(&plan.user_id),
-      plan.summary.lexical_fragment_count,
-      lexical_current.reason
-    );
+    return Ok(Some(LexicalRebuildOutcome {
+      skipped_current: removed == 0,
+      empty_index_files_removed: removed,
+      ..Default::default()
+    }));
   }
 
-  if client.is_some() && plan.summary.vector_fragment_count == 0 {
+  info!(
+    "User {} fragment lexical index is already current from manifests ({} fragment(s), {}).",
+    user_id_for_log(&plan.user_id),
+    plan.summary.lexical_fragment_count,
+    lexical_current.reason
+  );
+  Ok(Some(LexicalRebuildOutcome { skipped_current: true, ..Default::default() }))
+}
+
+async fn skip_current_vector_index_from_manifest(
+  data_dir: &str,
+  plan: &UserFragmentIndexPlan,
+  policy: FragmentIndexRebuildPolicy,
+) -> InfuResult<Option<VectorRebuildOutcome>> {
+  if !policy.skip_current {
+    return Ok(None);
+  }
+  if !plan.summary.manifest_complete {
+    info!(
+      "User {} fragment manifest plan has incomplete metadata; loading fragment text before vector current check.",
+      user_id_for_log(&plan.user_id)
+    );
+    return Ok(None);
+  }
+
+  let vector_current = fragment_vector_index_current_from_manifest(data_dir, &plan.user_id, &plan.summary).await?;
+  let Some(vector_current) = vector_current else {
+    return Ok(None);
+  };
+
+  if plan.summary.vector_fragment_count == 0 {
     let final_path = fragment_vector_db_path(data_dir, &plan.user_id)?;
     let temp_path = fragment_vector_db_temp_path(data_dir, &plan.user_id)?;
     let removed = remove_stale_empty_index_files(&final_path, &temp_path).await?;
@@ -402,23 +415,22 @@ async fn try_skip_current_user_fragment_index_from_manifest(
         removed
       );
     }
-    removed_empty += removed;
-  } else if client.is_some() {
-    info!(
-      "User {} fragment vector index is already current from manifests ({} fragment(s), model '{}', {} dims, {}).",
-      user_id_for_log(&plan.user_id),
-      plan.summary.vector_fragment_count,
-      vector_current.model.as_deref().unwrap_or("unknown"),
-      vector_current.dimensions.unwrap_or(0),
-      vector_current.reason
-    );
+    return Ok(Some(VectorRebuildOutcome {
+      skipped_current: removed == 0,
+      empty_index_files_removed: removed,
+      ..Default::default()
+    }));
   }
 
-  Ok(Some(UserRebuildOutcome {
-    users_skipped_current: if removed_empty == 0 { 1 } else { 0 },
-    empty_index_files_removed: removed_empty,
-    ..Default::default()
-  }))
+  info!(
+    "User {} fragment vector index is already current from manifests ({} fragment(s), model '{}', {} dims, {}).",
+    user_id_for_log(&plan.user_id),
+    plan.summary.vector_fragment_count,
+    vector_current.model.as_deref().unwrap_or("unknown"),
+    vector_current.dimensions.unwrap_or(0),
+    vector_current.reason
+  );
+  Ok(Some(VectorRebuildOutcome { skipped_current: true, ..Default::default() }))
 }
 
 async fn document_fragment_lexical_index_current_from_manifest(
@@ -484,19 +496,23 @@ async fn fragment_vector_index_current_from_manifest(
 async fn load_fragment_records_for_index_plan(
   data_dir: &str,
   plan: &UserFragmentIndexPlan,
+  slice: FragmentIndexSlice,
 ) -> InfuResult<Vec<FragmentRecordForIndex>> {
   let load_started = Instant::now();
+  let fragment_items =
+    plan.fragment_items.iter().filter(|item| slice.includes_source_kind(&item.source_kind)).collect::<Vec<_>>();
   info!(
-    "User {} loading fragment text for index rebuild: {} item(s).",
+    "User {} loading {} fragment text for index rebuild: {} item(s).",
     user_id_for_log(&plan.user_id),
-    plan.fragment_items.len()
+    slice.label(),
+    fragment_items.len()
   );
 
   let mut fragments = Vec::new();
   let mut processed_item_count = 0;
   let mut loaded_item_count = 0;
   let mut last_progress_log = Instant::now();
-  for item in &plan.fragment_items {
+  for item in fragment_items.iter() {
     processed_item_count += 1;
     let fragments_path = item_fragments_path(data_dir, &plan.user_id, &item.item_id)?;
     if !path_exists(&fragments_path).await {
@@ -538,10 +554,11 @@ async fn load_fragment_records_for_index_plan(
 
     if last_progress_log.elapsed().as_secs() >= 10 {
       info!(
-        "User {} loading fragment text: processed {}/{} item(s), loaded {} non-empty item(s), {} fragment(s) so far ({:.3}s elapsed).",
+        "User {} loading {} fragment text: processed {}/{} item(s), loaded {} non-empty item(s), {} fragment(s) so far ({:.3}s elapsed).",
         user_id_for_log(&plan.user_id),
+        slice.label(),
         processed_item_count,
-        plan.fragment_items.len(),
+        fragment_items.len(),
         loaded_item_count,
         fragments.len(),
         load_started.elapsed().as_secs_f64()
@@ -553,8 +570,9 @@ async fn load_fragment_records_for_index_plan(
   fragments.sort_by(|a, b| a.item_id.cmp(&b.item_id).then(a.ordinal.cmp(&b.ordinal)));
   validate_unique_fragment_ordinals(&plan.user_id, &fragments)?;
   info!(
-    "User {} loaded fragment text for index rebuild: {} item(s), {} fragment(s), total {:.3}s.",
+    "User {} loaded {} fragment text for index rebuild: {} item(s), {} fragment(s), total {:.3}s.",
     user_id_for_log(&plan.user_id),
+    slice.label(),
     loaded_item_count,
     fragments.len(),
     load_started.elapsed().as_secs_f64()
@@ -571,42 +589,39 @@ async fn rebuild_user_fragment_index(
 ) -> InfuResult<UserRebuildOutcome> {
   ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
-  if let Some(outcome) =
-    try_skip_current_user_fragment_index_from_manifest(data_dir, plan, client, embed_url, policy).await?
-  {
-    return Ok(outcome);
-  }
-
-  let fragments = load_fragment_records_for_index_plan(data_dir, plan).await?;
-
-  let corpus_started = Instant::now();
-  info!("User {} preparing fragment index corpus for {} fragment(s).", user_id_for_log(&plan.user_id), fragments.len());
-  let (vector_fragments, lexical_fragments) = split_fragment_records_by_index(&fragments);
-
-  let vector_source_digest =
-    plan.summary.vector_source_digest.clone().unwrap_or_else(|| fragment_corpus_digest(&vector_fragments));
-  let lexical_source_digest =
-    plan.summary.lexical_source_digest.clone().unwrap_or_else(|| fragment_corpus_digest(&lexical_fragments));
-
   info!(
-    "User {} fragment index corpus: lexical={} vector={} (prepared {:.3}s).",
+    "User {} fragment index manifest corpus: lexical={} vector={} complete={}.",
     user_id_for_log(&plan.user_id),
-    lexical_fragments.len(),
-    vector_fragments.len(),
-    corpus_started.elapsed().as_secs_f64()
+    plan.summary.lexical_fragment_count,
+    plan.summary.vector_fragment_count,
+    plan.summary.manifest_complete
   );
 
-  let lexical_outcome = rebuild_user_fragment_lexical_index(
-    data_dir,
-    &plan.user_id,
-    &lexical_fragments,
-    &lexical_source_digest,
-    policy.skip_current,
-  )
-  .await?;
+  let lexical_outcome = match skip_current_lexical_index_from_manifest(data_dir, plan, policy).await? {
+    Some(outcome) => outcome,
+    None => {
+      let lexical_fragments = load_fragment_records_for_index_plan(data_dir, plan, FragmentIndexSlice::Lexical).await?;
+      let lexical_source_digest =
+        plan.summary.lexical_source_digest.clone().unwrap_or_else(|| fragment_corpus_digest(&lexical_fragments));
+      rebuild_user_fragment_lexical_index(
+        data_dir,
+        &plan.user_id,
+        &lexical_fragments,
+        &lexical_source_digest,
+        policy.skip_current,
+      )
+      .await?
+    }
+  };
 
   let vector_outcome = match (client, embed_url) {
     (Some(client), Some(embed_url)) => {
+      if let Some(outcome) = skip_current_vector_index_from_manifest(data_dir, plan, policy).await? {
+        return Ok(user_rebuild_outcome_from_parts(lexical_outcome, outcome));
+      }
+      let vector_fragments = load_fragment_records_for_index_plan(data_dir, plan, FragmentIndexSlice::Vector).await?;
+      let vector_source_digest =
+        plan.summary.vector_source_digest.clone().unwrap_or_else(|| fragment_corpus_digest(&vector_fragments));
       rebuild_user_vector_fragment_index(
         data_dir,
         &plan.user_id,
@@ -624,24 +639,21 @@ async fn rebuild_user_fragment_index(
     }
   };
 
-  Ok(UserRebuildOutcome {
+  Ok(user_rebuild_outcome_from_parts(lexical_outcome, vector_outcome))
+}
+
+fn user_rebuild_outcome_from_parts(
+  lexical_outcome: LexicalRebuildOutcome,
+  vector_outcome: VectorRebuildOutcome,
+) -> UserRebuildOutcome {
+  UserRebuildOutcome {
     users_rebuilt: if vector_outcome.rebuilt || lexical_outcome.rebuilt { 1 } else { 0 },
     users_skipped_current: if vector_outcome.skipped_current && lexical_outcome.skipped_current { 1 } else { 0 },
     fragments_embedded: vector_outcome.fragments_embedded,
     fragments_reused: vector_outcome.fragments_reused,
     lexical_fragments_indexed: lexical_outcome.lexical_fragments_indexed,
     empty_index_files_removed: vector_outcome.empty_index_files_removed + lexical_outcome.empty_index_files_removed,
-  })
-}
-
-fn split_fragment_records_by_index(
-  fragments: &[FragmentRecordForIndex],
-) -> (Vec<FragmentRecordForIndex>, Vec<FragmentRecordForIndex>) {
-  let vector_fragments =
-    fragments.iter().filter(|fragment| !fragment.is_lexical_search_fragment()).cloned().collect::<Vec<_>>();
-  let lexical_fragments =
-    fragments.iter().filter(|fragment| fragment.is_lexical_search_fragment()).cloned().collect::<Vec<_>>();
-  (vector_fragments, lexical_fragments)
+  }
 }
 
 async fn rebuild_user_vector_fragment_index(
@@ -1304,6 +1316,28 @@ impl ManifestCurrentStatus {
   }
 }
 
+#[derive(Clone, Copy)]
+enum FragmentIndexSlice {
+  Lexical,
+  Vector,
+}
+
+impl FragmentIndexSlice {
+  fn includes_source_kind(&self, source_kind: &str) -> bool {
+    match self {
+      FragmentIndexSlice::Lexical => is_lexical_search_source_kind(source_kind),
+      FragmentIndexSlice::Vector => !is_lexical_search_source_kind(source_kind),
+    }
+  }
+
+  fn label(&self) -> &'static str {
+    match self {
+      FragmentIndexSlice::Lexical => "lexical",
+      FragmentIndexSlice::Vector => "vector",
+    }
+  }
+}
+
 #[derive(Default)]
 struct VectorRebuildOutcome {
   rebuilt: bool,
@@ -1339,10 +1373,6 @@ impl FragmentRecordForIndex {
       ordinal: self.ordinal,
       text_sha256: self.text_sha256.clone(),
     }
-  }
-
-  fn is_lexical_search_fragment(&self) -> bool {
-    is_lexical_search_source_kind(&self.source_kind)
   }
 }
 
