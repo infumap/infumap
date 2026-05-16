@@ -4,7 +4,7 @@ mod types;
 pub mod sources;
 
 pub use artifacts::{
-  clear_item_fragments, delete_item_fragment_artifacts, item_fragments_manifest_exists_for_any_source,
+  clear_item_fragments, delete_item_fragment_artifacts, item_fragment_artifact_files_exist,
   item_fragments_manifest_is_current_for_source, write_item_fragments,
 };
 pub use types::{

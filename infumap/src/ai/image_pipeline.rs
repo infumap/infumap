@@ -12,7 +12,7 @@ use tokio::task;
 use tokio::time::sleep;
 
 use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
-use crate::ai::fragment::{FragmentSourceKind, clear_item_fragments, item_fragments_manifest_exists_for_any_source};
+use crate::ai::fragment::{clear_item_fragments, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::geo::{
   GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
@@ -816,14 +816,7 @@ async fn startup_fragment_stage_if_needed(
     return Ok(None);
   }
 
-  match item_fragments_manifest_exists_for_any_source(
-    &config.data_dir,
-    &candidate.user_id,
-    &candidate.item_id,
-    &[FragmentSourceKind::ImageContents, FragmentSourceKind::ImageDocumentContents],
-  )
-  .await
-  {
+  match item_fragment_artifact_files_exist(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
     Ok(true) => {
       summary.fragment_already_present += 1;
       Ok(None)
