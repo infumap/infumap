@@ -23,7 +23,6 @@ pub(super) const PDF_FRAGMENT_HARD_LIMIT_TOKENS: usize = 440;
 pub(super) const PDF_PAGE_BREAK_MIN_DASH_COUNT: usize = 8;
 
 pub struct PdfFragmentBuildResult {
-  pub had_fragment_source: bool,
   pub outcome: FragmentBuildOutcome,
 }
 
@@ -50,14 +49,13 @@ pub async fn build_pdf_fragment_artifact(
   context_title: Option<String>,
 ) -> InfuResult<PdfFragmentBuildResult> {
   let fragment_source = pdf_fragment_source_for_item(data_dir, item, context_title).await?;
-  let had_fragment_source = fragment_source.is_some();
   let outcome = match fragment_source {
     Some(fragment_source) => {
       write_item_fragments(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await?
     }
     None => clear_item_fragments(data_dir, item).await?,
   };
-  Ok(PdfFragmentBuildResult { had_fragment_source, outcome })
+  Ok(PdfFragmentBuildResult { outcome })
 }
 
 pub(super) fn markdown_fragment_source(

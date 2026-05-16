@@ -13,8 +13,8 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
-use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_pdf_fragment_artifact, embedding_context_title_for_item};
+use crate::ai::fragment::{FragmentSourceKind, clear_item_fragments, item_fragments_manifest_is_current_for_source};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state, text_extraction_url_from_config};
@@ -208,7 +208,6 @@ async fn reconcile_document_fragment_item(
     embedding_context_title_for_item(&db, &item_snapshot)
   };
   let fragment_result = build_pdf_fragment_artifact(&config.data_dir, &item_snapshot, context_title).await?;
-  let had_fragment_source = fragment_result.had_fragment_source;
   let outcome = fragment_result.outcome;
 
   if outcome.wrote_fragments {
@@ -221,12 +220,6 @@ async fn reconcile_document_fragment_item(
   } else if outcome.cleared_existing_fragments {
     debug!(
       "Document fragment pipeline cleared stale fragments for PDF '{}' (user {}).",
-      item_snapshot.id,
-      user_id_for_log(&item_snapshot.owner_id)
-    );
-  } else if had_fragment_source {
-    debug!(
-      "Document fragment pipeline found PDF fragments already current for PDF '{}' (user {}).",
       item_snapshot.id,
       user_id_for_log(&item_snapshot.owner_id)
     );
@@ -279,6 +272,7 @@ async fn populate_initial_document_fragment_queue(
   let total_candidates = candidates.len();
   let mut queued_candidates = Vec::new();
   let mut already_succeeded = 0usize;
+  let mut already_current = 0usize;
   let mut already_failed = 0usize;
   let mut pending_waiting_for_extraction = 0usize;
   let mut pending_unavailable = 0usize;
@@ -288,7 +282,26 @@ async fn populate_initial_document_fragment_queue(
     match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
       Ok(PdfTextArtifactState::Succeeded) => {
         already_succeeded += 1;
-        queued_candidates.push(candidate);
+        match item_fragments_manifest_is_current_for_source(
+          &config.data_dir,
+          &candidate.user_id,
+          &candidate.item_id,
+          FragmentSourceKind::PdfMarkdown,
+        )
+        .await
+        {
+          Ok(true) => already_current += 1,
+          Ok(false) => queued_candidates.push(candidate),
+          Err(e) => {
+            skipped_errors += 1;
+            debug!(
+              "Skipping PDF '{}' (user {}) during document fragment startup current-manifest check: {}",
+              candidate.item_id,
+              user_id_for_log(&candidate.user_id),
+              e
+            );
+          }
+        }
       }
       Ok(PdfTextArtifactState::Failed) => {
         already_failed += 1;
@@ -326,11 +339,12 @@ async fn populate_initial_document_fragment_queue(
   };
 
   info!(
-    "Startup document fragment reconciliation saw {} PDF item(s), queued {} of {}; text artifacts: succeeded={}, failed={}, pending_waiting_for_extraction={}, pending_unavailable={}, skipped_errors={}.",
+    "Startup document fragment reconciliation saw {} PDF item(s), queued {} of {}; text artifacts: succeeded={}, fragments_already_current={}, failed={}, pending_waiting_for_extraction={}, pending_unavailable={}, skipped_errors={}.",
     total_candidates,
     enqueued_count,
     queued_candidate_count,
     already_succeeded,
+    already_current,
     already_failed,
     pending_waiting_for_extraction,
     pending_unavailable,
