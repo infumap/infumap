@@ -43,6 +43,7 @@ CONVERT_SEMAPHORE: asyncio.Semaphore | None = None
 GPU_REQUEST_CONCURRENCY = 1
 PDFTEXT_WORKERS = 1
 DEFAULT_MAX_UPLOAD_BYTES = 128 * 1024 * 1024
+DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS = 4.0 * 60.0 * 60.0
 
 
 class DocumentRejectedError(Exception):
@@ -79,6 +80,24 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
+def env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        LOGGER.warning("Invalid float for %s=%r; using %s", name, raw, default)
+        return default
+
+
+def worker_slot_wait_timeout_secs() -> float:
+    return max(
+        0.001,
+        env_float("TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS", DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS),
+    )
+
+
 def root_path() -> str:
     configured = os.environ.get("TEXT_EXTRACTION_ROOT_PATH", "").strip()
     if not configured or configured == "/":
@@ -98,6 +117,7 @@ def build_runtime_summary() -> list[str]:
         f"inference_ram={os.environ.get('INFERENCE_RAM', '<unset>')}",
         f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
         f"pdftext_workers={PDFTEXT_WORKERS}",
+        f"worker_slot_wait_timeout_secs={worker_slot_wait_timeout_secs()}",
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
         f"max_upload_bytes={max_upload_bytes()}",
     ]
@@ -541,7 +561,17 @@ async def convert_upload(request: Request) -> ConvertResponse:
                 file_name,
                 upload_size_bytes,
             )
-        async with semaphore:
+        slot_wait_timeout_secs = worker_slot_wait_timeout_secs()
+        try:
+            await asyncio.wait_for(semaphore.acquire(), timeout=slot_wait_timeout_secs)
+        except asyncio.TimeoutError as exc:
+            semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
+            raise HTTPException(
+                status_code=503,
+                detail=f"Text extraction worker slot was busy for {semaphore_wait_ms} ms. Try again later.",
+            ) from exc
+
+        try:
             semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
             request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
             LOGGER.info(
@@ -552,6 +582,8 @@ async def convert_upload(request: Request) -> ConvertResponse:
                 semaphore_wait_ms,
             )
             return await asyncio.to_thread(convert_file_bytes, upload_bytes, file_name)
+        finally:
+            semaphore.release()
     except UploadTooLargeError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except DocumentRejectedError as exc:

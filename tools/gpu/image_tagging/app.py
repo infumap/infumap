@@ -65,6 +65,7 @@ DEFAULT_OUTPUT_JPEG_QUALITY = 90
 DEFAULT_MAX_TOKENS = 8192
 DEFAULT_IMAGE_EMBEDDING_MODEL_ID = "facebook/dinov2-with-registers-base"
 GPU_REQUEST_CONCURRENCY = 1
+DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS = 30.0 * 60.0
 
 SYSTEM_PROMPT = """
 You analyze images for search indexing.
@@ -153,6 +154,13 @@ def env_str(name: str, default: str) -> str:
         return default
     normalized = raw.strip()
     return normalized or default
+
+
+def worker_slot_wait_timeout_secs() -> float:
+    return max(
+        0.001,
+        env_float("IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS", DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS),
+    )
 
 
 def root_path() -> str:
@@ -265,6 +273,7 @@ def build_runtime_summary() -> list[str]:
         f"image_embedding_model_id={embedding_model_id if embedding_enabled else '<disabled>'}",
         f"image_embedding_device={embedding_device}",
         f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
+        f"worker_slot_wait_timeout_secs={worker_slot_wait_timeout_secs()}",
         f"max_upload_bytes={max_upload_bytes()}",
         f"target_max_pixels={target_max_pixels()}",
         f"target_max_long_edge={target_max_long_edge()}",
@@ -1204,7 +1213,17 @@ async def tag_upload(request: Request) -> ImageTagResponse:
                 upload_size_bytes,
             )
 
-        async with semaphore:
+        slot_wait_timeout_secs = worker_slot_wait_timeout_secs()
+        try:
+            await asyncio.wait_for(semaphore.acquire(), timeout=slot_wait_timeout_secs)
+        except asyncio.TimeoutError as exc:
+            semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
+            raise HTTPException(
+                status_code=503,
+                detail=f"Image tagging worker slot was busy for {semaphore_wait_ms} ms. Try again later.",
+            ) from exc
+
+        try:
             semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
             request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
             LOGGER.info(
@@ -1222,6 +1241,8 @@ async def tag_upload(request: Request) -> ImageTagResponse:
                 compute_image_embedding(prepared_bytes),
             )
             validate_image_embedding_result(image_embedding)
+        finally:
+            semaphore.release()
 
         detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
         tags = normalize_labels(coerce_string_list(parsed.get("tags"), limit=24))

@@ -44,6 +44,25 @@ HOP_BY_HOP_HEADERS = {
 LOGGER = logging.getLogger("uvicorn.error")
 DEFAULT_UPSTREAM_READ_WRITE_TIMEOUT_SECS = 30.0 * 60.0
 PDF_EXTRACT_UPSTREAM_READ_WRITE_TIMEOUT_SECS = 4.0 * 60.0 * 60.0
+DEFAULT_GLOBAL_GPU_LOCK_WAIT_TIMEOUT_SECS = 5.0 * 60.0
+
+
+def env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        LOGGER.warning("Invalid float for %s=%r; using %s", name, raw, default)
+        return default
+
+
+def global_gpu_lock_wait_timeout_secs() -> float:
+    return max(
+        0.001,
+        env_float("GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS", DEFAULT_GLOBAL_GPU_LOCK_WAIT_TIMEOUT_SECS),
+    )
 
 
 @dataclass(frozen=True)
@@ -54,6 +73,7 @@ class ServiceProxy:
     upstream_path_overrides: dict[str, str] | None = None
     health_paths: tuple[str, ...] = ("/healthz",)
     upstream_read_write_timeout_secs: float = DEFAULT_UPSTREAM_READ_WRITE_TIMEOUT_SECS
+    uses_global_gpu_lock: bool = True
 
     def upstream_path_for(self, public_path: str) -> str:
         if self.upstream_path_overrides and public_path in self.upstream_path_overrides:
@@ -79,6 +99,7 @@ def service_registry() -> dict[str, ServiceProxy]:
             service_name="text_embedding",
             public_paths=("/text-embed", "/embed"),
             upstream_base_url=upstream_base_url("GPU_TEXT_EMBEDDING_UPSTREAM_URL", "127.0.0.1", 8789),
+            uses_global_gpu_lock=False,
         ),
         ServiceProxy(
             service_name="text_extraction",
@@ -239,12 +260,14 @@ async def root(request: Request) -> dict[str, Any]:
         "global_gpu_lock": {
             "enabled": True,
             "locked": lock.locked(),
+            "wait_timeout_secs": global_gpu_lock_wait_timeout_secs(),
         },
         "services": {
             name: {
                 "paths": list(service.public_paths),
                 "upstream": service.upstream_base_url,
                 "upstream_read_write_timeout_secs": service.upstream_read_write_timeout_secs,
+                "uses_global_gpu_lock": service.uses_global_gpu_lock,
             }
             for name, service in SERVICES.items()
         },
@@ -266,7 +289,11 @@ async def healthz(request: Request) -> JSONResponse:
         status_code=200 if overall_ok else 503,
         content={
             "ok": overall_ok,
-            "global_gpu_lock": {"enabled": True, "locked": lock.locked()},
+            "global_gpu_lock": {
+                "enabled": True,
+                "locked": lock.locked(),
+                "wait_timeout_secs": global_gpu_lock_wait_timeout_secs(),
+            },
             "services": service_statuses,
         },
     )
@@ -281,7 +308,7 @@ def match_service_for_path(request_path: str) -> ServiceProxy:
 
 async def proxy_to_service(request: Request, service: ServiceProxy, request_path: str) -> StreamingResponse:
     client = proxy_client_for_service(request, service)
-    lock = gpu_lock(request)
+    lock = gpu_lock(request) if service.uses_global_gpu_lock else None
     upstream_url = build_upstream_url(service, request_path, request.url.query)
     upstream_request = client.build_request(
         method=request.method,
@@ -290,7 +317,7 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
         content=request.stream(),
     )
     wait_started_at = time.perf_counter()
-    if lock.locked():
+    if lock is not None and lock.locked():
         LOGGER.info(
             "GPU gateway request waiting for global lock: service=%s path=%s method=%s",
             service.service_name,
@@ -300,15 +327,28 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
     lock_owned_by_proxy = False
     upstream_response: httpx.Response | None = None
     try:
-        await lock.acquire()
-        lock_owned_by_proxy = True
+        if lock is not None:
+            lock_wait_timeout_secs = global_gpu_lock_wait_timeout_secs()
+            try:
+                await asyncio.wait_for(lock.acquire(), timeout=lock_wait_timeout_secs)
+            except asyncio.TimeoutError as exc:
+                wait_ms = int((time.perf_counter() - wait_started_at) * 1000)
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        f"GPU gateway global lock was busy for {wait_ms} ms while waiting for "
+                        f"'{service.service_name}'. Try again later."
+                    ),
+                ) from exc
+            lock_owned_by_proxy = True
         wait_ms = int((time.perf_counter() - wait_started_at) * 1000)
         LOGGER.info(
-            "GPU gateway forwarding request: service=%s path=%s method=%s wait_ms=%d",
+            "GPU gateway forwarding request: service=%s path=%s method=%s wait_ms=%d global_lock=%s",
             service.service_name,
             request_path,
             request.method,
             wait_ms,
+            "on" if lock is not None else "off",
         )
         upstream_response = await client.send(upstream_request, stream=True)
         response = StreamingResponse(
@@ -327,13 +367,14 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
         if lock_owned_by_proxy:
             if upstream_response is not None:
                 await upstream_response.aclose()
-            lock.release()
-            LOGGER.info("GPU gateway released global lock: service=%s path=%s", service.service_name, request_path)
+            if lock is not None:
+                lock.release()
+                LOGGER.info("GPU gateway released global lock: service=%s path=%s", service.service_name, request_path)
 
 
 async def stream_upstream_response_and_release_lock(
     upstream_response: httpx.Response,
-    lock: asyncio.Lock,
+    lock: asyncio.Lock | None,
     service_name: str,
     request_path: str,
 ) -> AsyncIterator[bytes]:
@@ -344,8 +385,9 @@ async def stream_upstream_response_and_release_lock(
         try:
             await upstream_response.aclose()
         finally:
-            lock.release()
-            LOGGER.info("GPU gateway released global lock: service=%s path=%s", service_name, request_path)
+            if lock is not None:
+                lock.release()
+                LOGGER.info("GPU gateway released global lock: service=%s path=%s", service_name, request_path)
 
 
 @app.api_route(

@@ -60,11 +60,17 @@ The combined launcher keeps each service independent:
 - each child service uses its own `run.sh` for setup and local supervision
 - the gateway uses its own `run.sh`
 - the top-level launcher monitors all child launchers and restarts a service if its launcher exits
-- requests sent through the gateway are serialized by a global GPU lock so only
-  one forwarded endpoint request runs at a time; direct calls to the child
-  service ports bypass the gateway lock
+- requests sent through the gateway to `/image-extract` and `/pdf-extract`
+  are serialized by a global GPU lock so only one heavy forwarded endpoint
+  request runs at a time; `/text-embed` bypasses this lock so search/query
+  embedding can run in parallel
+- gateway global-lock waits are bounded by `GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS`
+  and return HTTP 503 when the lock stays busy too long
 - gateway upstream read/write timeouts are 30 minutes by default, with a 4 hour
   read/write timeout for `/pdf-extract` and its legacy `/convert` alias
+- child image-tagging and text-extraction services also bound their internal
+  worker-slot waits with `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS` and
+  `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 
 Optional environment variables:
 
@@ -73,7 +79,10 @@ Optional environment variables:
 - `GPU_GATEWAY_PORT`
 - `GPU_GATEWAY_VENV_DIR`
 - `GPU_GATEWAY_RESTART_DELAY_SECS`
+- `GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS`
 - `GPU_IMAGE_TAGGING_UPSTREAM_URL`
 - `GPU_TEXT_EMBEDDING_UPSTREAM_URL`
 - `GPU_TEXT_EXTRACTION_UPSTREAM_URL`
+- `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS`
+- `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - all service-specific `IMAGE_TAGGING_*`, `TEXT_EMBEDDING_*`, and `TEXT_EXTRACTION_*` variables
