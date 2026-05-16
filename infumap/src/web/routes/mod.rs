@@ -28,6 +28,7 @@ pub mod command;
 pub mod favicons;
 pub mod files;
 pub mod ingest;
+pub mod link_titles;
 
 pub fn default_home_page(
   owner_id: &str,

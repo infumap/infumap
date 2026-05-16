@@ -45,6 +45,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::MutexGuard;
 
+use super::link_titles;
 use crate::ai::document_pipeline::{dequeue_pdf_fragment_item_if_active, enqueue_pdf_fragment_item_if_active};
 use crate::ai::fragment::{
   ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_lexical_search_source_kind,
@@ -150,6 +151,7 @@ pub struct CommandResponse {
 
 enum CommandErrorKind {
   Auth,
+  Client,
   NotFound,
   Server,
 }
@@ -158,6 +160,8 @@ fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKin
   let msg = e.message();
   if msg.contains("Not authorized") {
     CommandErrorKind::Auth
+  } else if msg.contains("Invalid link URL") {
+    CommandErrorKind::Client
   } else if msg.contains("is missing") || msg.contains("does not exist") || msg.contains("not found") {
     CommandErrorKind::NotFound
   } else {
@@ -205,6 +209,7 @@ pub async fn serve_command_route(
     "add-item" => {
       handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session_maybe).await
     }
+    "add-link-note" => handle_add_link_note(db, object_store.clone(), &request.json_data, &session_maybe).await,
     "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await,
     "delete-item" => {
       handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await
@@ -240,6 +245,7 @@ pub async fn serve_command_route(
       METRIC_COMMAND_FAILURES_TOTAL.with_label_values(&[&request.command]).inc();
       let fail_reason = match classify_command_error(&e) {
         CommandErrorKind::Auth => REASON_AUTH,
+        CommandErrorKind::Client => REASON_CLIENT,
         CommandErrorKind::NotFound => REASON_NOT_FOUND,
         CommandErrorKind::Server => REASON_SERVER,
       };
@@ -945,6 +951,49 @@ async fn handle_add_item(
   };
 
   add_item_for_user(db, object_store, json_data, base64_data_maybe, &session.user_id).await
+}
+
+#[derive(Deserialize)]
+struct AddLinkNoteRequest {
+  url: String,
+}
+
+async fn handle_add_link_note(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = match session_maybe {
+    Some(session) => session,
+    None => {
+      return Err(format!("Session is required to add a link note.").into());
+    }
+  };
+
+  let request: AddLinkNoteRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("Could not parse add link note request: {}", e))?;
+  let normalized_url = link_titles::normalize_link_url(&request.url)?;
+  let normalized_url_str = normalized_url.as_str().to_owned();
+  let title = match link_titles::fetch_link_title(&normalized_url).await {
+    Ok(Some(title)) => title,
+    Ok(None) => normalized_url_str.clone(),
+    Err(e) => {
+      debug!("Could not resolve title for link '{}': {}", normalized_url_str, e);
+      normalized_url_str.clone()
+    }
+  };
+
+  let item_json = serde_json::json!({
+    "itemType": "note",
+    "title": title,
+    "url": normalized_url_str,
+    "iconMode": "auto",
+    "spatialWidthGr": 8 * 60,
+  })
+  .to_string();
+  let base64_data_maybe: Option<String> = None;
+  add_item_for_user(db, object_store, &item_json, &base64_data_maybe, &session.user_id).await
 }
 
 pub async fn add_item_for_user(
