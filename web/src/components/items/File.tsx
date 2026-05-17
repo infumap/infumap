@@ -182,12 +182,19 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         const editingItemPath = store.overlay.textEditInfo()!.itemPath;
         let editingDomId = editingItemPath + ":title";
         let el = document.getElementById(editingDomId);
+        if (!(el instanceof HTMLElement)) { return; }
         let newText = el!.innerText;
         let item = asFileItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
         item.title = trimNewline(newText);
         const caretPosition = getCaretPosition(el!);
         arrangeNow(store, "file-input-preserve-caret");
-        setCaretPosition(el!, caretPosition);
+        const freshEl = document.getElementById(editingDomId);
+        if (freshEl instanceof HTMLElement) {
+          if (document.activeElement !== freshEl) {
+            freshEl.focus();
+          }
+          setCaretPosition(freshEl, caretPosition);
+        }
       }
     }, 0);
   }

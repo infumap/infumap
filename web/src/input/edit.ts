@@ -832,7 +832,12 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
         const caretPosition = getCaretPosition(el!);
         arrangeNow(store, "text-edit-input-preserve-caret");
         const el_ = document.getElementById(focusItemDomId);
-        setCaretPosition(el_!, caretPosition);
+        if (el_ instanceof HTMLElement) {
+          if (document.activeElement !== el_) {
+            el_.focus();
+          }
+          setCaretPosition(el_, caretPosition);
+        }
       }
     }
   }, 0);
