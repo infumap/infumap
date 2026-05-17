@@ -8,7 +8,9 @@ use tokio::fs;
 
 use crate::storage::db::Db;
 
-use super::{FragmentInput, FragmentSource, FragmentSourceKind};
+use super::{
+  FragmentBuildOutcome, FragmentInput, FragmentSource, FragmentSourceKind, clear_item_fragments, write_item_fragments,
+};
 
 mod image;
 mod markdown;
@@ -16,12 +18,25 @@ mod pdf;
 mod title;
 
 pub use image::build_image_fragment_artifact;
-pub use markdown::{markdown_fragment_source_for_item, text_fragment_source_for_item};
+pub use markdown::{build_markdown_fragment_artifact, build_text_fragment_artifact};
 pub use pdf::{build_pdf_fragment_artifact, pdf_fragment_source_for_item};
 pub use title::{ItemTitleFragment, item_title_fragment_for_item};
 
 fn single_fragment_source(source_kind: FragmentSourceKind, text: String) -> FragmentSource {
   FragmentSource { source_kind, fragments: vec![FragmentInput::new(text)] }
+}
+
+async fn write_fragment_source_artifact(
+  data_dir: &str,
+  item: &Item,
+  fragment_source: Option<FragmentSource>,
+) -> InfuResult<FragmentBuildOutcome> {
+  match fragment_source {
+    Some(fragment_source) => {
+      write_item_fragments(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await
+    }
+    None => clear_item_fragments(data_dir, item).await,
+  }
 }
 
 async fn read_json_if_exists<T: DeserializeOwned>(path: &PathBuf, artifact_label: &str) -> InfuResult<Option<T>> {

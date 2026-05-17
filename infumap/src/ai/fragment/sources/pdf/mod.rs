@@ -1,8 +1,8 @@
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 
-use super::super::{FragmentBuildOutcome, clear_item_fragments, write_item_fragments};
-use super::{FragmentSource, FragmentSourceKind};
+use super::super::FragmentBuildOutcome;
+use super::{FragmentSource, FragmentSourceKind, write_fragment_source_artifact};
 
 mod blocks;
 mod chunking;
@@ -49,12 +49,7 @@ pub async fn build_pdf_fragment_artifact(
   context_title: Option<String>,
 ) -> InfuResult<PdfFragmentBuildResult> {
   let fragment_source = pdf_fragment_source_for_item(data_dir, item, context_title).await?;
-  let outcome = match fragment_source {
-    Some(fragment_source) => {
-      write_item_fragments(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await?
-    }
-    None => clear_item_fragments(data_dir, item).await?,
-  };
+  let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
   Ok(PdfFragmentBuildResult { outcome })
 }
 

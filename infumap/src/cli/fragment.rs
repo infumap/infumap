@@ -8,8 +8,8 @@ use log::info;
 use tokio::sync::Mutex;
 
 use crate::ai::fragment::sources::{
-  build_image_fragment_artifact, embedding_context_title_for_item, markdown_fragment_source_for_item,
-  pdf_fragment_source_for_item, text_fragment_source_for_item,
+  build_image_fragment_artifact, build_markdown_fragment_artifact, build_text_fragment_artifact,
+  embedding_context_title_for_item, pdf_fragment_source_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
 use crate::ai::image_tagging::should_tag_image_item;
@@ -194,10 +194,11 @@ async fn execute_markdown(sub_matches: &ArgMatches) -> InfuResult<()> {
         .clone();
       (embedding_context_title_for_item(&db, &item), object_encryption_key)
     };
-    let fragment_source =
-      markdown_fragment_source_for_item(object_store.clone(), &item, &object_encryption_key, context_title).await?;
-    let had_fragment_source = fragment_source.is_some();
-    let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
+    let build_result =
+      build_markdown_fragment_artifact(&data_dir, object_store.clone(), &item, &object_encryption_key, context_title)
+        .await?;
+    let had_fragment_source = build_result.had_fragment_source;
+    let outcome = build_result.outcome;
     record_fragment_outcome(&mut summary, &outcome);
     if single_item_run {
       log_single_item_fragment_outcome(FragmentTargetKind::Markdown, &item, had_fragment_source, &outcome);
@@ -233,10 +234,11 @@ async fn execute_text(sub_matches: &ArgMatches) -> InfuResult<()> {
         .clone();
       (embedding_context_title_for_item(&db, &item), object_encryption_key)
     };
-    let fragment_source =
-      text_fragment_source_for_item(object_store.clone(), &item, &object_encryption_key, context_title).await?;
-    let had_fragment_source = fragment_source.is_some();
-    let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
+    let build_result =
+      build_text_fragment_artifact(&data_dir, object_store.clone(), &item, &object_encryption_key, context_title)
+        .await?;
+    let had_fragment_source = build_result.had_fragment_source;
+    let outcome = build_result.outcome;
     record_fragment_outcome(&mut summary, &outcome);
     if single_item_run {
       log_single_item_fragment_outcome(FragmentTargetKind::Text, &item, had_fragment_source, &outcome);

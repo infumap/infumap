@@ -6,7 +6,13 @@ use infusdk::util::infu::InfuResult;
 use crate::storage::object::{self as storage_object, ObjectStore};
 
 use super::pdf::markdown_fragment_source;
-use super::{FragmentSource, FragmentSourceKind};
+use super::{FragmentSource, FragmentSourceKind, write_fragment_source_artifact};
+use crate::ai::fragment::FragmentBuildOutcome;
+
+pub struct ObjectTextFragmentBuildResult {
+  pub had_fragment_source: bool,
+  pub outcome: FragmentBuildOutcome,
+}
 
 pub async fn markdown_fragment_source_for_item(
   object_store: Arc<ObjectStore>,
@@ -38,6 +44,33 @@ pub async fn text_fragment_source_for_item(
   };
 
   Ok(markdown_fragment_source(FragmentSourceKind::Text, item.title.as_deref(), context_title.as_deref(), &text))
+}
+
+pub async fn build_markdown_fragment_artifact(
+  data_dir: &str,
+  object_store: Arc<ObjectStore>,
+  item: &Item,
+  object_encryption_key: &str,
+  context_title: Option<String>,
+) -> InfuResult<ObjectTextFragmentBuildResult> {
+  let fragment_source =
+    markdown_fragment_source_for_item(object_store, item, object_encryption_key, context_title).await?;
+  let had_fragment_source = fragment_source.is_some();
+  let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
+  Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
+}
+
+pub async fn build_text_fragment_artifact(
+  data_dir: &str,
+  object_store: Arc<ObjectStore>,
+  item: &Item,
+  object_encryption_key: &str,
+  context_title: Option<String>,
+) -> InfuResult<ObjectTextFragmentBuildResult> {
+  let fragment_source = text_fragment_source_for_item(object_store, item, object_encryption_key, context_title).await?;
+  let had_fragment_source = fragment_source.is_some();
+  let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
+  Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
 }
 
 fn normalize_utf8_text_source(bytes: &[u8], item_id: &str, source_label: &str) -> InfuResult<Option<String>> {
