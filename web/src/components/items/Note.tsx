@@ -228,7 +228,13 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         item.title = trimNewline(newText);
         const caretPosition = getCaretPosition(el!);
         arrangeNow(store, "note-input-preserve-caret");
-        setCaretPosition(el!, caretPosition);
+        const freshEl = document.getElementById(editingDomId);
+        if (freshEl instanceof HTMLElement) {
+          if (document.activeElement !== freshEl) {
+            freshEl.focus();
+          }
+          setCaretPosition(freshEl, caretPosition);
+        }
       }
     }, 0);
   }

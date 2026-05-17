@@ -16,7 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, remote, server } from "../server";
+import {
+  GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
+  GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY,
+  hasPendingLocalMutations,
+  remote,
+  server,
+} from "../server";
 import { SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { StoreContextModel } from "../store/StoreProvider";
 import { asContainerItem, isContainer } from "../items/base/container-item";
@@ -44,6 +50,12 @@ export function clearLoadState() {
       delete childLoadInFlight[key];
     }
   }
+  for (let key in childLoadDeferredRetryTimeout) {
+    if (childLoadDeferredRetryTimeout.hasOwnProperty(key)) {
+      window.clearTimeout(childLoadDeferredRetryTimeout[key]);
+      delete childLoadDeferredRetryTimeout[key];
+    }
+  }
   for (let key in itemLoadInitiatedOrComplete) {
     if (itemLoadInitiatedOrComplete.hasOwnProperty(key)) {
       delete itemLoadInitiatedOrComplete[key];
@@ -69,6 +81,30 @@ export function markChildrenLoadAsInitiatedOrComplete(containerId: Uid) {
 
 const childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 const childLoadInFlight: { [id: Uid]: Promise<void> } = {};
+const childLoadDeferredRetryTimeout: { [id: Uid]: number } = {};
+const CHILD_LOAD_DEFERRED_RETRY_MS = 250;
+
+function shouldDeferAuthoritativeChildLoad(store: StoreContextModel): boolean {
+  return store.overlay.textEditInfo() != null || hasPendingLocalMutations();
+}
+
+function scheduleDeferredChildLoadRetry(store: StoreContextModel, containerVeid: Veid): void {
+  if (childLoadDeferredRetryTimeout[containerVeid.itemId] != null) {
+    return;
+  }
+
+  childLoadDeferredRetryTimeout[containerVeid.itemId] = window.setTimeout(() => {
+    delete childLoadDeferredRetryTimeout[containerVeid.itemId];
+    if (childrenLoadInitiatedOrComplete[containerVeid.itemId]) {
+      return;
+    }
+    if (shouldDeferAuthoritativeChildLoad(store)) {
+      scheduleDeferredChildLoadRetry(store, containerVeid);
+      return;
+    }
+    void initiateLoadChildItemsMaybe(store, containerVeid);
+  }, CHILD_LOAD_DEFERRED_RETRY_MS);
+}
 
 export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerVeid: Veid): Promise<void> => {
 
@@ -92,6 +128,11 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
       if (!childrenLoadInitiatedOrComplete[containerVeid.itemId]) { return; };
 
       if (result != null) {
+        if (shouldDeferAuthoritativeChildLoad(store)) {
+          childrenLoadInitiatedOrComplete[containerVeid.itemId] = false;
+          scheduleDeferredChildLoadRetry(store, containerVeid);
+          return;
+        }
         try {
           itemState.applyContainerSnapshotFromServerObjects(containerVeid.itemId, result.children, result.attachments, origin);
         } catch (e: any) {

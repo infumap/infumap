@@ -303,6 +303,10 @@ const decrementPendingMutations = (command: string): void => {
 };
 const mutationsInFlight = (): boolean => pendingMutationCommands > 0;
 
+export function hasPendingLocalMutations(): boolean {
+  return mutationsInFlight();
+}
+
 function serveWaiting(networkStatus: NumberSignal) {
   syncBaseNetworkStatus(networkStatus);
   syncGlobalRequestTracker();
