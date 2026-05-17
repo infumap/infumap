@@ -26,40 +26,22 @@ pub struct PdfFragmentBuildResult {
   pub outcome: FragmentBuildOutcome,
 }
 
-pub async fn pdf_fragment_source_for_item(
-  data_dir: &str,
-  item: &Item,
-  context_title: Option<String>,
-) -> InfuResult<Option<FragmentSource>> {
+pub async fn pdf_fragment_source_for_item(data_dir: &str, item: &Item) -> InfuResult<Option<FragmentSource>> {
   let Some(markdown) = load_pdf_markdown_artifact(data_dir, &item.owner_id, &item.id).await? else {
     return Ok(None);
   };
 
-  Ok(markdown_fragment_source(
-    FragmentSourceKind::PdfMarkdown,
-    item.title.as_deref(),
-    context_title.as_deref(),
-    &markdown,
-  ))
+  Ok(markdown_fragment_source(FragmentSourceKind::PdfMarkdown, &markdown))
 }
 
-pub async fn build_pdf_fragment_artifact(
-  data_dir: &str,
-  item: &Item,
-  context_title: Option<String>,
-) -> InfuResult<PdfFragmentBuildResult> {
-  let fragment_source = pdf_fragment_source_for_item(data_dir, item, context_title).await?;
+pub async fn build_pdf_fragment_artifact(data_dir: &str, item: &Item) -> InfuResult<PdfFragmentBuildResult> {
+  let fragment_source = pdf_fragment_source_for_item(data_dir, item).await?;
   let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
   Ok(PdfFragmentBuildResult { outcome })
 }
 
-pub(super) fn markdown_fragment_source(
-  source_kind: FragmentSourceKind,
-  document_title: Option<&str>,
-  context_title: Option<&str>,
-  markdown: &str,
-) -> Option<FragmentSource> {
-  let fragments = build_pdf_fragment_inputs(document_title, context_title, markdown);
+pub(super) fn markdown_fragment_source(source_kind: FragmentSourceKind, markdown: &str) -> Option<FragmentSource> {
+  let fragments = build_pdf_fragment_inputs(markdown);
   if fragments.is_empty() {
     return None;
   }

@@ -1,4 +1,4 @@
-use super::super::{FragmentInput, normalized_text};
+use super::super::FragmentInput;
 use super::blocks::build_pdf_text_blocks;
 use super::pages::{resolve_pdf_pages, split_pdf_markdown_pages};
 use super::rendering::{heading_paths_equal, render_pdf_fragment_text};
@@ -9,15 +9,7 @@ use super::{
   PDF_FRAGMENT_SOFT_LIMIT_TOKENS,
 };
 
-pub(super) fn build_pdf_fragment_inputs(
-  document_title: Option<&str>,
-  context_title: Option<&str>,
-  markdown: &str,
-) -> Vec<FragmentInput> {
-  let document_title = normalized_text(document_title);
-  let context_title = normalized_text(context_title)
-    .filter(|context| document_title.as_deref().map(|title| !title.eq_ignore_ascii_case(context)).unwrap_or(true));
-
+pub(super) fn build_pdf_fragment_inputs(markdown: &str) -> Vec<FragmentInput> {
   let pages = resolve_pdf_pages(split_pdf_markdown_pages(markdown));
   let blocks = build_pdf_text_blocks(&pages);
   if blocks.is_empty() {
@@ -38,39 +30,26 @@ pub(super) fn build_pdf_fragment_inputs(
   let mut current: Option<PdfFragmentAccumulator> = None;
 
   for (index, next_block) in prepared_blocks.iter().enumerate() {
-    let should_flush = current.as_ref().is_some_and(|current| {
-      should_flush_pdf_fragment(
-        document_title.as_deref(),
-        context_title.as_deref(),
-        current,
-        next_block,
-        &prepared_blocks[index..],
-      )
-    });
+    let should_flush =
+      current.as_ref().is_some_and(|current| should_flush_pdf_fragment(current, next_block, &prepared_blocks[index..]));
 
     if should_flush {
-      push_pdf_fragment_input(&mut fragments, current.take(), document_title.as_deref(), context_title.as_deref());
+      push_pdf_fragment_input(&mut fragments, current.take());
     }
 
     let current_fragment = current.get_or_insert_with(|| PdfFragmentAccumulator::new(next_block.page_number));
     current_fragment.push(next_block.clone());
   }
 
-  push_pdf_fragment_input(&mut fragments, current, document_title.as_deref(), context_title.as_deref());
+  push_pdf_fragment_input(&mut fragments, current);
   fragments
 }
 
-fn push_pdf_fragment_input(
-  out: &mut Vec<FragmentInput>,
-  fragment: Option<PdfFragmentAccumulator>,
-  document_title: Option<&str>,
-  context_title: Option<&str>,
-) {
+fn push_pdf_fragment_input(out: &mut Vec<FragmentInput>, fragment: Option<PdfFragmentAccumulator>) {
   let Some(fragment) = fragment else {
     return;
   };
-  let text =
-    render_pdf_fragment_text(document_title, context_title, fragment.page_start, fragment.page_end, &fragment.blocks);
+  let text = render_pdf_fragment_text(fragment.page_start, fragment.page_end, &fragment.blocks);
   if text.trim().is_empty() {
     return;
   }
@@ -78,38 +57,17 @@ fn push_pdf_fragment_input(
 }
 
 fn should_flush_pdf_fragment(
-  document_title: Option<&str>,
-  context_title: Option<&str>,
   current: &PdfFragmentAccumulator,
   next_block: &PdfFragmentBlock,
   upcoming_blocks: &[PdfFragmentBlock],
 ) -> bool {
   let continues_same_heading =
     current.blocks.last().map(|block| heading_paths_equal(&block.headings, &next_block.headings)).unwrap_or(false);
-  let current_len = rendered_pdf_fragment_len(
-    document_title,
-    context_title,
-    current.page_start,
-    current.page_end,
-    &current.blocks,
-    None,
-  );
-  let candidate_len = rendered_pdf_fragment_len(
-    document_title,
-    context_title,
-    current.page_start,
-    next_block.page_number,
-    &current.blocks,
-    Some(next_block),
-  );
-  let candidate_tokens = rendered_pdf_fragment_token_estimate(
-    document_title,
-    context_title,
-    current.page_start,
-    next_block.page_number,
-    &current.blocks,
-    Some(next_block),
-  );
+  let current_len = rendered_pdf_fragment_len(current.page_start, current.page_end, &current.blocks, None);
+  let candidate_len =
+    rendered_pdf_fragment_len(current.page_start, next_block.page_number, &current.blocks, Some(next_block));
+  let candidate_tokens =
+    rendered_pdf_fragment_token_estimate(current.page_start, next_block.page_number, &current.blocks, Some(next_block));
 
   if candidate_len > PDF_FRAGMENT_HARD_LIMIT_CHARS || candidate_tokens > PDF_FRAGMENT_HARD_LIMIT_TOKENS {
     return true;
@@ -119,7 +77,7 @@ fn should_flush_pdf_fragment(
     return false;
   }
 
-  if should_flush_before_new_heading_run(document_title, context_title, current, upcoming_blocks, current_len) {
+  if should_flush_before_new_heading_run(current, upcoming_blocks, current_len) {
     return true;
   }
 
@@ -128,8 +86,6 @@ fn should_flush_pdf_fragment(
 }
 
 fn should_flush_before_new_heading_run(
-  document_title: Option<&str>,
-  context_title: Option<&str>,
   current: &PdfFragmentAccumulator,
   upcoming_blocks: &[PdfFragmentBlock],
   current_len: usize,
@@ -149,43 +105,18 @@ fn should_flush_before_new_heading_run(
   let heading_run_page_start = heading_run.first().map(|block| block.page_number).unwrap_or(next_block.page_number);
   let heading_run_page_end = heading_run.last().map(|block| block.page_number).unwrap_or(next_block.page_number);
 
-  let heading_run_render_len = rendered_pdf_fragment_len(
-    document_title,
-    context_title,
-    heading_run_page_start,
-    heading_run_page_end,
-    heading_run,
-    None,
-  );
-  let heading_run_render_tokens = rendered_pdf_fragment_token_estimate(
-    document_title,
-    context_title,
-    heading_run_page_start,
-    heading_run_page_end,
-    heading_run,
-    None,
-  );
+  let heading_run_render_len =
+    rendered_pdf_fragment_len(heading_run_page_start, heading_run_page_end, heading_run, None);
+  let heading_run_render_tokens =
+    rendered_pdf_fragment_token_estimate(heading_run_page_start, heading_run_page_end, heading_run, None);
   let heading_run_fits_hard_limits = heading_run_render_len <= PDF_FRAGMENT_HARD_LIMIT_CHARS
     && heading_run_render_tokens <= PDF_FRAGMENT_HARD_LIMIT_TOKENS;
 
   let mut combined_blocks = current.blocks.clone();
   combined_blocks.extend(heading_run.iter().cloned());
-  let combined_render_len = rendered_pdf_fragment_len(
-    document_title,
-    context_title,
-    current.page_start,
-    heading_run_page_end,
-    &combined_blocks,
-    None,
-  );
-  let combined_render_tokens = rendered_pdf_fragment_token_estimate(
-    document_title,
-    context_title,
-    current.page_start,
-    heading_run_page_end,
-    &combined_blocks,
-    None,
-  );
+  let combined_render_len = rendered_pdf_fragment_len(current.page_start, heading_run_page_end, &combined_blocks, None);
+  let combined_render_tokens =
+    rendered_pdf_fragment_token_estimate(current.page_start, heading_run_page_end, &combined_blocks, None);
 
   if combined_render_len <= PDF_FRAGMENT_SOFT_LIMIT_CHARS && combined_render_tokens <= PDF_FRAGMENT_SOFT_LIMIT_TOKENS {
     return false;
@@ -202,8 +133,6 @@ fn consecutive_heading_run_len(blocks: &[PdfFragmentBlock]) -> usize {
 }
 
 fn rendered_pdf_fragment_len(
-  document_title: Option<&str>,
-  context_title: Option<&str>,
   page_start: usize,
   page_end: usize,
   blocks: &[PdfFragmentBlock],
@@ -213,12 +142,10 @@ fn rendered_pdf_fragment_len(
   if let Some(next_block) = next_block {
     candidate_blocks.push(next_block.clone());
   }
-  render_pdf_fragment_text(document_title, context_title, page_start, page_end, &candidate_blocks).len()
+  render_pdf_fragment_text(page_start, page_end, &candidate_blocks).len()
 }
 
 fn rendered_pdf_fragment_token_estimate(
-  document_title: Option<&str>,
-  context_title: Option<&str>,
   page_start: usize,
   page_end: usize,
   blocks: &[PdfFragmentBlock],
@@ -228,13 +155,7 @@ fn rendered_pdf_fragment_token_estimate(
   if let Some(next_block) = next_block {
     candidate_blocks.push(next_block.clone());
   }
-  estimate_embedding_token_count(&render_pdf_fragment_text(
-    document_title,
-    context_title,
-    page_start,
-    page_end,
-    &candidate_blocks,
-  ))
+  estimate_embedding_token_count(&render_pdf_fragment_text(page_start, page_end, &candidate_blocks))
 }
 
 struct PdfFragmentAccumulator {

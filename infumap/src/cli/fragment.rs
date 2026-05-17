@@ -184,19 +184,12 @@ async fn execute_markdown(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   for (index, item) in items.into_iter().enumerate() {
     progress.log_before_item(index, &item);
-    let (context_title, object_encryption_key) = {
+    let object_encryption_key = {
       let db = db.lock().await;
-      let object_encryption_key = db
-        .user
-        .get(&item.owner_id)
-        .ok_or(format!("User '{}' not loaded.", item.owner_id))?
-        .object_encryption_key
-        .clone();
-      (embedding_context_title_for_item(&db, &item), object_encryption_key)
+      db.user.get(&item.owner_id).ok_or(format!("User '{}' not loaded.", item.owner_id))?.object_encryption_key.clone()
     };
     let build_result =
-      build_markdown_fragment_artifact(&data_dir, object_store.clone(), &item, &object_encryption_key, context_title)
-        .await?;
+      build_markdown_fragment_artifact(&data_dir, object_store.clone(), &item, &object_encryption_key).await?;
     let had_fragment_source = build_result.had_fragment_source;
     let outcome = build_result.outcome;
     record_fragment_outcome(&mut summary, &outcome);
@@ -224,19 +217,12 @@ async fn execute_text(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   for (index, item) in items.into_iter().enumerate() {
     progress.log_before_item(index, &item);
-    let (context_title, object_encryption_key) = {
+    let object_encryption_key = {
       let db = db.lock().await;
-      let object_encryption_key = db
-        .user
-        .get(&item.owner_id)
-        .ok_or(format!("User '{}' not loaded.", item.owner_id))?
-        .object_encryption_key
-        .clone();
-      (embedding_context_title_for_item(&db, &item), object_encryption_key)
+      db.user.get(&item.owner_id).ok_or(format!("User '{}' not loaded.", item.owner_id))?.object_encryption_key.clone()
     };
     let build_result =
-      build_text_fragment_artifact(&data_dir, object_store.clone(), &item, &object_encryption_key, context_title)
-        .await?;
+      build_text_fragment_artifact(&data_dir, object_store.clone(), &item, &object_encryption_key).await?;
     let had_fragment_source = build_result.had_fragment_source;
     let outcome = build_result.outcome;
     record_fragment_outcome(&mut summary, &outcome);
@@ -251,15 +237,11 @@ async fn execute_text(sub_matches: &ArgMatches) -> InfuResult<()> {
 }
 
 async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let (data_dir, db, items) = load_db_and_items(sub_matches, FragmentTargetKind::Pdf).await?;
+  let (data_dir, _db, items) = load_db_and_items(sub_matches, FragmentTargetKind::Pdf).await?;
   let mut summary = FragmentRunSummary::default();
 
   for item in items {
-    let context_title = {
-      let db = db.lock().await;
-      embedding_context_title_for_item(&db, &item)
-    };
-    let fragment_source = pdf_fragment_source_for_item(&data_dir, &item, context_title).await?;
+    let fragment_source = pdf_fragment_source_for_item(&data_dir, &item).await?;
     let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
     record_fragment_outcome(&mut summary, &outcome);
   }

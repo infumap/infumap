@@ -15,7 +15,6 @@ use tokio::time::sleep;
 
 use crate::ai::fragment::sources::{
   build_markdown_fragment_artifact, build_pdf_fragment_artifact, build_text_fragment_artifact,
-  embedding_context_title_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, clear_item_fragments, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
@@ -294,9 +293,9 @@ async fn reconcile_document_fragment_item(
     }
   }
 
-  let (context_title, object_encryption_key) = {
+  let object_encryption_key = {
     let db = db.lock().await;
-    let object_encryption_key = if candidate.kind.needs_source_object() {
+    if candidate.kind.needs_source_object() {
       Some(
         db.user
           .get(&item_snapshot.owner_id)
@@ -306,12 +305,9 @@ async fn reconcile_document_fragment_item(
       )
     } else {
       None
-    };
-    (embedding_context_title_for_item(&db, &item_snapshot), object_encryption_key)
+    }
   };
-  let outcome =
-    build_document_fragment_artifact(config, &item_snapshot, candidate.kind, context_title, object_encryption_key)
-      .await?;
+  let outcome = build_document_fragment_artifact(config, &item_snapshot, candidate.kind, object_encryption_key).await?;
 
   if outcome.wrote_fragments {
     debug!(
@@ -341,39 +337,26 @@ async fn build_document_fragment_artifact(
   config: &DocumentFragmentPipelineConfig,
   item: &Item,
   kind: DocumentFragmentKind,
-  context_title: Option<String>,
   object_encryption_key: Option<String>,
 ) -> InfuResult<FragmentBuildOutcome> {
   match kind {
-    DocumentFragmentKind::Pdf => Ok(build_pdf_fragment_artifact(&config.data_dir, item, context_title).await?.outcome),
+    DocumentFragmentKind::Pdf => Ok(build_pdf_fragment_artifact(&config.data_dir, item).await?.outcome),
     DocumentFragmentKind::Markdown => {
       let object_encryption_key =
         object_encryption_key.as_deref().ok_or("Markdown fragmenting requires a source object encryption key.")?;
       Ok(
-        build_markdown_fragment_artifact(
-          &config.data_dir,
-          config.object_store.clone(),
-          item,
-          object_encryption_key,
-          context_title,
-        )
-        .await?
-        .outcome,
+        build_markdown_fragment_artifact(&config.data_dir, config.object_store.clone(), item, object_encryption_key)
+          .await?
+          .outcome,
       )
     }
     DocumentFragmentKind::Text => {
       let object_encryption_key =
         object_encryption_key.as_deref().ok_or("Text fragmenting requires a source object encryption key.")?;
       Ok(
-        build_text_fragment_artifact(
-          &config.data_dir,
-          config.object_store.clone(),
-          item,
-          object_encryption_key,
-          context_title,
-        )
-        .await?
-        .outcome,
+        build_text_fragment_artifact(&config.data_dir, config.object_store.clone(), item, object_encryption_key)
+          .await?
+          .outcome,
       )
     }
   }

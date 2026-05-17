@@ -1,19 +1,10 @@
 use super::super::normalized_text;
 use super::types::PdfFragmentBlock;
 
-pub(super) fn render_pdf_fragment_text(
-  document_title: Option<&str>,
-  context_title: Option<&str>,
-  _page_start: usize,
-  _page_end: usize,
-  blocks: &[PdfFragmentBlock],
-) -> String {
-  let document_title = normalized_text(document_title);
-  let context_title = normalized_text(context_title)
-    .filter(|context| document_title.as_deref().map(|title| !title.eq_ignore_ascii_case(context)).unwrap_or(true));
+pub(super) fn render_pdf_fragment_text(_page_start: usize, _page_end: usize, blocks: &[PdfFragmentBlock]) -> String {
   let mut lines = Vec::new();
 
-  let rendered_blocks = collapse_renderable_pdf_blocks(blocks, document_title.as_deref(), context_title.as_deref());
+  let rendered_blocks = collapse_renderable_pdf_blocks(blocks);
   let section_path = common_heading_path(&rendered_blocks);
   if !section_path.is_empty() {
     lines.push(labeled_sentence("Section", &section_path.join(" > ")));
@@ -34,11 +25,7 @@ pub(super) fn render_pdf_fragment_text(
   }
 }
 
-fn collapse_renderable_pdf_blocks(
-  blocks: &[PdfFragmentBlock],
-  document_title: Option<&str>,
-  context_title: Option<&str>,
-) -> Vec<RenderablePdfBlock> {
+fn collapse_renderable_pdf_blocks(blocks: &[PdfFragmentBlock]) -> Vec<RenderablePdfBlock> {
   let mut out = Vec::<RenderablePdfBlock>::new();
 
   for block in blocks {
@@ -46,7 +33,7 @@ fn collapse_renderable_pdf_blocks(
     if text.is_empty() {
       continue;
     }
-    let headings = normalized_heading_path(&block.headings, document_title, context_title);
+    let headings = normalized_heading_path(&block.headings);
     if let Some(last) = out.last_mut() {
       if heading_paths_equal(&last.headings, &headings) {
         last.body_parts.push(text.to_owned());
@@ -78,25 +65,13 @@ fn render_pdf_body_block(block: &RenderablePdfBlock, shared_heading_path: &[Stri
   }
 }
 
-fn normalized_heading_path(
-  headings: &[String],
-  document_title: Option<&str>,
-  context_title: Option<&str>,
-) -> Vec<String> {
-  let document_title = normalized_text(document_title);
-  let context_title = normalized_text(context_title);
+fn normalized_heading_path(headings: &[String]) -> Vec<String> {
   let mut out = Vec::new();
 
   for heading in headings {
     let Some(heading) = normalized_text(Some(heading.as_str())) else {
       continue;
     };
-    if document_title.as_deref().map(|title| title.eq_ignore_ascii_case(&heading)).unwrap_or(false) {
-      continue;
-    }
-    if context_title.as_deref().map(|context| context.eq_ignore_ascii_case(&heading)).unwrap_or(false) {
-      continue;
-    }
     if out.last().map(|prev: &String| prev.eq_ignore_ascii_case(&heading)).unwrap_or(false) {
       continue;
     }

@@ -1427,8 +1427,6 @@ async fn handle_update_item(
   let owner_id = item.owner_id.clone();
   let image_fragment_context_dependents =
     image_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?;
-  let document_fragment_context_dependents =
-    document_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?;
   debug!("Executed 'update-item' command for item '{}'.", item.id);
   drop(db);
   enqueue_item_title_index_reconcile_for_user(&owner_id);
@@ -1444,9 +1442,6 @@ async fn handle_update_item(
     enqueue_document_fragment_item_if_active(&item);
   } else if should_fragment_document_item(&old_item) {
     dequeue_document_fragment_item_if_active(&old_item.id);
-  }
-  for dependent in document_fragment_context_dependents {
-    enqueue_document_fragment_item_if_active(&dependent);
   }
 
   json_with_sync_ack(sync_ack, None)
@@ -1465,28 +1460,6 @@ fn image_fragment_context_dependents_for_parent_title_change(
   dependents.extend(db.item.get_children(&item.id)?.into_iter().filter(|child| should_tag_image_item(child)).cloned());
   dependents.extend(
     db.item.get_attachments(&item.id)?.into_iter().filter(|attachment| should_tag_image_item(attachment)).cloned(),
-  );
-  Ok(dependents)
-}
-
-fn document_fragment_context_dependents_for_parent_title_change(
-  db: &Db,
-  old_item: &Item,
-  item: &Item,
-) -> InfuResult<Vec<Item>> {
-  if old_item.title == item.title {
-    return Ok(Vec::new());
-  }
-
-  let mut dependents = Vec::new();
-  dependents
-    .extend(db.item.get_children(&item.id)?.into_iter().filter(|child| should_fragment_document_item(child)).cloned());
-  dependents.extend(
-    db.item
-      .get_attachments(&item.id)?
-      .into_iter()
-      .filter(|attachment| should_fragment_document_item(attachment))
-      .cloned(),
   );
   Ok(dependents)
 }

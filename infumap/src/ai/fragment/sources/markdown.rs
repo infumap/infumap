@@ -18,7 +18,6 @@ pub async fn markdown_fragment_source_for_item(
   object_store: Arc<ObjectStore>,
   item: &Item,
   object_encryption_key: &str,
-  context_title: Option<String>,
 ) -> InfuResult<Option<FragmentSource>> {
   let file_bytes = storage_object::get(object_store, item.owner_id.clone(), item.id.clone(), object_encryption_key)
     .await
@@ -27,14 +26,13 @@ pub async fn markdown_fragment_source_for_item(
     return Ok(None);
   };
 
-  Ok(markdown_fragment_source(FragmentSourceKind::Markdown, item.title.as_deref(), context_title.as_deref(), &markdown))
+  Ok(markdown_fragment_source(FragmentSourceKind::Markdown, &markdown))
 }
 
 pub async fn text_fragment_source_for_item(
   object_store: Arc<ObjectStore>,
   item: &Item,
   object_encryption_key: &str,
-  context_title: Option<String>,
 ) -> InfuResult<Option<FragmentSource>> {
   let file_bytes = storage_object::get(object_store, item.owner_id.clone(), item.id.clone(), object_encryption_key)
     .await
@@ -43,7 +41,7 @@ pub async fn text_fragment_source_for_item(
     return Ok(None);
   };
 
-  Ok(markdown_fragment_source(FragmentSourceKind::Text, item.title.as_deref(), context_title.as_deref(), &text))
+  Ok(markdown_fragment_source(FragmentSourceKind::Text, &text))
 }
 
 pub async fn build_markdown_fragment_artifact(
@@ -51,10 +49,8 @@ pub async fn build_markdown_fragment_artifact(
   object_store: Arc<ObjectStore>,
   item: &Item,
   object_encryption_key: &str,
-  context_title: Option<String>,
 ) -> InfuResult<ObjectTextFragmentBuildResult> {
-  let fragment_source =
-    markdown_fragment_source_for_item(object_store, item, object_encryption_key, context_title).await?;
+  let fragment_source = markdown_fragment_source_for_item(object_store, item, object_encryption_key).await?;
   let had_fragment_source = fragment_source.is_some();
   let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
   Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
@@ -65,9 +61,8 @@ pub async fn build_text_fragment_artifact(
   object_store: Arc<ObjectStore>,
   item: &Item,
   object_encryption_key: &str,
-  context_title: Option<String>,
 ) -> InfuResult<ObjectTextFragmentBuildResult> {
-  let fragment_source = text_fragment_source_for_item(object_store, item, object_encryption_key, context_title).await?;
+  let fragment_source = text_fragment_source_for_item(object_store, item, object_encryption_key).await?;
   let had_fragment_source = fragment_source.is_some();
   let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
   Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
