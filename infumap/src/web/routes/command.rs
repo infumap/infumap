@@ -80,7 +80,7 @@ use crate::storage::db::session::Session;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
-use crate::util::mime::detect_mime_type;
+use crate::util::mime::{detect_mime_type, mime_type_from_title_extension};
 use crate::util::ordering::new_ordering_at_end;
 use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
@@ -1233,7 +1233,7 @@ pub async fn add_item_for_user(
         .into(),
       );
     }
-    item.mime_type = Some(detect_mime_type(&decoded));
+    item.mime_type = Some(detect_data_item_mime_type(&item, &decoded));
     let object_encryption_key = object_encryption_key_maybe
       .as_ref()
       .ok_or("Internal error: encryption key should have been set for data item.")?;
@@ -1440,8 +1440,6 @@ async fn handle_update_item(
   }
   if should_fragment_document_item(&item) {
     enqueue_document_fragment_item_if_active(&item);
-  } else if should_fragment_document_item(&old_item) {
-    dequeue_document_fragment_item_if_active(&old_item.id);
   }
 
   json_with_sync_ack(sync_ack, None)
@@ -1466,6 +1464,18 @@ fn image_fragment_context_dependents_for_parent_title_change(
 
 fn should_fragment_document_item(item: &Item) -> bool {
   is_document_fragment_item(item)
+}
+
+fn detect_data_item_mime_type(item: &Item, data: &[u8]) -> String {
+  let detected_mime_type = detect_mime_type(data);
+  if detected_mime_type == "text/plain" {
+    if let Some(extension_mime_type) =
+      item.title.as_deref().and_then(mime_type_from_title_extension).filter(|mime_type| mime_type == "text/markdown")
+    {
+      return extension_mime_type;
+    }
+  }
+  detected_mime_type
 }
 
 #[derive(Deserialize)]
