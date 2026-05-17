@@ -21,6 +21,7 @@ use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state, 
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
+use crate::storage::object::ObjectStore;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
@@ -34,6 +35,7 @@ static DOCUMENT_FRAGMENT_PIPELINE_STATE: OnceCell<Arc<Mutex<DocumentFragmentPipe
 struct DocumentFragmentPipelineConfig {
   data_dir: String,
   text_extraction_enabled: bool,
+  object_store: Arc<ObjectStore>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -61,7 +63,7 @@ impl DocumentFragmentKind {
     }
   }
 
-  fn can_build_without_object_store(self) -> bool {
+  fn has_background_builder(self) -> bool {
     matches!(self, DocumentFragmentKind::Pdf)
   }
 }
@@ -119,8 +121,12 @@ enum DocumentFragmentReconcileOutcome {
   Waiting,
 }
 
-pub fn init_document_fragment_pipeline_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuResult<()> {
-  let pipeline_config = document_fragment_pipeline_config(config)?;
+pub fn init_document_fragment_pipeline_loop(
+  config: &Config,
+  db: Arc<Mutex<Db>>,
+  object_store: Arc<ObjectStore>,
+) -> InfuResult<()> {
+  let pipeline_config = document_fragment_pipeline_config(config, object_store)?;
   if DOCUMENT_FRAGMENT_PIPELINE_STATE.get().is_some() {
     enqueue_all_loaded_document_fragments(db, pipeline_config);
     return Ok(());
@@ -191,10 +197,13 @@ pub fn is_document_fragment_item(item: &Item) -> bool {
   DocumentFragmentKind::from_item(item).is_some()
 }
 
-fn document_fragment_pipeline_config(config: &Config) -> InfuResult<DocumentFragmentPipelineConfig> {
+fn document_fragment_pipeline_config(
+  config: &Config,
+  object_store: Arc<ObjectStore>,
+) -> InfuResult<DocumentFragmentPipelineConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let text_extraction_enabled = text_extraction_url_from_config(config)?.is_some();
-  Ok(DocumentFragmentPipelineConfig { data_dir, text_extraction_enabled })
+  Ok(DocumentFragmentPipelineConfig { data_dir, text_extraction_enabled, object_store })
 }
 
 async fn run_document_fragment_loop(
@@ -253,7 +262,7 @@ async fn reconcile_document_fragment_item(
     }
   };
 
-  if !candidate.kind.can_build_without_object_store() {
+  if !candidate.kind.has_background_builder() {
     return Ok(DocumentFragmentReconcileOutcome::Skipped);
   }
 
@@ -358,7 +367,7 @@ async fn populate_initial_document_fragment_queue(
   let mut pdf_candidates = 0usize;
   let mut markdown_candidates = 0usize;
   let mut text_candidates = 0usize;
-  let mut not_buildable_without_object_store = 0usize;
+  let mut waiting_for_builder = 0usize;
   let mut queued_candidates = Vec::new();
   let mut already_fragmented = 0usize;
   let mut already_succeeded = 0usize;
@@ -374,8 +383,8 @@ async fn populate_initial_document_fragment_queue(
       DocumentFragmentKind::Text => text_candidates += 1,
     }
 
-    if !candidate.kind.can_build_without_object_store() {
-      not_buildable_without_object_store += 1;
+    if !candidate.kind.has_background_builder() {
+      waiting_for_builder += 1;
       continue;
     }
 
@@ -440,7 +449,7 @@ async fn populate_initial_document_fragment_queue(
   };
 
   info!(
-    "Startup document fragment reconciliation saw {} document item(s) (pdf={}, markdown={}, text={}), queued {} of {}; fragments: already_present={}; text artifacts checked for missing fragments: succeeded={}, failed={}, pending_waiting_for_extraction={}, pending_unavailable={}, deferred_until_object_store={}, skipped_errors={}.",
+    "Startup document fragment reconciliation saw {} document item(s) (pdf={}, markdown={}, text={}), queued {} of {}; fragments: already_present={}; text artifacts checked for missing fragments: succeeded={}, failed={}, pending_waiting_for_extraction={}, pending_unavailable={}; waiting_for_builder={}; skipped_errors={}.",
     total_candidates,
     pdf_candidates,
     markdown_candidates,
@@ -452,7 +461,7 @@ async fn populate_initial_document_fragment_queue(
     already_failed,
     pending_waiting_for_extraction,
     pending_unavailable,
-    not_buildable_without_object_store,
+    waiting_for_builder,
     skipped_errors
   );
 }

@@ -239,7 +239,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
 
   init_item_title_indexing_loop(data_dir.clone(), db.clone())?;
   init_fragment_indexing_loop(config.as_ref(), db.clone())?;
-  init_document_fragment_pipeline_loop(config.as_ref(), db.clone())?;
+  init_document_fragment_pipeline_loop(config.as_ref(), db.clone(), object_store.clone())?;
   init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone())?;
   init_image_semantic_pipeline_loop(config.clone(), db.clone(), object_store.clone())?;
 
