@@ -13,8 +13,11 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
-use crate::ai::fragment::sources::{build_pdf_fragment_artifact, embedding_context_title_for_item};
-use crate::ai::fragment::{clear_item_fragments, item_fragment_artifact_files_exist};
+use crate::ai::fragment::sources::{
+  build_markdown_fragment_artifact, build_pdf_fragment_artifact, build_text_fragment_artifact,
+  embedding_context_title_for_item,
+};
+use crate::ai::fragment::{FragmentBuildOutcome, clear_item_fragments, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state, text_extraction_url_from_config};
@@ -63,8 +66,8 @@ impl DocumentFragmentKind {
     }
   }
 
-  fn has_background_builder(self) -> bool {
-    matches!(self, DocumentFragmentKind::Pdf)
+  fn needs_source_object(self) -> bool {
+    matches!(self, DocumentFragmentKind::Markdown | DocumentFragmentKind::Text)
   }
 }
 
@@ -262,19 +265,15 @@ async fn reconcile_document_fragment_item(
     }
   };
 
-  if !candidate.kind.has_background_builder() {
-    return Ok(DocumentFragmentReconcileOutcome::Skipped);
-  }
-
   if item_fragment_artifact_files_exist(&config.data_dir, &item_snapshot.owner_id, &item_snapshot.id).await? {
     return Ok(DocumentFragmentReconcileOutcome::Skipped);
   }
 
-  match document_fragment_readiness(config, &item_snapshot).await? {
+  match document_fragment_readiness(config, candidate).await? {
     DocumentFragmentReadiness::Ready => {}
     DocumentFragmentReadiness::Waiting => {
       sleep(Duration::from_millis(FRAGMENT_NOT_READY_WAIT_MILLIS)).await;
-      enqueue_pdf_fragment_ids_if_active(&item_snapshot.owner_id, &item_snapshot.id);
+      enqueue_candidate_if_active(candidate.clone());
       return Ok(DocumentFragmentReconcileOutcome::Waiting);
     }
     DocumentFragmentReadiness::Unavailable => {
@@ -295,12 +294,24 @@ async fn reconcile_document_fragment_item(
     }
   }
 
-  let context_title = {
+  let (context_title, object_encryption_key) = {
     let db = db.lock().await;
-    embedding_context_title_for_item(&db, &item_snapshot)
+    let object_encryption_key = if candidate.kind.needs_source_object() {
+      Some(
+        db.user
+          .get(&item_snapshot.owner_id)
+          .ok_or(format!("User '{}' not loaded.", item_snapshot.owner_id))?
+          .object_encryption_key
+          .clone(),
+      )
+    } else {
+      None
+    };
+    (embedding_context_title_for_item(&db, &item_snapshot), object_encryption_key)
   };
-  let fragment_result = build_pdf_fragment_artifact(&config.data_dir, &item_snapshot, context_title).await?;
-  let outcome = fragment_result.outcome;
+  let outcome =
+    build_document_fragment_artifact(config, &item_snapshot, candidate.kind, context_title, object_encryption_key)
+      .await?;
 
   if outcome.wrote_fragments {
     debug!(
@@ -326,15 +337,62 @@ async fn reconcile_document_fragment_item(
   })
 }
 
-async fn document_fragment_readiness(
+async fn build_document_fragment_artifact(
   config: &DocumentFragmentPipelineConfig,
   item: &Item,
+  kind: DocumentFragmentKind,
+  context_title: Option<String>,
+  object_encryption_key: Option<String>,
+) -> InfuResult<FragmentBuildOutcome> {
+  match kind {
+    DocumentFragmentKind::Pdf => Ok(build_pdf_fragment_artifact(&config.data_dir, item, context_title).await?.outcome),
+    DocumentFragmentKind::Markdown => {
+      let object_encryption_key =
+        object_encryption_key.as_deref().ok_or("Markdown fragmenting requires a source object encryption key.")?;
+      Ok(
+        build_markdown_fragment_artifact(
+          &config.data_dir,
+          config.object_store.clone(),
+          item,
+          object_encryption_key,
+          context_title,
+        )
+        .await?
+        .outcome,
+      )
+    }
+    DocumentFragmentKind::Text => {
+      let object_encryption_key =
+        object_encryption_key.as_deref().ok_or("Text fragmenting requires a source object encryption key.")?;
+      Ok(
+        build_text_fragment_artifact(
+          &config.data_dir,
+          config.object_store.clone(),
+          item,
+          object_encryption_key,
+          context_title,
+        )
+        .await?
+        .outcome,
+      )
+    }
+  }
+}
+
+async fn document_fragment_readiness(
+  config: &DocumentFragmentPipelineConfig,
+  candidate: &DocumentFragmentCandidate,
 ) -> InfuResult<DocumentFragmentReadiness> {
-  match pdf_text_artifact_state(&config.data_dir, &item.owner_id, &item.id).await? {
-    PdfTextArtifactState::Succeeded => Ok(DocumentFragmentReadiness::Ready),
-    PdfTextArtifactState::Failed => Ok(DocumentFragmentReadiness::Unavailable),
-    PdfTextArtifactState::Pending if config.text_extraction_enabled => Ok(DocumentFragmentReadiness::Waiting),
-    PdfTextArtifactState::Pending => Ok(DocumentFragmentReadiness::Unavailable),
+  match candidate.kind {
+    DocumentFragmentKind::Pdf => {
+      match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
+        PdfTextArtifactState::Succeeded => Ok(DocumentFragmentReadiness::Ready),
+        PdfTextArtifactState::Failed => Ok(DocumentFragmentReadiness::Unavailable),
+        PdfTextArtifactState::Pending if config.text_extraction_enabled => Ok(DocumentFragmentReadiness::Waiting),
+        PdfTextArtifactState::Pending => Ok(DocumentFragmentReadiness::Unavailable),
+      }
+    }
+    DocumentFragmentKind::Markdown | DocumentFragmentKind::Text => Ok(DocumentFragmentReadiness::Ready),
   }
 }
 
@@ -367,13 +425,11 @@ async fn populate_initial_document_fragment_queue(
   let mut pdf_candidates = 0usize;
   let mut markdown_candidates = 0usize;
   let mut text_candidates = 0usize;
-  let mut waiting_for_builder = 0usize;
   let mut queued_candidates = Vec::new();
   let mut already_fragmented = 0usize;
-  let mut already_succeeded = 0usize;
-  let mut already_failed = 0usize;
-  let mut pending_waiting_for_extraction = 0usize;
-  let mut pending_unavailable = 0usize;
+  let mut ready = 0usize;
+  let mut unavailable = 0usize;
+  let mut waiting = 0usize;
   let mut skipped_errors = 0usize;
 
   for candidate in candidates {
@@ -381,11 +437,6 @@ async fn populate_initial_document_fragment_queue(
       DocumentFragmentKind::Pdf => pdf_candidates += 1,
       DocumentFragmentKind::Markdown => markdown_candidates += 1,
       DocumentFragmentKind::Text => text_candidates += 1,
-    }
-
-    if !candidate.kind.has_background_builder() {
-      waiting_for_builder += 1;
-      continue;
     }
 
     match item_fragment_artifact_files_exist(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
@@ -407,21 +458,17 @@ async fn populate_initial_document_fragment_queue(
       }
     }
 
-    match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
-      Ok(PdfTextArtifactState::Succeeded) => {
-        already_succeeded += 1;
+    match document_fragment_readiness(config, &candidate).await {
+      Ok(DocumentFragmentReadiness::Ready) => {
+        ready += 1;
         queued_candidates.push(candidate);
       }
-      Ok(PdfTextArtifactState::Failed) => {
-        already_failed += 1;
+      Ok(DocumentFragmentReadiness::Unavailable) => {
+        unavailable += 1;
         queued_candidates.push(candidate);
       }
-      Ok(PdfTextArtifactState::Pending) if config.text_extraction_enabled => {
-        pending_waiting_for_extraction += 1;
-      }
-      Ok(PdfTextArtifactState::Pending) => {
-        pending_unavailable += 1;
-        queued_candidates.push(candidate);
+      Ok(DocumentFragmentReadiness::Waiting) => {
+        waiting += 1;
       }
       Err(e) => {
         skipped_errors += 1;
@@ -449,7 +496,7 @@ async fn populate_initial_document_fragment_queue(
   };
 
   info!(
-    "Startup document fragment reconciliation saw {} document item(s) (pdf={}, markdown={}, text={}), queued {} of {}; fragments: already_present={}; text artifacts checked for missing fragments: succeeded={}, failed={}, pending_waiting_for_extraction={}, pending_unavailable={}; waiting_for_builder={}; skipped_errors={}.",
+    "Startup document fragment reconciliation saw {} document item(s) (pdf={}, markdown={}, text={}), queued {} of {}; fragments: already_present={}; readiness checked for missing fragments: ready={}, unavailable={}, waiting={}; skipped_errors={}.",
     total_candidates,
     pdf_candidates,
     markdown_candidates,
@@ -457,11 +504,9 @@ async fn populate_initial_document_fragment_queue(
     enqueued_count,
     queued_candidate_count,
     already_fragmented,
-    already_succeeded,
-    already_failed,
-    pending_waiting_for_extraction,
-    pending_unavailable,
-    waiting_for_builder,
+    ready,
+    unavailable,
+    waiting,
     skipped_errors
   );
 }
