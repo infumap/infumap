@@ -82,6 +82,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const widthPx = () => shouldReserveLeadingBlock()
     ? boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
     : boundsPx().w - oneBlockWidthPx() * PADDING_PROP - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
+  const textWidthPx = () => Math.max(0, widthPx());
+  const textPaddingRightCssPx = () => Math.min(2, textWidthPx() / scale());
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
     r.w = oneBlockWidthPx();
@@ -179,53 +181,55 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   }
 
   const renderText = () =>
-    <div class={`absolute overflow-hidden whitespace-nowrap ` +
-      ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) || isInCalendarPage() ? '' : `text-ellipsis `) +
-      `${infuTextStyle().alignClass} `}
-      style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-        `width: ${widthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
-        `transform: scale(${scale()}); transform-origin: top left; padding-right: 2px;`}>
-      <Switch>
-        <Match when={NoteFns.hasUrl(noteItem()) &&
-          (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
-          <a id={VeFns.veToPath(props.visualElement) + ":title"}
-            href={noteItem().url}
-            class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
-            style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
-              `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
-            onClick={aHrefClick}
-            onMouseDown={aHrefMouseDown}
-            onMouseUp={aHrefMouseUp}>
-            {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
-          </a>
-        </Match>
-        <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
-          {/* when editing, don't apply text formatting. */}
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-            style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-              `outline: 0px solid transparent;`}
-            contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
-            onKeyDown={keyDownHandler}
-            onInput={inputListener}>
-            {appendNewlineIfEmpty(noteItem().title)}<span></span>
-          </span>
-        </Match>
-        <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-            style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-              `outline: 0px solid transparent;`}
-            contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
-            onKeyDown={keyDownHandler}
-            onInput={inputListener}>
-            {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
-          </span>
-        </Match>
-      </Switch>
-    </div>;
+    <Show when={textWidthPx() > 0}>
+      <div class={`absolute overflow-hidden whitespace-nowrap ` +
+        ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) || isInCalendarPage() ? '' : `text-ellipsis `) +
+        `${infuTextStyle().alignClass} `}
+        style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+          `width: ${textWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; padding-right: ${textPaddingRightCssPx()}px;`}>
+        <Switch>
+          <Match when={NoteFns.hasUrl(noteItem()) &&
+            (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
+            <a id={VeFns.veToPath(props.visualElement) + ":title"}
+              href={noteItem().url}
+              class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
+              style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
+                `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
+              onClick={aHrefClick}
+              onMouseDown={aHrefMouseDown}
+              onMouseUp={aHrefMouseUp}>
+              {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
+            </a>
+          </Match>
+          <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
+            {/* when editing, don't apply text formatting. */}
+            <span id={VeFns.veToPath(props.visualElement) + ":title"}
+              class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+              style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                `outline: 0px solid transparent;`}
+              contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
+              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+              onKeyDown={keyDownHandler}
+              onInput={inputListener}>
+              {appendNewlineIfEmpty(noteItem().title)}<span></span>
+            </span>
+          </Match>
+          <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
+            <span id={VeFns.veToPath(props.visualElement) + ":title"}
+              class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+              style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                `outline: 0px solid transparent;`}
+              contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
+              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+              onKeyDown={keyDownHandler}
+              onInput={inputListener}>
+              {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
+            </span>
+          </Match>
+        </Switch>
+      </div>
+    </Show>;
 
   const renderCopyIconMaybe = () =>
     <Show when={showCopyIcon()}>
