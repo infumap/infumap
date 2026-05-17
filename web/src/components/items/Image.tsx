@@ -217,11 +217,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         }
         isMounting = false;
         currentImgSrc = imgSrc();
+        const imgSrcOnRequest = currentImgSrc;
+        const imgOriginOnRequest = imgOriginOnLoad;
         const imageIdOnRequest = props.visualElement.displayItem.id;
         imgSrcSignal.set(thumbnailSrc());
         isShowingThumbnail.set(true);
         const isHighPriority = isPopup();
-        getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
+        getImage(imgSrcOnRequest, imgOriginOnRequest, isHighPriority)
           .then((objectUrl) => {
             try {
               // props.visualElement is actually a function call, which will fail if the component is unmounted.
@@ -249,6 +251,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
               imgSrcSignal.set(objectUrl);
               isShowingThumbnail.set(false);
             }
+          })
+          .catch((error) => {
+            const originMessage = imgOriginOnRequest == null ? "" : ` from '${imgOriginOnRequest}'`;
+            console.warn(`Could not fetch image '${imgSrcOnRequest}'${originMessage}:`, error);
           });
       }
     }

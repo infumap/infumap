@@ -22,7 +22,8 @@ use image::ImageReader;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
 use infusdk::util::infu::InfuResult;
-use log::debug;
+use infusdk::util::uid::is_uid;
+use log::{debug, warn};
 use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
 use serde::Deserialize;
@@ -44,7 +45,9 @@ use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
-use crate::web::serve::{cors_response, full_body, internal_server_error_response, not_found_response};
+use crate::web::serve::{
+  cors_response, forbidden_response, full_body, internal_server_error_response, not_found_response,
+};
 use crate::web::session::get_and_validate_session;
 
 use super::command::authorize_item;
@@ -182,6 +185,18 @@ fn response_content_headers_for_generated_item_text(filename: &str, mime_type: &
   (content_type, content_disposition)
 }
 
+fn parse_resized_image_name(name: &str) -> Option<(&str, u32)> {
+  let (uid, width) = name.split_once('_')?;
+  if !is_uid(uid) {
+    return None;
+  }
+  let width = width.parse::<u32>().ok()?;
+  if width == 0 {
+    return None;
+  }
+  Some((uid, width))
+}
+
 pub async fn serve_files_route(
   config: Arc<Config>,
   db: &Arc<Mutex<Db>>,
@@ -202,14 +217,14 @@ pub async fn serve_files_route(
   let name = &req.uri().path()[7..];
 
   if let Some(uid) = name.strip_suffix("/text") {
-    if uid.is_empty() || uid.contains('/') {
+    if !is_uid(uid) {
       return not_found_response();
     }
     match get_item_text(db, &session_user_id_maybe, uid).await {
       Ok(text_response) => text_response,
       Err(e) => {
         METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
-        internal_server_error_response(&format!("get_item_text failed: {}", e))
+        internal_server_error_response(&format!("get_item_text failed for '{}': {}", uid, e))
       }
     }
   } else if name.contains("/fragments/") {
@@ -220,18 +235,18 @@ pub async fn serve_files_route(
       Ok(fragment_response) => fragment_response,
       Err(e) => {
         METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
-        internal_server_error_response(&format!("get_item_fragment failed: {}", e))
+        internal_server_error_response(&format!("get_item_fragment failed for '{}': {}", uid, e))
       }
     }
   } else if let Some(uid) = name.strip_suffix("/fragments") {
-    if uid.is_empty() || uid.contains('/') {
+    if !is_uid(uid) {
       return not_found_response();
     }
     match get_item_fragments(db, &session_user_id_maybe, uid).await {
       Ok(fragments_response) => fragments_response,
       Err(e) => {
         METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
-        internal_server_error_response(&format!("get_item_fragments failed: {}", e))
+        internal_server_error_response(&format!("get_item_fragments failed for '{}': {}", uid, e))
       }
     }
   } else if name.contains("_") {
@@ -239,7 +254,7 @@ pub async fn serve_files_route(
       Ok(img_response) => img_response,
       Err(e) => {
         METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
-        internal_server_error_response(&format!("get_cached_resized_img failed: {}", e))
+        internal_server_error_response(&format!("get_cached_resized_img failed for '{}': {}", name, e))
       }
     }
   } else {
@@ -247,7 +262,7 @@ pub async fn serve_files_route(
       Ok(file_response) => file_response,
       Err(e) => {
         METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
-        internal_server_error_response(&format!("get_file failed: {}", e))
+        internal_server_error_response(&format!("get_file failed for '{}': {}", name, e))
       }
     }
   }
@@ -266,14 +281,10 @@ async fn get_cached_resized_img(
   // heavily weights getting the exact requested size to the user. Such a strategy probably needs
   // to keep track of frequency of different sizes requested over time as well.
 
-  let name_parts = name.split('_').collect::<Vec<&str>>();
-  if name_parts.len() != 2 {
+  let Some((uid, requested_width)) = parse_resized_image_name(name) else {
     return Ok(not_found_response());
-  }
-
-  let uid = name_parts.get(0).unwrap().to_string();
-  // Second part in request name is always a number, though we may respond with '{uid}_original' from the image cache.
-  let requested_width = name_parts.get(1).unwrap().to_string().parse::<u32>()?;
+  };
+  let uid = uid.to_owned();
 
   let max_scale_image_down_percent =
     config.get_float(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT).map_err(|e| e.to_string())?;
@@ -290,8 +301,14 @@ async fn get_cached_resized_img(
   let title_maybe;
   {
     let db = db.lock().await;
-    let item = db.item.get(&String::from(&uid))?;
-    authorize_item(&db, item, session_user_id_maybe, 0)?;
+    let item = match db.item.get(&uid) {
+      Ok(item) => item,
+      Err(_) => return Ok(not_found_response()),
+    };
+    if let Err(e) = authorize_item(&db, item, session_user_id_maybe, 0) {
+      warn!("Denied resized image request for item '{}': {}", uid, e);
+      return Ok(forbidden_response());
+    }
     owner_id = item.owner_id.clone();
     title_maybe = item.title.clone();
 
@@ -300,6 +317,15 @@ async fn get_cached_resized_img(
     original_dimensions_px =
       item.image_size_px.as_ref().ok_or("Image item does not have image dimensions set.")?.clone();
     original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime type set.")?.clone();
+  }
+  if original_dimensions_px.w <= 0 || original_dimensions_px.h <= 0 {
+    return Err(
+      format!(
+        "Image item '{}' has invalid dimensions: {}x{}.",
+        uid, original_dimensions_px.w, original_dimensions_px.h
+      )
+      .into(),
+    );
   }
   let filename = response_filename(&uid, title_maybe.as_deref());
 
@@ -314,8 +340,15 @@ async fn get_cached_resized_img(
           ImageSize::Original => {
             if respond_with_cached_original {
               debug!("Responding with cached image '{}' (unmodified original).", candidate);
+              let candidate_for_log = format!("{}", candidate);
+              let data = match storage_cache::get(image_cache.clone(), &owner_id, candidate).await? {
+                Some(data) => data,
+                None => {
+                  warn!("Image cache entry '{}' disappeared before it could be served.", candidate_for_log);
+                  continue;
+                }
+              };
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
-              let data = storage_cache::get(image_cache, &owner_id, candidate).await?.unwrap();
               let (content_type, content_disposition) = response_content_headers(&filename, &original_mime_type_string);
               return Ok(
                 Response::builder()
@@ -360,21 +393,29 @@ async fn get_cached_resized_img(
       match best_candidate_maybe {
         Some(best_candidate) => {
           debug!("Responding with cached image '{}'.", best_candidate.0);
-          if format!("{}_{}", best_candidate.0.item_id, best_candidate.0.size) == name {
-            METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_EXACT]).inc();
+          let metric_label = if format!("{}_{}", best_candidate.0.item_id, best_candidate.0.size) == name {
+            LABEL_HIT_EXACT
           } else {
-            METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_APPROX]).inc();
-          }
-          let data = storage_cache::get(image_cache, &owner_id, best_candidate.0).await?.unwrap();
-          return Ok(
-            Response::builder()
-              .header(hyper::header::CONTENT_TYPE, "image/jpeg")
-              .header("Content-Disposition", content_disposition_header(&uid, true))
-              .header("X-Content-Type-Options", "nosniff")
-              .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-              .body(full_body(data))
-              .unwrap(),
-          );
+            LABEL_HIT_APPROX
+          };
+          let candidate_for_log = format!("{}", best_candidate.0);
+          match storage_cache::get(image_cache.clone(), &owner_id, best_candidate.0).await? {
+            Some(data) => {
+              METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[metric_label]).inc();
+              return Ok(
+                Response::builder()
+                  .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+                  .header("Content-Disposition", content_disposition_header(&uid, true))
+                  .header("X-Content-Type-Options", "nosniff")
+                  .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+                  .body(full_body(data))
+                  .unwrap(),
+              );
+            }
+            None => {
+              warn!("Image cache entry '{}' disappeared before it could be served.", candidate_for_log);
+            }
+          };
         }
         None => {
           debug!("Cached image(s) for '{}' exist, but none are close enough to the required size.", uid);
@@ -467,10 +508,20 @@ async fn get_file(
   session_user_id_maybe: &Option<String>,
   uid: &str,
 ) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
+  if !is_uid(uid) {
+    return Ok(not_found_response());
+  }
+
   let (item, object_encryption_key) = {
     let db = db.lock().await;
-    let item = db.item.get(&String::from(uid))?.clone();
-    authorize_item(&db, &item, session_user_id_maybe, 0)?;
+    let item = match db.item.get(&String::from(uid)) {
+      Ok(item) => item.clone(),
+      Err(_) => return Ok(not_found_response()),
+    };
+    if let Err(e) = authorize_item(&db, &item, session_user_id_maybe, 0) {
+      warn!("Denied file request for item '{}': {}", uid, e);
+      return Ok(forbidden_response());
+    }
     let object_encryption_key =
       db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
     (item, object_encryption_key)
@@ -506,10 +557,20 @@ async fn get_item_text(
   session_user_id_maybe: &Option<String>,
   uid: &str,
 ) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
+  if !is_uid(uid) {
+    return Ok(not_found_response());
+  }
+
   let (item, data_dir) = {
     let db = db.lock().await;
-    let item = db.item.get(&String::from(uid))?.clone();
-    authorize_item(&db, &item, session_user_id_maybe, 0)?;
+    let item = match db.item.get(&String::from(uid)) {
+      Ok(item) => item.clone(),
+      Err(_) => return Ok(not_found_response()),
+    };
+    if let Err(e) = authorize_item(&db, &item, session_user_id_maybe, 0) {
+      warn!("Denied generated text request for item '{}': {}", uid, e);
+      return Ok(forbidden_response());
+    }
     (item, db.item.data_dir().to_owned())
   };
 
@@ -564,10 +625,20 @@ async fn get_item_fragments(
   session_user_id_maybe: &Option<String>,
   uid: &str,
 ) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
+  if !is_uid(uid) {
+    return Ok(not_found_response());
+  }
+
   let (item, data_dir) = {
     let db = db.lock().await;
-    let item = db.item.get(&String::from(uid))?.clone();
-    authorize_item(&db, &item, session_user_id_maybe, 0)?;
+    let item = match db.item.get(&String::from(uid)) {
+      Ok(item) => item.clone(),
+      Err(_) => return Ok(not_found_response()),
+    };
+    if let Err(e) = authorize_item(&db, &item, session_user_id_maybe, 0) {
+      warn!("Denied fragments request for item '{}': {}", uid, e);
+      return Ok(forbidden_response());
+    }
     (item, db.item.data_dir().to_owned())
   };
 
@@ -606,10 +677,20 @@ async fn get_item_fragment(
   uid: &str,
   ordinal: usize,
 ) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
+  if !is_uid(uid) {
+    return Ok(not_found_response());
+  }
+
   let (item, data_dir) = {
     let db = db.lock().await;
-    let item = db.item.get(&String::from(uid))?.clone();
-    authorize_item(&db, &item, session_user_id_maybe, 0)?;
+    let item = match db.item.get(&String::from(uid)) {
+      Ok(item) => item.clone(),
+      Err(_) => return Ok(not_found_response()),
+    };
+    if let Err(e) = authorize_item(&db, &item, session_user_id_maybe, 0) {
+      warn!("Denied fragment request for item '{}': {}", uid, e);
+      return Ok(forbidden_response());
+    }
     (item, db.item.data_dir().to_owned())
   };
 
@@ -696,7 +777,7 @@ fn parse_fragment_records(data: &[u8]) -> InfuResult<Vec<FragmentRecord>> {
 
 fn parse_item_fragment_route(name: &str) -> Option<(&str, usize)> {
   let (uid, suffix) = name.split_once("/fragments/")?;
-  if uid.is_empty() || uid.contains('/') || suffix.is_empty() || suffix.contains('/') {
+  if !is_uid(uid) || suffix.is_empty() || suffix.contains('/') {
     return None;
   }
   suffix.parse::<usize>().ok().map(|ordinal| (uid, ordinal))

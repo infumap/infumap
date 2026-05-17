@@ -186,7 +186,10 @@ export function releaseImage(path: string, origin: string | null) {
     if (debug) { console.debug(`setting revoke objectURL timer: ${key}.`); }
     let timeoutId: any = setTimeout(() => {
       if (objectUrlsRefCount.get(key) == 0) {
-        URL.revokeObjectURL(objectUrls.get(key) as string);
+        const objectUrl = objectUrls.get(key);
+        if (objectUrl != null) {
+          URL.revokeObjectURL(objectUrl);
+        }
         objectUrls.delete(key);
         objectUrlsRefCount.delete(key);
         waitingForCleanup.delete(key);
