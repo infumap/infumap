@@ -25,6 +25,8 @@ use crate::storage::db::Db;
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
+const MARKDOWN_SOURCE_MIME_TYPE: &str = "text/markdown";
+const TEXT_SOURCE_MIME_TYPE: &str = "text/plain";
 
 static DOCUMENT_FRAGMENT_PIPELINE_STATE: OnceCell<Arc<Mutex<DocumentFragmentPipelineState>>> = OnceCell::new();
 
@@ -34,22 +36,75 @@ struct DocumentFragmentPipelineConfig {
   text_extraction_enabled: bool,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum DocumentFragmentKind {
+  Pdf,
+  Markdown,
+  Text,
+}
+
+impl DocumentFragmentKind {
+  fn from_item(item: &Item) -> Option<DocumentFragmentKind> {
+    match item.mime_type.as_deref()? {
+      PDF_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Pdf),
+      MARKDOWN_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Markdown),
+      TEXT_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Text),
+      _ => None,
+    }
+  }
+
+  fn label(self) -> &'static str {
+    match self {
+      DocumentFragmentKind::Pdf => "PDF",
+      DocumentFragmentKind::Markdown => "Markdown",
+      DocumentFragmentKind::Text => "text",
+    }
+  }
+
+  fn can_build_without_object_store(self) -> bool {
+    matches!(self, DocumentFragmentKind::Pdf)
+  }
+}
+
 #[derive(Clone)]
 struct DocumentFragmentCandidate {
   user_id: String,
   item_id: String,
+  kind: DocumentFragmentKind,
 }
 
 impl DocumentFragmentCandidate {
   fn from_item(item: &Item) -> Option<DocumentFragmentCandidate> {
-    is_pdf_item(item).then(|| DocumentFragmentCandidate { user_id: item.owner_id.clone(), item_id: item.id.clone() })
+    Some(DocumentFragmentCandidate {
+      user_id: item.owner_id.clone(),
+      item_id: item.id.clone(),
+      kind: DocumentFragmentKind::from_item(item)?,
+    })
   }
+
+  fn pdf(user_id: &str, item_id: &str) -> DocumentFragmentCandidate {
+    DocumentFragmentCandidate {
+      user_id: user_id.to_owned(),
+      item_id: item_id.to_owned(),
+      kind: DocumentFragmentKind::Pdf,
+    }
+  }
+
+  fn key(&self) -> DocumentFragmentCandidateKey {
+    DocumentFragmentCandidateKey { item_id: self.item_id.clone(), kind: self.kind }
+  }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct DocumentFragmentCandidateKey {
+  item_id: String,
+  kind: DocumentFragmentKind,
 }
 
 #[derive(Default)]
 struct DocumentFragmentPipelineState {
   queue: VecDeque<DocumentFragmentCandidate>,
-  queued_item_ids: HashSet<String>,
+  queued_candidate_keys: HashSet<DocumentFragmentCandidateKey>,
 }
 
 enum DocumentFragmentReadiness {
@@ -67,7 +122,7 @@ enum DocumentFragmentReconcileOutcome {
 pub fn init_document_fragment_pipeline_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuResult<()> {
   let pipeline_config = document_fragment_pipeline_config(config)?;
   if DOCUMENT_FRAGMENT_PIPELINE_STATE.get().is_some() {
-    enqueue_all_loaded_pdf_fragments(db, pipeline_config);
+    enqueue_all_loaded_document_fragments(db, pipeline_config);
     return Ok(());
   }
 
@@ -89,22 +144,28 @@ pub fn init_document_fragment_pipeline_loop(config: &Config, db: Arc<Mutex<Db>>)
     run_document_fragment_loop(worker_config, worker_db, worker_state).await;
   });
 
-  enqueue_all_loaded_pdf_fragments(db, pipeline_config);
+  enqueue_all_loaded_document_fragments(db, pipeline_config);
   Ok(())
 }
 
-pub fn enqueue_pdf_fragment_item_if_active(item: &Item) {
+pub fn enqueue_document_fragment_item_if_active(item: &Item) {
   let Some(candidate) = DocumentFragmentCandidate::from_item(item) else {
     return;
   };
   enqueue_candidate_if_active(candidate);
 }
 
-pub fn enqueue_pdf_fragment_ids_if_active(user_id: &str, item_id: &str) {
-  enqueue_candidate_if_active(DocumentFragmentCandidate { user_id: user_id.to_owned(), item_id: item_id.to_owned() });
+pub fn enqueue_pdf_fragment_item_if_active(item: &Item) {
+  if is_pdf_item(item) {
+    enqueue_document_fragment_item_if_active(item);
+  }
 }
 
-pub fn dequeue_pdf_fragment_item_if_active(item_id: &str) {
+pub fn enqueue_pdf_fragment_ids_if_active(user_id: &str, item_id: &str) {
+  enqueue_candidate_if_active(DocumentFragmentCandidate::pdf(user_id, item_id));
+}
+
+pub fn dequeue_document_fragment_item_if_active(item_id: &str) {
   let Some(state) = DOCUMENT_FRAGMENT_PIPELINE_STATE.get() else {
     return;
   };
@@ -120,6 +181,14 @@ pub fn dequeue_pdf_fragment_item_if_active(item_id: &str) {
     let mut state = state.lock().await;
     remove_candidate(&mut state, &item_id);
   });
+}
+
+pub fn dequeue_pdf_fragment_item_if_active(item_id: &str) {
+  dequeue_document_fragment_item_if_active(item_id);
+}
+
+pub fn is_document_fragment_item(item: &Item) -> bool {
+  DocumentFragmentKind::from_item(item).is_some()
 }
 
 fn document_fragment_pipeline_config(config: &Config) -> InfuResult<DocumentFragmentPipelineConfig> {
@@ -156,7 +225,8 @@ async fn run_document_fragment_loop(
       Err(e) => {
         record_document_fragment_processed("failed");
         error!(
-          "Document fragment pipeline failed for PDF '{}' (user '{}'): {}",
+          "Document fragment pipeline failed for {} '{}' (user '{}'): {}",
+          candidate.kind.label(),
           candidate.item_id,
           user_id_for_log(&candidate.user_id),
           e
@@ -174,10 +244,18 @@ async fn reconcile_document_fragment_item(
   let item_snapshot = {
     let db = db.lock().await;
     match db.item.get(&candidate.item_id) {
-      Ok(item) if item.owner_id == candidate.user_id && is_pdf_item(item) => item.clone(),
+      Ok(item)
+        if item.owner_id == candidate.user_id && DocumentFragmentKind::from_item(item) == Some(candidate.kind) =>
+      {
+        item.clone()
+      }
       _ => return Ok(DocumentFragmentReconcileOutcome::Skipped),
     }
   };
+
+  if !candidate.kind.can_build_without_object_store() {
+    return Ok(DocumentFragmentReconcileOutcome::Skipped);
+  }
 
   if item_fragment_artifact_files_exist(&config.data_dir, &item_snapshot.owner_id, &item_snapshot.id).await? {
     return Ok(DocumentFragmentReconcileOutcome::Skipped);
@@ -194,7 +272,8 @@ async fn reconcile_document_fragment_item(
       let outcome = clear_item_fragments(&config.data_dir, &item_snapshot).await?;
       if outcome.cleared_existing_fragments {
         debug!(
-          "Document fragment pipeline cleared stale fragments for PDF '{}' (user {}).",
+          "Document fragment pipeline cleared stale fragments for {} '{}' (user {}).",
+          candidate.kind.label(),
           item_snapshot.id,
           user_id_for_log(&item_snapshot.owner_id)
         );
@@ -216,14 +295,16 @@ async fn reconcile_document_fragment_item(
 
   if outcome.wrote_fragments {
     debug!(
-      "Document fragment pipeline wrote {} fragment(s) for PDF '{}' (user {}).",
+      "Document fragment pipeline wrote {} fragment(s) for {} '{}' (user {}).",
       outcome.fragment_count,
+      candidate.kind.label(),
       item_snapshot.id,
       user_id_for_log(&item_snapshot.owner_id)
     );
   } else if outcome.cleared_existing_fragments {
     debug!(
-      "Document fragment pipeline cleared stale fragments for PDF '{}' (user {}).",
+      "Document fragment pipeline cleared stale fragments for {} '{}' (user {}).",
+      candidate.kind.label(),
       item_snapshot.id,
       user_id_for_log(&item_snapshot.owner_id)
     );
@@ -248,7 +329,7 @@ async fn document_fragment_readiness(
   }
 }
 
-fn enqueue_all_loaded_pdf_fragments(db: Arc<Mutex<Db>>, config: DocumentFragmentPipelineConfig) {
+fn enqueue_all_loaded_document_fragments(db: Arc<Mutex<Db>>, config: DocumentFragmentPipelineConfig) {
   let Some(state) = DOCUMENT_FRAGMENT_PIPELINE_STATE.get() else {
     return;
   };
@@ -274,6 +355,10 @@ async fn populate_initial_document_fragment_queue(
   };
 
   let total_candidates = candidates.len();
+  let mut pdf_candidates = 0usize;
+  let mut markdown_candidates = 0usize;
+  let mut text_candidates = 0usize;
+  let mut not_buildable_without_object_store = 0usize;
   let mut queued_candidates = Vec::new();
   let mut already_fragmented = 0usize;
   let mut already_succeeded = 0usize;
@@ -283,6 +368,17 @@ async fn populate_initial_document_fragment_queue(
   let mut skipped_errors = 0usize;
 
   for candidate in candidates {
+    match candidate.kind {
+      DocumentFragmentKind::Pdf => pdf_candidates += 1,
+      DocumentFragmentKind::Markdown => markdown_candidates += 1,
+      DocumentFragmentKind::Text => text_candidates += 1,
+    }
+
+    if !candidate.kind.can_build_without_object_store() {
+      not_buildable_without_object_store += 1;
+      continue;
+    }
+
     match item_fragment_artifact_files_exist(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
       Ok(true) => {
         already_fragmented += 1;
@@ -292,7 +388,8 @@ async fn populate_initial_document_fragment_queue(
       Err(e) => {
         skipped_errors += 1;
         debug!(
-          "Skipping PDF '{}' (user {}) during document fragment startup artifact check: {}",
+          "Skipping {} '{}' (user {}) during document fragment startup artifact check: {}",
+          candidate.kind.label(),
           candidate.item_id,
           user_id_for_log(&candidate.user_id),
           e
@@ -320,7 +417,8 @@ async fn populate_initial_document_fragment_queue(
       Err(e) => {
         skipped_errors += 1;
         debug!(
-          "Skipping PDF '{}' (user {}) during document fragment startup reconciliation: {}",
+          "Skipping {} '{}' (user {}) during document fragment startup reconciliation: {}",
+          candidate.kind.label(),
           candidate.item_id,
           user_id_for_log(&candidate.user_id),
           e
@@ -342,8 +440,11 @@ async fn populate_initial_document_fragment_queue(
   };
 
   info!(
-    "Startup document fragment reconciliation saw {} PDF item(s), queued {} of {}; fragments: already_present={}; text artifacts checked for missing fragments: succeeded={}, failed={}, pending_waiting_for_extraction={}, pending_unavailable={}, skipped_errors={}.",
+    "Startup document fragment reconciliation saw {} document item(s) (pdf={}, markdown={}, text={}), queued {} of {}; fragments: already_present={}; text artifacts checked for missing fragments: succeeded={}, failed={}, pending_waiting_for_extraction={}, pending_unavailable={}, deferred_until_object_store={}, skipped_errors={}.",
     total_candidates,
+    pdf_candidates,
+    markdown_candidates,
+    text_candidates,
     enqueued_count,
     queued_candidate_count,
     already_fragmented,
@@ -351,6 +452,7 @@ async fn populate_initial_document_fragment_queue(
     already_failed,
     pending_waiting_for_extraction,
     pending_unavailable,
+    not_buildable_without_object_store,
     skipped_errors
   );
 }
@@ -373,7 +475,7 @@ fn enqueue_candidate_if_active(candidate: DocumentFragmentCandidate) {
 }
 
 fn enqueue_candidate(state: &mut DocumentFragmentPipelineState, candidate: DocumentFragmentCandidate) -> bool {
-  if !state.queued_item_ids.insert(candidate.item_id.clone()) {
+  if !state.queued_candidate_keys.insert(candidate.key()) {
     return false;
   }
   state.queue.push_back(candidate);
@@ -383,7 +485,7 @@ fn enqueue_candidate(state: &mut DocumentFragmentPipelineState, candidate: Docum
 
 fn pop_candidate(state: &mut DocumentFragmentPipelineState) -> Option<DocumentFragmentCandidate> {
   let candidate = state.queue.pop_front()?;
-  state.queued_item_ids.remove(&candidate.item_id);
+  state.queued_candidate_keys.remove(&candidate.key());
   record_document_fragment_queue_depth(state);
   Some(candidate)
 }
@@ -391,7 +493,7 @@ fn pop_candidate(state: &mut DocumentFragmentPipelineState) -> Option<DocumentFr
 fn remove_candidate(state: &mut DocumentFragmentPipelineState, item_id: &str) -> usize {
   let before = state.queue.len();
   state.queue.retain(|candidate| candidate.item_id != item_id);
-  state.queued_item_ids.remove(item_id);
+  state.queued_candidate_keys.retain(|candidate_key| candidate_key.item_id != item_id);
   let removed = before.saturating_sub(state.queue.len());
   record_document_fragment_queue_depth(state);
   removed
@@ -406,7 +508,7 @@ fn record_document_fragment_processed(outcome: &'static str) {
 }
 
 fn is_pdf_item(item: &Item) -> bool {
-  item.mime_type.as_deref() == Some(PDF_SOURCE_MIME_TYPE)
+  DocumentFragmentKind::from_item(item) == Some(DocumentFragmentKind::Pdf)
 }
 
 fn on_off(value: bool) -> &'static str {
