@@ -734,10 +734,36 @@ async fn handle_sync_containers(
     None => None,
   };
 
-  let db = &mut db.lock().await;
-  let mut updates = Vec::new();
-
+  let mut virtual_search_status_subscriptions = Vec::new();
+  let mut db_subscriptions = Vec::new();
   for subscription in request.subscriptions {
+    if let Some(session) = session_maybe {
+      if let Some(page_kind) = search_status_page_kind_for_id(&session.user_id, &subscription.id) {
+        virtual_search_status_subscriptions.push((subscription, page_kind));
+        continue;
+      }
+    }
+    db_subscriptions.push(subscription);
+  }
+
+  let mut updates = Vec::new();
+  if let Some(session) = session_maybe {
+    if !virtual_search_status_subscriptions.is_empty() {
+      let artifact = read_search_status_artifact_or_empty(db, &session.user_id).await?;
+      let db = db.lock().await;
+      for (subscription, page_kind) in virtual_search_status_subscriptions {
+        if let Some(update) =
+          virtual_search_status_sync_update(&db, &session.user_id, &subscription, page_kind, &artifact)?
+        {
+          updates.push(update);
+        }
+      }
+    }
+  }
+
+  let db = &mut db.lock().await;
+
+  for subscription in db_subscriptions {
     let item = get_item_authorized(db, &subscription.id, &session_user_id_maybe)?.clone();
     if !is_container_item_type(item.item_type) {
       return Err(format!("Item '{}' is not a container and cannot be synced.", subscription.id).into());
@@ -787,6 +813,35 @@ async fn handle_sync_containers(
   Ok(Some(serde_json::to_string(&SyncContainersResponse { updates })?))
 }
 
+fn virtual_search_status_sync_update(
+  db: &MutexGuard<'_, Db>,
+  user_id: &str,
+  subscription: &SyncContainersSubscription,
+  page_kind: SearchStatusPageKind,
+  artifact: &SearchStatusArtifact,
+) -> InfuResult<Option<SyncContainerUpdate>> {
+  let epoch = 0;
+  let version = virtual_search_status_sync_version(artifact);
+  if subscription.known_epoch == Some(epoch) && subscription.known_version == Some(version) {
+    return Ok(None);
+  }
+
+  Ok(Some(SyncContainerUpdate {
+    id: subscription.id.clone(),
+    epoch,
+    version,
+    strategy: String::from("snapshot"),
+    children: None,
+    child_deletes: None,
+    attachment_upserts: None,
+    attachment_deletes: None,
+    snapshot: Some(SyncContainerSnapshot {
+      children: virtual_search_status_page_children(db, user_id, page_kind, artifact)?,
+      attachments: serde_json::Map::new(),
+    }),
+  }))
+}
+
 async fn handle_get_items(
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
@@ -820,13 +875,30 @@ async fn handle_get_items(
 
   let mode = GetItemsMode::from_str(&request.mode)?;
 
-  if let Some(response) = maybe_handle_get_virtual_search_status_items(db, &item_id, &mode, session_maybe).await? {
+  if let Some(response) = maybe_handle_get_virtual_search_status_page_items(db, &item_id, &mode, session_maybe).await? {
     debug!("Executed 'get-items' command for virtual search status item '{}' (mode {:?}).", item_id, mode);
     return Ok(Some(response));
   }
 
-  let db = &mut db.lock().await;
-  let item = get_item_authorized(db, &item_id, &session_user_id_maybe)?.clone();
+  let mut db_guard = db.lock().await;
+  let item = match db_guard.item.get(&item_id) {
+    Ok(item) => {
+      authorize_item(&db_guard, item, &session_user_id_maybe, 0)
+        .map_err(|_| format!("Not authorized to access item '{}'.", item_id))?;
+      item.clone()
+    }
+    Err(e) => {
+      drop(db_guard);
+      if let Some(response) =
+        maybe_handle_get_virtual_search_status_link_items(db, &item_id, &mode, session_maybe).await?
+      {
+        debug!("Executed 'get-items' command for virtual search status link '{}' (mode {:?}).", item_id, mode);
+        return Ok(Some(response));
+      }
+      return Err(e);
+    }
+  };
+  let db = &mut db_guard;
 
   if matches!(
     mode,
@@ -900,7 +972,7 @@ async fn handle_get_items(
   Ok(Some(serde_json::to_string(&result)?))
 }
 
-async fn maybe_handle_get_virtual_search_status_items(
+async fn maybe_handle_get_virtual_search_status_page_items(
   db: &Arc<tokio::sync::Mutex<Db>>,
   item_id: &Uid,
   mode: &GetItemsMode,
@@ -913,14 +985,8 @@ async fn maybe_handle_get_virtual_search_status_items(
     return Ok(None);
   };
 
-  let data_dir = {
-    let db = db.lock().await;
-    db.item.data_dir().to_owned()
-  };
-  let artifact = match read_search_status_artifact(&data_dir, &session.user_id).await? {
-    Some(artifact) => artifact,
-    None => SearchStatusArtifact::new(Vec::new(), Vec::new())?,
-  };
+  let artifact = read_search_status_artifact_or_empty(db, &session.user_id).await?;
+  let sync_version = virtual_search_status_sync_version(&artifact);
 
   let db = db.lock().await;
   let page = virtual_search_status_page(&session.user_id, page_kind);
@@ -935,6 +1001,50 @@ async fn maybe_handle_get_virtual_search_status_items(
     result.insert(String::from("item"), Value::from(item_to_api_json_map(&page)?));
   }
   result.insert(String::from("children"), Value::from(children));
+  result.insert(String::from("attachments"), Value::from(serde_json::Map::new()));
+  result.insert(
+    String::from("syncVersion"),
+    match mode {
+      GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
+        Value::Number(sync_version.into())
+      }
+      GetItemsMode::ItemAndAttachmentsOnly => Value::Null,
+    },
+  );
+  result.insert(
+    String::from("syncEpoch"),
+    match mode {
+      GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
+        Value::Number(0.into())
+      }
+      GetItemsMode::ItemAndAttachmentsOnly => Value::Null,
+    },
+  );
+
+  Ok(Some(serde_json::to_string(&result)?))
+}
+
+async fn maybe_handle_get_virtual_search_status_link_items(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  item_id: &Uid,
+  mode: &GetItemsMode,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let Some(session) = session_maybe else {
+    return Ok(None);
+  };
+
+  let artifact = read_search_status_artifact_or_empty(db, &session.user_id).await?;
+  let db = db.lock().await;
+  let Some(link) = virtual_search_status_link_item_for_id(&db, &session.user_id, item_id, &artifact)? else {
+    return Ok(None);
+  };
+
+  let mut result = serde_json::Map::new();
+  if get_items_mode_includes_item(mode) {
+    result.insert(String::from("item"), Value::from(item_to_api_json_map(&link)?));
+  }
+  result.insert(String::from("children"), Value::from(Vec::<serde_json::Map<String, serde_json::Value>>::new()));
   result.insert(String::from("attachments"), Value::from(serde_json::Map::new()));
   result.insert(
     String::from("syncVersion"),
@@ -956,6 +1066,24 @@ async fn maybe_handle_get_virtual_search_status_items(
   );
 
   Ok(Some(serde_json::to_string(&result)?))
+}
+
+async fn read_search_status_artifact_or_empty(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  user_id: &str,
+) -> InfuResult<SearchStatusArtifact> {
+  let data_dir = {
+    let db = db.lock().await;
+    db.item.data_dir().to_owned()
+  };
+  Ok(match read_search_status_artifact(&data_dir, user_id).await? {
+    Some(artifact) => artifact,
+    None => SearchStatusArtifact::empty(),
+  })
+}
+
+fn virtual_search_status_sync_version(artifact: &SearchStatusArtifact) -> u64 {
+  artifact.updated_at_unix_secs.max(0) as u64
 }
 
 fn get_items_mode_includes_children(mode: &GetItemsMode) -> bool {
@@ -1018,6 +1146,35 @@ fn virtual_search_status_page_children(
   page_kind: SearchStatusPageKind,
   artifact: &SearchStatusArtifact,
 ) -> InfuResult<Vec<serde_json::Map<String, serde_json::Value>>> {
+  virtual_search_status_page_child_items(db, user_id, page_kind, artifact)?
+    .into_iter()
+    .map(|item| item_to_api_json_map(&item))
+    .collect()
+}
+
+fn virtual_search_status_link_item_for_id(
+  db: &MutexGuard<'_, Db>,
+  user_id: &str,
+  item_id: &Uid,
+  artifact: &SearchStatusArtifact,
+) -> InfuResult<Option<Item>> {
+  for page_kind in [SearchStatusPageKind::Failed, SearchStatusPageKind::Pending] {
+    if let Some(link) = virtual_search_status_page_child_items(db, user_id, page_kind, artifact)?
+      .into_iter()
+      .find(|link| &link.id == item_id)
+    {
+      return Ok(Some(link));
+    }
+  }
+  Ok(None)
+}
+
+fn virtual_search_status_page_child_items(
+  db: &MutexGuard<'_, Db>,
+  user_id: &str,
+  page_kind: SearchStatusPageKind,
+  artifact: &SearchStatusArtifact,
+) -> InfuResult<Vec<Item>> {
   let session_user_id_maybe = Some(user_id.to_owned());
   let mut target_items = artifact
     .item_ids_for_page_kind(page_kind)
@@ -1052,7 +1209,7 @@ fn virtual_search_status_page_children(
     );
     link.owner_id = user_id.to_owned();
     link.id = search_status_link_id(user_id, page_kind, &target_item.id);
-    children.push(item_to_api_json_map(&link)?);
+    children.push(link);
     ordering = new_ordering_after(&ordering);
   }
   Ok(children)

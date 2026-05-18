@@ -48,6 +48,15 @@ pub struct SearchStatusArtifact {
 }
 
 impl SearchStatusArtifact {
+  pub fn empty() -> SearchStatusArtifact {
+    SearchStatusArtifact {
+      schema_version: SEARCH_STATUS_SCHEMA_VERSION,
+      updated_at_unix_secs: 0,
+      failed_item_ids: Vec::new(),
+      pending_item_ids: Vec::new(),
+    }
+  }
+
   pub fn new(failed_item_ids: Vec<Uid>, pending_item_ids: Vec<Uid>) -> InfuResult<SearchStatusArtifact> {
     Ok(SearchStatusArtifact {
       schema_version: SEARCH_STATUS_SCHEMA_VERSION,
