@@ -24,11 +24,11 @@ use image::ImageFormat;
 use image::ImageReader;
 use image::imageops::FilterType;
 use infusdk::item::{
-  Item, ItemType, PermissionFlags, RelationshipToParent, is_attachments_item_type, is_composite_item,
-  is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item,
-  is_permission_flags_item_type, is_positionable_type, is_table_item,
+  ArrangeAlgorithm, Item, ItemType, PermissionFlags, RelationshipToParent, TableColumn, is_attachments_item_type,
+  is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item,
+  is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item,
 };
-use infusdk::util::geometry::{Dimensions, Vector};
+use infusdk::util::geometry::{Dimensions, GRID_SIZE, Vector};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::time::unix_now_secs_u64;
@@ -64,6 +64,10 @@ use crate::ai::lexical_index::{
   user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,
 };
 use crate::ai::metrics::{METRIC_SEARCH_BACKEND_DURATION_SECONDS, METRIC_SEARCH_BACKEND_FAILURES_TOTAL};
+use crate::ai::search_status::{
+  SearchStatusArtifact, SearchStatusPageKind, read_search_status_artifact, search_failed_page_id,
+  search_pending_page_id, search_status_link_id,
+};
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
   text_embedding_vector_fingerprint, text_embedding_vector_norm, validate_text_embedding_vector,
@@ -81,7 +85,7 @@ use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
 use crate::util::mime::{detect_mime_type, mime_type_from_title_extension};
-use crate::util::ordering::new_ordering_at_end;
+use crate::util::ordering::{new_ordering, new_ordering_after, new_ordering_at_end};
 use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
 use std::collections::{HashMap, HashSet};
@@ -815,6 +819,12 @@ async fn handle_get_items(
   };
 
   let mode = GetItemsMode::from_str(&request.mode)?;
+
+  if let Some(response) = maybe_handle_get_virtual_search_status_items(db, &item_id, &mode, session_maybe).await? {
+    debug!("Executed 'get-items' command for virtual search status item '{}' (mode {:?}).", item_id, mode);
+    return Ok(Some(response));
+  }
+
   let db = &mut db.lock().await;
   let item = get_item_authorized(db, &item_id, &session_user_id_maybe)?.clone();
 
@@ -888,6 +898,164 @@ async fn handle_get_items(
   debug!("Executed 'get-items' command for item '{}' (mode {:?}).", item_id, mode);
 
   Ok(Some(serde_json::to_string(&result)?))
+}
+
+async fn maybe_handle_get_virtual_search_status_items(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  item_id: &Uid,
+  mode: &GetItemsMode,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let Some(session) = session_maybe else {
+    return Ok(None);
+  };
+  let Some(page_kind) = search_status_page_kind_for_id(&session.user_id, item_id) else {
+    return Ok(None);
+  };
+
+  let data_dir = {
+    let db = db.lock().await;
+    db.item.data_dir().to_owned()
+  };
+  let artifact = match read_search_status_artifact(&data_dir, &session.user_id).await? {
+    Some(artifact) => artifact,
+    None => SearchStatusArtifact::new(Vec::new(), Vec::new())?,
+  };
+
+  let db = db.lock().await;
+  let page = virtual_search_status_page(&session.user_id, page_kind);
+  let children = if get_items_mode_includes_children(mode) {
+    virtual_search_status_page_children(&db, &session.user_id, page_kind, &artifact)?
+  } else {
+    Vec::new()
+  };
+
+  let mut result = serde_json::Map::new();
+  if get_items_mode_includes_item(mode) {
+    result.insert(String::from("item"), Value::from(item_to_api_json_map(&page)?));
+  }
+  result.insert(String::from("children"), Value::from(children));
+  result.insert(String::from("attachments"), Value::from(serde_json::Map::new()));
+  result.insert(
+    String::from("syncVersion"),
+    match mode {
+      GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
+        Value::Number(0.into())
+      }
+      GetItemsMode::ItemAndAttachmentsOnly => Value::Null,
+    },
+  );
+  result.insert(
+    String::from("syncEpoch"),
+    match mode {
+      GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
+        Value::Number(0.into())
+      }
+      GetItemsMode::ItemAndAttachmentsOnly => Value::Null,
+    },
+  );
+
+  Ok(Some(serde_json::to_string(&result)?))
+}
+
+fn get_items_mode_includes_children(mode: &GetItemsMode) -> bool {
+  matches!(
+    mode,
+    GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments
+  )
+}
+
+fn get_items_mode_includes_item(mode: &GetItemsMode) -> bool {
+  matches!(mode, GetItemsMode::ItemAndAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments)
+}
+
+fn search_status_page_kind_for_id(user_id: &str, item_id: &str) -> Option<SearchStatusPageKind> {
+  if item_id == search_failed_page_id(user_id) {
+    return Some(SearchStatusPageKind::Failed);
+  }
+  if item_id == search_pending_page_id(user_id) {
+    return Some(SearchStatusPageKind::Pending);
+  }
+  None
+}
+
+fn virtual_search_status_page(user_id: &str, page_kind: SearchStatusPageKind) -> Item {
+  let page_width_bl = 60;
+  let natural_aspect = 2.0;
+  let mut item = Item::new_page(
+    None,
+    vec![128],
+    Vector { x: 0, y: 0 },
+    page_width_bl * GRID_SIZE,
+    RelationshipToParent::NoParent,
+    page_kind.title(),
+    "",
+    0,
+    0,
+    0,
+    natural_aspect,
+    page_width_bl * GRID_SIZE,
+    ArrangeAlgorithm::List,
+    1,
+    1.5,
+    36,
+    7.0,
+    1.0,
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    1,
+  );
+  item.owner_id = user_id.to_owned();
+  item.id = match page_kind {
+    SearchStatusPageKind::Failed => search_failed_page_id(user_id),
+    SearchStatusPageKind::Pending => search_pending_page_id(user_id),
+  };
+  item
+}
+
+fn virtual_search_status_page_children(
+  db: &MutexGuard<'_, Db>,
+  user_id: &str,
+  page_kind: SearchStatusPageKind,
+  artifact: &SearchStatusArtifact,
+) -> InfuResult<Vec<serde_json::Map<String, serde_json::Value>>> {
+  let session_user_id_maybe = Some(user_id.to_owned());
+  let mut target_items = artifact
+    .item_ids_for_page_kind(page_kind)
+    .iter()
+    .filter_map(|item_id| db.item.get(item_id).ok())
+    .filter(|item| authorize_item(db, item, &session_user_id_maybe, 0).is_ok())
+    .collect::<Vec<_>>();
+  target_items.sort_by(|a, b| {
+    a.title
+      .as_deref()
+      .unwrap_or("")
+      .to_lowercase()
+      .cmp(&b.title.as_deref().unwrap_or("").to_lowercase())
+      .then(a.id.cmp(&b.id))
+  });
+
+  let page_id = match page_kind {
+    SearchStatusPageKind::Failed => search_failed_page_id(user_id),
+    SearchStatusPageKind::Pending => search_pending_page_id(user_id),
+  };
+  let mut ordering = new_ordering();
+  let mut children = Vec::with_capacity(target_items.len());
+  for target_item in target_items {
+    let mut link = Item::new_link(
+      &page_id,
+      ordering.clone(),
+      Vector { x: 0, y: 0 },
+      12 * GRID_SIZE,
+      4 * GRID_SIZE,
+      RelationshipToParent::Child,
+      &target_item.id,
+    );
+    link.owner_id = user_id.to_owned();
+    link.id = search_status_link_id(user_id, page_kind, &target_item.id);
+    children.push(item_to_api_json_map(&link)?);
+    ordering = new_ordering_after(&ordering);
+  }
+  Ok(children)
 }
 
 #[derive(Deserialize, Serialize)]
