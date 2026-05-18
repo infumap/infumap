@@ -414,6 +414,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       setMoreButtonHost(null);
       return;
     }
+    searchArrangeAlgorithm();
     store.perItem.getSearchResults(searchItem().id);
     const raf = requestAnimationFrame(() => {
       const host = document.getElementById(searchResultsFooterHostId(searchItem().id));
