@@ -25,64 +25,57 @@
 # Infumap currently doesn't emit any messages a trace level.
 #log_level = "info"
 
-
 # The address and port to listen on for web and API requests. Should not be
 # exposed to the public internet. Instead, use a reverse proxy and enable
-# TLS on it. Refer to the "operations.md" doc file for more information on
-# how to deploy Infumap.
+# TLS on it.
 #address = "127.0.0.1"
 #port = 8000
 
 # Whether this instance can serve API/file responses to other browser origins
 # (for embedding content into other Infumap instances). If true, CORS is enabled
 # for command/account/ingest/files endpoints and any origin is allowed.
-# Cross-origin requests must use the x-infusession header for auth; session
-# cookies are ignored.
 #allow_cross_instance_embed = false
 
-
 # Prometheus metrics endpoint configuration. Should not be exposed to the
-# public internet. Refer to the "operations.md" doc file for more information.
+# public internet.
 #enable_prometheus_metrics = false
 #prometheus_address = "127.0.0.1"
 #prometheus_port = 9090
 
-
 # The data directory. User and item database logs for each user as well as
 # the pending user list are kept in this directory. If you have local
 # object storage enabled (the default), file and image data will also be
-# stored here. Refer to the "data.md" doc file for more information.
+# stored here.
 #data_dir = "~/.infumap/data"
-
 
 # The cache directory. Contains images and favicons subdirectories.
 #cache_dir = "~/.infumap/cache"
 
-# Optional URL for the external text extraction service. Used by CLI/batch
+# Optional URL for the external PDF text extraction service. Used by CLI
 # extraction commands and web background extraction for PDF file items.
 #text_extraction_url = "http://127.0.0.1:8787/pdf-extract"
 
-# Optional URL for the external image tagging service. If set, Infumap web can
-# tag supported image items. The tag artifact includes image metadata used by
-# reverse geocoding and image fragment generation.
+# Optional URL for the external image captioning and tagging service. If set,
+# Infumap web can generate captions and tags for supported image items.
 #image_tagging_url = "http://127.0.0.1:8787/image-extract"
 
 # Optional URL for the external text embedding service. Used by `infumap embed`
 # to rebuild per-user fragment vector indexes, and by full-user web search to
 # embed the search query for semantic lookup. Web background vector index
-# generation also uses this setting when configured; lexical fragment indexing
-# can run without it. If unset, semantic fragment search is disabled.
+# generation also uses this setting when configured; Note that lexical fragment
+# indexing runs without it. If unset, semantic (image) fragment search is
+# disabled.
 #text_embedding_url = "http://127.0.0.1:8787/text-embed"
 
 # Reverse geocoding service URL for GPS-tagged images. Used when geoapify_api_key
 # is set; this stage runs from successful image tag artifacts.
 #geoapify_url = "https://api.geoapify.com/v1/geocode/reverse"
 
-# Maximum reverse-geocoding API requests per minute. The default stays well
-# below Geoapify's free-plan request-per-second limit.
+# Maximum reverse-geocoding API requests per minute. The default stays below
+# Geoapify's free-plan request-per-second limit.
 #geoapify_max_requests_per_minute = 2
 
-# Optional Geoapify API key for reverse geocoding GPS-tagged images.
+# Geoapify API key for reverse geocoding GPS-tagged images.
 #geoapify_api_key = ""
 
 # Maximum aggregate size (in megabytes) of files in each server cache. Files
@@ -93,7 +86,6 @@
 # supported value is one year (31536000 seconds). Set to 0 to specify that
 # the browser should not cache Infumap content.
 #browser_cache_max_age_seconds = 31536000
-
 
 # In most instances, full size image data is not required client side, and it
 # would be prohibitively expensive to serve full size images whenever an image
@@ -109,7 +101,6 @@
 # the browser.
 #max_scale_image_down_percent = 50
 #max_scale_image_up_percent = 0
-
 
 # Whether or not to use the local filesystem to store file and image object
 # data. You will want to disable this if you are running on a cloud server with
