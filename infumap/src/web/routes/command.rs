@@ -109,6 +109,7 @@ const SEARCH_MATCH_SNIPPET_CONTEXT_BEFORE_CHARS: usize = 70;
 const SEARCH_MATCH_SNIPPET_BOUNDARY_SLOP_CHARS: usize = 20;
 const SEARCH_BM25_SCORE_SATURATION: f32 = 4.0;
 const SEARCH_SNIPPET_ELLIPSIS: &str = "...";
+const SEARCH_STATUS_PAGE_BACKGROUND_COLOR_INDEX: i64 = 7;
 const PDF_CATALOG_OMITTED_LABELS: [&str; 3] = ["document", "context", "section"];
 const SEARCH_SNIPPET_STOP_WORDS: [&str; 32] = [
   "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "he", "her", "his", "in", "is", "it", "its",
@@ -595,7 +596,7 @@ fn append_virtual_search_status_pages_to_searches_snapshot(
     return Ok(());
   }
 
-  let mut ordering = child_items.last().map(|item| new_ordering_after(&item.ordering)).unwrap_or_else(new_ordering);
+  let mut ordering = new_ordering_at_end(child_items.iter().map(|item| item.ordering.clone()).collect());
   for page_kind in [SearchStatusPageKind::Failed, SearchStatusPageKind::Pending] {
     let item = virtual_search_status_page(session_user_id, page_kind, Some(item_id), ordering.clone());
     children.push(item_to_api_json_map(&item)?);
@@ -1033,7 +1034,11 @@ async fn maybe_handle_get_virtual_search_status_page_items(
 
   let db = db.lock().await;
   let parent_id_maybe = search_status_page_parent_id(&db, &session.user_id);
-  let page = virtual_search_status_page(&session.user_id, page_kind, parent_id_maybe.as_ref(), new_ordering());
+  let ordering = match &parent_id_maybe {
+    Some(parent_id) => virtual_search_status_page_ordering(&db, parent_id, page_kind)?,
+    None => new_ordering(),
+  };
+  let page = virtual_search_status_page(&session.user_id, page_kind, parent_id_maybe.as_ref(), ordering);
   let children = if get_items_mode_includes_children(mode) {
     virtual_search_status_page_children(&db, &session.user_id, page_kind, &artifact)?
   } else {
@@ -1155,6 +1160,19 @@ fn search_status_page_parent_id(db: &MutexGuard<'_, Db>, user_id: &str) -> Optio
   db.user.get(&user_id.to_owned()).map(|user| user.searches_page_id.clone())
 }
 
+fn virtual_search_status_page_ordering(
+  db: &MutexGuard<'_, Db>,
+  parent_id: &Uid,
+  page_kind: SearchStatusPageKind,
+) -> InfuResult<Vec<u8>> {
+  let failed_ordering =
+    new_ordering_at_end(db.item.get_children(parent_id)?.iter().map(|item| item.ordering.clone()).collect());
+  Ok(match page_kind {
+    SearchStatusPageKind::Failed => failed_ordering,
+    SearchStatusPageKind::Pending => new_ordering_after(&failed_ordering),
+  })
+}
+
 fn virtual_search_status_page(
   user_id: &str,
   page_kind: SearchStatusPageKind,
@@ -1171,7 +1189,7 @@ fn virtual_search_status_page(
     if parent_id_maybe.is_some() { RelationshipToParent::Child } else { RelationshipToParent::NoParent },
     page_kind.title(),
     "",
-    0,
+    SEARCH_STATUS_PAGE_BACKGROUND_COLOR_INDEX,
     0,
     0,
     natural_aspect,
