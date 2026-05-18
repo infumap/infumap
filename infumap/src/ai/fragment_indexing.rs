@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::{Instant as TokioInstant, sleep};
 
-use crate::ai::indexing::{EmbedRebuildSummary, reconcile_fragment_indexes_for_loaded_items};
+use crate::ai::indexing::{EmbedRebuildSummary, LoadedFragmentIndexItem, reconcile_fragment_indexes_for_loaded_items};
 use crate::ai::metrics::{METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL};
 use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
 use crate::ai::{user_id_for_log, user_ids_for_log};
@@ -254,6 +254,13 @@ async fn rebuild_fragment_indexes_for_dirty_users(
       .all_loaded_items()
       .into_iter()
       .filter(|item_key| user_id_set.contains(&item_key.user_id))
+      .filter_map(|item_key| {
+        db.item.get(&item_key.item_id).ok().map(|item| LoadedFragmentIndexItem {
+          user_id: item.owner_id.clone(),
+          item_id: item.id.clone(),
+          mime_type: item.mime_type.clone(),
+        })
+      })
       .collect::<Vec<_>>()
   };
   debug!(
@@ -295,6 +302,14 @@ async fn rebuild_fragment_indexes_for_dirty_users(
         summary.fragments_reused,
         summary.empty_index_files_removed
       );
+      if summary.search_status_artifacts_written > 0 {
+        info!(
+          "Search status reconciliation wrote {} artifact(s): failed={} pending={}.",
+          summary.search_status_artifacts_written,
+          summary.search_status_failed_items,
+          summary.search_status_pending_items
+        );
+      }
     }
     Err(e) => {
       METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&["failed"]).inc();

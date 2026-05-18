@@ -4,6 +4,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use infusdk::util::infu::InfuResult;
+use infusdk::util::uid::Uid;
 use log::{debug, info};
 use reqwest::Url;
 use serde::Deserialize;
@@ -13,15 +14,20 @@ use tokio::task::JoinSet;
 
 use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path, user_fragments_dir};
 use crate::ai::fragment::is_lexical_search_source_kind;
+use crate::ai::image_tagging::{
+  ImageTagArtifactState, image_tagging_artifact_state, is_supported_image_tagging_mime_type,
+};
 use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, document_fragment_lexical_index_temp_dir,
   open_user_document_fragment_lexical_index, remove_document_fragment_lexical_index_dirs,
   user_document_fragment_lexical_index_exists,
 };
+use crate::ai::search_status::{SearchStatusArtifact, write_search_status_artifact};
 use crate::ai::text_embedding::{
   DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingBatch, TextEmbeddingInput, embed_texts,
   validate_text_embedding_vector,
 };
+use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::user_id_for_log;
 use crate::ai::vector_db::{
   EmbeddedFragment, FragmentVectorDb, FragmentVectorDbBackend, FragmentVectorDbFragmentKey,
@@ -34,6 +40,16 @@ use crate::util::fs::path_exists;
 
 const UNKNOWN_FRAGMENT_SOURCE_KIND: &str = "unknown";
 const FRAGMENT_MANIFEST_LOAD_CONCURRENCY: usize = 64;
+const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
+const MARKDOWN_SOURCE_MIME_TYPE: &str = "text/markdown";
+const TEXT_SOURCE_MIME_TYPE: &str = "text/plain";
+
+#[derive(Clone)]
+pub struct LoadedFragmentIndexItem {
+  pub user_id: Uid,
+  pub item_id: Uid,
+  pub mime_type: Option<String>,
+}
 
 #[derive(Clone, Copy)]
 struct FragmentIndexRebuildPolicy {
@@ -65,7 +81,7 @@ pub async fn rebuild_all_fragment_indexes(
 pub async fn reconcile_fragment_indexes_for_loaded_items(
   data_dir: &str,
   user_ids: &[String],
-  loaded_items: Vec<ItemAndUserId>,
+  loaded_items: Vec<LoadedFragmentIndexItem>,
   client: Option<&reqwest::Client>,
   embed_url: Option<&Url>,
 ) -> InfuResult<EmbedRebuildSummary> {
@@ -84,7 +100,9 @@ async fn rebuild_fragment_index_plans(
 
   for plan in plans {
     let outcome = rebuild_user_fragment_index(data_dir, &plan, client, embed_url, policy).await?;
+    let search_status_outcome = write_search_status_for_plan(data_dir, &plan, embed_url.is_some()).await?;
     summary.record(&outcome);
+    summary.record_search_status(&search_status_outcome);
   }
 
   Ok(summary)
@@ -119,30 +137,49 @@ async fn load_fragment_index_plans_for_user_ids(
     db.item.load_user_items(user_id, false).await?;
   }
 
-  load_fragment_index_plans_for_loaded_items(data_dir, &user_ids, db.item.all_loaded_items()).await
+  let loaded_items = db
+    .item
+    .all_loaded_items()
+    .into_iter()
+    .filter_map(|item_key| loaded_fragment_index_item_from_key(db, item_key))
+    .collect::<Vec<_>>();
+  load_fragment_index_plans_for_loaded_items(data_dir, &user_ids, loaded_items).await
+}
+
+fn loaded_fragment_index_item_from_key(db: &Db, item_key: ItemAndUserId) -> Option<LoadedFragmentIndexItem> {
+  db.item.get(&item_key.item_id).ok().map(|item| LoadedFragmentIndexItem {
+    user_id: item.owner_id.clone(),
+    item_id: item.id.clone(),
+    mime_type: item.mime_type.clone(),
+  })
 }
 
 async fn load_fragment_index_plans_for_loaded_items(
   data_dir: &str,
   requested_user_ids: &[String],
-  loaded_items: Vec<ItemAndUserId>,
+  loaded_items: Vec<LoadedFragmentIndexItem>,
 ) -> InfuResult<Vec<UserFragmentIndexPlan>> {
   let load_started = Instant::now();
   let mut user_ids = requested_user_ids.to_vec();
   user_ids.sort();
   user_ids.dedup();
 
-  let mut item_ids_by_user_id =
-    user_ids.iter().map(|user_id| (user_id.clone(), HashSet::new())).collect::<BTreeMap<String, HashSet<String>>>();
-  for item_key in loaded_items {
-    if let Some(item_ids) = item_ids_by_user_id.get_mut(&item_key.user_id) {
-      item_ids.insert(item_key.item_id);
+  let mut items_by_user_id = user_ids
+    .iter()
+    .map(|user_id| (user_id.clone(), Vec::new()))
+    .collect::<BTreeMap<String, Vec<LoadedFragmentIndexItem>>>();
+  for item in loaded_items {
+    if let Some(items) = items_by_user_id.get_mut(&item.user_id) {
+      items.push(item);
     }
   }
 
   let mut plans = Vec::new();
-  for (user_id, loaded_item_ids) in item_ids_by_user_id {
+  for (user_id, mut loaded_items) in items_by_user_id {
     let user_started = Instant::now();
+    loaded_items.sort_by(|a, b| a.item_id.cmp(&b.item_id));
+    loaded_items.dedup_by(|a, b| a.item_id == b.item_id);
+    let loaded_item_ids = loaded_items.iter().map(|item| item.item_id.clone()).collect::<HashSet<String>>();
     let loaded_item_count = loaded_item_ids.len();
     info!("User {} scanning fragment artifacts for {} loaded item(s).", user_id_for_log(&user_id), loaded_item_count);
 
@@ -173,7 +210,7 @@ async fn load_fragment_index_plans_for_loaded_items(
       manifest_load_started.elapsed().as_secs_f64(),
       user_started.elapsed().as_secs_f64()
     );
-    plans.push(UserFragmentIndexPlan { user_id, fragment_items, summary });
+    plans.push(UserFragmentIndexPlan { user_id, loaded_items, fragment_items, summary });
   }
 
   info!(
@@ -1176,6 +1213,109 @@ fn manifest_fragment_corpus_digest<'a>(items: impl Iterator<Item = &'a FragmentI
   format!("{:x}", hasher.finalize())
 }
 
+async fn write_search_status_for_plan(
+  data_dir: &str,
+  plan: &UserFragmentIndexPlan,
+  semantic_enabled: bool,
+) -> InfuResult<SearchStatusWriteOutcome> {
+  let indexed_item_ids = indexed_search_item_ids(plan, semantic_enabled);
+  let mut failed_item_ids = Vec::new();
+  let mut pending_item_ids = Vec::new();
+
+  for item in &plan.loaded_items {
+    let Some(kind) = search_status_candidate_kind(item, semantic_enabled) else {
+      continue;
+    };
+    if indexed_item_ids.contains(&item.item_id) {
+      continue;
+    }
+
+    match classify_unindexed_search_item(data_dir, item, kind).await? {
+      SearchStatusClassification::Failed => failed_item_ids.push(item.item_id.clone()),
+      SearchStatusClassification::Pending => pending_item_ids.push(item.item_id.clone()),
+    }
+  }
+
+  let artifact = SearchStatusArtifact::new(failed_item_ids, pending_item_ids)?;
+  let outcome = SearchStatusWriteOutcome {
+    artifacts_written: 1,
+    failed_items: artifact.failed_item_ids.len(),
+    pending_items: artifact.pending_item_ids.len(),
+  };
+  write_search_status_artifact(data_dir, &plan.user_id, &artifact).await?;
+  debug!(
+    "User {} wrote search status artifact: failed={} pending={}.",
+    user_id_for_log(&plan.user_id),
+    outcome.failed_items,
+    outcome.pending_items
+  );
+  Ok(outcome)
+}
+
+fn indexed_search_item_ids(plan: &UserFragmentIndexPlan, semantic_enabled: bool) -> HashSet<Uid> {
+  plan
+    .fragment_items
+    .iter()
+    .filter(|item| item.has_complete_manifest())
+    .filter(|item| item.fragment_count.unwrap_or(0) > 0)
+    .filter(|item| is_lexical_search_source_kind(&item.source_kind) || semantic_enabled)
+    .map(|item| item.item_id.clone())
+    .collect()
+}
+
+fn search_status_candidate_kind(
+  item: &LoadedFragmentIndexItem,
+  semantic_enabled: bool,
+) -> Option<SearchStatusCandidateKind> {
+  match item.mime_type.as_deref()? {
+    PDF_SOURCE_MIME_TYPE => Some(SearchStatusCandidateKind::Pdf),
+    MARKDOWN_SOURCE_MIME_TYPE => Some(SearchStatusCandidateKind::Markdown),
+    TEXT_SOURCE_MIME_TYPE => Some(SearchStatusCandidateKind::Text),
+    mime_type if semantic_enabled && is_supported_image_tagging_mime_type(Some(mime_type)) => {
+      Some(SearchStatusCandidateKind::Image)
+    }
+    _ => None,
+  }
+}
+
+async fn classify_unindexed_search_item(
+  data_dir: &str,
+  item: &LoadedFragmentIndexItem,
+  kind: SearchStatusCandidateKind,
+) -> InfuResult<SearchStatusClassification> {
+  Ok(match kind {
+    SearchStatusCandidateKind::Pdf => match pdf_text_artifact_state(data_dir, &item.user_id, &item.item_id).await? {
+      PdfTextArtifactState::Failed => SearchStatusClassification::Failed,
+      PdfTextArtifactState::Succeeded | PdfTextArtifactState::Pending => SearchStatusClassification::Pending,
+    },
+    SearchStatusCandidateKind::Image => {
+      match image_tagging_artifact_state(data_dir, &item.user_id, &item.item_id).await? {
+        ImageTagArtifactState::Failed | ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
+          SearchStatusClassification::Failed
+        }
+        ImageTagArtifactState::Empty | ImageTagArtifactState::Succeeded | ImageTagArtifactState::Incomplete(_) => {
+          SearchStatusClassification::Pending
+        }
+      }
+    }
+    SearchStatusCandidateKind::Markdown | SearchStatusCandidateKind::Text => SearchStatusClassification::Pending,
+  })
+}
+
+#[derive(Clone, Copy)]
+enum SearchStatusCandidateKind {
+  Pdf,
+  Image,
+  Markdown,
+  Text,
+}
+
+#[derive(Clone, Copy)]
+enum SearchStatusClassification {
+  Failed,
+  Pending,
+}
+
 #[derive(Default)]
 pub struct EmbedRebuildSummary {
   pub users_seen: usize,
@@ -1185,6 +1325,9 @@ pub struct EmbedRebuildSummary {
   pub fragments_reused: usize,
   pub lexical_fragments_indexed: usize,
   pub empty_index_files_removed: usize,
+  pub search_status_artifacts_written: usize,
+  pub search_status_failed_items: usize,
+  pub search_status_pending_items: usize,
 }
 
 impl EmbedRebuildSummary {
@@ -1195,6 +1338,12 @@ impl EmbedRebuildSummary {
     self.fragments_reused += outcome.fragments_reused;
     self.lexical_fragments_indexed += outcome.lexical_fragments_indexed;
     self.empty_index_files_removed += outcome.empty_index_files_removed;
+  }
+
+  fn record_search_status(&mut self, outcome: &SearchStatusWriteOutcome) {
+    self.search_status_artifacts_written += outcome.artifacts_written;
+    self.search_status_failed_items += outcome.failed_items;
+    self.search_status_pending_items += outcome.pending_items;
   }
 }
 
@@ -1208,8 +1357,16 @@ struct UserRebuildOutcome {
   empty_index_files_removed: usize,
 }
 
+#[derive(Default)]
+struct SearchStatusWriteOutcome {
+  artifacts_written: usize,
+  failed_items: usize,
+  pending_items: usize,
+}
+
 struct UserFragmentIndexPlan {
   user_id: String,
+  loaded_items: Vec<LoadedFragmentIndexItem>,
   fragment_items: Vec<FragmentItemForIndex>,
   summary: FragmentCorpusSummary,
 }
