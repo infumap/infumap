@@ -89,6 +89,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const queryText = () => store.perItem.getSearchQuery(searchItem().id);
   const searchHasMoreResults = () => store.perItem.getSearchHasMoreResults(searchItem().id);
   const searchLoadedPageCount = () => store.perItem.getSearchLoadedPageCount(searchItem().id);
+  const hasSearchResults = () => (store.perItem.getSearchResults(searchItem().id)?.length ?? 0) > 0;
   const searchArrangeAlgorithm = () =>
     store.perItem.getSearchArrangeAlgorithm(searchItem().id) == ArrangeAlgorithm.Grid
       ? ArrangeAlgorithm.Grid
@@ -503,22 +504,6 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                 >
                 Search
               </button>
-              <button
-                class="border border-[#999] rounded-xs bg-white text-black cursor-pointer"
-                style={`width: ${SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-                type="button"
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                  void materializeCurrentResults();
-                }}
-                onMouseUp={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                }}
-                >
-                Materialize
-              </button>
             </div>
           </div>
         </div>
@@ -527,6 +512,27 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         }</For>
         <div class="absolute flex items-center gap-[4px]"
           style={`right: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
+          <button
+            class="flex items-center justify-center border border-slate-300 rounded-[5px] bg-white text-slate-600 cursor-pointer disabled:cursor-default disabled:opacity-40"
+            style={`width: ${SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; margin-right: 14px; ` +
+              `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
+            type="button"
+            title="Create page from results"
+            aria-label="Create page from results"
+            disabled={!hasSearchResults() || isEditing()}
+            onMouseDown={(ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              if (hasSearchResults() && !isEditing()) {
+                void materializeCurrentResults();
+              }
+            }}
+            onMouseUp={(ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }}>
+            <i class="bi-file-earmark-plus" />
+          </button>
           <For each={SEARCH_WORKSPACE_ARRANGE_OPTIONS}>{option => {
             const selected = () => searchArrangeAlgorithm() == option.arrangeAlgorithm;
             return (

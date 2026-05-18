@@ -66,7 +66,7 @@ use crate::ai::lexical_index::{
 use crate::ai::metrics::{METRIC_SEARCH_BACKEND_DURATION_SECONDS, METRIC_SEARCH_BACKEND_FAILURES_TOTAL};
 use crate::ai::search_status::{
   SearchStatusArtifact, SearchStatusPageKind, read_search_status_artifact, search_failed_page_id,
-  search_pending_page_id, search_status_link_id,
+  search_pending_page_id, search_status_link_id, search_status_page_id, search_status_page_kind_for_route_id,
 };
 use crate::ai::text_embedding::{
   TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
@@ -554,11 +554,18 @@ fn build_authoritative_child_attachment_snapshot(
   session_user_id_maybe: &Option<String>,
 ) -> InfuResult<SyncContainerSnapshot> {
   let child_items = get_children_authorized(db, item_id, session_user_id_maybe)?;
-  let children = child_items
+  let mut children = child_items
     .iter()
     .map(|item| item.to_api_json().ok())
     .collect::<Option<Vec<_>>>()
     .ok_or(format!("Error occurred getting children for container '{}'.", item_id))?;
+  append_virtual_search_status_pages_to_searches_snapshot(
+    db,
+    item_id,
+    session_user_id_maybe,
+    &child_items,
+    &mut children,
+  )?;
 
   let mut attachments = serde_json::Map::new();
   for child in &child_items {
@@ -571,6 +578,30 @@ fn build_authoritative_child_attachment_snapshot(
   }
 
   Ok(SyncContainerSnapshot { children, attachments })
+}
+
+fn append_virtual_search_status_pages_to_searches_snapshot(
+  db: &MutexGuard<'_, Db>,
+  item_id: &Uid,
+  session_user_id_maybe: &Option<String>,
+  child_items: &[&Item],
+  children: &mut Vec<serde_json::Map<String, serde_json::Value>>,
+) -> InfuResult<()> {
+  let Some(session_user_id) = session_user_id_maybe else {
+    return Ok(());
+  };
+  let user = db.user.get(session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?;
+  if &user.searches_page_id != item_id {
+    return Ok(());
+  }
+
+  let mut ordering = child_items.last().map(|item| new_ordering_after(&item.ordering)).unwrap_or_else(new_ordering);
+  for page_kind in [SearchStatusPageKind::Failed, SearchStatusPageKind::Pending] {
+    let item = virtual_search_status_page(session_user_id, page_kind, Some(item_id), ordering.clone());
+    children.push(item_to_api_json_map(&item)?);
+    ordering = new_ordering_after(&ordering);
+  }
+  Ok(())
 }
 
 fn build_item_attachment_snapshot_authorized(
@@ -849,24 +880,7 @@ async fn handle_get_items(
 ) -> InfuResult<Option<String>> {
   let request: GetItemsRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
-
-  let parts = request.id.split('/').collect::<Vec<&str>>();
-  if parts.len() != 1 {
-    // TODO (MEDIUM): implement ids of the form: /{username}/{item_label}.
-    return Err(format!("Get items request id '{}' has unexpected format.", request.id).into());
-  }
-
-  let item_id = if is_uid(&request.id) {
-    request.id.to_owned()
-  } else {
-    let username = if request.id.len() == 0 { ROOT_USER_NAME } else { &request.id };
-    match db.lock().await.user.get_by_username_case_insensitive(username) {
-      Some(u) => u.home_page_id.to_owned(),
-      None => {
-        return Err(format!("User '{}' is unknown.", request.id).into());
-      }
-    }
-  };
+  let item_id = resolve_get_items_request_item_id(db, &request.id, session_maybe).await?;
 
   let session_user_id_maybe = match &session_maybe {
     Some(session) => Some(session.user_id.clone()),
@@ -972,6 +986,35 @@ async fn handle_get_items(
   Ok(Some(serde_json::to_string(&result)?))
 }
 
+async fn resolve_get_items_request_item_id(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request_id: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Uid> {
+  if let Some(page_kind) = search_status_page_kind_for_route_id(request_id) {
+    let Some(session) = session_maybe else {
+      return Err(format!("Not authorized to access search status page '{}'.", request_id).into());
+    };
+    return Ok(search_status_page_id(&session.user_id, page_kind));
+  }
+
+  let parts = request_id.split('/').collect::<Vec<&str>>();
+  if parts.len() != 1 {
+    // TODO (MEDIUM): implement ids of the form: /{username}/{item_label}.
+    return Err(format!("Get items request id '{}' has unexpected format.", request_id).into());
+  }
+
+  if is_uid(request_id) {
+    return Ok(request_id.to_owned());
+  }
+
+  let username = if request_id.len() == 0 { ROOT_USER_NAME } else { request_id };
+  match db.lock().await.user.get_by_username_case_insensitive(username) {
+    Some(u) => Ok(u.home_page_id.to_owned()),
+    None => Err(format!("User '{}' is unknown.", request_id).into()),
+  }
+}
+
 async fn maybe_handle_get_virtual_search_status_page_items(
   db: &Arc<tokio::sync::Mutex<Db>>,
   item_id: &Uid,
@@ -989,7 +1032,8 @@ async fn maybe_handle_get_virtual_search_status_page_items(
   let sync_version = virtual_search_status_sync_version(&artifact);
 
   let db = db.lock().await;
-  let page = virtual_search_status_page(&session.user_id, page_kind);
+  let parent_id_maybe = search_status_page_parent_id(&db, &session.user_id);
+  let page = virtual_search_status_page(&session.user_id, page_kind, parent_id_maybe.as_ref(), new_ordering());
   let children = if get_items_mode_includes_children(mode) {
     virtual_search_status_page_children(&db, &session.user_id, page_kind, &artifact)?
   } else {
@@ -1107,15 +1151,24 @@ fn search_status_page_kind_for_id(user_id: &str, item_id: &str) -> Option<Search
   None
 }
 
-fn virtual_search_status_page(user_id: &str, page_kind: SearchStatusPageKind) -> Item {
+fn search_status_page_parent_id(db: &MutexGuard<'_, Db>, user_id: &str) -> Option<Uid> {
+  db.user.get(&user_id.to_owned()).map(|user| user.searches_page_id.clone())
+}
+
+fn virtual_search_status_page(
+  user_id: &str,
+  page_kind: SearchStatusPageKind,
+  parent_id_maybe: Option<&Uid>,
+  ordering: Vec<u8>,
+) -> Item {
   let page_width_bl = 60;
   let natural_aspect = 2.0;
   let mut item = Item::new_page(
-    None,
-    vec![128],
+    parent_id_maybe,
+    ordering,
     Vector { x: 0, y: 0 },
     page_width_bl * GRID_SIZE,
-    RelationshipToParent::NoParent,
+    if parent_id_maybe.is_some() { RelationshipToParent::Child } else { RelationshipToParent::NoParent },
     page_kind.title(),
     "",
     0,

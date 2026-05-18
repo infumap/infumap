@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,8 +12,10 @@ use crate::util::fs::expand_tilde;
 
 pub const SEARCH_STATUS_SCHEMA_VERSION: u32 = 1;
 pub const SEARCH_STATUS_FILENAME: &str = "search_status.json";
-pub const SEARCH_FAILED_PAGE_TITLE: &str = "Search: failed to index";
-pub const SEARCH_PENDING_PAGE_TITLE: &str = "Search: not indexed yet";
+pub const SEARCH_FAILED_PAGE_TITLE: &str = "Index failed";
+pub const SEARCH_PENDING_PAGE_TITLE: &str = "Not indexed yet";
+pub const SEARCH_FAILED_PAGE_ROUTE_ID: &str = "search/failed";
+pub const SEARCH_PENDING_PAGE_ROUTE_ID: &str = "search/pending";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SearchStatusPageKind {
@@ -127,6 +127,14 @@ pub fn search_status_page_id(user_id: &str, page_kind: SearchStatusPageKind) -> 
 
 pub fn search_status_link_id(user_id: &str, page_kind: SearchStatusPageKind, target_item_id: &str) -> Uid {
   deterministic_uid(&["link", user_id, page_kind.as_str(), target_item_id])
+}
+
+pub fn search_status_page_kind_for_route_id(route_id: &str) -> Option<SearchStatusPageKind> {
+  match route_id {
+    SEARCH_FAILED_PAGE_ROUTE_ID => Some(SearchStatusPageKind::Failed),
+    SEARCH_PENDING_PAGE_ROUTE_ID => Some(SearchStatusPageKind::Pending),
+    _ => None,
+  }
 }
 
 fn deterministic_uid(parts: &[&str]) -> Uid {
