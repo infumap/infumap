@@ -1,6 +1,6 @@
 [package]
 name = "infumap"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 
 [dependencies]
@@ -44,7 +44,7 @@ uuid = { version = "1.8.0", features = ["v4"] }
 zerocopy = "0.8.27"
 zstd = "0.12"
 
-infusdk = { path = "../infusdk/", version = "0.6.0" }
+infusdk = { path = "../infusdk/", version = "0.7.0" }
 infer = "0.19.0"
 mime = "0.3.17"
 mime-sniffer = "0.1.3"
