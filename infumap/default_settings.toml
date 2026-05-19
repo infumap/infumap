@@ -15,8 +15,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-# NOTE: Commented out configuration values indicate defaults - you do not
-# need to uncomment these lines if you want the default value.
+# NOTE: Commented out configuration values indicate either defaults or examples.
+# You do not need to uncomment a defaulted setting unless you want to override
+# it. Optional service URLs remain unconfigured unless you uncomment them or
+# provide them via environment variables.
 
 
 # The level at which to log messages to stderr.
@@ -53,18 +55,19 @@
 
 # Optional URL for the external PDF text extraction service. Used by CLI
 # extraction commands and web background extraction for PDF file items.
+# Unset by default; uncomment this example to enable it.
 #text_extraction_url = "http://127.0.0.1:8787/pdf-extract"
 
 # Optional URL for the external image captioning and tagging service. If set,
 # Infumap web can generate captions and tags for supported image items.
+# Unset by default; uncomment this example to enable it.
 #image_tagging_url = "http://127.0.0.1:8787/image-extract"
 
-# Optional URL for the external text embedding service. Used by `infumap embed`
-# to rebuild per-user fragment vector indexes, and by full-user web search to
-# embed the search query for semantic lookup. Web background vector index
-# generation also uses this setting when configured; Note that lexical fragment
-# indexing runs without it. If unset, semantic (image) fragment search is
-# disabled.
+# Optional URL for the external text embedding service. Used to embed fragment
+# content for vector indexes and full-user search queries for semantic lookup.
+# Lexical fragment indexing runs without it. If unset, semantic fragment search
+# is disabled.
+# Unset by default; uncomment this example to enable it.
 #text_embedding_url = "http://127.0.0.1:8787/text-embed"
 
 # Reverse geocoding service URL for GPS-tagged images. Used when geoapify_api_key
