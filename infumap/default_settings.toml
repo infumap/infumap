@@ -140,7 +140,6 @@
 #s3_2_key = 
 #s3_2_secret = 
 
-
 # Database backup configuration. If enabled, the user and item database logs
 # will be backed up to the specified AWS S3 compatible object store periodically,
 # but only if there have been changes since the last backup. Old backups are
@@ -160,7 +159,6 @@
 #s3_backup_key = 
 #s3_backup_secret =
 
-
 # TOTP (Two-Factor Authentication) bypass configuration. If enabled, TOTP
 # verification will be skipped during login, even for users who have TOTP
 # configured. This should only be enabled in emergency situations where you
@@ -169,7 +167,6 @@
 # required for login. This is automatically enabled when using the emergency
 # CLI command.
 #bypass_totp_check = false
-
 
 # Experimental feature configuration. If enabled, in-development features
 # such as selecting the Document page arrangement from the toolbar menu are

@@ -135,20 +135,19 @@ Options:
 
 ### extract
 
-Extract derived artifacts from PDFs or images without starting the web server.
-This command has two subcommands:
+Extract derived text artifacts from PDFs or images. This command has two subcommands:
 
 - `extract pdf`
 - `extract image`
 
-Both subcommands load items, initialize the configured object store, and then either run a finite batch or a continuous background loop.
-Continuous extraction/tagging loops keep only one service request in flight at a time, while pipelining the next source-object read from object storage in the background. Finite batches are optimized for throughput and may overlap service requests when `--delay-secs=0`.
+These commands pipeline source-object reads from object storage and are optimized for throughput. When `--delay-secs=0`,
+they will overlap gpu tool service requests.
 
-When the web server is running with the relevant service URL configured, PDF text extraction and image tagging are also maintained by web background loops. The CLI remains useful for offline backfills, targeted reprocessing, and operating without the web server.
+These commands replicate functionality that infumap web runs in the background. Running them at the same time as infumap web, when `text_extraction_url` and `image_tagging_url` are configured is unintended usage, and may result in bad state.
 
-### extract pdf
+#### extract pdf
 
-Run the text extraction processing loop for PDFs.
+Run the PDF text extraction processing loop.
 
 Options:
 
@@ -165,9 +164,9 @@ Options:
 - **--dry-run (optional):** Show which PDF text-extraction results `--delete-all` would remove without deleting anything.
 - **--force (optional):** Perform the deletion requested by `--delete-all`.
 
-### extract image
+#### extract image
 
-Run the image tagging processing loop for supported images.
+Run the image captioning and tagging processing loop for supported images.
 
 Options:
 
@@ -187,7 +186,7 @@ Options:
 
 ### fragment
 
-Build on-disk fragment artifacts without starting the web server.
+Build on-disk fragment artifacts from text artifacts without starting the web server.
 
 This command has four subcommands:
 
@@ -196,7 +195,7 @@ This command has four subcommands:
 - `fragment text` builds lexical text fragments directly from plain text file objects.
 - `fragment pdf` builds semantic text fragments from PDF markdown produced by `extract pdf`.
 
-When the web server is running, image and PDF fragments are maintained by background loops after the corresponding tag or text-extraction artifacts become available. The CLI remains useful for offline backfills and targeted rebuilds.
+Do not run this command at the same time as infumap web - it will compete for the same work and may result in bad state.
 
 Options:
 
@@ -205,9 +204,11 @@ Options:
 
 ### embed
 
-Rebuild per-user fragment search indexes from existing fragment artifacts without starting the web server. This command reads known items, rebuilds the document-fragment lexical index, embeds semantic fragments with the configured text embedding service, builds `indexes/fragments.sqlite3.tmp`, validates it, and atomically replaces `indexes/fragments.sqlite3`.
+Rebuild per-user fragment search indexes (semantic and lexical) from existing fragment artifacts.
 
 When the web server is running, fragment index reconciliation is scheduled automatically after item title changes and after image or PDF fragments are written. The CLI remains useful for offline full rebuilds, bulk backfills, or refreshing indexes after running `extract` and `fragment` without the web server.
+
+Do not run this command at the same time as infumap web - it will compete for the same work and may result in bad state.
 
 Options:
 
@@ -219,7 +220,7 @@ Options:
 
 Reverse geocode GPS-tagged supported images without starting the web server.
 
-This command looks for supported image items that already have saved image-tag output in the local `text` artifact directory. When the saved image-tag JSON includes `image_metadata.gps_latitude` and `image_metadata.gps_longitude`, Infumap calls a reverse-geocoding service and stores the full JSON response beside the image-tag artifact as `<item_id>_geo.json`, along with a separate `<item_id>_geo_manifest.json`.
+This command looks for supported image items that already have saved image-tag/caption output in the local `text` artifact directory. When the saved image-tag JSON includes `image_metadata.gps_latitude` and `image_metadata.gps_longitude`, Infumap calls a reverse-geocoding service and stores the full JSON response beside the image-tag artifact as `<item_id>_geo.json`, along with a separate `<item_id>_geo_manifest.json`.
 
 By default, the command targets the Geoapify reverse-geocoding API and expects an API key via `--api-key` or `INFUMAP_GEOAPIFY_API_KEY`.
 
