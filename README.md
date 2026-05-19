@@ -5,7 +5,7 @@ Summary:
 - Innovative UI:
   - Progressively add structure as your needs evolve.
   - Optimized for rapid navigation.
-- In development: Search and structure API for AI integration.
+- In development: API for AI integration.
 
 <kbd>
   <img src="screenshot.png" />
