@@ -24,7 +24,7 @@ import { useStore } from '../store/StoreProvider';
 import { switchToNonPage, switchToPage } from '../layout/navigation';
 import { VeFns } from '../layout/visual-element';
 import { ArrangeAlgorithm, asPageItem, isPage } from '../items/page-item';
-import { isUid } from '../util/uid';
+import { isUid, POPUP_LINK_UID } from '../util/uid';
 import { arrangeNow } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { requestContainerSyncSoon } from '../server';
@@ -42,6 +42,16 @@ const App: Component = () => {
 
     if (focusPath === currentPagePath) {
       return currentPagePath;
+    }
+
+    const popupSpec = store.history.currentPopupSpec();
+    if (popupSpec != null) {
+      const focusVeid = VeFns.veidFromPath(focusPath);
+      if (focusVeid.itemId === popupSpec.actualVeid.itemId &&
+        (focusVeid.linkIdMaybe === popupSpec.actualVeid.linkIdMaybe ||
+          focusVeid.linkIdMaybe === POPUP_LINK_UID)) {
+        return focusPath;
+      }
     }
 
     const currentPageItem = itemState.get(currentPageVeid.itemId);
