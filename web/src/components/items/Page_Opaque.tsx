@@ -117,7 +117,9 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const isFocused = () => {
     const focusPath = store.history.getFocusPath();
     const textEditInfo = store.overlay.textEditInfo();
-    return focusPath === vePath() || (textEditInfo != null && textEditInfo.itemPath === vePath());
+    return focusPath === vePath() ||
+      pageFns().isPoppedUp() ||
+      (textEditInfo != null && textEditInfo.itemPath === vePath());
   };
 
   // Check if this opaque page is inside a translucent page (child of translucent)

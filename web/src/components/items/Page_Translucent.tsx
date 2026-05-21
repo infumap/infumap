@@ -438,7 +438,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const isFocused = () => {
     const focusPath = store.history.getFocusPath();
     const textEditInfo = store.overlay.textEditInfo();
-    return focusPath === pageFns().vePath() || (textEditInfo != null && textEditInfo.itemPath === pageFns().vePath());
+    return focusPath === pageFns().vePath() ||
+      pageFns().isPoppedUp() ||
+      (textEditInfo != null && textEditInfo.itemPath === pageFns().vePath());
   };
 
   const shadowClass = () => {

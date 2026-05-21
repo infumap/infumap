@@ -271,7 +271,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       {renderText()}
       {renderExpandIcon()}
       {renderLinkMarkingMaybe()}
-      <Show when={store.history.getFocusPathMaybe() === vePath() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
+      <Show when={(store.history.getFocusPathMaybe() === vePath() || isPoppedUp()) && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
