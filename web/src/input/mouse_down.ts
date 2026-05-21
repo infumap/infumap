@@ -288,9 +288,11 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         else if (buttonNumber != MOUSE_LEFT && editingItemType != ItemType.Page && !focusRootPageOnRightClick) {
           store.history.setFocus(editingItemPath);
         }
-
         arrangeNow(store, "mouse-down-end-text-edit");
         if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+        if (leftClickShouldOnlyFocusPopupPageAfterTextEdit()) {
+          return MouseEventActionFlags.None;
+        }
         defaultResult = MouseEventActionFlags.None;
       }
     }
@@ -305,6 +307,25 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     const bounds = toolboxDiv.getBoundingClientRect();
     const boundsPx: BoundingBox = { x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height };
     return isInside(CursorEventState.getLatestClientPx(), boundsPx);
+  }
+
+  function leftClickShouldOnlyFocusPopupPageAfterTextEdit(): boolean {
+    if (buttonNumber != MOUSE_LEFT || store.history.currentPopupSpec() == null) {
+      return false;
+    }
+
+    const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
+    const hitVe = HitInfoFns.getHitVe(hitInfo);
+    if (!(hitVe.flags & VisualElementFlags.Popup) || !isPage(hitVe.displayItem)) {
+      return false;
+    }
+
+    return !(hitInfo.hitboxType & (
+      HitboxFlags.Resize |
+      HitboxFlags.HorizontalResize |
+      HitboxFlags.VerticalResize |
+      HitboxFlags.ContentEditable
+    ));
   }
 
   if (isLink(store.history.getFocusItem()) ||
