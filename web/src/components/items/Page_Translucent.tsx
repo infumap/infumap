@@ -37,7 +37,7 @@ import { Item } from "../../items/base/item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
-import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isSearch } from "../../items/search-item";
 import { MouseAction, MouseActionState } from "../../input/state";
@@ -439,7 +439,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const focusPath = store.history.getFocusPath();
     const textEditInfo = store.overlay.textEditInfo();
     return focusPath === pageFns().vePath() ||
-      pageFns().isPoppedUp() ||
+      pageIsFocusedOpenPopupSource(store, () => props.visualElement) ||
       (textEditInfo != null && textEditInfo.itemPath === pageFns().vePath());
   };
 

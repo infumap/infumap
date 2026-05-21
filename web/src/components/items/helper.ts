@@ -27,6 +27,7 @@ import { itemState } from "../../store/ItemState";
 import { cloneBoundingBox } from "../../util/geometry";
 import { isPage, asPageItem } from "../../items/page-item";
 import { isSearch } from "../../items/search-item";
+import { POPUP_LINK_UID } from "../../util/uid";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
 const AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE = "repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px)";
@@ -82,6 +83,30 @@ export const shouldShowFocusRingForVisualElement = (
     }
   }
   return store.overlay.textEditInfo()?.itemPath != VeFns.veToPath(veFn());
+}
+
+export const pageIsFocusedOpenPopupSource = (
+  store: StoreContextModel,
+  veFn: () => VisualElement,
+): boolean => {
+  const popupSpec = store.history.currentPopupSpec();
+  const focusPath = store.history.getFocusPathMaybe();
+  if (popupSpec == null || focusPath == null) {
+    return false;
+  }
+
+  const sourceActualVeid = VeFns.actualVeidFromVe(veFn());
+  if (VeFns.compareVeids(sourceActualVeid, popupSpec.actualVeid) != 0) {
+    return false;
+  }
+
+  const focusVeid = VeFns.veidFromPath(focusPath);
+  if (focusVeid.itemId != popupSpec.actualVeid.itemId) {
+    return false;
+  }
+
+  return focusVeid.linkIdMaybe == popupSpec.actualVeid.linkIdMaybe ||
+    focusVeid.linkIdMaybe == POPUP_LINK_UID;
 }
 
 // Use the item's existing top-level DOM node as its stack root when possible.

@@ -30,7 +30,7 @@ import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -118,7 +118,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     const focusPath = store.history.getFocusPath();
     const textEditInfo = store.overlay.textEditInfo();
     return focusPath === vePath() ||
-      pageFns().isPoppedUp() ||
+      pageIsFocusedOpenPopupSource(store, () => props.visualElement) ||
       (textEditInfo != null && textEditInfo.itemPath === vePath());
   };
 

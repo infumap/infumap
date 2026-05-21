@@ -22,7 +22,7 @@ import { useStore } from "../../store/StoreProvider";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { asPageItem } from "../../items/page-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -271,7 +271,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       {renderText()}
       {renderExpandIcon()}
       {renderLinkMarkingMaybe()}
-      <Show when={(store.history.getFocusPathMaybe() === vePath() || isPoppedUp()) && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
+      <Show when={(store.history.getFocusPathMaybe() === vePath() || pageIsFocusedOpenPopupSource(store, () => props.visualElement)) && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
         <div class="absolute pointer-events-none"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
