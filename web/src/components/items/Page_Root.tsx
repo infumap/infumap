@@ -393,6 +393,23 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       store.perVe.setCalendarMonthIndex(pagePath, calendarWindow.startMonthIndex + monthDelta);
       requestArrange(store, "page-calendar-window-change");
     };
+    const calendarTitleButtonWidthPx = 30;
+    const calendarTitleGapPx = 6;
+    const calendarTitleTextWidthPx = () => Math.max(
+      96,
+      Math.min(
+        320,
+        pageFns().childAreaBoundsPx().w -
+        2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN -
+        4 * calendarTitleButtonWidthPx -
+        4 * calendarTitleGapPx,
+      ),
+    );
+    const calendarTitleControlStyle = () => {
+      return `display: grid; grid-template-columns: ${calendarTitleButtonWidthPx}px ${calendarTitleButtonWidthPx}px ${calendarTitleTextWidthPx()}px ${calendarTitleButtonWidthPx}px ${calendarTitleButtonWidthPx}px; ` +
+        `column-gap: ${calendarTitleGapPx}px; align-items: center; width: ${calendarTitleTextWidthPx() + 4 * calendarTitleButtonWidthPx + 4 * calendarTitleGapPx}px;`;
+    };
+    const calendarTitleButtonClass = "inline-flex items-center justify-center w-[30px] h-[28px] rounded-sm text-[18px] text-slate-300 hover:text-slate-600 hover:bg-gray-100 active:bg-gray-200 cursor-pointer transition-colors";
     const visibleMonthSet = new Set(calendarWindow.months.map(({ month }) => month));
 
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
@@ -420,22 +437,28 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           {/* Year title with navigation */}
           <div class="absolute flex items-center justify-center font-bold text-2xl"
             style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
-            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-1 text-gray-300"
-              onClick={() => navigateCalendarWindow(-calendarWindow.monthsPerPage)}>
-              &lt;&lt;
-            </div>
-            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
-              onClick={() => navigateCalendarWindow(-1)}>
-              &lt;
-            </div>
-            <span class="mx-2">{formatCalendarWindowTitle(calendarWindow)}</span>
-            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
-              onClick={() => navigateCalendarWindow(1)}>
-              &gt;
-            </div>
-            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-1 text-gray-300"
-              onClick={() => navigateCalendarWindow(calendarWindow.monthsPerPage)}>
-              &gt;&gt;
+            <div style={calendarTitleControlStyle()}>
+              <div class={calendarTitleButtonClass}
+                title="Previous period"
+                onClick={() => navigateCalendarWindow(-calendarWindow.monthsPerPage)}>
+                <i class="fas fa-angle-double-left" />
+              </div>
+              <div class={calendarTitleButtonClass}
+                title="Previous month"
+                onClick={() => navigateCalendarWindow(-1)}>
+                <i class="fas fa-angle-left" />
+              </div>
+              <span class="text-center overflow-hidden whitespace-nowrap text-ellipsis">{formatCalendarWindowTitle(calendarWindow)}</span>
+              <div class={calendarTitleButtonClass}
+                title="Next month"
+                onClick={() => navigateCalendarWindow(1)}>
+                <i class="fas fa-angle-right" />
+              </div>
+              <div class={calendarTitleButtonClass}
+                title="Next period"
+                onClick={() => navigateCalendarWindow(calendarWindow.monthsPerPage)}>
+                <i class="fas fa-angle-double-right" />
+              </div>
             </div>
           </div>
 
