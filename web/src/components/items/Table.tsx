@@ -392,16 +392,40 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
 
   let scrollDoneTimer: any = null;
   let pendingProgrammaticScrollTop: number | null = null;
+  let syncScrollFrame: number | null = null;
+  let syncScrollTimeout: any = null;
 
   const veid = () => VeFns.veidFromVe(props.visualElement);
 
   function syncScrollTopFromStore() {
     if (!outerDiv) { return; }
     const scrollTop = store.perItem.getTableScrollYPos(veid()) * blockHeightPx();
-    if (outerDiv.scrollTop !== scrollTop) {
+    if (Math.abs(outerDiv.scrollTop - scrollTop) > 0.5) {
       pendingProgrammaticScrollTop = scrollTop;
       outerDiv.scrollTop = scrollTop;
     }
+  }
+
+  function scheduleScrollTopSync(_dependencyKey?: string) {
+    syncScrollTopFromStore();
+    queueMicrotask(syncScrollTopFromStore);
+    if (syncScrollFrame != null) {
+      cancelAnimationFrame(syncScrollFrame);
+    }
+    syncScrollFrame = requestAnimationFrame(() => {
+      syncScrollTopFromStore();
+      syncScrollFrame = requestAnimationFrame(() => {
+        syncScrollFrame = null;
+        syncScrollTopFromStore();
+      });
+    });
+    if (syncScrollTimeout != null) {
+      clearTimeout(syncScrollTimeout);
+    }
+    syncScrollTimeout = setTimeout(() => {
+      syncScrollTimeout = null;
+      syncScrollTopFromStore();
+    }, 0);
   }
 
   function scrollDoneHandler() {
@@ -449,17 +473,35 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   }
 
   onMount(() => {
-    syncScrollTopFromStore();
+    scheduleScrollTopSync();
   });
 
   createEffect(() => {
-    syncScrollTopFromStore();
+    const bounds = props.visualElement.boundsPx;
+    const viewport = viewportBoundsPx();
+    const childAreaHeight = props.visualElement.childAreaBoundsPx!.h;
+    const blockHeight = blockHeightPx();
+    const flags = props.visualElement.flags;
+    const scrollYPos = store.perItem.getTableScrollYPos(veid());
+    scheduleScrollTopSync([
+      bounds.x, bounds.y, bounds.w, bounds.h,
+      viewport.x, viewport.y, viewport.w, viewport.h,
+      childAreaHeight, blockHeight, flags, scrollYPos,
+    ].join(":"));
   });
 
   onCleanup(() => {
     if (scrollDoneTimer != null) {
       clearTimeout(scrollDoneTimer);
       scrollDoneTimer = null;
+    }
+    if (syncScrollFrame != null) {
+      cancelAnimationFrame(syncScrollFrame);
+      syncScrollFrame = null;
+    }
+    if (syncScrollTimeout != null) {
+      clearTimeout(syncScrollTimeout);
+      syncScrollTimeout = null;
     }
   });
 
