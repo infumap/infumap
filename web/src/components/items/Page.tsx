@@ -39,7 +39,7 @@ import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { calculateCalendarDimensionsForVisualElement, calculateCalendarWindow, decodeCalendarCombinedIndex, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
+import { calculateCalendarDimensionsForVisualElement, calculateCalendarWindow, decodeCalendarCombinedIndex, getCalendarDayMetrics, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import {
   calcCatalogContentWidthPx,
@@ -828,10 +828,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const dimensions = calculateCalendarDimensionsForVisualElement(props.visualElement, monthResizeMaybe, calendarWindow);
         const leftPx = getCalendarMonthLeftPx(dimensions, month);
         const widthPx = getCalendarMonthWidthPx(dimensions, month);
-        const topPx = dimensions.dayAreaTopPx + (day - 1) * dimensions.dayRowHeight;
+        const dayMetrics = getCalendarDayMetrics(dimensions, props.visualElement.calendarMonthLayouts, month, day);
         return (
           <div class="absolute pointer-events-none"
-            style={`left: ${leftPx}px; top: ${topPx}px; width: ${widthPx}px; height: ${dimensions.dayRowHeight}px; ` +
+            style={`left: ${leftPx}px; top: ${dayMetrics.topPx}px; width: ${widthPx}px; height: ${dayMetrics.heightPx}px; ` +
               `background-color: #3b82f633; border: 1px solid #3b82f6;`} />
         );
       } else {

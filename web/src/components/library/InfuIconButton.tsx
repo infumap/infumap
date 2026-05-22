@@ -19,7 +19,7 @@
 import { Show } from "solid-js";
 
 
-export function InfuIconButton(props: { icon: string; highlighted: boolean; clickHandler: () => void }) {
+export function InfuIconButton(props: { icon: string; highlighted: boolean; clickHandler: () => void; title?: string }) {
   const icon = () => {
     if (props.icon == "fa fa-header-1") { return "fa fa-header"; }
     if (props.icon == "fa fa-header-2") { return "fa fa-header"; }
@@ -48,7 +48,7 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
   }
 
   return (
-    <div class={divClass()} onClick={props.clickHandler}>
+    <div class={divClass()} title={props.title ?? ""} onClick={props.clickHandler}>
       <i class={`${icon()}`} />
       <Show when={subscript() != null}>
         <div class="absolute text-[9px] left-[18px] top-[9px]">{subscript()}</div>

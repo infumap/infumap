@@ -19,8 +19,9 @@
 import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX } from "../constants";
 import type { StoreContextModel } from "../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../layout/visual-element";
-import type { VisualElement } from "../layout/visual-element";
+import type { CalendarMonthLayout, VisualElement } from "../layout/visual-element";
 import { Vector } from "./geometry";
+import { getMonthInfo } from "./time";
 
 export const CALENDAR_LAYOUT_CONSTANTS = {
   COLUMNS_COUNT: 12,
@@ -63,8 +64,17 @@ export interface CalendarVerticalLayout {
   scale: number;
   dayAreaTopPx: number;
   dayRowHeight: number;
+  availableHeightForDays: number;
   monthTitleTopPx: number;
   monthTitleHeightPx: number;
+}
+
+export interface CalendarDayMetrics {
+  topPx: number;
+  heightPx: number;
+  rowHeightPx: number;
+  rowCount: number;
+  rowStart: number;
 }
 
 export interface CalendarMonthResize {
@@ -182,6 +192,10 @@ export function isCalendarMonthVisible(calendarWindow: CalendarWindow, year: num
     visibleMonth.year === year && visibleMonth.month === month);
 }
 
+export function calendarDateKey(year: number, month: number, day: number): string {
+  return `${year}-${month}-${day}`;
+}
+
 export function calculateCalendarDimensions(
   childAreaBoundsPx: { w: number; h: number },
   monthResizeMaybe: CalendarMonthResize | null = null,
@@ -266,6 +280,14 @@ export function calculateCalendarVerticalLayout(
         CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT -
         CALENDAR_LAYOUT_CONSTANTS.BOTTOM_MARGIN
       ) / CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT,
+      availableHeightForDays: (
+        childAreaBoundsPx.h -
+        CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING -
+        CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT -
+        CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING -
+        CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT -
+        CALENDAR_LAYOUT_CONSTANTS.BOTTOM_MARGIN
+      ),
       monthTitleTopPx: CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT +
         CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING,
       monthTitleHeightPx: CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT,
@@ -292,9 +314,99 @@ export function calculateCalendarVerticalLayout(
     scale,
     dayAreaTopPx: monthTitleTopPx + monthTitleHeightPx,
     dayRowHeight: baseDayRowPx * scale,
+    availableHeightForDays: baseDayRowPx * scale * CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT,
     monthTitleTopPx,
     monthTitleHeightPx,
   };
+}
+
+export function calculateCalendarMonthLayouts(
+  calendarWindow: CalendarWindow,
+  availableHeightForDays: number,
+  dayAreaTopPx: number,
+  itemCountsByDate: ReadonlyMap<string, number>,
+): Array<CalendarMonthLayout> {
+  return calendarWindow.months.map((visibleMonth) => {
+    const monthInfo = getMonthInfo(visibleMonth.month, visibleMonth.year);
+    const rowCounts: Array<number> = [];
+    let totalRows = 0;
+    for (let day = 1; day <= monthInfo.daysInMonth; ++day) {
+      const rowCount = Math.max(1, itemCountsByDate.get(calendarDateKey(visibleMonth.year, visibleMonth.month, day)) ?? 0);
+      rowCounts.push(rowCount);
+      totalRows += rowCount;
+    }
+
+    const rowHeightPx = totalRows > 0 ? availableHeightForDays / totalRows : availableHeightForDays;
+    const days = [];
+    let rowStart = 0;
+    for (let day = 1; day <= rowCounts.length; ++day) {
+      const rowCount = rowCounts[day - 1];
+      days.push({
+        day,
+        rowStart,
+        rowCount,
+        topPx: dayAreaTopPx + rowStart * rowHeightPx,
+        heightPx: rowCount * rowHeightPx,
+      });
+      rowStart += rowCount;
+    }
+
+    return {
+      key: `${visibleMonth.year}-${visibleMonth.month}`,
+      year: visibleMonth.year,
+      month: visibleMonth.month,
+      totalRows,
+      rowHeightPx,
+      days,
+    };
+  });
+}
+
+export function getCalendarDayMetrics(
+  dimensions: CalendarDimensions,
+  calendarMonthLayouts: Array<CalendarMonthLayout> | null | undefined,
+  month: number,
+  day: number,
+): CalendarDayMetrics {
+  const monthLayout = calendarMonthLayouts?.find(layout => layout.month === month);
+  const dayLayout = monthLayout?.days.find(layout => layout.day === day);
+  if (monthLayout && dayLayout) {
+    return {
+      topPx: dayLayout.topPx,
+      heightPx: dayLayout.heightPx,
+      rowHeightPx: monthLayout.rowHeightPx,
+      rowCount: dayLayout.rowCount,
+      rowStart: dayLayout.rowStart,
+    };
+  }
+
+  return {
+    topPx: dimensions.dayAreaTopPx + (day - 1) * dimensions.dayRowHeight,
+    heightPx: dimensions.dayRowHeight,
+    rowHeightPx: dimensions.dayRowHeight,
+    rowCount: 1,
+    rowStart: day - 1,
+  };
+}
+
+export function getCalendarDayForYOffset(
+  dimensions: CalendarDimensions,
+  calendarMonthLayouts: Array<CalendarMonthLayout> | null | undefined,
+  month: number,
+  yOffsetPx: number,
+): number {
+  const monthLayout = calendarMonthLayouts?.find(layout => layout.month === month);
+  if (!monthLayout || monthLayout.days.length == 0) {
+    return Math.floor((yOffsetPx - dimensions.dayAreaTopPx) / dimensions.dayRowHeight) + 1;
+  }
+
+  for (const dayLayout of monthLayout.days) {
+    if (yOffsetPx < dayLayout.topPx + dayLayout.heightPx) {
+      return dayLayout.day;
+    }
+  }
+
+  return monthLayout.days[monthLayout.days.length - 1].day;
 }
 
 export function calculateCalendarDimensionsForVisualElement(
@@ -317,7 +429,7 @@ export function calculateCalendarDimensionsForVisualElement(
     ...dimensions,
     dayAreaTopPx: verticalLayout.dayAreaTopPx,
     dayRowHeight: verticalLayout.dayRowHeight,
-    availableHeightForDays: verticalLayout.dayRowHeight * CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT,
+    availableHeightForDays: verticalLayout.availableHeightForDays,
   };
 }
 
@@ -435,7 +547,7 @@ export function calculateCalendarPosition(
   const yOffsetPx = desktopPosPx.y - viewportBoundsOnDesktop.y + scrollYPx;
 
   const month = getCalendarMonthForXOffset(dimensions, xOffsetPx);
-  const day = Math.floor((yOffsetPx - dimensions.dayAreaTopPx) / dimensions.dayRowHeight) + 1;
+  const day = getCalendarDayForYOffset(dimensions, pageVe.calendarMonthLayouts, month, yOffsetPx);
 
   const clampedMonth = Math.max(1, Math.min(12, month));
   const clampedDay = Math.max(1, Math.min(31, day));

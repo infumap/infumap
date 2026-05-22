@@ -286,6 +286,7 @@ export interface VisualElement {
   hitboxes: Array<Hitbox>,  // higher index => higher precedence.
 
   calendarOverflowCounts: Array<CalendarOverflowCountOverlay>,
+  calendarMonthLayouts: Array<CalendarMonthLayout>,
 
   parentPath: VisualElementPath | null,
 
@@ -311,6 +312,23 @@ export interface CalendarOverflowCountOverlay {
   totalCount: number,
   boundsPx: BoundingBox,
   fontSizePx: number,
+}
+
+export interface CalendarDayLayout {
+  day: number,
+  rowStart: number,
+  rowCount: number,
+  topPx: number,
+  heightPx: number,
+}
+
+export interface CalendarMonthLayout {
+  key: string,
+  year: number,
+  month: number,
+  totalRows: number,
+  rowHeightPx: number,
+  days: Array<CalendarDayLayout>,
 }
 
 
@@ -339,6 +357,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   numRows: null,
   hitboxes: [],
   calendarOverflowCounts: [],
+  calendarMonthLayouts: [],
 
   parentPath: null,
   evaluatedTitle: null,
@@ -374,6 +393,7 @@ export interface VisualElementSpec {
   numRows?: number,
   hitboxes?: Array<Hitbox>,
   calendarOverflowCounts?: Array<CalendarOverflowCountOverlay>,
+  calendarMonthLayouts?: Array<CalendarMonthLayout>,
   parentPath?: VisualElementPath,
   evaluatedTitle?: string | null,
 }
@@ -429,6 +449,7 @@ export const VeFns = {
       numRows: null,
       hitboxes: [],
       calendarOverflowCounts: [],
+      calendarMonthLayouts: [],
 
       parentPath: null,
       evaluatedTitle: null,
@@ -466,6 +487,7 @@ export const VeFns = {
     ve.numRows = null;
     ve.hitboxes = [];
     ve.calendarOverflowCounts = [];
+    ve.calendarMonthLayouts = [];
 
     ve.parentPath = null;
     ve.evaluatedTitle = null;
@@ -1021,6 +1043,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.numRows) != 'undefined') { result.numRows = override.numRows; }
   if (typeof (override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
   if (typeof (override.calendarOverflowCounts) != 'undefined') { result.calendarOverflowCounts = override.calendarOverflowCounts; }
+  if (typeof (override.calendarMonthLayouts) != 'undefined') { result.calendarMonthLayouts = override.calendarMonthLayouts; }
   if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
   if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
   if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }

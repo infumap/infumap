@@ -50,6 +50,10 @@ export function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
       ...count,
       boundsPx: { ...count.boundsPx },
     })),
+    calendarMonthLayouts: (ve.calendarMonthLayouts ?? []).map(monthLayout => ({
+      ...monthLayout,
+      days: monthLayout.days.map(dayLayout => ({ ...dayLayout })),
+    })),
   };
 }
 
@@ -77,6 +81,33 @@ function calendarOverflowCountsEqual(
   return true;
 }
 
+function calendarMonthLayoutsEqual(
+  a: VisualElement["calendarMonthLayouts"] | undefined,
+  b: VisualElement["calendarMonthLayouts"] | undefined,
+): boolean {
+  const aLayouts = a ?? [];
+  const bLayouts = b ?? [];
+  if (aLayouts.length !== bLayouts.length) { return false; }
+  for (let i = 0; i < aLayouts.length; ++i) {
+    if (aLayouts[i].key !== bLayouts[i].key) { return false; }
+    if (aLayouts[i].year !== bLayouts[i].year) { return false; }
+    if (aLayouts[i].month !== bLayouts[i].month) { return false; }
+    if (aLayouts[i].totalRows !== bLayouts[i].totalRows) { return false; }
+    if (aLayouts[i].rowHeightPx !== bLayouts[i].rowHeightPx) { return false; }
+    if (aLayouts[i].days.length !== bLayouts[i].days.length) { return false; }
+    for (let j = 0; j < aLayouts[i].days.length; ++j) {
+      const aDay = aLayouts[i].days[j];
+      const bDay = bLayouts[i].days[j];
+      if (aDay.day !== bDay.day) { return false; }
+      if (aDay.rowStart !== bDay.rowStart) { return false; }
+      if (aDay.rowCount !== bDay.rowCount) { return false; }
+      if (aDay.topPx !== bDay.topPx) { return false; }
+      if (aDay.heightPx !== bDay.heightPx) { return false; }
+    }
+  }
+  return true;
+}
+
 export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
   if (existingVe.displayItemFingerprint !== preparedSpec.displayItemFingerprint) { return false; }
   if (existingVe.displayItem.id !== preparedSpec.displayItem.id) { return false; }
@@ -99,6 +130,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if ((existingVe.numRows ?? null) !== (specValueOrDefault(preparedSpec.numRows, NONE_VISUAL_ELEMENT.numRows) ?? null)) { return false; }
   if (HitboxFns.ArrayCompare(existingVe.hitboxes, specValueOrDefault(preparedSpec.hitboxes, NONE_VISUAL_ELEMENT.hitboxes)) !== 0) { return false; }
   if (!calendarOverflowCountsEqual(existingVe.calendarOverflowCounts, specValueOrDefault(preparedSpec.calendarOverflowCounts, NONE_VISUAL_ELEMENT.calendarOverflowCounts))) { return false; }
+  if (!calendarMonthLayoutsEqual(existingVe.calendarMonthLayouts, specValueOrDefault(preparedSpec.calendarMonthLayouts, NONE_VISUAL_ELEMENT.calendarMonthLayouts))) { return false; }
   if ((existingVe.parentPath ?? null) !== (specValueOrDefault(preparedSpec.parentPath, NONE_VISUAL_ELEMENT.parentPath) ?? null)) { return false; }
   if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return false; }
 

@@ -36,6 +36,7 @@ import {
   CALENDAR_LAYOUT_CONSTANTS,
   decodeCalendarCombinedIndex,
   formatCalendarWindowTitle,
+  getCalendarDayMetrics,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCurrentDay,
@@ -362,6 +363,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       ? store.perVe.getCalendarMonthResize(pagePath)
       : null;
     const calendarDimensions = calculateCalendarDimensions(pageFns().childAreaBoundsPx(), calendarResizeMaybe, calendarWindow);
+    const calendarMonthLayouts = props.visualElement.calendarMonthLayouts;
+    const calendarMonthTitleTopPx = CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING;
     const toggleMonthHeadingWidth = (month: number) => {
       if (calendarWindow.monthsPerPage != 12) {
         return;
@@ -439,7 +442,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
             return (
               <div class="absolute"
-                style={`left: ${leftPos}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING}px; width: ${monthWidth}px;`}>
+                style={`left: ${leftPos}px; top: ${calendarMonthTitleTopPx}px; width: ${monthWidth}px;`}>
 
                 {/* Month title */}
                 <div
@@ -463,7 +466,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 {/* Days in month */}
                 <For each={Array.from({ length: monthInfo.daysInMonth }, (_, i) => i + 1)}>{day => {
                   const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
-                  const topPos = CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT + (day - 1) * calendarDimensions.dayRowHeight;
+                  const dayMetrics = getCalendarDayMetrics(calendarDimensions, calendarMonthLayouts, month, day);
+                  const topPos = dayMetrics.topPx - calendarMonthTitleTopPx;
                   const isToday = isCurrentDay(month, day, visibleMonth.year);
 
                   let backgroundColor = '#ffffff';
@@ -475,7 +479,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
                   return (
                     <div class="absolute flex items-start"
-                      style={`left: 0px; top: ${topPos}px; width: ${monthWidth}px; height: ${calendarDimensions.dayRowHeight}px; ` +
+                      style={`left: 0px; top: ${topPos}px; width: ${monthWidth}px; height: ${dayMetrics.heightPx}px; ` +
                         `background-color: ${backgroundColor}; ` +
                         `border-bottom: 1px solid #e5e5e5; padding-top: 5px;`}>
                       <span style="width: 14px; text-align: right; font-size: 10px; margin-left: 2px;">{day}</span>
@@ -515,10 +519,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               }
               const leftPx = getCalendarMonthLeftPx(calendarDimensions, month);
               const widthPx = getCalendarMonthWidthPx(calendarDimensions, month);
-              const topPx = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
+              const dayMetrics = getCalendarDayMetrics(calendarDimensions, calendarMonthLayouts, month, day);
               return (
                 <div class="absolute pointer-events-none"
-                  style={`left: ${leftPx}px; top: ${topPx}px; width: ${widthPx}px; height: ${calendarDimensions.dayRowHeight}px; ` +
+                  style={`left: ${leftPx}px; top: ${dayMetrics.topPx}px; width: ${widthPx}px; height: ${dayMetrics.heightPx}px; ` +
                     `background-color: #f59e0b33; border: 1px solid #f59e0b;`} />
               );
             })()}
@@ -534,10 +538,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               }
               const leftPx = getCalendarMonthLeftPx(calendarDimensions, month);
               const widthPx = getCalendarMonthWidthPx(calendarDimensions, month);
-              const topPx = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
+              const dayMetrics = getCalendarDayMetrics(calendarDimensions, calendarMonthLayouts, month, day);
               return (
                 <div class="absolute pointer-events-none"
-                  style={`left: ${leftPx}px; top: ${topPx}px; width: ${widthPx}px; height: ${calendarDimensions.dayRowHeight}px; ` +
+                  style={`left: ${leftPx}px; top: ${dayMetrics.topPx}px; width: ${widthPx}px; height: ${dayMetrics.heightPx}px; ` +
                     `background-color: #3b82f633; border: 1px solid #3b82f6;`} />
               );
             })()}

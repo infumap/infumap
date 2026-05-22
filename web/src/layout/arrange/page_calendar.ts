@@ -38,16 +38,19 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import {
   calculateCalendarWindow,
   calculateCalendarDimensions,
+  calculateCalendarMonthLayouts,
   calculateCalendarVerticalLayout,
+  calendarDateKey,
   CALENDAR_LAYOUT_CONSTANTS,
+  getCalendarDayMetrics,
   getCalendarDividerCenterPx,
-  getCalendarMonthForXOffset,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCalendarMonthVisible,
 } from "../../util/calendar-layout";
 import { ItemType } from "../../items/base/item";
 import { getMovingTreeItemInParentMaybe } from "./util";
+import { PageFlags } from "../../items/base/flags-item";
 
 
 export function arrange_calendar_page(
@@ -183,6 +186,7 @@ export function arrange_calendar_page(
 
   // Calendar layout dimensions (using arranged childAreaBoundsPx)
   const childAreaBounds = childAreaBoundsPx;
+  const calendarIndependentRows = !!(displayItem_pageWithChildren.flags & PageFlags.CalendarIndependentRows);
   const calendarMonthResize = calendarWindow.monthsPerPage == 12
     ? store.perVe.getCalendarMonthResize(pageWithChildrenVePath)
     : null;
@@ -192,7 +196,6 @@ export function arrange_calendar_page(
     !!(flags & ArrangeItemFlags.IsPopupRoot),
   );
   const dayRowHeight = calendarVerticalLayout.dayRowHeight;
-  const dayAreaTopPx = calendarVerticalLayout.dayAreaTopPx;
   const titleBarHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
   const dividerTopPx = (() => {
     if (flags & ArrangeItemFlags.IsPopupRoot) {
@@ -239,7 +242,7 @@ export function arrange_calendar_page(
   const itemsByDate = new Map<string, typeof childrenWithDateTime>();
   childrenWithDateTime.forEach(child => {
     const itemDate = new Date(child.dateTime * 1000);
-    const dateKey = `${itemDate.getFullYear()}-${itemDate.getMonth() + 1}-${itemDate.getDate()}`;
+    const dateKey = calendarDateKey(itemDate.getFullYear(), itemDate.getMonth() + 1, itemDate.getDate());
     if (!itemsByDate.has(dateKey)) {
       itemsByDate.set(dateKey, []);
     }
@@ -255,14 +258,27 @@ export function arrange_calendar_page(
     });
   });
 
+  const itemCountsByDate = new Map<string, number>();
+  itemsByDate.forEach((items, dateKey) => {
+    itemCountsByDate.set(dateKey, items.length);
+  });
+  const calendarMonthLayouts = calendarIndependentRows
+    ? calculateCalendarMonthLayouts(
+      calendarWindow,
+      calendarVerticalLayout.availableHeightForDays,
+      calendarVerticalLayout.dayAreaTopPx,
+      itemCountsByDate,
+    )
+    : [];
+
   // Prepare an array of page-level hitboxes for overflow indicators
   const overflowHitboxes: Array<ReturnType<typeof HitboxFns.create>> = [];
   const overflowCounts: Array<CalendarOverflowCountOverlay> = [];
 
   // Arrange items by date
   itemsByDate.forEach((itemsForDate, dateKey) => {
-    const cappedItems = itemsForDate.slice(0, rowsPerDay);
-    const firstItem = cappedItems[0];
+    const visibleItems = calendarIndependentRows ? itemsForDate : itemsForDate.slice(0, rowsPerDay);
+    const firstItem = visibleItems[0];
     const itemDate = new Date(firstItem.dateTime * 1000);
     const month = itemDate.getMonth() + 1; // 1-12
     const day = itemDate.getDate(); // 1-31
@@ -270,11 +286,14 @@ export function arrange_calendar_page(
     // Calculate base position for this date
     const monthLeftPos = getCalendarMonthLeftPx(calendarDimensions, month);
     const monthWidth = getCalendarMonthWidthPx(calendarDimensions, month);
-    const dayTopPos = dayAreaTopPx + (day - 1) * dayRowHeight;
+    const dayMetrics = getCalendarDayMetrics(calendarDimensions, calendarMonthLayouts, month, day);
+    const dayTopPos = dayMetrics.topPx;
+    const rowHeight = calendarIndependentRows ? dayMetrics.rowHeightPx : dayRowHeight;
+    const visibleItemHeight = Math.min(rowHeight, blockSizePx.h);
     const itemWidth = Math.max(0, monthWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding);
 
     // Add a page-level hitbox for overflow count if there are more items than rows
-    const overflowCount = Math.max(0, itemsForDate.length - rowsPerDay);
+    const overflowCount = calendarIndependentRows ? 0 : Math.max(0, itemsForDate.length - rowsPerDay);
     if (overflowCount > 0) {
       const rightEdge = monthLeftPos + monthWidth;
       const baseX = rightEdge - blockSizePx.w;
@@ -305,7 +324,7 @@ export function arrange_calendar_page(
       overflowHitboxes.push(HitboxFns.create(HitboxFlags.ShowPointer, overlayHitboxBoundsPx, meta));
     }
 
-    cappedItems.forEach((childItem, stackIndex) => {
+    visibleItems.forEach((childItem, stackIndex) => {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
       if (isComposite(displayItem)) {
@@ -313,23 +332,30 @@ export function arrange_calendar_page(
       }
 
       const isLastRow = stackIndex === rowsPerDay - 1;
-      const effectiveItemWidth = (overflowCount > 0 && isLastRow)
+      const effectiveItemWidth = (!calendarIndependentRows && overflowCount > 0 && isLastRow)
         ? Math.max(0, itemWidth - blockSizePx.w - 2)
         : Math.max(0, itemWidth - 2);
+      const itemStepHeight = calendarIndependentRows ? rowHeight : itemHeight;
+      const itemTopInset = calendarIndependentRows
+        ? Math.min(1, Math.max(0, visibleItemHeight * 0.2))
+        : 1;
+      const arrangedItemHeight = calendarIndependentRows
+        ? Math.max(0, visibleItemHeight - itemTopInset)
+        : visibleItemHeight;
 
       // Stack items vertically within the day
       const boundsPx = {
         x: monthLeftPos + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX + itemLeftPadding,
-        y: dayTopPos + stackIndex * itemHeight + 1,
+        y: dayTopPos + stackIndex * itemStepHeight + itemTopInset,
         w: effectiveItemWidth,
-        h: itemHeight
+        h: arrangedItemHeight
       };
 
       const innerBoundsPx = {
         x: 0,
         y: 0,
         w: effectiveItemWidth,
-        h: itemHeight
+        h: arrangedItemHeight
       };
 
       // Line item hitbox layout: icon area + text area
@@ -338,19 +364,19 @@ export function arrange_calendar_page(
         x: blockSizePx.w, // Start after icon block
         y: 0,
         w: effectiveItemWidth - blockSizePx.w, // Text area width
-        h: itemHeight
+        h: arrangedItemHeight
       } : {
         x: 0, // If only icon fits, click anywhere
         y: 0,
         w: effectiveItemWidth,
-        h: itemHeight
+        h: arrangedItemHeight
       };
 
       const popupClickAreaBoundsPx = {
         x: 0,
         y: 0,
         w: blockSizePx.w, // Icon area only
-        h: itemHeight
+        h: arrangedItemHeight
       };
 
       const calendarItemGeometry = {
@@ -386,7 +412,7 @@ export function arrange_calendar_page(
         hitboxes: calendarItemGeometry.hitboxes,
         parentPath: pageWithChildrenVePath,
         col: 0,
-        row: stackIndex,
+        row: calendarIndependentRows ? dayMetrics.rowStart + stackIndex : stackIndex,
         blockSizePx: blockSizePx,
       };
 
@@ -403,6 +429,7 @@ export function arrange_calendar_page(
     ...overflowHitboxes,
   ];
   pageSpec.calendarOverflowCounts = overflowCounts;
+  pageSpec.calendarMonthLayouts = calendarMonthLayouts;
 
   // Add moving item if it exists and belongs to this page
   if (movingItemInThisPage) {

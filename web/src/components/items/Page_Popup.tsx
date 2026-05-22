@@ -39,6 +39,7 @@ import {
   CALENDAR_POPUP_LAYOUT_CONSTANTS,
   decodeCalendarCombinedIndex,
   formatCalendarWindowTitle,
+  getCalendarDayMetrics,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCurrentDay,
@@ -409,8 +410,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       pageFns().childAreaBoundsPx(),
       true,
     );
+    const calendarMonthLayouts = props.visualElement.calendarMonthLayouts;
     const scale = calendarVerticalLayout.scale;
-    const effectiveDayRowHeight = calendarDimensions.dayRowHeight;
     const navigateCalendarWindow = (delta: -1 | 1) => {
       store.perVe.setCalendarMonthIndex(pagePath, calendarMonthIndex + delta * calendarWindow.monthsPerPage);
       requestArrange(store, "page-calendar-window-change");
@@ -433,10 +434,10 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           }
           const leftPx = getCalendarMonthLeftPx(calendarDimensions, month);
           const widthPx = getCalendarMonthWidthPx(calendarDimensions, month);
-          const topPx = calendarDimensions.dayAreaTopPx + (day - 1) * calendarDimensions.dayRowHeight;
+          const dayMetrics = getCalendarDayMetrics(calendarDimensions, calendarMonthLayouts, month, day);
           return (
             <div class="absolute pointer-events-none"
-              style={`left: ${leftPx}px; top: ${topPx}px; width: ${widthPx}px; height: ${calendarDimensions.dayRowHeight}px; ` +
+              style={`left: ${leftPx}px; top: ${dayMetrics.topPx}px; width: ${widthPx}px; height: ${dayMetrics.heightPx}px; ` +
                 `background-color: ${backgroundColor}; border: 1px solid ${borderColor};`} />
           );
         })()}
@@ -491,7 +492,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
                 <For each={Array.from({ length: monthInfo.daysInMonth }, (_, i) => i + 1)}>{day => {
                   const dayOfWeek = (monthInfo.firstDayOfWeek + day - 1) % 7;
-                  const topPos = calendarVerticalLayout.monthTitleHeightPx + (day - 1) * effectiveDayRowHeight;
+                  const dayMetrics = getCalendarDayMetrics(calendarDimensions, calendarMonthLayouts, month, day);
+                  const topPos = dayMetrics.topPx - calendarVerticalLayout.monthTitleTopPx;
                   const isToday = isCurrentDay(month, day, visibleMonth.year);
 
                   let backgroundColor = '#ffffff';
@@ -503,11 +505,11 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
                   return (
                     <div class="absolute"
-                      style={`left: 0px; top: ${topPos}px; width: ${monthWidth}px; height: ${effectiveDayRowHeight}px; ` +
+                      style={`left: 0px; top: ${topPos}px; width: ${monthWidth}px; height: ${dayMetrics.heightPx}px; ` +
                         `background-color: ${backgroundColor}; ` +
                         `border-bottom: 1px solid #e5e5e5; box-sizing: border-box;`}>
                       <div class="flex items-start"
-                        style={`width: ${monthWidth / scale}px; height: ${effectiveDayRowHeight / scale}px; transform: scale(${scale}); transform-origin: top left; padding-top: 5px;`}>
+                        style={`width: ${monthWidth / scale}px; height: ${dayMetrics.heightPx / scale}px; transform: scale(${scale}); transform-origin: top left; padding-top: 5px;`}>
                         <div style={`width: ${CALENDAR_DAY_LABEL_LEFT_MARGIN_PX / scale}px; display: flex; align-items: flex-start; justify-content: flex-end;`}>
                           <span style="font-size: 10px; margin-right: 2px;">{day}</span>
                         </div>

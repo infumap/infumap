@@ -1353,6 +1353,8 @@ export const PageFns = {
     if (!meta || !meta.calendarYear || !meta.calendarMonth || !meta.calendarDay) { return; }
 
     const pageItem = asPageItem(visualElement.displayItem);
+    if (pageItem.flags & PageFlags.CalendarIndependentRows) { return; }
+
     const targetYear = meta.calendarYear;
     const targetMonth = meta.calendarMonth;
     const targetDay = meta.calendarDay;

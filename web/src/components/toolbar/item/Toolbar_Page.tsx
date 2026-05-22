@@ -102,6 +102,11 @@ export const Toolbar_Page: Component = () => {
     return !(!(pageItem().flags & PageFlags.EmbeddedInteractive));
   }
 
+  const isCalendarIndependentRows = () => {
+    store.touchToolbarDependency();
+    return !!(pageItem().flags & PageFlags.CalendarIndependentRows);
+  }
+
   const focusIsInDock = () => {
     store.touchToolbarDependency();
     const userMaybe = store.user.getUserMaybe();
@@ -140,6 +145,11 @@ export const Toolbar_Page: Component = () => {
   const showJustifiedButtons = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
+  }
+
+  const showCalendarButtons = () => {
+    store.touchToolbarDependency();
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar;
   }
 
   const showDocumentButtons = () => {
@@ -235,6 +245,17 @@ export const Toolbar_Page: Component = () => {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
     requestArrange(store, "toolbar-page-interactive");
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    store.touchToolbar();
+  }
+
+  const handleToggleCalendarIndependentRows = () => {
+    if (pageItem().flags & PageFlags.CalendarIndependentRows) {
+      pageItem().flags &= ~PageFlags.CalendarIndependentRows;
+    } else {
+      pageItem().flags |= PageFlags.CalendarIndependentRows;
+    }
+    requestArrange(store, "toolbar-page-calendar-row-mode");
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -451,6 +472,15 @@ export const Toolbar_Page: Component = () => {
             <div class="inline-block w-[25px] pl-[6px] text-right">
               {justifiedAspectText()}
             </div>
+          </div>
+        </Show>
+        <Show when={showCalendarButtons()}>
+          <div class="inline-block ml-[10px]">
+            <InfuIconButton
+              icon="fa fa-calendar"
+              highlighted={isCalendarIndependentRows()}
+              clickHandler={handleToggleCalendarIndependentRows}
+              title="Show all items in each calendar day" />
           </div>
         </Show>
         <Show when={showDocumentButtons()}>
