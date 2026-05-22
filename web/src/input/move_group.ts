@@ -19,6 +19,8 @@
 import { GRID_SIZE } from "../constants";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
+import { asCompositeItem, isComposite } from "../items/composite-item";
+import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VeFns, Veid, VisualElement } from "../layout/visual-element";
@@ -40,6 +42,44 @@ type GroupMoveEntry = {
 
 function veidsMatch(a: Veid, b: Veid): boolean {
   return a.itemId === b.itemId && a.linkIdMaybe === b.linkIdMaybe;
+}
+
+export function movingHitIgnoreIds(
+  activeVisualElement: VisualElement,
+  group: Array<GroupMoveItem> | null | undefined,
+): Array<string> {
+  const ignoreIds: Array<string> = [];
+  const addIgnoreId = (id: string | null | undefined) => {
+    if (id != null && !ignoreIds.includes(id)) {
+      ignoreIds.push(id);
+    }
+  };
+  const addCompositeChildrenIgnoreIds = (itemId: string | null | undefined) => {
+    if (itemId == null) { return; }
+    const item = itemState.get(itemId);
+    if (item == null || !isComposite(item)) { return; }
+    const compositeItem = asCompositeItem(item);
+    for (let childId of compositeItem.computed_children) {
+      addIgnoreId(childId);
+      const child = itemState.get(childId);
+      if (child != null && isLink(child)) {
+        addIgnoreId(LinkFns.getLinkToId(asLinkItem(child)));
+      }
+    }
+  };
+
+  addIgnoreId(activeVisualElement.displayItem.id);
+  addIgnoreId(activeVisualElement.linkItemMaybe?.id);
+  addIgnoreId(activeVisualElement.actualLinkItemMaybe?.id);
+  addCompositeChildrenIgnoreIds(activeVisualElement.displayItem.id);
+
+  for (const entry of group ?? []) {
+    addIgnoreId(entry.veid.itemId);
+    addIgnoreId(entry.veid.linkIdMaybe);
+    addCompositeChildrenIgnoreIds(entry.veid.itemId);
+  }
+
+  return ignoreIds;
 }
 
 export function calculateMoveToPagePositionGr(

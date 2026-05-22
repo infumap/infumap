@@ -23,9 +23,9 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { asCompositeItem, isComposite } from "../items/composite-item";
+import { isComposite } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
-import { LinkFns, asLinkItem, isLink } from "../items/link-item";
+import { LinkFns, isLink } from "../items/link-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
@@ -53,7 +53,7 @@ import createJustifiedLayout from "justified-layout";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { createJustifyOptions } from "../layout/arrange/page_justified";
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
-import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets } from "./move_group";
+import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 
 
@@ -379,17 +379,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
 
-  let ignoreIds = [activeVisualElement.displayItem.id];
-  if (isComposite(activeVisualElement.displayItem)) {
-    const compositeItem = asCompositeItem(activeVisualElement.displayItem);
-    for (let childId of compositeItem.computed_children) {
-      ignoreIds.push(childId);
-      const item = itemState.get(childId);
-      if (isLink(item)) {
-        ignoreIds.push(LinkFns.getLinkToId(asLinkItem(item!)));
-      }
-    }
-  }
+  const ignoreIds = movingHitIgnoreIds(activeVisualElement, MouseActionState.getGroupMoveItems());
 
   const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, MouseActionState.usesEmbeddedInteractiveHitTesting(), false);
   const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);

@@ -26,7 +26,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
-import { LinkFns, asLinkItem, isLink } from "../items/link-item";
+import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
@@ -52,7 +52,7 @@ import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets } from "./move_group";
+import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
 
 
@@ -665,18 +665,7 @@ function scheduleMoveCommit(
 }
 
 function movingIgnoreIds(activeVisualElement: VisualElement): Array<string> {
-  const ignoreIds = [activeVisualElement.displayItem.id];
-  if (isComposite(activeVisualElement.displayItem)) {
-    const compositeItem = asCompositeItem(activeVisualElement.displayItem);
-    for (const childId of compositeItem.computed_children) {
-      ignoreIds.push(childId);
-      const item = itemState.get(childId);
-      if (isLink(item)) {
-        ignoreIds.push(LinkFns.getLinkToId(asLinkItem(item!)));
-      }
-    }
-  }
-  return ignoreIds;
+  return movingHitIgnoreIds(activeVisualElement, MouseActionState.getGroupMoveItems());
 }
 
 function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
