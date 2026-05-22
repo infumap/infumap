@@ -506,7 +506,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
 
   let needToRearrange = () => {
     const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
-    if (Math.round(prevScrollYPos) != Math.round(scrollYPos)) { return true; }
+    if (Math.floor(prevScrollYPos) != Math.floor(scrollYPos)) { return true; }
     return false;
   };
   if (!needToRearrange()) { return; }

@@ -59,6 +59,12 @@ const _tableHandler: HitHandler = {
         return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.HorizontalResize, HitboxFlags.None).meta(hb.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-hresize").build();
       }
     }
+    if (tableVe.viewportBoundsPx && posRelativeToRootVeViewportPx.y < tableVe.viewportBoundsPx.y) {
+      const { flags: hitboxType, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx));
+      if (hitboxType != HitboxFlags.None && !ignoreItems.has(tableVe.displayItem.id)) {
+        return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-header").build();
+      }
+    }
     const tableVeChildren = VesCache.render.getChildren(VeFns.veToPath(tableVe))();
     for (let j = 0; j < tableVeChildren.length; ++j) {
       const tableChildVes = tableVeChildren[j];
