@@ -81,7 +81,7 @@ export function arrange_calendar_page(
     const topPadding = 7;
     const bottomMargin = 5;
     const headerHeight = topPadding + titleHeight + 14 + monthTitleHeight + bottomMargin;
-    const naturalCalendarHeightPx = headerHeight + (31 * displayItem_pageWithChildren.calendarDayRowHeightBl * LINE_HEIGHT_PX);
+    const naturalCalendarHeightPx = headerHeight + (31 * CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX);
 
     const viewportHeight = geometry.viewportBoundsPx!.h;
 
@@ -189,7 +189,6 @@ export function arrange_calendar_page(
   const calendarDimensions = calculateCalendarDimensions(childAreaBounds, calendarMonthResize, calendarWindow);
   const calendarVerticalLayout = calculateCalendarVerticalLayout(
     childAreaBounds,
-    displayItem_pageWithChildren.calendarDayRowHeightBl,
     !!(flags & ArrangeItemFlags.IsPopupRoot),
   );
   const dayRowHeight = calendarVerticalLayout.dayRowHeight;

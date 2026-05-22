@@ -407,7 +407,6 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     const calendarDimensions = calculateCalendarDimensionsForVisualElement(props.visualElement, calendarResizeMaybe, calendarWindow);
     const calendarVerticalLayout = calculateCalendarVerticalLayout(
       pageFns().childAreaBoundsPx(),
-      asPageItem(props.visualElement.displayItem).calendarDayRowHeightBl,
       true,
     );
     const scale = calendarVerticalLayout.scale;

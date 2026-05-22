@@ -25,6 +25,7 @@ import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { newOrderingAtEnd } from "../util/ordering";
 import { requestArrange } from "./arrange";
+import { CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
 import type { SearchResult } from "../server";
 import { searchResultPathSegments } from "../util/search-result-display";
 
@@ -38,7 +39,7 @@ function copyCurrentSearchResultsLayout(store: StoreContextModel, searchItem: Se
     materializedPage.gridCellAspect = resultsPage.gridCellAspect;
     materializedPage.docWidthBl = resultsPage.docWidthBl;
     materializedPage.justifiedRowAspect = resultsPage.justifiedRowAspect;
-    materializedPage.calendarDayRowHeightBl = resultsPage.calendarDayRowHeightBl;
+    materializedPage.calendarDayRowHeightBl = CALENDAR_DAY_ROW_HEIGHT_BL;
     materializedPage.orderChildrenBy = "";
   }
 

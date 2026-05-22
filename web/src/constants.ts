@@ -35,7 +35,7 @@ export const MIN_NON_ROOT_LIST_PAGE_SCALE = 0.67;
 
 export const NATURAL_BLOCK_SIZE_PX = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
-export const CALENDAR_DAY_ROW_HEIGHT_BL = 2;
+export const CALENDAR_DAY_ROW_HEIGHT_BL = 1;
 export const CALENDAR_DAY_LABEL_LEFT_MARGIN_PX = 18;
 
 export const EMBEDDED_CHILD_WIDTH_BL = 10;

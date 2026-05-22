@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, LINE_HEIGHT_PX } from "../constants";
+import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX } from "../constants";
 import type { StoreContextModel } from "../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../layout/visual-element";
 import type { VisualElement } from "../layout/visual-element";
@@ -250,7 +250,6 @@ export function calculateCalendarDimensions(
 
 export function calculateCalendarVerticalLayout(
   childAreaBoundsPx: { h: number },
-  calendarDayRowHeightBl: number,
   isPopupRoot: boolean,
 ): CalendarVerticalLayout {
   if (!isPopupRoot) {
@@ -273,7 +272,7 @@ export function calculateCalendarVerticalLayout(
     };
   }
 
-  const baseDayRowPx = calendarDayRowHeightBl * LINE_HEIGHT_PX;
+  const baseDayRowPx = CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX;
   const headerTotal =
     CALENDAR_POPUP_LAYOUT_CONSTANTS.TOP_PADDING +
     CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT +
@@ -298,11 +297,6 @@ export function calculateCalendarVerticalLayout(
   };
 }
 
-function calendarDayRowHeightBlFromVe(pageVe: VisualElement): number {
-  const maybe = (pageVe.displayItem as { calendarDayRowHeightBl?: number }).calendarDayRowHeightBl;
-  return typeof maybe == "number" ? maybe : 1;
-}
-
 export function calculateCalendarDimensionsForVisualElement(
   pageVe: VisualElement,
   monthResizeMaybe: CalendarMonthResize | null = null,
@@ -316,7 +310,6 @@ export function calculateCalendarDimensionsForVisualElement(
 
   const verticalLayout = calculateCalendarVerticalLayout(
     childAreaBoundsPx,
-    calendarDayRowHeightBlFromVe(pageVe),
     true,
   );
 

@@ -167,7 +167,6 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
-  if (overlayType == ToolbarPopupType.PageCalendarDayRowHeight) { return 60; }
   if (overlayType == ToolbarPopupType.SearchArrangeAlgorithm) { return 60; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
@@ -266,9 +265,7 @@ export const Toolbar_Popup: Component = () => {
     isTable(getToolbarFocusItem(store))
       ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
       : isPage(getToolbarFocusItem(store))
-        ? overlayTypeConst == ToolbarPopupType.PageCalendarDayRowHeight
-          ? asPageItem(getToolbarFocusItem(store)).calendarDayRowHeightBl.toString()
-          : asPageItem(getToolbarFocusItem(store)).gridNumberOfColumns.toString()
+        ? asPageItem(getToolbarFocusItem(store)).gridNumberOfColumns.toString()
         : "1"
   );
   const [itemIconVisible, setItemIconVisible] = createSignal(
@@ -317,8 +314,6 @@ export const Toolbar_Popup: Component = () => {
       pageItem().gridCellAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {
       pageItem().justifiedRowAspect = parseFloat(textElement!.value);
-    } else if (overlayTypeConst == ToolbarPopupType.PageCalendarDayRowHeight) {
-      pageItem().calendarDayRowHeightBl = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
       noteItem().url = textElement!.value;
     } else if (overlayTypeConst == ToolbarPopupType.NoteFormat) {
@@ -341,7 +336,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
-    if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) { return 230; }
     return 200;
   }
 
@@ -350,8 +344,6 @@ export const Toolbar_Popup: Component = () => {
   onMount(() => {
     if (overlayType() == ToolbarPopupType.TableNumCols) {
       setSliderValue(asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString());
-    } else if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) {
-      setSliderValue(asPageItem(getToolbarFocusItem(store)).calendarDayRowHeightBl.toString());
     }
 
     if (overlayType() != ToolbarPopupType.PageColor &&
@@ -361,7 +353,6 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.SearchArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.TableNumCols &&
       overlayType() != ToolbarPopupType.PageNumCols &&
-      overlayType() != ToolbarPopupType.PageCalendarDayRowHeight &&
       overlayType() != ToolbarPopupType.RatingType) {
       textElement!.focus();
     }
@@ -388,7 +379,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
-    if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) { return "" + pageItem().calendarDayRowHeightBl; }
     if (overlayType() == ToolbarPopupType.QrLink) { return null; }
     return "[unknown]";
   }
@@ -403,7 +393,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "Row Aspect"; }
-    if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) { return "Row Height"; }
     if (overlayType() == ToolbarPopupType.QrLink) { return null; }
     return "[unknown]";
   }
@@ -415,7 +404,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "The aspect ratio (width / height) of one row of items."; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
-    if (overlayType() == ToolbarPopupType.PageCalendarDayRowHeight) { return "The height of one row of calendar day items."; }
     return null;
   }
 
@@ -777,21 +765,15 @@ export const Toolbar_Popup: Component = () => {
   const handleSliderInput = (e: Event & { currentTarget: HTMLInputElement }) => {
     setSliderValue(e.currentTarget.value);
     let newValue = parseInt(e.currentTarget.value);
-    if (overlayTypeConst == ToolbarPopupType.PageCalendarDayRowHeight) {
-      if (newValue > 8) { newValue = 8; }
-      if (newValue < 1) { newValue = 1; }
-      pageItem().calendarDayRowHeightBl = newValue;
-    } else {
-      if (newValue > 20) { newValue = 20; }
-      if (newValue < 1) { newValue = 1; }
-      if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
-        tableItem().numberOfVisibleColumns = newValue;
-        while (tableItem().tableColumns.length < newValue) {
-          tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
-        }
-      } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
-        pageItem().gridNumberOfColumns = newValue;
+    if (newValue > 20) { newValue = 20; }
+    if (newValue < 1) { newValue = 1; }
+    if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
+      tableItem().numberOfVisibleColumns = newValue;
+      while (tableItem().tableColumns.length < newValue) {
+        tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
       }
+    } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
+      pageItem().gridNumberOfColumns = newValue;
     }
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-slider");
@@ -1008,15 +990,15 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Show when={label() != null}>
-              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageNumCols || overlayType() == ToolbarPopupType.PageCalendarDayRowHeight
+              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageNumCols
                 ? <div class="flex items-center mt-[7px]">
                   <div class="text-sm ml-2 mr-2">{label()}</div>
                   <input ref={textElement}
                     class="p-[2px] focus:outline-none"
                     style={`width: ${inputWidthPx() - 50}px`}
                     type="range"
-                    min={overlayType() == ToolbarPopupType.PageCalendarDayRowHeight ? "1" : "1"}
-                    max={overlayType() == ToolbarPopupType.PageCalendarDayRowHeight ? "8" : "20"}
+                    min="1"
+                    max="20"
                     value={sliderValue()}
                     onInput={handleSliderInput}
                     onKeyDown={handleKeyDown}
