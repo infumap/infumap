@@ -20,6 +20,7 @@ import { Component, For, Show } from "solid-js";
 import { Z_INDEX_GLOBAL_MOVING } from "../constants";
 import { MouseAction, MouseActionState } from "../input/state";
 import { isPage } from "../items/page-item";
+import { isTable } from "../items/table-item";
 import { VesCache } from "../layout/ves-cache";
 import { isVeTranslucentPage, VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { StoreContextModel, useStore } from "../store/StoreProvider";
@@ -41,11 +42,25 @@ function movingOverlayBoundsPx(store: StoreContextModel, visualElement: VisualEl
   return VeFns.veBoundsRelativeToDesktopPx(store, visualElement);
 }
 
+function movingOverlayViewportBoundsPx(visualElement: VisualElement, overlayBoundsPx: BoundingBox): BoundingBox | null {
+  if (!isTable(visualElement.displayItem) || visualElement.viewportBoundsPx == null) {
+    return visualElement.viewportBoundsPx;
+  }
+
+  return {
+    ...visualElement.viewportBoundsPx,
+    x: overlayBoundsPx.x + (visualElement.viewportBoundsPx.x - visualElement.boundsPx.x),
+    y: overlayBoundsPx.y + (visualElement.viewportBoundsPx.y - visualElement.boundsPx.y),
+  };
+}
+
 function movingOverlayVe(store: StoreContextModel, visualElement: VisualElement): VisualElement {
+  const boundsPx = movingOverlayBoundsPx(store, visualElement);
   return {
     ...visualElement,
     flags: visualElement.flags & ~VisualElementFlags.Fixed,
-    boundsPx: movingOverlayBoundsPx(store, visualElement),
+    boundsPx,
+    viewportBoundsPx: movingOverlayViewportBoundsPx(visualElement, boundsPx),
   };
 }
 

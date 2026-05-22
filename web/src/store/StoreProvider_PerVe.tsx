@@ -225,7 +225,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
   const setMoveOverRowNumber = (vePath: VisualElementPath, rowNumber: number): void => {
     if (!moveOverRowNumber.get(vePath)) {
-      moveOverRowNumber.set(vePath, createNumberSignal(-1));
+      moveOverRowNumber.set(vePath, createNumberSignal(rowNumber));
       return;
     }
     moveOverRowNumber.get(vePath)!.set(rowNumber);

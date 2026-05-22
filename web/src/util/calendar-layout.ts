@@ -208,13 +208,32 @@ export function calculateCalendarWindowForPage(
   const wasInitialized = store.perVe.hasCalendarMonthIndex(vePath);
   let monthIndex = store.perVe.getCalendarMonthIndex(vePath);
   if (!wasInitialized) {
-    const alignedMonthIndex = alignCalendarWindowStartMonthIndex(monthIndex, monthsPerPage);
+    const alignedMonthIndex = calculateDefaultCalendarWindowStartMonthIndex(
+      pageWidthPx,
+      page,
+      store.smallScreenMode(),
+    );
     if (alignedMonthIndex != monthIndex) {
       store.perVe.setCalendarMonthIndex(vePath, alignedMonthIndex);
       monthIndex = alignedMonthIndex;
     }
   }
   return calculateCalendarWindow(pageWidthPx, monthIndex, monthsPerPage, false);
+}
+
+export function calculateDefaultCalendarWindowStartMonthIndex(
+  pageWidthPx: number,
+  page: { flags: number },
+  smallScreenMode: boolean,
+): number {
+  const now = new Date();
+  const currentMonthIndex = encodeCalendarMonthIndex(now.getFullYear(), now.getMonth() + 1);
+  const monthsPerPage = getCalendarMonthsPerPageForDisplayMode(
+    pageWidthPx,
+    getPageCalendarDisplayMode(page),
+    smallScreenMode,
+  );
+  return alignCalendarWindowStartMonthIndex(currentMonthIndex, monthsPerPage);
 }
 
 export function formatCalendarWindowTitle(calendarWindow: CalendarWindow): string {

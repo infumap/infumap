@@ -37,6 +37,7 @@ import {
   decodeCalendarCombinedIndex,
   formatCalendarWindowTitle,
   calculateCalendarWindowForPage,
+  calculateDefaultCalendarWindowStartMonthIndex,
   getCalendarDayMetrics,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
@@ -393,6 +394,17 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       store.perVe.setCalendarMonthIndex(pagePath, calendarWindow.startMonthIndex + monthDelta);
       requestArrange(store, "page-calendar-window-change");
     };
+    const resetCalendarWindow = () => {
+      store.perVe.setCalendarMonthIndex(
+        pagePath,
+        calculateDefaultCalendarWindowStartMonthIndex(
+          pageFns().childAreaBoundsPx().w,
+          pageFns().pageItem(),
+          store.smallScreenMode(),
+        ),
+      );
+      requestArrange(store, "page-calendar-window-reset");
+    };
     const calendarTitleButtonWidthPx = 30;
     const calendarTitleGapPx = 6;
     const calendarTitleTextWidthPx = () => Math.max(
@@ -448,7 +460,11 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 onClick={() => navigateCalendarWindow(-1)}>
                 <i class="fas fa-angle-left" />
               </div>
-              <span class="text-center overflow-hidden whitespace-nowrap text-ellipsis">{formatCalendarWindowTitle(calendarWindow)}</span>
+              <span class="text-center overflow-hidden whitespace-nowrap text-ellipsis cursor-pointer hover:text-slate-700"
+                title="Reset to current window"
+                onClick={resetCalendarWindow}>
+                {formatCalendarWindowTitle(calendarWindow)}
+              </span>
               <div class={calendarTitleButtonClass}
                 title="Next month"
                 onClick={() => navigateCalendarWindow(1)}>
