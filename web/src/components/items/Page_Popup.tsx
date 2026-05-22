@@ -40,6 +40,7 @@ import {
   decodeCalendarCombinedIndex,
   formatCalendarWindowTitle,
   getCalendarDayMetrics,
+  getCalendarMonthsPerPageForDisplayMode,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCurrentDay,
@@ -50,6 +51,7 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { MouseAction, MouseActionState } from "../../input/state";
+import { getPageCalendarDisplayMode } from "../../items/base/flags-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -401,7 +403,15 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const renderCalendarPage = () => {
     const pagePath = VeFns.veToPath(props.visualElement);
     const calendarMonthIndex = store.perVe.getCalendarMonthIndex(pagePath);
-    const calendarWindow = calculateCalendarWindow(pageFns().childAreaBoundsPx().w, calendarMonthIndex);
+    const calendarWindow = calculateCalendarWindow(
+      pageFns().childAreaBoundsPx().w,
+      calendarMonthIndex,
+      getCalendarMonthsPerPageForDisplayMode(
+        pageFns().childAreaBoundsPx().w,
+        getPageCalendarDisplayMode(pageFns().pageItem()),
+        store.smallScreenMode(),
+      ),
+    );
     const calendarResizeMaybe = calendarWindow.monthsPerPage == 12
       ? store.perVe.getCalendarMonthResize(pagePath)
       : null;

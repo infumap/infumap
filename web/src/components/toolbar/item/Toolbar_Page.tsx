@@ -29,7 +29,7 @@ import { GRID_SIZE } from "../../../constants";
 import { server, serverOrRemote } from "../../../server";
 import { PermissionFlags } from "../../../items/base/permission-flags-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
-import { PageFlags } from "../../../items/base/flags-item";
+import { getPageCalendarDisplayMode, PageCalendarDisplayMode, PageFlags } from "../../../items/base/flags-item";
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
@@ -48,6 +48,7 @@ export const Toolbar_Page: Component = () => {
   let aspectDiv: HTMLDivElement | undefined;
   let cellAspectDiv: HTMLDivElement | undefined;
   let arrangeAlgoDiv: HTMLDivElement | undefined;
+  let calendarDisplayModeDiv: HTMLDivElement | undefined;
   let justifiedRowAspectDiv: HTMLDivElement | undefined;
   let numColsDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
@@ -68,6 +69,18 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(arrangeAlgoDiv!.getBoundingClientRect());
   };
 
+  const handleCalendarDisplayModeClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCalendarDisplayMode) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: calendarDisplayModeDiv!.getBoundingClientRect().x, y: calendarDisplayModeDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCalendarDisplayMode });
+  };
+  const handleCalendarDisplayModeDown = () => {
+    ClickState.setButtonClickBoundsPx(calendarDisplayModeDiv!.getBoundingClientRect());
+  };
+
   // force rerender when color selector closes.
   createEffect(() => {
     store.touchToolbar();
@@ -85,6 +98,16 @@ export const Toolbar_Page: Component = () => {
     if (aa == ArrangeAlgorithm.SingleCell) { return "single-cell"; }
     if (aa == ArrangeAlgorithm.Calendar) { return "calendar"; }
     panic("unexpected arrange algorithm " + aa);
+  }
+
+  const calendarDisplayModeText = () => {
+    store.touchToolbarDependency();
+    const displayMode = getPageCalendarDisplayMode(pageItem());
+    if (displayMode == PageCalendarDisplayMode.Month) { return "Month"; }
+    if (displayMode == PageCalendarDisplayMode.Quarter) { return "Quarter"; }
+    if (displayMode == PageCalendarDisplayMode.HalfYear) { return "Half-Year"; }
+    if (displayMode == PageCalendarDisplayMode.Year) { return "Year"; }
+    return "Auto";
   }
 
   const isSortedByTitle = () => {
@@ -475,6 +498,15 @@ export const Toolbar_Page: Component = () => {
           </div>
         </Show>
         <Show when={showCalendarButtons()}>
+          <div ref={calendarDisplayModeDiv}
+            class="inline-block w-[88px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
+            style={`font-size: 13px;`}>
+            <div class="inline-block w-[86px] pl-[6px] hover:bg-slate-300"
+              onClick={handleCalendarDisplayModeClick}
+              onMouseDown={handleCalendarDisplayModeDown}>
+              {calendarDisplayModeText()}
+            </div>
+          </div>
           <div class="inline-block ml-[10px]">
             <InfuIconButton
               icon="fa fa-calendar"

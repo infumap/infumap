@@ -47,6 +47,7 @@ import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-it
 import { isImage } from "../../items/image-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { getToolbarFocusItem } from "./toolbarFocus";
+import { getPageCalendarDisplayMode, PageCalendarDisplayMode, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 
 
 const EMOJI_CATEGORIES = [
@@ -168,6 +169,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
   if (overlayType == ToolbarPopupType.SearchArrangeAlgorithm) { return 60; }
+  if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return 138; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
       return 500;
@@ -193,6 +195,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
 
   if (popupType != ToolbarPopupType.PageColor &&
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
+    popupType != ToolbarPopupType.PageCalendarDisplayMode &&
     popupType != ToolbarPopupType.SearchArrangeAlgorithm &&
     popupType != ToolbarPopupType.RatingType) {
     const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
@@ -217,6 +220,13 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96,
       h: documentArrangeEnabled(store) ? 190 : 164
+    }
+  } else if (popupType == ToolbarPopupType.PageCalendarDisplayMode) {
+    return {
+      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
+      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      w: 112,
+      h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
     }
   } else if (popupType == ToolbarPopupType.SearchArrangeAlgorithm) {
     return {
@@ -350,6 +360,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.ItemIcon &&
       overlayType() != ToolbarPopupType.QrLink &&
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
+      overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
       overlayType() != ToolbarPopupType.SearchArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.TableNumCols &&
       overlayType() != ToolbarPopupType.PageNumCols &&
@@ -721,6 +732,22 @@ export const Toolbar_Popup: Component = () => {
   const aaListClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.List); }
   const aaDocumentClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Document); }
   const aaCalendarClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Calendar); }
+  const calendarDisplayMode = () => getPageCalendarDisplayMode(pageItem());
+  const handleCalendarDisplayModeChange = (displayMode: PageCalendarDisplayMode) => {
+    const focusItem = getToolbarFocusItem(store);
+    if (!isPage(focusItem)) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    const targetPage = asPageItem(focusItem);
+    setPageCalendarDisplayMode(targetPage, displayMode);
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.touchToolbar();
+    arrangeNow(store, "toolbar-popup-calendar-display-mode");
+    serverOrRemote.updateItem(targetPage, store.general.networkStatus);
+  };
+  const calendarDisplayModeChoiceClass = (displayMode: PageCalendarDisplayMode): string =>
+    `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${calendarDisplayMode() == displayMode ? "font-bold text-slate-900" : ""}`;
   const searchArrangeAlgorithm = () => {
     const focusItem = getToolbarFocusItem(store);
     if (!isSearch(focusItem)) { return ArrangeAlgorithm.Catalog; }
@@ -829,6 +856,33 @@ export const Toolbar_Popup: Component = () => {
                 Document
               </div>
             </Show>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.PageCalendarDisplayMode}>
+          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <div class={calendarDisplayModeChoiceClass(PageCalendarDisplayMode.Month) + " mt-[3px]"}
+              onClick={() => { handleCalendarDisplayModeChange(PageCalendarDisplayMode.Month); }}>
+              Month
+            </div>
+            <div class={calendarDisplayModeChoiceClass(PageCalendarDisplayMode.Quarter)}
+              onClick={() => { handleCalendarDisplayModeChange(PageCalendarDisplayMode.Quarter); }}>
+              Quarter
+            </div>
+            <div class={calendarDisplayModeChoiceClass(PageCalendarDisplayMode.HalfYear)}
+              onClick={() => { handleCalendarDisplayModeChange(PageCalendarDisplayMode.HalfYear); }}>
+              Half-Year
+            </div>
+            <div class={calendarDisplayModeChoiceClass(PageCalendarDisplayMode.Year)}
+              onClick={() => { handleCalendarDisplayModeChange(PageCalendarDisplayMode.Year); }}>
+              Year
+            </div>
+            <div class={calendarDisplayModeChoiceClass(PageCalendarDisplayMode.Auto)}
+              onClick={() => { handleCalendarDisplayModeChange(PageCalendarDisplayMode.Auto); }}>
+              Auto
+            </div>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.SearchArrangeAlgorithm}>

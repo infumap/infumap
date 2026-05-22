@@ -19,7 +19,7 @@
 import { TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { PageFlags, TableFlags } from "../items/base/flags-item";
+import { getPageCalendarDisplayMode, PageFlags, TableFlags } from "../items/base/flags-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -34,7 +34,7 @@ import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, veFlagIsRoot } fr
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
-import { calculateCalendarWindow } from "../util/calendar-layout";
+import { calculateCalendarWindow, getCalendarMonthsPerPageForDisplayMode } from "../util/calendar-layout";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState, MouseActionState } from "./state";
 import { newItemInContext } from "./create";
@@ -1511,7 +1511,15 @@ function handleArrowKeyCalendarPageMaybe(store: StoreContextModel, ev: KeyboardE
   const pageVe = VesCache.render.getNode(focusPath)?.get();
   const pageWidthPx = pageVe?.childAreaBoundsPx?.w ?? store.desktopMainAreaBoundsPx().w;
   const currentMonthIndex = store.perVe.getCalendarMonthIndex(focusPath);
-  const calendarWindow = calculateCalendarWindow(pageWidthPx, currentMonthIndex);
+  const calendarWindow = calculateCalendarWindow(
+    pageWidthPx,
+    currentMonthIndex,
+    getCalendarMonthsPerPageForDisplayMode(
+      pageWidthPx,
+      getPageCalendarDisplayMode(asPageItem(focusItem)),
+      store.smallScreenMode(),
+    ),
+  );
 
   if (ev.code == "ArrowLeft") {
     store.perVe.setCalendarMonthIndex(focusPath, currentMonthIndex - calendarWindow.monthsPerPage);

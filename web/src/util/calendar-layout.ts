@@ -22,6 +22,7 @@ import { VeFns, VisualElementFlags } from "../layout/visual-element";
 import type { CalendarMonthLayout, VisualElement } from "../layout/visual-element";
 import { Vector } from "./geometry";
 import { getMonthInfo } from "./time";
+import { getPageCalendarDisplayMode, PageCalendarDisplayMode } from "../items/base/flags-item";
 
 export const CALENDAR_LAYOUT_CONSTANTS = {
   COLUMNS_COUNT: 12,
@@ -134,6 +135,18 @@ export function getCalendarMonthsPerPage(pageWidthPx: number): CalendarMonthsPer
   return 12;
 }
 
+export function getCalendarMonthsPerPageForDisplayMode(
+  pageWidthPx: number,
+  displayMode: PageCalendarDisplayMode,
+  smallScreenMode: boolean,
+): CalendarMonthsPerPage {
+  if (smallScreenMode || displayMode == PageCalendarDisplayMode.Month) { return 1; }
+  if (displayMode == PageCalendarDisplayMode.Quarter) { return 3; }
+  if (displayMode == PageCalendarDisplayMode.HalfYear) { return 6; }
+  if (displayMode == PageCalendarDisplayMode.Year) { return 12; }
+  return getCalendarMonthsPerPage(pageWidthPx);
+}
+
 export function alignCalendarWindowStartMonthIndex(monthIndex: number, monthsPerPage: CalendarMonthsPerPage): number {
   const { year, month } = decodeCalendarMonthIndex(monthIndex);
   if (monthsPerPage == 12) {
@@ -148,8 +161,12 @@ export function alignCalendarWindowStartMonthIndex(monthIndex: number, monthsPer
   return monthIndex;
 }
 
-export function calculateCalendarWindow(pageWidthPx: number, monthIndex: number): CalendarWindow {
-  const monthsPerPage = getCalendarMonthsPerPage(pageWidthPx);
+export function calculateCalendarWindow(
+  pageWidthPx: number,
+  monthIndex: number,
+  monthsPerPageMaybe: CalendarMonthsPerPage | null = null,
+): CalendarWindow {
+  const monthsPerPage = monthsPerPageMaybe ?? getCalendarMonthsPerPage(pageWidthPx);
   const startMonthIndex = alignCalendarWindowStartMonthIndex(monthIndex, monthsPerPage);
   const start = decodeCalendarMonthIndex(startMonthIndex);
   const months: Array<CalendarVisibleMonth> = [];
@@ -172,6 +189,17 @@ export function calculateCalendarWindow(pageWidthPx: number, monthIndex: number)
     endMonth: months[months.length - 1].month,
     months,
   };
+}
+
+export function getCalendarMonthsPerPageForVisualElement(
+  pageVe: VisualElement,
+  store: StoreContextModel,
+): CalendarMonthsPerPage {
+  return getCalendarMonthsPerPageForDisplayMode(
+    pageVe.childAreaBoundsPx!.w,
+    getPageCalendarDisplayMode(pageVe.displayItem as any),
+    store.smallScreenMode(),
+  );
 }
 
 export function formatCalendarWindowTitle(calendarWindow: CalendarWindow): string {
@@ -528,7 +556,11 @@ export function calculateCalendarPosition(
   const childAreaBounds = pageVe.childAreaBoundsPx!;
   const viewportBounds = pageVe.viewportBoundsPx!;
   const pagePath = VeFns.veToPath(pageVe);
-  const calendarWindow = calculateCalendarWindow(childAreaBounds.w, store.perVe.getCalendarMonthIndex(pagePath));
+  const calendarWindow = calculateCalendarWindow(
+    childAreaBounds.w,
+    store.perVe.getCalendarMonthIndex(pagePath),
+    getCalendarMonthsPerPageForVisualElement(pageVe, store),
+  );
   const monthResizeMaybe = calendarWindow.monthsPerPage == 12
     ? store.perVe.getCalendarMonthResize(pagePath)
     : null;
@@ -564,7 +596,11 @@ export function calculateCalendarDateTime(
   store: StoreContextModel
 ): number {
   const position = calculateCalendarPosition(desktopPosPx, pageVe, store);
-  const calendarWindow = calculateCalendarWindow(pageVe.childAreaBoundsPx!.w, store.perVe.getCalendarMonthIndex(VeFns.veToPath(pageVe)));
+  const calendarWindow = calculateCalendarWindow(
+    pageVe.childAreaBoundsPx!.w,
+    store.perVe.getCalendarMonthIndex(VeFns.veToPath(pageVe)),
+    getCalendarMonthsPerPageForVisualElement(pageVe, store),
+  );
   const currentTime = new Date();
   const visibleMonth = calendarWindow.months.find(month => month.month === position.month);
   const targetDate = new Date(

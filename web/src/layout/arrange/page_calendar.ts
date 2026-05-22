@@ -43,6 +43,7 @@ import {
   calendarDateKey,
   CALENDAR_LAYOUT_CONSTANTS,
   getCalendarDayMetrics,
+  getCalendarMonthsPerPageForDisplayMode,
   getCalendarDividerCenterPx,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
@@ -50,7 +51,7 @@ import {
 } from "../../util/calendar-layout";
 import { ItemType } from "../../items/base/item";
 import { getMovingTreeItemInParentMaybe } from "./util";
-import { PageFlags } from "../../items/base/flags-item";
+import { getPageCalendarDisplayMode, PageFlags } from "../../items/base/flags-item";
 
 
 export function arrange_calendar_page(
@@ -169,7 +170,15 @@ export function arrange_calendar_page(
 
   // Arrange child items in calendar grid layout (6 blocks wide)
   let calendarChildPaths: Array<VisualElementPath> = [];
-  const calendarWindow = calculateCalendarWindow(childAreaBoundsPx.w, store.perVe.getCalendarMonthIndex(pageWithChildrenVePath));
+  const calendarWindow = calculateCalendarWindow(
+    childAreaBoundsPx.w,
+    store.perVe.getCalendarMonthIndex(pageWithChildrenVePath),
+    getCalendarMonthsPerPageForDisplayMode(
+      childAreaBoundsPx.w,
+      getPageCalendarDisplayMode(displayItem_pageWithChildren),
+      store.smallScreenMode(),
+    ),
+  );
 
   // Sort children by dateTime, but exclude moving item if it's in this page
   // Also filter to only show items from the visible calendar window

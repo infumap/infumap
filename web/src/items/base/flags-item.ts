@@ -68,6 +68,41 @@ export enum PageFlags {
   CalendarIndependentRows = 0x004,
 };
 
+export const PageCalendarDisplayMode = {
+  Auto: "auto",
+  Month: "month",
+  Quarter: "quarter",
+  HalfYear: "half-year",
+  Year: "year",
+} as const;
+
+export type PageCalendarDisplayMode = typeof PageCalendarDisplayMode[keyof typeof PageCalendarDisplayMode];
+
+const PAGE_CALENDAR_DISPLAY_MODE_MASK = 0x038;
+const PAGE_CALENDAR_DISPLAY_MODE_SHIFT = 3;
+
+function calendarDisplayModeBits(mode: PageCalendarDisplayMode): number {
+  if (mode == PageCalendarDisplayMode.Month) { return 1; }
+  if (mode == PageCalendarDisplayMode.Quarter) { return 2; }
+  if (mode == PageCalendarDisplayMode.HalfYear) { return 3; }
+  if (mode == PageCalendarDisplayMode.Year) { return 4; }
+  return 0;
+}
+
+export function getPageCalendarDisplayMode(page: FlagsMixin): PageCalendarDisplayMode {
+  const bits = (page.flags & PAGE_CALENDAR_DISPLAY_MODE_MASK) >> PAGE_CALENDAR_DISPLAY_MODE_SHIFT;
+  if (bits == 1) { return PageCalendarDisplayMode.Month; }
+  if (bits == 2) { return PageCalendarDisplayMode.Quarter; }
+  if (bits == 3) { return PageCalendarDisplayMode.HalfYear; }
+  if (bits == 4) { return PageCalendarDisplayMode.Year; }
+  return PageCalendarDisplayMode.Auto;
+}
+
+export function setPageCalendarDisplayMode(page: FlagsMixin, mode: PageCalendarDisplayMode): void {
+  page.flags = (page.flags & ~PAGE_CALENDAR_DISPLAY_MODE_MASK) |
+    (calendarDisplayModeBits(mode) << PAGE_CALENDAR_DISPLAY_MODE_SHIFT);
+}
+
 export enum ImageFlags {
   None = 0x000,
   HideBorder = 0x001,
