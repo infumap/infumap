@@ -39,8 +39,8 @@ import {
   CALENDAR_POPUP_LAYOUT_CONSTANTS,
   decodeCalendarCombinedIndex,
   formatCalendarWindowTitle,
+  calculateCalendarWindowForPage,
   getCalendarDayMetrics,
-  getCalendarMonthsPerPageForDisplayMode,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCurrentDay,
@@ -51,7 +51,6 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { MouseAction, MouseActionState } from "../../input/state";
-import { getPageCalendarDisplayMode } from "../../items/base/flags-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -402,16 +401,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
   const renderCalendarPage = () => {
     const pagePath = VeFns.veToPath(props.visualElement);
-    const calendarMonthIndex = store.perVe.getCalendarMonthIndex(pagePath);
-    const calendarWindow = calculateCalendarWindow(
-      pageFns().childAreaBoundsPx().w,
-      calendarMonthIndex,
-      getCalendarMonthsPerPageForDisplayMode(
-        pageFns().childAreaBoundsPx().w,
-        getPageCalendarDisplayMode(pageFns().pageItem()),
-        store.smallScreenMode(),
-      ),
-    );
+    const calendarWindow = calculateCalendarWindowForPage(store, pagePath, pageFns().childAreaBoundsPx().w, pageFns().pageItem());
     const calendarResizeMaybe = calendarWindow.monthsPerPage == 12
       ? store.perVe.getCalendarMonthResize(pagePath)
       : null;
@@ -422,8 +412,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     );
     const calendarMonthLayouts = props.visualElement.calendarMonthLayouts;
     const scale = calendarVerticalLayout.scale;
-    const navigateCalendarWindow = (delta: -1 | 1) => {
-      store.perVe.setCalendarMonthIndex(pagePath, calendarMonthIndex + delta * calendarWindow.monthsPerPage);
+    const navigateCalendarWindow = (monthDelta: number) => {
+      store.perVe.setCalendarMonthIndex(pagePath, calendarWindow.startMonthIndex + monthDelta);
       requestArrange(store, "page-calendar-window-change");
     };
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6;
@@ -472,16 +462,26 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             style={`left: 0px; top: ${CALENDAR_POPUP_LAYOUT_CONSTANTS.TOP_PADDING * scale}px; width: ${pageFns().childAreaBoundsPx().w}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT * scale}px;`}>
             <div class="flex items-center justify-center font-bold"
               style={`transform: scale(${scale}); transform-origin: center center;`}>
+              <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-1 text-gray-300"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => navigateCalendarWindow(-calendarWindow.monthsPerPage)}>
+                &lt;&lt;
+              </div>
               <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => navigateCalendarWindow(-1)}>
-                <i class="fas fa-angle-left" />
+                &lt;
               </div>
               <span class="mx-2 text-2xl">{formatCalendarWindowTitle(calendarWindow)}</span>
               <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => navigateCalendarWindow(1)}>
-                <i class="fas fa-angle-right" />
+                &gt;
+              </div>
+              <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-1 text-gray-300"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => navigateCalendarWindow(calendarWindow.monthsPerPage)}>
+                &gt;&gt;
               </div>
             </div>
           </div>

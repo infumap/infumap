@@ -36,8 +36,8 @@ import {
   CALENDAR_LAYOUT_CONSTANTS,
   decodeCalendarCombinedIndex,
   formatCalendarWindowTitle,
+  calculateCalendarWindowForPage,
   getCalendarDayMetrics,
-  getCalendarMonthsPerPageForDisplayMode,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCurrentDay,
@@ -47,7 +47,6 @@ import { desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldSho
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
 import { MouseAction, MouseActionState } from "../../input/state";
-import { getPageCalendarDisplayMode } from "../../items/base/flags-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -359,16 +358,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const renderCalendarPage = () => {
     const pagePath = VeFns.veToPath(props.visualElement);
-    const calendarMonthIndex = store.perVe.getCalendarMonthIndex(pagePath);
-    const calendarWindow = calculateCalendarWindow(
-      pageFns().childAreaBoundsPx().w,
-      calendarMonthIndex,
-      getCalendarMonthsPerPageForDisplayMode(
-        pageFns().childAreaBoundsPx().w,
-        getPageCalendarDisplayMode(pageFns().pageItem()),
-        store.smallScreenMode(),
-      ),
-    );
+    const calendarWindow = calculateCalendarWindowForPage(store, pagePath, pageFns().childAreaBoundsPx().w, pageFns().pageItem());
     const calendarResizeMaybe = calendarWindow.monthsPerPage == 12
       ? store.perVe.getCalendarMonthResize(pagePath)
       : null;
@@ -389,17 +379,18 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       const childAreaBounds = pageFns().childAreaBoundsPx();
       const defaultWidthPx = calculateCalendarDimensions(childAreaBounds, null, calendarWindow).columnWidth;
       const requestedWidthPx = currentResize?.widthPx ?? defaultWidthPx * 2.0;
-      const normalizedWidthPx = calculateCalendarDimensions(childAreaBounds, {
+      const normalizedDimensions = calculateCalendarDimensions(childAreaBounds, {
         month,
         widthPx: requestedWidthPx,
-      }, calendarWindow).columnWidths[month - 1];
+      }, calendarWindow);
+      const normalizedWidthPx = getCalendarMonthWidthPx(normalizedDimensions, month);
       store.perVe.setCalendarMonthResize(pagePath, { month, widthPx: normalizedWidthPx });
       requestArrange(store, currentResize == null
         ? "page-calendar-month-heading-wide"
         : "page-calendar-month-heading-switch-wide");
     };
-    const navigateCalendarWindow = (delta: -1 | 1) => {
-      store.perVe.setCalendarMonthIndex(pagePath, calendarMonthIndex + delta * calendarWindow.monthsPerPage);
+    const navigateCalendarWindow = (monthDelta: number) => {
+      store.perVe.setCalendarMonthIndex(pagePath, calendarWindow.startMonthIndex + monthDelta);
       requestArrange(store, "page-calendar-window-change");
     };
     const visibleMonthSet = new Set(calendarWindow.months.map(({ month }) => month));
@@ -429,14 +420,22 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           {/* Year title with navigation */}
           <div class="absolute flex items-center justify-center font-bold text-2xl"
             style={`left: ${CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; top: ${CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING}px; width: ${pageFns().childAreaBoundsPx().w - 2 * CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN}px; height: ${CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT}px;`}>
+            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-1 text-gray-300"
+              onClick={() => navigateCalendarWindow(-calendarWindow.monthsPerPage)}>
+              &lt;&lt;
+            </div>
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 mr-2 text-gray-300"
               onClick={() => navigateCalendarWindow(-1)}>
-              <i class="fas fa-angle-left" />
+              &lt;
             </div>
             <span class="mx-2">{formatCalendarWindowTitle(calendarWindow)}</span>
             <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-2 text-gray-300"
               onClick={() => navigateCalendarWindow(1)}>
-              <i class="fas fa-angle-right" />
+              &gt;
+            </div>
+            <div class="cursor-pointer hover:bg-gray-200 rounded p-2 ml-1 text-gray-300"
+              onClick={() => navigateCalendarWindow(calendarWindow.monthsPerPage)}>
+              &gt;&gt;
             </div>
           </div>
 

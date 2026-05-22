@@ -72,6 +72,7 @@ export interface PerVeStoreContextModel {
   setIsExpanded: (vePath: VisualElementPath, isExpanded: boolean) => void,
 
   getCalendarMonthIndex: (vePath: VisualElementPath) => number,
+  hasCalendarMonthIndex: (vePath: VisualElementPath) => boolean,
   setCalendarMonthIndex: (vePath: VisualElementPath, monthIndex: number) => void,
 
   getCalendarYear: (vePath: VisualElementPath) => number,
@@ -332,6 +333,10 @@ export function makePerVeStore(): PerVeStoreContextModel {
     return calendarMonthIndex.get(vePath)!.get();
   };
 
+  const hasCalendarMonthIndex = (vePath: VisualElementPath): boolean => {
+    return calendarMonthIndex.has(vePath);
+  };
+
   const setCalendarMonthIndex = (vePath: VisualElementPath, monthIndex: number): void => {
     const previousMonthIndex = calendarMonthIndex.get(vePath)?.get();
     const previousYear = calendarYear.get(vePath)?.get();
@@ -436,6 +441,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
     setIsExpanded,
 
     getCalendarMonthIndex,
+    hasCalendarMonthIndex,
     setCalendarMonthIndex,
 
     getCalendarYear,

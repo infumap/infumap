@@ -165,9 +165,12 @@ export function calculateCalendarWindow(
   pageWidthPx: number,
   monthIndex: number,
   monthsPerPageMaybe: CalendarMonthsPerPage | null = null,
+  alignStart: boolean = true,
 ): CalendarWindow {
   const monthsPerPage = monthsPerPageMaybe ?? getCalendarMonthsPerPage(pageWidthPx);
-  const startMonthIndex = alignCalendarWindowStartMonthIndex(monthIndex, monthsPerPage);
+  const startMonthIndex = alignStart
+    ? alignCalendarWindowStartMonthIndex(monthIndex, monthsPerPage)
+    : monthIndex;
   const start = decodeCalendarMonthIndex(startMonthIndex);
   const months: Array<CalendarVisibleMonth> = [];
   for (let i = 0; i < monthsPerPage; ++i) {
@@ -191,28 +194,59 @@ export function calculateCalendarWindow(
   };
 }
 
-export function getCalendarMonthsPerPageForVisualElement(
-  pageVe: VisualElement,
+export function calculateCalendarWindowForPage(
   store: StoreContextModel,
-): CalendarMonthsPerPage {
-  return getCalendarMonthsPerPageForDisplayMode(
-    pageVe.childAreaBoundsPx!.w,
-    getPageCalendarDisplayMode(pageVe.displayItem as any),
+  vePath: string,
+  pageWidthPx: number,
+  page: { flags: number },
+): CalendarWindow {
+  const monthsPerPage = getCalendarMonthsPerPageForDisplayMode(
+    pageWidthPx,
+    getPageCalendarDisplayMode(page),
     store.smallScreenMode(),
   );
+  const wasInitialized = store.perVe.hasCalendarMonthIndex(vePath);
+  let monthIndex = store.perVe.getCalendarMonthIndex(vePath);
+  if (!wasInitialized) {
+    const alignedMonthIndex = alignCalendarWindowStartMonthIndex(monthIndex, monthsPerPage);
+    if (alignedMonthIndex != monthIndex) {
+      store.perVe.setCalendarMonthIndex(vePath, alignedMonthIndex);
+      monthIndex = alignedMonthIndex;
+    }
+  }
+  return calculateCalendarWindow(pageWidthPx, monthIndex, monthsPerPage, false);
 }
 
 export function formatCalendarWindowTitle(calendarWindow: CalendarWindow): string {
+  const firstMonth = calendarWindow.months[0];
+  const lastMonth = calendarWindow.months[calendarWindow.months.length - 1];
+  const rangeTitle = () => {
+    if (firstMonth.year == lastMonth.year) {
+      return `${firstMonth.year} ${CALENDAR_MONTH_NAMES[firstMonth.month - 1]} - ${CALENDAR_MONTH_NAMES[lastMonth.month - 1]}`;
+    }
+    return `${firstMonth.year} ${CALENDAR_MONTH_NAMES[firstMonth.month - 1]} - ${lastMonth.year} ${CALENDAR_MONTH_NAMES[lastMonth.month - 1]}`;
+  };
+
   if (calendarWindow.monthsPerPage == 12) {
-    return `${calendarWindow.year}`;
+    if (firstMonth.month == 1 && lastMonth.month == 12 && firstMonth.year == lastMonth.year) {
+      return `${firstMonth.year}`;
+    }
+    return rangeTitle();
   }
   if (calendarWindow.monthsPerPage == 6) {
-    return `${calendarWindow.year} ${calendarWindow.startMonth == 1 ? "H1" : "H2"}`;
+    if ((firstMonth.month == 1 || firstMonth.month == 7) && firstMonth.year == lastMonth.year) {
+      return `${firstMonth.year} ${firstMonth.month == 1 ? "H1" : "H2"}`;
+    }
+    return rangeTitle();
   }
   if (calendarWindow.monthsPerPage == 3) {
-    return `${CALENDAR_MONTH_NAMES[calendarWindow.startMonth - 1]} - ${CALENDAR_MONTH_NAMES[calendarWindow.endMonth - 1]} ${calendarWindow.year}`;
+    if ((firstMonth.month == 1 || firstMonth.month == 4 || firstMonth.month == 7 || firstMonth.month == 10) &&
+      firstMonth.year == lastMonth.year) {
+      return `${firstMonth.year} Q${Math.floor((firstMonth.month - 1) / 3) + 1}`;
+    }
+    return rangeTitle();
   }
-  return `${CALENDAR_MONTH_NAMES[calendarWindow.startMonth - 1]} ${calendarWindow.year}`;
+  return `${CALENDAR_MONTH_NAMES[firstMonth.month - 1]} ${firstMonth.year}`;
 }
 
 export function isCalendarMonthVisible(calendarWindow: CalendarWindow, year: number, month: number): boolean {
@@ -556,11 +590,7 @@ export function calculateCalendarPosition(
   const childAreaBounds = pageVe.childAreaBoundsPx!;
   const viewportBounds = pageVe.viewportBoundsPx!;
   const pagePath = VeFns.veToPath(pageVe);
-  const calendarWindow = calculateCalendarWindow(
-    childAreaBounds.w,
-    store.perVe.getCalendarMonthIndex(pagePath),
-    getCalendarMonthsPerPageForVisualElement(pageVe, store),
-  );
+  const calendarWindow = calculateCalendarWindowForPage(store, pagePath, childAreaBounds.w, pageVe.displayItem as any);
   const monthResizeMaybe = calendarWindow.monthsPerPage == 12
     ? store.perVe.getCalendarMonthResize(pagePath)
     : null;
@@ -596,10 +626,11 @@ export function calculateCalendarDateTime(
   store: StoreContextModel
 ): number {
   const position = calculateCalendarPosition(desktopPosPx, pageVe, store);
-  const calendarWindow = calculateCalendarWindow(
+  const calendarWindow = calculateCalendarWindowForPage(
+    store,
+    VeFns.veToPath(pageVe),
     pageVe.childAreaBoundsPx!.w,
-    store.perVe.getCalendarMonthIndex(VeFns.veToPath(pageVe)),
-    getCalendarMonthsPerPageForVisualElement(pageVe, store),
+    pageVe.displayItem as any,
   );
   const currentTime = new Date();
   const visibleMonth = calendarWindow.months.find(month => month.month === position.month);

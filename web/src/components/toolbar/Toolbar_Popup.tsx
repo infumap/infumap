@@ -48,6 +48,8 @@ import { isImage } from "../../items/image-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { getToolbarFocusItem } from "./toolbarFocus";
 import { getPageCalendarDisplayMode, PageCalendarDisplayMode, setPageCalendarDisplayMode } from "../../items/base/flags-item";
+import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
+import { VesCache } from "../../layout/ves-cache";
 
 
 const EMOJI_CATEGORIES = [
@@ -741,6 +743,17 @@ export const Toolbar_Popup: Component = () => {
     }
     const targetPage = asPageItem(focusItem);
     setPageCalendarDisplayMode(targetPage, displayMode);
+    const focusPath = store.history.getFocusPathMaybe();
+    if (focusPath) {
+      const focusVe = VesCache.render.getNode(focusPath)?.get();
+      const pageWidthPx = focusVe?.childAreaBoundsPx?.w ?? store.desktopMainAreaBoundsPx().w;
+      const monthsPerPage = getCalendarMonthsPerPageForDisplayMode(pageWidthPx, displayMode, store.smallScreenMode());
+      const alignedMonthIndex = alignCalendarWindowStartMonthIndex(
+        store.perVe.getCalendarMonthIndex(focusPath),
+        monthsPerPage,
+      );
+      store.perVe.setCalendarMonthIndex(focusPath, alignedMonthIndex);
+    }
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     arrangeNow(store, "toolbar-popup-calendar-display-mode");

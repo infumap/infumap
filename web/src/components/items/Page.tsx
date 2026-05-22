@@ -39,7 +39,7 @@ import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { calculateCalendarDimensionsForVisualElement, calculateCalendarWindow, decodeCalendarCombinedIndex, getCalendarDayMetrics, getCalendarMonthsPerPageForDisplayMode, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
+import { calculateCalendarDimensionsForVisualElement, calculateCalendarWindowForPage, decodeCalendarCombinedIndex, getCalendarDayMetrics, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import {
   calcCatalogContentWidthPx,
@@ -67,7 +67,6 @@ import {
   searchResultsFooterHostId,
 } from "../../items/search-item";
 import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
-import { getPageCalendarDisplayMode } from "../../items/base/flags-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -819,15 +818,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
         const combinedIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
         const { month, day } = decodeCalendarCombinedIndex(combinedIndex);
-        const calendarWindow = calculateCalendarWindow(
-          pageFns.childAreaBoundsPx().w,
-          store.perVe.getCalendarMonthIndex(pageFns.vePath()),
-          getCalendarMonthsPerPageForDisplayMode(
-            pageFns.childAreaBoundsPx().w,
-            getPageCalendarDisplayMode(pageFns.pageItem()),
-            store.smallScreenMode(),
-          ),
-        );
+        const calendarWindow = calculateCalendarWindowForPage(store, pageFns.vePath(), pageFns.childAreaBoundsPx().w, pageFns.pageItem());
         if (!calendarWindow.months.some((visibleMonth) => visibleMonth.month === month)) {
           return <></>;
         }
