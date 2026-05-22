@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect } from "solid-js";
+import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
@@ -391,13 +391,26 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   const QUANTIZE_SCROLL_TIMEOUT_MS = 600;
 
   let scrollDoneTimer: any = null;
+  let pendingProgrammaticScrollTop: number | null = null;
+
+  const veid = () => VeFns.veidFromVe(props.visualElement);
+
+  function syncScrollTopFromStore() {
+    if (!outerDiv) { return; }
+    const scrollTop = store.perItem.getTableScrollYPos(veid()) * blockHeightPx();
+    if (outerDiv.scrollTop !== scrollTop) {
+      pendingProgrammaticScrollTop = scrollTop;
+      outerDiv.scrollTop = scrollTop;
+    }
+  }
+
   function scrollDoneHandler() {
-    const prevScrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
+    const prevScrollYPos = store.perItem.getTableScrollYPos(veid());
     const newScrollYPos = Math.round(prevScrollYPos);
-    store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), newScrollYPos);
+    store.perItem.setTableScrollYPos(veid(), newScrollYPos);
     (outerDiv!)!.scrollTop = newScrollYPos * blockHeightPx();
     scrollDoneTimer = null;
-    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), prevScrollYPos);
+    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, veid(), prevScrollYPos);
   }
 
   const blockHeightPx = () => props.visualElement.blockSizePx!.h;
@@ -415,21 +428,38 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   });
 
   const scrollHandler = (_ev: Event) => {
+    if (pendingProgrammaticScrollTop != null &&
+      Math.abs((outerDiv!)!.scrollTop - pendingProgrammaticScrollTop) < 0.5) {
+      pendingProgrammaticScrollTop = null;
+      return;
+    }
+    if (VesCache.arrange.isInProgress() || (props.visualElement.flags & VisualElementFlags.Moving)) {
+      if (scrollDoneTimer != null) {
+        clearTimeout(scrollDoneTimer);
+        scrollDoneTimer = null;
+      }
+      requestAnimationFrame(syncScrollTopFromStore);
+      return;
+    }
     if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
     scrollDoneTimer = setTimeout(scrollDoneHandler, QUANTIZE_SCROLL_TIMEOUT_MS);
-    const prevScrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
-    store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), (outerDiv!)!.scrollTop / blockHeightPx());
-    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), prevScrollYPos);
+    const prevScrollYPos = store.perItem.getTableScrollYPos(veid());
+    store.perItem.setTableScrollYPos(veid(), (outerDiv!)!.scrollTop / blockHeightPx());
+    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, veid(), prevScrollYPos);
   }
 
   onMount(() => {
-    outerDiv!.scrollTop = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) * blockHeightPx();
+    syncScrollTopFromStore();
   });
 
   createEffect(() => {
-    const scrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
-    if (outerDiv && outerDiv.scrollTop !== scrollPos * blockHeightPx()) {
-      outerDiv.scrollTop = scrollPos * blockHeightPx();
+    syncScrollTopFromStore();
+  });
+
+  onCleanup(() => {
+    if (scrollDoneTimer != null) {
+      clearTimeout(scrollDoneTimer);
+      scrollDoneTimer = null;
     }
   });
 
