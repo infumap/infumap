@@ -56,6 +56,22 @@ export const MOUSE_LEFT = 0;
 export const MOUSE_RIGHT = 2;
 
 
+function dragOffsetBoundsRelativeToDesktopPx(store: StoreContextModel, visualElement: VisualElement): BoundingBox {
+  if (!isPage(visualElement.displayItem) || !visualElement.viewportBoundsPx) {
+    return VeFns.veBoundsRelativeToDesktopPx(store, visualElement);
+  }
+
+  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, visualElement);
+  const titleHeightPx = visualElement.boundsPx.h - visualElement.viewportBoundsPx.h;
+  return {
+    x: viewportBoundsPx.x,
+    y: viewportBoundsPx.y - titleHeightPx,
+    w: visualElement.boundsPx.w,
+    h: visualElement.boundsPx.h,
+  };
+}
+
+
 export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number): Promise<MouseEventActionFlags> {
   let defaultResult = MouseEventActionFlags.PreventDefault;
 
@@ -428,7 +444,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     }
   }
   const activeItem = VeFns.treeItem(hitVe);
-  let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDesktopPx(store, hitVe);
+  let boundsOnTopLevelPagePx = dragOffsetBoundsRelativeToDesktopPx(store, hitVe);
 
   let onePxSizeBl = { x: 0.0, y: 0.0 };
   if (hitVe.flags & VisualElementFlags.Popup) {
