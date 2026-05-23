@@ -44,6 +44,8 @@ GPU_REQUEST_CONCURRENCY = 1
 PDFTEXT_WORKERS = 1
 DEFAULT_MAX_UPLOAD_BYTES = 128 * 1024 * 1024
 DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS = 4.0 * 60.0 * 60.0
+DEFAULT_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
+CONVERSION_TIMEOUT_EXIT_DELAY_SECS = 2.0
 
 
 class DocumentRejectedError(Exception):
@@ -98,6 +100,13 @@ def worker_slot_wait_timeout_secs() -> float:
     )
 
 
+def conversion_timeout_secs() -> float:
+    return max(
+        1.0,
+        env_float("TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS", DEFAULT_CONVERSION_TIMEOUT_SECS),
+    )
+
+
 def root_path() -> str:
     configured = os.environ.get("TEXT_EXTRACTION_ROOT_PATH", "").strip()
     if not configured or configured == "/":
@@ -118,6 +127,7 @@ def build_runtime_summary() -> list[str]:
         f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
         f"pdftext_workers={PDFTEXT_WORKERS}",
         f"worker_slot_wait_timeout_secs={worker_slot_wait_timeout_secs()}",
+        f"conversion_timeout_secs={conversion_timeout_secs()}",
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
         f"max_upload_bytes={max_upload_bytes()}",
     ]
@@ -229,6 +239,24 @@ def torch_cuda_memory_summary() -> str | None:
         )
     except Exception as exc:
         return f"cuda_mem_error={exc}"
+
+
+async def exit_process_after_delay(delay_secs: float, exit_code: int) -> None:
+    await asyncio.sleep(delay_secs)
+    os._exit(exit_code)
+
+
+def schedule_conversion_timeout_exit(file_name: str, timeout_secs: float) -> None:
+    if APP_STATE.get("conversion_timeout_exit_scheduled"):
+        return
+    APP_STATE["conversion_timeout_exit_scheduled"] = True
+    LOGGER.error(
+        "Text extraction conversion timeout triggered for file=%s after %.3f seconds; "
+        "terminating service process so the supervisor can restart it.",
+        file_name,
+        timeout_secs,
+    )
+    asyncio.create_task(exit_process_after_delay(CONVERSION_TIMEOUT_EXIT_DELAY_SECS, 124))
 
 
 @asynccontextmanager
@@ -581,7 +609,18 @@ async def convert_upload(request: Request) -> ConvertResponse:
                 request_age_ms,
                 semaphore_wait_ms,
             )
-            return await asyncio.to_thread(convert_file_bytes, upload_bytes, file_name)
+            conversion_timeout = conversion_timeout_secs()
+            try:
+                return await asyncio.wait_for(
+                    asyncio.to_thread(convert_file_bytes, upload_bytes, file_name),
+                    timeout=conversion_timeout,
+                )
+            except asyncio.TimeoutError as exc:
+                schedule_conversion_timeout_exit(file_name, conversion_timeout)
+                raise DocumentRejectedError(
+                    f"PDF conversion exceeded the {conversion_timeout:.0f} second timeout. "
+                    "The PDF may be too large or complex for automatic extraction."
+                ) from exc
         finally:
             semaphore.release()
     except UploadTooLargeError as exc:

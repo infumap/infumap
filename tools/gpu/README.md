@@ -67,6 +67,9 @@ The combined launcher keeps each service independent:
   embedding can run in parallel
 - gateway global-lock waits are bounded by `GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS`
   and return HTTP 503 when the lock stays busy too long
+- the gateway lock is leased; if a holder is wedged past
+  `GPU_GATEWAY_LOCK_LEASE_SECS` (default 1 hour), a later request may take over
+  instead of letting one stale request block all GPU work indefinitely
 - gateway upstream read/write timeouts are 30 minutes by default, with a 4 hour
   read/write timeout for `/pdf-extract` and its legacy `/convert` alias
 - the gateway also exposes async PDF extraction jobs for web-background use:
@@ -77,6 +80,10 @@ The combined launcher keeps each service independent:
 - child image-tagging and text-extraction services also bound their internal
   worker-slot waits with `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS` and
   `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
+- text extraction has a per-PDF conversion watchdog
+  (`TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`, default 1 hour); a timed-out PDF is
+  treated as a terminal document failure and the supervised service process
+  restarts to clear stuck native worker state
 
 Optional environment variables:
 
@@ -86,6 +93,7 @@ Optional environment variables:
 - `GPU_GATEWAY_VENV_DIR`
 - `GPU_GATEWAY_RESTART_DELAY_SECS`
 - `GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS`
+- `GPU_GATEWAY_LOCK_LEASE_SECS`
 - `GPU_GATEWAY_PDF_EXTRACT_JOB_UPSTREAM_TIMEOUT_SECS`
 - `GPU_GATEWAY_PDF_EXTRACT_JOB_RESULT_RETENTION_SECS`
 - `GPU_IMAGE_TAGGING_UPSTREAM_URL`
@@ -93,4 +101,5 @@ Optional environment variables:
 - `GPU_TEXT_EXTRACTION_UPSTREAM_URL`
 - `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
+- `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
 - all service-specific `IMAGE_TAGGING_*`, `TEXT_EMBEDDING_*`, and `TEXT_EXTRACTION_*` variables

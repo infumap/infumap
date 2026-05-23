@@ -49,6 +49,7 @@ Optional environment variables:
 - `TEXT_EXTRACTION_VENV_DIR`
 - `TEXT_EXTRACTION_RESTART_DELAY_SECS`
 - `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`
+- `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
 - `PYTHON_BIN`
 - `TORCH_DEVICE`
 - `GOOGLE_API_KEY`
@@ -142,6 +143,10 @@ curl -sS \
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
   The default is `134217728` bytes (128 MiB), configurable via
   `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`.
+- Each PDF conversion is bounded by `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
+  (default 3600 seconds). If Marker/PyTorch gets stuck or a PDF is too complex,
+  the request returns a terminal 422 failure and the supervised worker process
+  exits so `run.sh` can restart it with clean native state.
 - The zero-disk upload path depends on Linux `memfd` support. That matches the
   intended deployment environment for this service.
 

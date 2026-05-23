@@ -47,6 +47,7 @@ DEFAULT_UPSTREAM_READ_WRITE_TIMEOUT_SECS = 30.0 * 60.0
 PDF_EXTRACT_UPSTREAM_READ_WRITE_TIMEOUT_SECS = 4.0 * 60.0 * 60.0
 PDF_EXTRACT_JOB_UPSTREAM_READ_WRITE_TIMEOUT_SECS = 24.0 * 60.0 * 60.0
 DEFAULT_GLOBAL_GPU_LOCK_WAIT_TIMEOUT_SECS = 5.0 * 60.0
+DEFAULT_GLOBAL_GPU_LOCK_LEASE_SECS = 60.0 * 60.0
 PDF_EXTRACT_JOB_RESULT_RETENTION_SECS = 6.0 * 60.0 * 60.0
 
 
@@ -65,6 +66,13 @@ def global_gpu_lock_wait_timeout_secs() -> float:
     return max(
         0.001,
         env_float("GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS", DEFAULT_GLOBAL_GPU_LOCK_WAIT_TIMEOUT_SECS),
+    )
+
+
+def global_gpu_lock_lease_secs() -> float:
+    return max(
+        1.0,
+        env_float("GPU_GATEWAY_LOCK_LEASE_SECS", DEFAULT_GLOBAL_GPU_LOCK_LEASE_SECS),
     )
 
 
@@ -108,6 +116,145 @@ class PdfExtractJob:
     response_body: bytes | None = None
     response_headers: dict[str, str] | None = None
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class GpuLockLease:
+    token: str
+    service_name: str
+    path: str
+    method: str
+    job_id: str | None
+    acquired_at_unix_secs: float
+    acquired_at_perf_secs: float
+    wait_ms: int
+    lease_secs: float
+
+
+class GpuLockWaitTimeoutError(Exception):
+    def __init__(self, wait_ms: int, holder: GpuLockLease | None) -> None:
+        super().__init__("GPU gateway global lock wait timed out.")
+        self.wait_ms = wait_ms
+        self.holder = holder
+
+
+class GlobalGpuLock:
+    def __init__(self) -> None:
+        self._condition = asyncio.Condition()
+        self._lease: GpuLockLease | None = None
+
+    def locked(self) -> bool:
+        return self._lease is not None
+
+    def holder(self) -> GpuLockLease | None:
+        return self._lease
+
+    def snapshot(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "enabled": True,
+            "locked": self._lease is not None,
+            "wait_timeout_secs": global_gpu_lock_wait_timeout_secs(),
+            "lease_secs": global_gpu_lock_lease_secs(),
+        }
+        if self._lease is not None:
+            payload["holder"] = gpu_lock_holder_payload(self._lease)
+        return payload
+
+    async def acquire(
+        self,
+        *,
+        service_name: str,
+        path: str,
+        method: str,
+        job_id: str | None,
+        timeout_secs: float,
+    ) -> GpuLockLease:
+        wait_started_at = time.perf_counter()
+        deadline = wait_started_at + timeout_secs
+        async with self._condition:
+            while True:
+                now = time.perf_counter()
+                existing = self._lease
+                if existing is None:
+                    return self._create_lease_locked(service_name, path, method, job_id, wait_started_at)
+
+                held_secs = max(0.0, now - existing.acquired_at_perf_secs)
+                if held_secs >= existing.lease_secs:
+                    new_lease = self._create_lease_locked(service_name, path, method, job_id, wait_started_at)
+                    LOGGER.error(
+                        "GPU gateway global lock lease expired after %d ms; allowing new holder. "
+                        "expired_holder=%s new_holder=%s",
+                        int(held_secs * 1000),
+                        describe_gpu_lock_holder(existing),
+                        describe_gpu_lock_holder(new_lease),
+                    )
+                    self._condition.notify_all()
+                    return new_lease
+
+                remaining_secs = deadline - now
+                if remaining_secs <= 0.0:
+                    raise GpuLockWaitTimeoutError(int((now - wait_started_at) * 1000), existing)
+
+                wait_secs = min(remaining_secs, max(0.001, existing.lease_secs - held_secs))
+                try:
+                    await asyncio.wait_for(self._condition.wait(), timeout=wait_secs)
+                except asyncio.TimeoutError:
+                    pass
+
+    async def release(self, lease: GpuLockLease) -> bool:
+        async with self._condition:
+            if self._lease is None or self._lease.token != lease.token:
+                return False
+            self._lease = None
+            self._condition.notify_all()
+            return True
+
+    def _create_lease_locked(
+        self,
+        service_name: str,
+        path: str,
+        method: str,
+        job_id: str | None,
+        wait_started_at: float,
+    ) -> GpuLockLease:
+        now_perf = time.perf_counter()
+        lease = GpuLockLease(
+            token=uuid.uuid4().hex,
+            service_name=service_name,
+            path=path,
+            method=method,
+            job_id=job_id,
+            acquired_at_unix_secs=time.time(),
+            acquired_at_perf_secs=now_perf,
+            wait_ms=int((now_perf - wait_started_at) * 1000),
+            lease_secs=global_gpu_lock_lease_secs(),
+        )
+        self._lease = lease
+        return lease
+
+
+def gpu_lock_holder_payload(lease: GpuLockLease) -> dict[str, Any]:
+    return {
+        "service": lease.service_name,
+        "path": lease.path,
+        "method": lease.method,
+        "job_id": lease.job_id,
+        "acquired_at_unix_secs": lease.acquired_at_unix_secs,
+        "held_ms": int(max(0.0, time.perf_counter() - lease.acquired_at_perf_secs) * 1000),
+        "wait_ms": lease.wait_ms,
+        "lease_secs": lease.lease_secs,
+    }
+
+
+def describe_gpu_lock_holder(lease: GpuLockLease | None) -> str:
+    if lease is None:
+        return "<none>"
+    payload = gpu_lock_holder_payload(lease)
+    job_part = f" job_id={payload['job_id']}" if payload["job_id"] else ""
+    return (
+        f"service={payload['service']} path={payload['path']} method={payload['method']}"
+        f"{job_part} held_ms={payload['held_ms']} lease_secs={payload['lease_secs']}"
+    )
 
 
 def upstream_base_url(name: str, default_host: str, default_port: int) -> str:
@@ -185,7 +332,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.http_client = client
     app.state.long_http_client = long_client
-    app.state.gpu_lock = asyncio.Lock()
+    app.state.gpu_lock = GlobalGpuLock()
     app.state.pdf_extract_jobs = {}
     app.state.pdf_extract_job_keys = {}
     app.state.pdf_extract_jobs_lock = asyncio.Lock()
@@ -226,7 +373,7 @@ def proxy_client_for_service(request: Request, service: ServiceProxy) -> httpx.A
     return client
 
 
-def gpu_lock(request: Request) -> asyncio.Lock:
+def gpu_lock(request: Request) -> GlobalGpuLock:
     lock = getattr(request.app.state, "gpu_lock", None)
     if lock is None:
         raise RuntimeError("Gateway GPU lock is not initialized.")
@@ -316,26 +463,38 @@ async def run_pdf_extract_job(request: Request, job_id: str) -> None:
         request_headers = job.request_headers
 
     wait_started_at = time.perf_counter()
-    lock_owned = False
+    lock_lease: GpuLockLease | None = None
     try:
         if lock.locked():
-            LOGGER.info("GPU gateway async PDF job waiting for global lock: job_id=%s path=/pdf-extract", job_id)
+            LOGGER.info(
+                "GPU gateway async PDF job waiting for global lock: job_id=%s path=/pdf-extract holder=%s",
+                job_id,
+                describe_gpu_lock_holder(lock.holder()),
+            )
         try:
-            await asyncio.wait_for(lock.acquire(), timeout=global_gpu_lock_wait_timeout_secs())
-        except asyncio.TimeoutError as exc:
-            wait_ms = int((time.perf_counter() - wait_started_at) * 1000)
+            lock_lease = await lock.acquire(
+                service_name=service.service_name,
+                path="/pdf-extract",
+                method="POST",
+                job_id=job_id,
+                timeout_secs=global_gpu_lock_wait_timeout_secs(),
+            )
+        except GpuLockWaitTimeoutError as exc:
+            wait_ms = exc.wait_ms
             await update_pdf_extract_job(
                 request,
                 job_id,
                 status="failed",
                 wait_ms=wait_ms,
                 http_status=503,
-                error=f"GPU gateway global lock was busy for {wait_ms} ms while waiting for async PDF extraction.",
+                error=(
+                    f"GPU gateway global lock was busy for {wait_ms} ms while waiting for async PDF extraction. "
+                    f"Current holder: {describe_gpu_lock_holder(exc.holder)}."
+                ),
                 request_body=b"",
             )
             return
 
-        lock_owned = True
         wait_ms = int((time.perf_counter() - wait_started_at) * 1000)
         await update_pdf_extract_job(request, job_id, status="running", wait_ms=wait_ms)
         LOGGER.info("GPU gateway running async PDF extraction job: job_id=%s wait_ms=%d", job_id, wait_ms)
@@ -383,9 +542,14 @@ async def run_pdf_extract_job(request: Request, job_id: str) -> None:
             request_body=b"",
         )
     finally:
-        if lock_owned:
-            lock.release()
-            LOGGER.info("GPU gateway released global lock: service=text_extraction path=/pdf-extract job_id=%s", job_id)
+        if lock_lease is not None:
+            if await lock.release(lock_lease):
+                LOGGER.info("GPU gateway released global lock: service=text_extraction path=/pdf-extract job_id=%s", job_id)
+            else:
+                LOGGER.warning(
+                    "GPU gateway async PDF job finished after its global lock lease was no longer current: %s",
+                    describe_gpu_lock_holder(lock_lease),
+                )
 
 
 async def health_probe(client: httpx.AsyncClient, service: ServiceProxy) -> dict[str, Any]:
@@ -448,11 +612,7 @@ async def root(request: Request) -> dict[str, Any]:
         "docs": "/docs",
         "health": "/healthz",
         "pdf_extract_jobs": "/pdf-extract/jobs",
-        "global_gpu_lock": {
-            "enabled": True,
-            "locked": lock.locked(),
-            "wait_timeout_secs": global_gpu_lock_wait_timeout_secs(),
-        },
+        "global_gpu_lock": lock.snapshot(),
         "services": {
             name: {
                 "paths": list(service.public_paths),
@@ -480,11 +640,7 @@ async def healthz(request: Request) -> JSONResponse:
         status_code=200 if overall_ok else 503,
         content={
             "ok": overall_ok,
-            "global_gpu_lock": {
-                "enabled": True,
-                "locked": lock.locked(),
-                "wait_timeout_secs": global_gpu_lock_wait_timeout_secs(),
-            },
+            "global_gpu_lock": lock.snapshot(),
             "services": service_statuses,
         },
     )
@@ -595,28 +751,34 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
     wait_started_at = time.perf_counter()
     if lock is not None and lock.locked():
         LOGGER.info(
-            "GPU gateway request waiting for global lock: service=%s path=%s method=%s",
+            "GPU gateway request waiting for global lock: service=%s path=%s method=%s holder=%s",
             service.service_name,
             request_path,
             request.method,
+            describe_gpu_lock_holder(lock.holder()),
         )
-    lock_owned_by_proxy = False
+    lock_lease: GpuLockLease | None = None
     upstream_response: httpx.Response | None = None
     try:
         if lock is not None:
-            lock_wait_timeout_secs = global_gpu_lock_wait_timeout_secs()
             try:
-                await asyncio.wait_for(lock.acquire(), timeout=lock_wait_timeout_secs)
-            except asyncio.TimeoutError as exc:
-                wait_ms = int((time.perf_counter() - wait_started_at) * 1000)
+                lock_lease = await lock.acquire(
+                    service_name=service.service_name,
+                    path=request_path,
+                    method=request.method,
+                    job_id=None,
+                    timeout_secs=global_gpu_lock_wait_timeout_secs(),
+                )
+            except GpuLockWaitTimeoutError as exc:
+                wait_ms = exc.wait_ms
                 raise HTTPException(
                     status_code=503,
                     detail=(
                         f"GPU gateway global lock was busy for {wait_ms} ms while waiting for "
-                        f"'{service.service_name}'. Try again later."
+                        f"'{service.service_name}'. Current holder: {describe_gpu_lock_holder(exc.holder)}. "
+                        "Try again later."
                     ),
                 ) from exc
-            lock_owned_by_proxy = True
         wait_ms = int((time.perf_counter() - wait_started_at) * 1000)
         LOGGER.info(
             "GPU gateway forwarding request: service=%s path=%s method=%s wait_ms=%d global_lock=%s",
@@ -628,11 +790,17 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
         )
         upstream_response = await client.send(upstream_request, stream=True)
         response = StreamingResponse(
-            stream_upstream_response_and_release_lock(upstream_response, lock, service.service_name, request_path),
+            stream_upstream_response_and_release_lock(
+                upstream_response,
+                lock,
+                lock_lease,
+                service.service_name,
+                request_path,
+            ),
             status_code=upstream_response.status_code,
             headers=strip_hop_by_hop_headers(upstream_response.headers),
         )
-        lock_owned_by_proxy = False
+        lock_lease = None
         return response
     except httpx.HTTPError as exc:
         raise HTTPException(
@@ -640,17 +808,23 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
             detail=f"Upstream GPU service '{service.service_name}' is unavailable: {exc}",
         ) from exc
     finally:
-        if lock_owned_by_proxy:
+        if lock_lease is not None:
             if upstream_response is not None:
                 await upstream_response.aclose()
             if lock is not None:
-                lock.release()
-                LOGGER.info("GPU gateway released global lock: service=%s path=%s", service.service_name, request_path)
+                if await lock.release(lock_lease):
+                    LOGGER.info("GPU gateway released global lock: service=%s path=%s", service.service_name, request_path)
+                else:
+                    LOGGER.warning(
+                        "GPU gateway request finished after its global lock lease was no longer current: %s",
+                        describe_gpu_lock_holder(lock_lease),
+                    )
 
 
 async def stream_upstream_response_and_release_lock(
     upstream_response: httpx.Response,
-    lock: asyncio.Lock | None,
+    lock: GlobalGpuLock | None,
+    lock_lease: GpuLockLease | None,
     service_name: str,
     request_path: str,
 ) -> AsyncIterator[bytes]:
@@ -661,9 +835,14 @@ async def stream_upstream_response_and_release_lock(
         try:
             await upstream_response.aclose()
         finally:
-            if lock is not None:
-                lock.release()
-                LOGGER.info("GPU gateway released global lock: service=%s path=%s", service_name, request_path)
+            if lock is not None and lock_lease is not None:
+                if await lock.release(lock_lease):
+                    LOGGER.info("GPU gateway released global lock: service=%s path=%s", service_name, request_path)
+                else:
+                    LOGGER.warning(
+                        "GPU gateway response stream finished after its global lock lease was no longer current: %s",
+                        describe_gpu_lock_holder(lock_lease),
+                    )
 
 
 @app.api_route(
