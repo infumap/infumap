@@ -91,6 +91,12 @@ function targetShouldKeepNativeTabBehavior(ev: KeyboardEvent): boolean {
     target instanceof HTMLAnchorElement;
 }
 
+function pageEmbeddedInteractiveStatusAppliesForEnter(ve: VisualElement): boolean {
+  return isPage(ve.displayItem) &&
+    !(ve.flags & VisualElementFlags.InsideTable) &&
+    !!(asPageItem(ve.displayItem).flags & PageFlags.EmbeddedInteractive);
+}
+
 let shiftNavigationGesture = {
   pending: false,
   cancelled: false,
@@ -685,9 +691,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
         !!(focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
         asPageItem(focusVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List;
 
-      if (isPage(focusVe.displayItem) &&
-        !!(asPageItem(focusVe.displayItem).flags & PageFlags.EmbeddedInteractive) &&
-        ev.shiftKey) {
+      if (pageEmbeddedInteractiveStatusAppliesForEnter(focusVe) && ev.shiftKey) {
         ev.preventDefault();
         switchToPage(store, VeFns.actualVeidFromVe(focusVe), true, false, false);
         return;
@@ -714,8 +718,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       }
 
       if (isPage(focusVe.displayItem)) {
-        const pageItem = asPageItem(focusVe.displayItem);
-        if ((veFlagIsRoot(focusVe.flags) || !!(pageItem.flags & PageFlags.EmbeddedInteractive)) &&
+        if ((veFlagIsRoot(focusVe.flags) || pageEmbeddedInteractiveStatusAppliesForEnter(focusVe)) &&
           focusFirstChildMaybe(store, focusPath, focusVe)) {
           ev.preventDefault();
           return;
@@ -725,8 +728,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
     // If an opaque/translucent page has focus (no popup showing), open the popup
     if (focusVe && isPage(focusVe.displayItem) && !store.history.currentPopupSpec()) {
-      const pageItem = asPageItem(focusVe.displayItem);
-      if (!(pageItem.flags & PageFlags.EmbeddedInteractive)) {
+      if (!pageEmbeddedInteractiveStatusAppliesForEnter(focusVe)) {
         ev.preventDefault();
         if (!veFlagIsRoot(focusVe.flags)) {
           // Non-root page: open popup

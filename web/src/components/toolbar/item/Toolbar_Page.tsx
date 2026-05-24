@@ -34,8 +34,9 @@ import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
-import { VeFns } from "../../../layout/visual-element";
-import { getToolbarFocusItem } from "../toolbarFocus";
+import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
+import { VesCache } from "../../../layout/ves-cache";
+import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 
 
 export const Toolbar_Page: Component = () => {
@@ -144,6 +145,18 @@ export const Toolbar_Page: Component = () => {
       path = VeFns.parentPath(path);
     }
     return false;
+  }
+
+  const focusIsInsideTable = () => {
+    store.touchToolbarDependency();
+    const focusPath = getToolbarFocusPathMaybe(store);
+    const focusVe = focusPath == null ? null : VesCache.current.readNode(focusPath);
+    return !!focusVe && !!(focusVe.flags & VisualElementFlags.InsideTable);
+  }
+
+  const showInteractiveButton = () => {
+    store.touchToolbarDependency();
+    return !focusIsInDock() && !focusIsInsideTable();
   }
 
   const showOrderByButton = () => {
@@ -551,7 +564,7 @@ export const Toolbar_Page: Component = () => {
         <Show when={showMakePublicButton()}>
           <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
         </Show>
-        <Show when={!focusIsInDock()}>
+        <Show when={showInteractiveButton()}>
           <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
         </Show>
       </Show>
