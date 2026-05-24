@@ -41,7 +41,8 @@ import { Vector } from "./util/geometry";
 import { sanitizeOriginalCreationDate } from "./util/time";
 
 
-const MAX_EXTERNAL_UPLOAD_FILES = 10;
+const EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD = 10;
+const MAX_EXTERNAL_UPLOAD_FILES = 100;
 
 type UploadTarget =
   | { kind: "page-background", parent: PageItem }
@@ -370,6 +371,14 @@ function waitForBrowserAfterDrop(): Promise<void> {
   });
 }
 
+function confirmLargeExternalUploadMaybe(fileCount: number): boolean {
+  if (fileCount <= EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD) {
+    return true;
+  }
+
+  return window.confirm(`Upload ${fileCount} files? This may take a while.`);
+}
+
 function uploadPositionForPage(
   store: StoreContextModel,
   desktopPx: Vector,
@@ -667,6 +676,10 @@ export async function handleExternalUploadDrop(
 
     if (isAttachmentTarget(target) && fileCount != 1) {
       showTransientMessage(store, "Attachment drops only support a single file.");
+      return;
+    }
+
+    if (!confirmLargeExternalUploadMaybe(fileCount)) {
       return;
     }
 
