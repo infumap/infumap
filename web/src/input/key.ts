@@ -28,7 +28,7 @@ import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { navigateToContainingPageOfItem, navigateToSearches, switchToPage } from "../layout/navigation";
-import { EMPTY_VEID, VeFns, VisualElement, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
+import { EMPTY_VEID, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
 
 
 import { StoreContextModel } from "../store/StoreProvider";
@@ -43,7 +43,7 @@ import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
 import { ItemType } from "../items/base/item";
 import { HitInfoFns } from "./hit";
-import { UMBRELLA_PAGE_UID } from "../util/uid";
+import { EMPTY_UID, UMBRELLA_PAGE_UID } from "../util/uid";
 import { asContainerItem } from "../items/base/container-item";
 import { MOUSE_RIGHT, mouseDownHandler } from "./mouse_down";
 import { isComposite } from "../items/composite-item";
@@ -1110,6 +1110,150 @@ function handleTableItemFocusHorizontalNavigation(store: StoreContextModel, curr
   return true;
 }
 
+type TableRootNavigationSceneReader = {
+  readNode: (path: string) => VisualElement | undefined,
+  readIndexedChildren: (parentPath: string) => Array<VisualElement>,
+};
+
+function sortedTableAttachmentVes(scene: TableRootNavigationSceneReader, rowPath: string): Array<VisualElement> {
+  return scene.readIndexedChildren(rowPath)
+    .filter(ve => !!(ve.flags & VisualElementFlags.Attachment))
+    .sort((a, b) => {
+      const aCol = a.col ?? Number.MAX_SAFE_INTEGER;
+      const bCol = b.col ?? Number.MAX_SAFE_INTEGER;
+      if (aCol != bCol) { return aCol - bCol; }
+      if (a.boundsPx.x != b.boundsPx.x) { return a.boundsPx.x - b.boundsPx.x; }
+      return VeFns.veToPath(a).localeCompare(VeFns.veToPath(b));
+    });
+}
+
+function tablePageHorizontalNeighborPathMaybe(
+  scene: TableRootNavigationSceneReader,
+  currentPath: string,
+  direction: FindDirection,
+): string | null {
+  if (direction != FindDirection.Left && direction != FindDirection.Right) { return null; }
+
+  const currentVe = scene.readNode(currentPath);
+  if (!currentVe || !isPage(currentVe.displayItem) || !(currentVe.flags & VisualElementFlags.InsideTable)) {
+    return null;
+  }
+
+  if (currentVe.flags & VisualElementFlags.Attachment) {
+    if (!currentVe.parentPath) { return null; }
+    const rowVe = scene.readNode(currentVe.parentPath);
+    if (!rowVe) { return null; }
+    const attachments = sortedTableAttachmentVes(scene, currentVe.parentPath);
+    const currentIdx = attachments.findIndex(ve => VeFns.veToPath(ve) == currentPath);
+    if (currentIdx < 0) { return null; }
+
+    const targetIdx = currentIdx + (direction == FindDirection.Left ? -1 : 1);
+    if (targetIdx >= 0 && targetIdx < attachments.length) {
+      const targetAttachmentVe = attachments[targetIdx];
+      return isPage(targetAttachmentVe.displayItem) ? VeFns.veToPath(targetAttachmentVe) : null;
+    }
+
+    if (direction == FindDirection.Left && isPage(rowVe.displayItem)) {
+      return VeFns.veToPath(rowVe);
+    }
+    return null;
+  }
+
+  if (direction != FindDirection.Right) { return null; }
+  if (!currentVe.parentPath) { return null; }
+  const tableVe = scene.readNode(currentVe.parentPath);
+  if (!tableVe || !isTable(tableVe.displayItem)) { return null; }
+
+  const firstAttachmentVe = sortedTableAttachmentVes(scene, currentPath)[0];
+  return firstAttachmentVe && isPage(firstAttachmentVe.displayItem)
+    ? VeFns.veToPath(firstAttachmentVe)
+    : null;
+}
+
+function containingPageVeidForTableRootNavigationMaybe(currentPageVeid: Veid): Veid | null {
+  let treeItem = itemState.get(currentPageVeid.linkIdMaybe ?? currentPageVeid.itemId);
+  if (!treeItem) { return null; }
+
+  let tableParentId: string | null = null;
+  let parentId = treeItem.parentId;
+  while (parentId && parentId != EMPTY_UID) {
+    const parentItem = itemState.get(parentId);
+    if (!parentItem) { return null; }
+    if (isTable(parentItem)) {
+      tableParentId = parentItem.parentId;
+      break;
+    }
+    treeItem = parentItem;
+    parentId = treeItem.parentId;
+  }
+
+  if (!tableParentId) { return null; }
+
+  parentId = tableParentId;
+  while (parentId && parentId != EMPTY_UID) {
+    const parentItem = itemState.get(parentId);
+    if (!parentItem) { return null; }
+    if (isPage(parentItem)) {
+      return { itemId: parentItem.id, linkIdMaybe: null };
+    }
+    parentId = parentItem.parentId;
+  }
+
+  return null;
+}
+
+function switchToTableRootNavigationTarget(
+  store: StoreContextModel,
+  targetPath: string,
+  updateParentFocusPath: boolean,
+): boolean {
+  const targetVe = VesCache.virtual.readNode(targetPath);
+  if (!targetVe || !isPage(targetVe.displayItem)) { return false; }
+  if (updateParentFocusPath) {
+    store.history.changeParentPageFocusPath(targetPath);
+  }
+  switchToPage(store, VeFns.veidFromPath(targetPath), true, false, true);
+  return true;
+}
+
+function handleTableRootPageHorizontalNavigationMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (ev.code != "ArrowLeft" && ev.code != "ArrowRight") { return false; }
+  if (store.history.currentPopupSpec()) { return false; }
+
+  const currentPageVeid = store.history.currentPageVeid();
+  if (!currentPageVeid) { return false; }
+  const currentPageItem = itemState.get(currentPageVeid.itemId);
+  if (!currentPageItem || !isPage(currentPageItem)) { return false; }
+
+  const direction = findDirectionFromKeyCode(ev.code);
+  const historyParentVeid = store.history.peekPrevPageVeid();
+  if (historyParentVeid) {
+    arrangeVirtual(store, historyParentVeid, "key-table-root-nav-parent-history");
+    const parentFocusPath = store.history.getParentPageFocusPath();
+    if (parentFocusPath && VesCache.virtual.readNode(parentFocusPath)) {
+      const targetPath = tablePageHorizontalNeighborPathMaybe(VesCache.virtual, parentFocusPath, direction);
+      if (targetPath && switchToTableRootNavigationTarget(store, targetPath, true)) {
+        return true;
+      }
+    }
+  }
+
+  const containingPageVeid = containingPageVeidForTableRootNavigationMaybe(currentPageVeid);
+  if (!containingPageVeid) { return false; }
+
+  arrangeVirtual(store, containingPageVeid, "key-table-root-nav-parent-hierarchy");
+  const virtualVesList = VesCache.virtual.findNodes(currentPageVeid);
+  for (const virtualVe of virtualVesList) {
+    const currentPath = VeFns.veToPath(virtualVe);
+    const targetPath = tablePageHorizontalNeighborPathMaybe(VesCache.virtual, currentPath, direction);
+    if (targetPath && switchToTableRootNavigationTarget(store, targetPath, false)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function keyUpHandler(store: StoreContextModel, ev: KeyboardEvent): Promise<void> {
   if (!isShiftKey(ev.code)) { return; }
   if (ev.shiftKey) { return; }
@@ -1162,6 +1306,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     return;
   }
 
+  if (focusedPageIsRoot && handleTableRootPageHorizontalNavigationMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
