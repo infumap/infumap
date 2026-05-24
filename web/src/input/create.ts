@@ -35,7 +35,7 @@ import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-eleme
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Vector } from "../util/geometry";
+import { isInside, Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
@@ -104,6 +104,65 @@ function calculatePagePositionGr(pageVe: VisualElement, desktopPosPx: Vector): V
     x: Math.round(propX * page.innerSpatialWidthGr / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
     y: Math.round(propY * page.innerSpatialWidthGr / page.naturalAspect / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
   };
+}
+
+function findPlaceholderDescendantAtDesktopPos(
+  store: StoreContextModel,
+  visualElement: VisualElement,
+  desktopPosPx: Vector,
+  visitedPaths: Set<string>,
+): VisualElement | null {
+  const vePath = VeFns.veToPath(visualElement);
+  if (visitedPaths.has(vePath)) {
+    return null;
+  }
+  visitedPaths.add(vePath);
+
+  if (isPlaceholder(visualElement.displayItem) &&
+      isInside(desktopPosPx, VeFns.veBoundsRelativeToDesktopPx(store, visualElement))) {
+    return visualElement;
+  }
+
+  const attachments = VesCache.current.readAttachments(vePath);
+  for (let i = attachments.length - 1; i >= 0; --i) {
+    const placeholder = findPlaceholderDescendantAtDesktopPos(store, attachments[i], desktopPosPx, visitedPaths);
+    if (placeholder != null) {
+      return placeholder;
+    }
+  }
+
+  const children = VesCache.current.readStructuralChildren(vePath);
+  for (let i = children.length - 1; i >= 0; --i) {
+    const placeholder = findPlaceholderDescendantAtDesktopPos(store, children[i], desktopPosPx, visitedPaths);
+    if (placeholder != null) {
+      return placeholder;
+    }
+  }
+
+  return null;
+}
+
+function findPlaceholderAtDesktopPos(store: StoreContextModel, hitInfo: HitInfo, desktopPosPx: Vector): VisualElement | null {
+  const overVe = hitInfo.overVes?.get() ?? null;
+  const rootVe = hitInfo.rootVes.get();
+  const candidates: Array<VisualElement | null> = [
+    overVe,
+    hitInfo.subSubRootVe,
+    hitInfo.subRootVe,
+    hitInfo.overPositionableVe,
+  ];
+  if (overVe == null || overVe == rootVe || isTable(overVe.displayItem)) {
+    candidates.push(rootVe);
+  }
+  const visitedPaths = new Set<string>();
+  for (const candidate of candidates) {
+    if (candidate == null) { continue; }
+    const placeholder = findPlaceholderDescendantAtDesktopPos(store, candidate, desktopPosPx, visitedPaths);
+    if (placeholder != null) {
+      return placeholder;
+    }
+  }
+  return null;
 }
 
 function positionNewItemInPage(
@@ -188,7 +247,7 @@ function createItemInPage(
 
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
-  const overElementVe = HitInfoFns.getHitVe(hitInfo);
+  const overElementVe = findPlaceholderAtDesktopPos(store, hitInfo, desktopPosPx) ?? HitInfoFns.getHitVe(hitInfo);
 
   let newItem;
   let newItemPath;
@@ -347,8 +406,13 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: type });
     const elId = newItemPath + ":title";
     const el = document.getElementById(elId);
-    el!.innerText = "\n";
-    el!.focus();
+    if (el instanceof HTMLElement) {
+      el.innerText = "\n";
+      el.focus();
+    } else {
+      console.warn("could not edit newly created item because its title element was not found", { type, newItemPath });
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
   } else if (type == ItemType.Link) {
     store.history.setFocus(newItemPath);
   } else if (type == ItemType.Rating) {
