@@ -457,12 +457,14 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
       pendingProgrammaticScrollTop = null;
       return;
     }
-    if (VesCache.arrange.isInProgress() || (props.visualElement.flags & VisualElementFlags.Moving)) {
+    if (VesCache.arrange.isInProgress() ||
+      store.anItemIsMoving.get() ||
+      (props.visualElement.flags & VisualElementFlags.Moving)) {
       if (scrollDoneTimer != null) {
         clearTimeout(scrollDoneTimer);
         scrollDoneTimer = null;
       }
-      requestAnimationFrame(syncScrollTopFromStore);
+      scheduleScrollTopSync();
       return;
     }
     if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
@@ -483,10 +485,11 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     const blockHeight = blockHeightPx();
     const flags = props.visualElement.flags;
     const scrollYPos = store.perItem.getTableScrollYPos(veid());
+    const anItemIsMoving = store.anItemIsMoving.get();
     scheduleScrollTopSync([
       bounds.x, bounds.y, bounds.w, bounds.h,
       viewport.x, viewport.y, viewport.w, viewport.h,
-      childAreaHeight, blockHeight, flags, scrollYPos,
+      childAreaHeight, blockHeight, flags, scrollYPos, anItemIsMoving,
     ].join(":"));
   });
 
