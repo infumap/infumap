@@ -17,6 +17,7 @@
 */
 
 import { GRID_SIZE } from "../constants";
+import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
@@ -54,28 +55,45 @@ export function movingHitIgnoreIds(
       ignoreIds.push(id);
     }
   };
+  const addItemAndLinkedTargetIgnoreIds = (itemId: string | null | undefined) => {
+    addIgnoreId(itemId);
+    if (itemId == null) { return; }
+    const item = itemState.get(itemId);
+    if (item != null && isLink(item)) {
+      addIgnoreId(LinkFns.getLinkToId(asLinkItem(item)));
+    }
+  };
+  const addAttachmentIgnoreIds = (itemId: string | null | undefined) => {
+    if (itemId == null) { return; }
+    const item = itemState.get(itemId);
+    if (item == null || !isAttachmentsItem(item)) { return; }
+    for (let attachmentId of asAttachmentsItem(item).computed_attachments) {
+      addItemAndLinkedTargetIgnoreIds(attachmentId);
+    }
+  };
   const addCompositeChildrenIgnoreIds = (itemId: string | null | undefined) => {
     if (itemId == null) { return; }
     const item = itemState.get(itemId);
     if (item == null || !isComposite(item)) { return; }
     const compositeItem = asCompositeItem(item);
     for (let childId of compositeItem.computed_children) {
-      addIgnoreId(childId);
-      const child = itemState.get(childId);
-      if (child != null && isLink(child)) {
-        addIgnoreId(LinkFns.getLinkToId(asLinkItem(child)));
-      }
+      addItemAndLinkedTargetIgnoreIds(childId);
     }
   };
 
   addIgnoreId(activeVisualElement.displayItem.id);
   addIgnoreId(activeVisualElement.linkItemMaybe?.id);
   addIgnoreId(activeVisualElement.actualLinkItemMaybe?.id);
+  addAttachmentIgnoreIds(activeVisualElement.displayItem.id);
+  addAttachmentIgnoreIds(activeVisualElement.linkItemMaybe?.id);
+  addAttachmentIgnoreIds(activeVisualElement.actualLinkItemMaybe?.id);
   addCompositeChildrenIgnoreIds(activeVisualElement.displayItem.id);
 
   for (const entry of group ?? []) {
     addIgnoreId(entry.veid.itemId);
     addIgnoreId(entry.veid.linkIdMaybe);
+    addAttachmentIgnoreIds(entry.veid.itemId);
+    addAttachmentIgnoreIds(entry.veid.linkIdMaybe);
     addCompositeChildrenIgnoreIds(entry.veid.itemId);
   }
 
