@@ -29,6 +29,7 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from starlette.requests import ClientDisconnect
 
 HOP_BY_HOP_HEADERS = {
     "connection",
@@ -317,6 +318,43 @@ def build_upstream_url(service: ServiceProxy, request_path: str, query: str) -> 
     if query:
         return f"{url}?{query}"
     return url
+
+
+def should_buffer_request_body_before_gpu_lock(service: ServiceProxy, request_path: str, method: str) -> bool:
+    return (
+        service.service_name == "image_tagging"
+        and request_path in {"/image-extract", "/tag"}
+        and method.upper() in {"POST", "PUT", "PATCH"}
+    )
+
+
+async def maybe_buffer_request_body_before_gpu_lock(
+    request: Request,
+    service: ServiceProxy,
+    request_path: str,
+) -> bytes | None:
+    if not should_buffer_request_body_before_gpu_lock(service, request_path, request.method):
+        return None
+
+    try:
+        body = await request.body()
+    except ClientDisconnect as exc:
+        LOGGER.info(
+            "GPU gateway client disconnected while buffering request body before global lock: service=%s path=%s method=%s",
+            service.service_name,
+            request_path,
+            request.method,
+        )
+        raise HTTPException(status_code=499, detail="Client disconnected while uploading request body.") from exc
+
+    LOGGER.info(
+        "GPU gateway buffered request body before global lock: service=%s path=%s method=%s bytes=%d",
+        service.service_name,
+        request_path,
+        request.method,
+        len(body),
+    )
+    return body
 
 
 def upstream_timeout(read_write_timeout_secs: float) -> httpx.Timeout:
@@ -742,11 +780,12 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
     client = proxy_client_for_service(request, service)
     lock = gpu_lock(request) if service.uses_global_gpu_lock else None
     upstream_url = build_upstream_url(service, request_path, request.url.query)
+    buffered_request_body = await maybe_buffer_request_body_before_gpu_lock(request, service, request_path)
     upstream_request = client.build_request(
         method=request.method,
         url=upstream_url,
         headers=forwarded_headers(request),
-        content=request.stream(),
+        content=buffered_request_body if buffered_request_body is not None else request.stream(),
     )
     wait_started_at = time.perf_counter()
     if lock is not None and lock.locked():
