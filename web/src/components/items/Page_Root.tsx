@@ -57,6 +57,14 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   let updatingRootScrollTop = false;
   let rootDiv: any = undefined;
+  let calendarSwipeState: {
+    startX: number,
+    startY: number,
+    lastX: number,
+    lastY: number,
+    horizontalIntent: boolean,
+    canceled: boolean,
+  } | null = null;
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
@@ -394,6 +402,96 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       store.perVe.setCalendarMonthIndex(pagePath, calendarWindow.startMonthIndex + monthDelta);
       requestArrange(store, "page-calendar-window-change");
     };
+    const resetCalendarSwipe = () => {
+      calendarSwipeState = null;
+    };
+    const canHandleCalendarSwipe = () =>
+      store.smallScreenMode() &&
+      !store.anItemIsMoving.get() &&
+      !store.anItemIsResizing.get() &&
+      store.overlay.textEditInfo() == null;
+    const calendarTouchStartHandler = (ev: TouchEvent) => {
+      if (!canHandleCalendarSwipe() || ev.touches.length != 1) {
+        resetCalendarSwipe();
+        return;
+      }
+
+      const touch = ev.touches[0];
+      calendarSwipeState = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        lastX: touch.clientX,
+        lastY: touch.clientY,
+        horizontalIntent: false,
+        canceled: false,
+      };
+    };
+    const calendarTouchMoveHandler = (ev: TouchEvent) => {
+      if (calendarSwipeState == null) {
+        return;
+      }
+      if (!canHandleCalendarSwipe() || ev.touches.length != 1) {
+        resetCalendarSwipe();
+        return;
+      }
+
+      const touch = ev.touches[0];
+      calendarSwipeState.lastX = touch.clientX;
+      calendarSwipeState.lastY = touch.clientY;
+
+      const deltaX = calendarSwipeState.lastX - calendarSwipeState.startX;
+      const deltaY = calendarSwipeState.lastY - calendarSwipeState.startY;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+
+      if (!calendarSwipeState.horizontalIntent && absY > 14 && absY > absX * 1.15) {
+        calendarSwipeState.canceled = true;
+        return;
+      }
+      if (!calendarSwipeState.canceled && absX > 18 && absX > absY * 1.35) {
+        calendarSwipeState.horizontalIntent = true;
+      }
+      if (!calendarSwipeState.horizontalIntent) {
+        return;
+      }
+
+      if (ev.cancelable) {
+        ev.preventDefault();
+      }
+      ev.stopPropagation();
+    };
+    const calendarTouchEndHandler = (ev: TouchEvent) => {
+      if (calendarSwipeState == null) {
+        return;
+      }
+
+      const swipeState = calendarSwipeState;
+      resetCalendarSwipe();
+
+      if (ev.changedTouches.length > 0) {
+        const touch = ev.changedTouches[0];
+        swipeState.lastX = touch.clientX;
+        swipeState.lastY = touch.clientY;
+      }
+
+      if (!canHandleCalendarSwipe() || swipeState.canceled) {
+        return;
+      }
+
+      const deltaX = swipeState.lastX - swipeState.startX;
+      const deltaY = swipeState.lastY - swipeState.startY;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      if (absX < 60 || absX < absY * 1.35) {
+        return;
+      }
+
+      if (ev.cancelable) {
+        ev.preventDefault();
+      }
+      ev.stopPropagation();
+      navigateCalendarWindow(deltaX < 0 ? 1 : -1);
+    };
     const resetCalendarWindow = () => {
       store.perVe.setCalendarMonthIndex(
         pagePath,
@@ -434,8 +532,13 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
           `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+          `${store.smallScreenMode() ? "overscroll-behavior: contain; touch-action: pan-y; " : ""}` +
           `${VeFns.zIndexStyle(props.visualElement)} `}
-        onscroll={rootScrollHandler}>
+        onscroll={rootScrollHandler}
+        onTouchStart={calendarTouchStartHandler}
+        onTouchMove={calendarTouchMoveHandler}
+        onTouchEnd={calendarTouchEndHandler}
+        onTouchCancel={resetCalendarSwipe}>
         <div class="absolute"
           style={`left: 0px; top: 0px; ` +
             `width: ${pageFns().childAreaBoundsPx().w}px; ` +
