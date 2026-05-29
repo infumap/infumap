@@ -14,7 +14,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Text embedding service base URL, /text-embed endpoint, legacy /embed endpoint, or legacy /v1/embeddings endpoint. Falls back to text_embedding_url in settings.toml.")
+        .help("Text embedding endpoint URL, for example http://127.0.0.1:8787/text-embed. Falls back to the text_embed endpoint discovered from gpu_tools_url in settings.toml.")
         .num_args(1)
         .required(false),
     )
@@ -33,7 +33,8 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     &config,
     sub_matches.get_one::<String>("service_url").map(String::as_str),
     "--service-url",
-  )?;
+  )
+  .await?;
   let continue_rebuild = sub_matches.get_flag("continue");
 
   let client = build_http_client(None).await?;

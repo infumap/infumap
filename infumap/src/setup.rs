@@ -295,28 +295,12 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
   }
   info!(" {} = '{}'", CONFIG_DATA_DIR, config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?);
   info!(" {} = '{}'", CONFIG_CACHE_DIR, config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?);
-  match config.get_string(CONFIG_TEXT_EXTRACTION_URL) {
+  match config.get_string(CONFIG_GPU_TOOLS_URL) {
     Ok(v) => {
-      info!(" {} = '{}'", CONFIG_TEXT_EXTRACTION_URL, v);
+      info!(" {} = '{}'", CONFIG_GPU_TOOLS_URL, v);
     }
     Err(_) => {
-      info!(" {} = {}", CONFIG_TEXT_EXTRACTION_URL, "<not set>");
-    }
-  }
-  match config.get_string(CONFIG_IMAGE_TAGGING_URL) {
-    Ok(v) => {
-      info!(" {} = '{}'", CONFIG_IMAGE_TAGGING_URL, v);
-    }
-    Err(_) => {
-      info!(" {} = {}", CONFIG_IMAGE_TAGGING_URL, "<not set>");
-    }
-  }
-  match config.get_string(CONFIG_TEXT_EMBEDDING_URL) {
-    Ok(v) => {
-      info!(" {} = '{}'", CONFIG_TEXT_EMBEDDING_URL, v);
-    }
-    Err(_) => {
-      info!(" {} = {}", CONFIG_TEXT_EMBEDDING_URL, "<not set>");
+      info!(" {} = {}", CONFIG_GPU_TOOLS_URL, "<not set>");
     }
   }
   info!(" {} = '{}'", CONFIG_GEOAPIFY_URL, config.get_string(CONFIG_GEOAPIFY_URL).map_err(|e| e.to_string())?);

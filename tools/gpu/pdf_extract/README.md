@@ -130,6 +130,7 @@ curl -sS \
 
 - `GET /`
 - `GET /healthz`
+- `GET /gpu-tools`
 - `POST /pdf-extract`
 - `POST /convert` legacy alias
 

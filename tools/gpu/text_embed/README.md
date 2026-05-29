@@ -104,6 +104,7 @@ Direct wrapper:
 
 - `GET /`
 - `GET /healthz`
+- `GET /gpu-tools`
 - `GET /health`
 - `GET /v1/models`
 - `POST /text-embed`
@@ -113,6 +114,7 @@ Direct wrapper:
 Gateway:
 
 - `GET /healthz`
+- `GET /gpu-tools`
 - `POST /text-embed`
 - `POST /embed` legacy alias
 

@@ -23,6 +23,7 @@ To start all three together from the repo root:
 
 By default the gateway listens on `127.0.0.1:8787` and forwards:
 
+- `/gpu-tools` as the discovery endpoint for Infumap web
 - `/image-extract` to the image extract service
 - `/image-extract-caption-only` to the image extract service
 - `/pdf-extract-caption-only` to the image extract service

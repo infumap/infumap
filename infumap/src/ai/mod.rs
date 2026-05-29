@@ -4,6 +4,7 @@ pub mod document_pipeline;
 pub mod fragment;
 pub mod fragment_indexing;
 pub mod geo;
+pub mod gpu_tools;
 pub mod image_pipeline;
 pub mod image_tagging;
 pub mod indexing;

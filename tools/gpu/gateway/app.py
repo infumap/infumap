@@ -304,6 +304,53 @@ def service_registry() -> dict[str, ServiceProxy]:
 SERVICES = service_registry()
 
 
+def gpu_tools_endpoints() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "image_extract",
+            "method": "POST",
+            "path": "/image-extract",
+            "service": "image_extract",
+            "description": "Extract image captions, tags, OCR snippets, document confidence, face counts, and image embeddings.",
+        },
+        {
+            "id": "image_extract_caption_only",
+            "method": "POST",
+            "path": "/image-extract-caption-only",
+            "service": "image_extract",
+            "description": "Extract only a detailed visual caption from an image.",
+        },
+        {
+            "id": "pdf_extract_caption_only",
+            "method": "POST",
+            "path": "/pdf-extract-caption-only",
+            "service": "image_extract",
+            "description": "Render the first page of a PDF and extract only a detailed visual caption.",
+        },
+        {
+            "id": "text_embed",
+            "method": "POST",
+            "path": "/text-embed",
+            "service": "text_embed",
+            "description": "Embed text for semantic fragment indexing and semantic search queries.",
+        },
+        {
+            "id": "pdf_extract",
+            "method": "POST",
+            "path": "/pdf-extract",
+            "service": "pdf_extract",
+            "description": "Extract Markdown text from an uploaded PDF.",
+        },
+        {
+            "id": "pdf_extract_jobs",
+            "method": "POST",
+            "path": "/pdf-extract/jobs",
+            "service": "pdf_extract",
+            "description": "Submit an asynchronous PDF text extraction job managed by the gateway.",
+        },
+    ]
+
+
 def strip_hop_by_hop_headers(headers: httpx.Headers | dict[str, str]) -> dict[str, str]:
     filtered: dict[str, str] = {}
     for key, value in headers.items():
@@ -662,6 +709,7 @@ async def root(request: Request) -> dict[str, Any]:
         "service": "infumap-gpu-gateway",
         "docs": "/docs",
         "health": "/healthz",
+        "gpu_tools": "/gpu-tools",
         "pdf_extract_jobs": "/pdf-extract/jobs",
         "global_gpu_lock": lock.snapshot(),
         "services": {
@@ -673,6 +721,15 @@ async def root(request: Request) -> dict[str, Any]:
             }
             for name, service in SERVICES.items()
         },
+    }
+
+
+@app.get("/gpu-tools")
+async def gpu_tools() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "service": "infumap-gpu-gateway",
+        "endpoints": gpu_tools_endpoints(),
     }
 
 

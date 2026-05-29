@@ -141,8 +141,25 @@ async def root(request: Request) -> dict[str, Any]:
         "model_id": MODEL_ID,
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
+        "gpu_tools": rooted_path(request, "/gpu-tools"),
         "text_embed": rooted_path(request, "/text-embed"),
         "embed": rooted_path(request, "/embed"),
+    }
+
+
+@app.get("/gpu-tools")
+async def gpu_tools() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "service": "infumap-text-embed",
+        "endpoints": [
+            {
+                "id": "text_embed",
+                "method": "POST",
+                "path": "/text-embed",
+                "description": "Embed text for semantic fragment indexing and semantic search queries.",
+            },
+        ],
     }
 
 

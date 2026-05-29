@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use config::Config;
 use infusdk::item::Item;
 use infusdk::util::infu::{InfuError, InfuResult};
 use log::{debug, error, info, warn};
@@ -26,7 +25,6 @@ use tokio::sync::Mutex;
 use tokio::time;
 
 use crate::ai::user_id_for_log;
-use crate::config::CONFIG_IMAGE_TAGGING_URL;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::image::extract_image_metadata;
@@ -449,14 +447,6 @@ pub async fn mark_item_image_tagging_failed(
     user_id_for_log(&candidate.user_id)
   );
   Ok(())
-}
-
-pub fn image_tagging_url_from_config(config: &Config) -> InfuResult<Option<String>> {
-  match config.get_string(CONFIG_IMAGE_TAGGING_URL) {
-    Ok(url) if !url.trim().is_empty() => Ok(Some(url)),
-    Ok(_) => Ok(None),
-    Err(_) => Ok(None),
-  }
 }
 
 fn format_duration_for_log(duration: Duration) -> String {

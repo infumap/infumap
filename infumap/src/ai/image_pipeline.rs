@@ -19,6 +19,7 @@ use crate::ai::geo::{
   geo_manifest_status, geoapify_api_key_from_config, geoapify_max_requests_per_minute_from_config,
   geoapify_url_from_config, reverse_geocode_candidate_if_needed,
 };
+use crate::ai::gpu_tools::{GPU_TOOL_IMAGE_EXTRACT, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::image_tagging::{
   ImageTagArtifactPolicy, ImageTagArtifactState, LoadedImageTagging, WebImageTagArtifactReadiness,
   image_tagging_artifact_state, image_tagging_manifest_is_successful, load_image_for_tagging,
@@ -97,7 +98,7 @@ struct StartupReconciliationSummary {
 #[derive(Clone)]
 struct ImageSemanticPipelineConfig {
   data_dir: String,
-  image_tagging_url: Option<String>,
+  gpu_tools_url: Option<String>,
   geo_api_key: Option<String>,
   geo_service_url: String,
   geo_max_requests_per_minute: u64,
@@ -133,7 +134,7 @@ pub fn init_image_semantic_pipeline_loop(
     return Ok(());
   }
 
-  if pipeline_config.image_tagging_url.is_none()
+  if pipeline_config.gpu_tools_url.is_none()
     && pipeline_config.geo_api_key.is_none()
     && !ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE
   {
@@ -147,8 +148,8 @@ pub fn init_image_semantic_pipeline_loop(
     .map_err(|_| "Image background pipeline loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting image background pipeline loops (tag_source=on, image_tagging={}, reverse_geo={}, fragmenting={}, geo_max_requests_per_minute={}).",
-    on_off(pipeline_config.image_tagging_url.is_some()),
+    "Starting image background pipeline loops (tag_source=on, gpu_tools={}, reverse_geo={}, fragmenting={}, geo_max_requests_per_minute={}).",
+    on_off(pipeline_config.gpu_tools_url.is_some()),
     on_off(pipeline_config.geo_api_key.is_some()),
     on_off(ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE),
     pipeline_config.geo_max_requests_per_minute
@@ -224,15 +225,19 @@ pub fn dequeue_image_semantic_pipeline_item_if_active(item_id: &str) {
 
 fn image_semantic_pipeline_config(config: &Config) -> InfuResult<ImageSemanticPipelineConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  let image_tagging_url = crate::ai::image_tagging::image_tagging_url_from_config(config)?;
+  let gpu_tools_url = gpu_tools_url_from_config(config)?;
   let geo_api_key = geoapify_api_key_from_config(config)?;
   Ok(ImageSemanticPipelineConfig {
     data_dir,
-    image_tagging_url,
+    gpu_tools_url,
     geo_api_key,
     geo_service_url: geoapify_url_from_config(config)?,
     geo_max_requests_per_minute: geoapify_max_requests_per_minute_from_config(config)?,
   })
+}
+
+async fn image_tagging_endpoint_url(config: &ImageSemanticPipelineConfig) -> InfuResult<Option<String>> {
+  Ok(resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_IMAGE_EXTRACT).await?.map(|url| url.to_string()))
 }
 
 async fn run_source_image_loop(
@@ -359,7 +364,9 @@ async fn source_image_prefetch_readiness(
     return Ok(SourceImagePrefetchReadiness::NotReady);
   }
 
-  if config.image_tagging_url.is_none() {
+  let image_tagging_available = image_tagging_endpoint_url(config).await?.is_some();
+
+  if !image_tagging_available {
     return Ok(match image_tagging_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
       ImageTagArtifactState::Succeeded => SourceImagePrefetchReadiness::ReadyForDownstream,
       ImageTagArtifactState::Empty
@@ -385,12 +392,12 @@ async fn process_prefetched_source_image_item(
   candidate: &ImagePipelineCandidate,
   loaded: LoadedImageTagging,
 ) -> InfuResult<SourceImageReconcileOutcome> {
-  let Some(image_tagging_url) = config.image_tagging_url.as_deref() else {
+  let Some(image_tagging_url) = image_tagging_endpoint_url(config).await? else {
     return Ok(SourceImageReconcileOutcome::NotReady);
   };
   process_loaded_image_tagging(
     &config.data_dir,
-    image_tagging_url,
+    image_tagging_url.as_str(),
     db,
     loaded,
     true,
@@ -625,9 +632,10 @@ async fn image_fragment_readiness(
   config: &ImageSemanticPipelineConfig,
   item: &Item,
 ) -> InfuResult<ImageFragmentReadiness> {
+  let image_tagging_available = image_tagging_endpoint_url(config).await?.is_some();
   match image_tagging_artifact_state(&config.data_dir, &item.owner_id, &item.id).await? {
     ImageTagArtifactState::Succeeded => {}
-    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) if config.image_tagging_url.is_some() => {
+    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) if image_tagging_available => {
       return Ok(ImageFragmentReadiness::Waiting);
     }
     ImageTagArtifactState::Empty
@@ -764,13 +772,13 @@ async fn startup_stage_for_candidate(
     }
     ImageTagArtifactState::Empty => {
       summary.tag_pending += 1;
-      if config.image_tagging_url.is_some() {
+      if image_tagging_endpoint_url(config).await?.is_some() {
         return Ok(Some(PipelineStage::Source));
       }
     }
     ImageTagArtifactState::Incomplete(_) => {
       summary.tag_incomplete += 1;
-      if config.image_tagging_url.is_some() {
+      if image_tagging_endpoint_url(config).await?.is_some() {
         return Ok(Some(PipelineStage::Source));
       }
     }

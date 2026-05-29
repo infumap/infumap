@@ -146,6 +146,7 @@ IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/gpu/ima
 
 - `GET /`
 - `GET /healthz`
+- `GET /gpu-tools`
 - `POST /image-extract`
 - `POST /image-extract-caption-only`
 - `POST /pdf-extract-caption-only`

@@ -9,7 +9,6 @@ use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, info};
 use once_cell::sync::OnceCell;
-use reqwest::Url;
 use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
@@ -19,9 +18,11 @@ use crate::ai::fragment::sources::{
 };
 use crate::ai::fragment::{FragmentBuildOutcome, clear_item_fragments, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
-use crate::ai::image_tagging::image_tagging_url_from_config;
+use crate::ai::gpu_tools::{
+  GPU_TOOL_PDF_EXTRACT, GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY, gpu_tools_url_from_config, resolve_gpu_tool_url,
+};
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
-use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state, text_extraction_url_from_config};
+use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -38,8 +39,7 @@ static DOCUMENT_FRAGMENT_PIPELINE_STATE: OnceCell<Arc<Mutex<DocumentFragmentPipe
 #[derive(Clone)]
 struct DocumentFragmentPipelineConfig {
   data_dir: String,
-  text_extraction_enabled: bool,
-  pdf_caption_url: Option<String>,
+  gpu_tools_url: Option<String>,
   object_store: Arc<ObjectStore>,
 }
 
@@ -143,11 +143,7 @@ pub fn init_document_fragment_pipeline_loop(
     .set(state.clone())
     .map_err(|_| "Document fragment background pipeline loop is already running in this process.".to_owned())?;
 
-  info!(
-    "Starting document fragment background loop (pdf_text_extraction={}, pdf_caption_fallback={}).",
-    on_off(pipeline_config.text_extraction_enabled),
-    on_off(pipeline_config.pdf_caption_url.is_some())
-  );
+  info!("Starting document fragment background loop (gpu_tools={}).", on_off(pipeline_config.gpu_tools_url.is_some()));
 
   let worker_config = pipeline_config.clone();
   let worker_db = db.clone();
@@ -208,33 +204,8 @@ fn document_fragment_pipeline_config(
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<DocumentFragmentPipelineConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  let text_extraction_enabled = text_extraction_url_from_config(config)?.is_some();
-  let pdf_caption_url =
-    image_tagging_url_from_config(config)?.as_deref().map(pdf_caption_url_from_image_tagging_url).transpose()?;
-  Ok(DocumentFragmentPipelineConfig { data_dir, text_extraction_enabled, pdf_caption_url, object_store })
-}
-
-fn pdf_caption_url_from_image_tagging_url(image_tagging_url: &str) -> InfuResult<String> {
-  let mut url = Url::parse(image_tagging_url)
-    .map_err(|e| format!("Could not parse image tagging URL '{}': {}", image_tagging_url, e))?;
-  let path = url.path().trim_end_matches('/');
-  let pdf_caption_path = if let Some(prefix) = path.strip_suffix("/image-extract") {
-    sibling_endpoint_path(prefix, "/pdf-extract-caption-only")
-  } else if let Some(prefix) = path.strip_suffix("/image-extract-caption-only") {
-    sibling_endpoint_path(prefix, "/pdf-extract-caption-only")
-  } else if let Some(prefix) = path.strip_suffix("/tag") {
-    sibling_endpoint_path(prefix, "/pdf-extract-caption-only")
-  } else {
-    sibling_endpoint_path(path, "/pdf-extract-caption-only")
-  };
-  url.set_path(&pdf_caption_path);
-  url.set_query(None);
-  Ok(url.to_string())
-}
-
-fn sibling_endpoint_path(prefix: &str, endpoint: &str) -> String {
-  let prefix = prefix.trim_end_matches('/');
-  if prefix.is_empty() { endpoint.to_owned() } else { format!("{prefix}{endpoint}") }
+  let gpu_tools_url = gpu_tools_url_from_config(config)?;
+  Ok(DocumentFragmentPipelineConfig { data_dir, gpu_tools_url, object_store })
 }
 
 async fn run_document_fragment_loop(
@@ -322,10 +293,26 @@ async fn reconcile_document_fragment_item(
     }
   }
 
+  let pdf_caption_url = if candidate.kind == DocumentFragmentKind::Pdf {
+    match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY).await {
+      Ok(url) => url.map(|url| url.to_string()),
+      Err(e) => {
+        debug!(
+          "Could not discover PDF first-page caption fallback endpoint for '{}' (user {}): {}",
+          item_snapshot.id,
+          user_id_for_log(&item_snapshot.owner_id),
+          e
+        );
+        None
+      }
+    }
+  } else {
+    None
+  };
   let object_encryption_key = {
     let db = db.lock().await;
     let needs_source_object = candidate.kind.needs_source_object()
-      || (candidate.kind == DocumentFragmentKind::Pdf && config.pdf_caption_url.is_some());
+      || (candidate.kind == DocumentFragmentKind::Pdf && pdf_caption_url.is_some());
     if needs_source_object {
       Some(
         db.user
@@ -338,7 +325,9 @@ async fn reconcile_document_fragment_item(
       None
     }
   };
-  let outcome = build_document_fragment_artifact(config, &item_snapshot, candidate.kind, object_encryption_key).await?;
+  let outcome =
+    build_document_fragment_artifact(config, &item_snapshot, candidate.kind, object_encryption_key, pdf_caption_url)
+      .await?;
 
   if outcome.wrote_fragments {
     debug!(
@@ -369,6 +358,7 @@ async fn build_document_fragment_artifact(
   item: &Item,
   kind: DocumentFragmentKind,
   object_encryption_key: Option<String>,
+  pdf_caption_url: Option<String>,
 ) -> InfuResult<FragmentBuildOutcome> {
   match kind {
     DocumentFragmentKind::Pdf => Ok(
@@ -377,7 +367,7 @@ async fn build_document_fragment_artifact(
         config.object_store.clone(),
         item,
         object_encryption_key.as_deref(),
-        config.pdf_caption_url.as_deref(),
+        pdf_caption_url.as_deref(),
       )
       .await?
       .outcome,
@@ -412,11 +402,23 @@ async fn document_fragment_readiness(
       match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
         PdfTextArtifactState::Succeeded => Ok(DocumentFragmentReadiness::Ready),
         PdfTextArtifactState::Failed => Ok(DocumentFragmentReadiness::Unavailable),
-        PdfTextArtifactState::Pending if config.text_extraction_enabled => Ok(DocumentFragmentReadiness::Waiting),
+        PdfTextArtifactState::Pending if pdf_text_extraction_available(config).await => {
+          Ok(DocumentFragmentReadiness::Waiting)
+        }
         PdfTextArtifactState::Pending => Ok(DocumentFragmentReadiness::Unavailable),
       }
     }
     DocumentFragmentKind::Markdown | DocumentFragmentKind::Text => Ok(DocumentFragmentReadiness::Ready),
+  }
+}
+
+async fn pdf_text_extraction_available(config: &DocumentFragmentPipelineConfig) -> bool {
+  match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_PDF_EXTRACT).await {
+    Ok(url) => url.is_some(),
+    Err(e) => {
+      debug!("Could not discover PDF text extraction GPU tool endpoint: {}", e);
+      config.gpu_tools_url.is_some()
+    }
   }
 }
 

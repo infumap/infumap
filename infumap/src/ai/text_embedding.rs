@@ -5,8 +5,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 
+use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, resolve_configured_gpu_tool_url};
 use crate::ai::metrics::{METRIC_AI_EMBEDDING_REQUEST_DURATION_SECONDS, METRIC_AI_EMBEDDING_REQUESTS_TOTAL};
-use crate::config::CONFIG_TEXT_EMBEDDING_URL;
+use crate::config::CONFIG_GPU_TOOLS_URL;
 
 pub const DEFAULT_TEXT_EMBEDDING_MODEL: &str = "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0";
 pub const DEFAULT_TEXT_EMBEDDING_BATCH_SIZE: usize = 256;
@@ -70,27 +71,21 @@ fn format_text_embedding_input(input: &TextEmbeddingInput) -> String {
   }
 }
 
-pub fn resolve_text_embedding_service_url(
+pub async fn resolve_text_embedding_service_url(
   config: &Config,
   override_url: Option<&str>,
   override_flag_name: &str,
 ) -> InfuResult<Url> {
-  let base_url = match override_url.map(str::trim).filter(|url| !url.is_empty()) {
-    Some(url) => url.to_owned(),
-    None => text_embedding_url_from_config(config)?
-      .ok_or(format!("{} must be configured or specified via {}.", CONFIG_TEXT_EMBEDDING_URL, override_flag_name))?,
-  };
-  text_embedding_embed_url(&base_url)
-}
-
-pub fn text_embedding_url_from_config(config: &Config) -> InfuResult<Option<String>> {
-  match config.get_string(CONFIG_TEXT_EMBEDDING_URL) {
-    Ok(value) => {
-      let trimmed = value.trim();
-      if trimmed.is_empty() { Ok(None) } else { Ok(Some(trimmed.to_owned())) }
-    }
-    Err(_) => Ok(None),
+  if let Some(url) = override_url.map(str::trim).filter(|url| !url.is_empty()) {
+    return text_embedding_embed_url(url);
   }
+  resolve_configured_gpu_tool_url(config, GPU_TOOL_TEXT_EMBED).await?.ok_or(
+    format!(
+      "{} must be configured and expose '{}', or a service endpoint must be specified via {}.",
+      CONFIG_GPU_TOOLS_URL, GPU_TOOL_TEXT_EMBED, override_flag_name
+    )
+    .into(),
+  )
 }
 
 pub fn text_embedding_embed_url(base_url: &str) -> InfuResult<Url> {

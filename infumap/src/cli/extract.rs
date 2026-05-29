@@ -32,13 +32,13 @@ use crate::ai::batch_processing::{
   BatchScope, collect_image_item_ids_in_container, collect_pdf_item_ids_in_container, is_extractable_pdf_item,
   process_image_tagging_batch, process_pdf_extraction_batch,
 };
+use crate::ai::gpu_tools::{GPU_TOOL_IMAGE_EXTRACT, GPU_TOOL_PDF_EXTRACT, resolve_configured_gpu_tool_url};
 use crate::ai::image_tagging::{
-  delete_item_image_tag_dir, image_tagging_url_from_config, is_supported_image_tagging_mime_type, list_failed_images,
-  mark_item_image_tagging_failed, should_tag_image_item, tag_single_item_no_retry,
+  delete_item_image_tag_dir, is_supported_image_tagging_mime_type, list_failed_images, mark_item_image_tagging_failed,
+  should_tag_image_item, tag_single_item_no_retry,
 };
 use crate::ai::text_extraction::{
   delete_item_text_dir, extract_single_item_no_retry, list_failed_pdfs, mark_item_text_extraction_failed,
-  text_extraction_url_from_config,
 };
 use crate::config::{
   CONFIG_DATA_DIR, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE,
@@ -77,7 +77,7 @@ fn make_pdf_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Text extraction service endpoint URL, for example http://127.0.0.1:8787/pdf-extract. Overrides the configured text extraction URL, if present.")
+        .help("Text extraction endpoint URL, for example http://127.0.0.1:8787/pdf-extract. Falls back to the pdf_extract endpoint discovered from gpu_tools_url in settings.toml.")
         .num_args(1)
         .required(false),
     )
@@ -173,7 +173,7 @@ fn make_image_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Image tagging service endpoint URL, for example http://127.0.0.1:8787/image-extract. Overrides the configured image tagging URL, if present.")
+        .help("Image extraction endpoint URL, for example http://127.0.0.1:8787/image-extract. Falls back to the image_extract endpoint discovered from gpu_tools_url in settings.toml.")
         .num_args(1)
         .required(false),
     )
@@ -365,14 +365,8 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
-  let text_extraction_url = resolve_service_url(
-    &config,
-    sub_matches,
-    "service_url",
-    "--service-url",
-    text_extraction_url_from_config,
-    "text_extraction_url",
-  )?;
+  let text_extraction_url =
+    resolve_service_url(&config, sub_matches, "service_url", "--service-url", GPU_TOOL_PDF_EXTRACT).await?;
   let text_extraction_delay = parse_delay_arg(sub_matches, "delay_secs", "--delay-secs")?;
 
   if let Some(item_id) = sub_matches.get_one::<String>("item_id") {
@@ -453,14 +447,8 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
-  let image_tagging_url = resolve_service_url(
-    &config,
-    sub_matches,
-    "service_url",
-    "--service-url",
-    image_tagging_url_from_config,
-    "image_tagging_url",
-  )?;
+  let image_tagging_url =
+    resolve_service_url(&config, sub_matches, "service_url", "--service-url", GPU_TOOL_IMAGE_EXTRACT).await?;
   let image_tagging_delay = parse_delay_arg(sub_matches, "delay_secs", "--delay-secs")?;
 
   if let Some(item_id) = sub_matches.get_one::<String>("item_id") {
@@ -530,18 +518,22 @@ async fn init_runtime(settings_path_maybe: Option<&String>) -> InfuResult<CliRun
   Ok(CliRuntime { config, data_dir, db, object_store })
 }
 
-fn resolve_service_url(
+async fn resolve_service_url(
   config: &Config,
   sub_matches: &ArgMatches,
   arg_name: &str,
   flag_name: &str,
-  from_config: fn(&Config) -> InfuResult<Option<String>>,
-  config_key_name: &str,
+  endpoint_id: &str,
 ) -> InfuResult<String> {
   match sub_matches.get_one::<String>(arg_name) {
     Some(url) if !url.trim().is_empty() => Ok(url.clone()),
-    _ => from_config(config)?
-      .ok_or(format!("{} must be configured or specified via {}.", config_key_name, flag_name).into()),
+    _ => resolve_configured_gpu_tool_url(config, endpoint_id).await?.map(|url| url.to_string()).ok_or(
+      format!(
+        "gpu_tools_url must be configured and expose '{}', or a service endpoint must be specified via {}.",
+        endpoint_id, flag_name
+      )
+      .into(),
+    ),
   }
 }
 

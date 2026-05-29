@@ -31,9 +31,12 @@ use tokio::sync::Mutex;
 use tokio::{task, time};
 
 use crate::ai::document_pipeline::enqueue_pdf_fragment_ids_if_active;
+use crate::ai::gpu_tools::{
+  GPU_TOOL_PDF_EXTRACT, GPU_TOOL_PDF_EXTRACT_JOBS, gpu_tools_url_from_config, resolve_gpu_tool_url,
+};
 use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
 use crate::ai::user_id_for_log;
-use crate::config::{CONFIG_DATA_DIR, CONFIG_TEXT_EXTRACTION_URL};
+use crate::config::{CONFIG_DATA_DIR, CONFIG_GPU_TOOLS_URL};
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::retry::endpoint_retry_delay;
@@ -115,6 +118,12 @@ enum ExtractOutcome {
   Success(PdfToMdResponse),
   DocumentFailed(String),
   EndpointUnavailable(String),
+}
+
+#[derive(Clone)]
+struct PdfTextExtractionEndpoint {
+  extract_url: String,
+  async_jobs_available: bool,
 }
 
 struct ExtractionProgress {
@@ -305,6 +314,7 @@ pub(crate) async fn process_loaded_pdf_extraction(
 pub(crate) async fn process_loaded_pdf_extraction_web_background(
   data_dir: &str,
   text_extraction_url: &str,
+  async_jobs_available: bool,
   db: Arc<Mutex<Db>>,
   loaded: LoadedPdfExtraction,
 ) -> InfuResult<()> {
@@ -314,8 +324,11 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
-  let outcome =
-    request_text_extraction_async_polling_with_retries(&client, text_extraction_url, &candidate, &file_bytes).await;
+  let outcome = if async_jobs_available {
+    request_text_extraction_async_polling_with_retries(&client, text_extraction_url, &candidate, &file_bytes).await
+  } else {
+    request_text_extraction_with_retries(&client, text_extraction_url, &candidate, &file_bytes, None).await
+  };
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(
       format!("Item '{}' was deleted or replaced while extraction was in progress.", candidate.item_id).into(),
@@ -368,33 +381,25 @@ pub async fn mark_item_text_extraction_failed(
   Ok(())
 }
 
-pub fn text_extraction_url_from_config(config: &Config) -> InfuResult<Option<String>> {
-  match config.get_string(CONFIG_TEXT_EXTRACTION_URL) {
-    Ok(url) if !url.trim().is_empty() => Ok(Some(url)),
-    Ok(_) => Ok(None),
-    Err(_) => Ok(None),
-  }
-}
-
 pub fn init_text_extraction_processing_loop(
   config: &Config,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
-  let text_extraction_url = match text_extraction_url_from_config(config)? {
+  let gpu_tools_url = match gpu_tools_url_from_config(config)? {
     Some(url) => url,
     None => {
-      info!("PDF text extraction disabled: '{}' is not configured.", CONFIG_TEXT_EXTRACTION_URL);
+      info!("PDF text extraction disabled: '{}' is not configured.", CONFIG_GPU_TOOLS_URL);
       return Ok(());
     }
   };
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  start_text_extraction_processing_loop(data_dir, text_extraction_url, Duration::ZERO, db, object_store)
+  start_text_extraction_processing_loop(data_dir, gpu_tools_url, Duration::ZERO, db, object_store)
 }
 
 pub fn start_text_extraction_processing_loop(
   data_dir: String,
-  text_extraction_url: String,
+  gpu_tools_url: String,
   request_delay: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
@@ -410,16 +415,16 @@ pub fn start_text_extraction_processing_loop(
   let progress = Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, other_failed: 0 }));
 
   if request_delay.is_zero() {
-    info!("Starting PDF text extraction loop: '{}' (async polling).", text_extraction_url);
+    info!("Starting PDF text extraction loop from GPU tools URL '{}'.", gpu_tools_url);
   } else {
     info!(
-      "Starting PDF text extraction loop: '{}' (async polling, delay {:.3}s).",
-      text_extraction_url,
+      "Starting PDF text extraction loop from GPU tools URL '{}' (delay {:.3}s).",
+      gpu_tools_url,
       request_delay.as_secs_f64()
     );
   }
   let _worker = task::spawn(async move {
-    run_text_extraction_loop(data_dir, text_extraction_url, request_delay, db, object_store, state, progress).await;
+    run_text_extraction_loop(data_dir, gpu_tools_url, request_delay, db, object_store, state, progress).await;
   });
 
   Ok(())
@@ -431,20 +436,55 @@ fn enqueue_all_loaded_pdfs(data_dir: String, db: Arc<Mutex<Db>>, state: Arc<Mute
   });
 }
 
+async fn discover_pdf_text_extraction_endpoint(gpu_tools_url: &str) -> InfuResult<Option<PdfTextExtractionEndpoint>> {
+  let Some(extract_url) = resolve_gpu_tool_url(Some(gpu_tools_url), GPU_TOOL_PDF_EXTRACT).await? else {
+    return Ok(None);
+  };
+  let async_jobs_available = resolve_gpu_tool_url(Some(gpu_tools_url), GPU_TOOL_PDF_EXTRACT_JOBS).await?.is_some();
+  Ok(Some(PdfTextExtractionEndpoint { extract_url: extract_url.to_string(), async_jobs_available }))
+}
+
 async fn run_text_extraction_loop(
   data_dir: String,
-  text_extraction_url: String,
+  gpu_tools_url: String,
   request_delay: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<ExtractionProgress>>,
 ) {
+  let endpoint = loop {
+    match discover_pdf_text_extraction_endpoint(&gpu_tools_url).await {
+      Ok(Some(endpoint)) => break endpoint,
+      Ok(None) => {
+        info!(
+          "PDF text extraction disabled: GPU tools URL '{}' does not report '{}'.",
+          gpu_tools_url, GPU_TOOL_PDF_EXTRACT
+        );
+        return;
+      }
+      Err(e) => {
+        error!(
+          "Could not discover PDF text extraction GPU tool endpoint from '{}': {}. Retrying in {}.",
+          gpu_tools_url,
+          e,
+          format_duration_for_log(Duration::from_secs(IDLE_POLL_SECS))
+        );
+        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
+      }
+    }
+  };
+  info!(
+    "PDF text extraction endpoint discovered: '{}' (async_jobs={}).",
+    endpoint.extract_url,
+    on_off(endpoint.async_jobs_available)
+  );
+
   populate_initial_pdf_queue(&data_dir, db.clone(), state.clone()).await;
 
   let mut next_prefetch = Some(spawn_pdf_prefetch(
     data_dir.clone(),
-    text_extraction_url.clone(),
+    endpoint.clone(),
     db.clone(),
     object_store.clone(),
     state.clone(),
@@ -452,7 +492,7 @@ async fn run_text_extraction_loop(
   ));
   let mut current_process = advance_pdf_prefetch_to_process(
     data_dir.clone(),
-    text_extraction_url.clone(),
+    endpoint.clone(),
     db.clone(),
     object_store.clone(),
     state.clone(),
@@ -474,7 +514,7 @@ async fn run_text_extraction_loop(
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
         current_process = advance_pdf_prefetch_to_process(
           data_dir.clone(),
-          text_extraction_url.clone(),
+          endpoint.clone(),
           db.clone(),
           object_store.clone(),
           state.clone(),
@@ -525,7 +565,7 @@ async fn run_text_extraction_loop(
     }
     current_process = advance_pdf_prefetch_to_process(
       data_dir.clone(),
-      text_extraction_url.clone(),
+      endpoint.clone(),
       db.clone(),
       object_store.clone(),
       state.clone(),
@@ -538,20 +578,20 @@ async fn run_text_extraction_loop(
 
 fn spawn_pdf_prefetch(
   data_dir: String,
-  text_extraction_url: String,
+  endpoint: PdfTextExtractionEndpoint,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<ExtractionProgress>>,
 ) -> task::JoinHandle<(LoadedPdfExtraction, usize)> {
   task::spawn(async move {
-    prefetch_next_pdf_extraction(data_dir, text_extraction_url, db, object_store, state, progress).await
+    prefetch_next_pdf_extraction(data_dir, endpoint.extract_url, db, object_store, state, progress).await
   })
 }
 
 fn spawn_pdf_process(
   data_dir: String,
-  text_extraction_url: String,
+  endpoint: PdfTextExtractionEndpoint,
   db: Arc<Mutex<Db>>,
   loaded: LoadedPdfExtraction,
   queue_remaining: usize,
@@ -559,14 +599,21 @@ fn spawn_pdf_process(
   let item_id = loaded.candidate.item_id.clone();
   let user_id = loaded.candidate.user_id.clone();
   task::spawn(async move {
-    let result = process_loaded_pdf_extraction_web_background(&data_dir, &text_extraction_url, db, loaded).await;
+    let result = process_loaded_pdf_extraction_web_background(
+      &data_dir,
+      &endpoint.extract_url,
+      endpoint.async_jobs_available,
+      db,
+      loaded,
+    )
+    .await;
     (item_id, user_id, queue_remaining, result)
   })
 }
 
 async fn advance_pdf_prefetch_to_process(
   data_dir: String,
-  text_extraction_url: String,
+  endpoint: PdfTextExtractionEndpoint,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ProcessingState>>,
@@ -583,7 +630,7 @@ async fn advance_pdf_prefetch_to_process(
         time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
         *next_prefetch = Some(spawn_pdf_prefetch(
           data_dir.clone(),
-          text_extraction_url.clone(),
+          endpoint.clone(),
           db.clone(),
           object_store.clone(),
           state.clone(),
@@ -595,7 +642,7 @@ async fn advance_pdf_prefetch_to_process(
 
     *next_prefetch = Some(spawn_pdf_prefetch(
       data_dir.clone(),
-      text_extraction_url.clone(),
+      endpoint.clone(),
       db.clone(),
       object_store.clone(),
       state.clone(),
@@ -616,7 +663,7 @@ async fn advance_pdf_prefetch_to_process(
       progress_summary
     );
 
-    return Some(spawn_pdf_process(data_dir.clone(), text_extraction_url.clone(), db.clone(), loaded, queue_remaining));
+    return Some(spawn_pdf_process(data_dir.clone(), endpoint.clone(), db.clone(), loaded, queue_remaining));
   }
 }
 
@@ -1157,4 +1204,8 @@ fn pdf_extraction_idempotency_key(candidate: &PdfCandidate) -> String {
 
 fn is_terminal_document_response(status: reqwest::StatusCode) -> bool {
   matches!(status, reqwest::StatusCode::UNPROCESSABLE_ENTITY | reqwest::StatusCode::PAYLOAD_TOO_LARGE)
+}
+
+fn on_off(value: bool) -> &'static str {
+  if value { "on" } else { "off" }
 }

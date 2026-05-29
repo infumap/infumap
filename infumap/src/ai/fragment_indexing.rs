@@ -10,9 +10,9 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::{Instant as TokioInstant, sleep};
 
+use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::indexing::{EmbedRebuildSummary, LoadedFragmentIndexItem, reconcile_fragment_indexes_for_loaded_items};
 use crate::ai::metrics::{METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL};
-use crate::ai::text_embedding::{resolve_text_embedding_service_url, text_embedding_url_from_config};
 use crate::ai::{user_id_for_log, user_ids_for_log};
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -28,7 +28,7 @@ static FRAGMENT_INDEXING_STATE: OnceCell<Arc<Mutex<DirtyFragmentIndexState>>> = 
 #[derive(Clone)]
 struct FragmentIndexingConfig {
   data_dir: String,
-  embed_url: Option<reqwest::Url>,
+  gpu_tools_url: Option<String>,
 }
 
 #[derive(Default)]
@@ -106,16 +106,15 @@ pub fn init_fragment_indexing_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuR
     return Ok(());
   }
 
-  let semantic_enabled = indexing_config.embed_url.is_some();
+  let semantic_enabled = false;
   let state = Arc::new(Mutex::new(DirtyFragmentIndexState::new(semantic_enabled)));
   FRAGMENT_INDEXING_STATE
     .set(state.clone())
     .map_err(|_| "Fragment index reconciliation loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting {} fragment index reconciliation loop (lexical=document_fragments, semantic={}).",
-    index_kind_for_log(semantic_enabled),
-    semantic_scope_for_log(semantic_enabled)
+    "Starting fragment index reconciliation loop (lexical=document_fragments, semantic_discovery={}).",
+    if indexing_config.gpu_tools_url.is_some() { "on" } else { "off" }
   );
 
   let _worker = task::spawn(async move {
@@ -144,11 +143,8 @@ pub fn enqueue_fragment_index_rebuild_for_user(user_id: &str) {
 
 fn fragment_indexing_config(config: &Config) -> InfuResult<FragmentIndexingConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  let embed_url = match text_embedding_url_from_config(config)? {
-    Some(_) => Some(resolve_text_embedding_service_url(config, None, "text_embedding_url")?),
-    None => None,
-  };
-  Ok(FragmentIndexingConfig { data_dir, embed_url })
+  let gpu_tools_url = gpu_tools_url_from_config(config)?;
+  Ok(FragmentIndexingConfig { data_dir, gpu_tools_url })
 }
 
 async fn run_fragment_indexing_loop(
@@ -156,6 +152,7 @@ async fn run_fragment_indexing_loop(
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<DirtyFragmentIndexState>>,
 ) {
+  refresh_semantic_enabled(&config, state.clone()).await;
   enqueue_all_loaded_users_for_fragment_index_rebuild_inner(db.clone(), state.clone()).await;
 
   loop {
@@ -207,6 +204,21 @@ async fn should_rebuild_dirty_users(state: Arc<Mutex<DirtyFragmentIndexState>>) 
   state.should_rebuild(TokioInstant::now())
 }
 
+async fn refresh_semantic_enabled(config: &FragmentIndexingConfig, state: Arc<Mutex<DirtyFragmentIndexState>>) {
+  match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_TEXT_EMBED).await {
+    Ok(embed_url) => set_semantic_enabled(state, embed_url.is_some()).await,
+    Err(e) => {
+      error!("Could not discover text embedding GPU tool endpoint during fragment indexing startup: {}", e);
+      set_semantic_enabled(state, false).await;
+    }
+  }
+}
+
+async fn set_semantic_enabled(state: Arc<Mutex<DirtyFragmentIndexState>>, semantic_enabled: bool) {
+  let mut state = state.lock().await;
+  state.semantic_enabled = semantic_enabled;
+}
+
 async fn rebuild_fragment_indexes_for_dirty_users(
   config: &FragmentIndexingConfig,
   db: Arc<Mutex<Db>>,
@@ -224,7 +236,18 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     return;
   }
 
-  let client = if config.embed_url.is_some() {
+  let embed_url = match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_TEXT_EMBED).await {
+    Ok(embed_url) => embed_url,
+    Err(e) => {
+      error!("Could not discover text embedding GPU tool endpoint: {}", e);
+      sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
+      record_dirty_users(state, user_ids).await;
+      return;
+    }
+  };
+  set_semantic_enabled(state.clone(), embed_url.is_some()).await;
+
+  let client = if embed_url.is_some() {
     match reqwest::ClientBuilder::new().timeout(Duration::from_secs(BACKGROUND_EMBEDDING_REQUEST_TIMEOUT_SECS)).build()
     {
       Ok(client) => Some(client),
@@ -241,10 +264,10 @@ async fn rebuild_fragment_indexes_for_dirty_users(
 
   info!(
     "Reconciling {} fragment indexes for {} user(s): {}; lexical=document_fragments, semantic={}.",
-    index_kind_for_log(config.embed_url.is_some()),
+    index_kind_for_log(embed_url.is_some()),
     user_ids.len(),
     user_ids_for_log(&user_ids),
-    semantic_scope_for_log(config.embed_url.is_some())
+    semantic_scope_for_log(embed_url.is_some())
   );
 
   let user_id_set = user_ids.iter().cloned().collect::<HashSet<_>>();
@@ -265,7 +288,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
   };
   debug!(
     "{} fragment index reconciliation using {} loaded item id(s) for {} user(s).",
-    title_case_index_kind_for_log(config.embed_url.is_some()),
+    title_case_index_kind_for_log(embed_url.is_some()),
     loaded_items.len(),
     user_ids.len()
   );
@@ -276,7 +299,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     &user_ids,
     loaded_items,
     client.as_ref(),
-    config.embed_url.as_ref(),
+    embed_url.as_ref(),
   )
   .await;
   let rebuild_elapsed_secs = rebuild_started.elapsed().as_secs_f64();
@@ -293,7 +316,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
       }
       info!(
         "{} fragment index reconciliation complete: users_seen={} users_rebuilt={} users_skipped_current={} semantic_image_embedded={} lexical_document_indexed={} semantic_image_reused={} removed_empty_indexes={}.",
-        title_case_index_kind_for_log(config.embed_url.is_some()),
+        title_case_index_kind_for_log(embed_url.is_some()),
         summary.users_seen,
         summary.users_rebuilt,
         summary.users_skipped_current,
@@ -314,11 +337,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     Err(e) => {
       METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&["failed"]).inc();
       METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS.with_label_values(&["failed"]).observe(rebuild_elapsed_secs);
-      error!(
-        "{} fragment index reconciliation failed: {}",
-        title_case_index_kind_for_log(config.embed_url.is_some()),
-        e
-      );
+      error!("{} fragment index reconciliation failed: {}", title_case_index_kind_for_log(embed_url.is_some()), e);
       sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
       record_dirty_users(state, user_ids).await;
     }

@@ -46,9 +46,7 @@ pub const CONFIG_DATA_DIR_DEFAULT: &'static str = "~/.infumap/data";
 pub const CONFIG_CACHE_DIR: &'static str = "cache_dir";
 pub const CONFIG_CACHE_DIR_DEFAULT: &'static str = "~/.infumap/cache";
 
-pub const CONFIG_TEXT_EXTRACTION_URL: &'static str = "text_extraction_url";
-pub const CONFIG_IMAGE_TAGGING_URL: &'static str = "image_tagging_url";
-pub const CONFIG_TEXT_EMBEDDING_URL: &'static str = "text_embedding_url";
+pub const CONFIG_GPU_TOOLS_URL: &'static str = "gpu_tools_url";
 pub const CONFIG_GEOAPIFY_URL: &'static str = "geoapify_url";
 pub const CONFIG_GEOAPIFY_URL_DEFAULT: &'static str = "https://api.geoapify.com/v1/geocode/reverse";
 pub const CONFIG_GEOAPIFY_API_KEY: &'static str = "geoapify_api_key";

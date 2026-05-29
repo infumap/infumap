@@ -1244,9 +1244,38 @@ async def root(request: Request) -> dict[str, str]:
         "model_id": APP_STATE.get("model_id") or llama_model_id(),
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
+        "gpu_tools": rooted_path(request, "/gpu-tools"),
         "image_extract": rooted_path(request, "/image-extract"),
         "image_extract_caption_only": rooted_path(request, "/image-extract-caption-only"),
         "pdf_extract_caption_only": rooted_path(request, "/pdf-extract-caption-only"),
+    }
+
+
+@app.get("/gpu-tools")
+async def gpu_tools() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "service": "infumap-image-extract",
+        "endpoints": [
+            {
+                "id": "image_extract",
+                "method": "POST",
+                "path": "/image-extract",
+                "description": "Extract image captions, tags, OCR snippets, document confidence, face counts, and image embeddings.",
+            },
+            {
+                "id": "image_extract_caption_only",
+                "method": "POST",
+                "path": "/image-extract-caption-only",
+                "description": "Extract only a detailed visual caption from an image.",
+            },
+            {
+                "id": "pdf_extract_caption_only",
+                "method": "POST",
+                "path": "/pdf-extract-caption-only",
+                "description": "Render the first page of a PDF and extract only a detailed visual caption.",
+            },
+        ],
     }
 
 

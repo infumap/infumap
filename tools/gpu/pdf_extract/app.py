@@ -553,8 +553,25 @@ async def root(request: Request) -> dict[str, str]:
         "service": "infumap-text-extraction",
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
+        "gpu_tools": rooted_path(request, "/gpu-tools"),
         "pdf_extract": rooted_path(request, "/pdf-extract"),
         "convert": rooted_path(request, "/convert"),
+    }
+
+
+@app.get("/gpu-tools")
+async def gpu_tools() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "service": "infumap-pdf-extract",
+        "endpoints": [
+            {
+                "id": "pdf_extract",
+                "method": "POST",
+                "path": "/pdf-extract",
+                "description": "Extract Markdown text from an uploaded PDF.",
+            },
+        ],
     }
 
 

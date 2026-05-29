@@ -54,6 +54,7 @@ use crate::ai::fragment::{
   is_markdown_document_source_kind,
 };
 use crate::ai::geo::delete_item_geo_artifacts;
+use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, resolve_configured_gpu_tool_url};
 use crate::ai::image_pipeline::{
   dequeue_image_semantic_pipeline_item_if_active, enqueue_image_semantic_pipeline_item_if_active,
 };
@@ -69,8 +70,8 @@ use crate::ai::search_status::{
   search_pending_page_id, search_status_link_id, search_status_page_id, search_status_page_kind_for_route_id,
 };
 use crate::ai::text_embedding::{
-  TextEmbeddingInput, embed_texts, text_embedding_embed_url, text_embedding_url_from_config,
-  text_embedding_vector_fingerprint, text_embedding_vector_norm, validate_text_embedding_vector,
+  TextEmbeddingInput, embed_texts, text_embedding_vector_fingerprint, text_embedding_vector_norm,
+  validate_text_embedding_vector,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
@@ -2686,10 +2687,9 @@ async fn semantic_search_results_inner(
     return Ok(Vec::new());
   }
 
-  let Some(service_url) = text_embedding_url_from_config(config.as_ref())? else {
+  let Some(embed_url) = resolve_configured_gpu_tool_url(config.as_ref(), GPU_TOOL_TEXT_EMBED).await? else {
     return Ok(Vec::new());
   };
-  let embed_url = text_embedding_embed_url(&service_url)?;
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(SEARCH_EMBEDDING_TIMEOUT_SECS))
     .build()

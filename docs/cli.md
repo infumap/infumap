@@ -17,7 +17,7 @@ In addition to (or instead of) using a settings file, Infumap web server configu
 
 For more information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
 
-Searches from the user's home page mix title lexical matches, document fragment lexical matches, and semantic fragment matches when the corresponding indexes exist. Semantic search also requires `text_embedding_url` so the query can be embedded. Searches scoped to a specific page or container currently use exact title matching only.
+Searches from the user's home page mix title lexical matches, document fragment lexical matches, and semantic fragment matches when the corresponding indexes exist. Semantic search also requires `gpu_tools_url` to report a `text_embed` endpoint so the query can be embedded. Searches scoped to a specific page or container currently use exact title matching only.
 
 
 Options:
@@ -143,7 +143,7 @@ Extract derived text artifacts from PDFs or images. This command has two subcomm
 These commands pipeline source-object reads from object storage and are optimized for throughput. When `--delay-secs=0`,
 they will overlap gpu tool service requests.
 
-These commands replicate functionality that infumap web runs in the background. Running them at the same time as infumap web, when `text_extraction_url` and `image_tagging_url` are configured is unintended usage, and may result in bad state.
+These commands replicate functionality that infumap web runs in the background. Running them at the same time as infumap web, when `gpu_tools_url` reports extraction endpoints, is unintended usage, and may result in bad state.
 
 #### extract pdf
 
@@ -152,7 +152,7 @@ Run the PDF text extraction processing loop.
 Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **--service-url (optional):** Override the configured `text_extraction_url` for this process.
+- **--service-url (optional):** Override the `pdf_extract` endpoint discovered from `gpu_tools_url` for this process.
 - **--delay-secs (optional):** Sleep for this many seconds after each text extraction request in this process. Defaults to `0`.
 - **--item-id (optional):** Extract text only for this item. The item must be a PDF. Existing extraction artifacts are overwritten.
 - **--container-id (optional):** Extract text only for PDFs within this container subtree, then exit after the finite batch completes. By default, items with existing extraction artifacts are skipped.
@@ -171,7 +171,7 @@ Run the image captioning and tagging processing loop for supported images.
 Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **--service-url (optional):** Override the configured `image_tagging_url` for this process.
+- **--service-url (optional):** Override the `image_extract` endpoint discovered from `gpu_tools_url` for this process.
 - **--delay-secs (optional):** Sleep for this many seconds after each image tagging request in this process. Defaults to `0`.
 - **--item-id (optional):** Tag only this item. The item must have a supported image MIME type. Existing image-tag artifacts are overwritten.
 - **--test (optional):** Read saved image embeddings for supported images, use this item as the query, and print the top 10 closest items by cosine similarity. Does not contact the image-tagging service.
@@ -213,7 +213,7 @@ Do not run this command at the same time as infumap web - it will compete for th
 Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **--service-url (optional):** Override the configured `text_embedding_url` for this process.
+- **--service-url (optional):** Override the `text_embed` endpoint discovered from `gpu_tools_url` for this process.
 - **--continue (optional):** Resume a previous rebuild from `indexes/fragments.sqlite3.tmp`.
 
 ### geo
