@@ -27,7 +27,7 @@ use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
 use crate::util::fs::path_exists;
 
-use super::{PDF_SOURCE_MIME_TYPE, PdfCandidate, PdfToMdResponse};
+use super::{PDF_PASSWORD_REQUIRED_ERROR_CODE, PDF_SOURCE_MIME_TYPE, PdfCandidate, PdfToMdResponse};
 
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
@@ -47,6 +47,8 @@ struct TextManifest {
   source_mime_type: String,
   content_mime_type: String,
   extractor: TextManifestExtractor,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  error_code: Option<String>,
   error: Option<String>,
 }
 
@@ -61,11 +63,13 @@ pub(super) enum ManifestCheckResult {
   NeedsExtraction,
   AlreadySucceeded,
   AlreadyFailed,
+  AlreadyBlocked,
 }
 
 pub enum PdfTextArtifactState {
   Succeeded,
   Failed,
+  Blocked,
   Pending,
 }
 
@@ -91,6 +95,10 @@ pub async fn pdf_text_artifact_state(data_dir: &str, user_id: &str, item_id: &st
       return Ok(PdfTextArtifactState::Succeeded);
     }
     return Ok(PdfTextArtifactState::Pending);
+  }
+
+  if manifest.status == "blocked" || manifest_has_password_required_error(&manifest) {
+    return Ok(PdfTextArtifactState::Blocked);
   }
 
   if manifest.status == "failed" {
@@ -156,7 +164,7 @@ pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<
         continue;
       }
     };
-    if manifest.status != "failed" {
+    if manifest.status != "failed" || manifest_has_password_required_error(&manifest) {
       continue;
     }
     out.push(FailedPdfInfo { user_id, item_id, file_name, error: manifest.error });
@@ -205,6 +213,10 @@ pub(super) async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> 
     return Ok(ManifestCheckResult::NeedsExtraction);
   }
 
+  if manifest.status == "blocked" || manifest_has_password_required_error(&manifest) {
+    return Ok(ManifestCheckResult::AlreadyBlocked);
+  }
+
   if manifest.status == "failed" {
     return Ok(ManifestCheckResult::AlreadyFailed);
   }
@@ -232,6 +244,7 @@ pub(super) async fn write_success_artifacts(
       extracted_at_unix_secs: unix_now_secs()?,
       duration_ms: Some(response.duration_ms),
     },
+    error_code: None,
     error: None,
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
@@ -244,6 +257,34 @@ pub(super) async fn write_failed_manifest(
   candidate: &PdfCandidate,
   error_message: &str,
 ) -> InfuResult<()> {
+  write_terminal_manifest(data_dir, text_extraction_url, candidate, "failed", None, error_message).await
+}
+
+pub(super) async fn write_password_required_manifest(
+  data_dir: &str,
+  text_extraction_url: &str,
+  candidate: &PdfCandidate,
+  error_message: &str,
+) -> InfuResult<()> {
+  write_terminal_manifest(
+    data_dir,
+    text_extraction_url,
+    candidate,
+    "blocked",
+    Some(PDF_PASSWORD_REQUIRED_ERROR_CODE),
+    error_message,
+  )
+  .await
+}
+
+async fn write_terminal_manifest(
+  data_dir: &str,
+  text_extraction_url: &str,
+  candidate: &PdfCandidate,
+  status: &str,
+  error_code: Option<&str>,
+  error_message: &str,
+) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
@@ -252,7 +293,7 @@ pub(super) async fn write_failed_manifest(
   }
   let manifest = TextManifest {
     schema_version: MANIFEST_SCHEMA_VERSION,
-    status: "failed".to_owned(),
+    status: status.to_owned(),
     source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
     content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
     extractor: TextManifestExtractor {
@@ -260,6 +301,7 @@ pub(super) async fn write_failed_manifest(
       extracted_at_unix_secs: unix_now_secs()?,
       duration_ms: None,
     },
+    error_code: error_code.map(str::to_owned),
     error: Some(error_message.to_owned()),
   };
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
@@ -285,4 +327,20 @@ fn unix_now_secs() -> InfuResult<i64> {
       .map_err(|e| format!("Could not determine current unix time: {}", e))?
       .as_secs() as i64,
   )
+}
+
+fn manifest_has_password_required_error(manifest: &TextManifest) -> bool {
+  manifest.error_code.as_deref() == Some(PDF_PASSWORD_REQUIRED_ERROR_CODE)
+    || manifest.error.as_deref().map(error_text_is_password_required).unwrap_or(false)
+}
+
+fn error_text_is_password_required(error: &str) -> bool {
+  let normalized = error.to_ascii_lowercase();
+  normalized.contains(PDF_PASSWORD_REQUIRED_ERROR_CODE)
+    || (normalized.contains("password")
+      && (normalized.contains("required")
+        || normalized.contains("protected")
+        || normalized.contains("encrypted")
+        || normalized.contains("incorrect")
+        || normalized.contains("password error")))
 }

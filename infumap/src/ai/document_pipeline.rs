@@ -118,6 +118,7 @@ enum DocumentFragmentReadiness {
   Ready,
   Waiting,
   Unavailable,
+  Blocked,
 }
 
 enum DocumentFragmentReconcileOutcome {
@@ -291,6 +292,7 @@ async fn reconcile_document_fragment_item(
         DocumentFragmentReconcileOutcome::Skipped
       });
     }
+    DocumentFragmentReadiness::Blocked => return Ok(DocumentFragmentReconcileOutcome::Skipped),
   }
 
   let pdf_caption_url = if candidate.kind == DocumentFragmentKind::Pdf {
@@ -402,6 +404,7 @@ async fn document_fragment_readiness(
       match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
         PdfTextArtifactState::Succeeded => Ok(DocumentFragmentReadiness::Ready),
         PdfTextArtifactState::Failed => Ok(DocumentFragmentReadiness::Unavailable),
+        PdfTextArtifactState::Blocked => Ok(DocumentFragmentReadiness::Blocked),
         PdfTextArtifactState::Pending if pdf_text_extraction_available(config).await => {
           Ok(DocumentFragmentReadiness::Waiting)
         }
@@ -455,6 +458,7 @@ async fn populate_initial_document_fragment_queue(
   let mut already_fragmented = 0usize;
   let mut ready = 0usize;
   let mut unavailable = 0usize;
+  let mut blocked = 0usize;
   let mut waiting = 0usize;
   let mut skipped_errors = 0usize;
 
@@ -493,6 +497,9 @@ async fn populate_initial_document_fragment_queue(
         unavailable += 1;
         queued_candidates.push(candidate);
       }
+      Ok(DocumentFragmentReadiness::Blocked) => {
+        blocked += 1;
+      }
       Ok(DocumentFragmentReadiness::Waiting) => {
         waiting += 1;
       }
@@ -522,7 +529,7 @@ async fn populate_initial_document_fragment_queue(
   };
 
   info!(
-    "Startup document fragment reconciliation saw {} document item(s) (pdf={}, markdown={}, text={}), queued {} of {}; fragments: already_present={}; readiness checked for missing fragments: ready={}, unavailable={}, waiting={}; skipped_errors={}.",
+    "Startup document fragment reconciliation saw {} document item(s) (pdf={}, markdown={}, text={}), queued {} of {}; fragments: already_present={}; readiness checked for missing fragments: ready={}, unavailable={}, blocked={}, waiting={}; skipped_errors={}.",
     total_candidates,
     pdf_candidates,
     markdown_candidates,
@@ -532,6 +539,7 @@ async fn populate_initial_document_fragment_queue(
     already_fragmented,
     ready,
     unavailable,
+    blocked,
     waiting,
     skipped_errors
   );

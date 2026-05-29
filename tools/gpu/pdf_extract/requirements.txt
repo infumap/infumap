@@ -6,6 +6,7 @@
 fastapi==0.135.2
 uvicorn==0.42.0
 python-multipart>=0.0.18
+pypdfium2
 marker-pdf[full]
 # Two CVEs are suppressed in audit-python.sh for this service. They are present
 # as transitive deps of marker-pdf, which pins older versions of both packages.

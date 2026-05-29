@@ -35,6 +35,7 @@ On first run this creates `tools/gpu/pdf_extract/.venv` and installs:
 - `fastapi`
 - `uvicorn`
 - `python-multipart`
+- `pypdfium2`
 
 By default the service listens on `127.0.0.1:8790`.
 
@@ -134,13 +135,29 @@ curl -sS \
 - `POST /pdf-extract`
 - `POST /convert` legacy alias
 
+Password-protected PDFs return HTTP 422 with a structured terminal response:
+
+```json
+{
+  "success": false,
+  "error_code": "pdf_password_required",
+  "error": "The PDF is password protected and cannot be processed without a password.",
+  "metadata": {
+    "error_code": "pdf_password_required"
+  }
+}
+```
+
 ## Notes
 
 - The `/pdf-extract` endpoint parses the multipart body directly from the
   request stream instead of using FastAPI `UploadFile`, so the service code
-  does not spool uploads to temp files on disk.
-- Marker still expects a file path, so the wrapper now feeds it an anonymous
-  in-memory Linux `memfd` instead of a temp file on disk.
+  can enforce its own upload size cap while reading the request.
+- The service uses `pypdfium2` before Marker conversion to identify
+  password-protected PDFs and return a stable terminal error instead of letting
+  them enter retry loops.
+- Marker still expects a file path, so the wrapper writes the uploaded bytes to
+  a temporary file for conversion and deletes it afterwards.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
   The default is `134217728` bytes (128 MiB), configurable via
   `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`.
@@ -148,7 +165,4 @@ curl -sS \
   (default 3600 seconds). If Marker/PyTorch gets stuck or a PDF is too complex,
   the request returns a terminal 422 failure and the supervised worker process
   exits so `run.sh` can restart it with clean native state.
-- The zero-disk upload path depends on Linux `memfd` support. That matches the
-  intended deployment environment for this service.
-
 Interactive API docs are available at `http://127.0.0.1:8790/docs`.

@@ -32,6 +32,7 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
@@ -68,6 +69,8 @@ DEFAULT_PDF_RENDER_SCALE = 2.0
 DEFAULT_IMAGE_EMBEDDING_MODEL_ID = "facebook/dinov2-with-registers-base"
 GPU_REQUEST_CONCURRENCY = 1
 DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS = 30.0 * 60.0
+PDF_PASSWORD_REQUIRED_ERROR_CODE = "pdf_password_required"
+PDF_UNREADABLE_ERROR_CODE = "pdf_unreadable"
 
 SYSTEM_PROMPT = """
 You analyze images for search indexing.
@@ -137,7 +140,10 @@ class ImageTooLargeError(Exception):
 
 
 class PdfRejectedError(Exception):
-    pass
+    def __init__(self, error_code: str, message: str):
+        super().__init__(message)
+        self.error_code = error_code
+        self.message = message
 
 
 def package_version(package_name: str) -> str:
@@ -843,6 +849,31 @@ def close_pdfium_object(value: Any) -> None:
         pass
 
 
+def classify_pdf_rejection(exc: Exception) -> tuple[str, str] | None:
+    message = str(exc).lower()
+    if "password" in message and (
+        "incorrect" in message
+        or "required" in message
+        or "protected" in message
+        or "encrypted" in message
+        or "password error" in message
+    ):
+        return (PDF_PASSWORD_REQUIRED_ERROR_CODE, "The PDF is password protected and cannot be processed without a password.")
+    return None
+
+
+def pdf_error_response(exc: PdfRejectedError) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "error_code": exc.error_code,
+            "error": exc.message,
+            "metadata": {"error_code": exc.error_code},
+        },
+    )
+
+
 def pdf_render_scale_for_page(page_width: float, page_height: float) -> float:
     scale = pdf_render_scale_default()
     longest_edge = max(page_width, page_height)
@@ -868,7 +899,7 @@ def render_first_pdf_page(upload_bytes: bytes) -> tuple[bytes, str, int, int, in
     try:
         pdf = pdfium.PdfDocument(upload_bytes)
         if len(pdf) < 1:
-            raise PdfRejectedError("The uploaded PDF did not contain any pages.")
+            raise PdfRejectedError(PDF_UNREADABLE_ERROR_CODE, "The uploaded PDF did not contain any pages.")
 
         page = pdf[0]
         page_width, page_height = page.get_size()
@@ -881,7 +912,11 @@ def render_first_pdf_page(upload_bytes: bytes) -> tuple[bytes, str, int, int, in
     except PdfRejectedError:
         raise
     except Exception as exc:
-        raise PdfRejectedError("The uploaded file is not a readable PDF.") from exc
+        rejection = classify_pdf_rejection(exc)
+        if rejection is not None:
+            error_code, message = rejection
+            raise PdfRejectedError(error_code, message) from exc
+        raise PdfRejectedError(PDF_UNREADABLE_ERROR_CODE, "The uploaded file is not a readable PDF.") from exc
     finally:
         close_pdfium_object(bitmap)
         close_pdfium_object(page)
@@ -1546,7 +1581,7 @@ async def pdf_caption_upload(request: Request) -> ImageCaptionResponse:
         )
 
         if content_type != PDF_MIME_TYPE:
-            raise PdfRejectedError(f"Expected uploaded file MIME type {PDF_MIME_TYPE}.")
+            raise PdfRejectedError(PDF_UNREADABLE_ERROR_CODE, f"Expected uploaded file MIME type {PDF_MIME_TYPE}.")
 
         render_started_at = time.perf_counter()
         prepared_bytes, prepared_mime_type, width, height, prepared_width, prepared_height = render_first_pdf_page(
@@ -1622,7 +1657,7 @@ async def pdf_caption_upload(request: Request) -> ImageCaptionResponse:
             backend=LLAMA_BACKEND_NAME,
         )
     except PdfRejectedError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return pdf_error_response(exc)
     except ImageTooLargeError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except HTTPException:

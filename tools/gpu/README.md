@@ -86,6 +86,10 @@ The combined launcher keeps each service independent:
   (`TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`, default 1 hour); a timed-out PDF is
   treated as a terminal document failure and the supervised service process
   restarts to clear stuck native worker state
+- PDF extract and the image-based PDF caption fallback return structured HTTP
+  422 responses with `error_code="pdf_password_required"` for
+  password-protected PDFs, allowing Infumap to store a terminal blocked
+  extraction status without fragment or indexing follow-up
 
 Optional environment variables:
 

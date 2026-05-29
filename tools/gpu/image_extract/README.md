@@ -177,6 +177,20 @@ curl -sS \
   http://127.0.0.1:8788/pdf-extract-caption-only
 ```
 
+Password-protected PDFs sent to `POST /pdf-extract-caption-only` return HTTP
+422 with a structured terminal response:
+
+```json
+{
+  "success": false,
+  "error_code": "pdf_password_required",
+  "error": "The PDF is password protected and cannot be processed without a password.",
+  "metadata": {
+    "error_code": "pdf_password_required"
+  }
+}
+```
+
 ## Notes
 
 - The HTTP service uses the multimodal chat model running behind
@@ -205,7 +219,8 @@ curl -sS \
   only the `detailed_caption` model field and skips local image embedding.
 - The `/pdf-extract-caption-only` endpoint accepts only `application/pdf`,
   renders the first page to an image in memory, then uses the same caption-only
-  prompt. It does not perform PDF text extraction or OCR.
+  prompt. It does not perform PDF text extraction or OCR, and password-protected
+  PDFs are rejected before any model request is made.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
   The default is `67108864` bytes (64 MiB), configurable via
   `IMAGE_TAGGING_MAX_UPLOAD_BYTES`.

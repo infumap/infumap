@@ -50,7 +50,8 @@ pub use artifacts::{
 };
 
 use self::artifacts::{
-  ManifestCheckResult, clear_item_text_dir, manifest_check, write_failed_manifest, write_success_artifacts,
+  ManifestCheckResult, clear_item_text_dir, manifest_check, write_failed_manifest, write_password_required_manifest,
+  write_success_artifacts,
 };
 
 const IDLE_POLL_SECS: u64 = 60;
@@ -60,6 +61,7 @@ const ASYNC_PROGRESS_LOG_SECS: u64 = 60;
 const LARGE_PDF_SIZE_BYTES: i64 = 25 * 1024 * 1024;
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
+pub(super) const PDF_PASSWORD_REQUIRED_ERROR_CODE: &str = "pdf_password_required";
 const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
@@ -107,6 +109,25 @@ struct PdfToMdResponse {
 }
 
 #[derive(Deserialize)]
+struct PdfErrorResponse {
+  error_code: Option<String>,
+  error: Option<String>,
+  detail: Option<PdfErrorDetail>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum PdfErrorDetail {
+  Structured { error_code: Option<String>, error: Option<String> },
+  Message(String),
+}
+
+struct ParsedPdfError {
+  error_code: Option<String>,
+  message: Option<String>,
+}
+
+#[derive(Deserialize)]
 struct PdfExtractJobResponse {
   job_id: String,
   status: String,
@@ -117,7 +138,13 @@ struct PdfExtractJobResponse {
 enum ExtractOutcome {
   Success(PdfToMdResponse),
   DocumentFailed(String),
+  DocumentBlocked { error_code: String, message: String },
   EndpointUnavailable(String),
+}
+
+pub(crate) enum PdfTextExtractionProcessOutcome {
+  Extracted,
+  Blocked,
 }
 
 #[derive(Clone)]
@@ -129,6 +156,7 @@ struct PdfTextExtractionEndpoint {
 struct ExtractionProgress {
   processed: u64,
   succeeded: u64,
+  blocked: u64,
   other_failed: u64,
 }
 
@@ -141,8 +169,15 @@ impl ExtractionProgress {
     self.processed += 1;
     self.other_failed += 1;
   }
+  fn on_blocked(&mut self) {
+    self.processed += 1;
+    self.blocked += 1;
+  }
   fn summary(&self) -> String {
-    format!("total={} succeeded={} failed={}", self.processed, self.succeeded, self.other_failed)
+    format!(
+      "total={} succeeded={} blocked={} failed={}",
+      self.processed, self.succeeded, self.blocked, self.other_failed
+    )
   }
 }
 
@@ -304,6 +339,16 @@ pub(crate) async fn process_loaded_pdf_extraction(
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       return Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into());
     }
+    ExtractOutcome::DocumentBlocked { error_code, message } => {
+      write_password_required_manifest(data_dir, text_extraction_url, &candidate, &message).await?;
+      info!(
+        "PDF text extraction blocked for '{}' (user {}): {} ({})",
+        candidate.item_id,
+        user_id_for_log(&candidate.user_id),
+        message,
+        error_code
+      );
+    }
     ExtractOutcome::EndpointUnavailable(msg) => {
       return Err(format!("Text extraction endpoint unavailable: {}", msg).into());
     }
@@ -317,7 +362,7 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
   async_jobs_available: bool,
   db: Arc<Mutex<Db>>,
   loaded: LoadedPdfExtraction,
-) -> InfuResult<()> {
+) -> InfuResult<PdfTextExtractionProcessOutcome> {
   let LoadedPdfExtraction { candidate, file_bytes } = loaded;
   clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
   let client = reqwest::ClientBuilder::new()
@@ -339,17 +384,26 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
       write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       debug!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
+      Ok(PdfTextExtractionProcessOutcome::Extracted)
     }
     ExtractOutcome::DocumentFailed(msg) => {
       write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
-      return Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into());
+      Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into())
     }
-    ExtractOutcome::EndpointUnavailable(msg) => {
-      return Err(format!("Text extraction endpoint unavailable: {}", msg).into());
+    ExtractOutcome::DocumentBlocked { error_code, message } => {
+      write_password_required_manifest(data_dir, text_extraction_url, &candidate, &message).await?;
+      info!(
+        "PDF text extraction blocked for '{}' (user {}): {} ({})",
+        candidate.item_id,
+        user_id_for_log(&candidate.user_id),
+        message,
+        error_code
+      );
+      Ok(PdfTextExtractionProcessOutcome::Blocked)
     }
+    ExtractOutcome::EndpointUnavailable(msg) => Err(format!("Text extraction endpoint unavailable: {}", msg).into()),
   }
-  Ok(())
 }
 
 pub async fn mark_item_text_extraction_failed(
@@ -412,7 +466,7 @@ pub fn start_text_extraction_processing_loop(
   PROCESSING_STATE
     .set(state.clone())
     .map_err(|_| "Text extraction processing loop is already running in this process.".to_owned())?;
-  let progress = Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, other_failed: 0 }));
+  let progress = Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, blocked: 0, other_failed: 0 }));
 
   if request_delay.is_zero() {
     info!("Starting PDF text extraction loop from GPU tools URL '{}'.", gpu_tools_url);
@@ -527,7 +581,7 @@ async fn run_text_extraction_loop(
     };
 
     match result {
-      Ok(()) => {
+      Ok(PdfTextExtractionProcessOutcome::Extracted) => {
         record_pdf_text_extraction_processed("success");
         let progress_summary = {
           let mut progress = progress.lock().await;
@@ -536,6 +590,21 @@ async fn run_text_extraction_loop(
         };
         debug!(
           "PDF '{}' (user {}): extracted successfully. {} remaining. {}",
+          item_id,
+          user_id_for_log(&user_id),
+          queue_remaining,
+          progress_summary
+        );
+      }
+      Ok(PdfTextExtractionProcessOutcome::Blocked) => {
+        record_pdf_text_extraction_processed("skipped");
+        let progress_summary = {
+          let mut progress = progress.lock().await;
+          progress.on_blocked();
+          progress.summary()
+        };
+        debug!(
+          "PDF '{}' (user {}): extraction blocked by document protection. {} remaining. {}",
           item_id,
           user_id_for_log(&user_id),
           queue_remaining,
@@ -595,7 +664,7 @@ fn spawn_pdf_process(
   db: Arc<Mutex<Db>>,
   loaded: LoadedPdfExtraction,
   queue_remaining: usize,
-) -> task::JoinHandle<(String, String, usize, InfuResult<()>)> {
+) -> task::JoinHandle<(String, String, usize, InfuResult<PdfTextExtractionProcessOutcome>)> {
   let item_id = loaded.candidate.item_id.clone();
   let user_id = loaded.candidate.user_id.clone();
   task::spawn(async move {
@@ -619,7 +688,7 @@ async fn advance_pdf_prefetch_to_process(
   state: Arc<Mutex<ProcessingState>>,
   progress: Arc<Mutex<ExtractionProgress>>,
   next_prefetch: &mut Option<task::JoinHandle<(LoadedPdfExtraction, usize)>>,
-) -> Option<task::JoinHandle<(String, String, usize, InfuResult<()>)>> {
+) -> Option<task::JoinHandle<(String, String, usize, InfuResult<PdfTextExtractionProcessOutcome>)>> {
   loop {
     let current_prefetch = next_prefetch.take()?;
     let (loaded, queue_remaining) = match current_prefetch.await {
@@ -692,6 +761,15 @@ async fn prefetch_next_pdf_extraction(
         record_pdf_text_extraction_processed("skipped");
         debug!(
           "PDF '{}' (user {}) already has a failed text extraction manifest; skipping queued candidate.",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id)
+        );
+        continue;
+      }
+      Ok(ManifestCheckResult::AlreadyBlocked) => {
+        record_pdf_text_extraction_processed("skipped");
+        debug!(
+          "PDF '{}' (user {}) already has a blocked text extraction manifest; skipping queued candidate.",
           candidate.item_id,
           user_id_for_log(&candidate.user_id)
         );
@@ -1083,6 +1161,7 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
   let mut pending_candidates = vec![];
   let mut already_succeeded = 0usize;
   let mut already_failed = 0usize;
+  let mut already_blocked = 0usize;
   let mut skipped_errors = 0usize;
 
   for candidate in candidates {
@@ -1090,6 +1169,7 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
       Ok(ManifestCheckResult::NeedsExtraction) => pending_candidates.push(candidate),
       Ok(ManifestCheckResult::AlreadySucceeded) => already_succeeded += 1,
       Ok(ManifestCheckResult::AlreadyFailed) => already_failed += 1,
+      Ok(ManifestCheckResult::AlreadyBlocked) => already_blocked += 1,
       Err(e) => {
         skipped_errors += 1;
         error!(
@@ -1111,8 +1191,8 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
   }
 
   info!(
-    "Initialized PDF text extraction queue with {} pending item(s) from {} total PDF(s) (already succeeded: {}, already failed: {}, skipped due to errors: {}).",
-    scheduled, total_candidates, already_succeeded, already_failed, skipped_errors
+    "Initialized PDF text extraction queue with {} pending item(s) from {} total PDF(s) (already succeeded: {}, already failed: {}, already blocked: {}, skipped due to errors: {}).",
+    scheduled, total_candidates, already_succeeded, already_failed, already_blocked, skipped_errors
   );
 }
 
@@ -1169,10 +1249,49 @@ fn parse_text_extraction_response(status: reqwest::StatusCode, body: String) -> 
   }
 
   if is_terminal_document_response(status) {
-    return ExtractOutcome::DocumentFailed(format!("HTTP {}: {}", status, body));
+    let parsed_error = parse_pdf_error_response(&body);
+    if parsed_error.error_code.as_deref() == Some(PDF_PASSWORD_REQUIRED_ERROR_CODE) {
+      return ExtractOutcome::DocumentBlocked {
+        error_code: PDF_PASSWORD_REQUIRED_ERROR_CODE.to_owned(),
+        message: parsed_error
+          .message
+          .unwrap_or_else(|| "The PDF is password protected and cannot be processed without a password.".to_owned()),
+      };
+    }
+
+    let message = parsed_error.message.unwrap_or(body);
+    return ExtractOutcome::DocumentFailed(format!("HTTP {}: {}", status, message));
   }
 
   ExtractOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body))
+}
+
+fn parse_pdf_error_response(body: &str) -> ParsedPdfError {
+  let Ok(parsed) = serde_json::from_str::<PdfErrorResponse>(body) else {
+    return ParsedPdfError { error_code: None, message: None };
+  };
+
+  let mut error_code = parsed.error_code;
+  let mut message = parsed.error;
+  if let Some(detail) = parsed.detail {
+    match detail {
+      PdfErrorDetail::Structured { error_code: detail_error_code, error: detail_error } => {
+        if error_code.is_none() {
+          error_code = detail_error_code;
+        }
+        if message.is_none() {
+          message = detail_error;
+        }
+      }
+      PdfErrorDetail::Message(detail_message) => {
+        if message.is_none() {
+          message = Some(detail_message);
+        }
+      }
+    }
+  }
+
+  ParsedPdfError { error_code, message }
 }
 
 fn text_extraction_jobs_url(text_extraction_url: &str) -> Result<Url, String> {

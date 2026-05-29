@@ -1233,6 +1233,7 @@ async fn write_search_status_for_plan(
     match classify_unindexed_search_item(data_dir, item, kind).await? {
       SearchStatusClassification::Failed => failed_item_ids.push(item.item_id.clone()),
       SearchStatusClassification::Pending => pending_item_ids.push(item.item_id.clone()),
+      SearchStatusClassification::Blocked => {}
     }
   }
 
@@ -1286,6 +1287,7 @@ async fn classify_unindexed_search_item(
   Ok(match kind {
     SearchStatusCandidateKind::Pdf => match pdf_text_artifact_state(data_dir, &item.user_id, &item.item_id).await? {
       PdfTextArtifactState::Failed => SearchStatusClassification::Failed,
+      PdfTextArtifactState::Blocked => SearchStatusClassification::Blocked,
       PdfTextArtifactState::Succeeded | PdfTextArtifactState::Pending => SearchStatusClassification::Pending,
     },
     SearchStatusCandidateKind::Image => {
@@ -1314,6 +1316,7 @@ enum SearchStatusCandidateKind {
 enum SearchStatusClassification {
   Failed,
   Pending,
+  Blocked,
 }
 
 #[derive(Default)]

@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
@@ -46,10 +47,16 @@ DEFAULT_MAX_UPLOAD_BYTES = 128 * 1024 * 1024
 DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS = 4.0 * 60.0 * 60.0
 DEFAULT_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
 CONVERSION_TIMEOUT_EXIT_DELAY_SECS = 2.0
+PDF_PASSWORD_REQUIRED_ERROR_CODE = "pdf_password_required"
+PDF_UNREADABLE_ERROR_CODE = "pdf_unreadable"
+PDF_CONVERSION_TIMEOUT_ERROR_CODE = "pdf_conversion_timeout"
 
 
 class DocumentRejectedError(Exception):
-    pass
+    def __init__(self, error_code: str, message: str):
+        super().__init__(message)
+        self.error_code = error_code
+        self.message = message
 
 
 class UploadTooLargeError(Exception):
@@ -62,6 +69,18 @@ class ConvertResponse(BaseModel):
     markdown: str
     metadata: dict[str, Any]
     duration_ms: int
+
+
+def document_error_response(exc: DocumentRejectedError) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "error_code": exc.error_code,
+            "error": exc.message,
+            "metadata": {"error_code": exc.error_code},
+        },
+    )
 
 
 def package_version(package_name: str) -> str:
@@ -337,13 +356,54 @@ def metadata_to_dict(metadata: Any) -> dict[str, Any]:
     return {"value": metadata}
 
 
-def classify_document_rejection(exc: Exception) -> str | None:
+def close_pdfium_object(value: Any) -> None:
+    if value is None:
+        return
+    close = getattr(value, "close", None) or getattr(value, "__exit__", None)
+    if not callable(close):
+        return
+    try:
+        if getattr(close, "__name__", "") == "__exit__":
+            close(None, None, None)
+        else:
+            close()
+    except Exception:
+        pass
+
+
+def classify_document_rejection(exc: Exception) -> tuple[str, str] | None:
     message = str(exc).lower()
-    if "incorrect password" in message or "password error" in message:
-        return "Password-protected PDFs are not supported."
+    if "password" in message and (
+        "incorrect" in message
+        or "required" in message
+        or "protected" in message
+        or "encrypted" in message
+        or "password error" in message
+    ):
+        return (PDF_PASSWORD_REQUIRED_ERROR_CODE, "The PDF is password protected and cannot be processed without a password.")
     if "failed to load document" in message and "data format error" in message:
-        return "The PDF appears to be malformed or corrupted and could not be opened by PDFium."
+        return (PDF_UNREADABLE_ERROR_CODE, "The PDF appears to be malformed or corrupted and could not be opened by PDFium.")
     return None
+
+
+def reject_password_protected_pdf(file_bytes: bytes) -> None:
+    try:
+        import pypdfium2 as pdfium
+    except Exception:
+        return
+
+    pdf = None
+    try:
+        pdf = pdfium.PdfDocument(file_bytes)
+    except Exception as exc:
+        rejection = classify_document_rejection(exc)
+        if rejection is None:
+            return
+        error_code, message = rejection
+        if error_code == PDF_PASSWORD_REQUIRED_ERROR_CODE:
+            raise DocumentRejectedError(error_code, message) from exc
+    finally:
+        close_pdfium_object(pdf)
 
 
 def store_upload_bytes(file_bytes: bytes, file_name: str) -> str:
@@ -358,6 +418,7 @@ def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
     file_size_bytes = len(file_bytes)
     LOGGER.info("Starting conversion: file=%s size_bytes=%d", file_name, file_size_bytes)
     reset_torch_cuda_peak_memory()
+    reject_password_protected_pdf(file_bytes)
     temp_path = store_upload_bytes(file_bytes, file_name)
     try:
         config_parser = ConfigParser(build_config())
@@ -397,17 +458,19 @@ def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
     except Exception as exc:
         duration_ms = int((time.perf_counter() - started_at) * 1000)
         cuda_memory = torch_cuda_memory_summary()
-        rejection_reason = classify_document_rejection(exc)
-        if rejection_reason is not None:
+        rejection = classify_document_rejection(exc)
+        if rejection is not None:
+            error_code, rejection_reason = rejection
             LOGGER.warning(
-                "Skipping unprocessable PDF: file=%s size_bytes=%d duration_ms=%d reason=%s%s",
+                "Skipping unprocessable PDF: file=%s size_bytes=%d duration_ms=%d error_code=%s reason=%s%s",
                 file_name,
                 file_size_bytes,
                 duration_ms,
+                error_code,
                 rejection_reason,
                 f" {cuda_memory}" if cuda_memory else "",
             )
-            raise DocumentRejectedError(rejection_reason) from exc
+            raise DocumentRejectedError(error_code, rejection_reason) from exc
         LOGGER.exception(
             "Conversion failed: file=%s size_bytes=%d duration_ms=%d%s",
             file_name,
@@ -635,15 +698,16 @@ async def convert_upload(request: Request) -> ConvertResponse:
             except asyncio.TimeoutError as exc:
                 schedule_conversion_timeout_exit(file_name, conversion_timeout)
                 raise DocumentRejectedError(
+                    PDF_CONVERSION_TIMEOUT_ERROR_CODE,
                     f"PDF conversion exceeded the {conversion_timeout:.0f} second timeout. "
-                    "The PDF may be too large or complex for automatic extraction."
+                    "The PDF may be too large or complex for automatic extraction.",
                 ) from exc
         finally:
             semaphore.release()
     except UploadTooLargeError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except DocumentRejectedError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return document_error_response(exc)
     except HTTPException:
         raise
     except Exception as exc:
