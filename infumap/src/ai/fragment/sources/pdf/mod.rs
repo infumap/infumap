@@ -109,6 +109,14 @@ async fn pdf_first_page_caption_fragment_source_for_item(
       }
     };
 
+  debug!(
+    "Sending PDF '{}' (user {}) to first-page caption fallback endpoint '{}' ({} bytes).",
+    item.id,
+    user_id_for_log(&item.owner_id),
+    pdf_caption_url,
+    file_bytes.len()
+  );
+
   match request_pdf_first_page_caption(pdf_caption_url, file_bytes).await {
     Ok(Some(caption)) => {
       debug!(
