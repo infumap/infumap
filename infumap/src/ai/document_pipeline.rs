@@ -9,6 +9,7 @@ use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, info};
 use once_cell::sync::OnceCell;
+use reqwest::Url;
 use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
@@ -18,6 +19,7 @@ use crate::ai::fragment::sources::{
 };
 use crate::ai::fragment::{FragmentBuildOutcome, clear_item_fragments, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
+use crate::ai::image_tagging::image_tagging_url_from_config;
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state, text_extraction_url_from_config};
 use crate::ai::user_id_for_log;
@@ -37,6 +39,7 @@ static DOCUMENT_FRAGMENT_PIPELINE_STATE: OnceCell<Arc<Mutex<DocumentFragmentPipe
 struct DocumentFragmentPipelineConfig {
   data_dir: String,
   text_extraction_enabled: bool,
+  pdf_caption_url: Option<String>,
   object_store: Arc<ObjectStore>,
 }
 
@@ -141,8 +144,9 @@ pub fn init_document_fragment_pipeline_loop(
     .map_err(|_| "Document fragment background pipeline loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting document fragment background loop (pdf_text_extraction={}).",
-    on_off(pipeline_config.text_extraction_enabled)
+    "Starting document fragment background loop (pdf_text_extraction={}, pdf_caption_fallback={}).",
+    on_off(pipeline_config.text_extraction_enabled),
+    on_off(pipeline_config.pdf_caption_url.is_some())
   );
 
   let worker_config = pipeline_config.clone();
@@ -205,7 +209,32 @@ fn document_fragment_pipeline_config(
 ) -> InfuResult<DocumentFragmentPipelineConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let text_extraction_enabled = text_extraction_url_from_config(config)?.is_some();
-  Ok(DocumentFragmentPipelineConfig { data_dir, text_extraction_enabled, object_store })
+  let pdf_caption_url =
+    image_tagging_url_from_config(config)?.as_deref().map(pdf_caption_url_from_image_tagging_url).transpose()?;
+  Ok(DocumentFragmentPipelineConfig { data_dir, text_extraction_enabled, pdf_caption_url, object_store })
+}
+
+fn pdf_caption_url_from_image_tagging_url(image_tagging_url: &str) -> InfuResult<String> {
+  let mut url = Url::parse(image_tagging_url)
+    .map_err(|e| format!("Could not parse image tagging URL '{}': {}", image_tagging_url, e))?;
+  let path = url.path().trim_end_matches('/');
+  let pdf_caption_path = if let Some(prefix) = path.strip_suffix("/image-extract") {
+    sibling_endpoint_path(prefix, "/pdf-extract-caption-only")
+  } else if let Some(prefix) = path.strip_suffix("/image-extract-caption-only") {
+    sibling_endpoint_path(prefix, "/pdf-extract-caption-only")
+  } else if let Some(prefix) = path.strip_suffix("/tag") {
+    sibling_endpoint_path(prefix, "/pdf-extract-caption-only")
+  } else {
+    sibling_endpoint_path(path, "/pdf-extract-caption-only")
+  };
+  url.set_path(&pdf_caption_path);
+  url.set_query(None);
+  Ok(url.to_string())
+}
+
+fn sibling_endpoint_path(prefix: &str, endpoint: &str) -> String {
+  let prefix = prefix.trim_end_matches('/');
+  if prefix.is_empty() { endpoint.to_owned() } else { format!("{prefix}{endpoint}") }
 }
 
 async fn run_document_fragment_loop(
@@ -295,7 +324,9 @@ async fn reconcile_document_fragment_item(
 
   let object_encryption_key = {
     let db = db.lock().await;
-    if candidate.kind.needs_source_object() {
+    let needs_source_object = candidate.kind.needs_source_object()
+      || (candidate.kind == DocumentFragmentKind::Pdf && config.pdf_caption_url.is_some());
+    if needs_source_object {
       Some(
         db.user
           .get(&item_snapshot.owner_id)
@@ -340,7 +371,17 @@ async fn build_document_fragment_artifact(
   object_encryption_key: Option<String>,
 ) -> InfuResult<FragmentBuildOutcome> {
   match kind {
-    DocumentFragmentKind::Pdf => Ok(build_pdf_fragment_artifact(&config.data_dir, item).await?.outcome),
+    DocumentFragmentKind::Pdf => Ok(
+      build_pdf_fragment_artifact(
+        &config.data_dir,
+        config.object_store.clone(),
+        item,
+        object_encryption_key.as_deref(),
+        config.pdf_caption_url.as_deref(),
+      )
+      .await?
+      .outcome,
+    ),
     DocumentFragmentKind::Markdown => {
       let object_encryption_key =
         object_encryption_key.as_deref().ok_or("Markdown fragmenting requires a source object encryption key.")?;

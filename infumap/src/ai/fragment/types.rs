@@ -1,4 +1,5 @@
 pub const PDF_MARKDOWN_SOURCE_KIND: &str = "pdf_markdown";
+pub const PDF_FIRST_PAGE_CAPTION_SOURCE_KIND: &str = "pdf_first_page_caption";
 pub const ITEM_TITLE_SOURCE_KIND: &str = "item_title";
 const MARKDOWN_SOURCE_KIND: &str = "markdown";
 const TEXT_SOURCE_KIND: &str = "text";
@@ -11,6 +12,7 @@ pub enum FragmentSourceKind {
   Markdown,
   Text,
   PdfMarkdown,
+  PdfFirstPageCaption,
 }
 
 impl FragmentSourceKind {
@@ -21,6 +23,7 @@ impl FragmentSourceKind {
       FragmentSourceKind::Markdown => MARKDOWN_SOURCE_KIND,
       FragmentSourceKind::Text => TEXT_SOURCE_KIND,
       FragmentSourceKind::PdfMarkdown => PDF_MARKDOWN_SOURCE_KIND,
+      FragmentSourceKind::PdfFirstPageCaption => PDF_FIRST_PAGE_CAPTION_SOURCE_KIND,
     }
   }
 }
@@ -30,6 +33,7 @@ pub fn is_lexical_search_source_kind(source_kind: &str) -> bool {
     source_kind,
     ITEM_TITLE_SOURCE_KIND
       | PDF_MARKDOWN_SOURCE_KIND
+      | PDF_FIRST_PAGE_CAPTION_SOURCE_KIND
       | MARKDOWN_SOURCE_KIND
       | TEXT_SOURCE_KIND
       | IMAGE_DOCUMENT_SOURCE_KIND

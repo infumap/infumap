@@ -59,7 +59,9 @@
 #text_extraction_url = "http://127.0.0.1:8787/pdf-extract"
 
 # Optional URL for the external image captioning and tagging service. If set,
-# Infumap web can generate captions and tags for supported image items.
+# Infumap web can generate captions and tags for supported image items, and
+# can use the sibling /pdf-extract-caption-only endpoint as a first-page visual
+# fallback for PDFs whose extracted text produces no fragments.
 # Unset by default; uncomment this example to enable it.
 #image_tagging_url = "http://127.0.0.1:8787/image-extract"
 
