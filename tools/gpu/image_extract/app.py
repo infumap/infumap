@@ -36,7 +36,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
 
-from backend_api import ImageTagResponse
+from backend_api import ImageCaptionResponse, ImageTagResponse
 
 APP_STATE: dict[str, Any] = {}
 LOGGER = logging.getLogger("uvicorn.error")
@@ -102,6 +102,21 @@ Rules:
 - Prefer concrete visible tags. Add broader context only when clearly supported by the image.
 - Prefer precise, non-repetitive tags over generic or speculative ones.
 - "ocr_text" should be an array of distinct readable snippets, not a full transcription. Keep one snippet per sign or text region, separate unrelated text, keep the combined total under 320 characters, and use an empty array if nothing readable is visible.
+""".strip()
+
+IMAGE_CAPTION_PROMPT = """
+Analyze this image for local search indexing.
+
+Return exactly one JSON object with this key and no other keys:
+- "detailed_caption": string
+
+Rules:
+- Be literal and visually grounded. Do not guess names, exact places, dates, or events unless strongly supported by the image.
+- Describe only visible content and layout that would help someone find this image later.
+- "detailed_caption" should be 2 to 5 short sentences.
+- Do not extract text, transcribe text, quote text, list readable snippets, or attempt OCR.
+- If the image is a page, poster, sign, screenshot, or other text-bearing artifact, describe the visible layout and visual context only; refer to text-bearing regions in broad terms.
+- If important details are unclear, say they are unclear instead of guessing.
 """.strip()
 
 class ImageRejectedError(Exception):
@@ -1011,7 +1026,7 @@ def make_data_url(mime_type: str, file_bytes: bytes) -> tuple[str, str]:
     return f"data:{mime_type};base64,{encoded}", encoded
 
 
-def build_openai_payload(data_url: str) -> dict[str, Any]:
+def build_openai_payload(data_url: str, prompt: str) -> dict[str, Any]:
     return {
         "model": APP_STATE.get("model_name") or llama_model_name(),
         "messages": [
@@ -1020,7 +1035,7 @@ def build_openai_payload(data_url: str) -> dict[str, Any]:
                 "role": "user",
                 "content": [
                     {"type": "image_url", "image_url": {"url": data_url}},
-                    {"type": "text", "text": IMAGE_TAG_PROMPT},
+                    {"type": "text", "text": prompt},
                 ],
             },
         ],
@@ -1034,14 +1049,14 @@ def build_openai_payload(data_url: str) -> dict[str, Any]:
     }
 
 
-def build_legacy_payload(image_base64: str) -> dict[str, Any]:
+def build_legacy_payload(image_base64: str, prompt: str) -> dict[str, Any]:
     return {
         "model": APP_STATE.get("model_name") or llama_model_name(),
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": f"{IMAGE_TAG_PROMPT}\n\nImage reference: [img-{LLAMA_IMAGE_SLOT_ID}]",
+                "content": f"{prompt}\n\nImage reference: [img-{LLAMA_IMAGE_SLOT_ID}]",
             },
         ],
         "image_data": [
@@ -1080,12 +1095,17 @@ async def post_chat_completion(payload: dict[str, Any]) -> dict[str, Any]:
     raise LlamaServerError(response.status_code, body)
 
 
-async def request_analysis(prepared_bytes: bytes, prepared_mime_type: str) -> tuple[dict[str, Any], str]:
+async def request_analysis(
+    prepared_bytes: bytes,
+    prepared_mime_type: str,
+    prompt: str = IMAGE_TAG_PROMPT,
+    plain_text_fallback_key: str | None = None,
+) -> tuple[dict[str, Any], str]:
     data_url, image_base64 = make_data_url(prepared_mime_type, prepared_bytes)
 
     request_format = "openai-image_url"
     try:
-        payload = await post_chat_completion(build_openai_payload(data_url))
+        payload = await post_chat_completion(build_openai_payload(data_url, prompt))
     except LlamaServerError as exc:
         fallback_needed = (
             exc.status_code is not None
@@ -1096,12 +1116,27 @@ async def request_analysis(prepared_bytes: bytes, prepared_mime_type: str) -> tu
         if not fallback_needed:
             raise
         request_format = "legacy-image_data"
-        payload = await post_chat_completion(build_legacy_payload(image_base64))
+        payload = await post_chat_completion(build_legacy_payload(image_base64, prompt))
 
+    message_text: str | None = None
     try:
         message_text = extract_message_text(payload)
         parsed = extract_first_json_object(message_text)
     except ValueError as exc:
+        if plain_text_fallback_key is not None and message_text is not None:
+            raw_fallback_text = strip_reasoning(message_text).strip()
+            if raw_fallback_text.startswith("```"):
+                raw_fallback_text = re.sub(r"^```(?:\w+)?\s*", "", raw_fallback_text)
+                raw_fallback_text = re.sub(r"\s*```$", "", raw_fallback_text).strip()
+            fallback_text = coerce_optional_string(raw_fallback_text)
+            if fallback_text is not None and "{" not in raw_fallback_text and "}" not in raw_fallback_text:
+                LOGGER.warning(
+                    "Using plain-text fallback for llama-server response: format=%s key=%s",
+                    request_format,
+                    plain_text_fallback_key,
+                )
+                return {plain_text_fallback_key: fallback_text}, request_format
+
         payload_excerpt = truncate_for_log(json.dumps(payload, ensure_ascii=False))
         LOGGER.error(
             "Could not parse llama-server structured response: format=%s error=%s payload=%s",
@@ -1139,6 +1174,7 @@ async def root(request: Request) -> dict[str, str]:
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
         "image_extract": rooted_path(request, "/image-extract"),
+        "image_extract_caption": rooted_path(request, "/image-extract/caption"),
         "tag": rooted_path(request, "/tag"),
     }
 
@@ -1293,4 +1329,102 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
         LOGGER.exception("Image tagging failed: file=%s backend=%s", file_name, LLAMA_BACKEND_NAME)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/image-extract/caption", response_model=ImageCaptionResponse, openapi_extra=TAG_UPLOAD_OPENAPI_EXTRA)
+async def caption_upload(request: Request) -> ImageCaptionResponse:
+    request_started_at = time.perf_counter()
+    file_name = "upload"
+
+    try:
+        file_name, parsed_part_content_type, upload_bytes = await read_multipart_upload(request)
+        content_type = (parsed_part_content_type or "").strip().lower() or None
+        upload_size_bytes = len(upload_bytes)
+        LOGGER.info(
+            "Received in-memory image caption upload: file=%s content_type=%s size_bytes=%d",
+            file_name,
+            content_type or "<unset>",
+            upload_size_bytes,
+        )
+
+        prepared_bytes, prepared_mime_type, width, height, prepared_width, prepared_height = prepare_image(upload_bytes)
+        if content_type is not None and content_type not in SUPPORTED_MIME_TYPES:
+            raise ImageRejectedError(f"Unsupported image MIME type: {content_type}")
+
+        semaphore = TAG_SEMAPHORE
+        if semaphore is None:
+            raise HTTPException(status_code=503, detail="Image caption service is not ready.")
+
+        semaphore_wait_started_at = time.perf_counter()
+        if semaphore.locked():
+            LOGGER.info(
+                "Image caption request waiting for worker slot: file=%s size_bytes=%d",
+                file_name,
+                upload_size_bytes,
+            )
+
+        slot_wait_timeout_secs = worker_slot_wait_timeout_secs()
+        try:
+            await asyncio.wait_for(semaphore.acquire(), timeout=slot_wait_timeout_secs)
+        except asyncio.TimeoutError as exc:
+            semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
+            raise HTTPException(
+                status_code=503,
+                detail=f"Image caption worker slot was busy for {semaphore_wait_ms} ms. Try again later.",
+            ) from exc
+
+        try:
+            semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
+            request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
+            LOGGER.info(
+                "Dispatching llama-server caption run: file=%s size_bytes=%d request_age_ms=%d semaphore_wait_ms=%d",
+                file_name,
+                upload_size_bytes,
+                request_age_ms,
+                semaphore_wait_ms,
+            )
+            parsed, request_format = await request_analysis(
+                prepared_bytes,
+                prepared_mime_type,
+                prompt=IMAGE_CAPTION_PROMPT,
+                plain_text_fallback_key="detailed_caption",
+            )
+        finally:
+            semaphore.release()
+
+        detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
+
+        duration_ms = int((time.perf_counter() - request_started_at) * 1000)
+        prepared_size_bytes = len(prepared_bytes)
+
+        LOGGER.info(
+            "Completed image caption extraction: file=%s upload_bytes=%d prepared_bytes=%d duration_ms=%d width=%d height=%d prepared_width=%d prepared_height=%d backend=%s format=%s",
+            file_name,
+            upload_size_bytes,
+            prepared_size_bytes,
+            duration_ms,
+            width,
+            height,
+            prepared_width,
+            prepared_height,
+            LLAMA_BACKEND_NAME,
+            request_format,
+        )
+
+        return ImageCaptionResponse(
+            detailed_caption=detailed_caption,
+            model_id=APP_STATE.get("model_id") or None,
+            backend=LLAMA_BACKEND_NAME,
+        )
+    except ImageRejectedError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ImageTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except (LlamaServerError, ValueError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        LOGGER.exception("Image caption extraction failed: file=%s backend=%s", file_name, LLAMA_BACKEND_NAME)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

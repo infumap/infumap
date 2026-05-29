@@ -145,6 +145,7 @@ IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/gpu/ima
 - `GET /`
 - `GET /healthz`
 - `POST /image-extract`
+- `POST /image-extract/caption`
 - `POST /tag` legacy alias
 
 Interactive docs remain available at `http://127.0.0.1:8788/docs`.
@@ -155,6 +156,14 @@ Interactive docs remain available at `http://127.0.0.1:8788/docs`.
 curl -sS \
   -F "file=@/path/to/photo.jpg" \
   http://127.0.0.1:8788/image-extract
+```
+
+Caption-only extraction:
+
+```bash
+curl -sS \
+  -F "file=@/path/to/photo.jpg" \
+  http://127.0.0.1:8788/image-extract/caption
 ```
 
 ## Notes
@@ -181,6 +190,8 @@ curl -sS \
 - The `/image-extract` JSON response also includes `image_embedding` as the last
   field. The vector is L2-normalized and is produced in parallel with the
   tagging request for the same prepared image.
+- The `/image-extract/caption` endpoint uses a narrower prompt that asks for
+  only the `detailed_caption` model field and skips local image embedding.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
   The default is `67108864` bytes (64 MiB), configurable via
   `IMAGE_TAGGING_MAX_UPLOAD_BYTES`.
