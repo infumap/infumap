@@ -1295,9 +1295,10 @@ async fn classify_unindexed_search_item(
         ImageTagArtifactState::Failed | ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
           SearchStatusClassification::Failed
         }
-        ImageTagArtifactState::Empty | ImageTagArtifactState::Succeeded | ImageTagArtifactState::Incomplete(_) => {
-          SearchStatusClassification::Pending
-        }
+        ImageTagArtifactState::Empty
+        | ImageTagArtifactState::Succeeded
+        | ImageTagArtifactState::Incomplete(_)
+        | ImageTagArtifactState::RetryableFailed => SearchStatusClassification::Pending,
       }
     }
     SearchStatusCandidateKind::Markdown | SearchStatusCandidateKind::Text => SearchStatusClassification::Pending,

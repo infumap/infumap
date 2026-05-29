@@ -60,6 +60,10 @@ FORMATS_REJECTED_WHEN_MULTIFRAME = {
 VISIBLE_TEXT_MAX_CHARS = 320
 LLAMA_BACKEND_NAME = "llama-server"
 LLAMA_IMAGE_SLOT_ID = 1
+IMAGE_EXTRACT_MODE_HEADER = "x-infumap-image-extract-mode"
+IMAGE_EXTRACT_MODE_FULL = "full"
+IMAGE_EXTRACT_MODE_CAPTION_FALLBACK = "caption_fallback"
+IMAGE_EXTRACT_MODE_CAPTION_FALLBACK_ONLY = "caption_fallback_only"
 DEFAULT_MAX_UPLOAD_BYTES = 64 * 1024 * 1024
 DEFAULT_TARGET_MAX_PIXELS = 3_145_728
 DEFAULT_TARGET_MAX_LONG_EDGE = 2048
@@ -656,6 +660,24 @@ def truncate_for_log(value: str, max_chars: int = 1200) -> str:
     return value[: max_chars - 3] + "..."
 
 
+def first_choice_finish_reason(payload: dict[str, Any]) -> str | None:
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return None
+    choice0 = choices[0]
+    if not isinstance(choice0, dict):
+        return None
+    finish_reason = choice0.get("finish_reason")
+    return finish_reason if isinstance(finish_reason, str) else None
+
+
+def plain_text_fallback_is_acceptable(payload: dict[str, Any], text: str) -> bool:
+    if first_choice_finish_reason(payload) == "length":
+        return False
+    lowered = text.lower()
+    return "<think" not in lowered and "</think" not in lowered
+
+
 def extract_first_json_object(text: str) -> dict[str, Any]:
     cleaned = strip_reasoning(text).strip()
     if cleaned.startswith("```"):
@@ -1235,7 +1257,12 @@ async def request_analysis(
                 raw_fallback_text = re.sub(r"^```(?:\w+)?\s*", "", raw_fallback_text)
                 raw_fallback_text = re.sub(r"\s*```$", "", raw_fallback_text).strip()
             fallback_text = coerce_optional_string(raw_fallback_text)
-            if fallback_text is not None and "{" not in raw_fallback_text and "}" not in raw_fallback_text:
+            if (
+                fallback_text is not None
+                and "{" not in raw_fallback_text
+                and "}" not in raw_fallback_text
+                and plain_text_fallback_is_acceptable(payload, raw_fallback_text)
+            ):
                 LOGGER.warning(
                     "Using plain-text fallback for llama-server response: format=%s key=%s",
                     request_format,
@@ -1252,6 +1279,61 @@ async def request_analysis(
         )
         raise
     return parsed, request_format
+
+
+async def request_image_tagging_with_caption_fallback(
+    prepared_bytes: bytes,
+    prepared_mime_type: str,
+    file_name: str,
+) -> tuple[dict[str, Any], str, bool]:
+    try:
+        parsed, request_format = await request_analysis(prepared_bytes, prepared_mime_type)
+        return parsed, request_format, False
+    except ValueError as exc:
+        LOGGER.warning(
+            "Full image tagging output was malformed; retrying with caption-only fallback: file=%s error=%s",
+            file_name,
+            exc,
+        )
+        try:
+            parsed, request_format = await request_analysis(
+                prepared_bytes,
+                prepared_mime_type,
+                prompt=IMAGE_CAPTION_PROMPT,
+                plain_text_fallback_key="detailed_caption",
+            )
+        except ValueError as fallback_exc:
+            raise ValueError(
+                f"Caption fallback output was malformed after full image tagging output was malformed: {fallback_exc}"
+            ) from fallback_exc
+        return parsed, f"{request_format}:caption-fallback", True
+
+
+async def request_image_tagging_caption_fallback_only(
+    prepared_bytes: bytes,
+    prepared_mime_type: str,
+) -> tuple[dict[str, Any], str, bool]:
+    try:
+        parsed, request_format = await request_analysis(
+            prepared_bytes,
+            prepared_mime_type,
+            prompt=IMAGE_CAPTION_PROMPT,
+            plain_text_fallback_key="detailed_caption",
+        )
+    except ValueError as exc:
+        raise ValueError(f"Caption fallback output was malformed: {exc}") from exc
+    return parsed, f"{request_format}:caption-fallback-only", True
+
+
+async def drain_cancelled_task(task: asyncio.Task[Any]) -> None:
+    if not task.done():
+        task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        pass
 
 
 async def probe_llama_server() -> tuple[bool, str | None]:
@@ -1359,12 +1441,18 @@ async def tag_upload(request: Request) -> ImageTagResponse:
     try:
         file_name, parsed_part_content_type, upload_bytes = await read_multipart_upload(request)
         content_type = (parsed_part_content_type or "").strip().lower() or None
+        requested_extract_mode = request.headers.get(IMAGE_EXTRACT_MODE_HEADER, "").strip().lower()
+        use_caption_fallback_only = requested_extract_mode in {
+            IMAGE_EXTRACT_MODE_CAPTION_FALLBACK,
+            IMAGE_EXTRACT_MODE_CAPTION_FALLBACK_ONLY,
+        }
         upload_size_bytes = len(upload_bytes)
         LOGGER.info(
-            "Received in-memory image tagging upload: file=%s content_type=%s size_bytes=%d",
+            "Received in-memory image tagging upload: file=%s content_type=%s size_bytes=%d mode=%s",
             file_name,
             content_type or "<unset>",
             upload_size_bytes,
+            IMAGE_EXTRACT_MODE_CAPTION_FALLBACK_ONLY if use_caption_fallback_only else IMAGE_EXTRACT_MODE_FULL,
         )
 
         prepared_bytes, prepared_mime_type, width, height, prepared_width, prepared_height = prepare_image(upload_bytes)
@@ -1403,27 +1491,53 @@ async def tag_upload(request: Request) -> ImageTagResponse:
                 request_age_ms,
                 semaphore_wait_ms,
             )
-            (parsed, request_format), image_embedding = await asyncio.gather(
-                request_analysis(
-                    prepared_bytes,
-                    prepared_mime_type,
-                ),
-                compute_image_embedding(prepared_bytes),
-            )
-            validate_image_embedding_result(image_embedding)
+            image_embedding_task = asyncio.create_task(compute_image_embedding(prepared_bytes))
+            try:
+                if use_caption_fallback_only:
+                    parsed, request_format, used_caption_fallback = await request_image_tagging_caption_fallback_only(
+                        prepared_bytes,
+                        prepared_mime_type,
+                    )
+                else:
+                    parsed, request_format, used_caption_fallback = await request_image_tagging_with_caption_fallback(
+                        prepared_bytes,
+                        prepared_mime_type,
+                        file_name,
+                    )
+                image_embedding = await image_embedding_task
+                validate_image_embedding_result(image_embedding)
+            except Exception:
+                await drain_cancelled_task(image_embedding_task)
+                raise
         finally:
             semaphore.release()
 
-        detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
-        tags = normalize_labels(coerce_string_list(parsed.get("tags"), limit=24))
-        ocr_text = normalize_visible_text(parsed.get("ocr_text"), max_chars=VISIBLE_TEXT_MAX_CHARS)
-        scene = coerce_optional_string(parsed.get("scene"))
+        if used_caption_fallback:
+            detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
+            tags = []
+            ocr_text = []
+            scene = None
+            document_confidence = 0.0
+            face_recognition_candidate_confidence = 0.0
+            visible_face_count_estimate = "0"
+        else:
+            detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
+            tags = normalize_labels(coerce_string_list(parsed.get("tags"), limit=24))
+            ocr_text = normalize_visible_text(parsed.get("ocr_text"), max_chars=VISIBLE_TEXT_MAX_CHARS)
+            scene = coerce_optional_string(parsed.get("scene"))
+            document_confidence = max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0))
+            face_recognition_candidate_confidence = max(
+                0.0,
+                min(coerce_float(parsed.get("face_recognition_candidate_confidence"), 0.0), 1.0),
+            )
+            visible_face_count_estimate = coerce_face_count_estimate(parsed.get("visible_face_count_estimate"))
 
         duration_ms = int((time.perf_counter() - request_started_at) * 1000)
         prepared_size_bytes = len(prepared_bytes)
 
         LOGGER.info(
-            "Completed image tagging: file=%s upload_bytes=%d prepared_bytes=%d duration_ms=%d width=%d height=%d prepared_width=%d prepared_height=%d tags=%d embedding_dims=%d backend=%s format=%s",
+            "Completed image tagging%s: file=%s upload_bytes=%d prepared_bytes=%d duration_ms=%d width=%d height=%d prepared_width=%d prepared_height=%d tags=%d embedding_dims=%d backend=%s format=%s",
+            " with caption fallback" if used_caption_fallback else "",
             file_name,
             upload_size_bytes,
             prepared_size_bytes,
@@ -1441,17 +1555,15 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         return ImageTagResponse(
             detailed_caption=detailed_caption,
             scene=scene,
-            document_confidence=max(0.0, min(coerce_float(parsed.get("document_confidence"), 0.0), 1.0)),
-            face_recognition_candidate_confidence=max(
-                0.0,
-                min(coerce_float(parsed.get("face_recognition_candidate_confidence"), 0.0), 1.0),
-            ),
-            visible_face_count_estimate=coerce_face_count_estimate(parsed.get("visible_face_count_estimate")),
+            document_confidence=document_confidence,
+            face_recognition_candidate_confidence=face_recognition_candidate_confidence,
+            visible_face_count_estimate=visible_face_count_estimate,
             tags=tags,
             ocr_text=ocr_text,
             image_embedding=image_embedding,
             model_id=APP_STATE.get("model_id") or None,
             backend=LLAMA_BACKEND_NAME,
+            extraction_mode=IMAGE_EXTRACT_MODE_CAPTION_FALLBACK if used_caption_fallback else IMAGE_EXTRACT_MODE_FULL,
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

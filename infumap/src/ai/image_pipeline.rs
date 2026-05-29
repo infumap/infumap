@@ -372,6 +372,7 @@ async fn source_image_prefetch_readiness(
       ImageTagArtifactState::Empty
       | ImageTagArtifactState::Incomplete(_)
       | ImageTagArtifactState::UnsupportedSchemaVersion { .. }
+      | ImageTagArtifactState::RetryableFailed
       | ImageTagArtifactState::Failed => SourceImagePrefetchReadiness::NotReady,
     });
   }
@@ -638,8 +639,12 @@ async fn image_fragment_readiness(
     ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) if image_tagging_available => {
       return Ok(ImageFragmentReadiness::Waiting);
     }
+    ImageTagArtifactState::RetryableFailed if image_tagging_available => {
+      return Ok(ImageFragmentReadiness::Waiting);
+    }
     ImageTagArtifactState::Empty
     | ImageTagArtifactState::Incomplete(_)
+    | ImageTagArtifactState::RetryableFailed
     | ImageTagArtifactState::Failed
     | ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
       return Ok(ImageFragmentReadiness::Unavailable);
@@ -769,6 +774,12 @@ async fn startup_stage_for_candidate(
     }
     ImageTagArtifactState::Failed => {
       summary.tag_failed += 1;
+    }
+    ImageTagArtifactState::RetryableFailed => {
+      summary.tag_pending += 1;
+      if image_tagging_endpoint_url(config).await?.is_some() {
+        return Ok(Some(PipelineStage::Source));
+      }
     }
     ImageTagArtifactState::Empty => {
       summary.tag_pending += 1;

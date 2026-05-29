@@ -39,7 +39,8 @@ pub use artifacts::{delete_item_image_tag_dir, item_needs_image_tagging, list_fa
 pub use artifacts::{image_tagging_artifact_state, image_tagging_manifest_is_successful};
 
 use self::artifacts::{
-  ImageTagArtifact, clear_item_image_tag_dir, existing_image_tag_artifact_paths, write_failed_manifest,
+  IMAGE_TAG_EXTRACTION_MODE_CAPTION_FALLBACK, ImageTagArtifact, clear_item_image_tag_dir,
+  existing_image_tag_artifact_paths, write_failed_manifest, write_failed_manifest_with_extraction_mode,
   write_success_artifacts,
 };
 
@@ -48,6 +49,7 @@ const MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS: usize = 0;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
 const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
 const IMAGE_TAG_ARTIFACT_COLLISION_ERROR_PREFIX: &str = "Image tag artifact collision";
+const IMAGE_EXTRACT_MODE_HEADER: &str = "x-infumap-image-extract-mode";
 
 #[derive(Clone, Copy)]
 pub(crate) enum ExistingImageTagArtifactAction {
@@ -92,6 +94,14 @@ pub(crate) async fn prepare_image_tag_artifacts_for_web_background(
     ImageTagArtifactState::Empty => WebImageTagArtifactReadiness::Ready,
     ImageTagArtifactState::Succeeded => WebImageTagArtifactReadiness::CompleteSuccess,
     ImageTagArtifactState::Failed => WebImageTagArtifactReadiness::CompleteFailure,
+    ImageTagArtifactState::RetryableFailed => {
+      info!(
+        "Image background pipeline found a failed full-prompt image tag manifest for image '{}' (user {}) that is eligible for caption fallback retry.",
+        item_id,
+        user_id_for_log(user_id)
+      );
+      WebImageTagArtifactReadiness::Ready
+    }
     ImageTagArtifactState::UnsupportedSchemaVersion { path, schema_version } => {
       warn!(
         "Image background pipeline found image tag manifest '{}' with unsupported schema version {} for image '{}' (user {}). Leaving it unchanged; migration must handle this explicitly.",
@@ -156,6 +166,12 @@ enum TagOutcome {
   DocumentFailed(String),
   ResponseFormatFailed(String),
   EndpointUnavailable(String),
+}
+
+#[derive(Clone, Copy)]
+enum ImageTagRequestMode {
+  Full,
+  CaptionFallbackOnly,
 }
 
 pub fn is_supported_image_tagging_mime_type(mime_type: Option<&str>) -> bool {
@@ -288,8 +304,20 @@ async fn process_image_tagging_for_candidate_and_bytes(
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(format!("Item '{}' was deleted or replaced before tagging started.", candidate.item_id).into());
   }
+  let mut request_mode = ImageTagRequestMode::Full;
   if artifact_policy.allow_initial_overwrite {
     clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+  } else if matches!(
+    image_tagging_artifact_state(data_dir, &candidate.user_id, &candidate.item_id).await?,
+    ImageTagArtifactState::RetryableFailed
+  ) {
+    info!(
+      "Retrying image '{}' (user {}) with caption fallback only after a failed full-prompt image tag manifest.",
+      candidate.item_id,
+      user_id_for_log(&candidate.user_id)
+    );
+    clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+    request_mode = ImageTagRequestMode::CaptionFallbackOnly;
   } else if !handle_existing_artifact_collision(data_dir, &candidate, artifact_policy, "before image tagging started")
     .await?
   {
@@ -308,9 +336,9 @@ async fn process_image_tagging_for_candidate_and_bytes(
   );
   let tagging_started_at = Instant::now();
   let outcome = if retry_endpoint_unavailable {
-    request_image_tagging_with_retries(&client, image_tagging_url, &candidate, &file_bytes, None).await
+    request_image_tagging_with_retries(&client, image_tagging_url, &candidate, &file_bytes, request_mode, None).await
   } else {
-    request_image_tagging_once(&client, image_tagging_url, &candidate, &file_bytes).await
+    request_image_tagging_once(&client, image_tagging_url, &candidate, &file_bytes, request_mode).await
   };
   let tagging_elapsed = tagging_started_at.elapsed();
   if !candidate_still_current(db.clone(), &candidate).await? {
@@ -348,7 +376,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       {
         return Ok(());
       }
-      write_failed_manifest(data_dir, image_tagging_url, &candidate, &msg).await?;
+      write_failed_manifest_for_request_mode(data_dir, image_tagging_url, &candidate, &msg, request_mode).await?;
       info!(
         "Finished image tagging for image '{}' (user {}) with document failure after {}: {}",
         candidate.item_id,
@@ -369,7 +397,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       {
         return Ok(());
       }
-      write_failed_manifest(data_dir, image_tagging_url, &candidate, &msg).await?;
+      write_failed_manifest_for_request_mode(data_dir, image_tagging_url, &candidate, &msg, request_mode).await?;
       info!(
         "Finished image tagging for image '{}' (user {}) with response-format failure after {}: {}",
         candidate.item_id,
@@ -391,6 +419,20 @@ async fn process_image_tagging_for_candidate_and_bytes(
     }
   }
   Ok(())
+}
+
+async fn write_failed_manifest_for_request_mode(
+  data_dir: &str,
+  image_tagging_url: &str,
+  candidate: &ImageCandidate,
+  msg: &str,
+  request_mode: ImageTagRequestMode,
+) -> InfuResult<()> {
+  let extraction_mode = match request_mode {
+    ImageTagRequestMode::Full => None,
+    ImageTagRequestMode::CaptionFallbackOnly => Some(IMAGE_TAG_EXTRACTION_MODE_CAPTION_FALLBACK),
+  };
+  write_failed_manifest_with_extraction_mode(data_dir, image_tagging_url, candidate, msg, extraction_mode).await
 }
 
 async fn handle_existing_artifact_collision(
@@ -466,13 +508,15 @@ async fn request_image_tagging_with_retries(
   image_tagging_url: &str,
   candidate: &ImageCandidate,
   file_bytes: &[u8],
+  request_mode: ImageTagRequestMode,
   worker_id_maybe: Option<usize>,
 ) -> TagOutcome {
   let mut unavailable_attempt = 0usize;
   let mut response_format_attempt = 0usize;
 
   loop {
-    let outcome = request_image_tagging(client, image_tagging_url, &candidate.mime_type, file_bytes.to_vec()).await;
+    let outcome =
+      request_image_tagging(client, image_tagging_url, &candidate.mime_type, file_bytes.to_vec(), request_mode).await;
     match outcome {
       TagOutcome::ResponseFormatFailed(message) => {
         if response_format_attempt >= MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS {
@@ -571,8 +615,9 @@ async fn request_image_tagging_once(
   image_tagging_url: &str,
   candidate: &ImageCandidate,
   file_bytes: &[u8],
+  request_mode: ImageTagRequestMode,
 ) -> TagOutcome {
-  request_image_tagging(client, image_tagging_url, &candidate.mime_type, file_bytes.to_vec()).await
+  request_image_tagging(client, image_tagging_url, &candidate.mime_type, file_bytes.to_vec(), request_mode).await
 }
 
 async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &ImageCandidate) -> InfuResult<bool> {
@@ -596,6 +641,7 @@ async fn request_image_tagging(
   image_tagging_url: &str,
   mime_type: &str,
   file_bytes: Vec<u8>,
+  request_mode: ImageTagRequestMode,
 ) -> TagOutcome {
   let part = match Part::bytes(file_bytes).mime_str(mime_type) {
     Ok(part) => part,
@@ -603,7 +649,12 @@ async fn request_image_tagging(
   };
   let form = Form::new().part("file", part);
 
-  let response = match client.post(image_tagging_url).multipart(form).send().await {
+  let mut request = client.post(image_tagging_url);
+  if matches!(request_mode, ImageTagRequestMode::CaptionFallbackOnly) {
+    request = request.header(IMAGE_EXTRACT_MODE_HEADER, IMAGE_TAG_EXTRACTION_MODE_CAPTION_FALLBACK);
+  }
+
+  let response = match request.multipart(form).send().await {
     Ok(response) => response,
     Err(e) => return TagOutcome::EndpointUnavailable(e.to_string()),
   };

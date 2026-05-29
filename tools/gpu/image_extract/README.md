@@ -217,6 +217,12 @@ Password-protected PDFs sent to `POST /pdf-extract-caption-only` return HTTP
   tagging request for the same prepared image.
 - The `/image-extract-caption-only` endpoint uses a narrower prompt that asks for
   only the `detailed_caption` model field and skips local image embedding.
+- The `/image-extract` endpoint first tries the full structured extraction. If
+  the model returns malformed or truncated non-JSON output, it retries once with
+  the caption-only prompt and returns a normal image extraction response with
+  the caption, image embedding, and conservative empty defaults for the richer
+  fields. Callers can also force this fallback-only path by sending
+  `X-Infumap-Image-Extract-Mode: caption_fallback`.
 - The `/pdf-extract-caption-only` endpoint accepts only `application/pdf`,
   renders the first page to an image in memory, then uses the same caption-only
   prompt. It does not perform PDF text extraction or OCR, and password-protected

@@ -30,6 +30,7 @@ class ImageTagResponse(BaseModel):
     image_embedding: list[float] = Field(default_factory=list)
     model_id: str | None = None
     backend: str | None = None
+    extraction_mode: str | None = None
 
 
 class ImageCaptionResponse(BaseModel):

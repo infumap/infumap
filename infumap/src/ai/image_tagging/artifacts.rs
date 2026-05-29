@@ -36,6 +36,7 @@ use super::{ImageCandidate, should_tag_image_item};
 
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const JSON_CONTENT_MIME_TYPE: &str = "application/json";
+pub(super) const IMAGE_TAG_EXTRACTION_MODE_CAPTION_FALLBACK: &str = "caption_fallback";
 
 #[derive(Clone)]
 pub struct FailedImageTagInfo {
@@ -64,6 +65,8 @@ struct ImageTagManifestExtractor {
   model_id: Option<String>,
   #[serde(skip_serializing_if = "Option::is_none")]
   backend: Option<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  extraction_mode: Option<String>,
 }
 
 #[derive(Serialize, Default)]
@@ -78,6 +81,8 @@ pub(super) struct ImageTagArtifact {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub(super) image_metadata: Option<ImageMetadata>,
   image_embedding: Vec<f32>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  extraction_mode: Option<String>,
   #[serde(skip)]
   model_id: Option<String>,
   #[serde(skip)]
@@ -105,6 +110,7 @@ impl ImageTagArtifact {
       ocr_text: take_string_list(&mut map, "ocr_text"),
       image_metadata: None,
       image_embedding: take_f32_list(&mut map, "image_embedding"),
+      extraction_mode: take_optional_string(&mut map, "extraction_mode"),
       model_id: take_optional_string(&mut map, "model_id"),
       backend: take_optional_string(&mut map, "backend"),
       extra: map.into_iter().collect(),
@@ -140,6 +146,7 @@ pub enum ImageTagArtifactState {
   Empty,
   Succeeded,
   Failed,
+  RetryableFailed,
   UnsupportedSchemaVersion { path: String, schema_version: u32 },
   Incomplete(IncompleteImageTagArtifactInfo),
 }
@@ -286,6 +293,10 @@ pub async fn image_tagging_artifact_state(
     return if text_exists { Ok(ImageTagArtifactState::Succeeded) } else { incomplete_info().await };
   }
 
+  if manifest.status == "failed" && is_retryable_full_prompt_output_failure(&manifest) {
+    return Ok(ImageTagArtifactState::RetryableFailed);
+  }
+
   if manifest.status == "failed" {
     return Ok(ImageTagArtifactState::Failed);
   }
@@ -302,7 +313,9 @@ async fn image_tagging_manifest_check_result(
     ImageTagArtifactState::Succeeded => Some(ManifestCheckResult::AlreadySucceeded),
     ImageTagArtifactState::Failed => Some(ManifestCheckResult::AlreadyFailed),
     ImageTagArtifactState::UnsupportedSchemaVersion { .. } => Some(ManifestCheckResult::AlreadyUnsupported),
-    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) => None,
+    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) | ImageTagArtifactState::RetryableFailed => {
+      None
+    }
   })
 }
 
@@ -332,7 +345,9 @@ pub(super) async fn manifest_check(data_dir: &str, candidate: &ImageCandidate) -
     ImageTagArtifactState::Succeeded => ManifestCheckResult::AlreadySucceeded,
     ImageTagArtifactState::Failed => ManifestCheckResult::AlreadyFailed,
     ImageTagArtifactState::UnsupportedSchemaVersion { .. } => ManifestCheckResult::AlreadyUnsupported,
-    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) => ManifestCheckResult::NeedsTagging,
+    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) | ImageTagArtifactState::RetryableFailed => {
+      ManifestCheckResult::NeedsTagging
+    }
   })
 }
 
@@ -358,6 +373,7 @@ pub(super) async fn write_success_artifacts(
       duration_ms,
       model_id: tag_data.model_id.clone(),
       backend: tag_data.backend.clone(),
+      extraction_mode: tag_data.extraction_mode.clone(),
     },
     error: None,
   };
@@ -370,6 +386,16 @@ pub(super) async fn write_failed_manifest(
   image_tagging_url: &str,
   candidate: &ImageCandidate,
   error_message: &str,
+) -> InfuResult<()> {
+  write_failed_manifest_with_extraction_mode(data_dir, image_tagging_url, candidate, error_message, None).await
+}
+
+pub(super) async fn write_failed_manifest_with_extraction_mode(
+  data_dir: &str,
+  image_tagging_url: &str,
+  candidate: &ImageCandidate,
+  error_message: &str,
+  extraction_mode: Option<&str>,
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
@@ -388,6 +414,7 @@ pub(super) async fn write_failed_manifest(
       duration_ms: None,
       model_id: None,
       backend: None,
+      extraction_mode: extraction_mode.map(str::to_owned),
     },
     error: Some(error_message.to_owned()),
   };
@@ -409,6 +436,31 @@ pub(super) async fn clear_item_image_tag_dir(data_dir: &str, user_id: &str, item
 
 fn take_optional_string(map: &mut JsonMap<String, Value>, key: &str) -> Option<String> {
   map.remove(key).and_then(value_as_string)
+}
+
+fn is_retryable_full_prompt_output_failure(manifest: &ImageTagManifest) -> bool {
+  if manifest.extractor.extraction_mode.as_deref() == Some(IMAGE_TAG_EXTRACTION_MODE_CAPTION_FALLBACK) {
+    return false;
+  }
+  let Some(error) = manifest.error.as_deref() else {
+    return false;
+  };
+  if error.to_ascii_lowercase().contains("caption fallback") {
+    return false;
+  }
+  image_tag_failure_was_malformed_model_output(error)
+}
+
+fn image_tag_failure_was_malformed_model_output(error: &str) -> bool {
+  let lowered = error.to_ascii_lowercase();
+  lowered.contains("malformed structured output")
+    || lowered.contains("could not parse llama-server structured response")
+    || lowered.contains("model output did not contain a json object")
+    || lowered.contains("model output contained an incomplete json object")
+    || lowered.contains("model output json root was not an object")
+    || lowered.contains("model output contained")
+    || lowered.contains("json object")
+    || lowered.contains("json root")
 }
 
 fn existing_image_tag_artifact_path_bufs(
