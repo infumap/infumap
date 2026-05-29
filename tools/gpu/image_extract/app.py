@@ -48,6 +48,7 @@ SUPPORTED_MIME_TYPES = {
     "image/webp",
     "image/tiff",
 }
+PDF_MIME_TYPE = "application/pdf"
 FORMAT_MIME_OVERRIDES = {
     "MPO": "image/jpeg",
 }
@@ -63,6 +64,7 @@ DEFAULT_TARGET_MAX_PIXELS = 3_145_728
 DEFAULT_TARGET_MAX_LONG_EDGE = 2048
 DEFAULT_OUTPUT_JPEG_QUALITY = 90
 DEFAULT_MAX_TOKENS = 8192
+DEFAULT_PDF_RENDER_SCALE = 2.0
 DEFAULT_IMAGE_EMBEDDING_MODEL_ID = "facebook/dinov2-with-registers-base"
 GPU_REQUEST_CONCURRENCY = 1
 DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS = 30.0 * 60.0
@@ -131,6 +133,10 @@ class LlamaServerError(Exception):
 
 
 class ImageTooLargeError(Exception):
+    pass
+
+
+class PdfRejectedError(Exception):
     pass
 
 
@@ -240,6 +246,10 @@ def output_jpeg_quality() -> int:
     return max(1, min(100, env_int("IMAGE_TAGGING_OUTPUT_JPEG_QUALITY", DEFAULT_OUTPUT_JPEG_QUALITY)))
 
 
+def pdf_render_scale_default() -> float:
+    return max(0.1, min(4.0, env_float("IMAGE_TAGGING_PDF_RENDER_SCALE", DEFAULT_PDF_RENDER_SCALE)))
+
+
 def image_embedding_enabled() -> bool:
     raw = os.environ.get("IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING", "1").strip().lower()
     return raw not in {"0", "false", "no", "off"}
@@ -277,6 +287,7 @@ def build_runtime_summary() -> list[str]:
         f"uvicorn={package_version('uvicorn')}",
         f"httpx={package_version('httpx')}",
         f"pillow={package_version('Pillow')}",
+        f"pypdfium2={package_version('pypdfium2')}",
         f"torch={package_version('torch')}",
         f"torchvision={package_version('torchvision')}",
         f"transformers={package_version('transformers')}",
@@ -293,6 +304,7 @@ def build_runtime_summary() -> list[str]:
         f"target_max_pixels={target_max_pixels()}",
         f"target_max_long_edge={target_max_long_edge()}",
         f"output_jpeg_quality={output_jpeg_quality()}",
+        f"pdf_render_scale={pdf_render_scale_default()}",
         f"image_embedding_error={APP_STATE.get('image_embedding_error') or '<none>'}",
     ]
 
@@ -769,6 +781,31 @@ def resize_dimensions(width: int, height: int) -> tuple[int, int, float]:
     return new_width, new_height, scale
 
 
+def prepare_pil_image(image: Image.Image) -> tuple[bytes, str, int, int, int, int]:
+    image = convert_image_to_rgb(image)
+
+    original_width = image.width
+    original_height = image.height
+    prepared_width, prepared_height, _resize_scale = resize_dimensions(original_width, original_height)
+    if prepared_width != original_width or prepared_height != original_height:
+        image = image.resize((prepared_width, prepared_height), resample=image_resampling_filter())
+
+    prepared_mime_type = "image/jpeg"
+    encoded_quality = output_jpeg_quality()
+
+    output = io.BytesIO()
+    image.save(output, format="JPEG", quality=encoded_quality)
+    prepared_bytes = output.getvalue()
+    return (
+        prepared_bytes,
+        prepared_mime_type,
+        original_width,
+        original_height,
+        prepared_width,
+        prepared_height,
+    )
+
+
 def prepare_image(upload_bytes: bytes) -> tuple[bytes, str, int, int, int, int]:
     try:
         with Image.open(io.BytesIO(upload_bytes)) as opened:
@@ -789,32 +826,66 @@ def prepare_image(upload_bytes: bytes) -> tuple[bytes, str, int, int, int, int]:
 
             image = ImageOps.exif_transpose(opened)
             image.load()
-            image = convert_image_to_rgb(image)
-
-            original_width = image.width
-            original_height = image.height
-            prepared_width, prepared_height, _resize_scale = resize_dimensions(original_width, original_height)
-            if prepared_width != original_width or prepared_height != original_height:
-                image = image.resize((prepared_width, prepared_height), resample=image_resampling_filter())
-
-            prepared_mime_type = "image/jpeg"
-            encoded_quality = output_jpeg_quality()
-
-            output = io.BytesIO()
-            image.save(output, format="JPEG", quality=encoded_quality)
-            prepared_bytes = output.getvalue()
-            return (
-                prepared_bytes,
-                prepared_mime_type,
-                original_width,
-                original_height,
-                prepared_width,
-                prepared_height,
-            )
+            return prepare_pil_image(image)
     except ImageRejectedError:
         raise
     except (OSError, UnidentifiedImageError) as exc:
         raise ImageRejectedError("The uploaded file is not a supported raster image.") from exc
+
+
+def close_pdfium_object(value: Any) -> None:
+    close = getattr(value, "close", None)
+    if not callable(close):
+        return
+    try:
+        close()
+    except Exception:
+        pass
+
+
+def pdf_render_scale_for_page(page_width: float, page_height: float) -> float:
+    scale = pdf_render_scale_default()
+    longest_edge = max(page_width, page_height)
+    if longest_edge > 0:
+        scale = min(scale, target_max_long_edge() / longest_edge)
+
+    page_pixels = page_width * page_height
+    if page_pixels > 0:
+        scale = min(scale, (target_max_pixels() / page_pixels) ** 0.5)
+
+    return max(0.01, scale)
+
+
+def render_first_pdf_page(upload_bytes: bytes) -> tuple[bytes, str, int, int, int, int]:
+    try:
+        import pypdfium2 as pdfium
+    except Exception as exc:
+        raise RuntimeError("PDF rendering dependency pypdfium2 is unavailable.") from exc
+
+    pdf = None
+    page = None
+    bitmap = None
+    try:
+        pdf = pdfium.PdfDocument(upload_bytes)
+        if len(pdf) < 1:
+            raise PdfRejectedError("The uploaded PDF did not contain any pages.")
+
+        page = pdf[0]
+        page_width, page_height = page.get_size()
+        scale = pdf_render_scale_for_page(float(page_width), float(page_height))
+        bitmap = page.render(scale=scale)
+        image = bitmap.to_pil()
+        image.load()
+        image = image.copy()
+        return prepare_pil_image(image)
+    except PdfRejectedError:
+        raise
+    except Exception as exc:
+        raise PdfRejectedError("The uploaded file is not a readable PDF.") from exc
+    finally:
+        close_pdfium_object(bitmap)
+        close_pdfium_object(page)
+        close_pdfium_object(pdf)
 
 
 def compute_image_embedding_sync(prepared_bytes: bytes) -> list[float]:
@@ -1175,6 +1246,7 @@ async def root(request: Request) -> dict[str, str]:
         "health": rooted_path(request, "/healthz"),
         "image_extract": rooted_path(request, "/image-extract"),
         "image_extract_caption_only": rooted_path(request, "/image-extract-caption-only"),
+        "pdf_extract_caption_only": rooted_path(request, "/pdf-extract-caption-only"),
     }
 
 
@@ -1425,4 +1497,109 @@ async def caption_upload(request: Request) -> ImageCaptionResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
         LOGGER.exception("Image caption extraction failed: file=%s backend=%s", file_name, LLAMA_BACKEND_NAME)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/pdf-extract-caption-only", response_model=ImageCaptionResponse, openapi_extra=TAG_UPLOAD_OPENAPI_EXTRA)
+async def pdf_caption_upload(request: Request) -> ImageCaptionResponse:
+    request_started_at = time.perf_counter()
+    file_name = "upload"
+
+    try:
+        file_name, parsed_part_content_type, upload_bytes = await read_multipart_upload(request)
+        content_type = (parsed_part_content_type or "").strip().lower() or None
+        upload_size_bytes = len(upload_bytes)
+        LOGGER.info(
+            "Received in-memory PDF caption upload: file=%s content_type=%s size_bytes=%d",
+            file_name,
+            content_type or "<unset>",
+            upload_size_bytes,
+        )
+
+        if content_type != PDF_MIME_TYPE:
+            raise PdfRejectedError(f"Expected uploaded file MIME type {PDF_MIME_TYPE}.")
+
+        render_started_at = time.perf_counter()
+        prepared_bytes, prepared_mime_type, width, height, prepared_width, prepared_height = render_first_pdf_page(
+            upload_bytes
+        )
+        render_duration_ms = int((time.perf_counter() - render_started_at) * 1000)
+
+        semaphore = TAG_SEMAPHORE
+        if semaphore is None:
+            raise HTTPException(status_code=503, detail="PDF caption service is not ready.")
+
+        semaphore_wait_started_at = time.perf_counter()
+        if semaphore.locked():
+            LOGGER.info(
+                "PDF caption request waiting for worker slot: file=%s size_bytes=%d",
+                file_name,
+                upload_size_bytes,
+            )
+
+        slot_wait_timeout_secs = worker_slot_wait_timeout_secs()
+        try:
+            await asyncio.wait_for(semaphore.acquire(), timeout=slot_wait_timeout_secs)
+        except asyncio.TimeoutError as exc:
+            semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
+            raise HTTPException(
+                status_code=503,
+                detail=f"PDF caption worker slot was busy for {semaphore_wait_ms} ms. Try again later.",
+            ) from exc
+
+        try:
+            semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
+            request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
+            LOGGER.info(
+                "Dispatching llama-server PDF caption run: file=%s size_bytes=%d request_age_ms=%d render_ms=%d semaphore_wait_ms=%d",
+                file_name,
+                upload_size_bytes,
+                request_age_ms,
+                render_duration_ms,
+                semaphore_wait_ms,
+            )
+            parsed, request_format = await request_analysis(
+                prepared_bytes,
+                prepared_mime_type,
+                prompt=IMAGE_CAPTION_PROMPT,
+                plain_text_fallback_key="detailed_caption",
+            )
+        finally:
+            semaphore.release()
+
+        detailed_caption = coerce_optional_string(parsed.get("detailed_caption"))
+
+        duration_ms = int((time.perf_counter() - request_started_at) * 1000)
+        prepared_size_bytes = len(prepared_bytes)
+
+        LOGGER.info(
+            "Completed PDF caption extraction: file=%s upload_bytes=%d prepared_bytes=%d duration_ms=%d render_ms=%d rendered_width=%d rendered_height=%d prepared_width=%d prepared_height=%d backend=%s format=%s",
+            file_name,
+            upload_size_bytes,
+            prepared_size_bytes,
+            duration_ms,
+            render_duration_ms,
+            width,
+            height,
+            prepared_width,
+            prepared_height,
+            LLAMA_BACKEND_NAME,
+            request_format,
+        )
+
+        return ImageCaptionResponse(
+            detailed_caption=detailed_caption,
+            model_id=APP_STATE.get("model_id") or None,
+            backend=LLAMA_BACKEND_NAME,
+        )
+    except PdfRejectedError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ImageTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except (LlamaServerError, ValueError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        LOGGER.exception("PDF caption extraction failed: file=%s backend=%s", file_name, LLAMA_BACKEND_NAME)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

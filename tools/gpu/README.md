@@ -25,6 +25,7 @@ By default the gateway listens on `127.0.0.1:8787` and forwards:
 
 - `/image-extract` to the image extract service
 - `/image-extract-caption-only` to the image extract service
+- `/pdf-extract-caption-only` to the image extract service
 - `/text-embed` to the text embed service
 - `/pdf-extract` to the PDF extract service
 - `/pdf-extract/jobs` as the gateway-owned async PDF extraction job API
@@ -61,10 +62,10 @@ The combined launcher keeps each service independent:
 - each child service uses its own `run.sh` for setup and local supervision
 - the gateway uses its own `run.sh`
 - the top-level launcher monitors all child launchers and restarts a service if its launcher exits
-- requests sent through the gateway to `/image-extract` and `/pdf-extract`
-  are serialized by a global GPU lock so only one heavy forwarded endpoint
-  request runs at a time; `/text-embed` bypasses this lock so search/query
-  embedding can run in parallel
+- requests sent through the gateway to image/PDF extraction endpoints are
+  serialized by a global GPU lock so only one heavy forwarded endpoint request
+  runs at a time; `/text-embed` bypasses this lock so search/query embedding can
+  run in parallel
 - gateway global-lock waits are bounded by `GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS`
   and return HTTP 503 when the lock stays busy too long
 - the gateway lock is leased; if a holder is wedged past

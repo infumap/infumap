@@ -173,7 +173,7 @@ fi
 echo "Starting Infumap GPU gateway"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Host/port: $HOST:$PORT"
-echo "Forwarded endpoints: /image-extract /image-extract-caption-only /text-embed /pdf-extract"
+echo "Forwarded endpoints: /image-extract /image-extract-caption-only /pdf-extract-caption-only /text-embed /pdf-extract"
 echo "Gateway async endpoints: /pdf-extract/jobs"
 echo "Legacy aliases: /embed /convert"
 echo "Global GPU lock: enabled for forwarded endpoint requests"

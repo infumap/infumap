@@ -8,6 +8,7 @@ fastapi==0.135.2
 uvicorn==0.42.0
 python-multipart>=0.0.18
 Pillow
+pypdfium2
 httpx
 torch
 torchvision

@@ -210,7 +210,7 @@ wait_for_child_shutdown() {
 }
 
 ensure_python_packages() {
-    if "$VENV_PYTHON" -c "import fastapi, uvicorn, multipart, PIL, httpx, huggingface_hub, torch, torchvision, transformers" >/dev/null 2>&1; then
+    if "$VENV_PYTHON" -c "import fastapi, uvicorn, multipart, PIL, pypdfium2, httpx, huggingface_hub, torch, torchvision, transformers" >/dev/null 2>&1; then
         return 0
     fi
 

@@ -9,10 +9,11 @@ The default launcher path does three things for you:
 - starts an installed `llama-server` binary
 
 The service accepts multipart image uploads and forwards them to `llama-server`
-via its OpenAI-compatible chat completions endpoint. It also computes a local
-image embedding in parallel using `facebook/dinov2-with-registers-base` by
-default when the optional `torch` / `torchvision` / `transformers`
-dependencies are available.
+via its OpenAI-compatible chat completions endpoint. It also has a PDF
+first-page caption fallback endpoint that renders the first page before calling
+the same model. Full image extraction computes a local image embedding in
+parallel using `facebook/dinov2-with-registers-base` by default when the
+optional `torch` / `torchvision` / `transformers` dependencies are available.
 
 ## Default Layout
 
@@ -67,6 +68,7 @@ API wrapper:
 - `IMAGE_TAGGING_TARGET_MAX_PIXELS`
 - `IMAGE_TAGGING_TARGET_MAX_LONG_EDGE`
 - `IMAGE_TAGGING_OUTPUT_JPEG_QUALITY`
+- `IMAGE_TAGGING_PDF_RENDER_SCALE`
 - `IMAGE_TAGGING_ENABLE_IMAGE_EMBEDDING`
 - `IMAGE_TAGGING_EMBEDDING_MODEL_ID`
 - `IMAGE_TAGGING_EMBEDDING_DEVICE`
@@ -146,6 +148,7 @@ IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/gpu/ima
 - `GET /healthz`
 - `POST /image-extract`
 - `POST /image-extract-caption-only`
+- `POST /pdf-extract-caption-only`
 
 Interactive docs remain available at `http://127.0.0.1:8788/docs`.
 
@@ -163,6 +166,14 @@ Caption-only extraction:
 curl -sS \
   -F "file=@/path/to/photo.jpg" \
   http://127.0.0.1:8788/image-extract-caption-only
+```
+
+PDF first-page caption-only extraction:
+
+```bash
+curl -sS \
+  -F "file=@/path/to/document.pdf;type=application/pdf" \
+  http://127.0.0.1:8788/pdf-extract-caption-only
 ```
 
 ## Notes
@@ -191,6 +202,9 @@ curl -sS \
   tagging request for the same prepared image.
 - The `/image-extract-caption-only` endpoint uses a narrower prompt that asks for
   only the `detailed_caption` model field and skips local image embedding.
+- The `/pdf-extract-caption-only` endpoint accepts only `application/pdf`,
+  renders the first page to an image in memory, then uses the same caption-only
+  prompt. It does not perform PDF text extraction or OCR.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
   The default is `67108864` bytes (64 MiB), configurable via
   `IMAGE_TAGGING_MAX_UPLOAD_BYTES`.
